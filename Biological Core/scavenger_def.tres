@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="EntityDefinition" format=3 uid="uid://buhk6vlb08bij"]
+
+[ext_resource type="Script" uid="uid://wjkno7o8353o" path="res://Biological Core/EntityDefinition.gd" id="1_a06b8"]
+
+[resource]
+script = ExtResource("1_a06b8")
+faction = 1
+brawn = 5
+finesse = 9
+fortitude = 4
+will = 3
+metadata/_custom_type_script = "uid://wjkno7o8353o"

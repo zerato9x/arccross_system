@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://c2x1pj7ufkic3"]
+
+[ext_resource type="Script" uid="uid://y0mc8u270jhc" path="res://World Core/MacroEnemy.gd" id="1_m61jh"]
+[ext_resource type="Script" uid="uid://wjkno7o8353o" path="res://Biological Core/EntityDefinition.gd" id="2_0ssfm"]
+[ext_resource type="Texture2D" uid="uid://bimy0no36qt26" path="res://Asset/free asset 2.png" id="3_byycw"]
+
+[sub_resource type="Resource" id="Resource_ko8m6"]
+script = ExtResource("2_0ssfm")
+faction = 1
+brawn = 4
+finesse = 9
+fortitude = 4
+will = 3
+metadata/_custom_type_script = "uid://wjkno7o8353o"
+
+[node name="EnemyMacroToken" type="Node2D" unique_id=638184439]
+script = ExtResource("1_m61jh")
+definition = SubResource("Resource_ko8m6")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=405119339]
+position = Vector2(15.999998, -69)
+scale = Vector2(1.209681, 1.2096806)
+texture = ExtResource("3_byycw")

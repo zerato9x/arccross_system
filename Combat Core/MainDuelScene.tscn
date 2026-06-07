@@ -1,0 +1,41 @@
+[gd_scene format=3 uid="uid://d0hbgydineb18"]
+
+[ext_resource type="Script" uid="uid://ceub1g47bb5wd" path="res://Combat Core/MainDuelScene.gd" id="1_mfadp"]
+[ext_resource type="Script" uid="uid://dn0720uc6t1is" path="res://Combat Core/CombatLaneManager.gd" id="2_vklyr"]
+[ext_resource type="Script" uid="uid://d2lh4h44218ig" path="res://Combat Core/CombatTurnManager.gd" id="3_lmpin"]
+[ext_resource type="Script" uid="uid://dwo3msmiciajl" path="res://Combat Core/CombatResolutionEngine.gd" id="4_kq2uo"]
+[ext_resource type="Script" uid="uid://dogxb6mi7wd4i" path="res://Combat Core/EncounterBuilder.gd" id="5_xg88h"]
+
+[node name="MainDuelScene" type="Node2D" unique_id=964311597]
+script = ExtResource("1_mfadp")
+
+[node name="CombatLaneManager" type="Node" parent="." unique_id=1024528974]
+script = ExtResource("2_vklyr")
+
+[node name="CombatTurnManager" type="Node" parent="." unique_id=719706594]
+script = ExtResource("3_lmpin")
+
+[node name="CombatResolutionEngine" type="Node" parent="." unique_id=1342879725 node_paths=PackedStringArray("lane_manager")]
+script = ExtResource("4_kq2uo")
+lane_manager = NodePath("../CombatLaneManager")
+
+[node name="EncounterBuilder" type="Node" parent="." unique_id=1172973378 node_paths=PackedStringArray("lane_manager", "turn_manager")]
+script = ExtResource("5_xg88h")
+lane_manager = NodePath("../CombatLaneManager")
+turn_manager = NodePath("../CombatTurnManager")
+
+[node name="DebugUI" type="CanvasLayer" parent="." unique_id=186272021]
+
+[node name="DebugLog" type="RichTextLabel" parent="DebugUI" unique_id=1590778705]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -71.5
+offset_top = -48.5
+offset_right = 71.5
+offset_bottom = 48.5
+grow_horizontal = 2
+grow_vertical = 2
+metadata/_edit_use_anchors_ = true
