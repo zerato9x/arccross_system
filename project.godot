@@ -14,10 +14,6 @@ config/name="ARCCROSS_realshit"
 run/main_scene="uid://b75pfheha1hoi"
 config/features=PackedStringArray("4.6", "Forward Plus")
 
-[autoload]
-
-GameEnums="*uid://bcy346e4siuef"
-
 [physics]
 
 3d/physics_engine="Jolt Physics"

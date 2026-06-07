@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://b75pfheha1hoi"]
 
-[ext_resource type="Script" uid="uid://ctwlxaath3qbf" path="res://GameDirector.gd" id="1_8d223"]
-[ext_resource type="PackedScene" uid="uid://d0hbgydineb18" path="res://Combat Core/MainDuelScene.tscn" id="2_po17x"]
-[ext_resource type="PackedScene" uid="uid://bwooo54kfekny" path="res://main_world.tscn" id="2_x1nkk"]
+[ext_resource type="Script" uid="uid://ctwlxaath3qbf" path="res://SystemCore/GameDirector.gd" id="1_8d223"]
+[ext_resource type="PackedScene" uid="uid://d0hbgydineb18" path="res://CombatCore/MainDuelScene.tscn" id="2_po17x"]
+[ext_resource type="PackedScene" uid="uid://bwooo54kfekny" path="res://WorldCore/main_world.tscn" id="2_x1nkk"]
 
 [node name="GameDirector" type="Node" unique_id=1731536390 node_paths=PackedStringArray("macro_map")]
 script = ExtResource("1_8d223")

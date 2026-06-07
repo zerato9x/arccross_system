@@ -14,3 +14,5 @@ class_name EntityDefinition
 
 @export_group("Arc Manifestation")
 @export var arc_tier: GameEnums.ArcbornTier = GameEnums.ArcbornTier.NONE
+@export var max_arc_energy: float = 0.0
+@export var red_mist_resistance: float = 0.0

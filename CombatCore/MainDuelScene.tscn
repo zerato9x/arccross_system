@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://d0hbgydineb18"]
 
-[ext_resource type="Script" uid="uid://ceub1g47bb5wd" path="res://Combat Core/MainDuelScene.gd" id="1_mfadp"]
-[ext_resource type="Script" uid="uid://dn0720uc6t1is" path="res://Combat Core/CombatLaneManager.gd" id="2_vklyr"]
-[ext_resource type="Script" uid="uid://d2lh4h44218ig" path="res://Combat Core/CombatTurnManager.gd" id="3_lmpin"]
-[ext_resource type="Script" uid="uid://dwo3msmiciajl" path="res://Combat Core/CombatResolutionEngine.gd" id="4_kq2uo"]
-[ext_resource type="Script" uid="uid://dogxb6mi7wd4i" path="res://Combat Core/EncounterBuilder.gd" id="5_xg88h"]
+[ext_resource type="Script" uid="uid://ceub1g47bb5wd" path="res://CombatCore/MainDuelScene.gd" id="1_mfadp"]
+[ext_resource type="Script" uid="uid://dn0720uc6t1is" path="res://CombatCore/CombatLaneManager.gd" id="2_vklyr"]
+[ext_resource type="Script" uid="uid://d2lh4h44218ig" path="res://CombatCore/CombatTurnManager.gd" id="3_lmpin"]
+[ext_resource type="Script" uid="uid://dwo3msmiciajl" path="res://CombatCore/CombatResolutionEngine.gd" id="4_kq2uo"]
+[ext_resource type="Script" uid="uid://dogxb6mi7wd4i" path="res://CombatCore/EncounterBuilder.gd" id="5_xg88h"]
 
 [node name="MainDuelScene" type="Node2D" unique_id=964311597]
 script = ExtResource("1_mfadp")
