@@ -4,9 +4,14 @@
 
 [resource]
 script = ExtResource("1_a06b8")
+archetype_name = "Scavenger Thug"
 faction = 1
+agenda = 0
+combat_tactic = 2
 brawn = 5
 finesse = 9
 fortitude = 4
 will = 3
+max_arc_energy = 0.0
+red_mist_resistance = 0.0
 metadata/_custom_type_script = "uid://wjkno7o8353o"

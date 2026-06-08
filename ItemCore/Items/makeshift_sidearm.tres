@@ -17,3 +17,5 @@ armor_penetration = 0.5
 bulk = 0.5
 weight = 1.5
 threat = 6.0
+max_magazine = 6
+current_magazine = 6

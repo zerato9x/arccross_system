@@ -4,9 +4,14 @@
 
 [resource]
 script = ExtResource("1_hi88k")
+archetype_name = "Player Unit"
+faction = 0
 agenda = 1
+combat_tactic = 1
 brawn = 8
 finesse = 8
 fortitude = 8
 will = 8
+max_arc_energy = 0.0
+red_mist_resistance = 0.0
 metadata/_custom_type_script = "uid://wjkno7o8353o"

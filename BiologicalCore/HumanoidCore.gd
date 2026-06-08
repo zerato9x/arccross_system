@@ -4,7 +4,7 @@ class_name HumanoidCore
 # ---------------------------------------------------------
 # SIGNALS: The Nervous System Broadcasting
 # ---------------------------------------------------------
-signal ap_calculated(max_ap: int)
+signal kinetic_burden_calculated(tier: GameEnums.KineticTier, burden: int)
 signal died(cause: String)
 signal arc_energy_depleted()
 signal red_mist_corruption_maxed()
@@ -21,8 +21,10 @@ signal felled()
 
 # Dynamic Vitals
 var base_ap: int = 12
-var current_max_ap: int = 12
+var current_max_ap: int = 12 # Locked at 12 for the Base-12 system
 var is_dead: bool = false
+var kinetic_tier: GameEnums.KineticTier = GameEnums.KineticTier.FLUID
+var total_burden: int = 0
 
 # The 12-Point Stance Equilibrium Scale
 var stance_points: int = 12 # 12 = rock solid, 0 = face in the mud
@@ -31,9 +33,11 @@ var current_stance: GameEnums.StanceState = GameEnums.StanceState.PLANTED
 # Psychological & Metaphysical Status
 var current_morale: float = 12.0
 var is_fleeing: bool = false
+var is_escaping: bool = false # Tracks the 1-turn delay for escaping
 var current_arc_energy: float = 0.0
 var red_mist_corruption: float = 0.0 # 0.0 = Pure, 1.0 = Feral Craven
 var is_mindless_hive_thrall: bool = false
+var is_comatose: bool = false # Physically paralyzed/comatose
 
 # ---------------------------------------------------------
 # INITIALIZATION & GENETICS
@@ -44,6 +48,7 @@ func _ready() -> void:
 		push_error(name + " is missing its meat or pockets! Add HumanoidBody and InventorySystem.")
 		return
 		
+	if definition: definition = definition.duplicate()
 	if definition:
 		_initialize_metaphysics()
 		_derive_physical_reality()
@@ -54,17 +59,16 @@ func _ready() -> void:
 	body.limb_destroyed.connect(_on_limb_destroyed)
 	body.vital_failure.connect(_on_vital_failure)
 	body.blood_level_changed.connect(_on_vitals_shifted)
-	body.blood_level_changed.connect(_on_vitals_shifted)
-	body.metabolic_crisis.connect(_on_metabolic_crisis) # Add this
+	body.metabolic_crisis.connect(_on_metabolic_crisis)
 	
 	# Wire up the Vault feedback loop
 	inventory.capacity_updated.connect(_on_inventory_weight_shifted)
-func _on_metabolic_crisis(condition: String, severity: float) -> void:
-	_calculate_action_points()
+func _on_metabolic_crisis(condition: GameEnums.MetabolicCondition, severity: float) -> void:
+	_calculate_kinetic_burden()
 	
 	# Being starving, freezing, or exhausted crushes the will to fight
 	take_morale_damage(severity * 2.0)
-	print(name, " is suffering from ", condition, ". Morale dropping.")
+	print(name, " is suffering from ", GameEnums.MetabolicCondition.keys()[condition], ". Morale dropping.")
 func _initialize_metaphysics() -> void:
 	current_arc_energy = definition.max_arc_energy
 	
@@ -87,7 +91,7 @@ func _derive_physical_reality() -> void:
 	
 	# 4. Time is a constant. AP is heavily punished later by condition.
 	base_ap = 12 
-	_calculate_action_points()
+	_calculate_kinetic_burden()
 
 # ---------------------------------------------------------
 # THE HIDDEN COMBAT MECHANICS (Base-12 Getters)
@@ -136,8 +140,10 @@ func apply_stance_damage(amount: float) -> GameEnums.StanceState:
 	return current_stance
 
 ## Attempt to recover stance points. Capped at 12.
-func recover_stance(amount: int) -> void:
-	if is_dead or current_stance == GameEnums.StanceState.FELLED: return
+## Use force=true to bypass the FELLED guard (e.g., mandatory turn-skip recovery).
+func recover_stance(amount: int, force: bool = false) -> void:
+	if is_dead: return
+	if current_stance == GameEnums.StanceState.FELLED and not force: return
 	
 	stance_points = min(12, stance_points + amount)
 	_evaluate_stance_state()
@@ -185,7 +191,7 @@ func _on_limb_destroyed(limb: GameEnums.LimbRegion) -> void:
 		
 	# Massive psychological shock from losing a limb
 	take_morale_damage(5.0) 
-	_calculate_action_points()
+	_calculate_kinetic_burden()
 		
 	
 func _validate_equipment_requirements() -> void:
@@ -202,22 +208,21 @@ func _validate_equipment_requirements() -> void:
 # ---------------------------------------------------------
 
 func _on_inventory_weight_shifted(_current: int, _max: int) -> void:
-	_calculate_action_points()
+	_calculate_kinetic_burden()
 
 func _on_vitals_shifted(blood_level: float) -> void:
-	_calculate_action_points()
+	_calculate_kinetic_burden()
 	
 	# If you are bleeding out, panic sets in
 	if blood_level < 0.5:
 		take_morale_damage(2.0)
 
-func _calculate_action_points() -> void:
+func _calculate_kinetic_burden() -> void:
 	if is_dead: return
 	
-	var ap: float = float(base_ap)
-	
-	# 1. The Meat Penalty (Legs + Blood)
-	ap *= body.get_motor_efficiency()
+	# 1. The Meat Penalty (Trauma)
+	var motor_efficiency: float = body.get_motor_efficiency()
+	var trauma_penalty: int = floor((1.0 - motor_efficiency) * 6.0)
 	
 	# 2. The Junk Penalty (Encumbrance)
 	var encumbrance_ratio: float = float(inventory.current_size) / float(max(1, inventory.current_max_capacity))
@@ -233,8 +238,23 @@ func _calculate_action_points() -> void:
 	if body.fatigue > 0.8: survival_penalty += int(body.fatigue * 4.0) # Up to -4 AP from sheer exhaustion
 	if body.core_temperature < 34.0: survival_penalty += 2 # Shivering ruins coordination
 	
-	current_max_ap = max(2, int(ap) - weight_penalty - gear_weight_penalty - survival_penalty)
-	ap_calculated.emit(current_max_ap)
+	total_burden = trauma_penalty + weight_penalty + gear_weight_penalty + survival_penalty
+	
+	var old_tier = kinetic_tier
+	if total_burden >= 9:
+		kinetic_tier = GameEnums.KineticTier.AGONIZING
+	elif total_burden >= 4:
+		kinetic_tier = GameEnums.KineticTier.LABORED
+	else:
+		kinetic_tier = GameEnums.KineticTier.FLUID
+		
+	is_comatose = (total_burden >= 18)
+	if is_comatose:
+		print(name, " has entered a comatose/paralyzed state due to extreme physiological exhaustion!")
+	elif kinetic_tier != old_tier:
+		print(name, " Kinetic Tier shifted to ", GameEnums.KineticTier.keys()[kinetic_tier], " (Burden: ", total_burden, ")")
+		
+	kinetic_burden_calculated.emit(kinetic_tier, total_burden)
 # ---------------------------------------------------------
 # PSYCHOLOGICAL TRAUMA LOGIC
 # ---------------------------------------------------------
@@ -346,7 +366,7 @@ func use_consumable_item(item: ItemData) -> bool:
 			body.blood_level_changed.emit(body.blood_level)
 			print(name, " consumed [", item.display_name, "]. Blood volume stabilized.")
 	
-	_calculate_action_points()
+	_calculate_kinetic_burden()
 	return true
 
 # ---------------------------------------------------------

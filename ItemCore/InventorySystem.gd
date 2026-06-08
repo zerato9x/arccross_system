@@ -49,6 +49,20 @@ func equip_item(item: ItemData, slot: GameEnums.EquipmentSlot) -> bool:
 	if item.requires_two_hands and _body_ref and not _body_ref.has_functional_arms():
 		inventory_error.emit("You lack the necessary biological hardware to hold this.")
 		return false
+		
+	# THE 2-WEAPON RULE: Only 1 Melee and 1 Ranged allowed.
+	if item.item_type == GameEnums.ItemType.WEAPON:
+		var is_equipping_melee = item.is_melee()
+		for existing_slot in paper_doll.keys():
+			if existing_slot == slot: continue
+			var existing = paper_doll[existing_slot]
+			if existing != null and existing.item_type == GameEnums.ItemType.WEAPON:
+				if is_equipping_melee and existing.is_melee():
+					inventory_error.emit("You can only carry one melee weapon. Unequip the other first.")
+					return false
+				elif not is_equipping_melee and existing.is_ranged():
+					inventory_error.emit("You can only carry one firearm. Unequip the other first.")
+					return false
 
 	if backpack_array.has(item):
 		backpack_array.erase(item)
@@ -150,6 +164,24 @@ func get_protection_for(damage_type: GameEnums.DamageType) -> float:
 		GameEnums.DamageType.BALLISTIC:
 			return _sum_equipped_stat("protection_ballistic")
 	return 0.0
+
+# ---------------------------------------------------------
+# CONTEXTUAL WEAPON FETCHING (The 2-Weapon System)
+# ---------------------------------------------------------
+
+## Fetches the correct weapon for the given context (Melee vs Ranged).
+## Due to the 2-weapon rule, this simply returns the only valid weapon equipped.
+func get_active_weapon(requires_melee: bool) -> ItemData:
+	var search_slots = [GameEnums.EquipmentSlot.HANDS, GameEnums.EquipmentSlot.SLING, GameEnums.EquipmentSlot.BELT]
+	for slot in search_slots:
+		if paper_doll.has(slot):
+			var item: ItemData = paper_doll[slot]
+			if item != null and item.item_type == GameEnums.ItemType.WEAPON:
+				if requires_melee and item.is_melee():
+					return item
+				elif not requires_melee and item.is_ranged():
+					return item
+	return null
 
 # ---------------------------------------------------------
 # CONSUMABLE USAGE

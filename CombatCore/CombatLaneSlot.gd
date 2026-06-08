@@ -21,10 +21,6 @@ func _init(index: int) -> void:
 # --- PHYSICAL OCCUPANCY ---
 
 func enter_slot(entity: HumanoidCore) -> bool:
-	if not is_spawnable:
-		print("Cannot enter No Man's Void.")
-		return false
-		
 	if occupants.size() >= 2:
 		print("Slot ", lane_index, " is at capacity. Access denied.")
 		return false

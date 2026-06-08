@@ -101,40 +101,30 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 	player_token.walk_to_hex(target_coords, pixel_pos)
 	map_visualizer.render_radius(target_coords, 3)
 	
-	# Calculate overworld environmental metrics dynamically on move
-	var hex_data = world_generator.get_hex_at(target_coords)
-	
-	# Determine metabolic strain based on biome type
-	var exertion: float = 1.0
-	if hex_data.biome == GameEnums.GridBiome.SWAMP or hex_data.biome == GameEnums.GridBiome.MUD:
-		exertion = 2.0 # Drastically accelerates fatigue and dehydration
-		
-	# Process the movement tick through the player's core body parameters
-	# Assumes environmental base temp of 15.0 on macro map for this region
-	var current_player_core = player_token.get_node_or_null("HumanoidCore") # Or your player ref
-	if current_player_core:
-		var insulation = current_player_core.get_insulation_rating()
-		current_player_core.body.process_biological_tick(15.0, insulation, exertion)
-	
-	# Pick up map remnants if any exist on the target hex
-	if active_map_remnants.has(target_coords):
-		print(">>> You stumbled upon dropped items on this hex! <<<")
-		# In a full game, this would open a looting UI.
-	
-	
 	# --- THE INTERCEPTION TRIGGER ---
 	if active_enemies.has(target_coords):
 		var enemy = active_enemies[target_coords]
 		print("\n[MACRO] Interception! Freezing map and calling the Director...")
-		
-		# Turn off player input so they can't click while loading combat
-		set_process_unhandled_input(false) 
-		
-		# Scream for the Director to load the Combat Scene
+		set_process_unhandled_input(false)
 		combat_interception.emit(player_token.definition, enemy.definition, target_coords)
 		return
-
+		
 	# --- POI TRIGGER ---
-	var hex_data = world_generator.get_hex_at(target_coords)
+	var hex_data = world_generator.get_hex_at(target_coords) # Declared ONCE here
 	if hex_data.is_poi:
 		print(">>> ENTERED POI: ", hex_data.poi_name, " <<<")
+		
+	# Pick up map remnants if any exist on the target hex
+	if active_map_remnants.has(target_coords):
+		print(">>> You stumbled upon dropped items on this hex! <<<")
+		# In a full game, this would open a looting UI.
+		
+	# --- METABOLIC SURVIVAL TICK ---
+	var exertion: float = 1.0
+	if hex_data.biome == GameEnums.GridBiome.SWAMP or hex_data.biome == GameEnums.GridBiome.MUD:
+		exertion = 2.0 
+		
+	var current_player_core = player_token.get_node_or_null("HumanoidCore") # Adjust pointer if your Core is a sub-node
+	if current_player_core and current_player_core.has_method("get_insulation_rating"):
+		var insulation = current_player_core.get_insulation_rating()
+		current_player_core.body.process_biological_tick(15.0, insulation, exertion)

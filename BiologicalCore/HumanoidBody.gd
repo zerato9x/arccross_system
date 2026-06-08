@@ -7,7 +7,7 @@ class_name HumanoidBody
 signal limb_destroyed(limb: GameEnums.LimbRegion)
 signal vital_failure(reason: String)
 signal blood_level_changed(current_level: float)
-signal metabolic_crisis(condition: String, severity: float)
+signal metabolic_crisis(condition: GameEnums.MetabolicCondition, severity: float)
 
 const BASE_LIMB_MAX = {
 	GameEnums.LimbRegion.HEAD: 30.0,
@@ -95,10 +95,10 @@ func process_biological_tick(environmental_temp: float, insulation_rating: float
 	fatigue = min(1.0, fatigue + (0.02 * exertion_level))
 
 	# 4. Trigger Crisis Alarms
-	if hunger < 0.2: metabolic_crisis.emit("STARVING", 1.0 - (hunger / 0.2))
-	if thirst < 0.2: metabolic_crisis.emit("DEHYDRATED", 1.0 - (thirst / 0.2))
-	if fatigue > 0.8: metabolic_crisis.emit("EXHAUSTED", (fatigue - 0.8) / 0.2)
-	if core_temperature < 32.0: metabolic_crisis.emit("HYPOTHERMIA", (32.0 - core_temperature) / 10.0)
+	if hunger < 0.2: metabolic_crisis.emit(GameEnums.MetabolicCondition.STARVING, 1.0 - (hunger / 0.2))
+	if thirst < 0.2: metabolic_crisis.emit(GameEnums.MetabolicCondition.DEHYDRATED, 1.0 - (thirst / 0.2))
+	if fatigue > 0.8: metabolic_crisis.emit(GameEnums.MetabolicCondition.EXHAUSTED, (fatigue - 0.8) / 0.2)
+	if core_temperature < 32.0: metabolic_crisis.emit(GameEnums.MetabolicCondition.HYPOTHERMIA, (32.0 - core_temperature) / 10.0)
 
 # ---------------------------------------------------------
 # UTILITY MATH

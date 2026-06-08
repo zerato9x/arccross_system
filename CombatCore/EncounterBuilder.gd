@@ -44,5 +44,8 @@ func build_encounter(player: HumanoidCore, enemy: HumanoidCore, context: GameEnu
 	lane_manager.force_spawn_entity(player, player_spawn_idx)
 	lane_manager.force_spawn_entity(enemy, enemy_spawn_idx)
 	
-	# 2. Start the clock and pass the initiative advantage
+	# 2. Wire the lane reference into the turn manager for ActionGroup validation
+	turn_manager.lane_manager = lane_manager
+	
+	# 3. Start the clock and pass the initiative advantage
 	turn_manager.initialize_duel([player, enemy], initiator)

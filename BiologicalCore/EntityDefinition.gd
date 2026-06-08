@@ -12,6 +12,10 @@ class_name EntityDefinition
 @export_range(1, 12) var fortitude: int = 6 
 @export_range(1, 12) var will: int = 6      
 
+@export_group("Combat Behavior")
+## Determines the scoring multipliers and priorities in a firefight.
+@export var combat_tactic: GameEnums.CombatTactic = GameEnums.CombatTactic.BRUTE
+
 @export_group("Arc Manifestation")
 @export var arc_tier: GameEnums.ArcbornTier = GameEnums.ArcbornTier.NONE
 @export var max_arc_energy: float = 0.0

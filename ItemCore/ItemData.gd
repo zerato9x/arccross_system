@@ -38,6 +38,14 @@ class_name ItemData
 @export var consumable_effect: GameEnums.ConsumableEffect = GameEnums.ConsumableEffect.RESTORE_HUNGER
 @export var consumable_potency: float = 0.0 # How much it restores (0.0 to 1.0 scale)
 
+@export_group("Firearm Mechanics")
+## Pistols: Maximum rounds the internal magazine can hold. 0 = no internal magazine (Rifle).
+@export var max_magazine: int = 0
+## Pistols: Current rounds remaining in the internal magazine.
+var current_magazine: int = 0
+## Rifles: Whether the bolt needs cycling before the next shot.
+var needs_cycling: bool = false
+
 ## Helper: Is this item a ranged weapon?
 func is_ranged() -> bool:
 	return weapon_type == GameEnums.WeaponClass.PISTOL or weapon_type == GameEnums.WeaponClass.RIFLE

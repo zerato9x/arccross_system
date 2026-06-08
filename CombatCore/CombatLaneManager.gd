@@ -3,6 +3,8 @@ class_name CombatLaneManager
 
 var lane_slots: Array[CombatLaneSlot] = []
 
+@export var turn_manager: CombatTurnManager
+
 func _ready() -> void:
 	_initialize_lane()
 
@@ -14,30 +16,134 @@ func _initialize_lane() -> void:
 		if i == 0 or i == 11:
 			slot.object_name = "Escape Zone"
 		elif i == 5 or i == 6:
-			slot.object_name = "No Man's Land"
 			slot.is_spawnable = false
 			
 		lane_slots.append(slot)
 
 # --- MOVEMENT MATTERS ---
 
-func move_entity(entity: HumanoidCore, from_idx: int, to_idx: int) -> bool:
+func move_entity(entity: HumanoidCore, from_idx: int, to_idx: int, is_charge: bool = false) -> bool:
 	if to_idx < 0 or to_idx > 11:
 		return false
 		
 	var origin_slot: CombatLaneSlot = lane_slots[from_idx]
 	var target_slot: CombatLaneSlot = lane_slots[to_idx]
 	
-	# THE FIX: If you are in a Melee Lock, you can't just walk away.
 	if origin_slot.is_melee_locked:
 		print("Movement denied. You must explicitly 'Disengage' from the Melee Lock.")
 		return false
+	
+	# Check if the path is obstructed by a trap/obstacle or if it's a hazard that trips them
+	# We assume the resolution engine handles the actual Trip check right after this succeeds,
+	# but we can return true indicating the movement occurred (even if they fell).
 		
 	if target_slot.enter_slot(entity):
 		origin_slot.exit_slot(entity)
+		
+		# THE GRAPPLE INTERCEPT: Check if a CHARGE ended directly adjacent to an enemy
+		if is_charge and turn_manager:
+			_check_charge_intercept(entity, to_idx)
+			
 		return true
 		
 	return false
+
+func _check_charge_intercept(charger: HumanoidCore, charger_idx: int) -> void:
+	# Check cells directly adjacent (distance = 1)
+	var adjacent_indices = [charger_idx - 1, charger_idx + 1]
+	for adj_idx in adjacent_indices:
+		if adj_idx >= 0 and adj_idx <= 11:
+			var slot = lane_slots[adj_idx]
+			if slot.occupants.size() > 0:
+				for occupant in slot.occupants:
+					if occupant != charger and occupant.definition.faction != charger.definition.faction:
+						print("\n[CHARGE INTERCEPT OPPORTUNITY] ", charger.name, " charged and ended adjacent to ", occupant.name, "!")
+						# Check if the defender wants to spend 6 AP to intercept
+						if turn_manager.request_grapple_intercept(occupant, charger):
+							# Force the charger into the defender's slot to initiate the lock
+							lane_slots[charger_idx].exit_slot(charger)
+							slot.enter_slot(charger)
+							
+							# The resolution engine needs to know this happened, but for now we just
+							# directly apply the GRAPPLE outcome here since it's a guaranteed intercept.
+							print("[INTERCEPT SUCCESS] ", occupant.name, " tackles ", charger.name, " mid-sprint!")
+							charger.stance_points = 0
+							charger._evaluate_stance_state()
+							occupant.stance_points = 0
+							occupant._evaluate_stance_state()
+							
+							# Open the EXECUTE window for the defender
+							turn_manager.open_reaction_window(occupant, charger, GameEnums.ActionType.GRAPPLE)
+						return
+
+# --- DISPLACEMENT: STAY / FOLLOW / SHOVE CUSHION ---
+
+func resolve_displacement(initiator: HumanoidCore, target: HumanoidCore, push_direction: int, chose_follow: bool) -> void:
+	var init_idx = _find_entity_lane(initiator)
+	var target_idx = _find_entity_lane(target)
+	
+	if init_idx != target_idx or init_idx == -1:
+		return
+	
+	var destination_idx = target_idx + push_direction
+	
+	# Bounds check
+	if destination_idx < 0 or destination_idx > 11:
+		print("[DISPLACEMENT] ", target.name, " is pushed against the wall. Nowhere to go.")
+		return
+	
+	# BRACED STATE CHECK (The Shove Cushion)
+	# Check if an ally of the target is directly behind them
+	var braced_ally = _get_braced_ally(target, destination_idx)
+	if braced_ally != null:
+		print("\n[SHOVE CUSHION] ", braced_ally.name, " braces ", target.name, "! Displacement stopped.")
+		
+		# Both friendly units take minor blunt collision trauma
+		target.body.apply_targeted_hit(GameEnums.LimbRegion.UPPER_TORSO, 2.0, 0.0)
+		braced_ally.body.apply_targeted_hit(GameEnums.LimbRegion.UPPER_TORSO, 2.0, 0.0)
+		
+		# Lock is maintained because target didn't move
+		return
+		
+	# Move the target
+	print("\n[DISPLACEMENT] ", target.name, " is violently shoved into Lane Slot ", destination_idx)
+	lane_slots[init_idx].exit_slot(target)
+	lane_slots[destination_idx].enter_slot(target)
+	
+	if chose_follow:
+		# Check if target has a Backup Braced ally that disables FOLLOW
+		var disabled_by_backup = false
+		var backup_idx = destination_idx + push_direction
+		if backup_idx >= 0 and backup_idx <= 11:
+			var deep_backup_ally = _get_braced_ally(target, backup_idx)
+			if deep_backup_ally != null:
+				disabled_by_backup = true
+				print("[BACKUP PASSIVE] ", deep_backup_ally.name, " is maintaining rear support. FOLLOW denied.")
+		
+		if not disabled_by_backup:
+			print("[FOLLOW] ", initiator.name, " steps forward to maintain the Melee Lock.")
+			lane_slots[init_idx].exit_slot(initiator)
+			lane_slots[destination_idx].enter_slot(initiator)
+		else:
+			print("[FOLLOW FAILED] The Lock shatters.")
+			_break_lock_and_reset_stance(initiator, target)
+	else:
+		print("[STAY] ", initiator.name, " drops anchor. The Melee Lock shatters.")
+		_break_lock_and_reset_stance(initiator, target)
+
+func _get_braced_ally(front_entity: HumanoidCore, backup_idx: int) -> HumanoidCore:
+	if backup_idx < 0 or backup_idx > 11:
+		return null
+	var slot = lane_slots[backup_idx]
+	for occupant in slot.occupants:
+		if occupant.definition.faction == front_entity.definition.faction:
+			return occupant
+	return null
+
+func _break_lock_and_reset_stance(initiator: HumanoidCore, target: HumanoidCore) -> void:
+	initiator.reset_stance()
+	target.reset_stance()
+	print("[LOCK BROKEN] Spatial separation achieved. Stances restored to 12.")
 
 # --- THE MELEE HOTEL EXIT CLAUSE ---
 
@@ -55,7 +161,6 @@ func attempt_disengage(entity: HumanoidCore, current_idx: int, retreat_idx: int)
 			break
 			
 	# The Math: Your physical condition vs their Stance
-	# A bleeding guy with 2 AP shouldn't easily push off a healthy Raider
 	var escape_roll: float = randf() * entity.current_max_ap
 	var enemy_grip: float = (opponent.body.limb_hp[GameEnums.LimbRegion.UPPER_TORSO] / 60.0) * 5.0
 	
@@ -63,12 +168,15 @@ func attempt_disengage(entity: HumanoidCore, current_idx: int, retreat_idx: int)
 		print("Disengage successful! Kicked away from the grapple.")
 		slot.exit_slot(entity)
 		lane_slots[retreat_idx].enter_slot(entity)
+		_break_lock_and_reset_stance(entity, opponent)
 		return true
 	else:
 		print("Disengage failed! Slipped in the mud. Reaction Strike window opened.")
 		# Note: deduct AP and trigger enemy counter-attack here later
 		return false
+
 # --- SPAWN LOGIC ---
+
 func force_spawn_entity(entity: HumanoidCore, target_idx: int) -> void:
 	if target_idx < 0 or target_idx > 11:
 		push_error("Spawn index out of bounds.")
@@ -79,3 +187,8 @@ func force_spawn_entity(entity: HumanoidCore, target_idx: int) -> void:
 		print(entity.name, " materialized in Lane Slot ", target_idx)
 	else:
 		push_error("Failed to spawn " + entity.name + " into slot " + str(target_idx))
+
+func _find_entity_lane(entity: HumanoidCore) -> int:
+	for i in range(lane_slots.size()):
+		if lane_slots[i].occupants.has(entity): return i
+	return -1
