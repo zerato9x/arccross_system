@@ -5,7 +5,6 @@
 [ext_resource type="Script" uid="uid://d2lh4h44218ig" path="res://CombatCore/CombatTurnManager.gd" id="3_lmpin"]
 [ext_resource type="Script" uid="uid://dwo3msmiciajl" path="res://CombatCore/CombatResolutionEngine.gd" id="4_kq2uo"]
 [ext_resource type="Script" uid="uid://dogxb6mi7wd4i" path="res://CombatCore/EncounterBuilder.gd" id="5_xg88h"]
-[ext_resource type="Script" uid="uid://djsopilhiat1v" path="res://SystemCore/MobSpawner.gd" id="6_mobsp"]
 
 [node name="MainDuelScene" type="Node2D" unique_id=964311597]
 script = ExtResource("1_mfadp")
@@ -24,9 +23,6 @@ lane_manager = NodePath("../CombatLaneManager")
 script = ExtResource("5_xg88h")
 lane_manager = NodePath("../CombatLaneManager")
 turn_manager = NodePath("../CombatTurnManager")
-
-[node name="MobSpawner" type="Node" parent="." unique_id=613806305]
-script = ExtResource("6_mobsp")
 
 [node name="DebugUI" type="CanvasLayer" parent="." unique_id=186272021]
 

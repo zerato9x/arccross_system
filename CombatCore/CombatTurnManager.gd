@@ -11,12 +11,18 @@ signal turn_ended(entity: HumanoidCore)
 
 # Hardcoded Action Costs (You can move this to GameEnums later)
 const COST = {
-	"MOVE": 2,
-	"MELEE_STRIKE": 4,
-	"FIRE_WEAPON": 5,
-	"DISENGAGE": 6, # Expensive because it's a desperate escape
-	"RELOAD": 3,
-	"USE_ITEM": 3
+	GameEnums.ActionType.MOVE_FORWARD: 2,
+	GameEnums.ActionType.MOVE_BACKWARD: 2,
+	GameEnums.ActionType.CHARGE: 4,
+	GameEnums.ActionType.SHOOT: 5,
+	GameEnums.ActionType.CYCLE: 1,
+	GameEnums.ActionType.STRIKE: 4,
+	GameEnums.ActionType.GRAPPLE: 5,
+	GameEnums.ActionType.TRIP: 3,
+	GameEnums.ActionType.GET_UP: 6,
+	GameEnums.ActionType.EXECUTE: 4,
+	GameEnums.ActionType.DISENGAGE: 6,
+	GameEnums.ActionType.USE_ITEM: 3
 }
 
 var combatants: Array[HumanoidCore] = []
@@ -65,6 +71,13 @@ func _start_turn() -> void:
 		_end_turn()
 		return
 		
+	# Enforce the mandatory Felled stun lock penalty
+	if active_entity.current_stance == GameEnums.StanceState.FELLED:
+		print("\n[STUNNED] ", active_entity.name, " is face-down in the mud. Skipping turn and recovering equilibrium.")
+		active_entity.recover_stance(6) # Recovers halfway back up to Stumbling
+		_end_turn()
+		return
+		
 	# Fill their pockets with time
 	current_ap_pool = active_entity.current_max_ap
 	print("\n>>> ", active_entity.name, "'s turn begins with ", current_ap_pool, " AP.")
@@ -75,24 +88,24 @@ func _start_turn() -> void:
 # ---------------------------------------------------------
 
 ## The overarching Game Loop must call this BEFORE executing any physical logic
-func request_action(entity: HumanoidCore, action_name: String) -> bool:
+func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
 	if entity != combatants[active_entity_index]:
 		print("DENIED: It is not ", entity.name, "'s turn. Wait patiently.")
 		return false
 		
-	if not COST.has(action_name):
-		push_error("The action [" + action_name + "] does not exist in the timekeeper's ledger.")
+	if not COST.has(action):
+		push_error("The action [" + str(action) + "] does not exist in the timekeeper's ledger.")
 		return false
 		
-	var ap_cost: int = COST[action_name]
+	var ap_cost: int = COST[action]
 	
 	if current_ap_pool < ap_cost:
-		print("DENIED: Insufficient AP for [", action_name, "]. Needs: ", ap_cost, " | Has: ", current_ap_pool)
+		print("DENIED: Insufficient AP for [", action, "]. Needs: ", ap_cost, " | Has: ", current_ap_pool)
 		return false
 		
 	# Transaction Approved
 	current_ap_pool -= ap_cost
-	print("APPROVED: ", entity.name, " performed [", action_name, "]. Remaining AP: ", current_ap_pool)
+	print("APPROVED: ", entity.name, " performed [", action, "]. Remaining AP: ", current_ap_pool)
 	ap_spent.emit(entity, current_ap_pool)
 	
 	# Force an end if they are bankrupt

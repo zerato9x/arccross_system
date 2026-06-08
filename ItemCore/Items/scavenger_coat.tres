@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "scavenger_coat"
+display_name = "Scavenger's Heavy Coat"
+lore_description = "A patchwork duster lined with hardened leather and salvaged synthetics. Good for surviving the cold and carrying your junk."
+item_type = 2
+size_cost = 3
+capacity_bonus = 6
+target_slot = 2
+requires_two_hands = false
+weapon_type = 0
+damage_type = 0
+flesh_damage = 0.0
+stance_damage = 0.0
+armor_penetration = 0.0
+protection_blunt = 2.0
+protection_sharp = 5.0
+protection_ballistic = 1.0
+bulk = 2.0
+weight = 2.0
+threat = 1.0
+insulation = 0.6
+consumable_effect = 0
+consumable_potency = 0.0

@@ -1,6 +1,8 @@
 extends Node2D
 class_name MacroPlayer
-@export var definition: EntityDefinition # This is where you will drag scavenger_def.tres
+
+@export var definition: EntityDefinition
+
 var current_hex_coords: Vector2i = Vector2i(0, 0)
 
 func snap_to_hex(coords: Vector2i, pixel_position: Vector2) -> void:

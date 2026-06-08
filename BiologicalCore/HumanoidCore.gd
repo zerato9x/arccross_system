@@ -9,6 +9,8 @@ signal died(cause: String)
 signal arc_energy_depleted()
 signal red_mist_corruption_maxed()
 signal morale_broken()
+signal stance_changed(new_state: GameEnums.StanceState, points: int)
+signal felled()
 
 @export_group("Core Identity")
 @export var definition: EntityDefinition
@@ -21,6 +23,10 @@ signal morale_broken()
 var base_ap: int = 12
 var current_max_ap: int = 12
 var is_dead: bool = false
+
+# The 12-Point Stance Equilibrium Scale
+var stance_points: int = 12 # 12 = rock solid, 0 = face in the mud
+var current_stance: GameEnums.StanceState = GameEnums.StanceState.PLANTED
 
 # Psychological & Metaphysical Status
 var current_morale: float = 12.0
@@ -48,10 +54,17 @@ func _ready() -> void:
 	body.limb_destroyed.connect(_on_limb_destroyed)
 	body.vital_failure.connect(_on_vital_failure)
 	body.blood_level_changed.connect(_on_vitals_shifted)
+	body.blood_level_changed.connect(_on_vitals_shifted)
+	body.metabolic_crisis.connect(_on_metabolic_crisis) # Add this
 	
 	# Wire up the Vault feedback loop
 	inventory.capacity_updated.connect(_on_inventory_weight_shifted)
-
+func _on_metabolic_crisis(condition: String, severity: float) -> void:
+	_calculate_action_points()
+	
+	# Being starving, freezing, or exhausted crushes the will to fight
+	take_morale_damage(severity * 2.0)
+	print(name, " is suffering from ", condition, ". Morale dropping.")
 func _initialize_metaphysics() -> void:
 	current_arc_energy = definition.max_arc_energy
 	
@@ -91,7 +104,12 @@ func get_initiative_roll() -> float:
 
 func get_grapple_strength() -> float:
 	var muscle: float = float(definition.brawn)
-	var structural_health: float = body.limb_hp[GameEnums.Limb.TORSO] / (100.0 * (definition.fortitude / 6.0))
+	
+	# Combine both torso regions for structural integrity
+	var current_torso = body.limb_hp[GameEnums.LimbRegion.UPPER_TORSO] + body.limb_hp[GameEnums.LimbRegion.LOWER_TORSO]
+	var max_torso = (body.BASE_LIMB_MAX[GameEnums.LimbRegion.UPPER_TORSO] + body.BASE_LIMB_MAX[GameEnums.LimbRegion.LOWER_TORSO]) * (definition.fortitude / 6.0)
+	
+	var structural_health: float = current_torso / max_torso
 	
 	return muscle * structural_health
 
@@ -102,17 +120,74 @@ func get_combat_accuracy(is_ranged: bool) -> float:
 		return definition.brawn / 12.0
 
 # ---------------------------------------------------------
+# THE 12-POINT STANCE SCALE
+# ---------------------------------------------------------
+# 12 = PLANTED (stable, full action set)
+# 7-11 = PLANTED (stable)
+# 1-6 = STUMBLING (restricted actions, THREAT = 0, cannot flee)
+# 0 = FELLED (stunned for one round, open to EXECUTE)
+
+## Apply stance damage from a combat impact. Returns the new stance state.
+func apply_stance_damage(amount: float) -> GameEnums.StanceState:
+	if is_dead: return current_stance
+	
+	stance_points = max(0, stance_points - int(ceil(amount)))
+	_evaluate_stance_state()
+	return current_stance
+
+## Attempt to recover stance points. Capped at 12.
+func recover_stance(amount: int) -> void:
+	if is_dead or current_stance == GameEnums.StanceState.FELLED: return
+	
+	stance_points = min(12, stance_points + amount)
+	_evaluate_stance_state()
+
+## Full stance reset (e.g., after successfully using GET_UP action).
+func reset_stance() -> void:
+	stance_points = 12
+	_evaluate_stance_state()
+
+func _evaluate_stance_state() -> void:
+	var previous_state: GameEnums.StanceState = current_stance
+	
+	if stance_points >= 7:
+		current_stance = GameEnums.StanceState.PLANTED
+	elif stance_points >= 1:
+		current_stance = GameEnums.StanceState.STUMBLING
+	else:
+		current_stance = GameEnums.StanceState.FELLED
+	
+	if current_stance != previous_state:
+		stance_changed.emit(current_stance, stance_points)
+		print(name, " stance shifted to ", GameEnums.StanceState.keys()[current_stance], " (", stance_points, "/12)")
+		
+		if current_stance == GameEnums.StanceState.FELLED:
+			print("[FELLED] ", name, " has collapsed! Open to EXECUTE.")
+			felled.emit()
+			
+		if current_stance == GameEnums.StanceState.STUMBLING:
+			# Stumbling entities project zero THREAT
+			print("[STUMBLING] ", name, "'s THREAT drops to 0. Actions restricted.")
+
+## Override: THREAT is 0 when stumbling or felled.
+func get_effective_threat() -> float:
+	if current_stance != GameEnums.StanceState.PLANTED:
+		return 0.0
+	return get_threat_level()
+
+# ---------------------------------------------------------
 # THE "BLACK KNIGHT" FIX (Limb vs. Inventory Validation)
 # ---------------------------------------------------------
 
-func _on_limb_destroyed(limb: GameEnums.Limb) -> void:
-	if limb == GameEnums.Limb.LEFT_ARM or limb == GameEnums.Limb.RIGHT_ARM:
+func _on_limb_destroyed(limb: GameEnums.LimbRegion) -> void:
+	if limb == GameEnums.LimbRegion.LEFT_ARM or limb == GameEnums.LimbRegion.RIGHT_ARM:
 		_validate_equipment_requirements()
 		
 	# Massive psychological shock from losing a limb
 	take_morale_damage(5.0) 
 	_calculate_action_points()
-
+		
+	
 func _validate_equipment_requirements() -> void:
 	if body.has_functional_arms(): return
 		
@@ -139,19 +214,27 @@ func _on_vitals_shifted(blood_level: float) -> void:
 func _calculate_action_points() -> void:
 	if is_dead: return
 	
-	# Start with the perfect 12
 	var ap: float = float(base_ap)
 	
-	# The Meat Penalty: Leg trauma and blood loss crush mobility
+	# 1. The Meat Penalty (Legs + Blood)
 	ap *= body.get_motor_efficiency()
 	
-	# The Junk Penalty: Encumbrance drains AP (up to half your pool if fully loaded)
+	# 2. The Junk Penalty (Encumbrance)
 	var encumbrance_ratio: float = float(inventory.current_size) / float(max(1, inventory.current_max_capacity))
 	var weight_penalty: int = floor(encumbrance_ratio * 6.0)
 	
-	current_max_ap = max(2, int(ap) - weight_penalty) # Hard floor of 2 AP
+	# 3. The Iron Tax (Gear WEIGHT across all equipped items)
+	var gear_weight_penalty: int = floor(inventory.get_total_weight())
+	
+	# 4. The Survival Penalty (Hunger, Thirst, Fatigue)
+	var survival_penalty: int = 0
+	if body.hunger < 0.2: survival_penalty += 1
+	if body.thirst < 0.2: survival_penalty += 2 # Dehydration heavily limits muscle function
+	if body.fatigue > 0.8: survival_penalty += int(body.fatigue * 4.0) # Up to -4 AP from sheer exhaustion
+	if body.core_temperature < 34.0: survival_penalty += 2 # Shivering ruins coordination
+	
+	current_max_ap = max(2, int(ap) - weight_penalty - gear_weight_penalty - survival_penalty)
 	ap_calculated.emit(current_max_ap)
-
 # ---------------------------------------------------------
 # PSYCHOLOGICAL TRAUMA LOGIC
 # ---------------------------------------------------------
@@ -162,7 +245,7 @@ func take_morale_damage(amount: float) -> void:
 	current_morale = max(0.0, current_morale - amount)
 	_evaluate_flight_response()
 
-func _evaluate_flight_response() -> void:
+func _evaluate_flight_response(opponent_threat: float = -1.0) -> void:
 	var breakpoint_ratio: float = 0.0
 	
 	match definition.agenda:
@@ -170,12 +253,32 @@ func _evaluate_flight_response() -> void:
 		GameEnums.Agenda.BELLIGERENT: breakpoint_ratio = 0.2 # Runs at 20% morale
 		GameEnums.Agenda.ZEALOT, GameEnums.Agenda.MINDLESS: return # Never runs
 		
+	# THE THREAT CHECK: SURVIVALIST enemies flee immediately if out-Threatened
+	if definition.agenda == GameEnums.Agenda.SURVIVALIST and opponent_threat >= 0.0:
+		if opponent_threat > float(definition.will):
+			is_fleeing = true
+			print("\n[THREAT OVERRIDE] ", name, " sees THREAT(", opponent_threat, ") > WILL(", definition.will, "). Fleeing immediately!")
+			morale_broken.emit()
+			return
+	
 	var breaking_point = float(definition.will) * breakpoint_ratio
 	
 	if current_morale <= breaking_point:
 		is_fleeing = true
 		print("\n[MORALE SHATTERED] ", name, " has broken! Self-preservation override engaged!")
 		morale_broken.emit()
+
+## Get total THREAT projected by this entity's equipped gear.
+func get_threat_level() -> float:
+	return inventory.get_total_threat()
+
+## Get total BULK modifier from equipped gear. Negative = agile, Positive = tanky.
+func get_bulk_modifier() -> float:
+	return inventory.get_total_bulk()
+
+## Get insulation rating from equipped torso layers for hypothermia calculations.
+func get_insulation_rating() -> float:
+	return inventory.get_total_insulation()
 
 # ---------------------------------------------------------
 # ARC & RED MIST (The World Hooks)
@@ -211,6 +314,40 @@ func _mutate_into_craven() -> void:
 	inventory.unequip_item(GameEnums.EquipmentSlot.HANDS)
 	inventory.unequip_item(GameEnums.EquipmentSlot.BACKPACK)
 	print(name, " succumbed to the Red Mist. Structural autonomy and tools lost.")
+
+# ---------------------------------------------------------
+# CONSUMABLE USE
+# ---------------------------------------------------------
+
+func use_consumable_item(item: ItemData) -> bool:
+	if not inventory.use_consumable(item):
+		return false
+	
+	# Route the effect to the appropriate biological system
+	match item.consumable_effect:
+		GameEnums.ConsumableEffect.RESTORE_HUNGER:
+			body.hunger = clamp(body.hunger + item.consumable_potency, 0.0, 1.0)
+			print(name, " consumed [", item.display_name, "]. Hunger restored.")
+		GameEnums.ConsumableEffect.RESTORE_THIRST:
+			body.thirst = clamp(body.thirst + item.consumable_potency, 0.0, 1.0)
+			print(name, " consumed [", item.display_name, "]. Thirst quenched.")
+		GameEnums.ConsumableEffect.RESTORE_FATIGUE:
+			body.fatigue = clamp(body.fatigue - item.consumable_potency, 0.0, 1.0)
+			print(name, " consumed [", item.display_name, "]. Fatigue reduced.")
+		GameEnums.ConsumableEffect.STOP_BLEEDING:
+			# Patch the worst bleed first
+			for limb in body.limb_trauma.keys():
+				if body.limb_trauma[limb] == GameEnums.TraumaType.BLEEDING:
+					body.limb_trauma[limb] = GameEnums.TraumaType.NONE
+					print(name, " applied [", item.display_name, "] to stop bleeding on ", GameEnums.LimbRegion.keys()[limb], ".")
+					break
+		GameEnums.ConsumableEffect.RESTORE_BLOOD:
+			body.blood_level = clamp(body.blood_level + item.consumable_potency, 0.0, 1.0)
+			body.blood_level_changed.emit(body.blood_level)
+			print(name, " consumed [", item.display_name, "]. Blood volume stabilized.")
+	
+	_calculate_action_points()
+	return true
 
 # ---------------------------------------------------------
 # DEATH PROTOCOL

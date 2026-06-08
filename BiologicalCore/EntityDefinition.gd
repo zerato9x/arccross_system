@@ -16,3 +16,7 @@ class_name EntityDefinition
 @export var arc_tier: GameEnums.ArcbornTier = GameEnums.ArcbornTier.NONE
 @export var max_arc_energy: float = 0.0
 @export var red_mist_resistance: float = 0.0
+
+@export_group("Spawn Loadout")
+## The starting gear this entity spawns with. Drag a SpawnLoadout .tres here.
+@export var loadout: SpawnLoadout

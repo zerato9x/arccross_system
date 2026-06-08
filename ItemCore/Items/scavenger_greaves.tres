@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "scavenger_greaves"
+display_name = "Scavenger Greaves"
+lore_description = "Reinforced pants outfitted with scrap metal knee guards and several deep pockets."
+item_type = 2
+size_cost = 2
+capacity_bonus = 2
+target_slot = 4
+requires_two_hands = false
+weapon_type = 0
+damage_type = 0
+flesh_damage = 0.0
+stance_damage = 0.0
+armor_penetration = 0.0
+protection_blunt = 2.0
+protection_sharp = 3.0
+protection_ballistic = 0.5
+bulk = 1.5
+weight = 2.5
+threat = 0.5
+insulation = 0.2
+consumable_effect = 0
+consumable_potency = 0.0

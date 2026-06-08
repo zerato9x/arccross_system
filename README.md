@@ -1,7 +1,7 @@
 ARCCROSS: A Base-12 Survival Engine
 Overview
 
-Welcome to the Arccross Engine. This is not a standard RPG. There are no 1-100 percentage scales, no heroic health pools, and no forgiving mechanics. This is a mathematically pure, highly lethal survival simulator built on a strict Base-12 biological and environmental logic. Set against the desolate, anomalous backdrop of Tymazu, this engine is designed to simulate physical trauma, psychological breaking points, and tactical desperation.
+Welcome to the Arccross Engine. This is not a standard RPG. There are no 1-100 percentage scales, no heroic health pools, and no forgiving mechanics. This is a mathematically pure, highly lethal survival simulator built on a strict Base-12 biological and environmental logic. Set against the desolate, anomalous backdrop of Arccross, this engine is designed to simulate physical trauma, psychological breaking points, and tactical desperation.
 Core Philosophy: The Meat and The Math
 
 Standard decimal systems are boring and inefficient. Every entity in this engine is governed by a 1-to-12 cap. You do not lose arbitrary "HP"—you lose systemic blood volume. You do not get abstract "debuffs"—your left leg's structural integrity collapses, mathematically crushing your motor efficiency and Action Point (AP) generation in real-time.

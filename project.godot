@@ -11,8 +11,13 @@ config_version=5
 [application]
 
 config/name="ARCCROSS_realshit"
-run/main_scene="uid://b75pfheha1hoi"
+run/main_scene="res://SystemCore/game_director.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
+
+[autoload]
+
+GameEnums="*res://SystemCore/GameEnums.gd"
+MobSpawner="*res://SystemCore/MobSpawner.gd"
 
 [physics]
 

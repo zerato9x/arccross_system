@@ -4,10 +4,13 @@ extends Node2D
 @onready var turn_manager: CombatTurnManager = $CombatTurnManager
 @onready var resolution_engine: CombatResolutionEngine = $CombatResolutionEngine
 @onready var encounter_builder: EncounterBuilder = $EncounterBuilder
+@onready var mob_spawner: MobSpawner = $MobSpawner
 @onready var debug_log: RichTextLabel = $DebugUI/DebugLog
 
 var player_core: HumanoidCore
 var enemy_core: HumanoidCore
+
+var dropped_combat_loot: Array[ItemData] = []
 
 func setup_duel(p_def: EntityDefinition, e_def: EntityDefinition) -> void:
 	# 1. Programmatically assemble the complex entity structures from scratch
@@ -21,6 +24,11 @@ func setup_duel(p_def: EntityDefinition, e_def: EntityDefinition) -> void:
 	# 3. Drop them into the mud using our tactical layout matrix
 	encounter_builder.build_encounter(player_core, enemy_core, GameEnums.EncounterContext.NEUTRAL_MEET)
 	_refresh_debug_hud()
+
+## Alternative entry: spawn a procedural enemy from the MobSpawner.
+func setup_duel_procedural(p_def: EntityDefinition, enemy_faction: GameEnums.Faction, difficulty: int = 0) -> void:
+	var e_def: EntityDefinition = mob_spawner.generate_mob(enemy_faction, difficulty)
+	setup_duel(p_def, e_def)
 
 func _fabricate_humanoid(unit_name: String, definition: EntityDefinition) -> HumanoidCore:
 	# Programmatic assembly since we are bypassing custom .tscn instantiation
@@ -38,7 +46,18 @@ func _fabricate_humanoid(unit_name: String, definition: EntityDefinition) -> Hum
 	core.add_child(inv)
 	core.inventory = inv
 	
+	# Connect to the items spilled signal
+	inv.items_spilled.connect(_on_items_spilled.bind(core))
+	
 	add_child(core)
+	
+	# After _ready() fires and the inventory paper_doll is built, apply the loadout
+	if definition.loadout:
+		definition.loadout.apply_to(inv)
+		print("[FABRICATE] ", unit_name, " spawned with loadout. Weight: ", inv.get_total_weight(), " | Threat: ", inv.get_total_threat())
+	else:
+		print("[FABRICATE] ", unit_name, " spawned naked. No loadout assigned.")
+	
 	return core
 
 func _refresh_debug_hud() -> void:
@@ -49,20 +68,31 @@ func _refresh_debug_hud() -> void:
 	txt += "ROUND: %d | ACTIVE TIMEPOOL POOL: %d AP\n" % [turn_manager.current_round, turn_manager.current_ap_pool]
 	txt += "---------------------------------------------------------\n\n"
 	
-	# Build Player Data Cluster
-	txt += "[b]%s[/b] (Flee State: %s)\n" % [player_core.name, str(player_core.is_fleeing)]
-	txt += "Vitals -> Max AP Limit: %d | Blood Vol: %.2f | Morale: %.1f\n" % [player_core.current_max_ap, player_core.body.blood_level, player_core.current_morale]
-	txt += "Trauma Matrix -> Torso: %.1f HP | Head: %.1f HP | L-Arm: %.1f HP\n\n" % [player_core.body.limb_hp[GameEnums.Limb.TORSO], player_core.body.limb_hp[GameEnums.Limb.HEAD], player_core.body.limb_hp[GameEnums.Limb.LEFT_ARM]]
-	
-	# Build Enemy Data Cluster
-	txt += "[b]%s[/b] (Flee State: %s)\n" % [enemy_core.name, str(enemy_core.is_fleeing)]
-	txt += "Vitals -> Max AP Limit: %d | Blood Vol: %.2f | Morale: %.1f\n" % [enemy_core.current_max_ap, enemy_core.body.blood_level, enemy_core.current_morale]
-	txt += "Trauma Matrix -> Torso: %.1f HP | Head: %.1f HP | L-Arm: %.1f HP\n" % [enemy_core.body.limb_hp[GameEnums.Limb.TORSO], enemy_core.body.limb_hp[GameEnums.Limb.HEAD], enemy_core.body.limb_hp[GameEnums.Limb.LEFT_ARM]]
+	txt += _build_entity_readout(player_core)
+	txt += "\n"
+	txt += _build_entity_readout(enemy_core)
 	
 	debug_log.text = txt
+
+func _build_entity_readout(entity: HumanoidCore) -> String:
+	var t = ""
+	var weapon_name: String = "UNARMED"
+	var held = entity.inventory.paper_doll.get(GameEnums.EquipmentSlot.HANDS)
+	if held: weapon_name = held.display_name
+	
+	t += "[b]%s[/b] (%s) | Flee: %s\n" % [entity.name, entity.definition.archetype_name, str(entity.is_fleeing)]
+	t += "Vitals -> AP: %d | Blood: %.2f | Morale: %.1f\n" % [entity.current_max_ap, entity.body.blood_level, entity.current_morale]
+	t += "Stance -> %s (%d/12) | Weapon: %s\n" % [GameEnums.StanceState.keys()[entity.current_stance], entity.stance_points, weapon_name]
+	t += "Gear -> THREAT: %.1f | WEIGHT: %.1f | BULK: %.1f | Inventory: %d/%d\n" % [entity.get_effective_threat(), entity.inventory.get_total_weight(), entity.get_bulk_modifier(), entity.inventory.current_size, entity.inventory.current_max_capacity]
+	t += "Trauma -> U-Torso: %.1f | Head: %.1f | L-Arm: %.1f\n" % [entity.body.limb_hp[GameEnums.LimbRegion.UPPER_TORSO], entity.body.limb_hp[GameEnums.LimbRegion.HEAD], entity.body.limb_hp[GameEnums.LimbRegion.LEFT_ARM]]
+	return t
 
 func _on_turn_cycled(_active_entity: HumanoidCore) -> void:
 	_refresh_debug_hud()
 
 func _on_action_logged(_entity: HumanoidCore, _remaining_ap: int) -> void:
 	_refresh_debug_hud()
+
+func _on_items_spilled(spilled_items: Array[ItemData], entity: HumanoidCore) -> void:
+	print("[COMBAT DROPS] ", entity.name, " spilled ", spilled_items.size(), " items into the dirt!")
+	dropped_combat_loot.append_array(spilled_items)

@@ -14,7 +14,7 @@ func _initialize_lane() -> void:
 		if i == 0 or i == 11:
 			slot.object_name = "Escape Zone"
 		elif i == 5 or i == 6:
-			slot.object_name = "No Man's Void"
+			slot.object_name = "No Man's Land"
 			slot.is_spawnable = false
 			
 		lane_slots.append(slot)
@@ -57,7 +57,7 @@ func attempt_disengage(entity: HumanoidCore, current_idx: int, retreat_idx: int)
 	# The Math: Your physical condition vs their Stance
 	# A bleeding guy with 2 AP shouldn't easily push off a healthy Raider
 	var escape_roll: float = randf() * entity.current_max_ap
-	var enemy_grip: float = (opponent.body.limb_hp[GameEnums.Limb.TORSO] / 100.0) * 5.0
+	var enemy_grip: float = (opponent.body.limb_hp[GameEnums.LimbRegion.UPPER_TORSO] / 60.0) * 5.0
 	
 	if escape_roll > enemy_grip:
 		print("Disengage successful! Kicked away from the grapple.")

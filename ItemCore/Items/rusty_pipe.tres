@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://b1e20xh76xoh"]
+
+[ext_resource type="Script" uid="uid://jbxk0eeleei8" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "rusty_pipe"
+display_name = "Rusty Pipe"
+lore_description = "A heavy length of industrial plumbing. It lacks finesse but makes up for it in sheer structural trauma."
+item_type = 1
+size_cost = 2
+target_slot = 3
+requires_two_hands = true
+weapon_type = 1
+flesh_damage = 8.0
+stance_damage = 5.0
+bulk = 1.0
+weight = 3.0
+threat = 2.0

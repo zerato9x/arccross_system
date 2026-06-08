@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="SpawnLoadout" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/SpawnLoadout.gd" id="1_loadout"]
+[ext_resource type="Resource" path="res://ItemCore/Items/makeshift_sidearm.tres" id="2_weapon"]
+[ext_resource type="Resource" path="res://ItemCore/Items/scavenger_coat.tres" id="3_armor"]
+[ext_resource type="Resource" path="res://ItemCore/Items/combat_boots.tres" id="4_boots"]
+[ext_resource type="Resource" path="res://ItemCore/Items/ration_bar.tres" id="5_food"]
+
+[resource]
+script = ExtResource("1_loadout")
+weapon = ExtResource("2_weapon")
+outer_torso = ExtResource("3_armor")
+feet = ExtResource("4_boots")
+starting_items = [ExtResource("5_food")]

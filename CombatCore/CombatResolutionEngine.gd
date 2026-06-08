@@ -11,7 +11,7 @@ func execute_ranged_strike(attacker: HumanoidCore, target_idx: int) -> void:
 	var target_slot: CombatLaneSlot = lane_manager.lane_slots[target_idx]
 	var weapon: ItemData = attacker.inventory.paper_doll[GameEnums.EquipmentSlot.HANDS]
 	
-	if weapon == null or weapon.weapon_type != GameEnums.WeaponClass.FIREARM:
+	if weapon == null or (weapon.weapon_type != GameEnums.WeaponClass.PISTOL and weapon.weapon_type != GameEnums.WeaponClass.RIFLE):
 		print("ERROR: ", attacker.name, " tried to shoot someone without a gun.")
 		return
 		
@@ -70,12 +70,59 @@ func _apply_ballistic_trauma(victim: HumanoidCore, weapon: ItemData) -> void:
 	# Prototype: Randomize which limb gets hit. 
 	# A real system would let the player spend extra AP to "Aim" for the head.
 	var hit_location = [
-		GameEnums.Limb.TORSO, GameEnums.Limb.LEFT_ARM, 
-		GameEnums.Limb.RIGHT_ARM, GameEnums.Limb.LEFT_LEG, GameEnums.Limb.RIGHT_LEG
+		GameEnums.LimbRegion.UPPER_TORSO, GameEnums.LimbRegion.LOWER_TORSO, GameEnums.LimbRegion.LEFT_ARM, 
+		GameEnums.LimbRegion.RIGHT_ARM, GameEnums.LimbRegion.LEFT_LEG, GameEnums.LimbRegion.RIGHT_LEG
 	].pick_random()
 	
-	# Firearms have high penetration, guaranteeing bleeding trauma
-	victim.body.apply_targeted_hit(hit_location, weapon.flesh_damage, 0.8)
+	# Run the damage through the armor resolution pipeline
+	_resolve_damage(victim, weapon, hit_location)
+
+# ---------------------------------------------------------
+# ARMOR RESOLUTION PIPELINE
+# ---------------------------------------------------------
+
+func _resolve_damage(victim: HumanoidCore, weapon: ItemData, hit_location: GameEnums.LimbRegion) -> void:
+	var raw_flesh: float = weapon.flesh_damage
+	var raw_stance: float = weapon.stance_damage
+	var penetration: float = weapon.armor_penetration
+	var damage_type: GameEnums.DamageType = weapon.damage_type
+	
+	# 1. Get the victim's armor protection for this damage type
+	var armor_value: float = victim.inventory.get_protection_for(damage_type)
+	
+	# 2. BULK provides bonus damage resistance (only positive BULK helps here)
+	var bulk_bonus: float = max(0.0, victim.get_bulk_modifier()) * 0.5
+	var total_defense: float = armor_value + bulk_bonus
+	
+	# 3. Penetration reduces armor effectiveness (0.0 = armor is god, 1.0 = armor is paper)
+	var effective_defense: float = total_defense * (1.0 - clamp(penetration, 0.0, 1.0))
+	
+	# 4. Calculate final damage values
+	var final_flesh: float = max(0.0, raw_flesh - effective_defense)
+	
+	# BLUNT damage always applies stance damage regardless of armor
+	# SHARP/BALLISTIC only applies stance damage if it penetrates
+	var final_stance: float = raw_stance
+	if damage_type != GameEnums.DamageType.BLUNT:
+		final_stance = max(0.0, raw_stance - (effective_defense * 0.5))
+	
+	# 5. Log the math
+	print("--- ARMOR RESOLUTION ---")
+	print("Damage Type: ", GameEnums.DamageType.keys()[damage_type], " | Raw: ", raw_flesh, " | Armor: ", armor_value, " | Bulk Bonus: ", bulk_bonus)
+	print("Penetration: ", penetration, " | Effective Defense: ", effective_defense, " | Final Flesh: ", final_flesh)
+	
+	if final_flesh <= 0.0 and final_stance <= 0.0:
+		print("DEFLECTED! The armor absorbed the entire impact.")
+		return
+	
+	# 6. Apply the surviving damage to the meat
+	if final_flesh > 0.0:
+		victim.body.apply_targeted_hit(hit_location, final_flesh, penetration)
+	
+	# 7. Apply stance damage (equilibrium erosion)
+	if final_stance > 0.0:
+		var resulting_state = victim.apply_stance_damage(final_stance)
+		print("STANCE IMPACT: -", final_stance, " equilibrium → ", GameEnums.StanceState.keys()[resulting_state], " (", victim.stance_points, "/12)")
 
 func _find_entity_index(entity: HumanoidCore) -> int:
 	for i in range(lane_manager.lane_slots.size()):
