@@ -1,200 +1,157 @@
 # ARCCROSS Phase 1 Execution Plan
 
-## Purpose
+Phase 1 is one playable, persistent vertical slice. A feature is complete only
+when its acceptance criteria pass from the configured main scene against clean
+local user data. Standalone helpers and completion percentages are not proof.
 
-This document defines the objective completion criteria for Phase 1. A feature is
-complete only when its acceptance test passes in the integrated main scene.
-Standalone simulations, helper methods, and completion percentages are not proof
-of completion.
+## Required Player Flow
 
-## Phase 1 Goal
-
-Deliver one playable, persistent vertical slice:
-
-1. Launch into the macro hex world.
-2. Move through procedurally generated hexes.
+1. Launch into the macro world.
+2. Move through deterministic hexes.
 3. Discover and engage a persistent enemy.
-4. Control the player during combat while the enemy uses AI.
-5. Resolve victory, defeat, or escape correctly.
-6. Loot the battlefield and manage equipped and carried items.
-7. SEARCH or CAMP on the overworld with biological time costs.
-8. Save, exit, reload, and recover the same meaningful world state.
+4. Control the player while the enemy uses AI.
+5. Resolve victory, defeat, or escape.
+6. Loot and manage carried or equipped items.
+7. SEARCH or CAMP with world-time and biological consequences.
+8. Save, exit, reload, and recover the same meaningful state.
 
-## Definition Of Done
-
-Phase 1 is complete only when all acceptance tests below pass consecutively from
-the project main scene using a clean local user-data directory.
+## Acceptance Criteria
 
 ### P1-01: Clean Startup
 
-- `project.godot` launches the configured main scene without script errors.
-- The macro map, player token, and required managers initialize successfully.
-- At least one valid enemy can be generated without hardcoded demo-only wiring.
+- The configured main scene launches without script errors.
+- The macro map, player, and required managers initialize.
+- A valid enemy can be generated without scene-specific gameplay wiring.
 
 ### P1-02: Macro Movement
 
-- The player can move only to one of the six adjacent hexes.
-- Moving updates the authoritative player coordinate before dependent systems run.
-- The same world seed produces the same biome and fixed encounter data for a
-  coordinate.
-- Revisiting a generated hex does not duplicate its POI marker or state.
+- Movement is limited to the six adjacent hexes.
+- Authoritative coordinates update before dependent systems run.
+- Seeded biome, POI, and initial encounter generation is deterministic.
+- Revisiting a Hex does not duplicate its marker or record.
 
 ### P1-03: Persistent Runtime State
 
-- The player has one authoritative runtime state containing biology, inventory,
-  equipment, position, and identity.
-- Entering and leaving combat does not recreate or reset player state.
-- Enemy and hex state exists independently from rendered token nodes.
-- Removing an off-screen token does not erase its damage, inventory, or death
-  state.
+- Player biology, inventory, equipment, position, and identity have one
+  authoritative runtime state.
+- Combat transitions do not recreate or reset player state.
+- Enemy and Hex records exist independently from rendered nodes.
+- Unloading a token does not erase damage, inventory, or death.
 
 ### P1-04: Proximity Loading
 
-- Enemy tokens are instantiated only inside the configured active radius.
-- Tokens outside the unload radius are freed without deleting their world records.
-- Returning to a coordinate restores the same living enemy or preserves its death.
-- Traversing at least 100 hex steps does not cause unbounded token or POI-node
-  growth.
+- Entity projections load inside the active radius and unload outside the wider
+  unload radius.
+- Returning restores the same living entity or preserves its death.
+- At least 100 Hex steps do not cause unbounded token, tile, or POI growth.
 
 ### P1-05: Integrated Combat
 
-- Entering an occupied hostile hex suspends macro input and opens combat.
-- The player is controlled through a minimal action interface.
-- Only enemy combatants use `CombatAIEvaluator`.
-- The combat scene receives the existing player and enemy runtime state.
-- The duel can terminate through victory, defeat, or escape without continuing
-  the turn loop afterward.
+- Entering a hostile occupied Hex suspends macro input and opens combat.
+- Player commands use the combat interface; only enemies use combat AI.
+- Existing player and enemy runtime state enters the encounter.
+- Victory, defeat, and escape terminate the turn loop.
 
 ### P1-06: Outcome Resolution
 
-- Player victory removes or marks the defeated enemy dead and creates valid loot.
-- Player defeat does not delete the enemy or return an apparently healthy player
-  to normal exploration.
+- Victory persists enemy death and valid loot.
+- Defeat does not restore ordinary exploration with a healthy player.
 - Enemy escape preserves the enemy as alive.
-- Player escape preserves both combatants and returns the player to a valid macro
-  coordinate.
-- Damage, ammunition, consumables, and equipment changes survive the transition
-  back to the macro world.
+- Player escape preserves both entities and returns to a valid coordinate.
+- Damage, ammunition, consumables, and equipment survive the transition.
 
 ### P1-07: Loot And Inventory
 
-- The player can view equipped gear, backpack contents, capacity, and ground loot.
-- Items can be transferred between ground and backpack.
-- Items can be equipped, unequipped, consumed, and manually dropped.
-- Capacity overflow creates ground remnants rather than deleting items.
-- Firearm magazine and cycling state belongs to an item instance, not a shared
-  resource used by multiple entities.
+- The interface shows equipment, backpack, Capacity, and ground items.
+- Items can be taken, dropped, equipped, unequipped, and consumed.
+- Capacity overflow creates ground records instead of deleting items.
+- Firearm state belongs to Runtime Item Instances.
 
 ### P1-08: SEARCH
 
-- SEARCH is available through a minimal overworld action interface.
-- It advances world time and applies biological costs.
-- It resolves against a data-driven loot table selected by biome or POI.
-- Generated loot is placed in the hex's persistent ground inventory.
-- A searched location cannot produce unlimited loot unless explicitly configured
-  as renewable.
+- SEARCH is available through the macro interaction interface.
+- It advances World Time and applies biological costs.
+- Biome or POI state selects a data-driven Loot Profile.
+- Results enter persistent ground inventory.
+- Depletion prevents unlimited loot unless explicitly configured otherwise.
 
 ### P1-09: CAMP
 
-- CAMP is available only when the current hex satisfies its safety rules.
-- It advances world time and applies hunger, thirst, temperature, and encounter
-  consequences.
-- It reduces fatigue and performs only the healing explicitly allowed by the
-  Phase 1 rules.
-- The player can access inventory while camped.
+- Owner-side safety rules determine availability.
+- CAMP advances World Time and applies survival consequences.
+- Rest and healing follow explicit Phase 1 rules.
+- Installed gear persists on the Hex without duplication.
+- Inventory remains accessible while camped.
 
 ### P1-10: Save And Load
 
-- The save format has an explicit version number.
-- Saving captures the world seed, world time, player state, generated hex changes,
-  enemy records, searched/camped flags, and ground remnants.
-- Loading restores the player to the same coordinate with equivalent biology,
-  inventory, enemy, and loot state.
-- Loading does not duplicate generated enemies, POIs, or items.
+- The save format has an explicit version.
+- Saving captures seed, time, player state, Hex changes, enemies, interactions,
+  and ground items.
+- Loading restores equivalent position, biology, inventory, enemies, and loot.
+- Loading does not duplicate generated content.
 
 ### P1-11: Regression Verification
 
-- Automated tests cover inventory transfer and overflow.
-- Automated tests cover deterministic hex generation and search exhaustion.
-- Automated tests cover enemy unload/reload persistence.
-- Automated tests cover victory, defeat, and escape outcome routing.
-- One automated or scripted smoke test performs a save/load round trip.
+- Automated coverage includes inventory transfer and overflow.
+- Automated coverage includes deterministic generation and SEARCH depletion.
+- Automated coverage includes entity unload/reload persistence.
+- Automated coverage includes victory, defeat, and both escape paths.
+- A scripted smoke test performs a save/load round trip.
+
+## Current Status
+
+Status recorded on **June 10, 2026**:
+
+- **Ready to verify:** The implementation exists, but the complete acceptance
+  sequence has not been recorded as passing.
+- **Partial:** Some required behavior or coverage is still missing.
+- **Missing:** The required feature is not implemented.
+
+| Item | Status | Remaining proof or work |
+| --- | --- | --- |
+| P1-01 Startup | Ready to verify | Run from clean user data. |
+| P1-02 Movement | Ready to verify | Include in the integrated demonstration. |
+| P1-03 Runtime state | Ready to verify | Include combat and reload transitions. |
+| P1-04 Proximity loading | Ready to verify | Existing 100-step smoke coverage must remain green. |
+| P1-05 Combat | Ready to verify | Include player-issued victory, defeat, and escape. |
+| P1-06 Outcomes | Partial | Add defeat/recovery presentation and enemy-escape automation. |
+| P1-07 Inventory | Ready to verify | Include transfer, use, equipment, and spill behavior. |
+| P1-08 SEARCH | Ready to verify | Include depletion and persistent ground loot. |
+| P1-09 CAMP | Ready to verify | Include safety, installed gear, time, and biology. |
+| P1-10 Save/load | Missing | Implement versioned disk persistence and restoration. |
+| P1-11 Regression | Partial | Add defeat, enemy escape, and save/load coverage. |
+
+Existing smoke coverage includes runtime-state persistence, proximity loading,
+world time, weighted loot, macro interactions, inventory commands, combat
+commands, Reaction Windows, victory, and player escape.
+
+## Remaining Order
+
+1. Complete defeat/recovery presentation and enemy-escape routing.
+2. Implement versioned save/load.
+3. Add the missing outcome and save/load regression coverage.
+4. Run the required demonstration from clean user data.
 
 ## Required Demonstration
 
-The final Phase 1 demonstration must perform this sequence without editor
-intervention:
+The final acceptance run must complete without editor intervention:
 
-1. Start a new game.
-2. Move across at least five hexes.
-3. Encounter and defeat an enemy using player-issued actions.
-4. Transfer at least one dropped item into the player's backpack.
-5. SEARCH a valid location and collect its result.
-6. CAMP and verify that time and biological values change.
-7. Save and exit.
-8. Reload and verify position, injuries, inventory, searched state, enemy death,
-   and remaining ground loot.
+1. Start a new game and cross at least five hexes.
+2. Encounter and defeat an enemy using player-issued actions.
+3. Transfer dropped loot into the backpack.
+4. SEARCH a valid location and collect its result.
+5. CAMP and verify time and biological changes.
+6. Save and exit.
+7. Reload and verify position, injury, inventory, SEARCH state, enemy death, and
+   remaining ground loot.
 
-## Out Of Scope For Phase 1
+## Out Of Scope
 
 - Final art, animation, sound, and UI styling.
-- Full narrative content or dialogue systems.
+- Full narrative or dialogue systems.
 - Every declared combat action and reaction.
-- Squad combat beyond the minimum one-versus-one vertical slice.
+- Squad combat beyond the one-versus-one slice.
 - Advanced faction simulation or strategic world AI.
-- Multiple save slots, cloud saves, or migration from unreleased save formats.
-- Balance tuning beyond preventing obvious deadlocks and dominant test-only
-  behavior.
-
-## Implementation Order
-
-1. Repair integrated scene wiring and establish authoritative player state.
-2. Introduce persistent world, enemy, hex, and item-instance records.
-3. Correct combat ownership and outcome routing.
-4. Add deterministic proximity loading.
-5. Add biome/POI loot tables and world time.
-6. Implement SEARCH and CAMP.
-7. Build the minimum inventory and combat interfaces.
-8. Add versioned save/load.
-9. Automate the acceptance tests and run the required demonstration.
-
-## Current Baseline
-
-As of June 9, 2026, Phase 1 does not pass the definition of done:
-
-- The main scene initializes the persistent player and its two demo enemies.
-- The macro player now owns one authoritative `HumanoidCore` and inventory.
-- Integrated combat reuses that player state and assigns AI only to the enemy.
-- `RuntimeStateStore` now owns neutral player, enemy, hex, and ground-item records.
-- Enemy tokens are projections keyed by stable IDs and can be unloaded/reloaded
-  without deleting their records.
-- Runtime item instances now have unique IDs and isolated firearm state.
-- World-to-combat handoff uses enemy IDs, neutral snapshots, and
-  `GameEnums.CombatOutcome`.
-- Proximity loading now generates coordinate-stable encounter records, loads
-  tokens within radius 4, and unloads them beyond radius 6.
-- A 100-step traversal test verifies bounded enemy-token, tile, and POI-node
-  growth, living-enemy restoration, and dead-enemy persistence.
-- Entering the adjacent demo POI now opens an actual SEARCH/CAMP panel.
-- SEARCH supports three data-driven tool slots and resolves persistent depletion,
-  loot, injury, and hostile-attraction outcomes.
-- CAMP supports three persistent gear slots and calculates sleep, shelter,
-  healing, concealment, and alertness. Installed gear is removed from the
-  backpack and stored on the hex without duplication.
-- Entity collision now presents TALK or AMBUSH. TALK offers THREAT, ROB, and
-  CEASEFIRE; failed negotiation uses ordinary combat deployment.
-- AMBUSH allows far, standard, or close player deployment.
-- The collider receives opening initiative for both player- and enemy-initiated
-  encounters.
-- The player has no combat action interface, so an integrated duel waits on the
-  player's first turn.
-- Player defeat is distinguished and no longer returns control to normal macro
-  exploration, but a defeat/recovery screen is not implemented.
-- SEARCH and CAMP have a functional demo interface, but they do not yet advance
-  authoritative world time or use biome/POI loot-table resources.
-- A general inventory/ground-loot UI and save/load are absent.
-- Scripted smoke tests cover the macro-to-combat transition, item isolation,
-  token unload/reload, hex cache reconstruction, enemy runtime restoration,
-  persistent camp slots, search depletion, negotiation deployment, ambush
-  placement, and collider initiative. Broader outcome and save/load coverage is
-  still absent.
+- Multiple save slots, cloud saves, or migration from unreleased formats.
+- Balance tuning beyond preventing deadlocks and obvious dominant behavior.

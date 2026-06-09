@@ -1,74 +1,75 @@
 # ARCCROSS System Architecture
 
-Canonical project terminology and concept status are defined in
-[ARCCROSS_GLOSSARY.md](ARCCROSS_GLOSSARY.md).
+Canonical terminology is defined in [GLOSSARY.md](GLOSSARY.md). Delivery status
+belongs in [PHASE_1_EXECUTION_PLAN.md](PHASE_1_EXECUTION_PLAN.md).
 
-## Core Rule
+## Core Invariants
 
-`GameEnums` is the shared semantic vocabulary. Domain cores must not exchange
-ownership of their internal nodes or static resources.
+1. Each domain owns and validates its rules and mutable state.
+2. Cross-system communication uses `GameEnums` values, stable IDs, engine
+   primitives, neutral dictionaries or arrays, and signals.
+3. Static definitions are immutable. Runtime objects are unique records with
+   stable IDs.
+4. Presentation receives snapshots and emits intent. It never calculates
+   legality, resolves outcomes, or mutates authoritative state.
+5. Destroying a node or UI projection must not destroy the record it represents.
 
-`GameEnums` contains stable closed concepts that cross a system boundary or
-appear in neutral runtime records, plus the universal Base-12 scale constants.
-A domain may define private enums and rule tables when no other core needs to
-interpret them.
+`GameEnums` contains only closed categories that multiple domains must
+interpret, plus the universal Base-12 constants. It is not a glossary, content
+database, stat registry, or rule table.
 
-Cross-system communication uses:
-
-- Values defined by `GameEnums`
-- Stable string IDs
-- Engine primitives such as `Vector2i`
-- Neutral dictionaries and arrays
-- Signals
-- SystemCore orchestration services
-
-## Ownership
+## Domain Ownership
 
 ### SystemCore
 
 - Owns orchestration, factories, and authoritative runtime records.
-- May coordinate domain cores but must not move domain implementation into them.
-- `RuntimeStateStore` owns world, entity, hex, player, and ground-item records.
-- `GameDirector` translates signals between WorldCore and CombatCore.
+- `RuntimeStateStore` owns player, entity, hex, world-time, and ground-item
+  records.
+- `GameTimeRules` owns shared action durations and clock conversion.
+- `LootCatalog` translates ItemCore resources into neutral descriptors and
+  runtime item records.
+- `GameDirector` coordinates WorldCore and CombatCore through signals and
+  records.
 
 ### WorldCore
 
-- Owns hex generation, map presentation, movement, and token projection.
-- Enemy tokens contain an entity ID and presentation state only.
-- Deleting a token must never delete its entity record.
-- WorldCore owns macro interaction presentation and deterministic POI resolution.
-- WorldCore requests combat with a neutral setup dictionary containing IDs,
-  coordinates, `EncounterContext`, collider identity, and ambush position.
-- Encounter records are generated once using the world seed and axial coordinate.
-- Tokens load inside the active radius and unload outside a wider hysteresis
-  radius. Neither operation changes entity lifecycle state.
+- Owns hex generation, movement, macro presentation, proximity loading, POI
+  resolution, and macro interaction rules.
+- Selects Loot Profile IDs from biome and POI state without exposing ItemCore
+  resources to UI.
+- Creates encounter records deterministically from world seed and coordinates.
+- Treats tokens as projections; loading or unloading never changes entity life
+  state.
 
 ### CombatCore
 
-- Owns encounter flow, lanes, turns, AI, and resolution.
-- `CombatRules` owns combat-private AP categories, action-legality groups, lane
-  terrain/object enums, and AI weighting tables.
-- It may construct temporary biological combatants from neutral records.
-- It translates encounter context into lane placement and collider identity into
-  opening initiative.
-- It returns `GameEnums.CombatOutcome` and neutral runtime snapshots.
-- It does not mutate WorldCore tokens or world dictionaries directly.
+- Owns encounter flow, lanes, turns, AI, AP costs, action legality, reactions,
+  and combat resolution.
+- `CombatRules` contains combat-private categories and tuning tables.
+- `CombatCommandAdapter` translates neutral player intent into owner-validated
+  calls.
+- Returns only `GameEnums.CombatOutcome` and neutral runtime snapshots across
+  the system boundary.
 
 ### BiologicalCore
 
-- Owns anatomy, vitals, morale, stance, and biological runtime snapshots.
-- It may compose ItemCore through `InventorySystem`.
-- Biological equipment restrictions are supplied to ItemCore as a callback.
+- Owns anatomy, vitals, Morale, Stance, Trauma, and biological snapshots.
+- Composes ItemCore through `InventorySystem`.
+- Supplies biological equipment restrictions to ItemCore through callbacks.
 
 ### ItemCore
 
-- Owns item definitions, runtime item instances, loadouts, and inventory rules.
-- Static `.tres` files are immutable definitions.
-- Carried and equipped items are unique runtime copies with stable IDs.
-- Interaction tools expose data-only SEARCH and CAMP modifiers.
-- ItemCore does not import BiologicalCore, CombatCore, or WorldCore types.
+- Owns item definitions, Runtime Item Instances, loadouts, inventory rules, and
+  equipment calculations.
+- Keeps authored `.tres` resources immutable.
+- Stores mutable firearm and consumable state on unique runtime instances.
+- Authors Loot Profiles and data-only SEARCH or CAMP item modifiers.
+- Does not import BiologicalCore, CombatCore, or WorldCore types.
 
 ## Runtime Record Contracts
+
+Records may gain fields, but their ownership and neutral-data requirement must
+remain stable.
 
 ### Entity Record
 
@@ -120,59 +121,67 @@ ambush_position: GameEnums.AmbushPosition
 
 ## Macro Interaction Boundary
 
-- POI SEARCH uses `loot`, `safety`, and `sneak` metrics.
-- CAMP uses `sleep`, `shelter`, `healing`, `concealment`, and `alertness`.
-- The UI submits stable item-instance IDs. WorldCore validates those IDs against
-  the authoritative inventory before resolving an action.
-- CAMP gear is moved out of the player inventory and stored as item runtime
-  records on the hex. It is not duplicated.
-- TALK resolves to a `NegotiationOutcome`. Failure requests ordinary combat
-  deployment; success changes persistent `EntityWorldStatus`.
-- AMBUSH submits only `AmbushPosition`. CombatCore owns the actual lane indices.
-- The entity identified as the collider is placed first in the combat turn
-  ledger and receives opening initiative.
+- WorldCore produces SEARCH, CAMP, TALK, AMBUSH, and inventory snapshots.
+- Macro HUDs display those snapshots and emit stable command IDs, shared enum
+  values, and Runtime Item Instance IDs.
+- WorldCore revalidates every command against the authoritative player,
+  coordinate, inventory, hex, and encounter state.
+- `RuntimeStateStore` performs atomic record changes. BiologicalCore and
+  ItemCore apply their own effects and restrictions.
+- Movement, SEARCH, CAMP, and completed combat advance one authoritative clock;
+  BiologicalCore processes the same elapsed duration.
+- SEARCH selects a Loot Profile and places generated Runtime Item Instances in
+  persistent ground inventory.
+- CAMP moves installed gear from player inventory to the Hex Record; it never
+  duplicates items.
+- TALK changes persistent relationship or world status only after owner-side
+  resolution.
+- AMBUSH submits a deployment band. CombatCore chooses actual lane indices.
+- The collider receives opening initiative.
+
+## Combat Interaction Boundary
+
+- `CombatPanel` receives a neutral combat snapshot and legal-action descriptors.
+- Player commands contain an `ActionType` plus only the target or item IDs
+  required by that action.
+- `CombatCommandAdapter` revalidates commands before routing them to turn, lane,
+  inventory, biological, or resolution owners.
+- Passing may preserve unused AP as Reserved AP. An unresolved Reaction Window
+  blocks turn advancement.
+- CombatCore emits outcomes and runtime snapshots. SystemCore applies those
+  results to persistent world records.
+- Combat presentation never changes macro tokens, entity life state, AP costs,
+  or action legality directly.
 
 ## Dependency Direction
 
 ```text
-GameEnums
-   ^
-   |
+GameEnums is interpreted by every domain.
+
 ItemCore <- BiologicalCore <- CombatCore
                   ^
                   |
                WorldCore
 
-SystemCore coordinates every domain through neutral records and signals.
+SystemCore coordinates domains through neutral records and signals.
 ```
 
-Dependencies must remain one-directional. A lower-level core must not import a
-higher-level core to inspect its state. Owner-specific policy is injected through
-callbacks or handled by SystemCore.
+Dependencies remain one-directional. Lower-level domains do not import
+higher-level domains to inspect their state. Owner-specific policy is injected
+through callbacks or coordinated by SystemCore.
 
-## Enum And Stat Policy
+## Enum And Data Policy
 
-- Define and refine project language in `ARCCROSS_GLOSSARY.md` first. A term
-  enters `GameEnums` only when it is closed, shared, and categorical.
-- Use `GameEnums` for closed categories shared between cores, such as
-  `ActionType`, `CombatOutcome`, `Faction`, and `EncounterContext`.
-- `SCALE_MAX` and `SCALE_MIDPOINT` are the only non-enum entries: universal
-  numeric boundaries shared by every domain.
-- Keep domain-private categories beside their owning system. Other cores must not
+- Add a value to `GameEnums` only when the set is closed, categorical, and
+  interpreted by multiple domains or stored in a neutral record.
+- Keep domain-private categories beside their owner. Other domains must not
   depend on `CombatRules`.
-- Store measurable properties such as threat, weight, bulk, insulation, vision,
-  and protection as numeric data or derived calculations, not enum members.
-- Author abstract gameplay meters on the shared `0` to `12` scale. Convert them
-  to normalized ratios only inside the local formula that requires a ratio.
-- Preserve meaningful physical units, such as degrees Celsius. Physical values
-  must still derive their gameplay thresholds from explicit Base-12 rules.
-- Store extensible content such as occupations, traits, flaws, recipes, and POIs
-  as stable IDs or resources rather than expanding `GameEnums`.
-- The immutable genetic axes are represented by `GameEnums.Pillar`.
-
-## Current Boundary
-
-The Phase 1 architecture now enforces neutral records at the WorldCore-to-
-CombatCore boundary and removes the ItemCore-to-BiologicalCore dependency.
-Existing composition references inside combat and the macro player remain
-intentional until narrower interfaces replace them.
+- Store measurable properties such as Threat, Weight, Bulk, Insulation, vision,
+  and protection as numeric data or derived values.
+- Author abstract gameplay meters on `0` to `12`. Create normalized ratios only
+  inside formulas that need them.
+- Preserve meaningful physical units such as degrees Celsius.
+- Store extensible occupations, traits, flaws, recipes, POIs, and similar
+  content as stable IDs or resources.
+- Keep the four immutable genetic axes in `GameEnums.Pillar`; derived stats do
+  not become additional Pillars.
