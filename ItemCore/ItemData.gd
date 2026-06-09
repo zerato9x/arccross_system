@@ -38,9 +38,26 @@ class_name ItemData
 @export var consumable_effect: GameEnums.ConsumableEffect = GameEnums.ConsumableEffect.RESTORE_HUNGER
 @export var consumable_potency: float = 0.0 # How much it restores (0.0 to 1.0 scale)
 
+@export_group("Macro Interaction")
+@export var interaction_roles: Array[int] = []
+@export var search_loot_bonus: float = 0.0
+@export var search_safety_bonus: float = 0.0
+@export var search_sneak_bonus: float = 0.0
+@export_range(-27.0, 27.0) var camp_sleep_bonus: float = 0.0
+@export_range(-27.0, 27.0) var camp_shelter_bonus: float = 0.0
+@export_range(-27.0, 27.0) var camp_healing_bonus: float = 0.0
+@export_range(-27.0, 27.0) var camp_concealment_bonus: float = 0.0
+@export_range(-27.0, 27.0) var camp_alertness_bonus: float = 0.0
+
 @export_group("Firearm Mechanics")
 ## Pistols: Maximum rounds the internal magazine can hold. 0 = no internal magazine (Rifle).
 @export var max_magazine: int = 0
+## Initial rounds assigned when a runtime item instance is created.
+@export var starting_magazine: int = -1
+
+## Runtime identity. Static .tres definitions leave this empty.
+var instance_id: String = ""
+var template_path: String = ""
 ## Pistols: Current rounds remaining in the internal magazine.
 var current_magazine: int = 0
 ## Rifles: Whether the bolt needs cycling before the next shot.
@@ -53,3 +70,105 @@ func is_ranged() -> bool:
 ## Helper: Is this item a melee weapon?
 func is_melee() -> bool:
 	return weapon_type == GameEnums.WeaponClass.BLUNT or weapon_type == GameEnums.WeaponClass.BLADE
+
+func is_runtime_instance() -> bool:
+	return not instance_id.is_empty()
+
+func has_interaction_role(role: GameEnums.InteractionItemRole) -> bool:
+	return interaction_roles.has(role)
+
+func to_interaction_descriptor() -> Dictionary:
+	return {
+		"instance_id": instance_id,
+		"name": display_name,
+		"roles": interaction_roles.duplicate(),
+		"search": {
+			"loot": search_loot_bonus,
+			"safety": search_safety_bonus,
+			"sneak": search_sneak_bonus,
+		},
+		"camp": {
+			"sleep": camp_sleep_bonus,
+			"shelter": camp_shelter_bonus,
+			"healing": camp_healing_bonus,
+			"concealment": camp_concealment_bonus,
+			"alertness": camp_alertness_bonus,
+		},
+	}
+
+func create_runtime_instance() -> ItemData:
+	var instance := duplicate(true) as ItemData
+	instance.instance_id = "item_" + str(ResourceUID.create_id())
+	instance.template_path = template_path if not template_path.is_empty() else resource_path
+	instance.current_magazine = max_magazine if starting_magazine < 0 else starting_magazine
+	instance.needs_cycling = false
+	return instance
+
+func to_runtime_state() -> Dictionary:
+	return {
+		"instance_id": instance_id,
+		"template_path": template_path if not template_path.is_empty() else resource_path,
+		"current_magazine": current_magazine,
+		"needs_cycling": needs_cycling,
+		"definition": to_definition_state(),
+	}
+
+func to_definition_state() -> Dictionary:
+	return {
+		"id": id,
+		"display_name": display_name,
+		"lore_description": lore_description,
+		"item_type": item_type,
+		"size_cost": size_cost,
+		"capacity_bonus": capacity_bonus,
+		"target_slot": target_slot,
+		"requires_two_hands": requires_two_hands,
+		"weapon_type": weapon_type,
+		"damage_type": damage_type,
+		"flesh_damage": flesh_damage,
+		"stance_damage": stance_damage,
+		"armor_penetration": armor_penetration,
+		"protection_blunt": protection_blunt,
+		"protection_sharp": protection_sharp,
+		"protection_ballistic": protection_ballistic,
+		"bulk": bulk,
+		"weight": weight,
+		"threat": threat,
+		"insulation": insulation,
+		"consumable_effect": consumable_effect,
+		"consumable_potency": consumable_potency,
+		"interaction_roles": interaction_roles.duplicate(),
+		"search_loot_bonus": search_loot_bonus,
+		"search_safety_bonus": search_safety_bonus,
+		"search_sneak_bonus": search_sneak_bonus,
+		"camp_sleep_bonus": camp_sleep_bonus,
+		"camp_shelter_bonus": camp_shelter_bonus,
+		"camp_healing_bonus": camp_healing_bonus,
+		"camp_concealment_bonus": camp_concealment_bonus,
+		"camp_alertness_bonus": camp_alertness_bonus,
+		"max_magazine": max_magazine,
+		"starting_magazine": starting_magazine,
+	}
+
+static func from_runtime_state(state: Dictionary) -> ItemData:
+	var item: ItemData
+	var source_path: String = state.get("template_path", "")
+	if not source_path.is_empty() and ResourceLoader.exists(source_path):
+		item = load(source_path) as ItemData
+
+	if item:
+		item = item.create_runtime_instance()
+	else:
+		item = ItemData.new()
+		item._apply_definition_state(state.get("definition", {}))
+		item.instance_id = "item_" + str(ResourceUID.create_id())
+
+	item.instance_id = state.get("instance_id", item.instance_id)
+	item.template_path = source_path
+	item.current_magazine = state.get("current_magazine", item.current_magazine)
+	item.needs_cycling = state.get("needs_cycling", false)
+	return item
+
+func _apply_definition_state(state: Dictionary) -> void:
+	for property_name in state.keys():
+		set(property_name, state[property_name])

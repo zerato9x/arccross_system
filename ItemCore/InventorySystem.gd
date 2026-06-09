@@ -16,8 +16,8 @@ var current_size: int = 0
 var backpack_array: Array[ItemData] = []
 var paper_doll: Dictionary = {}
 
-# We need to know about the meat to enforce the Black Knight rule
-var _body_ref: HumanoidBody
+## Optional owner-supplied policy. ItemCore does not import biological types.
+var equipment_validator: Callable
 
 func _ready() -> void:
 	# Dynamically build the paper doll so you aren't walking around pantsless
@@ -25,15 +25,15 @@ func _ready() -> void:
 		if slot != GameEnums.EquipmentSlot.NONE:
 			paper_doll[slot] = null
 			
-	_body_ref = get_parent().get_node_or_null("HumanoidBody")
 	_recalculate_bounds()
 
 # ---------------------------------------------------------
 # CORE OPERATIONS
 # ---------------------------------------------------------
 func add_to_backpack(item: ItemData) -> bool:
-	if current_size + item.size_cost <= current_max_capacity:
-		backpack_array.append(item)
+	var runtime_item := _ensure_runtime_item(item)
+	if current_size + runtime_item.size_cost <= current_max_capacity:
+		backpack_array.append(runtime_item)
 		_recalculate_bounds()
 		return true
 		
@@ -41,18 +41,19 @@ func add_to_backpack(item: ItemData) -> bool:
 	return false
 
 func equip_item(item: ItemData, slot: GameEnums.EquipmentSlot) -> bool:
+	var runtime_item := _ensure_runtime_item(item)
 	if not paper_doll.has(slot):
 		inventory_error.emit("You can't wear that there.")
 		return false
 		
-	# THE BLACK KNIGHT PRE-CHECK
-	if item.requires_two_hands and _body_ref and not _body_ref.has_functional_arms():
-		inventory_error.emit("You lack the necessary biological hardware to hold this.")
-		return false
+	if equipment_validator.is_valid():
+		if not equipment_validator.call(runtime_item, slot):
+			inventory_error.emit("The owning system rejected this equipment change.")
+			return false
 		
 	# THE 2-WEAPON RULE: Only 1 Melee and 1 Ranged allowed.
-	if item.item_type == GameEnums.ItemType.WEAPON:
-		var is_equipping_melee = item.is_melee()
+	if runtime_item.item_type == GameEnums.ItemType.WEAPON:
+		var is_equipping_melee = runtime_item.is_melee()
 		for existing_slot in paper_doll.keys():
 			if existing_slot == slot: continue
 			var existing = paper_doll[existing_slot]
@@ -64,16 +65,16 @@ func equip_item(item: ItemData, slot: GameEnums.EquipmentSlot) -> bool:
 					inventory_error.emit("You can only carry one firearm. Unequip the other first.")
 					return false
 
-	if backpack_array.has(item):
-		backpack_array.erase(item)
+	if backpack_array.has(runtime_item):
+		backpack_array.erase(runtime_item)
 
 	var old_item: ItemData = paper_doll[slot]
 	if old_item != null:
 		if not add_to_backpack(old_item):
 			items_spilled.emit([old_item])
 			
-	paper_doll[slot] = item
-	equipment_changed.emit(slot, item)
+	paper_doll[slot] = runtime_item
+	equipment_changed.emit(slot, runtime_item)
 	_recalculate_bounds()
 	return true
 
@@ -183,6 +184,36 @@ func get_active_weapon(requires_melee: bool) -> ItemData:
 					return item
 	return null
 
+func get_all_items() -> Array[ItemData]:
+	var items: Array[ItemData] = []
+	items.append_array(backpack_array)
+	for item in paper_doll.values():
+		if item != null:
+			items.append(item)
+	return items
+
+func find_item_by_instance_id(instance_id: String) -> ItemData:
+	for item in get_all_items():
+		if item.instance_id == instance_id:
+			return item
+	return null
+
+func remove_item_by_instance_id(instance_id: String) -> ItemData:
+	for item in backpack_array:
+		if item.instance_id == instance_id:
+			backpack_array.erase(item)
+			_recalculate_bounds()
+			return item
+
+	for slot in paper_doll.keys():
+		var equipped: ItemData = paper_doll[slot]
+		if equipped != null and equipped.instance_id == instance_id:
+			paper_doll[slot] = null
+			equipment_changed.emit(slot, null)
+			_recalculate_bounds()
+			return equipped
+	return null
+
 # ---------------------------------------------------------
 # CONSUMABLE USAGE
 # ---------------------------------------------------------
@@ -201,5 +232,52 @@ func use_consumable(item: ItemData) -> bool:
 	backpack_array.erase(item)
 	_recalculate_bounds()
 	
-	# The actual metabolic effect is applied by HumanoidCore after this returns
+	# The owning system applies the domain-specific effect after this returns.
 	return true
+
+# ---------------------------------------------------------
+# RUNTIME STATE CONTRACT
+# ---------------------------------------------------------
+
+func capture_runtime_state() -> Dictionary:
+	var equipment_state: Dictionary = {}
+	for slot in paper_doll.keys():
+		var item: ItemData = paper_doll[slot]
+		if item != null:
+			equipment_state[str(slot)] = item.to_runtime_state()
+
+	var backpack_state: Array = []
+	for item in backpack_array:
+		backpack_state.append(item.to_runtime_state())
+
+	return {
+		"base_max_capacity": base_max_capacity,
+		"equipment": equipment_state,
+		"backpack": backpack_state,
+	}
+
+func restore_runtime_state(state: Dictionary) -> void:
+	base_max_capacity = state.get("base_max_capacity", base_max_capacity)
+	backpack_array.clear()
+
+	for slot in paper_doll.keys():
+		paper_doll[slot] = null
+
+	var equipment_state: Dictionary = state.get("equipment", {})
+	for slot_key in equipment_state.keys():
+		var slot := int(slot_key)
+		if paper_doll.has(slot):
+			paper_doll[slot] = ItemData.from_runtime_state(equipment_state[slot_key])
+
+	for item_state in state.get("backpack", []):
+		backpack_array.append(ItemData.from_runtime_state(item_state))
+
+	_recalculate_bounds()
+
+func _ensure_runtime_item(item: ItemData) -> ItemData:
+	if item.is_runtime_instance():
+		return item
+	return item.create_runtime_instance()
+
+func set_equipment_validator(validator: Callable) -> void:
+	equipment_validator = validator

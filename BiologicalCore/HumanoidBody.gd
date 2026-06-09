@@ -116,3 +116,35 @@ func get_motor_efficiency() -> float:
 
 func has_functional_arms() -> bool:
 	return limb_hp[GameEnums.LimbRegion.LEFT_ARM] > 0 and limb_hp[GameEnums.LimbRegion.RIGHT_ARM] > 0
+
+func capture_runtime_state() -> Dictionary:
+	var hp_state: Dictionary = {}
+	var trauma_state: Dictionary = {}
+	for limb in limb_hp.keys():
+		hp_state[str(limb)] = limb_hp[limb]
+		trauma_state[str(limb)] = limb_trauma[limb]
+
+	return {
+		"limb_hp": hp_state,
+		"limb_trauma": trauma_state,
+		"core_temperature": core_temperature,
+		"blood_level": blood_level,
+		"hunger": hunger,
+		"thirst": thirst,
+		"fatigue": fatigue,
+	}
+
+func restore_runtime_state(state: Dictionary) -> void:
+	var hp_state: Dictionary = state.get("limb_hp", {})
+	for limb_key in hp_state.keys():
+		limb_hp[int(limb_key)] = hp_state[limb_key]
+
+	var trauma_state: Dictionary = state.get("limb_trauma", {})
+	for limb_key in trauma_state.keys():
+		limb_trauma[int(limb_key)] = trauma_state[limb_key]
+
+	core_temperature = state.get("core_temperature", core_temperature)
+	blood_level = state.get("blood_level", blood_level)
+	hunger = state.get("hunger", hunger)
+	thirst = state.get("thirst", thirst)
+	fatigue = state.get("fatigue", fatigue)

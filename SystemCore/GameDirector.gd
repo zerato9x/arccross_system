@@ -7,69 +7,82 @@ class_name GameDirector
 
 var _active_arena: Node = null
 var _combat_coords: Vector2i = Vector2i.ZERO
+var _combat_enemy_id: String = ""
+var _combat_request: Dictionary = {}
+var _world_state: RuntimeStateStore
 
 func _ready() -> void:
+	_world_state = get_node("/root/WorldState") as RuntimeStateStore
 	if not macro_map or not duel_scene:
 		push_error("Director is blind. Assign the Macro Map and Duel Scene in the inspector.")
 		return
 		
-	# Wire up the Director to listen to the Map
-	macro_map.combat_interception.connect(_on_combat_interception)
+	macro_map.combat_requested.connect(_on_combat_requested)
 
-func _on_combat_interception(player_def: EntityDefinition, enemy_def: EntityDefinition, coords: Vector2i) -> void:
-	print("\n[DIRECTOR] Interception caught! Stopping macro world...")
+func _on_combat_requested(request: Dictionary) -> void:
+	var enemy_id: String = request.get("enemy_id", "")
+	var coords: Vector2i = request.get("coords", Vector2i.ZERO)
+	print("\n[DIRECTOR] Combat request accepted. Stopping macro world...")
 	set_process_unhandled_input(false)
 	macro_map.hide()
 	_combat_coords = coords
+	_combat_enemy_id = enemy_id
+	_combat_request = request.duplicate(true)
 	
 	_active_arena = duel_scene.instantiate()
 	add_child(_active_arena)
 	
-	# Wire up the resolution signal before starting the duel
-	_active_arena.duel_resolved.connect(_on_duel_resolved)
-	_active_arena.duel_escaped.connect(_on_duel_escaped)
+	_active_arena.duel_finished.connect(_on_duel_finished)
 	
-	# Pass the genetics data to the combat controller before building the duel
-	_active_arena.setup_duel(player_def, enemy_def)
+	var enemy_record := _world_state.get_entity(enemy_id)
+	_active_arena.setup_duel(
+		macro_map.player_token.get_humanoid_core(),
+		enemy_record,
+		_combat_request
+	)
 
-func _on_duel_resolved(winner: HumanoidCore, loser: HumanoidCore, dropped_loot: Array[ItemData]) -> void:
-	print("\n[DIRECTOR] Duel resolved. Cleaning up and returning to the Macro Map...")
-	
-	# 1. Deposit any dropped loot into the macro map remnants
-	if dropped_loot.size() > 0 and macro_map:
-		if not macro_map.active_map_remnants.has(_combat_coords):
-			macro_map.active_map_remnants[_combat_coords] = []
-		macro_map.active_map_remnants[_combat_coords].append_array(dropped_loot)
-		print("[DIRECTOR] Deposited ", dropped_loot.size(), " items as map remnants at ", _combat_coords)
-	
-	# 2. Remove the defeated enemy from the macro map tracker
-	if macro_map.active_enemies.has(_combat_coords):
-		var enemy_token = macro_map.active_enemies[_combat_coords]
-		enemy_token.queue_free()
-		macro_map.active_enemies.erase(_combat_coords)
-		print("[DIRECTOR] Cleared enemy token from hex ", _combat_coords)
-	
-	# 3. Tear down the combat arena
-	if _active_arena:
-		_active_arena.queue_free()
-		_active_arena = null
-	
-	# 4. Bring the overworld back online
-	macro_map.show()
-	macro_map.set_process_unhandled_input(true)
-	print("[DIRECTOR] Macro map re-enabled. The wasteland awaits.")
-	
-func _on_duel_escaped(escaper: HumanoidCore) -> void:
-	print("\n[DIRECTOR] Duel ended via escape. The coward lives to fight another day.")
-	
-	# We intentionally DO NOT queue_free() the enemy token on the macro map
-	# so they can be encountered again.
-	
-	if _active_arena:
-		_active_arena.queue_free()
-		_active_arena = null
-		
+func _on_duel_finished(
+	outcome: GameEnums.CombatOutcome,
+	enemy_id: String,
+	enemy_runtime: Dictionary,
+	dropped_items: Array
+) -> void:
+	print("\n[DIRECTOR] Duel finished with outcome: ", GameEnums.CombatOutcome.keys()[outcome])
+	_world_state.update_entity_runtime(enemy_id, enemy_runtime)
+	_world_state.update_player_runtime(
+		macro_map.player_token.get_humanoid_core().capture_runtime_state(),
+		macro_map.player_token.current_hex_coords
+	)
+
+	if dropped_items.size() > 0:
+		macro_map.add_ground_item_states(_combat_coords, dropped_items)
+
+	match outcome:
+		GameEnums.CombatOutcome.PLAYER_VICTORY:
+			_world_state.set_entity_life_state(
+				enemy_id,
+				GameEnums.EntityLifeState.DEAD
+			)
+			macro_map.unload_enemy_token(_combat_coords)
+		GameEnums.CombatOutcome.PLAYER_DEFEAT:
+			_teardown_arena()
+			macro_map.show()
+			macro_map.set_process_unhandled_input(false)
+			print("[DIRECTOR] Player defeat preserved. Macro input remains disabled.")
+			return
+		GameEnums.CombatOutcome.PLAYER_ESCAPED, GameEnums.CombatOutcome.ENEMY_ESCAPED:
+			pass
+		GameEnums.CombatOutcome.DRAW:
+			pass
+
+	_teardown_arena()
 	macro_map.show()
 	macro_map.set_process_unhandled_input(true)
 	print("[DIRECTOR] Macro map re-enabled.")
+
+func _teardown_arena() -> void:
+	if _active_arena:
+		_active_arena.queue_free()
+		_active_arena = null
+	_combat_request.clear()
 	

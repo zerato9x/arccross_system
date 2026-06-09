@@ -1,20 +1,24 @@
 extends Node2D
 class_name MacroEnemy
 
-@export var definition: EntityDefinition
-
+var entity_id: String = ""
 var current_hex_coords: Vector2i = Vector2i(0, 0)
 
 func snap_to_hex(coords: Vector2i, pixel_position: Vector2) -> void:
 	current_hex_coords = coords
 	position = pixel_position
 
-## Initialize from a procedurally generated EntityDefinition (from MobSpawner).
-func setup_from_definition(def: EntityDefinition) -> void:
-	definition = def
+## Initialize presentation from a neutral persistent record.
+func setup_from_record(record: Dictionary) -> void:
+	entity_id = record.get("entity_id", "")
+	var definition_state: Dictionary = record.get("definition", {})
+	var faction: GameEnums.Faction = definition_state.get(
+		"faction",
+		GameEnums.Faction.UNALIGNED
+	)
 	
 	# Faction color tint on top of the default sprite
-	match def.faction:
+	match faction:
 		GameEnums.Faction.CRAVEN_HIVE:
 			modulate = Color(0.7, 0.2, 0.2) # Red tint for Cravens
 		GameEnums.Faction.ARCBORN_RESISTANCE:

@@ -42,11 +42,22 @@ func _load_item_pool() -> void:
 
 ## Rolls a Base-12 attribute with a bell curve centered on the given average.
 ## Uses 2d6 distribution (2-12 range, peaking at 7) offset by the faction bias.
-func _roll_attribute(average: int, variance: int = 3) -> int:
+func _roll_attribute(
+	average: int,
+	variance: int = 3,
+	rng: RandomNumberGenerator = null
+) -> int:
 	# Bell curve: roll two dice and average with the target
-	var roll: int = (randi() % 6 + 1) + (randi() % 6 + 1) # 2d6: 2-12
+	var first_die := rng.randi_range(1, 6) if rng else randi_range(1, 6)
+	var second_die := rng.randi_range(1, 6) if rng else randi_range(1, 6)
+	var roll: int = first_die + second_die
 	var result: int = int((roll + average) / 2.0)
-	return clampi(result + randi_range(-variance, variance) / 2, 1, 12)
+	var variance_roll := (
+		rng.randi_range(-variance, variance)
+		if rng
+		else randi_range(-variance, variance)
+	)
+	return clampi(result + variance_roll / 2, 1, 12)
 
 # ---------------------------------------------------------
 # LOADOUT GENERATORS (Faction-Specific Gear Tables)
@@ -76,21 +87,28 @@ func _build_loadout(weapon_id: String, armor_ids: Array[String], consumable_ids:
 	return loadout
 
 ## Generate a random SCAVENGER loadout.
-func _generate_scavenger_loadout() -> SpawnLoadout:
+func _generate_scavenger_loadout(rng: RandomNumberGenerator = null) -> SpawnLoadout:
 	var weapons: Array[String] = ["rusty_pipe", "makeshift_sidearm"]
-	var chosen_weapon: String = weapons[randi() % weapons.size()]
+	var weapon_index := rng.randi_range(0, weapons.size() - 1) if rng else randi() % weapons.size()
+	var chosen_weapon: String = weapons[weapon_index]
 	
 	# Scavengers always have a coat and boots, sometimes greaves
 	var armor: Array[String] = ["scavenger_coat", "combat_boots"]
-	if randf() > 0.4:
+	var armor_roll := rng.randf() if rng else randf()
+	if armor_roll > 0.4:
 		armor.append("scavenger_greaves")
 	
 	# Random consumable roll (1-3 items)
 	var consumables: Array[String] = []
 	var possible_cons: Array[String] = ["ration_bar", "clean_water", "blood_bag"]
-	var num_cons: int = randi_range(1, 3)
+	var num_cons: int = rng.randi_range(1, 3) if rng else randi_range(1, 3)
 	for i in range(num_cons):
-		consumables.append(possible_cons[randi() % possible_cons.size()])
+		var item_index := (
+			rng.randi_range(0, possible_cons.size() - 1)
+			if rng
+			else randi() % possible_cons.size()
+		)
+		consumables.append(possible_cons[item_index])
 	
 	return _build_loadout(chosen_weapon, armor, consumables)
 
@@ -112,28 +130,32 @@ func _generate_craven_loadout() -> SpawnLoadout:
 # ---------------------------------------------------------
 
 ## Spawn a fully procedural EntityDefinition with randomized genetics and gear.
-func generate_mob(faction: GameEnums.Faction, difficulty_bias: int = 0) -> EntityDefinition:
+func generate_mob(
+	faction: GameEnums.Faction,
+	difficulty_bias: int = 0,
+	rng: RandomNumberGenerator = null
+) -> EntityDefinition:
 	var def = EntityDefinition.new()
 	
 	match faction:
 		GameEnums.Faction.SCAVENGER_CELL:
-			def.archetype_name = _pick_scavenger_name()
+			def.archetype_name = _pick_scavenger_name(rng)
 			def.faction = faction
 			def.agenda = GameEnums.Agenda.SURVIVALIST
-			def.brawn = _roll_attribute(5 + difficulty_bias)
-			def.finesse = _roll_attribute(6 + difficulty_bias)
-			def.fortitude = _roll_attribute(4 + difficulty_bias)
-			def.will = _roll_attribute(3 + difficulty_bias)
-			def.loadout = _generate_scavenger_loadout()
+			def.brawn = _roll_attribute(5 + difficulty_bias, 3, rng)
+			def.finesse = _roll_attribute(6 + difficulty_bias, 3, rng)
+			def.fortitude = _roll_attribute(4 + difficulty_bias, 3, rng)
+			def.will = _roll_attribute(3 + difficulty_bias, 3, rng)
+			def.loadout = _generate_scavenger_loadout(rng)
 			
 		GameEnums.Faction.ARCBORN_RESISTANCE:
-			def.archetype_name = _pick_arcborn_name()
+			def.archetype_name = _pick_arcborn_name(rng)
 			def.faction = faction
 			def.agenda = GameEnums.Agenda.BELLIGERENT
-			def.brawn = _roll_attribute(7 + difficulty_bias)
-			def.finesse = _roll_attribute(7 + difficulty_bias)
-			def.fortitude = _roll_attribute(6 + difficulty_bias)
-			def.will = _roll_attribute(8 + difficulty_bias)
+			def.brawn = _roll_attribute(7 + difficulty_bias, 3, rng)
+			def.finesse = _roll_attribute(7 + difficulty_bias, 3, rng)
+			def.fortitude = _roll_attribute(6 + difficulty_bias, 3, rng)
+			def.will = _roll_attribute(8 + difficulty_bias, 3, rng)
 			def.arc_tier = GameEnums.ArcbornTier.TIER_1
 			def.max_arc_energy = 6.0
 			def.red_mist_resistance = 0.3
@@ -143,9 +165,9 @@ func generate_mob(faction: GameEnums.Faction, difficulty_bias: int = 0) -> Entit
 			def.archetype_name = "Craven Thrall"
 			def.faction = faction
 			def.agenda = GameEnums.Agenda.MINDLESS
-			def.brawn = _roll_attribute(9 + difficulty_bias) # Muscle mutation
-			def.finesse = _roll_attribute(3) # Clumsy, feral
-			def.fortitude = _roll_attribute(10 + difficulty_bias) # Hard to kill
+			def.brawn = _roll_attribute(9 + difficulty_bias, 3, rng) # Muscle mutation
+			def.finesse = _roll_attribute(3, 3, rng) # Clumsy, feral
+			def.fortitude = _roll_attribute(10 + difficulty_bias, 3, rng) # Hard to kill
 			def.will = 1 # No willpower, pure instinct
 			def.red_mist_resistance = 0.0
 			def.loadout = _generate_craven_loadout()
@@ -154,14 +176,43 @@ func generate_mob(faction: GameEnums.Faction, difficulty_bias: int = 0) -> Entit
 			def.archetype_name = "Drifter"
 			def.faction = GameEnums.Faction.UNALIGNED
 			def.agenda = GameEnums.Agenda.SURVIVALIST
-			def.brawn = _roll_attribute(6 + difficulty_bias)
-			def.finesse = _roll_attribute(6 + difficulty_bias)
-			def.fortitude = _roll_attribute(6 + difficulty_bias)
-			def.will = _roll_attribute(6 + difficulty_bias)
-			def.loadout = _generate_scavenger_loadout()
+			def.brawn = _roll_attribute(6 + difficulty_bias, 3, rng)
+			def.finesse = _roll_attribute(6 + difficulty_bias, 3, rng)
+			def.fortitude = _roll_attribute(6 + difficulty_bias, 3, rng)
+			def.will = _roll_attribute(6 + difficulty_bias, 3, rng)
+			def.loadout = _generate_scavenger_loadout(rng)
 	
 	print("[MOB SPAWNER] Generated: ", def.archetype_name, " | B:", def.brawn, " F:", def.finesse, " T:", def.fortitude, " W:", def.will)
 	return def
+
+## Generate a neutral persistent record. WorldCore never needs the biological
+## definition object; CombatCore reconstructs it only when an encounter starts.
+func generate_mob_record(
+	coords: Vector2i,
+	faction: GameEnums.Faction,
+	difficulty_bias: int = 0,
+	deterministic_key: String = ""
+) -> Dictionary:
+	var rng: RandomNumberGenerator = null
+	if not deterministic_key.is_empty():
+		rng = RandomNumberGenerator.new()
+		rng.seed = deterministic_key.hash()
+
+	var definition := generate_mob(faction, difficulty_bias, rng)
+	var entity_id := (
+		"entity_" + str(abs(deterministic_key.hash()))
+		if not deterministic_key.is_empty()
+		else "entity_" + str(ResourceUID.create_id())
+	)
+	return {
+		"entity_id": entity_id,
+		"kind": GameEnums.RuntimeEntityKind.NPC,
+		"life_state": GameEnums.EntityLifeState.ALIVE,
+		"world_status": GameEnums.EntityWorldStatus.HOSTILE,
+		"coords": coords,
+		"definition": definition.to_state(),
+		"runtime": {},
+	}
 
 ## Convenience: spawn N mobs of a faction and return them as an array.
 func generate_mob_squad(faction: GameEnums.Faction, count: int, difficulty_bias: int = 0) -> Array[EntityDefinition]:
@@ -174,17 +225,19 @@ func generate_mob_squad(faction: GameEnums.Faction, count: int, difficulty_bias:
 # NAME GENERATORS (Lore Flavor)
 # ---------------------------------------------------------
 
-func _pick_scavenger_name() -> String:
+func _pick_scavenger_name(rng: RandomNumberGenerator = null) -> String:
 	var names: Array[String] = [
 		"Rattler", "Dustmouth", "Hollowjack", "Gutspill", "Needlefingers",
 		"Ashburn", "Plagueknot", "Splintertooth", "Mudblood", "Blacklung",
 		"Rotgut", "Scrapjaw", "Bonesaw", "Fleshpenny", "Grimewalker"
 	]
-	return names[randi() % names.size()]
+	var index := rng.randi_range(0, names.size() - 1) if rng else randi() % names.size()
+	return names[index]
 
-func _pick_arcborn_name() -> String:
+func _pick_arcborn_name(rng: RandomNumberGenerator = null) -> String:
 	var names: Array[String] = [
 		"Warden Kael", "Striker Voss", "Arc-Sentry Mira", "Breacher Thorne",
 		"Operative Sable", "Conduit Ashara", "Arc-Shield Grent", "Pathfinder Lyrae"
 	]
-	return names[randi() % names.size()]
+	var index := rng.randi_range(0, names.size() - 1) if rng else randi() % names.size()
+	return names[index]

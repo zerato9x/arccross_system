@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "crowbar"
+display_name = "Salvage Crowbar"
+lore_description = "Excellent leverage, poor subtlety. Opens stubborn structures and announces the attempt."
+item_type = 4
+size_cost = 1
+interaction_roles = Array[int]([1])
+search_loot_bonus = 0.28
+search_safety_bonus = -0.12
+search_sneak_bonus = -0.2

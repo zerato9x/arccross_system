@@ -117,21 +117,21 @@ var lane_manager: CombatLaneManager
 # ---------------------------------------------------------
 
 func initialize_duel(combatant_array: Array[HumanoidCore], initiator: HumanoidCore = null) -> void:
-	combatants = combatant_array
+	combatants = combatant_array.duplicate()
+	if initiator and combatants.has(initiator):
+		combatants.erase(initiator)
+		combatants.push_front(initiator)
 	
 	# Initialize reserved AP pools
 	for entity in combatants:
 		reserved_ap[entity] = 0
 	
 	if initiator and combatants.has(initiator):
-		# Force the initiator to be index 0
-		active_entity_index = combatants.find(initiator)
 		print("INITIATIVE OVERRIDE: ", initiator.name, " dictates the engagement!")
 	else:
-		# Standard fallback: You would roll Dexterity + Weight penalty here
-		active_entity_index = 0 
 		print("NEUTRAL INITIATIVE: Standard combat order applied.")
-		
+
+	active_entity_index = 0
 	start_new_round()
 
 func start_new_round() -> void:

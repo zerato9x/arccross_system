@@ -4,10 +4,23 @@ class_name EncounterBuilder
 @export var lane_manager: CombatLaneManager
 @export var turn_manager: CombatTurnManager
 
-func build_encounter(player: HumanoidCore, enemy: HumanoidCore, context: GameEnums.EncounterContext) -> void:
+func build_encounter(
+	player: HumanoidCore,
+	enemy: HumanoidCore,
+	setup: Dictionary = {}
+) -> void:
 	print("\n--- CONSTRUCTING ENCOUNTER ---")
 	
 	var initiator: HumanoidCore = null
+	var context: GameEnums.EncounterContext = setup.get(
+		"context",
+		GameEnums.EncounterContext.NEUTRAL_MEET
+	)
+	var initiator_id: String = setup.get("initiator_id", "")
+	if initiator_id == "player":
+		initiator = player
+	elif not initiator_id.is_empty():
+		initiator = enemy
 	
 	# The mathematical grid bounds for where entities are allowed to spawn based on context
 	var player_spawn_idx: int
@@ -17,28 +30,31 @@ func build_encounter(player: HumanoidCore, enemy: HumanoidCore, context: GameEnu
 		GameEnums.EncounterContext.NEUTRAL_MEET:
 			player_spawn_idx = 2
 			enemy_spawn_idx = 9
-			# initiator = null (The clock will roll for dexterity)
 			
 		GameEnums.EncounterContext.PLAYER_AMBUSH:
-			# Player starts practically on top of the enemy, Enemy is pushed back
-			player_spawn_idx = 4
+			var ambush_position: GameEnums.AmbushPosition = setup.get(
+				"ambush_position",
+				GameEnums.AmbushPosition.STANDARD
+			)
+			match ambush_position:
+				GameEnums.AmbushPosition.FAR:
+					player_spawn_idx = 1
+				GameEnums.AmbushPosition.CLOSE:
+					player_spawn_idx = 4
+				_:
+					player_spawn_idx = 3
 			enemy_spawn_idx = 7
-			initiator = player
 			print("Context: Player initiated an Ambush.")
 			
 		GameEnums.EncounterContext.ENEMY_AMBUSH:
-			# Player is caught near their escape grid, Enemy is aggressively pushed up
 			player_spawn_idx = 1
-			enemy_spawn_idx = 5 # Right on the edge of the void
-			initiator = enemy
+			enemy_spawn_idx = 5
 			print("Context: Enemy initiated an Ambush.")
 			
 		GameEnums.EncounterContext.DIALOGUE_BREAKDOWN:
-			# A mugging gone wrong. They are literally one step away from a Melee Lock.
-			player_spawn_idx = 4
-			enemy_spawn_idx = 7
-			# initiator = whoever failed the speech check (You pass this logic later)
-			print("Context: Negotiations failed. Close quarters combat.")
+			player_spawn_idx = 2
+			enemy_spawn_idx = 9
+			print("Context: Negotiations failed. Ordinary deployment.")
 
 	# 1. Place the bodies in the mud
 	lane_manager.force_spawn_entity(player, player_spawn_idx)

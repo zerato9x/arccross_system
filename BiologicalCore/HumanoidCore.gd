@@ -63,6 +63,7 @@ func _ready() -> void:
 	
 	# Wire up the Vault feedback loop
 	inventory.capacity_updated.connect(_on_inventory_weight_shifted)
+	inventory.set_equipment_validator(_can_equip_item)
 func _on_metabolic_crisis(condition: GameEnums.MetabolicCondition, severity: float) -> void:
 	_calculate_kinetic_burden()
 	
@@ -202,6 +203,11 @@ func _validate_equipment_requirements() -> void:
 	if held_item != null and held_item.requires_two_hands:
 		print(name, " physically cannot hold [", held_item.display_name, "] with one arm!")
 		inventory.unequip_item(GameEnums.EquipmentSlot.HANDS) # Vault handles spill-over automatically
+
+func _can_equip_item(item: ItemData, _slot: GameEnums.EquipmentSlot) -> bool:
+	if item.requires_two_hands and not body.has_functional_arms():
+		return false
+	return true
 
 # ---------------------------------------------------------
 # DYNAMIC ACTION POINT MATH
@@ -380,3 +386,47 @@ func _on_vital_failure(reason: String) -> void:
 	current_max_ap = 0
 	print(name, " has flatlined. Cause: ", reason)
 	died.emit(reason)
+
+# ---------------------------------------------------------
+# RUNTIME STATE CONTRACT
+# ---------------------------------------------------------
+
+func capture_runtime_state() -> Dictionary:
+	return {
+		"body": body.capture_runtime_state(),
+		"inventory": inventory.capture_runtime_state(),
+		"base_ap": base_ap,
+		"current_max_ap": current_max_ap,
+		"is_dead": is_dead,
+		"stance_points": stance_points,
+		"current_morale": current_morale,
+		"is_fleeing": is_fleeing,
+		"is_escaping": is_escaping,
+		"current_arc_energy": current_arc_energy,
+		"red_mist_corruption": red_mist_corruption,
+		"is_mindless_hive_thrall": is_mindless_hive_thrall,
+		"is_comatose": is_comatose,
+	}
+
+func restore_runtime_state(state: Dictionary) -> void:
+	if state.is_empty():
+		return
+
+	body.restore_runtime_state(state.get("body", {}))
+	inventory.restore_runtime_state(state.get("inventory", {}))
+	base_ap = state.get("base_ap", base_ap)
+	current_max_ap = state.get("current_max_ap", current_max_ap)
+	is_dead = state.get("is_dead", is_dead)
+	stance_points = state.get("stance_points", stance_points)
+	current_morale = state.get("current_morale", current_morale)
+	is_fleeing = state.get("is_fleeing", false)
+	is_escaping = state.get("is_escaping", false)
+	current_arc_energy = state.get("current_arc_energy", current_arc_energy)
+	red_mist_corruption = state.get("red_mist_corruption", red_mist_corruption)
+	is_mindless_hive_thrall = state.get(
+		"is_mindless_hive_thrall",
+		is_mindless_hive_thrall
+	)
+	is_comatose = state.get("is_comatose", is_comatose)
+	_evaluate_stance_state()
+	_calculate_kinetic_burden()

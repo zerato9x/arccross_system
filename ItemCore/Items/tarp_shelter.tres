@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "tarp_shelter"
+display_name = "Tarp Shelter"
+lore_description = "A compact weather sheet with cord and stakes."
+item_type = 4
+size_cost = 1
+interaction_roles = Array[int]([2])
+camp_sleep_bonus = 2.0
+camp_shelter_bonus = 11.0
+camp_healing_bonus = 2.0
+camp_concealment_bonus = -2.0

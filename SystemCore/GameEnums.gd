@@ -51,7 +51,8 @@ enum ItemType {
 	JUNK,        ## No mechanical function. Lore objects, trade barter, decoy weight.
 	WEAPON,      ## Equips to HANDS. Has DamageType, flesh_damage, stance_damage.
 	ARMOR,       ## Equips to torso/legs/feet. Provides PROTECTION and BULK.
-	CONSUMABLE   ## Single-use. Restores hunger, thirst, stops bleeding, fights fatigue.
+	CONSUMABLE,  ## Single-use. Restores hunger, thirst, stops bleeding, fights fatigue.
+	TOOL         ## Contextual world-interaction or campsite equipment.
 }
 
 ## Specific metabolic or trauma effect a consumable item applies on use.
@@ -83,6 +84,24 @@ enum DamageType {
 # ==========================================
 enum Faction { UNALIGNED, SCAVENGER_CELL, ARCBORN_RESISTANCE, CRAVEN_HIVE }
 enum ArcbornTier { NONE, TIER_1, TIER_2, TIER_3 }
+
+## Neutral runtime identity used by world-state records.
+enum RuntimeEntityKind { PLAYER, NPC }
+
+## Persistent lifecycle state. Rendered nodes are only projections of this state.
+enum EntityLifeState { ALIVE, DEAD }
+
+## Macro-world disposition is separate from biological life state.
+enum EntityWorldStatus { HOSTILE, CEASEFIRE, WITHDRAWN }
+
+## Cross-system combat result. CombatCore emits this instead of exposing internals.
+enum CombatOutcome {
+	PLAYER_VICTORY,
+	PLAYER_DEFEAT,
+	PLAYER_ESCAPED,
+	ENEMY_ESCAPED,
+	DRAW
+}
 
 # AI Agendas heavily rely on the new THREAT stat from player gear
 enum Agenda { 
@@ -257,6 +276,13 @@ const SURVIVAL_MULTIPLIERS = {
 # 5. MACRO WORLD & ENVIRONMENT
 # ==========================================
 enum GridBiome { PLAINS, FOREST, HILLS, MUD, SWAMP }
+
+enum MacroInteractionType { NONE, POI, ENTITY_COLLISION }
+enum PoiAction { SEARCH, CAMP }
+enum InteractionItemRole { NONE, SEARCH_TOOL, CAMP_GEAR }
+enum TalkAction { THREAT, ROB, CEASEFIRE }
+enum NegotiationOutcome { INTIMIDATED, ROB_SUCCESS, CEASEFIRE, COMBAT }
+enum AmbushPosition { FAR, STANDARD, CLOSE }
 
 ## Passive floor attributes continuously evaluated by the CombatLaneManager.
 enum TileBackground {

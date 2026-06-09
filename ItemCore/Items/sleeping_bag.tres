@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "sleeping_bag"
+display_name = "Field Sleeping Bag"
+lore_description = "A dry insulated roll that makes hard ground survivable."
+item_type = 4
+size_cost = 1
+interaction_roles = Array[int]([2])
+camp_sleep_bonus = 10.0
+camp_healing_bonus = 3.0
+camp_concealment_bonus = -1.0
