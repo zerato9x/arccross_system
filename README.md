@@ -1,4 +1,9 @@
-ARCCROSS: A Base-12 Survival Engine
+# ARCCROSS: A Base-12 Survival Engine
+
+Project terminology is defined in [ARCCROSS_GLOSSARY.md](ARCCROSS_GLOSSARY.md).
+System ownership and dependency rules are defined in
+[SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md).
+
 Overview
 
 Welcome to the Arccross Engine. This is not a standard RPG. There are no 1-100 percentage scales, no heroic health pools, and no forgiving mechanics. This is a mathematically pure, highly lethal survival simulator built on a strict Base-12 biological and environmental logic. Set against the desolate, anomalous backdrop of Arccross, this engine is designed to simulate physical trauma, psychological breaking points, and tactical desperation.

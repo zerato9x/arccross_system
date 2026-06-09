@@ -1,5 +1,8 @@
 # ARCCROSS System Architecture
 
+Canonical project terminology and concept status are defined in
+[ARCCROSS_GLOSSARY.md](ARCCROSS_GLOSSARY.md).
+
 ## Core Rule
 
 `GameEnums` is the shared semantic vocabulary. Domain cores must not exchange
@@ -148,6 +151,8 @@ callbacks or handled by SystemCore.
 
 ## Enum And Stat Policy
 
+- Define and refine project language in `ARCCROSS_GLOSSARY.md` first. A term
+  enters `GameEnums` only when it is closed, shared, and categorical.
 - Use `GameEnums` for closed categories shared between cores, such as
   `ActionType`, `CombatOutcome`, `Faction`, and `EncounterContext`.
 - Keep domain-private categories beside their owning system. Other cores must not
