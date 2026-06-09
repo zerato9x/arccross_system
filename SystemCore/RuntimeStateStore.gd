@@ -4,7 +4,14 @@ class_name RuntimeStateStore
 ## Authoritative in-memory state. Records contain only engine primitives,
 ## dictionaries, arrays, and values defined by GameEnums.
 
+signal world_time_advanced(
+	previous_minutes: int,
+	current_minutes: int,
+	elapsed_minutes: int
+)
+
 var world_seed: String = ""
+var world_time_minutes: int = GameTimeRules.STARTING_WORLD_MINUTES
 var player_coords: Vector2i = Vector2i.ZERO
 var player_record: Dictionary = {}
 
@@ -15,12 +22,23 @@ var ground_item_records: Dictionary = {} # Vector2i -> Array[Dictionary]
 
 func begin_new_world(seed: String) -> void:
 	world_seed = seed
+	world_time_minutes = GameTimeRules.STARTING_WORLD_MINUTES
 	player_coords = Vector2i.ZERO
 	player_record.clear()
 	entity_records.clear()
 	entity_ids_by_coords.clear()
 	hex_records.clear()
 	ground_item_records.clear()
+
+func advance_world_time(elapsed_minutes: int) -> Dictionary:
+	var elapsed := maxi(0, elapsed_minutes)
+	var previous := world_time_minutes
+	world_time_minutes += elapsed
+	world_time_advanced.emit(previous, world_time_minutes, elapsed)
+	return get_world_time_snapshot()
+
+func get_world_time_snapshot() -> Dictionary:
+	return GameTimeRules.clock_snapshot(world_time_minutes)
 
 func set_player_record(record: Dictionary, coords: Vector2i) -> void:
 	player_record = record.duplicate(true)
@@ -127,6 +145,21 @@ func get_ground_items(coords: Vector2i) -> Array:
 	if not ground_item_records.has(coords):
 		return []
 	return ground_item_records[coords].duplicate(true)
+
+func take_ground_item(coords: Vector2i, instance_id: String) -> Dictionary:
+	if not ground_item_records.has(coords) or instance_id.is_empty():
+		return {}
+
+	var items: Array = ground_item_records[coords]
+	for index in range(items.size()):
+		var item_state: Dictionary = items[index]
+		if item_state.get("instance_id", "") != instance_id:
+			continue
+		items.remove_at(index)
+		if items.is_empty():
+			ground_item_records.erase(coords)
+		return item_state.duplicate(true)
+	return {}
 
 func has_ground_items(coords: Vector2i) -> bool:
 	return ground_item_records.has(coords) and ground_item_records[coords].size() > 0

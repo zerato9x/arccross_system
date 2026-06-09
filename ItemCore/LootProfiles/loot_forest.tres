@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="LootProfile" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/LootProfile.gd" id="1_profile"]
+[ext_resource type="Script" path="res://ItemCore/LootEntry.gd" id="2_entry"]
+
+[sub_resource type="Resource" id="Entry_ration"]
+script = ExtResource("2_entry")
+item_id = "ration_bar"
+weight = 5.0
+
+[sub_resource type="Resource" id="Entry_water"]
+script = ExtResource("2_entry")
+item_id = "clean_water"
+weight = 3.0
+
+[sub_resource type="Resource" id="Entry_scrap"]
+script = ExtResource("2_entry")
+item_id = "scrap_pipe"
+weight = 2.0
+
+[sub_resource type="Resource" id="Entry_bag"]
+script = ExtResource("2_entry")
+item_id = "sleeping_bag"
+weight = 1.0
+
+[resource]
+script = ExtResource("1_profile")
+profile_id = "loot_forest"
+entries = Array[ExtResource("2_entry")]([SubResource("Entry_ration"), SubResource("Entry_water"), SubResource("Entry_scrap"), SubResource("Entry_bag")])

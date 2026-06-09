@@ -19,6 +19,7 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 GameEnums="*res://SystemCore/GameEnums.gd"
 WorldState="*res://SystemCore/RuntimeStateStore.gd"
 MobSpawner="*res://SystemCore/MobSpawner.gd"
+LootCatalog="*res://SystemCore/LootCatalog.gd"
 
 [physics]
 

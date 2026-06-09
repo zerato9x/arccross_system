@@ -11,6 +11,7 @@ signal combat_requested(request: Dictionary)
 @export var enemy_token_scene: PackedScene
 @export var mob_spawner: MobSpawner
 @export var interaction_panel: MacroInteractionPanel
+@export var inventory_panel: InventoryPanel
 
 @export_group("Proximity Loading")
 @export_range(1, 12) var active_radius: int = 4
@@ -21,14 +22,9 @@ signal combat_requested(request: Dictionary)
 
 var active_enemies: Dictionary = {} # Stores Vector2i -> MacroEnemy projections
 var _world_state: RuntimeStateStore
+var _loot_catalog: Node
 var _pending_interaction: Dictionary = {}
-
-const SEARCH_LOOT_PATHS := {
-	"ration_bar": "res://ItemCore/Items/ration_bar.tres",
-	"clean_water": "res://ItemCore/Items/clean_water.tres",
-	"blood_bag": "res://ItemCore/Items/blood_bag.tres",
-	"scrap_pipe": "res://ItemCore/Items/scrap_pipe.tres",
-}
+var _last_inventory_error: String = ""
 
 const HEX_NEIGHBORS = [
 	Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1), 
@@ -37,6 +33,7 @@ const HEX_NEIGHBORS = [
 
 func _ready() -> void:
 	_world_state = get_node("/root/WorldState") as RuntimeStateStore
+	_loot_catalog = get_node("/root/LootCatalog")
 	if not mob_spawner:
 		mob_spawner = get_node_or_null("/root/MobSpawner") as MobSpawner
 
@@ -46,9 +43,21 @@ func _ready() -> void:
 
 	if interaction_panel:
 		interaction_panel.poi_action_submitted.connect(resolve_poi_action)
+		interaction_panel.poi_preview_requested.connect(preview_poi_action)
 		interaction_panel.talk_action_submitted.connect(resolve_talk_action)
 		interaction_panel.ambush_submitted.connect(resolve_entity_ambush)
+		interaction_panel.inventory_requested.connect(open_inventory)
 		interaction_panel.interaction_closed.connect(close_macro_interaction)
+
+	if inventory_panel:
+		inventory_panel.inventory_action_requested.connect(
+			resolve_inventory_action
+		)
+		inventory_panel.inventory_closed.connect(_on_inventory_closed)
+
+	var player_inventory := player_token.get_humanoid_core().inventory
+	player_inventory.inventory_error.connect(_on_player_inventory_error)
+	player_inventory.items_spilled.connect(_on_player_items_spilled)
 		
 	_initialize_demo()
 
@@ -106,6 +115,21 @@ func spawn_macro_enemy(coords: Vector2i) -> void:
 # ---------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
+	if (
+		event is InputEventKey
+		and event.pressed
+		and not event.echo
+		and event.keycode == KEY_I
+	):
+		if inventory_panel:
+			if inventory_panel.is_open():
+				inventory_panel.close_panel()
+			elif _pending_interaction.is_empty():
+				open_inventory()
+		get_viewport().set_input_as_handled()
+		return
+	if inventory_panel and inventory_panel.is_open():
+		return
 	if not _pending_interaction.is_empty():
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -132,7 +156,11 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 	refresh_proximity(target_coords)
 
 	var hex_data := world_generator.get_hex_at(target_coords)
-	_apply_movement_survival_tick(hex_data, target_coords)
+	_advance_survival_time(
+		GameTimeRules.MOVE_MINUTES,
+		_get_exertion_for_biome(hex_data.biome),
+		target_coords
+	)
 	
 	if active_enemies.has(target_coords):
 		var enemy: MacroEnemy = active_enemies[target_coords]
@@ -149,52 +177,66 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 	if _world_state.has_ground_items(target_coords):
 		print(">>> You stumbled upon dropped items on this hex! <<<")
 
-func _apply_movement_survival_tick(
-	hex_data: MacroHexData,
-	target_coords: Vector2i
+func _advance_survival_time(
+	elapsed_minutes: int,
+	exertion: float,
+	target_coords: Vector2i,
+	insulation_bonus: float = 0.0
 ) -> void:
-	var exertion: float = 1.0
-	if hex_data.biome == GameEnums.GridBiome.SWAMP or hex_data.biome == GameEnums.GridBiome.MUD:
-		exertion = 2.0 
-		
+	_world_state.advance_world_time(elapsed_minutes)
 	var current_player_core := player_token.get_humanoid_core()
 	if current_player_core:
-		var insulation := current_player_core.get_insulation_rating()
-		current_player_core.body.process_biological_tick(15.0, insulation, exertion)
+		current_player_core.process_survival_time(
+			elapsed_minutes,
+			15.0,
+			exertion,
+			insulation_bonus
+		)
 		_world_state.update_player_runtime(
 			current_player_core.capture_runtime_state(),
 			target_coords
 		)
 
+func _get_exertion_for_biome(biome: GameEnums.GridBiome) -> float:
+	if biome == GameEnums.GridBiome.SWAMP or biome == GameEnums.GridBiome.MUD:
+		return 2.0
+	return 1.0
+
 func _begin_poi_interaction(
 	coords: Vector2i,
 	hex_data: MacroHexData
 ) -> void:
-	var profile := MacroInteractionResolver.build_poi_profile(
-		_world_state.world_seed,
-		coords,
-		hex_data.biome,
-		hex_data.poi_id
-	)
-	var camp_items := _camp_item_descriptors(hex_data.camp_item_states)
-	var camp_item_ids: Array = []
-	for descriptor in camp_items:
-		camp_item_ids.append(descriptor.get("instance_id", ""))
 	_pending_interaction = {
 		"type": GameEnums.MacroInteractionType.POI,
 		"coords": coords,
 	}
 	set_process_unhandled_input(false)
-	if interaction_panel:
-		interaction_panel.open_poi({
-			"poi_name": hex_data.poi_name,
-			"search_base": profile["search"],
-			"camp_base": profile["camp"],
-			"search_count": hex_data.search_count,
-			"available_items": _available_interaction_descriptors(),
-			"camp_items": camp_items,
-			"camp_item_ids": camp_item_ids,
-		})
+	if not interaction_panel:
+		push_error("POI interaction opened without a presentation subscriber.")
+		close_macro_interaction()
+		return
+	_present_poi_session(coords, hex_data)
+
+func _present_poi_session(
+	coords: Vector2i,
+	hex_data: MacroHexData
+) -> void:
+	var camp_items := _camp_item_descriptors(hex_data.camp_item_states)
+	var camp_item_ids: Array = []
+	for descriptor in camp_items:
+		camp_item_ids.append(descriptor.get("instance_id", ""))
+	var camp_access := _get_camp_access(coords, hex_data)
+	interaction_panel.open_poi({
+		"poi_name": hex_data.poi_name,
+		"search_metric_keys": MacroInteractionResolver.SEARCH_KEYS,
+		"camp_metric_keys": MacroInteractionResolver.CAMP_KEYS,
+		"available_items": _available_interaction_options(),
+		"camp_items": _camp_item_options(hex_data.camp_item_states),
+		"camp_item_ids": camp_item_ids,
+		"camp_allowed": camp_access.get("allowed", false),
+		"camp_block_reason": camp_access.get("reason", ""),
+		"world_time": _world_state.get_world_time_snapshot(),
+	})
 
 func _begin_entity_collision(enemy_id: String, coords: Vector2i) -> void:
 	var enemy_record := _world_state.get_entity(enemy_id)
@@ -207,10 +249,55 @@ func _begin_entity_collision(enemy_id: String, coords: Vector2i) -> void:
 		"enemy_id": enemy_id,
 	}
 	set_process_unhandled_input(false)
-	if interaction_panel:
-		interaction_panel.open_entity_collision({
-			"entity_name": definition.get("archetype_name", "Unknown"),
-		})
+	if not interaction_panel:
+		push_error("Entity interaction opened without a presentation subscriber.")
+		close_macro_interaction()
+		return
+	interaction_panel.open_entity_collision({
+		"entity_name": definition.get("archetype_name", "Unknown"),
+	})
+
+func preview_poi_action(
+	action: GameEnums.PoiAction,
+	selected_item_ids: Array
+) -> void:
+	if (
+		_pending_interaction.get("type")
+		!= GameEnums.MacroInteractionType.POI
+		or not interaction_panel
+	):
+		return
+	var coords: Vector2i = _pending_interaction.get("coords", Vector2i.ZERO)
+	var hex_data := world_generator.get_hex_at(coords)
+	var profile := MacroInteractionResolver.build_poi_profile(
+		_world_state.world_seed,
+		coords,
+		hex_data.biome,
+		hex_data.poi_id
+	)
+	var metrics: Dictionary
+	if action == GameEnums.PoiAction.SEARCH:
+		var loot_profile := _get_loot_profile(hex_data)
+		var descriptors := _inventory_descriptors_for_ids(
+			selected_item_ids,
+			GameEnums.InteractionItemRole.SEARCH_TOOL
+		)
+		metrics = MacroInteractionResolver.calculate_search_metrics(
+			profile["search"],
+			descriptors,
+			hex_data.search_count,
+			loot_profile.get("max_searches", 4)
+		)
+	else:
+		var selected_states := _camp_states_for_preview(
+			hex_data.camp_item_states,
+			selected_item_ids
+		)
+		metrics = MacroInteractionResolver.calculate_camp_metrics(
+			profile["camp"],
+			_camp_item_descriptors(selected_states)
+		)
+	interaction_panel.show_poi_preview(action, metrics)
 
 func resolve_poi_action(
 	action: GameEnums.PoiAction,
@@ -229,6 +316,13 @@ func resolve_poi_action(
 	if action == GameEnums.PoiAction.SEARCH:
 		_resolve_search(coords, hex_data, profile["search"], selected_item_ids)
 	else:
+		var camp_access := _get_camp_access(coords, hex_data)
+		if not camp_access.get("allowed", false):
+			_show_interaction_result(
+				"CAMP UNAVAILABLE",
+				camp_access.get("reason", "This location is unsafe.")
+			)
+			return
 		_resolve_camp(coords, hex_data, profile["camp"], selected_item_ids)
 
 func resolve_talk_action(action: GameEnums.TalkAction) -> void:
@@ -285,7 +379,7 @@ func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 
 	unload_enemy_token(_pending_interaction.get("coords", Vector2i.ZERO))
 	if interaction_panel:
-		interaction_panel.show_result("NEGOTIATION SUCCESS", message)
+		_show_interaction_result("NEGOTIATION SUCCESS", message)
 
 func resolve_entity_ambush(position: GameEnums.AmbushPosition) -> void:
 	if (
@@ -302,6 +396,199 @@ func close_macro_interaction() -> void:
 	_pending_interaction.clear()
 	set_process_unhandled_input(true)
 
+func open_inventory() -> void:
+	if not inventory_panel:
+		push_error("Inventory requested without a presentation subscriber.")
+		return
+	inventory_panel.open_inventory(_build_inventory_snapshot())
+
+func resolve_inventory_action(
+	action_id: String,
+	instance_id: String,
+	equipment_slot: int
+) -> void:
+	if not inventory_panel or not inventory_panel.is_open():
+		return
+
+	_last_inventory_error = ""
+	var player_core := player_token.get_humanoid_core()
+	var inventory := player_core.inventory
+	var coords := player_token.current_hex_coords
+	var message := ""
+
+	match action_id:
+		InventoryPanel.ACTION_TAKE:
+			var item_state := _world_state.take_ground_item(
+				coords,
+				instance_id
+			)
+			if item_state.is_empty():
+				message = "That ground item is no longer available."
+			else:
+				var ground_item := ItemData.from_runtime_state(item_state)
+				if inventory.add_to_backpack(ground_item):
+					message = "Took %s." % ground_item.display_name
+				else:
+					_world_state.add_ground_items(coords, [item_state])
+					message = _inventory_error_or(
+						"That item does not fit in the backpack."
+					)
+		InventoryPanel.ACTION_DROP:
+			var dropped := inventory.remove_item_by_instance_id(instance_id)
+			if dropped:
+				_world_state.add_ground_items(
+					coords,
+					[dropped.to_runtime_state()]
+				)
+				message = "Dropped %s." % dropped.display_name
+			else:
+				message = "That carried item is no longer available."
+		InventoryPanel.ACTION_EQUIP:
+			var equippable := inventory.find_item_by_instance_id(instance_id)
+			if equippable == null or not inventory.backpack_array.has(equippable):
+				message = "Only backpack items can be equipped."
+			elif (
+				equipment_slot != equippable.target_slot
+				or not _can_offer_equip(equippable)
+			):
+				message = "That item cannot be equipped in the requested slot."
+			elif inventory.equip_item(equippable, equippable.target_slot):
+				message = "Equipped %s." % equippable.display_name
+			else:
+				message = _inventory_error_or("The equipment change failed.")
+		InventoryPanel.ACTION_UNEQUIP:
+			if not inventory.paper_doll.has(equipment_slot):
+				message = "That equipment slot does not exist."
+			else:
+				var equipped: ItemData = inventory.paper_doll[equipment_slot]
+				if equipped == null or equipped.instance_id != instance_id:
+					message = "That equipped item is no longer available."
+				else:
+					inventory.unequip_item(equipment_slot)
+					message = "Unequipped %s." % equipped.display_name
+		InventoryPanel.ACTION_CONSUME:
+			var consumable := inventory.find_item_by_instance_id(instance_id)
+			if consumable == null or not inventory.backpack_array.has(consumable):
+				message = "Only backpack consumables can be used."
+			elif player_core.use_consumable_item(consumable):
+				message = "Used %s." % consumable.display_name
+			else:
+				message = _inventory_error_or("The item could not be used.")
+		_:
+			message = "Unknown inventory command."
+
+	_world_state.update_player_runtime(
+		player_core.capture_runtime_state(),
+		coords
+	)
+	inventory_panel.open_inventory(
+		_build_inventory_snapshot(),
+		message
+	)
+
+func _on_inventory_closed() -> void:
+	if (
+		_pending_interaction.get("type")
+		!= GameEnums.MacroInteractionType.POI
+		or not interaction_panel
+	):
+		return
+	var coords: Vector2i = _pending_interaction.get(
+		"coords",
+		player_token.current_hex_coords
+	)
+	var hex_data := world_generator.get_hex_at(coords)
+	_present_poi_session(coords, hex_data)
+
+func _build_inventory_snapshot() -> Dictionary:
+	var inventory := player_token.get_humanoid_core().inventory
+	var equipment: Array = []
+	for slot in GameEnums.EquipmentSlot.values():
+		if slot == GameEnums.EquipmentSlot.NONE:
+			continue
+		var equipped: ItemData = inventory.paper_doll.get(slot)
+		if equipped:
+			equipment.append(_item_inventory_descriptor(equipped, slot))
+
+	var backpack: Array = []
+	for item in inventory.backpack_array:
+		backpack.append(_item_inventory_descriptor(item))
+
+	var ground: Array = []
+	for item_state in _world_state.get_ground_items(
+		player_token.current_hex_coords
+	):
+		ground.append(_ground_inventory_descriptor(item_state))
+
+	return {
+		"coords": player_token.current_hex_coords,
+		"world_time": _world_state.get_world_time_snapshot(),
+		"current_capacity": inventory.current_size,
+		"maximum_capacity": inventory.current_max_capacity,
+		"equipment": equipment,
+		"backpack": backpack,
+		"ground": ground,
+	}
+
+func _item_inventory_descriptor(
+	item: ItemData,
+	equipment_slot: int = GameEnums.EquipmentSlot.NONE
+) -> Dictionary:
+	return {
+		"instance_id": item.instance_id,
+		"name": item.display_name,
+		"description": item.lore_description,
+		"item_type": item.item_type,
+		"size_cost": item.size_cost,
+		"target_slot": item.target_slot,
+		"equipment_slot": equipment_slot,
+		"can_equip": _can_offer_equip(item),
+		"can_consume": item.item_type == GameEnums.ItemType.CONSUMABLE,
+	}
+
+func _ground_inventory_descriptor(item_state: Dictionary) -> Dictionary:
+	var definition: Dictionary = item_state.get("definition", {})
+	return {
+		"instance_id": item_state.get("instance_id", ""),
+		"name": definition.get("display_name", "Unknown Item"),
+		"description": definition.get("lore_description", ""),
+		"item_type": definition.get(
+			"item_type",
+			GameEnums.ItemType.JUNK
+		),
+		"size_cost": definition.get("size_cost", 0),
+		"target_slot": definition.get(
+			"target_slot",
+			GameEnums.EquipmentSlot.NONE
+		),
+		"equipment_slot": GameEnums.EquipmentSlot.NONE,
+		"can_equip": false,
+		"can_consume": false,
+	}
+
+func _can_offer_equip(item: ItemData) -> bool:
+	return (
+		item.target_slot != GameEnums.EquipmentSlot.NONE
+		and (
+			item.item_type == GameEnums.ItemType.WEAPON
+			or item.item_type == GameEnums.ItemType.ARMOR
+		)
+	)
+
+func _on_player_inventory_error(message: String) -> void:
+	_last_inventory_error = message
+
+func _inventory_error_or(fallback: String) -> String:
+	return _last_inventory_error if not _last_inventory_error.is_empty() else fallback
+
+func _on_player_items_spilled(spilled_items: Array[ItemData]) -> void:
+	if not is_visible_in_tree():
+		return
+	var item_states: Array = []
+	for item in spilled_items:
+		item_states.append(item.to_runtime_state())
+	_world_state.add_ground_items(player_token.current_hex_coords, item_states)
+
 func _resolve_search(
 	coords: Vector2i,
 	hex_data: MacroHexData,
@@ -315,31 +602,36 @@ func _resolve_search(
 	var metrics := MacroInteractionResolver.calculate_search_metrics(
 		base_metrics,
 		descriptors,
-		hex_data.search_count
+		hex_data.search_count,
+		_get_loot_profile(hex_data).get("max_searches", 4)
 	)
-	var loot_pool: Array[String] = []
-	for loot_id in SEARCH_LOOT_PATHS.keys():
-		loot_pool.append(str(loot_id))
+	var loot_profile := _get_loot_profile(hex_data)
+	_advance_survival_time(
+		GameTimeRules.SEARCH_MINUTES,
+		1.0,
+		coords
+	)
 	var result := MacroInteractionResolver.resolve_search(
 		_world_state.world_seed,
 		coords,
 		hex_data.search_count,
 		metrics,
-		loot_pool
+		loot_profile
 	)
 	hex_data.search_count += 1
 
 	var found_names: Array[String] = []
 	for loot_id in result.get("loot_ids", []):
-		var item_path: String = SEARCH_LOOT_PATHS.get(loot_id, "")
-		var item := load(item_path) as ItemData
-		if not item:
+		var item_state: Dictionary = _loot_catalog.call(
+			"create_runtime_item_state",
+			loot_id
+		)
+		if item_state.is_empty():
 			continue
-		var runtime_item := item.create_runtime_instance()
-		if player_token.get_humanoid_core().inventory.add_to_backpack(runtime_item):
-			found_names.append(runtime_item.display_name)
-		else:
-			_world_state.add_ground_items(coords, [runtime_item.to_runtime_state()])
+		found_names.append(
+			str(item_state.get("definition", {}).get("display_name", loot_id))
+		)
+		_world_state.add_ground_items(coords, [item_state])
 
 	if result.get("injured", false):
 		player_token.get_humanoid_core().body.apply_targeted_hit(
@@ -359,6 +651,7 @@ func _resolve_search(
 		if not found_names.is_empty()
 		else "The search produced no usable supplies."
 	)
+	message += "\nTime: " + _format_world_time()
 	if result.get("injured", false):
 		message += "\nUnstable debris caused an injury."
 
@@ -366,8 +659,7 @@ func _resolve_search(
 		message += "\nThe noise attracted a hostile."
 		_spawn_search_intruder(coords)
 		return
-	if interaction_panel:
-		interaction_panel.show_result("SEARCH COMPLETE", message)
+	_show_interaction_result("SEARCH COMPLETE", message)
 
 func _resolve_camp(
 	coords: Vector2i,
@@ -431,6 +723,12 @@ func _resolve_camp(
 		0.0,
 		body.fatigue - float(result.get("fatigue_recovery", 0.0))
 	)
+	_advance_survival_time(
+		GameTimeRules.CAMP_MINUTES,
+		0.25,
+		coords,
+		float(metrics.get("shelter", 0.0))
+	)
 	var healing_amount: float = result.get("healing_amount", 0.0)
 	for limb in body.limb_hp.keys():
 		if body.limb_hp[limb] > 0.0:
@@ -448,15 +746,17 @@ func _resolve_camp(
 	if result.get("interrupted", false):
 		_spawn_search_intruder(coords)
 		return
-	if interaction_panel:
-		interaction_panel.show_result(
-			"REST COMPLETE",
+	_show_interaction_result(
+		"REST COMPLETE",
+		(
 			"Fatigue recovered by %.1f / 12. Camp healing restored %.1f limb health."
-			% [
-				float(result.get("fatigue_recovery", 0.0)),
-				healing_amount,
-			]
-		)
+			+ "\nTime: %s"
+		) % [
+			float(result.get("fatigue_recovery", 0.0)),
+			healing_amount,
+			_format_world_time(),
+		]
+	)
 
 func _spawn_search_intruder(coords: Vector2i) -> void:
 	if not _world_state.has_entity_at(coords):
@@ -467,11 +767,10 @@ func _spawn_search_intruder(coords: Vector2i) -> void:
 		)
 	var record := _world_state.get_entity_at(coords)
 	if record.is_empty():
-		if interaction_panel:
-			interaction_panel.show_result(
-				"INTERRUPTED",
-				"A hostile was heard nearby, but no encounter could be projected."
-			)
+		_show_interaction_result(
+			"INTERRUPTED",
+			"A hostile was heard nearby, but no encounter could be projected."
+		)
 		return
 	_pending_interaction = {
 		"type": GameEnums.MacroInteractionType.ENTITY_COLLISION,
@@ -501,11 +800,15 @@ func _request_pending_combat(
 		interaction_panel.close_panel(false)
 	combat_requested.emit(request)
 
-func _available_interaction_descriptors() -> Array:
+func _available_interaction_options() -> Array:
 	var descriptors: Array = []
 	for item in player_token.get_humanoid_core().inventory.get_all_items():
 		if not item.interaction_roles.is_empty():
-			descriptors.append(item.to_interaction_descriptor())
+			descriptors.append({
+				"instance_id": item.instance_id,
+				"name": item.display_name,
+				"roles": item.interaction_roles.duplicate(),
+			})
 	return descriptors
 
 func _inventory_descriptors_for_ids(
@@ -529,6 +832,80 @@ func _camp_item_descriptors(item_states: Array) -> Array:
 		descriptor["installed"] = true
 		descriptors.append(descriptor)
 	return descriptors
+
+func _camp_item_options(item_states: Array) -> Array:
+	var options: Array = []
+	for item_state in item_states:
+		var definition: Dictionary = item_state.get("definition", {})
+		options.append({
+			"instance_id": item_state.get("instance_id", ""),
+			"name": definition.get("display_name", "Unknown Camp Gear"),
+			"roles": definition.get("interaction_roles", []).duplicate(),
+			"installed": true,
+		})
+	return options
+
+func _camp_states_for_preview(
+	existing_states: Array,
+	selected_item_ids: Array
+) -> Array:
+	var states_by_id: Dictionary = {}
+	for item_state in existing_states:
+		states_by_id[item_state.get("instance_id", "")] = item_state
+	for instance_id in selected_item_ids:
+		if states_by_id.has(instance_id):
+			continue
+		var item := player_token.get_humanoid_core().inventory.find_item_by_instance_id(
+			instance_id
+		)
+		if item and item.has_interaction_role(
+			GameEnums.InteractionItemRole.CAMP_GEAR
+		):
+			states_by_id[instance_id] = item.to_runtime_state()
+	var selected_states: Array = []
+	for instance_id in selected_item_ids:
+		if states_by_id.has(instance_id):
+			selected_states.append(states_by_id[instance_id])
+	return selected_states
+
+func _get_loot_profile(hex_data: MacroHexData) -> Dictionary:
+	var profile_id := WorldRules.get_loot_profile_id(
+		hex_data.biome,
+		hex_data.poi_id
+	)
+	return _loot_catalog.call("get_profile_descriptor", profile_id)
+
+func _get_camp_access(
+	coords: Vector2i,
+	hex_data: MacroHexData
+) -> Dictionary:
+	var hostile_present := false
+	var entity_record := _world_state.get_entity_at(coords)
+	if not entity_record.is_empty():
+		var entity_id: String = entity_record.get("entity_id", "")
+		hostile_present = (
+			_world_state.is_entity_alive(entity_id)
+			and _world_state.is_entity_hostile(entity_id)
+		)
+	return WorldRules.get_camp_access(
+		hex_data.is_poi,
+		hex_data.hazard_level,
+		hostile_present
+	)
+
+func _show_interaction_result(title: String, message: String) -> void:
+	if interaction_panel:
+		interaction_panel.show_result(title, message)
+	else:
+		close_macro_interaction()
+
+func _format_world_time() -> String:
+	var snapshot := _world_state.get_world_time_snapshot()
+	return "Day %d, %02d:%02d" % [
+		snapshot.get("day", 1),
+		snapshot.get("hour", 0),
+		snapshot.get("minute", 0),
+	]
 
 func _rob_enemy(enemy_record: Dictionary) -> String:
 	var loadout: Dictionary = enemy_record.get("definition", {}).get("loadout", {})

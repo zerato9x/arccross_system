@@ -427,6 +427,16 @@ snapshot.
 The removal of carried items when Capacity falls below current Size Cost.
 Spilled items become ground-item records rather than being silently deleted.
 
+### Inventory Interface
+
+**Status:** Established prototype
+
+The replaceable `InventoryPanel` projection used to view equipment, Backpack
+Contents, Capacity, and current-Hex ground items. It receives neutral snapshots
+and emits command IDs with Runtime Item Instance IDs. WorldCore validates those
+commands; the panel does not receive `ItemData`, mutate `InventorySystem`, or
+apply biological effects.
+
 ## Combat
 
 ### Combat Encounter
@@ -788,7 +798,50 @@ A data-only cross-system contract built from engine primitives, stable IDs,
 **Status:** Established in memory
 
 The authoritative owner of current world, entity, hex, player, and ground-item
-records. Disk persistence and run deletion rules are not implemented yet.
+records, including elapsed World Time. Disk persistence and run deletion rules
+are not implemented yet.
+
+### World Time
+
+**Status:** Established in memory
+
+The authoritative elapsed duration of the current run, stored as integer minutes
+by `RuntimeStateStore`. Movement, Search, Camp, and completed combat advance the
+same clock before their elapsed biological effects are captured.
+
+### GameTimeRules
+
+**Status:** Established
+
+The SystemCore-owned Phase 1 duration contract. It defines action costs in
+minutes and converts elapsed World Time into neutral day, hour, and minute
+snapshots. It does not own the mutable clock.
+
+### Loot Profile
+
+**Status:** Established
+
+An ItemCore-authored resource containing weighted stable item IDs, a search
+limit, and a maximum number of results per Search. It describes available item
+content but does not decide which biome or POI uses it.
+
+### Loot Catalog
+
+**Status:** Established
+
+The SystemCore translation service represented by `LootCatalog`. It loads
+ItemCore definitions and Loot Profiles, then exposes neutral descriptors and
+Runtime Item records to other cores without transferring ownership of the
+resources.
+
+### Presentation Boundary
+
+**Status:** Established
+
+A HUD or other Projection displays snapshots produced by the system that owns
+the rule and emits player intent using stable IDs or shared categories. It does
+not resolve gameplay, advance World Time, or mutate authoritative state. This
+allows placeholder presentation to be replaced without rewiring the rules.
 
 ### MetaProgressionStore
 
@@ -821,14 +874,18 @@ A world-layer decision triggered by a POI or entity collision.
 **Status:** Prototype
 
 A POI action that resolves resource discovery using current Loot, Safety, and
-Sneak metrics plus selected tool modifiers.
+Sneak metrics plus selected tool modifiers. WorldCore selects a Loot Profile
+from the current biome or POI, advances World Time, and places successful
+results in the Hex's persistent ground inventory. Search limits prevent
+unconfigured infinite loot.
 
 ### Camp
 
 **Status:** Prototype
 
 A POI action that stores selected camp gear on a Hex and resolves rest using
-current Sleep, Shelter, Healing, Concealment, and Alertness metrics.
+current Sleep, Shelter, Healing, Concealment, and Alertness metrics. It advances
+World Time and processes the same elapsed duration through BiologicalCore.
 
 ### Search Metrics
 

@@ -29,6 +29,11 @@ Cross-system communication uses:
 - Owns orchestration, factories, and authoritative runtime records.
 - May coordinate domain cores but must not move domain implementation into them.
 - `RuntimeStateStore` owns world, entity, hex, player, and ground-item records.
+- `RuntimeStateStore` owns the authoritative elapsed world time in minutes.
+- `GameTimeRules` defines shared Phase 1 action durations and translates elapsed
+  minutes into neutral clock snapshots.
+- `LootCatalog` translates ItemCore-owned definitions and loot profiles into
+  neutral descriptors and runtime item records.
 - `GameDirector` translates signals between WorldCore and CombatCore.
 
 ### WorldCore
@@ -37,6 +42,9 @@ Cross-system communication uses:
 - Enemy tokens contain an entity ID and presentation state only.
 - Deleting a token must never delete its entity record.
 - WorldCore owns macro interaction presentation and deterministic POI resolution.
+- `WorldRules` selects loot-profile IDs from world-owned biome and POI state.
+- WorldCore requests neutral loot descriptors from `LootCatalog`; it does not
+  inspect or expose ItemCore loot resources through the UI.
 - WorldCore requests combat with a neutral setup dictionary containing IDs,
   coordinates, `EncounterContext`, collider identity, and ambush position.
 - Encounter records are generated once using the world seed and axial coordinate.
@@ -66,6 +74,8 @@ Cross-system communication uses:
 - Static `.tres` files are immutable definitions.
 - Carried and equipped items are unique runtime copies with stable IDs.
 - Interaction tools expose data-only SEARCH and CAMP modifiers.
+- `LootEntry` and `LootProfile` own authored item IDs, weights, search limits,
+  and per-search item limits. They do not decide which world location uses them.
 - ItemCore does not import BiologicalCore, CombatCore, or WorldCore types.
 
 ## Runtime Record Contracts
@@ -122,10 +132,26 @@ ambush_position: GameEnums.AmbushPosition
 
 - POI SEARCH uses `loot`, `safety`, and `sneak` metrics.
 - CAMP uses `sleep`, `shelter`, `healing`, `concealment`, and `alertness`.
+- Macro interaction HUDs display owner-produced snapshots and emit player intent.
+  They do not calculate metrics, roll outcomes, advance time, mutate inventory,
+  or choose loot.
+- `InventoryPanel` receives neutral equipment, backpack, capacity, and ground
+  snapshots. It emits stable command IDs plus item-instance IDs and Equipment
+  Slots; it never receives `ItemData` resources or an `InventorySystem` node.
+- WorldCore validates inventory commands against the authoritative player and
+  current coordinate. `RuntimeStateStore` atomically removes accepted ground
+  records, while BiologicalCore and ItemCore perform consumable and equipment
+  rules.
 - The UI submits stable item-instance IDs. WorldCore validates those IDs against
   the authoritative inventory before resolving an action.
+- WorldCore advances the authoritative clock for movement, SEARCH, CAMP, and
+  combat, then asks BiologicalCore to process the same elapsed duration.
+- SEARCH resolves a neutral, weighted loot-profile descriptor selected from the
+  current biome or POI and places generated items in persistent ground inventory.
 - CAMP gear is moved out of the player inventory and stored as item runtime
   records on the hex. It is not duplicated.
+- CAMP access is an owner-side WorldCore rule based on location, hazard, and
+  hostile presence. The HUD only displays whether the action is available.
 - TALK resolves to a `NegotiationOutcome`. Failure requests ordinary combat
   deployment; success changes persistent `EntityWorldStatus`.
 - AMBUSH submits only `AmbushPosition`. CombatCore owns the actual lane indices.

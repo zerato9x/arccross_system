@@ -309,6 +309,22 @@ func get_bulk_modifier() -> float:
 func get_insulation_rating() -> float:
 	return inventory.get_total_insulation()
 
+func process_survival_time(
+	elapsed_minutes: int,
+	environmental_temp: float,
+	exertion_level: float = 1.0,
+	insulation_bonus: float = 0.0
+) -> void:
+	if is_dead or elapsed_minutes <= 0:
+		return
+	body.process_elapsed_time(
+		elapsed_minutes,
+		environmental_temp,
+		get_insulation_rating() + insulation_bonus,
+		exertion_level
+	)
+	_calculate_kinetic_burden()
+
 # ---------------------------------------------------------
 # ARC & RED MIST (The World Hooks)
 # ---------------------------------------------------------

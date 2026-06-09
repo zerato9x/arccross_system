@@ -2,8 +2,10 @@ extends CanvasLayer
 class_name MacroInteractionPanel
 
 signal poi_action_submitted(action: GameEnums.PoiAction, selected_item_ids: Array)
+signal poi_preview_requested(action: GameEnums.PoiAction, selected_item_ids: Array)
 signal talk_action_submitted(action: GameEnums.TalkAction)
 signal ambush_submitted(position: GameEnums.AmbushPosition)
+signal inventory_requested
 signal interaction_closed
 
 const MAX_TOOL_SLOTS := 3
@@ -77,11 +79,22 @@ func _build_shell() -> void:
 func _show_poi_root() -> void:
 	_clear_content()
 	_add_title(_session.get("poi_name", "POINT OF INTEREST"))
+	var clock: Dictionary = _session.get("world_time", {})
 	_add_body(
-		"SEARCH the location for supplies or establish a persistent three-slot CAMP."
+		(
+			"SEARCH the location for supplies or establish a persistent "
+			+ "three-slot CAMP.\nDay %d, %02d:%02d"
+		) % [
+			clock.get("day", 1),
+			clock.get("hour", 0),
+			clock.get("minute", 0),
+		]
 	)
 	_add_button("SEARCH", _show_search)
-	_add_button("CAMP", _show_camp)
+	var camp_button := _add_button("CAMP", _show_camp)
+	camp_button.disabled = not _session.get("camp_allowed", false)
+	camp_button.tooltip_text = _session.get("camp_block_reason", "")
+	_add_button("INVENTORY / GROUND", inventory_requested.emit)
 	_add_button("LEAVE", close_panel)
 
 func _show_search() -> void:
@@ -93,6 +106,12 @@ func _show_search() -> void:
 	)
 
 func _show_camp() -> void:
+	if not _session.get("camp_allowed", false):
+		show_result(
+			"CAMP UNAVAILABLE",
+			_session.get("camp_block_reason", "This location is unsafe.")
+		)
+		return
 	_active_poi_action = GameEnums.PoiAction.CAMP
 	_show_tool_screen(
 		"CAMP",
@@ -132,14 +151,14 @@ func _show_tool_screen(
 		_slot_selectors.append(selector)
 
 	_metric_rows.clear()
-	var keys := (
-		MacroInteractionResolver.SEARCH_KEYS
+	var keys: Array = (
+		_session.get("search_metric_keys", [])
 		if _active_poi_action == GameEnums.PoiAction.SEARCH
-		else MacroInteractionResolver.CAMP_KEYS
+		else _session.get("camp_metric_keys", [])
 	)
 	for key in keys:
 		_add_metric_row(key)
-	_refresh_metrics()
+	_request_preview()
 
 	var submit_text := (
 		"SCAVENGE"
@@ -147,6 +166,7 @@ func _show_tool_screen(
 		else "MAKE CAMP AND REST"
 	)
 	_add_button(submit_text, _submit_poi_action)
+	_add_button("INVENTORY / GROUND", inventory_requested.emit)
 	_add_button("BACK", _show_poi_root)
 
 func _show_talk_options() -> void:
@@ -193,23 +213,17 @@ func _submit_poi_action() -> void:
 	poi_action_submitted.emit(_active_poi_action, _selected_item_ids())
 
 func _on_slot_selection_changed(_index: int) -> void:
-	_refresh_metrics()
+	_request_preview()
 
-func _refresh_metrics() -> void:
-	var descriptors := _selected_descriptors()
-	var metrics: Dictionary
-	if _active_poi_action == GameEnums.PoiAction.SEARCH:
-		metrics = MacroInteractionResolver.calculate_search_metrics(
-			_session.get("search_base", {}),
-			descriptors,
-			_session.get("search_count", 0)
-		)
-	else:
-		metrics = MacroInteractionResolver.calculate_camp_metrics(
-			_session.get("camp_base", {}),
-			descriptors
-		)
+func _request_preview() -> void:
+	poi_preview_requested.emit(_active_poi_action, _selected_item_ids())
 
+func show_poi_preview(
+	action: GameEnums.PoiAction,
+	metrics: Dictionary
+) -> void:
+	if action != _active_poi_action:
+		return
 	for key in _metric_rows.keys():
 		var row: Dictionary = _metric_rows[key]
 		var value := float(metrics.get(key, 0.0))
@@ -237,16 +251,6 @@ func _selected_item_ids() -> Array:
 			selected.append(instance_id)
 	return selected
 
-func _selected_descriptors() -> Array:
-	var selected_ids := _selected_item_ids()
-	var selected: Array = []
-	var descriptors: Array = _session.get("available_items", []).duplicate(true)
-	descriptors.append_array(_session.get("camp_items", []))
-	for descriptor in descriptors:
-		if selected_ids.has(descriptor.get("instance_id", "")):
-			selected.append(descriptor)
-	return selected
-
 func _add_metric_row(key: String) -> void:
 	var container := VBoxContainer.new()
 	var label := Label.new()
@@ -270,11 +274,12 @@ func _add_body(text: String) -> void:
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_content.add_child(body)
 
-func _add_button(text: String, callback: Callable) -> void:
+func _add_button(text: String, callback: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.pressed.connect(callback)
 	_content.add_child(button)
+	return button
 
 func _clear_content() -> void:
 	_slot_selectors.clear()

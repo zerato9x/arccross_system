@@ -48,6 +48,12 @@ func _on_duel_finished(
 	dropped_items: Array
 ) -> void:
 	print("\n[DIRECTOR] Duel finished with outcome: ", GameEnums.CombatOutcome.keys()[outcome])
+	_world_state.advance_world_time(GameTimeRules.COMBAT_MINUTES)
+	macro_map.player_token.get_humanoid_core().process_survival_time(
+		GameTimeRules.COMBAT_MINUTES,
+		15.0,
+		1.5
+	)
 	_world_state.update_entity_runtime(enemy_id, enemy_runtime)
 	_world_state.update_player_runtime(
 		macro_map.player_token.get_humanoid_core().capture_runtime_state(),

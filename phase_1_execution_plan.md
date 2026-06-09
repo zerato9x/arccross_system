@@ -160,12 +160,13 @@ intervention:
 
 ## Current Baseline
 
-As of June 9, 2026, Phase 1 does not pass the definition of done:
+As of June 10, 2026, Phase 1 does not pass the definition of done:
 
 - The main scene initializes the persistent player and its two demo enemies.
 - The macro player now owns one authoritative `HumanoidCore` and inventory.
 - Integrated combat reuses that player state and assigns AI only to the enemy.
-- `RuntimeStateStore` now owns neutral player, enemy, hex, and ground-item records.
+- `RuntimeStateStore` now owns neutral player, enemy, hex, ground-item, and
+  authoritative in-memory world-time state.
 - Enemy tokens are projections keyed by stable IDs and can be unloaded/reloaded
   without deleting their records.
 - Runtime item instances now have unique IDs and isolated firearm state.
@@ -178,9 +179,21 @@ As of June 9, 2026, Phase 1 does not pass the definition of done:
 - Entering the adjacent demo POI now opens an actual SEARCH/CAMP panel.
 - SEARCH supports three data-driven tool slots and resolves persistent depletion,
   loot, injury, and hostile-attraction outcomes.
+- Biomes and POIs select ItemCore-authored weighted loot profiles through stable
+  IDs. Generated items are created as neutral runtime records in the hex's
+  persistent ground inventory.
 - CAMP supports three persistent gear slots and calculates sleep, shelter,
   healing, concealment, and alertness. Installed gear is removed from the
   backpack and stored on the hex without duplication.
+- CAMP is gated by WorldCore-owned POI, hazard, and hostile-presence rules. The
+  inventory interface is accessible from the POI and CAMP flow.
+- Movement, SEARCH, CAMP, and completed combat advance one authoritative clock.
+  SEARCH and CAMP process their full elapsed duration through BiologicalCore.
+- The macro interaction HUD displays WorldCore-produced snapshots and emits
+  intent only; it does not calculate metrics or resolve actions.
+- A neutral inventory/ground-loot panel now supports take, drop, equip, unequip,
+  consume, capacity display, and persistent overflow spills. It emits intent and
+  never receives `ItemData` or an `InventorySystem` reference.
 - Entity collision now presents TALK or AMBUSH. TALK offers THREAT, ROB, and
   CEASEFIRE; failed negotiation uses ordinary combat deployment.
 - AMBUSH allows far, standard, or close player deployment.
@@ -190,11 +203,11 @@ As of June 9, 2026, Phase 1 does not pass the definition of done:
   player's first turn.
 - Player defeat is distinguished and no longer returns control to normal macro
   exploration, but a defeat/recovery screen is not implemented.
-- SEARCH and CAMP have a functional demo interface, but they do not yet advance
-  authoritative world time or use biome/POI loot-table resources.
-- A general inventory/ground-loot UI and save/load are absent.
+- Versioned save/load is absent.
 - Scripted smoke tests cover the macro-to-combat transition, item isolation,
   token unload/reload, hex cache reconstruction, enemy runtime restoration,
   persistent camp slots, search depletion, negotiation deployment, ambush
-  placement, and collider initiative. Broader outcome and save/load coverage is
-  still absent.
+  placement, collider initiative, authoritative action time, weighted loot
+  determinism, valid item IDs, loot-profile exhaustion, inventory transfer,
+  equipment changes, consumable routing, capacity spills, and CAMP safety.
+  Broader outcome and save/load coverage is still absent.

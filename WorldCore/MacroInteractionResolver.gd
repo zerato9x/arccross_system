@@ -49,13 +49,17 @@ static func build_poi_profile(
 static func calculate_search_metrics(
 	base_metrics: Dictionary,
 	tool_descriptors: Array,
-	search_count: int
+	search_count: int,
+	max_searches: int = 4
 ) -> Dictionary:
 	var metrics := base_metrics.duplicate(true)
-	metrics["loot"] = maxf(
-		1.0,
-		float(metrics.get("loot", 0.0)) - (float(search_count) * 1.5)
-	)
+	if search_count >= maxi(1, max_searches):
+		metrics["loot"] = 0.0
+	else:
+		metrics["loot"] = maxf(
+			0.0,
+			float(metrics.get("loot", 0.0)) - (float(search_count) * 1.5)
+		)
 	for descriptor in tool_descriptors:
 		var bonuses: Dictionary = descriptor.get("search", {})
 		for key in SEARCH_KEYS:
@@ -86,7 +90,7 @@ static func resolve_search(
 	coords: Vector2i,
 	search_count: int,
 	metrics: Dictionary,
-	loot_pool: Array[String]
+	loot_profile: Dictionary
 ) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = (
@@ -99,21 +103,29 @@ static func resolve_search(
 		+ str(search_count)
 	).hash()
 
-	var loot_ratio := clampf(
-		float(metrics.get("loot", 0.0)) / GameEnums.SCALE_MAX,
-		0.0,
-		1.0
-	)
-	var loot_strength := loot_ratio * 3.0
+	var max_searches := int(loot_profile.get("max_searches", 4))
+	var max_items := int(loot_profile.get("max_items_per_search", 3))
+	var loot_ratio := 0.0
+	if search_count < max_searches:
+		loot_ratio = clampf(
+			float(metrics.get("loot", 0.0)) / GameEnums.SCALE_MAX,
+			0.0,
+			1.0
+		)
+	var loot_strength := loot_ratio * float(max_items)
 	var loot_count := floori(loot_strength)
 	if rng.randf() < loot_strength - float(loot_count):
 		loot_count += 1
 
 	var loot_ids: Array[String] = []
 	for index in range(loot_count):
-		if loot_pool.is_empty():
+		var item_id := _roll_weighted_item_id(
+			rng,
+			loot_profile.get("entries", [])
+		)
+		if item_id.is_empty():
 			break
-		loot_ids.append(loot_pool[rng.randi_range(0, loot_pool.size() - 1)])
+		loot_ids.append(item_id)
 
 	var safety_ratio := clampf(
 		float(metrics.get("safety", 0.0)) / GameEnums.SCALE_MAX,
@@ -146,6 +158,23 @@ static func resolve_search(
 		"injury_damage": rng.randf_range(0.5, 1.5) if injured else 0.0,
 		"attracted_enemy": attracted_enemy,
 	}
+
+static func _roll_weighted_item_id(
+	rng: RandomNumberGenerator,
+	entries: Array
+) -> String:
+	var total_weight := 0.0
+	for entry in entries:
+		total_weight += maxf(0.0, float(entry.get("weight", 0.0)))
+	if total_weight <= 0.0:
+		return ""
+
+	var roll := rng.randf_range(0.0, total_weight)
+	for entry in entries:
+		roll -= maxf(0.0, float(entry.get("weight", 0.0)))
+		if roll <= 0.0:
+			return str(entry.get("item_id", ""))
+	return str(entries.back().get("item_id", ""))
 
 static func resolve_camp(
 	world_seed: String,

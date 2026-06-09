@@ -10,9 +10,17 @@ func _run() -> void:
 
 	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
 	var player_core := macro_map.player_token.get_humanoid_core()
+	var world_state := root.get_node("WorldState") as RuntimeStateStore
+	var starting_time := world_state.world_time_minutes
 	var poi_coords := Vector2i(1, 0)
 	macro_map._execute_player_step(poi_coords)
 	await process_frame
+	if (
+		world_state.world_time_minutes
+		!= starting_time + GameTimeRules.MOVE_MINUTES
+	):
+		_fail("Macro movement did not advance authoritative world time.")
+		return
 
 	if (
 		macro_map._pending_interaction.get("type")
@@ -40,6 +48,11 @@ func _run() -> void:
 		return
 
 	var hex_data := macro_map.world_generator.get_hex_at(poi_coords)
+	var loot_catalog := root.get_node("LootCatalog")
+	var loot_profile: Dictionary = loot_catalog.call(
+		"get_profile_descriptor",
+		WorldRules.get_loot_profile_id(hex_data.biome, hex_data.poi_id)
+	)
 	var profile := MacroInteractionResolver.build_poi_profile(
 		"DEMO_WASTELAND_01",
 		poi_coords,
@@ -71,12 +84,19 @@ func _run() -> void:
 	)
 	player_core.body.fatigue = 10.0
 	var fatigue_before := player_core.body.fatigue
+	var time_before_camp := world_state.world_time_minutes
 	macro_map.resolve_poi_action(
 		GameEnums.PoiAction.CAMP,
 		[sleeping_bag.instance_id, tarp.instance_id, noise_trap.instance_id]
 	)
 	await process_frame
 
+	if (
+		world_state.world_time_minutes
+		!= time_before_camp + GameTimeRules.CAMP_MINUTES
+	):
+		_fail("CAMP did not advance authoritative world time.")
+		return
 	if hex_data.camp_item_states.size() != 3:
 		_fail("Camp gear was not persisted into the three campsite slots.")
 		return
@@ -99,7 +119,8 @@ func _run() -> void:
 	var search_metrics := MacroInteractionResolver.calculate_search_metrics(
 		profile["search"],
 		search_descriptors,
-		hex_data.search_count
+		hex_data.search_count,
+		loot_profile.get("max_searches", 4)
 	)
 	if not _metrics_use_base_twelve(search_metrics):
 		_fail("Search tools produced metrics outside the 0-12 scale.")
@@ -107,20 +128,31 @@ func _run() -> void:
 	hex_data.search_count = _find_quiet_search_attempt(
 		poi_coords,
 		profile["search"],
-		search_descriptors
+		search_descriptors,
+		loot_profile
 	)
 	var search_count_before := hex_data.search_count
+	var time_before_search := world_state.world_time_minutes
 	macro_map.resolve_poi_action(
 		GameEnums.PoiAction.SEARCH,
 		[crowbar.instance_id, lockpick.instance_id]
 	)
 	await process_frame
 
+	if (
+		world_state.world_time_minutes
+		!= time_before_search + GameTimeRules.SEARCH_MINUTES
+	):
+		_fail("SEARCH did not advance authoritative world time.")
+		return
 	if hex_data.search_count != search_count_before + 1:
 		_fail("POI search depletion state was not persisted.")
 		return
 	if search_metrics.is_empty():
 		_fail("Search metrics could not be calculated from slotted tools.")
+		return
+	if not world_state.has_ground_items(poi_coords):
+		_fail("SEARCH loot was not placed in persistent ground inventory.")
 		return
 
 	macro_map.interaction_panel.close_panel()
@@ -258,21 +290,23 @@ func _find_safe_camp_attempt(
 func _find_quiet_search_attempt(
 	coords: Vector2i,
 	base_metrics: Dictionary,
-	descriptors: Array
+	descriptors: Array,
+	loot_profile: Dictionary
 ) -> int:
-	var loot_pool: Array[String] = ["ration_bar", "clean_water"]
-	for attempt in range(32):
+	var max_searches := int(loot_profile.get("max_searches", 4))
+	for attempt in range(max_searches):
 		var metrics := MacroInteractionResolver.calculate_search_metrics(
 			base_metrics,
 			descriptors,
-			attempt
+			attempt,
+			max_searches
 		)
 		var result := MacroInteractionResolver.resolve_search(
 			"DEMO_WASTELAND_01",
 			coords,
 			attempt,
 			metrics,
-			loot_pool
+			loot_profile
 		)
 		if not result.get("attracted_enemy", false):
 			return attempt

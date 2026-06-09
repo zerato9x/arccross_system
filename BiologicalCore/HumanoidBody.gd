@@ -84,6 +84,35 @@ func _handle_destroyed_limb(limb: GameEnums.LimbRegion) -> void:
 # ---------------------------------------------------------
 
 func process_biological_tick(environmental_temp: float, insulation_rating: float, exertion_level: float = 1.0) -> void:
+	process_elapsed_time(15, environmental_temp, insulation_rating, exertion_level)
+
+func process_elapsed_time(
+	elapsed_minutes: int,
+	environmental_temp: float,
+	insulation_rating: float,
+	exertion_level: float = 1.0
+) -> void:
+	if elapsed_minutes <= 0:
+		return
+	var remaining_minutes := elapsed_minutes
+	while remaining_minutes > 0:
+		var interval_minutes := mini(15, remaining_minutes)
+		_process_biological_interval(
+			float(interval_minutes) / 15.0,
+			environmental_temp,
+			insulation_rating,
+			exertion_level
+		)
+		if blood_level <= 0.0:
+			return
+		remaining_minutes -= interval_minutes
+
+func _process_biological_interval(
+	tick_scale: float,
+	environmental_temp: float,
+	insulation_rating: float,
+	exertion_level: float
+) -> void:
 	# 1. Process Blood Loss (Your original code)
 	var active_bleeds: int = 0
 	for limb in limb_trauma.keys():
@@ -91,7 +120,10 @@ func process_biological_tick(environmental_temp: float, insulation_rating: float
 			active_bleeds += 1
 			
 	if active_bleeds > 0:
-		blood_level = max(0.0, blood_level - (active_bleeds * 0.6))
+		blood_level = max(
+			0.0,
+			blood_level - (active_bleeds * 0.6 * tick_scale)
+		)
 		blood_level_changed.emit(blood_level)
 		if blood_level <= 0.0:
 			vital_failure.emit("Exsanguination")
@@ -109,13 +141,20 @@ func process_biological_tick(environmental_temp: float, insulation_rating: float
 			thermal_differential
 			* (1.0 - insulation_ratio)
 			* 0.05
+			* tick_scale
 		)
 		
 	# 3. Process Calories, Hydration, and Sleep
 	# Exertion level (e.g., walking through Swamp vs Plains) accelerates the drain
-	hunger = max(0.0, hunger - (0.12 * exertion_level))
-	thirst = max(0.0, thirst - (0.36 * exertion_level)) # Thirst kills faster than hunger
-	fatigue = min(GameEnums.SCALE_MAX, fatigue + (0.24 * exertion_level))
+	hunger = max(0.0, hunger - (0.12 * exertion_level * tick_scale))
+	thirst = max(
+		0.0,
+		thirst - (0.36 * exertion_level * tick_scale)
+	)
+	fatigue = min(
+		GameEnums.SCALE_MAX,
+		fatigue + (0.24 * exertion_level * tick_scale)
+	)
 
 	# 4. Trigger Crisis Alarms
 	var crisis_threshold := GameEnums.SCALE_MAX * 0.2
