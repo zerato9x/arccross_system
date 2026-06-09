@@ -27,34 +27,34 @@ const COST_ALL_AP: int = -1
 
 const ACTION_CATEGORIES = {
 	# --- Non-Duel (Approach Phase) ---
-	GameEnums.ActionType.MOVE_FORWARD: GameEnums.ActionCategory.MINOR,
-	GameEnums.ActionType.MOVE_BACKWARD: GameEnums.ActionCategory.MINOR,
-	GameEnums.ActionType.CHARGE: GameEnums.ActionCategory.HEAVY,
-	GameEnums.ActionType.SHOOT: GameEnums.ActionCategory.MAJOR,
-	GameEnums.ActionType.AIMED_SHOT: GameEnums.ActionCategory.HEAVY,
-	GameEnums.ActionType.CYCLE: GameEnums.ActionCategory.QUICK,
-	GameEnums.ActionType.RELOAD: GameEnums.ActionCategory.MINOR,
-	GameEnums.ActionType.OBJ_INTERACT: GameEnums.ActionCategory.MAJOR,
-	GameEnums.ActionType.USE_ITEM: GameEnums.ActionCategory.MINOR,
-	GameEnums.ActionType.TAKE_COVER: GameEnums.ActionCategory.MAJOR,
+	GameEnums.ActionType.MOVE_FORWARD: CombatRules.ActionCategory.MINOR,
+	GameEnums.ActionType.MOVE_BACKWARD: CombatRules.ActionCategory.MINOR,
+	GameEnums.ActionType.CHARGE: CombatRules.ActionCategory.HEAVY,
+	GameEnums.ActionType.SHOOT: CombatRules.ActionCategory.MAJOR,
+	GameEnums.ActionType.AIMED_SHOT: CombatRules.ActionCategory.HEAVY,
+	GameEnums.ActionType.CYCLE: CombatRules.ActionCategory.QUICK,
+	GameEnums.ActionType.RELOAD: CombatRules.ActionCategory.MINOR,
+	GameEnums.ActionType.OBJ_INTERACT: CombatRules.ActionCategory.MAJOR,
+	GameEnums.ActionType.USE_ITEM: CombatRules.ActionCategory.MINOR,
+	GameEnums.ActionType.TAKE_COVER: CombatRules.ActionCategory.MAJOR,
 	# --- Duel-Locked (Melee Lock) ---
-	GameEnums.ActionType.STRIKE: GameEnums.ActionCategory.MAJOR,
-	GameEnums.ActionType.GRAPPLE: GameEnums.ActionCategory.HEAVY,
-	GameEnums.ActionType.PUSH_STAY: GameEnums.ActionCategory.MAJOR,
-	GameEnums.ActionType.PUSH_FOLLOW: GameEnums.ActionCategory.MAJOR,
-	GameEnums.ActionType.PULL_FOLLOW: GameEnums.ActionCategory.MAJOR,
-	GameEnums.ActionType.PULL_STAY: GameEnums.ActionCategory.MAJOR,
-	GameEnums.ActionType.BREAK: GameEnums.ActionCategory.MAJOR,
-	GameEnums.ActionType.DISENGAGE: GameEnums.ActionCategory.HEAVY,
+	GameEnums.ActionType.STRIKE: CombatRules.ActionCategory.MAJOR,
+	GameEnums.ActionType.GRAPPLE: CombatRules.ActionCategory.HEAVY,
+	GameEnums.ActionType.PUSH_STAY: CombatRules.ActionCategory.MAJOR,
+	GameEnums.ActionType.PUSH_FOLLOW: CombatRules.ActionCategory.MAJOR,
+	GameEnums.ActionType.PULL_FOLLOW: CombatRules.ActionCategory.MAJOR,
+	GameEnums.ActionType.PULL_STAY: CombatRules.ActionCategory.MAJOR,
+	GameEnums.ActionType.BREAK: CombatRules.ActionCategory.MAJOR,
+	GameEnums.ActionType.DISENGAGE: CombatRules.ActionCategory.HEAVY,
 	# --- Prone Window ---
-	GameEnums.ActionType.TRIP: GameEnums.ActionCategory.ALL_AP,
-	GameEnums.ActionType.GET_UP: GameEnums.ActionCategory.ALL_AP,
-	GameEnums.ActionType.EXECUTE: GameEnums.ActionCategory.MINOR,
+	GameEnums.ActionType.TRIP: CombatRules.ActionCategory.ALL_AP,
+	GameEnums.ActionType.GET_UP: CombatRules.ActionCategory.ALL_AP,
+	GameEnums.ActionType.EXECUTE: CombatRules.ActionCategory.MINOR,
 	# --- Reactions (Off-Turn, consume leftover AP) ---
-	GameEnums.ActionType.BLOCK: GameEnums.ActionCategory.MINOR,
-	GameEnums.ActionType.DODGE: GameEnums.ActionCategory.MINOR,
-	GameEnums.ActionType.STAY: GameEnums.ActionCategory.FREE,
-	GameEnums.ActionType.FOLLOW: GameEnums.ActionCategory.FREE,
+	GameEnums.ActionType.BLOCK: CombatRules.ActionCategory.MINOR,
+	GameEnums.ActionType.DODGE: CombatRules.ActionCategory.MINOR,
+	GameEnums.ActionType.STAY: CombatRules.ActionCategory.FREE,
+	GameEnums.ActionType.FOLLOW: CombatRules.ActionCategory.FREE,
 }
 
 func get_action_cost(entity: HumanoidCore, action: GameEnums.ActionType) -> int:
@@ -64,25 +64,25 @@ func get_action_cost(entity: HumanoidCore, action: GameEnums.ActionType) -> int:
 	var tier = entity.kinetic_tier
 	
 	match category:
-		GameEnums.ActionCategory.QUICK:
+		CombatRules.ActionCategory.QUICK:
 			if tier == GameEnums.KineticTier.FLUID: return 1
 			if tier == GameEnums.KineticTier.LABORED: return 2
 			return 3
-		GameEnums.ActionCategory.MINOR:
+		CombatRules.ActionCategory.MINOR:
 			if tier == GameEnums.KineticTier.FLUID: return 2
 			if tier == GameEnums.KineticTier.LABORED: return 3
 			return 4
-		GameEnums.ActionCategory.MAJOR:
+		CombatRules.ActionCategory.MAJOR:
 			if tier == GameEnums.KineticTier.FLUID: return 3
 			if tier == GameEnums.KineticTier.LABORED: return 4
 			return 6
-		GameEnums.ActionCategory.HEAVY:
+		CombatRules.ActionCategory.HEAVY:
 			if tier == GameEnums.KineticTier.FLUID: return 4
 			if tier == GameEnums.KineticTier.LABORED: return 6
 			return 12
-		GameEnums.ActionCategory.FREE:
+		CombatRules.ActionCategory.FREE:
 			return 0
-		GameEnums.ActionCategory.ALL_AP:
+		CombatRules.ActionCategory.ALL_AP:
 			return COST_ALL_AP
 			
 	return 0
@@ -213,18 +213,21 @@ func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
 		return false
 	
 	# Reactions cannot be used during your own active turn via request_action
-	if GameEnums.ACTION_GROUPS.has(action) and GameEnums.ACTION_GROUPS[action] == GameEnums.ActionGroup.REACTION:
+	if (
+		CombatRules.ACTION_GROUPS.has(action)
+		and CombatRules.ACTION_GROUPS[action] == CombatRules.ActionGroup.REACTION
+	):
 		print("DENIED: [", action, "] is a reaction. It can only be triggered during an opponent's turn.")
 		return false
 	
 	# ActionGroup enforcement: validate the action is legal for the entity's current spatial context
-	if lane_manager and GameEnums.ACTION_GROUPS.has(action):
-		var required_group: GameEnums.ActionGroup = GameEnums.ACTION_GROUPS[action]
+	if lane_manager and CombatRules.ACTION_GROUPS.has(action):
+		var required_group: CombatRules.ActionGroup = CombatRules.ACTION_GROUPS[action]
 		var entity_lane_idx: int = _find_entity_lane(entity)
 		var is_locked: bool = entity_lane_idx >= 0 and lane_manager.lane_slots[entity_lane_idx].is_melee_locked
 		
 		# Prone Window: must be FELLED to use these (except EXECUTE which targets FELLED opponents)
-		if required_group == GameEnums.ActionGroup.PRONE_WINDOW:
+		if required_group == CombatRules.ActionGroup.PRONE_WINDOW:
 			if action == GameEnums.ActionType.GET_UP or action == GameEnums.ActionType.TRIP:
 				if entity.current_stance != GameEnums.StanceState.FELLED:
 					print("DENIED: [", action, "] requires the entity to be FELLED.")
@@ -233,10 +236,10 @@ func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
 				# EXECUTE requires the EXECUTIONER to be standing/stumbling and target to be FELLED in same slot
 				pass # Validation handled by resolution engine
 		
-		if required_group == GameEnums.ActionGroup.DUEL_LOCKED and not is_locked:
+		if required_group == CombatRules.ActionGroup.DUEL_LOCKED and not is_locked:
 			print("DENIED: [", action, "] requires a Melee Lock. ", entity.name, " is not engaged.")
 			return false
-		if required_group == GameEnums.ActionGroup.NON_DUEL and is_locked:
+		if required_group == CombatRules.ActionGroup.NON_DUEL and is_locked:
 			# Movement is blocked while locked; you must DISENGAGE first
 			# SHOOT and CYCLE are explicitly blocked in Duel Lock per spec
 			if action != GameEnums.ActionType.USE_ITEM:

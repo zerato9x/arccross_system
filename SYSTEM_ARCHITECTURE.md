@@ -5,6 +5,10 @@
 `GameEnums` is the shared semantic vocabulary. Domain cores must not exchange
 ownership of their internal nodes or static resources.
 
+`GameEnums` contains only stable concepts that cross a system boundary or appear
+in neutral runtime records. A domain may define private enums and rule tables
+when no other core needs to interpret them.
+
 Cross-system communication uses:
 
 - Values defined by `GameEnums`
@@ -38,6 +42,8 @@ Cross-system communication uses:
 ### CombatCore
 
 - Owns encounter flow, lanes, turns, AI, and resolution.
+- `CombatRules` owns combat-private AP categories, action-legality groups, lane
+  terrain/object enums, and AI weighting tables.
 - It may construct temporary biological combatants from neutral records.
 - It translates encounter context into lane placement and collider identity into
   opening initiative.
@@ -139,6 +145,18 @@ SystemCore coordinates every domain through neutral records and signals.
 Dependencies must remain one-directional. A lower-level core must not import a
 higher-level core to inspect its state. Owner-specific policy is injected through
 callbacks or handled by SystemCore.
+
+## Enum And Stat Policy
+
+- Use `GameEnums` for closed categories shared between cores, such as
+  `ActionType`, `CombatOutcome`, `Faction`, and `EncounterContext`.
+- Keep domain-private categories beside their owning system. Other cores must not
+  depend on `CombatRules`.
+- Store measurable properties such as threat, weight, bulk, insulation, vision,
+  and protection as numeric data or derived calculations, not enum members.
+- Store extensible content such as occupations, traits, flaws, recipes, and POIs
+  as stable IDs or resources rather than expanding `GameEnums`.
+- The immutable genetic axes are represented by `GameEnums.Pillar`.
 
 ## Current Boundary
 

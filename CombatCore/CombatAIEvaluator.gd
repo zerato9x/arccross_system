@@ -88,7 +88,7 @@ func _evaluate_tactics() -> int:
 	
 	var is_survival_crisis = _is_in_survival_crisis()
 	var my_tactic = ai_core.definition.combat_tactic
-	var tactic_multipliers = GameEnums.TACTIC_MULTIPLIERS.get(my_tactic, {})
+	var tactic_multipliers = CombatRules.TACTIC_MULTIPLIERS.get(my_tactic, {})
 	
 	if is_survival_crisis:
 		print("[AI] ", ai_core.name, " is in a SURVIVAL CRISIS! Overriding tactics with survival bias.")
@@ -104,7 +104,7 @@ func _evaluate_tactics() -> int:
 		var multiplier = 1.0
 		
 		if is_survival_crisis:
-			multiplier = GameEnums.SURVIVAL_MULTIPLIERS.get(action, 1.0)
+			multiplier = CombatRules.SURVIVAL_MULTIPLIERS.get(action, 1.0)
 		else:
 			multiplier = tactic_multipliers.get(action, 1.0)
 			
@@ -277,7 +277,10 @@ func _score_take_cover() -> float:
 	var my_idx = _get_lane_idx(ai_core)
 	if my_idx < 0: return 0.0
 	var slot = lane_manager.lane_slots[my_idx]
-	if slot.current_cover != GameEnums.TileObject.NONE and ai_core.current_stance == GameEnums.StanceState.PLANTED:
+	if (
+		slot.current_cover != CombatRules.TileObject.NONE
+		and ai_core.current_stance == GameEnums.StanceState.PLANTED
+	):
 		return 0.6
 	return 0.1
 
@@ -372,7 +375,7 @@ func _on_reaction_window_opened(defender: HumanoidCore, attacker: HumanoidCore, 
 		
 	var is_survival_crisis = _is_in_survival_crisis()
 	var my_tactic = ai_core.definition.combat_tactic
-	var tactic_multipliers = GameEnums.TACTIC_MULTIPLIERS.get(my_tactic, {})
+	var tactic_multipliers = CombatRules.TACTIC_MULTIPLIERS.get(my_tactic, {})
 	
 	var best_reaction = -1
 	var highest_score = 0.0
@@ -382,7 +385,7 @@ func _on_reaction_window_opened(defender: HumanoidCore, attacker: HumanoidCore, 
 		var mult = 1.0
 		
 		if is_survival_crisis:
-			mult = GameEnums.SURVIVAL_MULTIPLIERS.get(reaction, 1.0)
+			mult = CombatRules.SURVIVAL_MULTIPLIERS.get(reaction, 1.0)
 		else:
 			mult = tactic_multipliers.get(reaction, 1.0)
 			

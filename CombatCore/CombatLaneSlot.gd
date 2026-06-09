@@ -2,8 +2,8 @@ extends Resource
 class_name CombatLaneSlot
 
 # Using our Lexicon from earlier
-@export var background: GameEnums.TileBackground = GameEnums.TileBackground.NONE
-@export var current_cover: GameEnums.TileObject = GameEnums.TileObject.NONE
+@export var background: CombatRules.TileBackground = CombatRules.TileBackground.NONE
+@export var current_cover: CombatRules.TileObject = CombatRules.TileObject.NONE
 
 var lane_index: int = -1
 var object_durability: float = 100.0
@@ -45,28 +45,28 @@ func _evaluate_lock_state() -> void:
 # --- COVER PHYSICS ---
 
 func damage_cover(amount: float) -> void:
-	if current_cover == GameEnums.TileObject.NONE: 
+	if current_cover == CombatRules.TileObject.NONE:
 		return
 	
 	object_durability = max(0.0, object_durability - amount)
 	if object_durability <= 0.0:
-		current_cover = GameEnums.TileObject.NONE
+		current_cover = CombatRules.TileObject.NONE
 		object_name = "Shattered debris"
 		
 
 # How much does the background biome ruin your aim? (Percentage penalty)
 const VISIBILITY_PENALTIES = {
-	GameEnums.TileBackground.NONE: 0.0,
-	GameEnums.TileBackground.TREES: 0.25,
-	GameEnums.TileBackground.MUD: 0.0
+	CombatRules.TileBackground.NONE: 0.0,
+	CombatRules.TileBackground.TREES: 0.25,
+	CombatRules.TileBackground.MUD: 0.0,
 }
 
 # How likely is the object to physically intercept the bullet?
 const COVER_INTERCEPTION_CHANCE = {
-	GameEnums.TileObject.NONE: 0.0,
-	GameEnums.TileObject.COVER: 0.60,
-	GameEnums.TileObject.OBSTACLE: 0.20,
-	GameEnums.TileObject.TRAP: 0.0
+	CombatRules.TileObject.NONE: 0.0,
+	CombatRules.TileObject.COVER: 0.60,
+	CombatRules.TileObject.OBSTACLE: 0.20,
+	CombatRules.TileObject.TRAP: 0.0,
 }
 
 func get_visibility_penalty() -> float:
@@ -74,6 +74,6 @@ func get_visibility_penalty() -> float:
 
 func get_cover_interception() -> float:
 	# If the cover is destroyed, it intercepts nothing.
-	if current_cover == GameEnums.TileObject.NONE:
+	if current_cover == CombatRules.TileObject.NONE:
 		return 0.0
 	return COVER_INTERCEPTION_CHANCE[current_cover]

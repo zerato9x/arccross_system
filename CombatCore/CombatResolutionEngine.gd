@@ -89,7 +89,11 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 			return
 	
 	if shot_roll > final_hit_chance:
-		print("CLEAN MISS! The shot was lost in the ", GameEnums.GridBiome.keys()[target_slot.background], ".")
+		print(
+			"CLEAN MISS! The shot was lost in the ",
+			CombatRules.TileBackground.keys()[target_slot.background],
+			"."
+		)
 		return
 
 	# 4. The Collateral Damage Check (Melee Lock)
@@ -405,7 +409,7 @@ func _get_posture_modifier(stance: GameEnums.StanceState) -> int:
 
 func check_hazard_trip(entity: HumanoidCore, tile_slot: CombatLaneSlot, is_charge: bool) -> bool:
 	# Only MUD triggers slip checks (SWAMP would be added to TileBackground if needed)
-	if tile_slot.background != GameEnums.TileBackground.MUD:
+	if tile_slot.background != CombatRules.TileBackground.MUD:
 		return false
 	
 	var slip_base: float = 0.15 # 15% base slip chance on MUD
@@ -432,7 +436,7 @@ func check_hazard_trip(entity: HumanoidCore, tile_slot: CombatLaneSlot, is_charg
 # Dodging inside MUD/SWAMP tiles forces a trip evaluation.
 
 func check_dodge_hazard(entity: HumanoidCore, tile_slot: CombatLaneSlot) -> bool:
-	if tile_slot.background != GameEnums.TileBackground.MUD:
+	if tile_slot.background != CombatRules.TileBackground.MUD:
 		return false
 	
 	var trip_chance: float = 0.20 # 20% chance of tripping while dodging in mud
