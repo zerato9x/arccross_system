@@ -18,8 +18,8 @@ class_name EntityDefinition
 
 @export_group("Arc Manifestation")
 @export var arc_tier: GameEnums.ArcbornTier = GameEnums.ArcbornTier.NONE
-@export var max_arc_energy: float = 0.0
-@export var red_mist_resistance: float = 0.0
+@export_range(0.0, 12.0) var max_arc_energy: float = 0.0
+@export_range(0.0, 12.0) var red_mist_resistance: float = 0.0
 
 @export_group("Spawn Loadout")
 ## The starting gear this entity spawns with. Drag a SpawnLoadout .tres here.
@@ -46,14 +46,22 @@ static func from_state(state: Dictionary) -> EntityDefinition:
 	definition.archetype_name = state.get("archetype_name", "Baseline Human")
 	definition.faction = state.get("faction", GameEnums.Faction.UNALIGNED)
 	definition.agenda = state.get("agenda", GameEnums.Agenda.SURVIVALIST)
-	definition.brawn = state.get("brawn", 6)
-	definition.finesse = state.get("finesse", 6)
-	definition.fortitude = state.get("fortitude", 6)
-	definition.will = state.get("will", 6)
+	definition.brawn = clampi(state.get("brawn", 6), 1, 12)
+	definition.finesse = clampi(state.get("finesse", 6), 1, 12)
+	definition.fortitude = clampi(state.get("fortitude", 6), 1, 12)
+	definition.will = clampi(state.get("will", 6), 1, 12)
 	definition.combat_tactic = state.get("combat_tactic", GameEnums.CombatTactic.BRUTE)
 	definition.arc_tier = state.get("arc_tier", GameEnums.ArcbornTier.NONE)
-	definition.max_arc_energy = state.get("max_arc_energy", 0.0)
-	definition.red_mist_resistance = state.get("red_mist_resistance", 0.0)
+	definition.max_arc_energy = clampf(
+		float(state.get("max_arc_energy", 0.0)),
+		0.0,
+		GameEnums.SCALE_MAX
+	)
+	definition.red_mist_resistance = clampf(
+		float(state.get("red_mist_resistance", 0.0)),
+		0.0,
+		GameEnums.SCALE_MAX
+	)
 
 	var loadout_state: Dictionary = state.get("loadout", {})
 	if not loadout_state.is_empty():

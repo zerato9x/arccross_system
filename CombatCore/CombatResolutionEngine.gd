@@ -233,7 +233,7 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore, target
 		_resolve_damage(defender, weapon, target_limb)
 	else:
 		# Unarmed strike — minimal damage
-		defender.body.apply_targeted_hit(target_limb, 3.0, 0.0)
+		defender.body.apply_targeted_hit(target_limb, 0.5, 0.0)
 		defender.apply_stance_damage(2.0)
 		print("[UNARMED] Fists connect for minor trauma.")
 
@@ -280,7 +280,11 @@ func execute_execute(executioner: HumanoidCore, victim: HumanoidCore) -> void:
 	print(executioner.name, " delivers the killing blow to ", victim.name, "!")
 	
 	# Instant kill — target the head for narrative flavor
-	victim.body.apply_targeted_hit(GameEnums.LimbRegion.HEAD, 999.0, 1.0)
+	victim.body.apply_targeted_hit(
+		GameEnums.LimbRegion.HEAD,
+		999.0,
+		GameEnums.SCALE_MAX
+	)
 
 # ---------------------------------------------------------
 # BREAK (Braced Stance Attack)
@@ -488,7 +492,7 @@ func resolve_block(defender: HumanoidCore, attacker: HumanoidCore, weapon: ItemD
 		block_arm = GameEnums.LimbRegion.RIGHT_ARM
 	
 	if final_flesh > 0.0:
-		defender.body.apply_targeted_hit(block_arm, final_flesh, 0.1)
+		defender.body.apply_targeted_hit(block_arm, final_flesh, 1.0)
 		print("[BLOCK] ", defender.name, " absorbed the strike. Arm took ", final_flesh, " bleed-through damage.")
 		
 	if final_stance > 0.0:
@@ -571,8 +575,13 @@ func _resolve_damage(victim: HumanoidCore, weapon: ItemData, hit_location: GameE
 	var bulk_bonus: float = max(0.0, victim.get_bulk_modifier()) * 0.5
 	var total_defense: float = armor_value + bulk_bonus
 	
-	# 3. Penetration reduces armor effectiveness (0.0 = armor is god, 1.0 = armor is paper)
-	var effective_defense: float = total_defense * (1.0 - clamp(penetration, 0.0, 1.0))
+	# 3. Penetration is authored on 0-12 and becomes a ratio only for this formula.
+	var penetration_ratio := clampf(
+		penetration / GameEnums.SCALE_MAX,
+		0.0,
+		1.0
+	)
+	var effective_defense: float = total_defense * (1.0 - penetration_ratio)
 	
 	# 4. Calculate final damage values
 	var final_flesh: float = max(0.0, raw_flesh - effective_defense)

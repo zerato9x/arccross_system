@@ -35,7 +35,7 @@ var current_morale: float = 12.0
 var is_fleeing: bool = false
 var is_escaping: bool = false # Tracks the 1-turn delay for escaping
 var current_arc_energy: float = 0.0
-var red_mist_corruption: float = 0.0 # 0.0 = Pure, 1.0 = Feral Craven
+var red_mist_corruption: float = 0.0 # 0 = Pure, 12 = Feral Craven
 var is_mindless_hive_thrall: bool = false
 var is_comatose: bool = false # Physically paralyzed/comatose
 
@@ -68,20 +68,18 @@ func _on_metabolic_crisis(condition: GameEnums.MetabolicCondition, severity: flo
 	_calculate_kinetic_burden()
 	
 	# Being starving, freezing, or exhausted crushes the will to fight
-	take_morale_damage(severity * 2.0)
+	take_morale_damage(severity / GameEnums.SCALE_MIDPOINT)
 	print(name, " is suffering from ", GameEnums.MetabolicCondition.keys()[condition], ". Morale dropping.")
 func _initialize_metaphysics() -> void:
 	current_arc_energy = definition.max_arc_energy
 	
 	if definition.faction == GameEnums.Faction.CRAVEN_HIVE or definition.agenda == GameEnums.Agenda.MINDLESS:
 		is_mindless_hive_thrall = true
-		red_mist_corruption = 1.0
+		red_mist_corruption = GameEnums.SCALE_MAX
 
 func _derive_physical_reality() -> void:
 	# 1. Fortitude dictates structural integrity (Base 12)
-	var hp_multiplier: float = definition.fortitude / 6.0 # 6 is baseline average
-	for limb in body.limb_hp.keys():
-		body.limb_hp[limb] = body.BASE_LIMB_MAX[limb] * hp_multiplier
+	body.configure_structure(definition.fortitude)
 		
 	# 2. Brawn strictly equals base pocket space
 	inventory.base_max_capacity = definition.brawn
@@ -112,7 +110,10 @@ func get_grapple_strength() -> float:
 	
 	# Combine both torso regions for structural integrity
 	var current_torso = body.limb_hp[GameEnums.LimbRegion.UPPER_TORSO] + body.limb_hp[GameEnums.LimbRegion.LOWER_TORSO]
-	var max_torso = (body.BASE_LIMB_MAX[GameEnums.LimbRegion.UPPER_TORSO] + body.BASE_LIMB_MAX[GameEnums.LimbRegion.LOWER_TORSO]) * (definition.fortitude / 6.0)
+	var max_torso = (
+		body.get_limb_max(GameEnums.LimbRegion.UPPER_TORSO)
+		+ body.get_limb_max(GameEnums.LimbRegion.LOWER_TORSO)
+	)
 	
 	var structural_health: float = current_torso / max_torso
 	
@@ -216,11 +217,11 @@ func _can_equip_item(item: ItemData, _slot: GameEnums.EquipmentSlot) -> bool:
 func _on_inventory_weight_shifted(_current: int, _max: int) -> void:
 	_calculate_kinetic_burden()
 
-func _on_vitals_shifted(blood_level: float) -> void:
+func _on_vitals_shifted(current_blood_level: float) -> void:
 	_calculate_kinetic_burden()
 	
 	# If you are bleeding out, panic sets in
-	if blood_level < 0.5:
+	if current_blood_level < GameEnums.SCALE_MIDPOINT:
 		take_morale_damage(2.0)
 
 func _calculate_kinetic_burden() -> void:
@@ -239,9 +240,11 @@ func _calculate_kinetic_burden() -> void:
 	
 	# 4. The Survival Penalty (Hunger, Thirst, Fatigue)
 	var survival_penalty: int = 0
-	if body.hunger < 0.2: survival_penalty += 1
-	if body.thirst < 0.2: survival_penalty += 2 # Dehydration heavily limits muscle function
-	if body.fatigue > 0.8: survival_penalty += int(body.fatigue * 4.0) # Up to -4 AP from sheer exhaustion
+	if body.hunger < GameEnums.SCALE_MAX * 0.2: survival_penalty += 1
+	if body.thirst < GameEnums.SCALE_MAX * 0.2: survival_penalty += 2
+	if body.fatigue > GameEnums.SCALE_MAX * 0.8:
+		var fatigue_ratio := body.fatigue / GameEnums.SCALE_MAX
+		survival_penalty += int(fatigue_ratio * 4.0)
 	if body.core_temperature < 34.0: survival_penalty += 2 # Shivering ruins coordination
 	
 	total_burden = trauma_penalty + weight_penalty + gear_weight_penalty + survival_penalty
@@ -314,10 +317,20 @@ func process_environmental_tick(in_red_mist_zone: bool, mist_intensity: float) -
 	if is_mindless_hive_thrall: return
 		
 	if in_red_mist_zone:
-		var net_exposure = mist_intensity * (1.0 - definition.red_mist_resistance)
-		red_mist_corruption = clamp(red_mist_corruption + (net_exposure * 0.01), 0.0, 1.0)
+		var intensity := clampf(mist_intensity, 0.0, GameEnums.SCALE_MAX)
+		var resistance_ratio := clampf(
+			definition.red_mist_resistance / GameEnums.SCALE_MAX,
+			0.0,
+			1.0
+		)
+		var net_exposure = intensity * (1.0 - resistance_ratio)
+		red_mist_corruption = clamp(
+			red_mist_corruption + (net_exposure * 0.01),
+			0.0,
+			GameEnums.SCALE_MAX
+		)
 		
-		if red_mist_corruption >= 1.0:
+		if red_mist_corruption >= GameEnums.SCALE_MAX:
 			_mutate_into_craven()
 
 func spend_arc_force(amount: float) -> bool:
@@ -352,13 +365,25 @@ func use_consumable_item(item: ItemData) -> bool:
 	# Route the effect to the appropriate biological system
 	match item.consumable_effect:
 		GameEnums.ConsumableEffect.RESTORE_HUNGER:
-			body.hunger = clamp(body.hunger + item.consumable_potency, 0.0, 1.0)
+			body.hunger = clamp(
+				body.hunger + item.consumable_potency,
+				0.0,
+				GameEnums.SCALE_MAX
+			)
 			print(name, " consumed [", item.display_name, "]. Hunger restored.")
 		GameEnums.ConsumableEffect.RESTORE_THIRST:
-			body.thirst = clamp(body.thirst + item.consumable_potency, 0.0, 1.0)
+			body.thirst = clamp(
+				body.thirst + item.consumable_potency,
+				0.0,
+				GameEnums.SCALE_MAX
+			)
 			print(name, " consumed [", item.display_name, "]. Thirst quenched.")
 		GameEnums.ConsumableEffect.RESTORE_FATIGUE:
-			body.fatigue = clamp(body.fatigue - item.consumable_potency, 0.0, 1.0)
+			body.fatigue = clamp(
+				body.fatigue - item.consumable_potency,
+				0.0,
+				GameEnums.SCALE_MAX
+			)
 			print(name, " consumed [", item.display_name, "]. Fatigue reduced.")
 		GameEnums.ConsumableEffect.STOP_BLEEDING:
 			# Patch the worst bleed first
@@ -368,7 +393,11 @@ func use_consumable_item(item: ItemData) -> bool:
 					print(name, " applied [", item.display_name, "] to stop bleeding on ", GameEnums.LimbRegion.keys()[limb], ".")
 					break
 		GameEnums.ConsumableEffect.RESTORE_BLOOD:
-			body.blood_level = clamp(body.blood_level + item.consumable_potency, 0.0, 1.0)
+			body.blood_level = clamp(
+				body.blood_level + item.consumable_potency,
+				0.0,
+				GameEnums.SCALE_MAX
+			)
 			body.blood_level_changed.emit(body.blood_level)
 			print(name, " consumed [", item.display_name, "]. Blood volume stabilized.")
 	
@@ -417,12 +446,28 @@ func restore_runtime_state(state: Dictionary) -> void:
 	base_ap = state.get("base_ap", base_ap)
 	current_max_ap = state.get("current_max_ap", current_max_ap)
 	is_dead = state.get("is_dead", is_dead)
-	stance_points = state.get("stance_points", stance_points)
-	current_morale = state.get("current_morale", current_morale)
+	stance_points = clampi(
+		int(state.get("stance_points", stance_points)),
+		0,
+		int(GameEnums.SCALE_MAX)
+	)
+	current_morale = clampf(
+		float(state.get("current_morale", current_morale)),
+		0.0,
+		GameEnums.SCALE_MAX
+	)
 	is_fleeing = state.get("is_fleeing", false)
 	is_escaping = state.get("is_escaping", false)
-	current_arc_energy = state.get("current_arc_energy", current_arc_energy)
-	red_mist_corruption = state.get("red_mist_corruption", red_mist_corruption)
+	current_arc_energy = clampf(
+		float(state.get("current_arc_energy", current_arc_energy)),
+		0.0,
+		definition.max_arc_energy if definition else GameEnums.SCALE_MAX
+	)
+	red_mist_corruption = clampf(
+		float(state.get("red_mist_corruption", red_mist_corruption)),
+		0.0,
+		GameEnums.SCALE_MAX
+	)
 	is_mindless_hive_thrall = state.get(
 		"is_mindless_hive_thrall",
 		is_mindless_hive_thrall

@@ -213,11 +213,7 @@ func _refresh_metrics() -> void:
 	for key in _metric_rows.keys():
 		var row: Dictionary = _metric_rows[key]
 		var value := float(metrics.get(key, 0.0))
-		var maximum := (
-			1.0
-			if _active_poi_action == GameEnums.PoiAction.SEARCH
-			else 27.0
-		)
+		var maximum := GameEnums.SCALE_MAX
 		var label: Label = row["label"]
 		var bar: ProgressBar = row["bar"]
 		label.text = "%s: %.1f / %.1f" % [str(key).to_upper(), value, maximum]

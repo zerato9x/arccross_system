@@ -23,6 +23,6 @@ protection_ballistic = 1.0
 bulk = 2.0
 weight = 2.0
 threat = 1.0
-insulation = 0.6
+insulation = 7.0
 consumable_effect = 0
 consumable_potency = 0.0

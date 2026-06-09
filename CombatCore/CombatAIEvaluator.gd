@@ -126,14 +126,14 @@ func _is_in_survival_crisis() -> bool:
 	if ai_core.is_mindless_hive_thrall:
 		return false
 	
-	if ai_core.body.blood_level < 0.5:
+	if ai_core.body.blood_level < GameEnums.SCALE_MIDPOINT:
 		return true
 	if ai_core.current_stance == GameEnums.StanceState.STUMBLING or ai_core.current_stance == GameEnums.StanceState.FELLED:
 		return true
 		
 	# Severe limb damage to core
 	var upper_torso = ai_core.body.limb_hp[GameEnums.LimbRegion.UPPER_TORSO]
-	var max_upper = ai_core.body.BASE_LIMB_MAX[GameEnums.LimbRegion.UPPER_TORSO] * (ai_core.definition.fortitude / 6.0)
+	var max_upper = ai_core.body.get_limb_max(GameEnums.LimbRegion.UPPER_TORSO)
 	if upper_torso < max_upper * 0.3:
 		return true
 		

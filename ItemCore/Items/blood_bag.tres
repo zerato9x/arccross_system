@@ -10,4 +10,4 @@ lore_description = "Universal type-O synthetic blood. An essential tool for surv
 item_type = 3
 weight = 0.5
 consumable_effect = 4
-consumable_potency = 0.4
+consumable_potency = 5.0

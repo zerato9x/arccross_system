@@ -32,7 +32,26 @@ func _run() -> void:
 		_fail("Persistent player loadout was not applied.")
 		return
 
-	player_core.body.apply_targeted_hit(GameEnums.LimbRegion.LEFT_ARM, 3.0, 0.0)
+	if (
+		not is_equal_approx(player_core.body.blood_level, GameEnums.SCALE_MAX)
+		or not is_equal_approx(player_core.body.hunger, GameEnums.SCALE_MAX)
+		or not is_equal_approx(player_core.body.thirst, GameEnums.SCALE_MAX)
+		or not is_zero_approx(player_core.body.fatigue)
+	):
+		_fail("A new body did not initialize its systemic vitals on the 0-12 scale.")
+		return
+
+	var left_arm_max := player_core.body.get_limb_max(
+		GameEnums.LimbRegion.LEFT_ARM
+	)
+	if not is_equal_approx(
+		player_core.body.limb_hp[GameEnums.LimbRegion.LEFT_ARM],
+		left_arm_max
+	):
+		_fail("Fortitude-derived limb structure did not initialize at full health.")
+		return
+
+	player_core.body.apply_targeted_hit(GameEnums.LimbRegion.LEFT_ARM, 0.5, 0.0)
 	var injured_arm_hp: float = player_core.body.limb_hp[GameEnums.LimbRegion.LEFT_ARM]
 	var hunger_before_move: float = player_core.body.hunger
 

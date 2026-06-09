@@ -25,4 +25,4 @@ weight = 0.5
 threat = 0.0
 insulation = 0.0
 consumable_effect = 1
-consumable_potency = 0.6
+consumable_potency = 7.0

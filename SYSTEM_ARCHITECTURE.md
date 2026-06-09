@@ -8,9 +8,10 @@ Canonical project terminology and concept status are defined in
 `GameEnums` is the shared semantic vocabulary. Domain cores must not exchange
 ownership of their internal nodes or static resources.
 
-`GameEnums` contains only stable concepts that cross a system boundary or appear
-in neutral runtime records. A domain may define private enums and rule tables
-when no other core needs to interpret them.
+`GameEnums` contains stable closed concepts that cross a system boundary or
+appear in neutral runtime records, plus the universal Base-12 scale constants.
+A domain may define private enums and rule tables when no other core needs to
+interpret them.
 
 Cross-system communication uses:
 
@@ -155,10 +156,16 @@ callbacks or handled by SystemCore.
   enters `GameEnums` only when it is closed, shared, and categorical.
 - Use `GameEnums` for closed categories shared between cores, such as
   `ActionType`, `CombatOutcome`, `Faction`, and `EncounterContext`.
+- `SCALE_MAX` and `SCALE_MIDPOINT` are the only non-enum entries: universal
+  numeric boundaries shared by every domain.
 - Keep domain-private categories beside their owning system. Other cores must not
   depend on `CombatRules`.
 - Store measurable properties such as threat, weight, bulk, insulation, vision,
   and protection as numeric data or derived calculations, not enum members.
+- Author abstract gameplay meters on the shared `0` to `12` scale. Convert them
+  to normalized ratios only inside the local formula that requires a ratio.
+- Preserve meaningful physical units, such as degrees Celsius. Physical values
+  must still derive their gameplay thresholds from explicit Base-12 rules.
 - Store extensible content such as occupations, traits, flaws, recipes, and POIs
   as stable IDs or resources rather than expanding `GameEnums`.
 - The immutable genetic axes are represented by `GameEnums.Pillar`.

@@ -21,24 +21,28 @@ static func build_poi_profile(
 		+ str(coords.y)
 	).hash()
 
-	var shelter_bias := 5.0 if biome == GameEnums.GridBiome.FOREST else 0.0
-	var concealment_bias := 4.0 if biome == GameEnums.GridBiome.FOREST else 0.0
+	var shelter_bias := 2.0 if biome == GameEnums.GridBiome.FOREST else 0.0
+	var concealment_bias := 2.0 if biome == GameEnums.GridBiome.FOREST else 0.0
 	return {
 		"search": {
-			"loot": rng.randf_range(0.35, 0.72),
-			"safety": rng.randf_range(0.32, 0.78),
-			"sneak": rng.randf_range(0.28, 0.75),
+			"loot": rng.randf_range(4.0, 9.0),
+			"safety": rng.randf_range(4.0, 9.0),
+			"sneak": rng.randf_range(3.0, 9.0),
 		},
 		"camp": {
-			"sleep": rng.randf_range(4.0, 10.0),
-			"shelter": clampf(rng.randf_range(3.0, 12.0) + shelter_bias, 0.0, 27.0),
-			"healing": rng.randf_range(2.0, 7.0),
-			"concealment": clampf(
-				rng.randf_range(4.0, 13.0) + concealment_bias,
+			"sleep": rng.randf_range(2.0, 5.0),
+			"shelter": clampf(
+				rng.randf_range(1.0, 5.0) + shelter_bias,
 				0.0,
-				27.0
+				GameEnums.SCALE_MAX
 			),
-			"alertness": rng.randf_range(2.0, 8.0),
+			"healing": rng.randf_range(1.0, 3.0),
+			"concealment": clampf(
+				rng.randf_range(2.0, 6.0) + concealment_bias,
+				0.0,
+				GameEnums.SCALE_MAX
+			),
+			"alertness": rng.randf_range(1.0, 4.0),
 		},
 	}
 
@@ -49,8 +53,8 @@ static func calculate_search_metrics(
 ) -> Dictionary:
 	var metrics := base_metrics.duplicate(true)
 	metrics["loot"] = maxf(
-		0.05,
-		float(metrics.get("loot", 0.0)) - (float(search_count) * 0.12)
+		1.0,
+		float(metrics.get("loot", 0.0)) - (float(search_count) * 1.5)
 	)
 	for descriptor in tool_descriptors:
 		var bonuses: Dictionary = descriptor.get("search", {})
@@ -58,7 +62,7 @@ static func calculate_search_metrics(
 			metrics[key] = clampf(
 				float(metrics.get(key, 0.0)) + float(bonuses.get(key, 0.0)),
 				0.0,
-				1.0
+				GameEnums.SCALE_MAX
 			)
 	return metrics
 
@@ -73,7 +77,7 @@ static func calculate_camp_metrics(
 			metrics[key] = clampf(
 				float(metrics.get(key, 0.0)) + float(bonuses.get(key, 0.0)),
 				0.0,
-				27.0
+				GameEnums.SCALE_MAX
 			)
 	return metrics
 
@@ -95,7 +99,12 @@ static func resolve_search(
 		+ str(search_count)
 	).hash()
 
-	var loot_strength := float(metrics.get("loot", 0.0)) * 3.0
+	var loot_ratio := clampf(
+		float(metrics.get("loot", 0.0)) / GameEnums.SCALE_MAX,
+		0.0,
+		1.0
+	)
+	var loot_strength := loot_ratio * 3.0
 	var loot_count := floori(loot_strength)
 	if rng.randf() < loot_strength - float(loot_count):
 		loot_count += 1
@@ -106,8 +115,18 @@ static func resolve_search(
 			break
 		loot_ids.append(loot_pool[rng.randi_range(0, loot_pool.size() - 1)])
 
-	var injured := rng.randf() > float(metrics.get("safety", 0.0))
-	var attracted_enemy := rng.randf() > float(metrics.get("sneak", 0.0))
+	var safety_ratio := clampf(
+		float(metrics.get("safety", 0.0)) / GameEnums.SCALE_MAX,
+		0.0,
+		1.0
+	)
+	var sneak_ratio := clampf(
+		float(metrics.get("sneak", 0.0)) / GameEnums.SCALE_MAX,
+		0.0,
+		1.0
+	)
+	var injured := rng.randf() > safety_ratio
+	var attracted_enemy := rng.randf() > sneak_ratio
 	var injury_limb := GameEnums.LimbRegion.LEFT_ARM
 	if injured:
 		var limbs := [
@@ -124,7 +143,7 @@ static func resolve_search(
 		"loot_ids": loot_ids,
 		"injured": injured,
 		"injury_limb": injury_limb,
-		"injury_damage": rng.randf_range(2.0, 6.0) if injured else 0.0,
+		"injury_damage": rng.randf_range(0.5, 1.5) if injured else 0.0,
 		"attracted_enemy": attracted_enemy,
 	}
 
@@ -145,11 +164,15 @@ static func resolve_camp(
 		+ str(rest_count)
 	).hash()
 
-	var sleep := float(metrics.get("sleep", 0.0)) / 27.0
-	var shelter := float(metrics.get("shelter", 0.0)) / 27.0
-	var healing := float(metrics.get("healing", 0.0)) / 27.0
-	var concealment := float(metrics.get("concealment", 0.0)) / 27.0
-	var alertness := float(metrics.get("alertness", 0.0)) / 27.0
+	var sleep := float(metrics.get("sleep", 0.0)) / GameEnums.SCALE_MAX
+	var shelter := float(metrics.get("shelter", 0.0)) / GameEnums.SCALE_MAX
+	var healing := float(metrics.get("healing", 0.0)) / GameEnums.SCALE_MAX
+	var concealment := (
+		float(metrics.get("concealment", 0.0)) / GameEnums.SCALE_MAX
+	)
+	var alertness := (
+		float(metrics.get("alertness", 0.0)) / GameEnums.SCALE_MAX
+	)
 	var intrusion_risk := clampf(
 		0.45 - (concealment * 0.25) - (alertness * 0.15),
 		0.03,
@@ -158,8 +181,12 @@ static func resolve_camp(
 
 	return {
 		"metrics": metrics.duplicate(true),
-		"fatigue_recovery": clampf(0.2 + (sleep * 0.55) + (shelter * 0.15), 0.0, 0.9),
-		"healing_amount": healing * 8.0,
+		"fatigue_recovery": clampf(
+			2.0 + (sleep * 7.0) + (shelter * 2.0),
+			0.0,
+			11.0
+		),
+		"healing_amount": healing * 2.0,
 		"interrupted": rng.randf() < intrusion_risk,
 	}
 

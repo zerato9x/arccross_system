@@ -46,6 +46,13 @@ func _run() -> void:
 		hex_data.biome,
 		hex_data.poi_id
 	)
+	if (
+		not _metrics_use_base_twelve(profile["search"])
+		or not _metrics_use_base_twelve(profile["camp"])
+	):
+		_fail("Generated POI metrics escaped the 0-12 scale.")
+		return
+
 	var camp_descriptors := [
 		sleeping_bag.to_interaction_descriptor(),
 		tarp.to_interaction_descriptor(),
@@ -55,11 +62,14 @@ func _run() -> void:
 		profile["camp"],
 		camp_descriptors
 	)
+	if not _metrics_use_base_twelve(camp_metrics):
+		_fail("Camp equipment produced metrics outside the 0-12 scale.")
+		return
 	hex_data.camp_rest_count = _find_safe_camp_attempt(
 		poi_coords,
 		camp_metrics
 	)
-	player_core.body.fatigue = 0.8
+	player_core.body.fatigue = 10.0
 	var fatigue_before := player_core.body.fatigue
 	macro_map.resolve_poi_action(
 		GameEnums.PoiAction.CAMP,
@@ -91,6 +101,9 @@ func _run() -> void:
 		search_descriptors,
 		hex_data.search_count
 	)
+	if not _metrics_use_base_twelve(search_metrics):
+		_fail("Search tools produced metrics outside the 0-12 scale.")
+		return
 	hex_data.search_count = _find_quiet_search_attempt(
 		poi_coords,
 		profile["search"],
@@ -270,6 +283,13 @@ func _find_inventory_item(core: HumanoidCore, item_id: String) -> ItemData:
 		if item.id == item_id:
 			return item
 	return null
+
+func _metrics_use_base_twelve(metrics: Dictionary) -> bool:
+	for value in metrics.values():
+		var numeric_value := float(value)
+		if numeric_value < 0.0 or numeric_value > GameEnums.SCALE_MAX:
+			return false
+	return true
 
 func _nearest_enemy_coords(origin: Vector2i, candidates: Array) -> Vector2i:
 	var nearest: Vector2i = candidates[0]

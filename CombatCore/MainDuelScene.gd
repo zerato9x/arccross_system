@@ -177,7 +177,7 @@ func _build_entity_readout(entity: HumanoidCore) -> String:
 	if held: weapon_name = held.display_name
 	
 	t += "[b]%s[/b] (%s) | Flee: %s\n" % [entity.name, entity.definition.archetype_name, str(entity.is_fleeing)]
-	t += "Vitals -> AP: %d (Tier: %s | Burden: %d) | Blood: %.2f | Morale: %.1f\n" % [entity.current_max_ap, GameEnums.KineticTier.keys()[entity.kinetic_tier], entity.total_burden, entity.body.blood_level, entity.current_morale]
+	t += "Vitals -> AP: %d (Tier: %s | Burden: %d) | Blood: %.1f/12 | Morale: %.1f/12\n" % [entity.current_max_ap, GameEnums.KineticTier.keys()[entity.kinetic_tier], entity.total_burden, entity.body.blood_level, entity.current_morale]
 	t += "Stance -> %s (%d/12) | Weapon: %s\n" % [GameEnums.StanceState.keys()[entity.current_stance], entity.stance_points, weapon_name]
 	t += "Gear -> THREAT: %.1f | WEIGHT: %.1f | BULK: %.1f | Inventory: %d/%d\n" % [entity.get_effective_threat(), entity.inventory.get_total_weight(), entity.get_bulk_modifier(), entity.inventory.current_size, entity.inventory.current_max_capacity]
 	t += "Trauma -> U-Torso: %.1f | Head: %.1f | L-Arm: %.1f\n" % [entity.body.limb_hp[GameEnums.LimbRegion.UPPER_TORSO], entity.body.limb_hp[GameEnums.LimbRegion.HEAD], entity.body.limb_hp[GameEnums.LimbRegion.LEFT_ARM]]

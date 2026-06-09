@@ -18,7 +18,7 @@ class_name ItemData
 @export var damage_type: GameEnums.DamageType = GameEnums.DamageType.BLUNT
 @export var flesh_damage: float = 0.0
 @export var stance_damage: float = 0.0
-@export var armor_penetration: float = 0.0
+@export_range(0.0, 12.0) var armor_penetration: float = 0.0
 
 @export_group("Gear Stats")
 ## Defensive values. Only relevant for ARMOR type items equipped on the paper doll.
@@ -32,22 +32,22 @@ class_name ItemData
 ## Contributes to the entity's perceived power level. Drives AI fight-or-flight decisions.
 @export var threat: float = 0.0
 ## Thermal insulation value for hypothermia resistance. Only inner/outer torso items.
-@export var insulation: float = 0.0
+@export_range(0.0, 12.0) var insulation: float = 0.0
 
 @export_group("Consumable")
 @export var consumable_effect: GameEnums.ConsumableEffect = GameEnums.ConsumableEffect.RESTORE_HUNGER
-@export var consumable_potency: float = 0.0 # How much it restores (0.0 to 1.0 scale)
+@export_range(0.0, 12.0) var consumable_potency: float = 0.0
 
 @export_group("Macro Interaction")
 @export var interaction_roles: Array[int] = []
-@export var search_loot_bonus: float = 0.0
-@export var search_safety_bonus: float = 0.0
-@export var search_sneak_bonus: float = 0.0
-@export_range(-27.0, 27.0) var camp_sleep_bonus: float = 0.0
-@export_range(-27.0, 27.0) var camp_shelter_bonus: float = 0.0
-@export_range(-27.0, 27.0) var camp_healing_bonus: float = 0.0
-@export_range(-27.0, 27.0) var camp_concealment_bonus: float = 0.0
-@export_range(-27.0, 27.0) var camp_alertness_bonus: float = 0.0
+@export_range(-12.0, 12.0) var search_loot_bonus: float = 0.0
+@export_range(-12.0, 12.0) var search_safety_bonus: float = 0.0
+@export_range(-12.0, 12.0) var search_sneak_bonus: float = 0.0
+@export_range(-12.0, 12.0) var camp_sleep_bonus: float = 0.0
+@export_range(-12.0, 12.0) var camp_shelter_bonus: float = 0.0
+@export_range(-12.0, 12.0) var camp_healing_bonus: float = 0.0
+@export_range(-12.0, 12.0) var camp_concealment_bonus: float = 0.0
+@export_range(-12.0, 12.0) var camp_alertness_bonus: float = 0.0
 
 @export_group("Firearm Mechanics")
 ## Pistols: Maximum rounds the internal magazine can hold. 0 = no internal magazine (Rifle).
@@ -172,3 +172,10 @@ static func from_runtime_state(state: Dictionary) -> ItemData:
 func _apply_definition_state(state: Dictionary) -> void:
 	for property_name in state.keys():
 		set(property_name, state[property_name])
+	armor_penetration = clampf(armor_penetration, 0.0, GameEnums.SCALE_MAX)
+	insulation = clampf(insulation, 0.0, GameEnums.SCALE_MAX)
+	consumable_potency = clampf(
+		consumable_potency,
+		0.0,
+		GameEnums.SCALE_MAX
+	)

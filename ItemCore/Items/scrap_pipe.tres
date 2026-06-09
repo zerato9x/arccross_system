@@ -9,5 +9,5 @@ display_name = "Rusted Pipe"
 lore_description = "Just an ordinary rusted pipe."
 target_slot = 0
 weapon_type = 1
-flesh_damage = 6.0
+flesh_damage = 1.0
 metadata/_custom_type_script = "uid://jbxk0eeleei8"

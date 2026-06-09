@@ -49,9 +49,16 @@ desperation.
 The project's primary mechanical scale and threshold language. Pillars, Action
 Points, and Stance use twelve as a defining reference.
 
-Base-12 is not a universal datatype. Blood Level and Red Mist Corruption use
-normalized values, limb health can have other ranges, and authored modifiers
-may be fractional.
+Authored abstract meters use `0` to `12`. Pillars use `1` to `12`; condition
+meters may include zero. Fractions are valid when the simulation needs gradual
+change, but the stored value remains a twelve-point value rather than a
+normalized percentage.
+
+Physical measurements keep their meaningful units. Core Temperature remains
+degrees Celsius, while limb structure uses anatomy baselines anchored to the
+twelve-point system and then scales with Fortitude. Ratios from `0.0` to `1.0`
+are permitted only as temporary local calculation results for probabilities,
+interpolation, and proportional comparisons.
 
 ### Make Do Philosophy
 
@@ -216,8 +223,10 @@ upper torso, lower torso, left/right arm, and left/right leg.
 
 **Status:** Established
 
-The remaining physical health of a limb. Loss of structural integrity can cause
-persistent Trauma and reduce the body's effective capabilities.
+The remaining physical health of a limb. Baseline anatomy ratings use values
+from the twelve-point system and are scaled by Fortitude into each body's
+authoritative limb maxima. Loss of structural integrity can cause persistent
+Trauma and reduce the body's effective capabilities.
 
 ### Trauma
 
@@ -233,8 +242,8 @@ vector; Trauma describes a resulting condition.
 
 **Status:** Established
 
-The body's systemic blood volume, stored as a normalized runtime value. Blood
-loss affects survival and Motor Efficiency.
+The body's systemic blood volume on a `0` to `12` scale. Blood loss affects
+survival and Motor Efficiency.
 
 ### Metabolic Condition
 
@@ -268,15 +277,15 @@ An anomalous environmental hazard that can corrupt exposed organisms.
 
 **Status:** Established
 
-The active entity's accumulated Red Mist exposure, stored from `0.0` to `1.0`.
-It is runtime state, not a Pillar.
+The active entity's accumulated Red Mist exposure on a `0` to `12` scale. It is
+runtime state, not a Pillar.
 
 ### Red Mist Resistance
 
 **Status:** Established
 
-An entity-definition property that reduces corruption gained from Red Mist
-exposure.
+An entity-definition property from `0` to `12` that reduces corruption gained
+from Red Mist exposure.
 
 ### Arc
 
@@ -383,8 +392,8 @@ currently projects zero Effective Threat.
 
 **Status:** Established
 
-An equipped-item stat that reduces environmental temperature pressure. It is a
-numeric property, not a category.
+An equipped-item stat on the authored `0` to `12` scale that reduces
+environmental temperature pressure. It is a numeric property, not a category.
 
 ### Protection
 
@@ -714,11 +723,17 @@ The shared closed vocabulary used when multiple cores must interpret the same
 finite values. It is a cross-system contract, not a glossary, content database,
 stat sheet, or rule table.
 
+`SCALE_MAX` and `SCALE_MIDPOINT` are the narrow exception: shared numeric
+constants that define the Base-12 contract without defining any domain rule.
+
 An entry belongs in `GameEnums` only when:
 
 1. The value set is closed.
 2. More than one core must interpret it, or it appears in a neutral record.
 3. The values represent categories rather than measurable quantities.
+
+Shared scale constants may also live here when every domain must interpret the
+same numeric boundary.
 
 ### CombatRules
 
@@ -824,7 +839,8 @@ current Sleep, Shelter, Healing, Concealment, and Alertness metrics.
 - **Sneak:** Expected ability to avoid attracting attention.
 
 These names were adopted from the NEO Scavenger reference and should be
-re-evaluated before becoming ARCCROSS canon.
+re-evaluated before becoming ARCCROSS canon. Current prototype metrics use the
+ARCCROSS `0` to `12` scale.
 
 ### Camp Metrics
 
@@ -837,7 +853,8 @@ re-evaluated before becoming ARCCROSS canon.
 - **Alertness:** Chance to detect an approaching entity.
 
 These names were adopted from the NEO Scavenger reference and should be
-re-evaluated before becoming ARCCROSS canon.
+re-evaluated before becoming ARCCROSS canon. Current prototype metrics use the
+ARCCROSS `0` to `12` scale.
 
 ### Talk
 

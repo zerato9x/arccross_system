@@ -11,7 +11,7 @@ class_name MacroHexData
 
 # Fog of War / Exploration
 @export var is_explored: bool = false
-@export var hazard_level: float = 0.0 # High values equal intense Red Mist zones
+@export_range(0.0, 12.0) var hazard_level: float = 0.0
 var encounter_evaluated: bool = false
 var encounter_entity_id: String = ""
 var search_count: int = 0
@@ -40,7 +40,11 @@ static func from_state(state: Dictionary) -> MacroHexData:
 	hex.poi_id = state.get("poi_id", "")
 	hex.poi_name = state.get("poi_name", "")
 	hex.is_explored = state.get("is_explored", false)
-	hex.hazard_level = state.get("hazard_level", 0.0)
+	hex.hazard_level = clampf(
+		float(state.get("hazard_level", 0.0)),
+		0.0,
+		GameEnums.SCALE_MAX
+	)
 	hex.encounter_evaluated = state.get("encounter_evaluated", false)
 	hex.encounter_entity_id = state.get("encounter_entity_id", "")
 	hex.search_count = state.get("search_count", 0)

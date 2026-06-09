@@ -64,12 +64,14 @@ func _run() -> void:
 	)
 	await process_frame
 
-	var damaged_hp: float = first_arena.enemy_core.body.limb_hp[
+	var initial_arm_hp: float = first_arena.enemy_core.body.limb_hp[
 		GameEnums.LimbRegion.LEFT_ARM
-	] - 4.0
+	]
+	var damage_amount := minf(1.0, initial_arm_hp * 0.5)
+	var damaged_hp := initial_arm_hp - damage_amount
 	first_arena.enemy_core.body.apply_targeted_hit(
 		GameEnums.LimbRegion.LEFT_ARM,
-		4.0,
+		damage_amount,
 		0.0
 	)
 

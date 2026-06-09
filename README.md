@@ -9,7 +9,7 @@ Overview
 Welcome to the Arccross Engine. This is not a standard RPG. There are no 1-100 percentage scales, no heroic health pools, and no forgiving mechanics. This is a mathematically pure, highly lethal survival simulator built on a strict Base-12 biological and environmental logic. Set against the desolate, anomalous backdrop of Arccross, this engine is designed to simulate physical trauma, psychological breaking points, and tactical desperation.
 Core Philosophy: The Meat and The Math
 
-Standard decimal systems are boring and inefficient. Every entity in this engine is governed by a 1-to-12 cap. You do not lose arbitrary "HP"—you lose systemic blood volume. You do not get abstract "debuffs"—your left leg's structural integrity collapses, mathematically crushing your motor efficiency and Action Point (AP) generation in real-time.
+ARCCROSS authors its abstract gameplay meters on a 0-to-12 scale. Pillars use 1-to-12, while depletable conditions such as Blood and Stance can reach zero. Physical measurements retain meaningful units, but their gameplay thresholds are tied back to explicit Base-12 rules. You do not lose one generic health pool: systemic blood loss and local structural damage independently crush motor efficiency and Action Point (AP) generation.
 System Architecture
 1. The Macro-World (The Hex Crawler)
 

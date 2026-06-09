@@ -1,5 +1,10 @@
 extends Node
 
+## Canonical maximum for authored gameplay meters shared across domain boundaries.
+## Ratios may use 0.0-1.0 inside local calculations, but stored meter values use 0-12.
+const SCALE_MAX: float = 12.0
+const SCALE_MIDPOINT: float = 6.0
+
 # ==========================================
 # 1. BIOLOGY & ANATOMY
 # ==========================================

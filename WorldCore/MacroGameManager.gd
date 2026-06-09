@@ -435,7 +435,7 @@ func _resolve_camp(
 	for limb in body.limb_hp.keys():
 		if body.limb_hp[limb] > 0.0:
 			body.limb_hp[limb] = minf(
-				body.BASE_LIMB_MAX[limb],
+				body.get_limb_max(limb),
 				body.limb_hp[limb] + healing_amount
 			)
 
@@ -451,9 +451,9 @@ func _resolve_camp(
 	if interaction_panel:
 		interaction_panel.show_result(
 			"REST COMPLETE",
-			"Fatigue recovered by %.0f%%. Camp healing restored %.1f limb health."
+			"Fatigue recovered by %.1f / 12. Camp healing restored %.1f limb health."
 			% [
-				float(result.get("fatigue_recovery", 0.0)) * 100.0,
+				float(result.get("fatigue_recovery", 0.0)),
 				healing_amount,
 			]
 		)

@@ -158,7 +158,7 @@ func generate_mob(
 			def.will = _roll_attribute(8 + difficulty_bias, 3, rng)
 			def.arc_tier = GameEnums.ArcbornTier.TIER_1
 			def.max_arc_energy = 6.0
-			def.red_mist_resistance = 0.3
+			def.red_mist_resistance = 4.0
 			def.loadout = _generate_arcborn_loadout()
 			
 		GameEnums.Faction.CRAVEN_HIVE:

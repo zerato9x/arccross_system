@@ -10,5 +10,5 @@ lore_description = "Quiet access to doors and containers that still remember the
 item_type = 4
 size_cost = 1
 interaction_roles = Array[int]([1])
-search_loot_bonus = 0.35
-search_sneak_bonus = 0.08
+search_loot_bonus = 4.0
+search_sneak_bonus = 1.0

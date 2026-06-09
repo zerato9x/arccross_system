@@ -99,8 +99,8 @@ func resolve_displacement(initiator: HumanoidCore, target: HumanoidCore, push_di
 		print("\n[SHOVE CUSHION] ", braced_ally.name, " braces ", target.name, "! Displacement stopped.")
 		
 		# Both friendly units take minor blunt collision trauma
-		target.body.apply_targeted_hit(GameEnums.LimbRegion.UPPER_TORSO, 2.0, 0.0)
-		braced_ally.body.apply_targeted_hit(GameEnums.LimbRegion.UPPER_TORSO, 2.0, 0.0)
+		target.body.apply_targeted_hit(GameEnums.LimbRegion.UPPER_TORSO, 0.5, 0.0)
+		braced_ally.body.apply_targeted_hit(GameEnums.LimbRegion.UPPER_TORSO, 0.5, 0.0)
 		
 		# Lock is maintained because target didn't move
 		return
@@ -162,7 +162,13 @@ func attempt_disengage(entity: HumanoidCore, current_idx: int, retreat_idx: int)
 			
 	# The Math: Your physical condition vs their Stance
 	var escape_roll: float = randf() * entity.current_max_ap
-	var enemy_grip: float = (opponent.body.limb_hp[GameEnums.LimbRegion.UPPER_TORSO] / 60.0) * 5.0
+	var upper_torso_max := opponent.body.get_limb_max(
+		GameEnums.LimbRegion.UPPER_TORSO
+	)
+	var enemy_grip: float = (
+		opponent.body.limb_hp[GameEnums.LimbRegion.UPPER_TORSO]
+		/ upper_torso_max
+	) * 5.0
 	
 	if escape_roll > enemy_grip:
 		print("Disengage successful! Kicked away from the grapple.")

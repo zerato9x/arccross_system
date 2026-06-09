@@ -10,5 +10,5 @@ lore_description = "Wire, tins, and ceramic fragments arranged to betray an appr
 item_type = 4
 size_cost = 1
 interaction_roles = Array[int]([2])
-camp_alertness_bonus = 11.0
+camp_alertness_bonus = 5.0
 camp_concealment_bonus = 1.0
