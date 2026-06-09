@@ -199,8 +199,14 @@ As of June 10, 2026, Phase 1 does not pass the definition of done:
 - AMBUSH allows far, standard, or close player deployment.
 - The collider receives opening initiative for both player- and enemy-initiated
   encounters.
-- The player has no combat action interface, so an integrated duel waits on the
-  player's first turn.
+- A neutral combat panel now displays lanes, vitals, AP, legal actions, target
+  limbs, usable consumables, and Reaction Windows. `CombatCommandAdapter`
+  revalidates intent and owns routing to turn, lane, and resolution systems.
+- Player commands now cover the Phase 1 combat path: advance, retreat, charge,
+  shooting and aimed targeting, reload/cycle, melee actions, consumables,
+  pass/reserve, reactions, execution, and escape.
+- Integrated smoke coverage verifies player-issued victory and player escape,
+  including persistent enemy death/alive routing.
 - Player defeat is distinguished and no longer returns control to normal macro
   exploration, but a defeat/recovery screen is not implemented.
 - Versioned save/load is absent.
@@ -209,5 +215,7 @@ As of June 10, 2026, Phase 1 does not pass the definition of done:
   persistent camp slots, search depletion, negotiation deployment, ambush
   placement, collider initiative, authoritative action time, weighted loot
   determinism, valid item IDs, loot-profile exhaustion, inventory transfer,
-  equipment changes, consumable routing, capacity spills, and CAMP safety.
-  Broader outcome and save/load coverage is still absent.
+  equipment changes, consumable routing, capacity spills, CAMP safety, player
+  combat commands, reserved-AP reactions, targeted execution, victory, and
+  player escape. Defeat presentation, enemy-escape automation, and save/load
+  coverage are still absent.

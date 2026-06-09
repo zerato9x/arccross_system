@@ -56,6 +56,11 @@ Cross-system communication uses:
 - Owns encounter flow, lanes, turns, AI, and resolution.
 - `CombatRules` owns combat-private AP categories, action-legality groups, lane
   terrain/object enums, and AI weighting tables.
+- `CombatCommandAdapter` translates neutral player intent into owner-validated
+  turn, lane, inventory, and resolution calls.
+- `CombatPanel` receives neutral combat snapshots and legal-action descriptors.
+  It does not calculate AP costs, movement direction, targeting legality,
+  reaction availability, or outcomes.
 - It may construct temporary biological combatants from neutral records.
 - It translates encounter context into lane placement and collider identity into
   opening initiative.
@@ -157,6 +162,20 @@ ambush_position: GameEnums.AmbushPosition
 - AMBUSH submits only `AmbushPosition`. CombatCore owns the actual lane indices.
 - The entity identified as the collider is placed first in the combat turn
   ledger and receives opening initiative.
+
+## Combat Interaction Boundary
+
+- CombatCore alone determines the current combatant, AP costs, legal actions,
+  target limbs, movement direction, escape state, and available reactions.
+- The combat HUD emits an `ActionType`, optional `LimbRegion`, or stable Runtime
+  Item Instance ID from the descriptors supplied by `CombatCommandAdapter`.
+- `CombatCommandAdapter` revalidates every command before asking
+  `CombatTurnManager`, `CombatLaneManager`, `CombatResolutionEngine`, or
+  BiologicalCore to perform it.
+- Passing preserves unused AP as reserved reaction AP. A turn that reaches zero
+  AP cannot advance while a reaction prompt is unresolved.
+- CombatCore emits only `CombatOutcome` and neutral runtime snapshots to
+  SystemCore. Presentation never marks world entities dead or moves macro tokens.
 
 ## Dependency Direction
 

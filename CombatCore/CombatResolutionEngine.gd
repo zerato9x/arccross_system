@@ -9,10 +9,15 @@ class_name CombatResolutionEngine
 # ---------------------------------------------------------
 
 func execute_ranged_strike(attacker: HumanoidCore, target_idx: int) -> void:
-	_execute_shot(attacker, target_idx, false, GameEnums.LimbRegion.HEAD)
+	await _execute_shot(
+		attacker,
+		target_idx,
+		false,
+		GameEnums.LimbRegion.HEAD
+	)
 
 func execute_aimed_shot(attacker: HumanoidCore, target_idx: int, target_limb: GameEnums.LimbRegion) -> void:
-	_execute_shot(attacker, target_idx, true, target_limb)
+	await _execute_shot(attacker, target_idx, true, target_limb)
 
 func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, target_limb: GameEnums.LimbRegion) -> void:
 	var target_slot: CombatLaneSlot = lane_manager.lane_slots[target_idx]

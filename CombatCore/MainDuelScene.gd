@@ -11,8 +11,10 @@ signal duel_finished(
 @onready var turn_manager: CombatTurnManager = $CombatTurnManager
 @onready var resolution_engine: CombatResolutionEngine = $CombatResolutionEngine
 @onready var encounter_builder: EncounterBuilder = $EncounterBuilder
+@onready var command_adapter: CombatCommandAdapter = $CombatCommandAdapter
 @onready var mob_spawner: MobSpawner = get_node("/root/MobSpawner") as MobSpawner
 @onready var debug_log: RichTextLabel = $DebugUI/DebugLog
+@onready var combat_panel: CombatPanel = $CombatPanel
 
 var player_core: HumanoidCore
 var enemy_core: HumanoidCore
@@ -21,6 +23,16 @@ var enemy_entity_id: String = ""
 var dropped_combat_loot: Array[ItemData] = []
 
 func _ready() -> void:
+	combat_panel.action_requested.connect(command_adapter.request_player_action)
+	combat_panel.pass_requested.connect(command_adapter.pass_player_turn)
+	combat_panel.reaction_selected.connect(
+		command_adapter.resolve_player_reaction
+	)
+	command_adapter.snapshot_changed.connect(combat_panel.show_snapshot)
+	command_adapter.reaction_requested.connect(combat_panel.show_reaction)
+	command_adapter.command_feedback.connect(combat_panel.show_feedback)
+	combat_panel.open_panel()
+
 	# AUTO-TEST BOOTSTRAP: Only run if we are testing the scene directly!
 	if get_parent() == get_tree().root:
 		print("\n>>> INITIALIZING ARCCROSS COMBAT SIMULATION (STANDALONE) <<<")
@@ -69,6 +81,14 @@ func setup_duel(
 	# 3. Wire up death listeners for duel resolution
 	player_core.died.connect(_on_combatant_died.bind(player_core))
 	enemy_core.died.connect(_on_combatant_died.bind(enemy_core))
+
+	command_adapter.configure(
+		player_core,
+		enemy_core,
+		lane_manager,
+		turn_manager,
+		resolution_engine
+	)
 	
 	# 4. Drop them into the mud using our tactical layout matrix
 	encounter_builder.build_encounter(
@@ -77,6 +97,7 @@ func setup_duel(
 		encounter_setup
 	)
 	_refresh_debug_hud()
+	command_adapter.refresh_snapshot()
 
 ## Alternative entry: spawn a procedural enemy from the MobSpawner.
 func setup_duel_procedural(existing_player_core: HumanoidCore, enemy_faction: GameEnums.Faction, difficulty: int = 0) -> void:
@@ -198,6 +219,7 @@ func _on_player_items_spilled(spilled_items: Array[ItemData]) -> void:
 
 func _on_combatant_died(cause: String, dead_entity: HumanoidCore) -> void:
 	turn_manager.halt_loop()
+	combat_panel.close_panel()
 	var outcome := (
 		GameEnums.CombatOutcome.PLAYER_DEFEAT
 		if dead_entity == player_core
@@ -223,6 +245,7 @@ func _on_combatant_died(cause: String, dead_entity: HumanoidCore) -> void:
 
 func _on_entity_escaped(escaper: HumanoidCore) -> void:
 	turn_manager.halt_loop()
+	combat_panel.close_panel()
 	print("\n[DUEL ESCAPED] ", escaper.name, " has successfully fled the battlefield!")
 	var outcome := (
 		GameEnums.CombatOutcome.PLAYER_ESCAPED
@@ -259,7 +282,16 @@ func _spawn_next_mob() -> void:
 	
 	turn_manager.combatants.append(enemy_core)
 	turn_manager.reserved_ap[enemy_core] = 0
+	command_adapter.configure(
+		player_core,
+		enemy_core,
+		lane_manager,
+		turn_manager,
+		resolution_engine
+	)
+	combat_panel.open_panel()
 	_refresh_debug_hud()
+	command_adapter.refresh_snapshot()
 	print("\n>>> NEW CHALLENGER APPROACHES <<<")
 	turn_manager.resume_loop()
 

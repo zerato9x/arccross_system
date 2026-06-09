@@ -318,20 +318,24 @@ func resolve_reaction(defender: HumanoidCore, chosen_reaction: GameEnums.ActionT
 		if defender_ap < cost:
 			print("[REACTION] ", defender.name, " cannot afford [", chosen_reaction, "]. AP: ", defender_ap)
 			reaction_resolved.emit(defender, chosen_reaction, false)
+			_continue_turn_end_after_prompt()
 			return false
 		
 		reserved_ap[defender] -= cost
 		print("[REACTION] ", defender.name, " spent ", cost, " reserved AP on [", chosen_reaction, "]. Remaining reserved: ", reserved_ap[defender])
 		reaction_resolved.emit(defender, chosen_reaction, true)
+		_continue_turn_end_after_prompt()
 		return true
 	
 	# STAY/FOLLOW are free (0 AP) — always succeed
 	if chosen_reaction == GameEnums.ActionType.STAY or chosen_reaction == GameEnums.ActionType.FOLLOW:
 		print("[REACTION] ", defender.name, " chose [", chosen_reaction, "] (free action).")
 		reaction_resolved.emit(defender, chosen_reaction, true)
+		_continue_turn_end_after_prompt()
 		return true
 	
 	reaction_resolved.emit(defender, chosen_reaction, false)
+	_continue_turn_end_after_prompt()
 	return false
 
 ## Called when the defender declines to react or the window times out.
@@ -339,6 +343,7 @@ func skip_reaction(defender: HumanoidCore) -> void:
 	_reaction_pending = false
 	print("[REACTION] ", defender.name, " declined to react.")
 	reaction_resolved.emit(defender, -1, false)
+	_continue_turn_end_after_prompt()
 
 ## Opens a displacement follow-up choice window (STAY or FOLLOW) for the initiator.
 func open_displacement_choice(initiator: HumanoidCore, displaced_entity: HumanoidCore) -> void:
@@ -350,6 +355,7 @@ func open_displacement_choice(initiator: HumanoidCore, displaced_entity: Humanoi
 func resolve_displacement_choice(initiator: HumanoidCore, chose_follow: bool) -> void:
 	_reaction_pending = false
 	displacement_choice_resolved.emit(initiator, chose_follow)
+	_continue_turn_end_after_prompt()
 
 ## Request a Grapple Intercept reaction (HEAVY AP) triggered when CHARGE ends adjacent.
 func request_grapple_intercept(defender: HumanoidCore, charger: HumanoidCore) -> bool:
@@ -381,6 +387,9 @@ func _trigger_end_turn() -> void:
 	call_deferred("_end_turn")
 
 func _end_turn() -> void:
+	if _reaction_pending:
+		_is_turn_ending = false
+		return
 	var active_entity: HumanoidCore = combatants[active_entity_index]
 	
 	# Bank leftover AP for reaction use during opponents' turns
@@ -398,6 +407,10 @@ func _end_turn() -> void:
 		call_deferred("start_new_round")
 	else:
 		call_deferred("_start_turn")
+
+func _continue_turn_end_after_prompt() -> void:
+	if current_ap_pool <= 0:
+		_trigger_end_turn()
 
 func escape_combat(entity: HumanoidCore) -> void:
 	if combatants.has(entity):

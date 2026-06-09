@@ -541,6 +541,31 @@ AP. Other cores should not depend on this enum.
 An action-legality context owned by `CombatRules`: Non-duel, Duel-locked, Prone
 Window, or Reaction.
 
+### Combat Command Adapter
+
+**Status:** Established prototype
+
+The CombatCore-owned intent adapter represented by `CombatCommandAdapter`. It
+produces neutral combat snapshots and legal-action descriptors, revalidates
+player commands, spends AP through `CombatTurnManager`, and routes accepted
+commands to the owning lane, resolution, inventory, or biological system.
+
+### Combat Interface
+
+**Status:** Established prototype
+
+The replaceable `CombatPanel` projection. It displays combat snapshots, legal
+actions, limb choices, AP costs, and Reaction Windows, then emits player intent.
+It does not inspect combat nodes or calculate legality and can be replaced
+without changing encounter rules.
+
+### Reserved AP
+
+**Status:** Established
+
+Unused AP banked when a combatant passes or ends its active turn. Reserved AP is
+spent on eligible off-turn reactions such as Block or Dodge.
+
 ### Reaction Window
 
 **Status:** Established
