@@ -7,7 +7,6 @@ class_name CombatTurnManager
 signal round_started(round_number: int)
 signal turn_started(active_entity: HumanoidCore)
 signal ap_spent(entity: HumanoidCore, remaining_ap: int)
-signal action_committed(entity: HumanoidCore, action: GameEnums.ActionType)
 signal turn_ended(entity: HumanoidCore)
 signal entity_escaped(entity: HumanoidCore)
 
@@ -283,7 +282,6 @@ func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
 	current_ap_pool -= ap_cost
 	print("APPROVED: ", entity.name, " performed [", action, "]. Remaining AP: ", current_ap_pool)
 	ap_spent.emit(entity, current_ap_pool)
-	action_committed.emit(entity, action)
 	
 	# Force an end if they are bankrupt
 	if current_ap_pool <= 0:

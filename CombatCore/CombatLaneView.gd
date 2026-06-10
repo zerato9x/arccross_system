@@ -1,10 +1,6 @@
 extends Control
 class_name CombatLaneView
 
-const MODULAR_RIG := preload(
-	"res://CombatCore/Presentation/ModularCombatRig.gd"
-)
-
 const CYAN := Color(0.28, 0.95, 0.88)
 const CYAN_DIM := Color(0.08, 0.34, 0.32)
 const CRIMSON := Color(1.0, 0.25, 0.34)
@@ -16,53 +12,21 @@ const VOID := Color(0.006, 0.018, 0.02, 0.98)
 var _snapshot: Dictionary = {}
 var _font: SystemFont
 var _showing_melee_lock := false
-var _player_rig: ModularCombatRig
-var _enemy_rig: ModularCombatRig
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	clip_contents = true
 	custom_minimum_size = Vector2(620.0, 290.0)
 	_font = SystemFont.new()
 	_font.font_names = PackedStringArray(["Consolas", "Courier New", "monospace"])
-	_player_rig = MODULAR_RIG.new() as ModularCombatRig
-	_player_rig.name = "PlayerRig"
-	add_child(_player_rig)
-	_player_rig.set_side("player")
-	_enemy_rig = MODULAR_RIG.new() as ModularCombatRig
-	_enemy_rig.name = "EnemyRig"
-	add_child(_enemy_rig)
-	_enemy_rig.set_side("enemy")
-	resized.connect(_on_resized)
+	resized.connect(queue_redraw)
 
 func show_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
 	_showing_melee_lock = _find_lock_slot() >= 0
-	if _snapshot.is_empty():
-		_player_rig.visible = false
-		_enemy_rig.visible = false
-	else:
-		_player_rig.visible = true
-		_enemy_rig.visible = true
-		_player_rig.show_combatant(_snapshot.get("player", {}))
-		_enemy_rig.show_combatant(_snapshot.get("enemy", {}))
-	_layout_rigs()
 	queue_redraw()
 
 func is_showing_melee_lock() -> bool:
 	return _showing_melee_lock
-
-func play_action(side: String, action: int) -> void:
-	var rig := get_character_rig(side)
-	if rig:
-		rig.play_action(action)
-
-func get_character_rig(side: String) -> ModularCombatRig:
-	if side == "player":
-		return _player_rig
-	if side == "enemy":
-		return _enemy_rig
-	return null
 
 func _draw() -> void:
 	var frame := Rect2(Vector2.ZERO, size)
@@ -204,58 +168,6 @@ func _draw_occupant(data: Dictionary, center_x: float, top: float) -> void:
 			color,
 			3.0
 		)
-
-func _layout_rigs() -> void:
-	if not _player_rig or not _enemy_rig or _snapshot.is_empty():
-		return
-	var player: Dictionary = _snapshot.get("player", {})
-	var enemy: Dictionary = _snapshot.get("enemy", {})
-	var player_lane := int(player.get("lane", -1))
-	var enemy_lane := int(enemy.get("lane", -1))
-	if player_lane < 0 or enemy_lane < 0:
-		_player_rig.visible = false
-		_enemy_rig.visible = false
-		return
-
-	var facing := signi(enemy_lane - player_lane)
-	if facing == 0:
-		facing = 1
-	_player_rig.set_facing(facing)
-	_enemy_rig.set_facing(-facing)
-
-	if _showing_melee_lock:
-		var lock_scale := 0.20
-		_player_rig.scale = Vector2(lock_scale, lock_scale)
-		_enemy_rig.scale = Vector2(lock_scale, lock_scale)
-		_player_rig.position = Vector2(size.x * 0.36, size.y - 42.0)
-		_enemy_rig.position = Vector2(size.x * 0.64, size.y - 42.0)
-		return
-
-	var left := 24.0
-	var right := size.x - 24.0
-	var cell_width := (right - left) / 12.0
-	var baseline := size.y * 0.80
-	_position_corridor_rig(_player_rig, player_lane, left, cell_width, baseline)
-	_position_corridor_rig(_enemy_rig, enemy_lane, left, cell_width, baseline)
-
-func _position_corridor_rig(
-	rig: ModularCombatRig,
-	lane_index: int,
-	left: float,
-	cell_width: float,
-	baseline: float
-) -> void:
-	var edge_factor := absf((float(lane_index) / 11.0) - 0.5) * 2.0
-	var visual_scale := lerpf(0.135, 0.17, edge_factor)
-	rig.scale = Vector2(visual_scale, visual_scale)
-	rig.position = Vector2(
-		left + cell_width * (float(lane_index) + 0.5),
-		baseline
-	)
-
-func _on_resized() -> void:
-	_layout_rigs()
-	queue_redraw()
 
 func _draw_melee_lock() -> void:
 	var lock_slot := _find_lock_slot()

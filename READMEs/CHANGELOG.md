@@ -8,12 +8,6 @@
 - Added the twelve-slot tactical lane HUD and Melee Lock presentation.
 - Added separate Limb Region structure readouts for both combatants. Blood
   remains a systemic vital rather than functioning as total HP.
-- Added reusable player/enemy 3/4 silhouette rigs assembled from fourteen
-  independent body parts.
-- Integrated pistol, shotgun, assault-rifle, and KAR98 weapon strips with
-  separate muzzle and casing/shell FX tracks.
-- Connected accepted CombatCore actions to presentation animation without
-  adding weapon-animation concepts to `GameEnums`.
 
 ### Combat Rules
 
