@@ -414,11 +414,15 @@ func _has_legal_command(action: int, item_instance_id: String) -> bool:
 
 func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 	var weapon_name := "Unarmed"
+	var weapon_id := ""
+	var weapon_class := "NONE"
 	var weapon: ItemData = entity.inventory.paper_doll.get(
 		GameEnums.EquipmentSlot.HANDS
 	)
 	if weapon:
 		weapon_name = weapon.display_name
+		weapon_id = weapon.id
+		weapon_class = GameEnums.WeaponClass.keys()[weapon.weapon_type]
 	return {
 		"name": entity.name,
 		"archetype": entity.definition.archetype_name,
@@ -431,6 +435,8 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"stance_recovery_guard": entity.has_stance_recovery_guard,
 		"kinetic_tier": GameEnums.KineticTier.keys()[entity.kinetic_tier],
 		"weapon": weapon_name,
+		"weapon_id": weapon_id,
+		"weapon_class": weapon_class,
 		"is_escaping": entity.is_escaping,
 		"reserved_ap": turn_manager.reserved_ap.get(entity, 0),
 		"is_active": turn_manager.get_active_entity() == entity,

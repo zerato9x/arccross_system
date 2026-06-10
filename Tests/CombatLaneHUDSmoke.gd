@@ -70,12 +70,79 @@ func _run() -> void:
 	if hud_snapshot.get("player", {}).get("limbs", []).size() != 7:
 		_fail("CombatLaneHUD did not receive all seven Limb Regions.")
 		return
+	if hud_snapshot.get("player", {}).get("weapon_id", "") != "makeshift_sidearm":
+		_fail("Combat snapshot did not expose the equipped weapon identity.")
+		return
+	if hud_snapshot.get("player", {}).get("weapon_class", "") != "PISTOL":
+		_fail("Combat snapshot did not expose the equipped weapon class.")
+		return
 	if not arena.lane_hud._player_label.text.contains("CORE HD"):
 		_fail("CombatLaneHUD did not render the limb structure readout.")
 		return
 	if arena.lane_hud.is_showing_melee_lock():
 		_fail("The lane HUD entered lock mode before combatants shared a slot.")
 		return
+	var player_rig: ModularCombatRig = arena.lane_hud.get_character_rig("player")
+	var enemy_rig: ModularCombatRig = arena.lane_hud.get_character_rig("enemy")
+	if player_rig == null or enemy_rig == null:
+		_fail("CombatLaneHUD did not create both modular character rigs.")
+		return
+	if player_rig.get_body_part_names().size() != 14:
+		_fail("The player rig does not contain all fourteen authored body parts.")
+		return
+	if player_rig.get_weapon_profile() != "pistol":
+		_fail("The makeshift sidearm did not select the pistol presentation.")
+		return
+	if enemy_rig.get_weapon_profile() != "unarmed":
+		_fail("A melee-only enemy incorrectly selected a gun presentation.")
+		return
+	if not player_rig.has_weapon_animation("fire"):
+		_fail("The pistol fire and FX strips were not loaded into the rig.")
+		return
+	if not player_rig.has_weapon_fx("fire"):
+		_fail("The pistol muzzle/casing FX layers were not loaded into the rig.")
+		return
+	arena.lane_hud.play_action("player", GameEnums.ActionType.SHOOT)
+	if player_rig.get_weapon_event() != "fire":
+		_fail("Accepted firearm actions do not reach the weapon animation layer.")
+		return
+	arena.lane_hud.show_snapshot(snapshot)
+	if player_rig.get_weapon_event() != "fire":
+		_fail("Snapshot refresh interrupted an active weapon animation.")
+		return
+	var weapon_profiles := [
+		{"id": "field_shotgun", "class": "RIFLE", "profile": "shotgun"},
+		{"id": "assault_rifle", "class": "RIFLE", "profile": "assault"},
+		{"id": "kar98_bolt_rifle", "class": "RIFLE", "profile": "kar98"},
+	]
+	for descriptor in weapon_profiles:
+		player_rig.show_combatant({
+			"weapon_id": descriptor["id"],
+			"weapon_class": descriptor["class"],
+			"stance_state": "PLANTED",
+		})
+		if player_rig.get_weapon_profile() != descriptor["profile"]:
+			_fail(
+				"Gun presentation mapping failed for "
+				+ str(descriptor["profile"])
+				+ "."
+			)
+			return
+		if not player_rig.has_weapon_animation("fire"):
+			_fail(
+				"The authored fire strip is missing for "
+				+ str(descriptor["profile"])
+				+ "."
+			)
+			return
+		if not player_rig.has_weapon_fx("fire"):
+			_fail(
+				"The authored FX strip is missing for "
+				+ str(descriptor["profile"])
+				+ "."
+			)
+			return
+	player_rig.show_combatant(snapshot.get("player", {}))
 
 	player.stance_points = 4
 	player._evaluate_stance_state()
@@ -97,6 +164,21 @@ func _run() -> void:
 		or player.stance_points != 6
 	):
 		_fail("STUMBLING did not receive a normal AP turn with passive recovery.")
+		return
+	var committed_actions: Array = []
+	turn_probe.action_committed.connect(
+		func(entity: HumanoidCore, action: GameEnums.ActionType) -> void:
+			committed_actions.append([entity, action])
+	)
+	if not turn_probe.request_action(player, GameEnums.ActionType.MOVE_FORWARD):
+		_fail("The turn manager rejected a valid action-event probe.")
+		return
+	if (
+		committed_actions.size() != 1
+		or committed_actions[0][0] != player
+		or committed_actions[0][1] != GameEnums.ActionType.MOVE_FORWARD
+	):
+		_fail("Accepted actions did not emit the neutral presentation event.")
 		return
 	arena.command_adapter.refresh_snapshot()
 	snapshot = arena.command_adapter.get_snapshot()

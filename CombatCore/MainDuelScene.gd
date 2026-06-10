@@ -32,6 +32,7 @@ func _ready() -> void:
 	command_adapter.snapshot_changed.connect(lane_hud.show_snapshot)
 	command_adapter.reaction_requested.connect(combat_panel.show_reaction)
 	command_adapter.command_feedback.connect(combat_panel.show_feedback)
+	turn_manager.action_committed.connect(_on_action_committed)
 	lane_hud.open_hud()
 	combat_panel.open_panel()
 
@@ -290,3 +291,15 @@ func _append_dropped_items(items: Array[ItemData]) -> void:
 			continue
 		dropped_combat_loot.append(item)
 		known_ids[item.instance_id] = true
+
+func _on_action_committed(
+	entity: HumanoidCore,
+	action: GameEnums.ActionType
+) -> void:
+	var side := ""
+	if entity == player_core:
+		side = "player"
+	elif entity == enemy_core:
+		side = "enemy"
+	if not side.is_empty():
+		lane_hud.play_action(side, action)

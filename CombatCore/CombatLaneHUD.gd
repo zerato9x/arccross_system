@@ -45,6 +45,15 @@ func get_snapshot() -> Dictionary:
 func is_showing_melee_lock() -> bool:
 	return _lane_view != null and _lane_view.is_showing_melee_lock()
 
+func play_action(side: String, action: int) -> void:
+	if _lane_view:
+		_lane_view.play_action(side, action)
+
+func get_character_rig(side: String) -> ModularCombatRig:
+	if not _lane_view:
+		return null
+	return _lane_view.get_character_rig(side)
+
 func _build_hud() -> void:
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
