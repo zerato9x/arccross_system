@@ -11,6 +11,9 @@ calculate AP costs, legal actions, targets, reactions, or outcomes.
 - Preserve exact lane positions even when perspective compresses distant slots.
 - Show the active combatant, AP, Reserved AP, Stance, and immediate biological
   danger without covering the lane.
+- Show every Limb Region's current and maximum Structural Integrity separately
+  from systemic Blood Level. Mark active Trauma without treating Blood as total
+  HP.
 
 ## Melee Lock
 

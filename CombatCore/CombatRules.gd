@@ -1,6 +1,10 @@
 extends RefCounted
 class_name CombatRules
 
+## Temporary feature gate. EXECUTE remains a shared command ID so a future
+## trait can unlock it without changing the cross-system contract.
+const EXECUTE_ENABLED: bool = false
+
 ## Mathematical categorization of action costs. Scales through KineticTier.
 enum ActionCategory {
 	QUICK,
@@ -87,7 +91,6 @@ const TACTIC_MULTIPLIERS := {
 	},
 	GameEnums.CombatTactic.OPPORTUNIST: {
 		GameEnums.ActionType.TRIP: 3.0,
-		GameEnums.ActionType.EXECUTE: 2.5,
 		GameEnums.ActionType.TAKE_COVER: 1.5,
 		GameEnums.ActionType.CHARGE: 0.5,
 		GameEnums.ActionType.STRIKE: 0.8,

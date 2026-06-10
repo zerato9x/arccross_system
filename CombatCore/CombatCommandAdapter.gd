@@ -15,15 +15,6 @@ var _action_in_progress: bool = false
 var _available_reactions: Array = []
 var _player_forward_direction: int = 1
 
-const STRIKE_LIMBS := [
-	GameEnums.LimbRegion.UPPER_TORSO,
-	GameEnums.LimbRegion.LOWER_TORSO,
-	GameEnums.LimbRegion.LEFT_ARM,
-	GameEnums.LimbRegion.RIGHT_ARM,
-	GameEnums.LimbRegion.LEFT_LEG,
-	GameEnums.LimbRegion.RIGHT_LEG,
-]
-
 const AIMED_LIMBS := [
 	GameEnums.LimbRegion.HEAD,
 	GameEnums.LimbRegion.UPPER_TORSO,
@@ -246,15 +237,9 @@ func _execute_player_action(
 		GameEnums.ActionType.STRIKE:
 			if not turn_manager.request_action(player_core, action):
 				return false
-			var strike_limb := (
-				target_limb
-				if STRIKE_LIMBS.has(target_limb)
-				else GameEnums.LimbRegion.UPPER_TORSO
-			)
 			await resolution_engine.execute_melee_strike(
 				player_core,
-				enemy_core,
-				strike_limb
+				enemy_core
 			)
 			return true
 		GameEnums.ActionType.GRAPPLE:
@@ -279,7 +264,24 @@ func _execute_player_action(
 					player_core,
 					enemy_core,
 					_player_forward_direction,
-					action == GameEnums.ActionType.PUSH_FOLLOW
+					action == GameEnums.ActionType.PUSH_FOLLOW,
+					"PUSH"
+				)
+			return true
+		GameEnums.ActionType.PULL_FOLLOW:
+			if not turn_manager.request_action(player_core, action):
+				return false
+			if resolution_engine.execute_leverage_check(
+				player_core,
+				enemy_core,
+				false
+			):
+				lane_manager.resolve_displacement(
+					player_core,
+					enemy_core,
+					-_player_forward_direction,
+					true,
+					"PULL"
 				)
 			return true
 		GameEnums.ActionType.DISENGAGE:
@@ -359,19 +361,18 @@ func _build_legal_actions() -> Array:
 		if slot.current_cover != CombatRules.TileObject.NONE:
 			_add_action(actions, GameEnums.ActionType.TAKE_COVER, "TAKE COVER")
 	else:
-		_add_action(
-			actions,
-			GameEnums.ActionType.STRIKE,
-			"STRIKE",
-			STRIKE_LIMBS
-		)
+		_add_action(actions, GameEnums.ActionType.STRIKE, "STRIKE")
 		_add_action(actions, GameEnums.ActionType.GRAPPLE, "GRAPPLE")
 		_add_action(actions, GameEnums.ActionType.BREAK, "BREAK STANCE")
 		_add_action(actions, GameEnums.ActionType.PUSH_STAY, "PUSH / STAY")
 		_add_action(actions, GameEnums.ActionType.PUSH_FOLLOW, "PUSH / FOLLOW")
+		_add_action(actions, GameEnums.ActionType.PULL_FOLLOW, "PULL / FOLLOW")
 		if _can_move_to(player_lane - _player_forward_direction):
-			_add_action(actions, GameEnums.ActionType.DISENGAGE, "DISENGAGE")
-		if enemy_core.current_stance == GameEnums.StanceState.FELLED:
+			_add_action(actions, GameEnums.ActionType.DISENGAGE, "BREAK AWAY")
+		if (
+			CombatRules.EXECUTE_ENABLED
+			and enemy_core.current_stance == GameEnums.StanceState.FELLED
+		):
 			_add_action(actions, GameEnums.ActionType.EXECUTE, "EXECUTE")
 
 	for item in player_core.inventory.backpack_array:
@@ -423,6 +424,7 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"archetype": entity.definition.archetype_name,
 		"lane": lane_manager._find_entity_lane(entity),
 		"blood": entity.body.blood_level,
+		"limbs": _limb_snapshot(entity),
 		"morale": entity.current_morale,
 		"stance": entity.stance_points,
 		"stance_state": GameEnums.StanceState.keys()[entity.current_stance],
@@ -432,6 +434,31 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"reserved_ap": turn_manager.reserved_ap.get(entity, 0),
 		"is_active": turn_manager.get_active_entity() == entity,
 	}
+
+func _limb_snapshot(entity: HumanoidCore) -> Array:
+	var limbs: Array = []
+	var ordered_regions := [
+		GameEnums.LimbRegion.HEAD,
+		GameEnums.LimbRegion.UPPER_TORSO,
+		GameEnums.LimbRegion.LOWER_TORSO,
+		GameEnums.LimbRegion.LEFT_ARM,
+		GameEnums.LimbRegion.RIGHT_ARM,
+		GameEnums.LimbRegion.LEFT_LEG,
+		GameEnums.LimbRegion.RIGHT_LEG,
+	]
+	var codes := ["HD", "UT", "LT", "LA", "RA", "LL", "RL"]
+	for index in range(ordered_regions.size()):
+		var region: GameEnums.LimbRegion = ordered_regions[index]
+		limbs.append({
+			"region": region,
+			"code": codes[index],
+			"current": float(entity.body.limb_hp.get(region, 0.0)),
+			"maximum": entity.body.get_limb_max(region),
+			"trauma": GameEnums.TraumaType.keys()[
+				int(entity.body.limb_trauma.get(region, GameEnums.TraumaType.NONE))
+			],
+		})
+	return limbs
 
 func _lane_snapshot() -> Array:
 	var slots: Array = []

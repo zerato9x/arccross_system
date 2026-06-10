@@ -67,32 +67,33 @@ func _check_charge_intercept(charger: HumanoidCore, charger_idx: int) -> void:
 							lane_slots[charger_idx].exit_slot(charger)
 							slot.enter_slot(charger)
 							
-							# The resolution engine needs to know this happened, but for now we just
-							# directly apply the GRAPPLE outcome here since it's a guaranteed intercept.
+							# Charge interception is a special momentum takedown.
 							print("[INTERCEPT SUCCESS] ", occupant.name, " tackles ", charger.name, " mid-sprint!")
 							charger.stance_points = 0
 							charger._evaluate_stance_state()
-							occupant.stance_points = 0
-							occupant._evaluate_stance_state()
-							
-							# Open the EXECUTE window for the defender
-							turn_manager.open_reaction_window(occupant, charger, GameEnums.ActionType.GRAPPLE)
+							occupant.apply_stance_damage(3.0)
 						return
 
 # --- DISPLACEMENT: STAY / FOLLOW / SHOVE CUSHION ---
 
-func resolve_displacement(initiator: HumanoidCore, target: HumanoidCore, push_direction: int, chose_follow: bool) -> void:
+func resolve_displacement(
+	initiator: HumanoidCore,
+	target: HumanoidCore,
+	displacement_direction: int,
+	chose_follow: bool,
+	action_name: String = "PUSH"
+) -> void:
 	var init_idx = _find_entity_lane(initiator)
 	var target_idx = _find_entity_lane(target)
 	
 	if init_idx != target_idx or init_idx == -1:
 		return
 	
-	var destination_idx = target_idx + push_direction
+	var destination_idx = target_idx + displacement_direction
 	
 	# Bounds check
 	if destination_idx < 0 or destination_idx > 11:
-		print("[DISPLACEMENT] ", target.name, " is pushed against the wall. Nowhere to go.")
+		print("[DISPLACEMENT] ", target.name, " has nowhere to go.")
 		return
 	
 	# BRACED STATE CHECK (The Shove Cushion)
@@ -109,14 +110,15 @@ func resolve_displacement(initiator: HumanoidCore, target: HumanoidCore, push_di
 		return
 		
 	# Move the target
-	print("\n[DISPLACEMENT] ", target.name, " is violently shoved into Lane Slot ", destination_idx)
+	var movement_verb := "dragged" if action_name == "PULL" else "shoved"
+	print("\n[", action_name, "] ", target.name, " is ", movement_verb, " into Lane Slot ", destination_idx)
 	lane_slots[init_idx].exit_slot(target)
 	lane_slots[destination_idx].enter_slot(target)
 	
 	if chose_follow:
 		# Check if target has a Backup Braced ally that disables FOLLOW
 		var disabled_by_backup = false
-		var backup_idx = destination_idx + push_direction
+		var backup_idx = destination_idx + displacement_direction
 		if backup_idx >= 0 and backup_idx <= 11:
 			var deep_backup_ally = _get_braced_ally(target, backup_idx)
 			if deep_backup_ally != null:
@@ -124,7 +126,7 @@ func resolve_displacement(initiator: HumanoidCore, target: HumanoidCore, push_di
 				print("[BACKUP PASSIVE] ", deep_backup_ally.name, " is maintaining rear support. FOLLOW denied.")
 		
 		if not disabled_by_backup:
-			print("[FOLLOW] ", initiator.name, " steps forward to maintain the Melee Lock.")
+			print("[FOLLOW] ", initiator.name, " follows to maintain the Melee Lock.")
 			lane_slots[init_idx].exit_slot(initiator)
 			lane_slots[destination_idx].enter_slot(initiator)
 		else:

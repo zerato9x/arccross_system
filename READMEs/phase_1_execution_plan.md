@@ -34,7 +34,8 @@ local user data. Standalone helpers and completion percentages are not proof.
 
 - Player biology, inventory, equipment, position, and identity have one
   authoritative runtime state.
-- Combat transitions do not recreate or reset player state.
+- Combat transitions do not recreate or reset persistent player state.
+  Encounter-local Stance and escape intent clear at combat boundaries.
 - Enemy and Hex records exist independently from rendered nodes.
 - Unloading a token does not erase damage, inventory, or death.
 

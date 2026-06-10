@@ -80,7 +80,6 @@ func _evaluate_tactics() -> int:
 		GameEnums.ActionType.MOVE_FORWARD: _score_advance(),
 		GameEnums.ActionType.MOVE_BACKWARD: _score_retreat(),
 		GameEnums.ActionType.DISENGAGE: _score_disengage(),
-		GameEnums.ActionType.EXECUTE: _score_execute(),
 		GameEnums.ActionType.GRAPPLE: _score_grapple(),
 		GameEnums.ActionType.TAKE_COVER: _score_take_cover(),
 		-1: 0.1 # Baseline. If everything else scores worse than 0.1, just give up.
@@ -241,14 +240,6 @@ func _score_retreat() -> float:
 	if ai_core.current_stance == GameEnums.StanceState.STUMBLING: return 0.7
 	return 0.1
 
-func _score_execute() -> float:
-	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.EXECUTE): return 0.0
-	var my_idx = _get_lane_idx(ai_core)
-	var target_idx = _get_lane_idx(target_core)
-	if my_idx != target_idx: return 0.0
-	if target_core.current_stance != GameEnums.StanceState.FELLED: return 0.0
-	return 15.0
-
 func _score_disengage() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.DISENGAGE): return 0.0
 	var my_idx = _get_lane_idx(ai_core)
@@ -264,13 +255,16 @@ func _score_grapple() -> float:
 	var my_idx = _get_lane_idx(ai_core)
 	var target_idx = _get_lane_idx(target_core)
 	if my_idx != target_idx: return 0.0
+	if target_core.current_stance == GameEnums.StanceState.FELLED: return 0.0
 	
-	var grapple_cost = turn_manager.get_action_cost(ai_core, GameEnums.ActionType.GRAPPLE)
-	var execute_cost = turn_manager.get_action_cost(ai_core, GameEnums.ActionType.EXECUTE)
-	# If I have execute AP ready and can afford grapple
-	if turn_manager.current_ap_pool >= (grapple_cost + execute_cost):
-		return 0.85
-	return 0.3
+	var strength_edge := (
+		ai_core.get_grapple_strength()
+		- maxf(
+			target_core.get_grapple_strength(),
+			float(target_core.definition.finesse)
+		)
+	)
+	return clampf(0.45 + strength_edge * 0.05, 0.15, 0.75)
 
 func _score_take_cover() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.TAKE_COVER): return 0.0
@@ -292,7 +286,7 @@ func _execute_action(action: int) -> void:
 	match action:
 		GameEnums.ActionType.STRIKE:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.STRIKE):
-				resolution_engine.execute_melee_strike(ai_core, target_core, GameEnums.LimbRegion.UPPER_TORSO)
+				resolution_engine.execute_melee_strike(ai_core, target_core)
 
 		GameEnums.ActionType.SHOOT:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.SHOOT):
@@ -346,10 +340,6 @@ func _execute_action(action: int) -> void:
 		GameEnums.ActionType.GRAPPLE:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.GRAPPLE):
 				resolution_engine.execute_grapple(ai_core, target_core)
-				
-		GameEnums.ActionType.EXECUTE:
-			if turn_manager.request_action(ai_core, GameEnums.ActionType.EXECUTE):
-				resolution_engine.execute_execute(ai_core, target_core)
 				
 		GameEnums.ActionType.TAKE_COVER:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.TAKE_COVER):

@@ -115,8 +115,18 @@ func _run() -> void:
 	adapter.refresh_snapshot()
 
 	snapshot = adapter.get_snapshot()
-	if not _snapshot_has_action(snapshot, GameEnums.ActionType.EXECUTE):
-		_fail("A felled enemy in melee range did not expose EXECUTE.")
+	if _snapshot_has_action(snapshot, GameEnums.ActionType.EXECUTE):
+		_fail("The trait-gated EXECUTE action was exposed in the demo.")
+		return
+	if not _snapshot_has_action(snapshot, GameEnums.ActionType.PULL_FOLLOW):
+		_fail("The melee command snapshot did not expose PULL / FOLLOW.")
+		return
+	var strike_descriptor := _find_action(
+		snapshot,
+		GameEnums.ActionType.STRIKE
+	)
+	if not strike_descriptor.get("target_limbs", []).is_empty():
+		_fail("STRIKE still requested a player-selected Limb Region.")
 		return
 
 	var outcomes: Array = []
@@ -129,13 +139,17 @@ func _run() -> void:
 		) -> void:
 			outcomes.append(outcome)
 	)
-	adapter.request_player_action(GameEnums.ActionType.EXECUTE)
+	arena.enemy_core.body.apply_targeted_hit(
+		GameEnums.LimbRegion.HEAD,
+		999.0,
+		GameEnums.SCALE_MAX
+	)
 	await process_frame
 	await process_frame
 	await process_frame
 
 	if outcomes.is_empty():
-		_fail("The player-issued finishing action did not resolve the duel.")
+		_fail("Combat death did not resolve the duel.")
 		return
 	if outcomes[0] != GameEnums.CombatOutcome.PLAYER_VICTORY:
 		_fail("The finishing action produced the wrong combat outcome.")
@@ -151,7 +165,7 @@ func _run() -> void:
 		return
 
 	print(
-		"[TEST PASS] Player combat snapshots, AP commands, reactions, targeting, "
+		"[TEST PASS] Player combat snapshots, AP commands, reactions, targeting rules, "
 		+ "victory, and escape routing are integrated."
 	)
 	quit(0)
@@ -228,6 +242,12 @@ func _snapshot_has_action(snapshot: Dictionary, action: int) -> bool:
 		if descriptor.get("action", -1) == action:
 			return true
 	return false
+
+func _find_action(snapshot: Dictionary, action: int) -> Dictionary:
+	for descriptor in snapshot.get("actions", []):
+		if descriptor.get("action", -1) == action:
+			return descriptor
+	return {}
 
 func _nearest_enemy_coords(origin: Vector2i, candidates: Array) -> Vector2i:
 	var nearest: Vector2i = candidates[0]

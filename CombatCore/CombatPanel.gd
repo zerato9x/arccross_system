@@ -165,6 +165,29 @@ func _add_combatant(snapshot: Dictionary, heading: String) -> void:
 			" | ESCAPING" if snapshot.get("is_escaping", false) else "",
 		]
 	)
+	_add_body(_limb_text(snapshot.get("limbs", [])))
+
+func _limb_text(limbs: Array) -> String:
+	if limbs.size() < 7:
+		return "Limb structure unavailable."
+	return "\n".join([
+		"Core: " + _format_limb(limbs[0]) + " | " + _format_limb(limbs[1]) + " | " + _format_limb(limbs[2]),
+		"Arms: " + _format_limb(limbs[3]) + " | " + _format_limb(limbs[4]),
+		"Legs: " + _format_limb(limbs[5]) + " | " + _format_limb(limbs[6]),
+	])
+
+func _format_limb(limb: Dictionary) -> String:
+	var trauma_marker := (
+		"!"
+		if limb.get("trauma", "NONE") != "NONE"
+		else ""
+	)
+	return "%s%s %.1f/%.1f" % [
+		limb.get("code", "??"),
+		trauma_marker,
+		float(limb.get("current", 0.0)),
+		float(limb.get("maximum", 0.0)),
+	]
 
 func _add_action_row(descriptor: Dictionary, shortcut_index: int) -> void:
 	var row := HBoxContainer.new()

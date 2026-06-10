@@ -131,7 +131,7 @@ func get_combat_accuracy(is_ranged: bool) -> float:
 # 12 = PLANTED (stable, full action set)
 # 7-11 = PLANTED (stable)
 # 1-6 = STUMBLING (restricted actions, THREAT = 0, cannot flee)
-# 0 = FELLED (stunned for one round, open to EXECUTE)
+# 0 = FELLED (stunned for one round)
 
 ## Apply stance damage from a combat impact. Returns the new stance state.
 func apply_stance_damage(amount: float) -> GameEnums.StanceState:
@@ -155,6 +155,14 @@ func reset_stance() -> void:
 	stance_points = 12
 	_evaluate_stance_state()
 
+## Clear tactical state that has no meaning outside one combat encounter.
+## Wounds, Blood, Morale, inventory, and survival state remain untouched.
+func reset_combat_transients() -> void:
+	stance_points = int(GameEnums.SCALE_MAX)
+	is_fleeing = false
+	is_escaping = false
+	_evaluate_stance_state()
+
 func _evaluate_stance_state() -> void:
 	var previous_state: GameEnums.StanceState = current_stance
 	
@@ -170,7 +178,7 @@ func _evaluate_stance_state() -> void:
 		print(name, " stance shifted to ", GameEnums.StanceState.keys()[current_stance], " (", stance_points, "/12)")
 		
 		if current_stance == GameEnums.StanceState.FELLED:
-			print("[FELLED] ", name, " has collapsed! Open to EXECUTE.")
+			print("[FELLED] ", name, " has collapsed and will lose the next turn.")
 			felled.emit()
 			
 		if current_stance == GameEnums.StanceState.STUMBLING:

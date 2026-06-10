@@ -123,7 +123,8 @@ describes a tool; Damage Type describes a hit.
   equipment, and survival crises.
 - **Kinetic Tier:** The Fluid, Labored, or Agonizing bracket that converts
   Kinetic Burden into action-cost pressure.
-- **Stance Points:** Physical equilibrium on the `0` to `12` scale.
+- **Stance Points:** Encounter-local physical equilibrium on the `0` to `12`
+  scale. It resets at combat boundaries; wounds and systemic vitals do not.
 - **Stance State:** A Stance bracket: Planted (`7-12`), Stumbling (`1-6`), or
   Felled (`0`).
 - **Melee Lock:** The derived situation in which hostile combatants occupy the
@@ -144,6 +145,16 @@ describes a tool; Damage Type describes a hit.
 - **Flesh Damage:** Damage to anatomy and biological health.
 - **Stance Damage:** Damage to equilibrium that can create openings without
   directly causing a wound.
+- **Strike:** A melee attack whose impact region is resolved randomly from all
+  non-head Limb Regions.
+- **Grapple:** An opposed base-12 takedown check. Success fells the defender;
+  failure costs the initiator Stance.
+- **Pull / Follow:** While Melee Locked, drag the opponent one lane toward the
+  initiator's rear and follow into that lane, preserving the lock.
+- **Disengage:** Break away from a Melee Lock and retreat alone. It is distinct
+  from Pull / Follow.
+- **Execute** *(planned trait action):* A finishing command reserved for a future
+  trait unlock. It is disabled in the current demo rules.
 
 ## Macro World
 

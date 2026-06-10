@@ -151,7 +151,8 @@ func _combatant_text(data: Dictionary, heading: String) -> String:
 		"%s%s // SLOT %02d\n"
 		+ "%s\n"
 		+ "BLOOD %04.1f  STANCE %02d  MORALE %04.1f\n"
-		+ "AP-R %02d  KINETIC %s  WEAPON %s%s"
+		+ "AP-R %02d  KINETIC %s  WEAPON %s%s\n"
+		+ "%s"
 	) % [
 		heading,
 		active_marker,
@@ -164,13 +165,41 @@ func _combatant_text(data: Dictionary, heading: String) -> String:
 		str(data.get("kinetic_tier", "UNKNOWN")),
 		str(data.get("weapon", "UNARMED")).to_upper(),
 		escape_marker,
+		_limb_text(data.get("limbs", [])),
 	]
+
+func _limb_text(limbs: Array) -> String:
+	if limbs.size() < 7:
+		return "LIMBS // NO SIGNAL"
+	return "\n".join([
+		"CORE " + _format_limb(limbs[0]) + " " + _format_limb(limbs[1]) + " " + _format_limb(limbs[2]),
+		"ARMS " + _format_limb(limbs[3]) + " " + _format_limb(limbs[4]),
+		"LEGS " + _format_limb(limbs[5]) + " " + _format_limb(limbs[6]),
+	])
+
+func _format_limb(limb: Dictionary) -> String:
+	var trauma_marker := (
+		"!"
+		if limb.get("trauma", "NONE") != "NONE"
+		else ""
+	)
+	return "%s%s %s/%s" % [
+		limb.get("code", "??"),
+		trauma_marker,
+		_compact_number(float(limb.get("current", 0.0))),
+		_compact_number(float(limb.get("maximum", 0.0))),
+	]
+
+func _compact_number(value: float) -> String:
+	if is_equal_approx(value, roundf(value)):
+		return str(int(roundf(value)))
+	return "%.1f" % value
 
 func _status_label(color: Color) -> Label:
 	var label := _label("", 13, color)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.custom_minimum_size.y = 82.0
+	label.custom_minimum_size.y = 130.0
 	label.add_theme_stylebox_override("normal", _status_style(color))
 	return label
 

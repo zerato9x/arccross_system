@@ -4,6 +4,15 @@ class_name CombatResolutionEngine
 @export var lane_manager: CombatLaneManager
 @export var turn_manager: CombatTurnManager
 
+const MELEE_HIT_REGIONS := [
+	GameEnums.LimbRegion.UPPER_TORSO,
+	GameEnums.LimbRegion.LOWER_TORSO,
+	GameEnums.LimbRegion.LEFT_ARM,
+	GameEnums.LimbRegion.RIGHT_ARM,
+	GameEnums.LimbRegion.LEFT_LEG,
+	GameEnums.LimbRegion.RIGHT_LEG,
+]
+
 # ---------------------------------------------------------
 # THE RANGED TRAJECTORY MATH
 # ---------------------------------------------------------
@@ -196,13 +205,8 @@ func execute_cycle(entity: HumanoidCore) -> bool:
 # MELEE STRIKE RESOLUTION
 # ---------------------------------------------------------
 
-func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore, target_limb: GameEnums.LimbRegion) -> void:
+func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> void:
 	var weapon: ItemData = attacker.inventory.get_active_weapon(true) # Melee context
-	
-	# STRIKE cannot target the Head per spec
-	if target_limb == GameEnums.LimbRegion.HEAD:
-		print("DENIED: STRIKE cannot target the Head. Use EXECUTE for lethal precision.")
-		return
 	
 	# Open BLOCK / DODGE reaction window for defender
 	var chosen_reaction = -1
@@ -231,6 +235,7 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore, target
 				print("[STRIKE BLOCKED] Block succeeded, mitigated damage applied.")
 				return
 	
+	var target_limb := roll_melee_target()
 	print("\n--- MELEE STRIKE ---")
 	print(attacker.name, " swings at ", defender.name, "'s ", GameEnums.LimbRegion.keys()[target_limb])
 	
@@ -242,27 +247,58 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore, target
 		defender.apply_stance_damage(2.0)
 		print("[UNARMED] Fists connect for minor trauma.")
 
+func roll_melee_target() -> GameEnums.LimbRegion:
+	return MELEE_HIT_REGIONS.pick_random()
+
 # ---------------------------------------------------------
 # GRAPPLE RESOLUTION
 # ---------------------------------------------------------
-# Forces BOTH the initiator and defender into FELLED (0 Stance).
-# Immediately opens a high-priority 2 AP EXECUTE Reaction Strike window.
+# Opposed Base-12 check. The defender wins ties. Success fells the defender;
+# the initiator pays a smaller stance cost for committing to the takedown.
 
-func execute_grapple(initiator: HumanoidCore, defender: HumanoidCore) -> void:
-	print("\n--- GRAPPLE TAKEDOWN ---")
-	print(initiator.name, " sacrifices everything to drag ", defender.name, " into the dirt!")
-	
-	# Both entities → FELLED
-	initiator.stance_points = 0
-	initiator._evaluate_stance_state()
+func execute_grapple(
+	initiator: HumanoidCore,
+	defender: HumanoidCore,
+	attack_roll_override: int = -1,
+	defense_roll_override: int = -1
+) -> bool:
+	var initiator_lane := _find_entity_index(initiator)
+	var defender_lane := _find_entity_index(defender)
+	if initiator_lane < 0 or initiator_lane != defender_lane:
+		print("DENIED: GRAPPLE requires both combatants in the same lane slot.")
+		return false
+	if defender.current_stance == GameEnums.StanceState.FELLED:
+		print("DENIED: ", defender.name, " is already FELLED.")
+		return false
+
+	var attack_roll := _base12_roll(attack_roll_override)
+	var defense_roll := _base12_roll(defense_roll_override)
+	var force := (
+		initiator.get_grapple_strength()
+		+ float(initiator.stance_points) / 3.0
+		+ float(attack_roll)
+	)
+	var resistance := (
+		maxf(
+			defender.get_grapple_strength(),
+			float(defender.definition.finesse)
+		)
+		+ float(defender.stance_points) / 3.0
+		+ float(defense_roll)
+	)
+
+	print("\n--- GRAPPLE CHECK ---")
+	print(initiator.name, " ", force, " vs ", defender.name, " ", resistance)
+	if force <= resistance:
+		print("[GRAPPLE FAILED] ", defender.name, " keeps their footing.")
+		initiator.apply_stance_damage(2.0)
+		return false
+
+	print("[GRAPPLE SUCCESS] ", initiator.name, " takes ", defender.name, " down.")
 	defender.stance_points = 0
 	defender._evaluate_stance_state()
-	
-	# Open a 2 AP EXECUTE reaction window for the initiator
-	# The initiator gets a free shot if they have reserved AP or remaining AP
-	if turn_manager:
-		print("[GRAPPLE] EXECUTE window opens for ", initiator.name, "!")
-		turn_manager.open_reaction_window(initiator, defender, GameEnums.ActionType.GRAPPLE)
+	initiator.apply_stance_damage(3.0)
+	return true
 
 # ---------------------------------------------------------
 # EXECUTE RESOLUTION
@@ -270,6 +306,9 @@ func execute_grapple(initiator: HumanoidCore, defender: HumanoidCore) -> void:
 # Instantly incapacitates/kills a FELLED opponent in the same grid slot.
 
 func execute_execute(executioner: HumanoidCore, victim: HumanoidCore) -> void:
+	if not CombatRules.EXECUTE_ENABLED:
+		print("DENIED: EXECUTE is disabled until its trait unlock is implemented.")
+		return
 	if victim.current_stance != GameEnums.StanceState.FELLED:
 		print("DENIED: ", victim.name, " is not FELLED. Cannot execute.")
 		return
@@ -369,12 +408,17 @@ func execute_trip(tripper: HumanoidCore, target: HumanoidCore) -> bool:
 # ---------------------------------------------------------
 # LEVERAGE FORMULA: PUSH / PULL
 # ---------------------------------------------------------
-# ΔStance = Stance_initiator - Stance_defender
-# Force = Brawn_initiator + ΔStance + PostureMod_initiator + randf(1, 12)
-# Resistance = Brawn_defender + PostureMod_defender
-# PostureMods: PLANTED = 0, STUMBLING = -6, FELLED = Auto-success
+# Force = GrappleStrength + StanceSupport + d12
+# Resistance = GrappleStrength + StanceSupport + d12
+# Defender wins ties. A FELLED defender cannot resist displacement.
 
-func execute_leverage_check(initiator: HumanoidCore, defender: HumanoidCore, is_push: bool) -> bool:
+func execute_leverage_check(
+	initiator: HumanoidCore,
+	defender: HumanoidCore,
+	is_push: bool,
+	attack_roll_override: int = -1,
+	defense_roll_override: int = -1
+) -> bool:
 	print("\n--- LEVERAGE CHECK (", ("PUSH" if is_push else "PULL"), ") ---")
 	
 	# FELLED = Automatic initiator success
@@ -382,18 +426,22 @@ func execute_leverage_check(initiator: HumanoidCore, defender: HumanoidCore, is_
 		print("[LEVERAGE] Defender is FELLED → Automatic success!")
 		return true
 	
-	var delta_stance: int = initiator.stance_points - defender.stance_points
-	var posture_mod_initiator: int = _get_posture_modifier(initiator.current_stance)
-	var posture_mod_defender: int = _get_posture_modifier(defender.current_stance)
+	var attack_roll := _base12_roll(attack_roll_override)
+	var defense_roll := _base12_roll(defense_roll_override)
+	var force := (
+		initiator.get_grapple_strength()
+		+ float(initiator.stance_points) / 3.0
+		+ float(attack_roll)
+	)
+	var resistance := (
+		defender.get_grapple_strength()
+		+ float(defender.stance_points) / 3.0
+		+ float(defense_roll)
+	)
 	
-	var force: float = float(initiator.definition.brawn) + float(delta_stance) + float(posture_mod_initiator) + randf_range(1.0, 12.0)
-	var resistance: float = float(defender.definition.brawn) + float(posture_mod_defender)
+	print("Force: ", force, " | Resistance: ", resistance)
 	
-	print("ΔStance: ", delta_stance, " | Initiator Posture: ", posture_mod_initiator, " | Defender Posture: ", posture_mod_defender)
-	print("Force: ", force, " (Brawn:", initiator.definition.brawn, " + ΔS:", delta_stance, " + PM:", posture_mod_initiator, " + Roll)")
-	print("Resistance: ", resistance, " (Brawn:", defender.definition.brawn, " + PM:", posture_mod_defender, ")")
-	
-	if force >= resistance:
+	if force > resistance:
 		print("[LEVERAGE SUCCESS] ", defender.name, " is displaced!")
 		return true
 	else:
@@ -403,12 +451,10 @@ func execute_leverage_check(initiator: HumanoidCore, defender: HumanoidCore, is_
 		print("[REBOUND] ", initiator.name, " → ", GameEnums.StanceState.keys()[rebound_state], " (", initiator.stance_points, "/12)")
 		return false
 
-func _get_posture_modifier(stance: GameEnums.StanceState) -> int:
-	match stance:
-		GameEnums.StanceState.PLANTED: return 0
-		GameEnums.StanceState.STUMBLING: return -6
-		GameEnums.StanceState.FELLED: return -12 # Shouldn't reach here due to auto-success
-	return 0
+func _base12_roll(override_value: int) -> int:
+	if override_value >= 1:
+		return clampi(override_value, 1, int(GameEnums.SCALE_MAX))
+	return randi_range(1, int(GameEnums.SCALE_MAX))
 
 # ---------------------------------------------------------
 # HAZARD TILE CHECKS (Trip Clause / Momentum Risk)

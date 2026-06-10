@@ -147,11 +147,11 @@ enum ActionType {
 	TAKE_COVER,     # 4 AP: Drop profile. Sets stance to 1 (STUMBLING floor). Evasion bonus.
 	
 	# --- Duel-Locked Actions ---
-	STRIKE,         # 4 AP: Core weapon action aiming for flesh/limb damage (no Head targeting)
-	GRAPPLE,        # 6 AP: Force both entities into FELLED. Opens 2 AP EXECUTE reaction window.
+	STRIKE,         # Core melee attack. Resolution randomly selects a non-Head Limb Region.
+	GRAPPLE,        # Opposed takedown check. Success fells the defender.
 	PUSH_STAY,      # 4 AP: Leverage check → displace enemy 1 cell away, initiator stays. Lock breaks.
 	PUSH_FOLLOW,    # 4 AP: Leverage check → displace enemy 1 cell away, initiator follows. Lock holds.
-	PULL_FOLLOW,    # 4 AP: Leverage check → drag enemy 1 cell closer, initiator steps back. Lock holds.
+	PULL_FOLLOW,    # Leverage check: drag both combatants 1 cell toward the initiator's rear.
 	PULL_STAY,      # 4 AP: Leverage check → drag enemy 1 cell closer, initiator stays. Lock breaks.
 	BREAK,          # 4 AP: Braced stance attack. Erodes stance points only, no flesh damage.
 	DISENGAGE,      # 6 AP: Desperate attempt to tear away from a melee lock
@@ -159,7 +159,7 @@ enum ActionType {
 	# --- Prone Window Actions ---
 	TRIP,           # ALL AP: Ground sweep. Dexterity check to pull standing opponent into FELLED.
 	GET_UP,         # ALL AP: Emergency tax. Clears FELLED, restores stance to 12.
-	EXECUTE,        # 2 AP: Instant kill on a FELLED opponent in the same grid slot.
+	EXECUTE,        # Trait-gated finishing action. Disabled until trait ownership exists.
 	
 	# --- Reaction Strikes (Off-Turn) ---
 	BLOCK,          # 3 AP: Absorb a STRIKE. Requires shield or functional arm.

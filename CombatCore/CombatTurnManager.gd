@@ -203,6 +203,10 @@ func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
 	if _reaction_pending:
 		print("DENIED: A reaction window is active. Resolve it first.")
 		return false
+
+	if action == GameEnums.ActionType.EXECUTE and not CombatRules.EXECUTE_ENABLED:
+		print("DENIED: EXECUTE is disabled until its trait unlock is implemented.")
+		return false
 	
 	if entity != combatants[active_entity_index]:
 		print("DENIED: It is not ", entity.name, "'s turn. Wait patiently.")

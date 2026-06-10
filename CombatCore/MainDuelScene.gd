@@ -71,6 +71,8 @@ func setup_duel(
 		true,
 		enemy_record.get("runtime", {})
 	)
+	player_core.reset_combat_transients()
+	enemy_core.reset_combat_transients()
 
 	if not player_core.inventory.items_spilled.is_connected(_on_player_items_spilled):
 		player_core.inventory.items_spilled.connect(_on_player_items_spilled)
@@ -193,6 +195,7 @@ func _on_combatant_died(cause: String, dead_entity: HumanoidCore) -> void:
 	var winner := enemy_core if dead_entity == player_core else player_core
 
 	print("\n[DUEL RESOLVED] ", winner.name, " stands victorious. Cause of death: ", cause)
+	_clear_encounter_transients()
 	duel_finished.emit(
 		outcome,
 		enemy_entity_id,
@@ -217,6 +220,7 @@ func _on_entity_escaped(escaper: HumanoidCore) -> void:
 		if escaper == player_core
 		else GameEnums.CombatOutcome.ENEMY_ESCAPED
 	)
+	_clear_encounter_transients()
 	duel_finished.emit(
 		outcome,
 		enemy_entity_id,
@@ -261,6 +265,12 @@ func capture_enemy_runtime_state() -> Dictionary:
 	if not enemy_core:
 		return {}
 	return enemy_core.capture_runtime_state()
+
+func _clear_encounter_transients() -> void:
+	if player_core:
+		player_core.reset_combat_transients()
+	if enemy_core:
+		enemy_core.reset_combat_transients()
 
 func _capture_dropped_item_states() -> Array:
 	var states: Array = []
