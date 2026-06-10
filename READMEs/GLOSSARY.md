@@ -127,6 +127,9 @@ describes a tool; Damage Type describes a hit.
   scale. It resets at combat boundaries; wounds and systemic vitals do not.
 - **Stance State:** A Stance bracket: Planted (`7-12`), Stumbling (`1-6`), or
   Felled (`0`).
+- **Recovery Guard:** A one-cycle Stance floor applied after a combatant spends
+  a turn recovering from Felled. Incoming pressure may reduce them to `1`
+  Stance but cannot Fell them again before their next usable active turn.
 - **Melee Lock:** The derived situation in which hostile combatants occupy the
   same lane slot.
 - **Action Type:** A shared combat command name, independent of AP cost or
@@ -206,8 +209,8 @@ describes a tool; Damage Type describes a hit.
   exposing the owning node.
 - **Neutral Record:** A cross-system contract built from engine primitives,
   stable IDs, shared enum values, dictionaries, and arrays.
-- **RuntimeStateStore:** The authoritative in-memory owner of player, entity,
-  hex, world-time, and ground-item records.
+- **RuntimeStateStore:** The authoritative owner of player, entity, hex,
+  world-time, and ground-item records, including their versioned disk save.
 - **GameTimeRules:** Shared action-duration rules and clock-snapshot conversion.
 - **Loot Profile:** ItemCore-authored weighted item content and depletion limits.
 - **Loot Catalog:** The translation service that exposes neutral item and loot

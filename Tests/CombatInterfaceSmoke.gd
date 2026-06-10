@@ -139,6 +139,15 @@ func _run() -> void:
 		) -> void:
 			outcomes.append(outcome)
 	)
+	var death_loot := ItemData.new()
+	death_loot.id = "outcome_test_loot"
+	death_loot.display_name = "Outcome Test Loot"
+	death_loot.size_cost = 0
+	var death_loot_instance := death_loot.create_runtime_instance()
+	if not arena.enemy_core.inventory.add_to_backpack(death_loot_instance):
+		_fail("Could not place the outcome test item in the enemy inventory.")
+		return
+	var death_loot_id := death_loot_instance.instance_id
 	arena.enemy_core.body.apply_targeted_hit(
 		GameEnums.LimbRegion.HEAD,
 		999.0,
@@ -157,16 +166,23 @@ func _run() -> void:
 	if world_state.is_entity_alive(enemy_id):
 		_fail("Victory did not mark the persistent enemy record dead.")
 		return
+	if not _ground_has(world_state, enemy_coords, death_loot_id):
+		_fail("Victory did not spill the defeated enemy's remaining inventory.")
+		return
 
 	game_director.queue_free()
 	await process_frame
 	await process_frame
 	if not await _verify_player_escape():
 		return
+	if not await _verify_enemy_escape():
+		return
+	if not await _verify_player_defeat():
+		return
 
 	print(
 		"[TEST PASS] Player combat snapshots, AP commands, reactions, targeting rules, "
-		+ "victory, and escape routing are integrated."
+		+ "victory loot, defeat, and both escape routes are integrated."
 	)
 	quit(0)
 
@@ -237,6 +253,144 @@ func _verify_player_escape() -> bool:
 	await process_frame
 	return true
 
+func _verify_enemy_escape() -> bool:
+	var game_director := await _spawn_encounter()
+	if game_director == null:
+		return false
+
+	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
+	var world_state := root.get_node("WorldState") as RuntimeStateStore
+	var arena = game_director.get("_active_arena")
+	var enemy_id: String = arena.enemy_entity_id
+	var outcomes: Array = []
+	arena.duel_finished.connect(
+		func(
+			outcome: GameEnums.CombatOutcome,
+			_enemy_id: String,
+			_enemy_runtime: Dictionary,
+			_dropped_items: Array
+		) -> void:
+			outcomes.append(outcome)
+	)
+
+	arena.enemy_core.body.apply_targeted_hit(
+		GameEnums.LimbRegion.LEFT_ARM,
+		0.5,
+		0.0
+	)
+	var injured_hp: float = arena.enemy_core.body.limb_hp[
+		GameEnums.LimbRegion.LEFT_ARM
+	]
+	arena.turn_manager.escape_combat(arena.enemy_core)
+	await process_frame
+	await process_frame
+	await process_frame
+
+	if outcomes.is_empty() or outcomes[0] != GameEnums.CombatOutcome.ENEMY_ESCAPED:
+		_fail("Enemy escape did not produce ENEMY_ESCAPED.")
+		return false
+	if not world_state.is_entity_alive(enemy_id):
+		_fail("Enemy escape incorrectly killed the persistent enemy.")
+		return false
+	var stored_hp: float = world_state.get_entity(enemy_id).get(
+		"runtime",
+		{}
+	).get("body", {}).get("limb_hp", {}).get(
+		str(GameEnums.LimbRegion.LEFT_ARM),
+		-1.0
+	)
+	if not is_equal_approx(stored_hp, injured_hp):
+		_fail("Enemy escape did not preserve the enemy's injury.")
+		return false
+	if not macro_map.visible or not macro_map.is_processing_unhandled_input():
+		_fail("Enemy escape did not return control to the macro world.")
+		return false
+
+	game_director.queue_free()
+	await process_frame
+	await process_frame
+	return true
+
+func _verify_player_defeat() -> bool:
+	var game_director := await _spawn_encounter()
+	if game_director == null:
+		return false
+
+	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
+	var world_state := root.get_node("WorldState") as RuntimeStateStore
+	var arena = game_director.get("_active_arena")
+	var outcomes: Array = []
+	arena.duel_finished.connect(
+		func(
+			outcome: GameEnums.CombatOutcome,
+			_enemy_id: String,
+			_enemy_runtime: Dictionary,
+			_dropped_items: Array
+		) -> void:
+			outcomes.append(outcome)
+	)
+	arena.player_core.body.apply_targeted_hit(
+		GameEnums.LimbRegion.HEAD,
+		999.0,
+		GameEnums.SCALE_MAX
+	)
+	await process_frame
+	await process_frame
+	await process_frame
+
+	if outcomes.is_empty() or outcomes[0] != GameEnums.CombatOutcome.PLAYER_DEFEAT:
+		_fail("Player death did not produce PLAYER_DEFEAT.")
+		return false
+	if not game_director.defeat_panel.is_open():
+		_fail("Player defeat did not open the run-ended presentation.")
+		return false
+	if macro_map.visible or macro_map.is_processing_unhandled_input():
+		_fail("Player defeat restored ordinary macro exploration.")
+		return false
+	if not world_state.player_record.get(
+		"runtime",
+		{}
+	).get("is_dead", false):
+		_fail("Player defeat did not preserve the dead runtime state.")
+		return false
+	if (
+		world_state.player_record.get("life_state")
+		!= GameEnums.EntityLifeState.DEAD
+	):
+		_fail("Player defeat did not persist the player's dead life state.")
+		return false
+
+	game_director.queue_free()
+	await process_frame
+	await process_frame
+	return true
+
+func _spawn_encounter() -> Node:
+	var main_scene := load(
+		"res://SystemCore/game_director.tscn"
+	) as PackedScene
+	var game_director := main_scene.instantiate()
+	root.add_child(game_director)
+	await process_frame
+	await process_frame
+
+	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
+	var origin := macro_map.player_token.current_hex_coords
+	var enemy_coords := _nearest_enemy_coords(
+		origin,
+		macro_map.active_enemies.keys()
+	)
+	for step in _build_hex_path(origin, enemy_coords):
+		macro_map._execute_player_step(step)
+		await process_frame
+	macro_map.resolve_entity_ambush(GameEnums.AmbushPosition.FAR)
+	await process_frame
+	await process_frame
+	if game_director.get("_active_arena") == null:
+		_fail("The outcome test could not create combat.")
+		return null
+	return game_director
+
 func _snapshot_has_action(snapshot: Dictionary, action: int) -> bool:
 	for descriptor in snapshot.get("actions", []):
 		if descriptor.get("action", -1) == action:
@@ -248,6 +402,16 @@ func _find_action(snapshot: Dictionary, action: int) -> Dictionary:
 		if descriptor.get("action", -1) == action:
 			return descriptor
 	return {}
+
+func _ground_has(
+	world_state: RuntimeStateStore,
+	coords: Vector2i,
+	instance_id: String
+) -> bool:
+	for item_state in world_state.get_ground_items(coords):
+		if item_state.get("instance_id", "") == instance_id:
+			return true
+	return false
 
 func _nearest_enemy_coords(origin: Vector2i, candidates: Array) -> Vector2i:
 	var nearest: Vector2i = candidates[0]

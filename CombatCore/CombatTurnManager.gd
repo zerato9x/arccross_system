@@ -178,16 +178,31 @@ func _start_turn() -> void:
 		_trigger_end_turn()
 		return
 		
-	# Enforce the mandatory Felled stun lock penalty
-	# At the start of its skipped turn, it passively recovers 6 Stance Points (→ STUMBLING) and ends.
+	# FELLED spends one turn recovering. The recovery guard prevents the
+	# opponent from immediately forcing another skipped turn.
 	if active_entity.current_stance == GameEnums.StanceState.FELLED:
-		print("\n[STUNNED] ", active_entity.name, " is face-down in the mud. Skipping turn and recovering equilibrium.")
-		active_entity.recover_stance(6, true) # Force bypass the FELLED guard
-		reserved_ap[active_entity] = 0 # No leftover AP when you're face down
+		print(
+			"\n[STUNNED] ",
+			active_entity.name,
+			" spends this turn recovering from FELLED."
+		)
+		current_ap_pool = 0
+		active_entity.begin_felled_recovery(
+			CombatRules.FELLED_RECOVERY_POINTS
+		)
+		reserved_ap[active_entity] = 0
 		if _is_everyone_incapacitated():
 			await get_tree().create_timer(0.1).timeout
 		_trigger_end_turn()
 		return
+
+	# STUMBLING never skips a turn. It receives a small passive recovery before
+	# normal AP is granted, then any previous recovery guard expires.
+	if active_entity.current_stance == GameEnums.StanceState.STUMBLING:
+		active_entity.recover_stance(
+			CombatRules.STUMBLING_TURN_RECOVERY
+		)
+	active_entity.expire_stance_recovery_guard()
 		
 	# Fill their pockets with time
 	current_ap_pool = active_entity.current_max_ap
@@ -230,7 +245,7 @@ func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
 		var entity_lane_idx: int = _find_entity_lane(entity)
 		var is_locked: bool = entity_lane_idx >= 0 and lane_manager.lane_slots[entity_lane_idx].is_melee_locked
 		
-		# Prone Window: must be FELLED to use these (except EXECUTE which targets FELLED opponents)
+		# Prone Window commands are reserved for explicit prone mechanics.
 		if required_group == CombatRules.ActionGroup.PRONE_WINDOW:
 			if action == GameEnums.ActionType.GET_UP or action == GameEnums.ActionType.TRIP:
 				if entity.current_stance != GameEnums.StanceState.FELLED:

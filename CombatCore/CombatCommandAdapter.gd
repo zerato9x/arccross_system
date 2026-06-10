@@ -428,6 +428,7 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"morale": entity.current_morale,
 		"stance": entity.stance_points,
 		"stance_state": GameEnums.StanceState.keys()[entity.current_stance],
+		"stance_recovery_guard": entity.has_stance_recovery_guard,
 		"kinetic_tier": GameEnums.KineticTier.keys()[entity.kinetic_tier],
 		"weapon": weapon_name,
 		"is_escaping": entity.is_escaping,

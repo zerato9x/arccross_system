@@ -128,8 +128,8 @@ enum KineticTier {
 ## Physiological equilibrium brackets based on the mandatory Base-12 threshold.
 enum StanceState {
 	PLANTED,   ## 7 to 12 Points: Full balance. Standard operations.
-	STUMBLING, ## 1 to 6 Points: Unbalanced. Restricted abilities, flee disabled, Threat = 0.
-	FELLED     ## 0 Points: Prone/Collapsed. Loss of turn, open to execution.
+	STUMBLING, ## 1 to 6 Points: Unbalanced but receives a normal active turn. Threat = 0.
+	FELLED     ## 0 Points: Prone/Collapsed. Spends the next turn recovering.
 }
 
 ## Strict command mapping database for combat resolution parsing.

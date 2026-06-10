@@ -106,6 +106,16 @@ func _run() -> void:
 	if player_core.inventory.find_item_by_instance_id(sleeping_bag.instance_id) != null:
 		_fail("Installed camp gear remained duplicated in the player inventory.")
 		return
+	macro_map.open_inventory()
+	await process_frame
+	if not macro_map.inventory_panel.is_open():
+		_fail("Inventory was not accessible during the active CAMP session.")
+		return
+	macro_map.inventory_panel.close_panel()
+	await process_frame
+	if not macro_map.interaction_panel.is_open():
+		_fail("Closing CAMP inventory did not restore the POI session.")
+		return
 
 	macro_map.interaction_panel.close_panel()
 	await process_frame

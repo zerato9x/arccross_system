@@ -100,39 +100,52 @@ local user data. Standalone helpers and completion percentages are not proof.
 - Automated coverage includes victory, defeat, and both escape paths.
 - A scripted smoke test performs a save/load round trip.
 
-## Current Status
+## Verification Status
 
 Status recorded on **June 10, 2026**:
 
-- **Ready to verify:** The implementation exists, but the complete acceptance
-  sequence has not been recorded as passing.
-- **Partial:** Some required behavior or coverage is still missing.
-- **Missing:** The required feature is not implemented.
+- **Verified:** The acceptance behavior passed from the configured main scene
+  under automated clean-state or isolated-save conditions.
 
-| Item | Status | Remaining proof or work |
+| Item | Status | Recorded evidence |
 | --- | --- | --- |
-| P1-01 Startup | Ready to verify | Run from clean user data. |
-| P1-02 Movement | Ready to verify | Include in the integrated demonstration. |
-| P1-03 Runtime state | Ready to verify | Include combat and reload transitions. |
-| P1-04 Proximity loading | Ready to verify | Existing 100-step smoke coverage must remain green. |
-| P1-05 Combat | Ready to verify | Include player-issued victory, defeat, and escape. |
-| P1-06 Outcomes | Partial | Add defeat/recovery presentation and enemy-escape automation. |
-| P1-07 Inventory | Ready to verify | Include transfer, use, equipment, and spill behavior. |
-| P1-08 SEARCH | Ready to verify | Include depletion and persistent ground loot. |
-| P1-09 CAMP | Ready to verify | Include safety, installed gear, time, and biology. |
-| P1-10 Save/load | Missing | Implement versioned disk persistence and restoration. |
-| P1-11 Regression | Partial | Add defeat, enemy escape, and save/load coverage. |
+| P1-01 Startup | Verified | Main-scene startup is exercised by all integrated smoke scripts. |
+| P1-02 Movement | Verified | The vertical slice crosses five adjacent Hexes before combat. |
+| P1-03 Runtime state | Verified | Player and enemy state survive combat reconstruction and disk reload. |
+| P1-04 Proximity loading | Verified | The 100-step bounded-loading smoke remains green. |
+| P1-05 Combat | Verified | Player commands, enemy AI, victory, defeat, and escape terminate correctly. |
+| P1-06 Outcomes | Verified | Enemy inventory drops, defeat presentation, and both escape routes are covered. |
+| P1-07 Inventory | Verified | Transfer, use, equipment, overflow, and runtime firearm state pass. |
+| P1-08 SEARCH | Verified | Data-driven loot, depletion, ground state, and collection pass. |
+| P1-09 CAMP | Verified | Safety, time, biology, installed gear, and inventory access pass. |
+| P1-10 Save/load | Verified | Versioned JSON round trip restores all required meaningful state. |
+| P1-11 Regression | Verified | Eleven automated smoke scripts pass together. |
 
-Existing smoke coverage includes runtime-state persistence, proximity loading,
-world time, weighted loot, macro interactions, inventory commands, combat
-commands, Reaction Windows, victory, and player escape.
+All eleven smoke scripts passed on **June 10, 2026** using Godot `4.6.3`.
+Automated coverage includes:
 
-## Remaining Order
+- Base-12 biology, items, and interaction metrics.
+- Runtime Item Instance isolation, in-memory reconstruction, and disk reload.
+- Persistent player identity and injury across macro-to-combat transitions.
+- Bounded proximity loading across 100 Hex steps.
+- Deterministic world time, Loot Profiles, and SEARCH depletion.
+- SEARCH, CAMP, TALK failure, AMBUSH placement, and collider initiative.
+- Inventory take, drop, equip, unequip, consume, overflow, CAMP safety, and
+  inventory access during an active CAMP session.
+- Combat commands, Reaction Windows, death loot, defeat presentation, and both
+  escape routes.
+- Twelve-slot HUD projection, limb readouts, Stance recovery safeguards,
+  opposed Grapple, Execute gating, random melee targeting, and Pull / Follow.
+- Versioned JSON persistence for player, enemy, Hex, world-time, and ground
+  records without duplicate generation.
+- One clean vertical slice covering five-Hex travel, player-issued victory,
+  loot transfer, SEARCH collection, CAMP, save, teardown, and reload.
 
-1. Complete defeat/recovery presentation and enemy-escape routing.
-2. Implement versioned save/load.
-3. Add the missing outcome and save/load regression coverage.
-4. Run the required demonstration from clean user data.
+## Phase 1 Closure
+
+No known Phase 1 acceptance item remains open. Future work should preserve the
+eleven-script regression gate and treat any new gameplay feature as a separate
+phase rather than silently expanding this slice.
 
 ## Required Demonstration
 
@@ -146,6 +159,9 @@ The final acceptance run must complete without editor intervention:
 6. Save and exit.
 7. Reload and verify position, injury, inventory, SEARCH state, enemy death, and
    remaining ground loot.
+
+This sequence is automated by `Tests/Phase1VerticalSliceSmoke.gd` and passed on
+**June 10, 2026**.
 
 ## Out Of Scope
 

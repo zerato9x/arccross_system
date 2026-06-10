@@ -24,7 +24,7 @@ database, stat registry, or rule table.
 
 - Owns orchestration, factories, and authoritative runtime records.
 - `RuntimeStateStore` owns player, entity, hex, world-time, and ground-item
-  records.
+  records plus their versioned disk representation.
 - `GameTimeRules` owns shared action durations and clock conversion.
 - `LootCatalog` translates ItemCore resources into neutral descriptors and
   runtime item records.
@@ -152,6 +152,19 @@ ambush_position: GameEnums.AmbushPosition
   results to persistent world records.
 - Combat presentation never changes macro tokens, entity life state, AP costs,
   or action legality directly.
+
+## Persistence Boundary
+
+- `RuntimeStateStore` writes one versioned JSON save containing the world seed,
+  time, player record, entity records, Hex records, and ground-item records.
+- Godot-specific values such as `Vector2i` are explicitly tagged in JSON rather
+  than restored through executable Variant text.
+- A successful load sets a one-shot startup flag. WorldCore consumes that flag
+  and restores records before rendering Hexes or generating proximity content.
+- Normal game startup loads the default save when present. Scripted smoke tests
+  opt into their own isolated save paths.
+- `GameDirector` synchronizes cached player and Hex state before saving. `F5`
+  saves and `F9` loads the current run during the Phase 1 prototype.
 
 ## Dependency Direction
 

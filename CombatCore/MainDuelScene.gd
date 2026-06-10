@@ -179,7 +179,7 @@ func _fabricate_humanoid(
 
 func _on_items_spilled(spilled_items: Array[ItemData], entity: HumanoidCore) -> void:
 	print("[COMBAT DROPS] ", entity.name, " spilled ", spilled_items.size(), " items into the dirt!")
-	dropped_combat_loot.append_array(spilled_items)
+	_append_dropped_items(spilled_items)
 
 func _on_player_items_spilled(spilled_items: Array[ItemData]) -> void:
 	_on_items_spilled(spilled_items, player_core)
@@ -187,6 +187,8 @@ func _on_player_items_spilled(spilled_items: Array[ItemData]) -> void:
 func _on_combatant_died(cause: String, dead_entity: HumanoidCore) -> void:
 	turn_manager.halt_loop()
 	combat_panel.close_panel()
+	if dead_entity == enemy_core:
+		_append_dropped_items(enemy_core.inventory.drain_all_items())
 	var outcome := (
 		GameEnums.CombatOutcome.PLAYER_DEFEAT
 		if dead_entity == player_core
@@ -277,3 +279,14 @@ func _capture_dropped_item_states() -> Array:
 	for item in dropped_combat_loot:
 		states.append(item.to_runtime_state())
 	return states
+
+func _append_dropped_items(items: Array[ItemData]) -> void:
+	var known_ids: Dictionary = {}
+	for existing in dropped_combat_loot:
+		known_ids[existing.instance_id] = true
+
+	for item in items:
+		if item == null or known_ids.has(item.instance_id):
+			continue
+		dropped_combat_loot.append(item)
+		known_ids[item.instance_id] = true

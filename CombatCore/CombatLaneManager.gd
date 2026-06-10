@@ -69,8 +69,7 @@ func _check_charge_intercept(charger: HumanoidCore, charger_idx: int) -> void:
 							
 							# Charge interception is a special momentum takedown.
 							print("[INTERCEPT SUCCESS] ", occupant.name, " tackles ", charger.name, " mid-sprint!")
-							charger.stance_points = 0
-							charger._evaluate_stance_state()
+							charger.try_fell()
 							occupant.apply_stance_damage(3.0)
 						return
 

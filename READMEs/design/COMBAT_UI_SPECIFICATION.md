@@ -14,6 +14,7 @@ calculate AP costs, legal actions, targets, reactions, or outcomes.
 - Show every Limb Region's current and maximum Structural Integrity separately
   from systemic Blood Level. Mark active Trauma without treating Blood as total
   HP.
+- Mark Recovery Guard while its temporary anti-knockdown floor is active.
 
 ## Melee Lock
 

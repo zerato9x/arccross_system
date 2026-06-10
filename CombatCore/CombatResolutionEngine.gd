@@ -295,8 +295,9 @@ func execute_grapple(
 		return false
 
 	print("[GRAPPLE SUCCESS] ", initiator.name, " takes ", defender.name, " down.")
-	defender.stance_points = 0
-	defender._evaluate_stance_state()
+	if not defender.try_fell():
+		print("[GRAPPLE CHECK] Recovery Guard prevented the knockdown.")
+		return false
 	initiator.apply_stance_damage(3.0)
 	return true
 
@@ -398,9 +399,7 @@ func execute_trip(tripper: HumanoidCore, target: HumanoidCore) -> bool:
 	
 	if trip_roll > resist_roll:
 		print("[TRIP SUCCESS] ", target.name, " is yanked into the mud!")
-		target.stance_points = 0
-		target._evaluate_stance_state()
-		return true
+		return target.try_fell()
 	else:
 		print("[TRIP FAILED] ", target.name, " stayed upright.")
 		return false
@@ -478,10 +477,8 @@ func check_hazard_trip(entity: HumanoidCore, tile_slot: CombatLaneSlot, is_charg
 	var roll: float = randf()
 	
 	if roll < final_slip_chance:
-		print("[HAZARD] ", entity.name, " slips on the treacherous terrain! FELLED!")
-		entity.stance_points = 0
-		entity._evaluate_stance_state()
-		return true
+		print("[HAZARD] ", entity.name, " slips on the treacherous terrain!")
+		return entity.try_fell()
 	
 	return false
 
@@ -499,10 +496,8 @@ func check_dodge_hazard(entity: HumanoidCore, tile_slot: CombatLaneSlot) -> bool
 	var final_chance: float = max(0.05, trip_chance - finesse_bonus)
 	
 	if randf() < final_chance:
-		print("[DODGE HAZARD] ", entity.name, " slipped while dodging in the mud! FELLED!")
-		entity.stance_points = 0
-		entity._evaluate_stance_state()
-		return true
+		print("[DODGE HAZARD] ", entity.name, " slipped while dodging in the mud!")
+		return entity.try_fell()
 	
 	return false
 

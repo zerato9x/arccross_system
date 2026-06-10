@@ -59,7 +59,10 @@ func _ready() -> void:
 	player_inventory.inventory_error.connect(_on_player_inventory_error)
 	player_inventory.items_spilled.connect(_on_player_items_spilled)
 		
-	_initialize_demo()
+	if _world_state.consume_pending_loaded_world():
+		_initialize_loaded_world()
+	else:
+		_initialize_demo()
 
 func _initialize_demo() -> void:
 	var seed := "DEMO_WASTELAND_01"
@@ -79,6 +82,37 @@ func _initialize_demo() -> void:
 	_world_state.set_player_record(player_token.capture_runtime_record(), start_coords)
 	map_visualizer.render_radius(start_coords, 3)
 	refresh_proximity(start_coords)
+
+func _initialize_loaded_world() -> void:
+	if _world_state.world_seed.is_empty() or _world_state.player_record.is_empty():
+		push_error("Loaded world state is incomplete. Starting a new demo world.")
+		_initialize_demo()
+		return
+
+	world_generator.configure_seed(_world_state.world_seed)
+	world_generator.inject_unique_poi(
+		Vector2i(1, 0),
+		"demo_relay_shelter",
+		"Abandoned Relay Shelter",
+		GameEnums.GridBiome.PLAINS
+	)
+	player_token.restore_runtime_record(_world_state.player_record)
+	var loaded_coords := _world_state.player_coords
+	player_token.snap_to_hex(
+		loaded_coords,
+		map_visualizer.map_to_local(loaded_coords)
+	)
+	map_visualizer.render_radius(loaded_coords, 3)
+	refresh_proximity(loaded_coords)
+
+func synchronize_runtime_state() -> void:
+	_world_state.set_player_record(
+		player_token.capture_runtime_record(),
+		player_token.current_hex_coords
+	)
+	for coords in world_generator.world_hex_cache.keys():
+		var hex_data: MacroHexData = world_generator.world_hex_cache[coords]
+		_world_state.set_hex_record(coords, hex_data.to_state())
 
 ## Spawn a procedurally generated enemy at the given hex coordinates.
 func spawn_procedural_enemy(coords: Vector2i, faction: GameEnums.Faction, difficulty: int = 0) -> void:

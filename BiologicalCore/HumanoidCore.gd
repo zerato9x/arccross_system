@@ -29,6 +29,7 @@ var total_burden: int = 0
 # The 12-Point Stance Equilibrium Scale
 var stance_points: int = 12 # 12 = rock solid, 0 = face in the mud
 var current_stance: GameEnums.StanceState = GameEnums.StanceState.PLANTED
+var has_stance_recovery_guard: bool = false
 
 # Psychological & Metaphysical Status
 var current_morale: float = 12.0
@@ -130,15 +131,30 @@ func get_combat_accuracy(is_ranged: bool) -> float:
 # ---------------------------------------------------------
 # 12 = PLANTED (stable, full action set)
 # 7-11 = PLANTED (stable)
-# 1-6 = STUMBLING (restricted actions, THREAT = 0, cannot flee)
+# 1-6 = STUMBLING (normal turn, passive recovery, THREAT = 0)
 # 0 = FELLED (stunned for one round)
 
 ## Apply stance damage from a combat impact. Returns the new stance state.
 func apply_stance_damage(amount: float) -> GameEnums.StanceState:
 	if is_dead: return current_stance
 	
-	stance_points = max(0, stance_points - int(ceil(amount)))
+	var stance_floor := 1 if has_stance_recovery_guard else 0
+	var previous_points := stance_points
+	stance_points = max(
+		stance_floor,
+		stance_points - int(ceil(amount))
+	)
 	_evaluate_stance_state()
+	if (
+		has_stance_recovery_guard
+		and previous_points > stance_floor
+		and stance_points == stance_floor
+	):
+		print(
+			"[RECOVERY GUARD] ",
+			name,
+			" cannot be FELLED again before their next active turn."
+		)
 	return current_stance
 
 ## Attempt to recover stance points. Capped at 12.
@@ -153,12 +169,51 @@ func recover_stance(amount: int, force: bool = false) -> void:
 ## Full stance reset (e.g., after successfully using GET_UP action).
 func reset_stance() -> void:
 	stance_points = 12
+	has_stance_recovery_guard = false
 	_evaluate_stance_state()
+
+## Spend the mandatory recovery turn rising from FELLED into STUMBLING.
+## The floor prevents an opponent from creating an indefinite knockdown loop.
+func begin_felled_recovery(recovery_points: int) -> void:
+	if is_dead or current_stance != GameEnums.StanceState.FELLED:
+		return
+	recover_stance(recovery_points, true)
+	has_stance_recovery_guard = true
+	print(
+		"[RECOVERY GUARD] ",
+		name,
+		" is protected from another knockdown until their next active turn."
+	)
+
+## Called only when this entity receives a usable active turn.
+func expire_stance_recovery_guard() -> void:
+	if not has_stance_recovery_guard:
+		return
+	has_stance_recovery_guard = false
+	print("[RECOVERY GUARD] ", name, " can be FELLED normally again.")
+
+## Force a collapse while respecting temporary recovery protection.
+func try_fell() -> bool:
+	if is_dead:
+		return false
+	if has_stance_recovery_guard:
+		stance_points = 1
+		_evaluate_stance_state()
+		print(
+			"[RECOVERY GUARD] ",
+			name,
+			" resisted a forced knockdown."
+		)
+		return false
+	stance_points = 0
+	_evaluate_stance_state()
+	return true
 
 ## Clear tactical state that has no meaning outside one combat encounter.
 ## Wounds, Blood, Morale, inventory, and survival state remain untouched.
 func reset_combat_transients() -> void:
 	stance_points = int(GameEnums.SCALE_MAX)
+	has_stance_recovery_guard = false
 	is_fleeing = false
 	is_escaping = false
 	_evaluate_stance_state()
@@ -183,7 +238,11 @@ func _evaluate_stance_state() -> void:
 			
 		if current_stance == GameEnums.StanceState.STUMBLING:
 			# Stumbling entities project zero THREAT
-			print("[STUMBLING] ", name, "'s THREAT drops to 0. Actions restricted.")
+			print(
+				"[STUMBLING] ",
+				name,
+				"'s THREAT drops to 0, but their active turn remains available."
+			)
 
 ## Override: THREAT is 0 when stumbling or felled.
 func get_effective_threat() -> float:
@@ -497,5 +556,6 @@ func restore_runtime_state(state: Dictionary) -> void:
 		is_mindless_hive_thrall
 	)
 	is_comatose = state.get("is_comatose", is_comatose)
+	has_stance_recovery_guard = false
 	_evaluate_stance_state()
 	_calculate_kinetic_burden()

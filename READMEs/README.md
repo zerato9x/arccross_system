@@ -10,6 +10,7 @@ of restating it.
   records, and presentation boundaries.
 - [Phase 1 Execution Plan](PHASE_1_EXECUTION_PLAN.md): scope, acceptance
   criteria, current status, and remaining work.
+- [Changelog](CHANGELOG.md): dated implementation and verification notes.
 
 ## Design Direction
 
@@ -24,5 +25,6 @@ of restating it.
 
 Definitions belong in the glossary, system behavior belongs in architecture,
 delivery status belongs in the execution plan, and presentation intent belongs
-in design documents. Remove obsolete claims instead of archiving duplicate
-copies inside the repository.
+in design documents. Dated implementation notes belong in the changelog.
+Remove obsolete claims instead of archiving duplicate copies inside the
+repository.

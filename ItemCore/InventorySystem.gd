@@ -214,6 +214,24 @@ func remove_item_by_instance_id(instance_id: String) -> ItemData:
 			return equipped
 	return null
 
+## Removes and returns every carried and equipped runtime item.
+## Used by outcome owners when an entity's inventory becomes world loot.
+func drain_all_items() -> Array[ItemData]:
+	var drained: Array[ItemData] = []
+	drained.append_array(backpack_array)
+	backpack_array.clear()
+
+	for slot in paper_doll.keys():
+		var equipped: ItemData = paper_doll[slot]
+		if equipped == null:
+			continue
+		drained.append(equipped)
+		paper_doll[slot] = null
+		equipment_changed.emit(slot, null)
+
+	_recalculate_bounds()
+	return drained
+
 # ---------------------------------------------------------
 # CONSUMABLE USAGE
 # ---------------------------------------------------------

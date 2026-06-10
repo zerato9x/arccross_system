@@ -77,6 +77,65 @@ func _run() -> void:
 		_fail("The lane HUD entered lock mode before combatants shared a slot.")
 		return
 
+	player.stance_points = 4
+	player._evaluate_stance_state()
+	var turn_probe := CombatTurnManager.new()
+	holder.add_child(turn_probe)
+	turn_probe.combatants = [player]
+	turn_probe.active_entity_index = 0
+	var turn_events: Array = []
+	turn_probe.turn_started.connect(
+		func(entity: HumanoidCore) -> void:
+			turn_events.append(entity)
+	)
+	turn_probe._start_turn()
+	if (
+		turn_events.size() != 1
+		or turn_events[0] != player
+		or turn_probe.current_ap_pool != player.current_max_ap
+		or player.current_stance != GameEnums.StanceState.STUMBLING
+		or player.stance_points != 6
+	):
+		_fail("STUMBLING did not receive a normal AP turn with passive recovery.")
+		return
+	arena.command_adapter.refresh_snapshot()
+	snapshot = arena.command_adapter.get_snapshot()
+	if snapshot.get("actions", []).is_empty():
+		_fail("A STUMBLING player received no legal combat actions.")
+		return
+	turn_probe.halt_loop()
+	turn_probe.queue_free()
+
+	player.try_fell()
+	player.begin_felled_recovery(CombatRules.FELLED_RECOVERY_POINTS)
+	for _hit in range(4):
+		player.apply_stance_damage(GameEnums.SCALE_MAX)
+	if (
+		player.current_stance != GameEnums.StanceState.STUMBLING
+		or player.stance_points != 1
+		or not player.has_stance_recovery_guard
+	):
+		_fail("Repeated pressure bypassed the post-Felled Recovery Guard.")
+		return
+	if player.try_fell():
+		_fail("A forced knockdown bypassed the post-Felled Recovery Guard.")
+		return
+	arena.command_adapter.refresh_snapshot()
+	snapshot = arena.command_adapter.get_snapshot()
+	if not snapshot.get("player", {}).get(
+		"stance_recovery_guard",
+		false
+	):
+		_fail("The combat snapshot did not expose the Recovery Guard.")
+		return
+	player.recover_stance(CombatRules.STUMBLING_TURN_RECOVERY)
+	player.expire_stance_recovery_guard()
+	player.apply_stance_damage(GameEnums.SCALE_MAX)
+	if player.current_stance != GameEnums.StanceState.FELLED:
+		_fail("Stance could not reach FELLED after Recovery Guard expiry.")
+		return
+	player.reset_stance()
+
 	var enemy_lane: int = arena.lane_manager._find_entity_lane(arena.enemy_core)
 	arena.lane_manager.remove_entity(player)
 	arena.lane_manager.force_spawn_entity(player, enemy_lane)
@@ -200,7 +259,7 @@ func _run() -> void:
 	holder.queue_free()
 	await process_frame
 	print(
-		"[TEST PASS] Combat HUD, encounter transients, melee targeting, "
+		"[TEST PASS] Combat HUD, Stance recovery safeguards, melee targeting, "
 		+ "Grapple, Execute gating, and Pull / Follow obey the demo rules."
 	)
 	quit(0)

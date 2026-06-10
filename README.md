@@ -25,3 +25,4 @@ measurements retain meaningful units.
 - [Project glossary](READMEs/GLOSSARY.md)
 - [System architecture](READMEs/SYSTEM_ARCHITECTURE.md)
 - [Phase 1 execution plan](READMEs/PHASE_1_EXECUTION_PLAN.md)
+- [Changelog](READMEs/CHANGELOG.md)

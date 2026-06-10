@@ -147,10 +147,15 @@ func _render() -> void:
 func _combatant_text(data: Dictionary, heading: String) -> String:
 	var active_marker := " [ACTIVE]" if data.get("is_active", false) else ""
 	var escape_marker := " [ESCAPING]" if data.get("is_escaping", false) else ""
+	var guard_marker := (
+		" [GUARDED]"
+		if data.get("stance_recovery_guard", false)
+		else ""
+	)
 	return (
 		"%s%s // SLOT %02d\n"
 		+ "%s\n"
-		+ "BLOOD %04.1f  STANCE %02d  MORALE %04.1f\n"
+		+ "BLOOD %04.1f  STANCE %02d%s  MORALE %04.1f\n"
 		+ "AP-R %02d  KINETIC %s  WEAPON %s%s\n"
 		+ "%s"
 	) % [
@@ -160,6 +165,7 @@ func _combatant_text(data: Dictionary, heading: String) -> String:
 		str(data.get("archetype", data.get("name", "UNKNOWN"))).to_upper(),
 		float(data.get("blood", 0.0)),
 		int(data.get("stance", 0)),
+		guard_marker,
 		float(data.get("morale", 0.0)),
 		int(data.get("reserved_ap", 0)),
 		str(data.get("kinetic_tier", "UNKNOWN")),

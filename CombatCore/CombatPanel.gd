@@ -147,10 +147,15 @@ func _render_reaction_prompt() -> void:
 
 func _add_combatant(snapshot: Dictionary, heading: String) -> void:
 	_add_section_title(heading)
+	var guard_marker := (
+		" | RECOVERY GUARD"
+		if snapshot.get("stance_recovery_guard", false)
+		else ""
+	)
 	_add_body(
 		(
 			"%s | Lane %d | %s\n"
-			+ "Blood %.1f/12 | Morale %.1f/12 | Stance %d/12 (%s)\n"
+			+ "Blood %.1f/12 | Morale %.1f/12 | Stance %d/12 (%s)%s\n"
 			+ "Weapon: %s | Kinetic: %s%s"
 		) % [
 			snapshot.get("archetype", snapshot.get("name", "Unknown")),
@@ -160,6 +165,7 @@ func _add_combatant(snapshot: Dictionary, heading: String) -> void:
 			snapshot.get("morale", 0.0),
 			snapshot.get("stance", 0),
 			snapshot.get("stance_state", ""),
+			guard_marker,
 			snapshot.get("weapon", "Unarmed"),
 			snapshot.get("kinetic_tier", ""),
 			" | ESCAPING" if snapshot.get("is_escaping", false) else "",

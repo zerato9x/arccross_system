@@ -38,6 +38,21 @@ func capture_runtime_record() -> Dictionary:
 		"runtime": humanoid_core.capture_runtime_state(),
 	}
 
+func restore_runtime_record(record: Dictionary) -> void:
+	if record.is_empty():
+		return
+
+	var definition_state: Dictionary = record.get("definition", {})
+	if not definition_state.is_empty():
+		definition = EntityDefinition.from_state(definition_state)
+		humanoid_core.definition = definition
+		humanoid_core.body.configure_structure(definition.fortitude)
+		humanoid_core.inventory.base_max_capacity = definition.brawn
+		humanoid_core.inventory._recalculate_bounds()
+
+	humanoid_core.restore_runtime_state(record.get("runtime", {}))
+	current_hex_coords = record.get("coords", current_hex_coords)
+
 func snap_to_hex(coords: Vector2i, pixel_position: Vector2) -> void:
 	current_hex_coords = coords
 	position = pixel_position
