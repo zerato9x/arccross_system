@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://dogxb6mi7wd4i" path="res://CombatCore/EncounterBuilder.gd" id="5_xg88h"]
 [ext_resource type="Script" uid="uid://lm7w32mrv08x" path="res://CombatCore/CombatCommandAdapter.gd" id="6_command_adapter"]
 [ext_resource type="Script" uid="uid://cwnb2s88d8ily" path="res://CombatCore/CombatPanel.gd" id="7_combat_panel"]
+[ext_resource type="Script" path="res://CombatCore/CombatLaneHUD.gd" id="8_lane_hud"]
 
 [node name="MainDuelScene" type="Node2D" unique_id=964311597]
 script = ExtResource("1_mfadp")
@@ -31,14 +32,8 @@ turn_manager = NodePath("../CombatTurnManager")
 [node name="CombatCommandAdapter" type="Node" parent="." unique_id=530211941]
 script = ExtResource("6_command_adapter")
 
-[node name="DebugUI" type="CanvasLayer" parent="." unique_id=186272021]
-
-[node name="DebugLog" type="RichTextLabel" parent="DebugUI" unique_id=1590778705]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="CombatLaneHUD" type="CanvasLayer" parent="."]
+script = ExtResource("8_lane_hud")
 
 [node name="CombatPanel" type="CanvasLayer" parent="." unique_id=1016533244]
 script = ExtResource("7_combat_panel")

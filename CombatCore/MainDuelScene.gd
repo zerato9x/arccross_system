@@ -13,7 +13,7 @@ signal duel_finished(
 @onready var encounter_builder: EncounterBuilder = $EncounterBuilder
 @onready var command_adapter: CombatCommandAdapter = $CombatCommandAdapter
 @onready var mob_spawner: MobSpawner = get_node("/root/MobSpawner") as MobSpawner
-@onready var debug_log: RichTextLabel = $DebugUI/DebugLog
+@onready var lane_hud: CombatLaneHUD = $CombatLaneHUD
 @onready var combat_panel: CombatPanel = $CombatPanel
 
 var player_core: HumanoidCore
@@ -29,8 +29,10 @@ func _ready() -> void:
 		command_adapter.resolve_player_reaction
 	)
 	command_adapter.snapshot_changed.connect(combat_panel.show_snapshot)
+	command_adapter.snapshot_changed.connect(lane_hud.show_snapshot)
 	command_adapter.reaction_requested.connect(combat_panel.show_reaction)
 	command_adapter.command_feedback.connect(combat_panel.show_feedback)
+	lane_hud.open_hud()
 	combat_panel.open_panel()
 
 	# AUTO-TEST BOOTSTRAP: Only run if we are testing the scene directly!
@@ -73,12 +75,9 @@ func setup_duel(
 	if not player_core.inventory.items_spilled.is_connected(_on_player_items_spilled):
 		player_core.inventory.items_spilled.connect(_on_player_items_spilled)
 	
-	# 2. Wire up status alerts to update our visual console readouts
-	turn_manager.turn_started.connect(_on_turn_cycled)
-	turn_manager.ap_spent.connect(_on_action_logged)
 	turn_manager.entity_escaped.connect(_on_entity_escaped)
 	
-	# 3. Wire up death listeners for duel resolution
+	# 2. Wire up death listeners for duel resolution
 	player_core.died.connect(_on_combatant_died.bind(player_core))
 	enemy_core.died.connect(_on_combatant_died.bind(enemy_core))
 
@@ -90,13 +89,12 @@ func setup_duel(
 		resolution_engine
 	)
 	
-	# 4. Drop them into the mud using our tactical layout matrix
+	# 3. Drop them into the mud using our tactical layout matrix
 	encounter_builder.build_encounter(
 		player_core,
 		enemy_core,
 		encounter_setup
 	)
-	_refresh_debug_hud()
 	command_adapter.refresh_snapshot()
 
 ## Alternative entry: spawn a procedural enemy from the MobSpawner.
@@ -177,39 +175,6 @@ func _fabricate_humanoid(
 	
 	return core
 
-func _refresh_debug_hud() -> void:
-	if not player_core or not enemy_core: return
-	
-	var txt = ""
-	txt += "[color=green]=== ARCCROSS COMBAT LANE CONSOLE ===[/color]\n"
-	txt += "ROUND: %d | ACTIVE TIMEPOOL POOL: %d AP\n" % [turn_manager.current_round, turn_manager.current_ap_pool]
-	txt += "---------------------------------------------------------\n\n"
-	
-	txt += _build_entity_readout(player_core)
-	txt += "\n"
-	txt += _build_entity_readout(enemy_core)
-	
-	debug_log.text = txt
-
-func _build_entity_readout(entity: HumanoidCore) -> String:
-	var t = ""
-	var weapon_name: String = "UNARMED"
-	var held = entity.inventory.paper_doll.get(GameEnums.EquipmentSlot.HANDS)
-	if held: weapon_name = held.display_name
-	
-	t += "[b]%s[/b] (%s) | Flee: %s\n" % [entity.name, entity.definition.archetype_name, str(entity.is_fleeing)]
-	t += "Vitals -> AP: %d (Tier: %s | Burden: %d) | Blood: %.1f/12 | Morale: %.1f/12\n" % [entity.current_max_ap, GameEnums.KineticTier.keys()[entity.kinetic_tier], entity.total_burden, entity.body.blood_level, entity.current_morale]
-	t += "Stance -> %s (%d/12) | Weapon: %s\n" % [GameEnums.StanceState.keys()[entity.current_stance], entity.stance_points, weapon_name]
-	t += "Gear -> THREAT: %.1f | WEIGHT: %.1f | BULK: %.1f | Inventory: %d/%d\n" % [entity.get_effective_threat(), entity.inventory.get_total_weight(), entity.get_bulk_modifier(), entity.inventory.current_size, entity.inventory.current_max_capacity]
-	t += "Trauma -> U-Torso: %.1f | Head: %.1f | L-Arm: %.1f\n" % [entity.body.limb_hp[GameEnums.LimbRegion.UPPER_TORSO], entity.body.limb_hp[GameEnums.LimbRegion.HEAD], entity.body.limb_hp[GameEnums.LimbRegion.LEFT_ARM]]
-	return t
-
-func _on_turn_cycled(_active_entity: HumanoidCore) -> void:
-	_refresh_debug_hud()
-
-func _on_action_logged(_entity: HumanoidCore, _remaining_ap: int) -> void:
-	_refresh_debug_hud()
-
 func _on_items_spilled(spilled_items: Array[ItemData], entity: HumanoidCore) -> void:
 	print("[COMBAT DROPS] ", entity.name, " spilled ", spilled_items.size(), " items into the dirt!")
 	dropped_combat_loot.append_array(spilled_items)
@@ -266,10 +231,7 @@ func _on_entity_escaped(escaper: HumanoidCore) -> void:
 func _spawn_next_mob() -> void:
 	if is_instance_valid(enemy_core):
 		turn_manager.combatants.erase(enemy_core)
-		# Remove from lane
-		for slot in lane_manager.lane_slots:
-			if slot.occupants.has(enemy_core):
-				slot.occupants.erase(enemy_core)
+		lane_manager.remove_entity(enemy_core)
 		enemy_core.queue_free()
 		
 	# Generate new enemy
@@ -290,7 +252,7 @@ func _spawn_next_mob() -> void:
 		resolution_engine
 	)
 	combat_panel.open_panel()
-	_refresh_debug_hud()
+	lane_hud.open_hud()
 	command_adapter.refresh_snapshot()
 	print("\n>>> NEW CHALLENGER APPROACHES <<<")
 	turn_manager.resume_loop()

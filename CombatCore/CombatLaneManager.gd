@@ -1,6 +1,8 @@
 extends Node
 class_name CombatLaneManager
 
+signal lane_changed
+
 var lane_slots: Array[CombatLaneSlot] = []
 
 @export var turn_manager: CombatTurnManager
@@ -43,7 +45,8 @@ func move_entity(entity: HumanoidCore, from_idx: int, to_idx: int, is_charge: bo
 		# THE GRAPPLE INTERCEPT: Check if a CHARGE ended directly adjacent to an enemy
 		if is_charge and turn_manager:
 			_check_charge_intercept(entity, to_idx)
-			
+		
+		lane_changed.emit()
 		return true
 		
 	return false
@@ -130,6 +133,8 @@ func resolve_displacement(initiator: HumanoidCore, target: HumanoidCore, push_di
 	else:
 		print("[STAY] ", initiator.name, " drops anchor. The Melee Lock shatters.")
 		_break_lock_and_reset_stance(initiator, target)
+	
+	lane_changed.emit()
 
 func _get_braced_ally(front_entity: HumanoidCore, backup_idx: int) -> HumanoidCore:
 	if backup_idx < 0 or backup_idx > 11:
@@ -175,6 +180,7 @@ func attempt_disengage(entity: HumanoidCore, current_idx: int, retreat_idx: int)
 		slot.exit_slot(entity)
 		lane_slots[retreat_idx].enter_slot(entity)
 		_break_lock_and_reset_stance(entity, opponent)
+		lane_changed.emit()
 		return true
 	else:
 		print("Disengage failed! Slipped in the mud. Reaction Strike window opened.")
@@ -191,8 +197,16 @@ func force_spawn_entity(entity: HumanoidCore, target_idx: int) -> void:
 	var target_slot: CombatLaneSlot = lane_slots[target_idx]
 	if target_slot.enter_slot(entity):
 		print(entity.name, " materialized in Lane Slot ", target_idx)
+		lane_changed.emit()
 	else:
 		push_error("Failed to spawn " + entity.name + " into slot " + str(target_idx))
+
+func remove_entity(entity: HumanoidCore) -> void:
+	for slot in lane_slots:
+		if slot.occupants.has(entity):
+			slot.exit_slot(entity)
+			lane_changed.emit()
+			return
 
 func _find_entity_lane(entity: HumanoidCore) -> int:
 	for i in range(lane_slots.size()):

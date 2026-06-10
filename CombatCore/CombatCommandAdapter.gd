@@ -61,6 +61,8 @@ func configure(
 		)
 	if not turn_manager.reaction_resolved.is_connected(_on_reaction_resolved):
 		turn_manager.reaction_resolved.connect(_on_reaction_resolved)
+	if not lane_manager.lane_changed.is_connected(_on_lane_changed):
+		lane_manager.lane_changed.connect(_on_lane_changed)
 
 func refresh_snapshot() -> void:
 	if not player_core or not enemy_core or not turn_manager or not lane_manager:
@@ -80,10 +82,12 @@ func get_snapshot() -> Dictionary:
 		"ap": turn_manager.current_ap_pool,
 		"is_player_turn": active == player_core,
 		"active_name": active.name if active else "",
+		"active_side": _entity_side(active),
 		"busy": _action_in_progress,
 		"reaction_pending": turn_manager._reaction_pending,
 		"player": _combatant_snapshot(player_core),
 		"enemy": _combatant_snapshot(enemy_core),
+		"lane_slots": _lane_snapshot(),
 		"actions": _build_legal_actions(),
 		"can_pass": (
 			active == player_core
@@ -425,7 +429,43 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"kinetic_tier": GameEnums.KineticTier.keys()[entity.kinetic_tier],
 		"weapon": weapon_name,
 		"is_escaping": entity.is_escaping,
+		"reserved_ap": turn_manager.reserved_ap.get(entity, 0),
+		"is_active": turn_manager.get_active_entity() == entity,
 	}
+
+func _lane_snapshot() -> Array:
+	var slots: Array = []
+	for slot in lane_manager.lane_slots:
+		var occupants: Array = []
+		for occupant in slot.occupants:
+			occupants.append({
+				"side": _entity_side(occupant),
+				"name": occupant.name,
+				"archetype": occupant.definition.archetype_name,
+				"is_active": turn_manager.get_active_entity() == occupant,
+				"stance": occupant.stance_points,
+				"stance_state": GameEnums.StanceState.keys()[
+					occupant.current_stance
+				],
+			})
+		slots.append({
+			"index": slot.lane_index,
+			"is_escape": slot.object_name == "Escape Zone",
+			"is_spawnable": slot.is_spawnable,
+			"background": CombatRules.TileBackground.keys()[slot.background],
+			"cover": CombatRules.TileObject.keys()[slot.current_cover],
+			"cover_durability": slot.object_durability,
+			"is_melee_locked": slot.is_melee_locked,
+			"occupants": occupants,
+		})
+	return slots
+
+func _entity_side(entity: HumanoidCore) -> String:
+	if entity == player_core:
+		return "player"
+	if entity == enemy_core:
+		return "enemy"
+	return "other"
 
 func _can_afford(action: int) -> bool:
 	var cost := turn_manager.get_action_cost(player_core, action)
@@ -506,4 +546,7 @@ func _on_reaction_resolved(
 ) -> void:
 	if defender == player_core:
 		_available_reactions.clear()
+	refresh_snapshot()
+
+func _on_lane_changed() -> void:
 	refresh_snapshot()

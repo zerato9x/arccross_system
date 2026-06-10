@@ -5,14 +5,23 @@ signal action_requested(action: int, target_limb: int, item_instance_id: String)
 signal pass_requested
 signal reaction_selected(reaction: int)
 
+const CYAN := Color(0.28, 0.95, 0.88)
+const AMBER := Color(1.0, 0.68, 0.25)
+const CRIMSON := Color(1.0, 0.25, 0.34)
+const MUTED := Color(0.42, 0.66, 0.62)
+
 var _panel: PanelContainer
 var _content: VBoxContainer
 var _snapshot: Dictionary = {}
 var _reaction_prompt: Dictionary = {}
 var _feedback: String = ""
+var _font: SystemFont
+var _action_shortcuts: Array[Callable] = []
 
 func _ready() -> void:
 	layer = 20
+	_font = SystemFont.new()
+	_font.font_names = PackedStringArray(["Consolas", "Courier New", "monospace"])
 	_build_shell()
 	_panel.visible = false
 
@@ -50,6 +59,11 @@ func _build_shell() -> void:
 	_panel.offset_top = 18.0
 	_panel.offset_right = -18.0
 	_panel.offset_bottom = -18.0
+	_panel.add_theme_stylebox_override("panel", _panel_style())
+	var theme := Theme.new()
+	theme.default_font = _font
+	theme.default_font_size = 14
+	_panel.theme = theme
 	add_child(_panel)
 
 	var margin := MarginContainer.new()
@@ -72,6 +86,7 @@ func _render() -> void:
 	if not _panel or not _panel.visible:
 		return
 	_clear_content()
+	_action_shortcuts.clear()
 	_add_title("ARCCROSS COMBAT")
 
 	if _snapshot.is_empty():
@@ -108,10 +123,10 @@ func _render() -> void:
 	var actions: Array = _snapshot.get("actions", [])
 	if actions.is_empty():
 		_add_body("No legal actions are available.")
-	for descriptor in actions:
-		_add_action_row(descriptor)
+	for action_index in range(actions.size()):
+		_add_action_row(actions[action_index], action_index)
 	if _snapshot.get("can_pass", false):
-		_add_button("PASS / RESERVE AP", pass_requested.emit)
+		_add_button("[0] PASS / RESERVE AP", pass_requested.emit)
 
 func _render_reaction_prompt() -> void:
 	_add_section_title("REACTION")
@@ -151,7 +166,7 @@ func _add_combatant(snapshot: Dictionary, heading: String) -> void:
 		]
 	)
 
-func _add_action_row(descriptor: Dictionary) -> void:
+func _add_action_row(descriptor: Dictionary, shortcut_index: int) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	_content.add_child(row)
@@ -161,6 +176,7 @@ func _add_action_row(descriptor: Dictionary) -> void:
 	if not target_limbs.is_empty():
 		limb_selector = OptionButton.new()
 		limb_selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_style_button(limb_selector)
 		for limb in target_limbs:
 			limb_selector.add_item(
 				GameEnums.LimbRegion.keys()[limb].replace("_", " ")
@@ -172,14 +188,22 @@ func _add_action_row(descriptor: Dictionary) -> void:
 		row.add_child(limb_selector)
 
 	var button := Button.new()
-	button.text = "%s [%d AP]" % [
+	var shortcut_text := (
+		str(shortcut_index + 1)
+		if shortcut_index < 9
+		else "-"
+	)
+	button.text = "[%s] %s // %d AP" % [
+		shortcut_text,
 		descriptor.get("label", "ACTION"),
 		descriptor.get("cost", 0),
 	]
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.pressed.connect(
-		_submit_action.bind(descriptor, limb_selector)
-	)
+	_style_button(button)
+	var callback := _submit_action.bind(descriptor, limb_selector)
+	button.pressed.connect(callback)
+	if shortcut_index < 9:
+		_action_shortcuts.append(callback)
 	row.add_child(button)
 
 func _submit_action(
@@ -204,24 +228,28 @@ func _add_title(text: String) -> void:
 	title.text = text
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", CYAN)
 	_content.add_child(title)
 
 func _add_section_title(text: String) -> void:
 	var title := Label.new()
 	title.text = text
 	title.add_theme_font_size_override("font_size", 17)
+	title.add_theme_color_override("font_color", AMBER)
 	_content.add_child(title)
 
 func _add_body(text: String) -> Label:
 	var body := Label.new()
 	body.text = text
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.add_theme_color_override("font_color", MUTED)
 	_content.add_child(body)
 	return body
 
 func _add_button(text: String, callback: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
+	_style_button(button)
 	button.pressed.connect(callback)
 	_content.add_child(button)
 	return button
@@ -230,3 +258,56 @@ func _clear_content() -> void:
 	for child in _content.get_children():
 		_content.remove_child(child)
 		child.queue_free()
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not _panel or not _panel.visible or not event.is_pressed() or event.is_echo():
+		return
+	if event.keycode == KEY_0 and _snapshot.get("can_pass", false):
+		pass_requested.emit()
+		get_viewport().set_input_as_handled()
+		return
+	if event.keycode < KEY_1 or event.keycode > KEY_9:
+		return
+	var shortcut_index := int(event.keycode - KEY_1)
+	if shortcut_index < _action_shortcuts.size():
+		_action_shortcuts[shortcut_index].call()
+		get_viewport().set_input_as_handled()
+
+func _panel_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.012, 0.035, 0.036, 0.97)
+	style.border_color = Color(0.18, 0.58, 0.53, 0.9)
+	style.set_border_width_all(2)
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	return style
+
+func _style_button(button: BaseButton) -> void:
+	button.add_theme_color_override("font_color", CYAN)
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_color_override("font_pressed_color", AMBER)
+	button.add_theme_stylebox_override(
+		"normal",
+		_button_style(Color(0.02, 0.08, 0.075, 0.95), MUTED)
+	)
+	button.add_theme_stylebox_override(
+		"hover",
+		_button_style(Color(0.035, 0.15, 0.135, 0.98), CYAN)
+	)
+	button.add_theme_stylebox_override(
+		"pressed",
+		_button_style(Color(0.16, 0.10, 0.025, 0.98), AMBER)
+	)
+
+func _button_style(background: Color, border: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = background
+	style.border_color = border
+	style.set_border_width_all(1)
+	style.content_margin_left = 9.0
+	style.content_margin_top = 6.0
+	style.content_margin_right = 9.0
+	style.content_margin_bottom = 6.0
+	return style

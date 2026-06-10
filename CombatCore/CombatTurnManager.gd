@@ -163,7 +163,7 @@ func _start_turn() -> void:
 		var my_idx = _find_entity_lane(active_entity)
 		if my_idx >= 0 and lane_manager.lane_slots[my_idx].object_name == "Escape Zone":
 			print("\n[ESCAPE SUCCESS] ", active_entity.name, " has survived the wait and vanished from the battlefield!")
-			lane_manager.lane_slots[my_idx].exit_slot(active_entity)
+			lane_manager.remove_entity(active_entity)
 			escape_combat(active_entity)
 			return
 		else:
