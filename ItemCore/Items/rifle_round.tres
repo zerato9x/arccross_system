@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "rifle_round"
+display_name = "Rifle Round"
+lore_description = "A full-power rifle cartridge used by carbon, Kalashnikov, and service rifle actions."
+item_type = 5
+size_cost = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Ammo/rifle_ammo.png"
+weight = 0.025

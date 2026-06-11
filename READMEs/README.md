@@ -12,6 +12,27 @@ of restating it.
   criteria, current status, and remaining work.
 - [Changelog](CHANGELOG.md): dated implementation and verification notes.
 
+## Current Implementation
+
+Status updated on **June 12, 2026**:
+
+- The revised Stance loop prevents routine pressure from causing immediate
+  knockdowns and gives Felled combatants an explicit all-AP GET UP turn.
+- Weapon definitions now author handling, accuracy, range, distance falloff,
+  exact ammunition feeds, cycling, loading aids, inventory and equipment
+  sprites, and attachment compatibility.
+- Ballistic attacks deal localized Flesh Damage with zero Stance Damage.
+- Exact pistol magazines, revolver speedloading and hand-loading, rifle feeds,
+  manual cycling, and shell-by-shell shotgun behavior are covered by automated
+  checks.
+- Service-rifle scope data is present, but the macro SNIPE action remains
+  planned.
+- Duel Scene animation remains placeholder, and the existing BLOCK rules have
+  not yet been replaced by shield-specific coverage and mitigation.
+
+See the [June 12 changelog](CHANGELOG.md#june-12-2026) for implementation and
+verification detail.
+
 ## Design Direction
 
 - [Visual Direction](design/VISUAL_DIRECTION.md): shared presentation language

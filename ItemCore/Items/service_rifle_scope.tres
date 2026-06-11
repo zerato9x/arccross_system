@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "service_rifle_scope"
+display_name = "Service Rifle Scope"
+lore_description = "A calibrated optic keyed to the service rifle receiver. From the global hex map it enables a highly conspicuous long shot."
+item_type = 4
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Rifle/service_rifle_scopeattachment.png"
+bulk = 0.3
+weight = 0.4
+compatible_weapon_ids = Array[String](["service_rifle"])
+grants_snipe = true
+macro_snipe_range = 2

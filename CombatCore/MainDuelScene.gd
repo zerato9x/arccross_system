@@ -166,16 +166,36 @@ func _fabricate_humanoid(
 			inv.equip_item(test_weapon, GameEnums.EquipmentSlot.HANDS)
 			
 			if test_weapon.is_ranged():
-				for i in range(18):
-					var ammo = ItemData.new()
-					ammo.id = "ammo_round"
-					ammo.display_name = "Loose Ammo"
-					ammo.item_type = GameEnums.ItemType.JUNK
-					ammo.weight = 0.05
-					inv.add_to_backpack(ammo)
-				print("Supplied ", unit_name, " with 18 rounds of loose ammo.")
+				_supply_test_ammunition(inv, test_weapon, 18)
+				print(
+					"Supplied ",
+					unit_name,
+					" with 18 compatible rounds and feed equipment."
+				)
 	
 	return core
+
+func _supply_test_ammunition(
+	inventory: InventorySystem,
+	weapon: ItemData,
+	round_count: int
+) -> void:
+	if weapon.ammunition_id.is_empty():
+		return
+	var ammo_path := "res://ItemCore/Items/%s.tres" % weapon.ammunition_id
+	var ammo_definition := load(ammo_path) as ItemData
+	if ammo_definition:
+		for _round_index in range(round_count):
+			inventory.add_to_backpack(ammo_definition)
+
+	for support_id in [weapon.magazine_id, weapon.reload_aid_id]:
+		if support_id.is_empty():
+			continue
+		var support_definition := load(
+			"res://ItemCore/Items/%s.tres" % support_id
+		) as ItemData
+		if support_definition:
+			inventory.add_to_backpack(support_definition)
 
 func _on_items_spilled(spilled_items: Array[ItemData], entity: HumanoidCore) -> void:
 	print("[COMBAT DROPS] ", entity.name, " spilled ", spilled_items.size(), " items into the dirt!")

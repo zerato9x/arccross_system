@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "service_pistol"
+display_name = "Service Pistol"
+lore_description = "A reliable single-stack duty pistol. It is compact and rugged, but less forgiving of poor aim."
+item_type = 1
+size_cost = 2
+target_slot = 8
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Pistol/service_pistol_loaded.png"
+unloaded_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Pistol/service_pistol_unloaded.png"
+equipped_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Pistol/pistol_equip.png"
+weapon_type = 3
+damage_type = 2
+flesh_damage = 7.0
+stance_damage = 0.0
+armor_penetration = 6.0
+accuracy_rating = 7.0
+effective_range = 6
+optimal_range = 4
+bulk = 0.6
+weight = 1.1
+threat = 6.0
+max_magazine = 8
+starting_magazine = 8
+ammunition_id = "pistol_round"
+magazine_id = "service_pistol_magazine"

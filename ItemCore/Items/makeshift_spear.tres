@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "makeshift_spear"
+display_name = "Makeshift Spear"
+lore_description = "A sharpened point on a long improvised shaft. Reach compensates for crude construction."
+item_type = 1
+size_cost = 4
+target_slot = 7
+requires_two_hands = true
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Melee_Sharp/2H/spear_makeshift.png"
+equipped_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Melee_Sharp/2H/equip_spear_makeshift.png"
+weapon_type = 2
+damage_type = 1
+flesh_damage = 7.0
+stance_damage = 0.0
+armor_penetration = 4.0
+accuracy_rating = 8.0
+bulk = 2.5
+weight = 3.5
+threat = 6.0

@@ -178,24 +178,6 @@ func _start_turn() -> void:
 		_trigger_end_turn()
 		return
 		
-	# FELLED spends one turn recovering. The recovery guard prevents the
-	# opponent from immediately forcing another skipped turn.
-	if active_entity.current_stance == GameEnums.StanceState.FELLED:
-		print(
-			"\n[STUNNED] ",
-			active_entity.name,
-			" spends this turn recovering from FELLED."
-		)
-		current_ap_pool = 0
-		active_entity.begin_felled_recovery(
-			CombatRules.FELLED_RECOVERY_POINTS
-		)
-		reserved_ap[active_entity] = 0
-		if _is_everyone_incapacitated():
-			await get_tree().create_timer(0.1).timeout
-		_trigger_end_turn()
-		return
-
 	# STUMBLING never skips a turn. It receives a small passive recovery before
 	# normal AP is granted, then any previous recovery guard expires.
 	if active_entity.current_stance == GameEnums.StanceState.STUMBLING:
@@ -221,6 +203,19 @@ func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
 
 	if action == GameEnums.ActionType.EXECUTE and not CombatRules.EXECUTE_ENABLED:
 		print("DENIED: EXECUTE is disabled until its trait unlock is implemented.")
+		return false
+
+	if (
+		entity.current_stance == GameEnums.StanceState.FELLED
+		and action != GameEnums.ActionType.GET_UP
+	):
+		print("DENIED: ", entity.name, " is FELLED and must GET UP.")
+		return false
+	if (
+		action == GameEnums.ActionType.GET_UP
+		and entity.current_stance != GameEnums.StanceState.FELLED
+	):
+		print("DENIED: GET UP requires the entity to be FELLED.")
 		return false
 	
 	if entity != combatants[active_entity_index]:
@@ -470,6 +465,6 @@ func _is_everyone_incapacitated() -> bool:
 	if combatants.size() == 0:
 		return true
 	for entity in combatants:
-		if not entity.is_dead and entity.current_max_ap > 0 and not entity.is_comatose and entity.current_stance != GameEnums.StanceState.FELLED:
+		if not entity.is_dead and entity.current_max_ap > 0 and not entity.is_comatose:
 			return false
 	return true

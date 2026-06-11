@@ -84,6 +84,7 @@ func get_snapshot() -> Dictionary:
 			active == player_core
 			and not _action_in_progress
 			and not turn_manager._reaction_pending
+			and player_core.current_stance != GameEnums.StanceState.FELLED
 		),
 	}
 
@@ -145,6 +146,10 @@ func _execute_player_action(
 	var direction := _direction_toward_enemy(player_lane, enemy_lane)
 
 	match action:
+		GameEnums.ActionType.GET_UP:
+			if not turn_manager.request_action(player_core, action):
+				return false
+			return resolution_engine.execute_get_up(player_core)
 		GameEnums.ActionType.MOVE_FORWARD:
 			if not turn_manager.request_action(player_core, action):
 				return false
@@ -320,6 +325,10 @@ func _build_legal_actions() -> Array:
 	var locked := slot.is_melee_locked
 	var direction := _direction_toward_enemy(player_lane, enemy_lane)
 
+	if player_core.current_stance == GameEnums.StanceState.FELLED:
+		_add_action(actions, GameEnums.ActionType.GET_UP, "GET UP")
+		return actions
+
 	if not locked:
 		if _can_move_to(player_lane + direction):
 			_add_action(actions, GameEnums.ActionType.MOVE_FORWARD, "ADVANCE")
@@ -341,8 +350,9 @@ func _build_legal_actions() -> Array:
 		):
 			_add_action(actions, GameEnums.ActionType.CHARGE, "CHARGE")
 
-		var ranged := player_core.inventory.get_active_weapon(false)
-		if ranged and _ranged_weapon_ready(ranged):
+		var ranged: ItemData = player_core.inventory.get_active_weapon(false)
+		var ranged_distance: int = absi(enemy_lane - player_lane)
+		if ranged and _ranged_weapon_ready(ranged, ranged_distance):
 			_add_action(actions, GameEnums.ActionType.SHOOT, "SHOOT")
 			_add_action(
 				actions,
@@ -352,11 +362,7 @@ func _build_legal_actions() -> Array:
 			)
 		if ranged and _can_reload(ranged):
 			_add_action(actions, GameEnums.ActionType.RELOAD, "RELOAD")
-		if (
-			ranged
-			and ranged.weapon_type == GameEnums.WeaponClass.RIFLE
-			and ranged.needs_cycling
-		):
+		if ranged and _can_cycle(ranged):
 			_add_action(actions, GameEnums.ActionType.CYCLE, "CYCLE")
 		if slot.current_cover != CombatRules.TileObject.NONE:
 			_add_action(actions, GameEnums.ActionType.TAKE_COVER, "TAKE COVER")
@@ -414,11 +420,19 @@ func _has_legal_command(action: int, item_instance_id: String) -> bool:
 
 func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 	var weapon_name := "Unarmed"
-	var weapon: ItemData = entity.inventory.paper_doll.get(
-		GameEnums.EquipmentSlot.HANDS
-	)
+	var weapon_detail := ""
+	var weapon: ItemData = entity.inventory.get_active_weapon(false)
+	if weapon == null:
+		weapon = entity.inventory.get_active_weapon(true)
 	if weapon:
 		weapon_name = weapon.display_name
+		if weapon.is_ranged():
+			weapon_detail = " %02d/%02d R%02d%s" % [
+				weapon.current_magazine,
+				weapon.max_magazine,
+				weapon.effective_range,
+				" CYCLE" if weapon.needs_cycling else "",
+			]
 	return {
 		"name": entity.name,
 		"archetype": entity.definition.archetype_name,
@@ -431,6 +445,7 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"stance_recovery_guard": entity.has_stance_recovery_guard,
 		"kinetic_tier": GameEnums.KineticTier.keys()[entity.kinetic_tier],
 		"weapon": weapon_name,
+		"weapon_detail": weapon_detail,
 		"is_escaping": entity.is_escaping,
 		"reserved_ap": turn_manager.reserved_ap.get(entity, 0),
 		"is_active": turn_manager.get_active_entity() == entity,
@@ -515,29 +530,53 @@ func _direction_toward_enemy(player_lane: int, enemy_lane: int) -> int:
 		return _player_forward_direction
 	return signi(enemy_lane - player_lane)
 
-func _ranged_weapon_ready(weapon: ItemData) -> bool:
-	if weapon.weapon_type == GameEnums.WeaponClass.PISTOL:
-		return weapon.current_magazine > 0
-	if weapon.weapon_type == GameEnums.WeaponClass.RIFLE:
-		return not weapon.needs_cycling and _has_ammunition()
-	return false
-
-func _can_reload(weapon: ItemData) -> bool:
+func _ranged_weapon_ready(weapon: ItemData, distance: int) -> bool:
 	return (
-		weapon.weapon_type == GameEnums.WeaponClass.PISTOL
-		and weapon.current_magazine < weapon.max_magazine
-		and _has_ammunition()
+		weapon.is_ready_to_fire()
+		and distance <= weapon.effective_range
 	)
 
-func _has_ammunition() -> bool:
+func _can_reload(weapon: ItemData) -> bool:
+	if weapon.current_magazine >= weapon.max_magazine:
+		return false
+	if (
+		not weapon.magazine_id.is_empty()
+		and not _has_inventory_item(weapon.magazine_id)
+	):
+		return false
+	if (
+		not weapon.reload_aid_id.is_empty()
+		and not _has_inventory_item(weapon.reload_aid_id)
+	):
+		return false
+	if (
+		weapon.magazine_id.is_empty()
+		and weapon.reload_aid_id.is_empty()
+		and weapon.cycle_loads_one_round
+	):
+		return false
+	return _has_ammunition(weapon.ammunition_id)
+
+func _can_cycle(weapon: ItemData) -> bool:
+	if weapon.needs_cycling:
+		return true
+	return (
+		weapon.cycle_loads_one_round
+		and weapon.current_magazine < weapon.max_magazine
+		and _has_ammunition(weapon.ammunition_id)
+	)
+
+func _has_inventory_item(item_id: String) -> bool:
+	if item_id.is_empty():
+		return true
 	for item in player_core.inventory.backpack_array:
-		if (
-			item.id == "magazine"
-			or item.id.ends_with("_magazine")
-			or item.id.begins_with("ammo_")
-		):
+		if item.id == item_id:
 			return true
 	return false
+
+func _has_ammunition(ammunition_id: String) -> bool:
+	var resolved_id := ammunition_id if not ammunition_id.is_empty() else "ammo_round"
+	return _has_inventory_item(resolved_id)
 
 func _on_combat_state_changed(_entity: HumanoidCore) -> void:
 	refresh_snapshot()

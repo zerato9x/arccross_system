@@ -1,5 +1,64 @@
 # ARCCROSS Changelog
 
+## June 12, 2026
+
+### Stance And Recovery
+
+- Prevented ordinary Stance Damage from reducing a combatant below `1`.
+  Explicit takedown effects may still Fell a target.
+- Restricted BREAK knockdowns to targets that are already Stumbling.
+- Replaced automatic Felled turn skipping with an explicit GET UP action that
+  consumes all current AP, restores `6` Stance, and applies Recovery Guard.
+- Changed TAKE COVER to restore `2` Stance and exposed the current Stance State
+  in combat presentation.
+
+### Weapon Data And Ballistics
+
+- Expanded item definitions with inventory, unloaded, and equipped sprite
+  paths; accuracy, effective and optimal range, distance falloff, exact
+  ammunition and magazine IDs, loading aids, cycling rules, and attachment
+  compatibility.
+- Added Shotgun as a Weapon Class and Ammunition as an Item Type.
+- Changed ballistic hits to deal `0` Stance Damage and apply the weapon's
+  authored Flesh Damage directly to one resolved Limb Region.
+- Removed the hidden ballistic damage multiplier. Out-of-range shots are now
+  rejected before ammunition is consumed.
+- Combined shooter Finesse, weapon Accuracy Rating, distance, environment, and
+  aimed-fire bonuses in ranged hit resolution.
+
+### Firearm Handling
+
+- Enforced exact magazine and loose-ammunition compatibility for magazine-fed
+  pistols and rifles.
+- Added six-round revolver handling: CYCLE hand-loads one pistol round, while a
+  compatible speedloader enables RELOAD.
+- Added five-round service-rifle handling with single-round CYCLE loading or
+  clip-assisted RELOAD.
+- Required the service rifle and shotgun to CYCLE after firing.
+- Added shell-by-shell shotgun loading. Shotgun damage remains full through two
+  lane tiles, falls to `35%` by tile four, and cannot hit beyond tile four.
+- Added rounds, capacity, effective range, and cycling state to combat weapon
+  snapshots and HUD output.
+
+### Content And Verification
+
+- Added authored carbon and service pistols, revolver, carbon rifle, AK-47,
+  service rifle, shotgun, compatible feeds, loading aids, service-rifle scope,
+  and sharp-melee resources linked to Innawoods inventory and equipment
+  sprites.
+- Refined blunt and sharp melee data around one-handed versus two-handed
+  accuracy, Weight, and Bulk tradeoffs.
+- Updated player, Arcborn, and generated ranged-enemy loadouts with compatible
+  weapons and ammunition support.
+- Kept Duel Scene animation as placeholder content. Shield-specific BLOCK
+  coverage and mitigation remain outside this weapon-data pass.
+- Added `WeaponDataSmoke.gd` coverage for the firearm roster, exact feeds,
+  zero-Stance ballistic limb damage, manual loading, shotgun falloff, scope
+  metadata, and runtime serialization.
+- Passed the new weapon smoke test, Base-12 scale, runtime state, save/load,
+  combat lane HUD, combat interface, and a headless editor import check on
+  Godot `4.6.3`.
+
 ## June 10, 2026
 
 ### Combat Presentation

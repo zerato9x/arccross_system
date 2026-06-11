@@ -5,10 +5,11 @@ class_name CombatRules
 ## trait can unlock it without changing the cross-system contract.
 const EXECUTE_ENABLED: bool = false
 
-## Stance recovery tuning. A Felled combatant spends one turn recovering, then
-## cannot be knocked down again until their next active turn begins.
+## Stance recovery tuning. GET_UP consumes the active turn and restores a
+## Felled combatant to Stumbling with temporary knockdown protection.
 const FELLED_RECOVERY_POINTS: int = 6
 const STUMBLING_TURN_RECOVERY: int = 2
+const TAKE_COVER_STANCE_RECOVERY: int = 2
 
 ## Mathematical categorization of action costs. Scales through KineticTier.
 enum ActionCategory {

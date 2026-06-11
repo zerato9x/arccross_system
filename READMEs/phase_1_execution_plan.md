@@ -141,11 +141,21 @@ Automated coverage includes:
 - One clean vertical slice covering five-Hex travel, player-issued victory,
   loot transfer, SEARCH collection, CAMP, save, teardown, and reload.
 
+Incremental verification recorded on **June 12, 2026**:
+
+- The regression set now contains twelve smoke scripts.
+- `WeaponDataSmoke.gd` covers authored firearm data, exact ammunition feeds,
+  zero-Stance ballistic Limb Region damage, manual loading, shotgun falloff,
+  scope metadata, and firearm runtime serialization.
+- The new weapon test and the affected Base-12, runtime-state, save/load,
+  combat-lane HUD, and combat-interface suites passed on Godot `4.6.3`.
+- A headless editor run completed without import or script compilation errors.
+
 ## Phase 1 Closure
 
 No known Phase 1 acceptance item remains open. Future work should preserve the
-eleven-script regression gate and treat any new gameplay feature as a separate
-phase rather than silently expanding this slice.
+full regression set, including the weapon-data checks, and treat any new
+gameplay feature as a separate phase rather than silently expanding this slice.
 
 ## Required Demonstration
 

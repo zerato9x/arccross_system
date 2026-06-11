@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "service_rifle"
+display_name = "Service Rifle"
+lore_description = "A full-power manually operated rifle. Slow follow-up shots are the price of reach, penetration, and a stable sight picture."
+item_type = 1
+size_cost = 4
+target_slot = 7
+requires_two_hands = true
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Rifle/service_rifle_noscope.png"
+equipped_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Rifle/service_rifle_noscope_equip.png"
+weapon_type = 4
+damage_type = 2
+flesh_damage = 10.5
+stance_damage = 0.0
+armor_penetration = 9.0
+accuracy_rating = 8.5
+effective_range = 11
+optimal_range = 9
+bulk = 2.8
+weight = 4.0
+threat = 10.0
+max_magazine = 5
+starting_magazine = 5
+ammunition_id = "rifle_round"
+reload_aid_id = "service_rifle_clip"
+requires_cycle_after_shot = true
+cycle_loads_one_round = true

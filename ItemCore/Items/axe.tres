@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "axe"
+display_name = "Hand Axe"
+lore_description = "A compact chopping head with serious wound potential, balanced for one-handed use."
+item_type = 1
+size_cost = 2
+target_slot = 8
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Melee_Sharp/1H/axe.png"
+equipped_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Melee_Sharp/1H/equip_axe.png"
+weapon_type = 2
+damage_type = 1
+flesh_damage = 6.5
+stance_damage = 0.0
+armor_penetration = 4.0
+accuracy_rating = 5.0
+bulk = 0.8
+weight = 2.0
+threat = 4.0

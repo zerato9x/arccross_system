@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "carbon_pistol_magazine"
+display_name = "Carbon Pistol Magazine"
+lore_description = "A lightweight double-stack magazine fitted specifically to the carbon pistol."
+item_type = 5
+target_slot = 9
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Pistol/carbon_pistol_magazine.png"
+bulk = 0.1
+weight = 0.12

@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "carbon_rifle"
+display_name = "Carbon Rifle"
+lore_description = "A light modern rifle with excellent balance and repeatable accuracy across the entire combat lane."
+item_type = 1
+size_cost = 4
+target_slot = 7
+requires_two_hands = true
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Rifle/carbon_rifle_loaded.png"
+unloaded_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Rifle/carbon_rifle_unloaded.png"
+equipped_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Rifle/carbon_rifle_equip.png"
+weapon_type = 4
+damage_type = 2
+flesh_damage = 10.5
+stance_damage = 0.0
+armor_penetration = 9.0
+accuracy_rating = 10.0
+effective_range = 11
+optimal_range = 8
+bulk = 2.2
+weight = 3.5
+threat = 10.0
+max_magazine = 31
+starting_magazine = 31
+ammunition_id = "rifle_round"
+magazine_id = "carbon_rifle_magazine"

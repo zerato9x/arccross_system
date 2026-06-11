@@ -132,13 +132,23 @@ func get_combat_accuracy(is_ranged: bool) -> float:
 # 12 = PLANTED (stable, full action set)
 # 7-11 = PLANTED (stable)
 # 1-6 = STUMBLING (normal turn, passive recovery, THREAT = 0)
-# 0 = FELLED (stunned for one round)
+# 0 = FELLED (must spend the next active turn getting up)
 
-## Apply stance damage from a combat impact. Returns the new stance state.
-func apply_stance_damage(amount: float) -> GameEnums.StanceState:
+## Apply equilibrium loss from an impact. Ordinary impacts stop at 1 Stance;
+## explicit takedown actions may pass can_fell=true to reduce a target to 0.
+func apply_stance_damage(
+	amount: float,
+	can_fell: bool = false
+) -> GameEnums.StanceState:
 	if is_dead: return current_stance
+	if current_stance == GameEnums.StanceState.FELLED:
+		return current_stance
 	
-	var stance_floor := 1 if has_stance_recovery_guard else 0
+	var stance_floor := (
+		0
+		if can_fell and not has_stance_recovery_guard
+		else 1
+	)
 	var previous_points := stance_points
 	stance_points = max(
 		stance_floor,
@@ -158,7 +168,7 @@ func apply_stance_damage(amount: float) -> GameEnums.StanceState:
 	return current_stance
 
 ## Attempt to recover stance points. Capped at 12.
-## Use force=true to bypass the FELLED guard (e.g., mandatory turn-skip recovery).
+## Use force=true to rise from FELLED while resolving GET_UP.
 func recover_stance(amount: int, force: bool = false) -> void:
 	if is_dead: return
 	if current_stance == GameEnums.StanceState.FELLED and not force: return
@@ -166,13 +176,13 @@ func recover_stance(amount: int, force: bool = false) -> void:
 	stance_points = min(12, stance_points + amount)
 	_evaluate_stance_state()
 
-## Full stance reset (e.g., after successfully using GET_UP action).
+## Full stance reset for encounter setup and explicit restoration effects.
 func reset_stance() -> void:
 	stance_points = 12
 	has_stance_recovery_guard = false
 	_evaluate_stance_state()
 
-## Spend the mandatory recovery turn rising from FELLED into STUMBLING.
+## Resolve GET_UP by rising from FELLED into STUMBLING.
 ## The floor prevents an opponent from creating an indefinite knockdown loop.
 func begin_felled_recovery(recovery_points: int) -> void:
 	if is_dead or current_stance != GameEnums.StanceState.FELLED:
@@ -233,7 +243,7 @@ func _evaluate_stance_state() -> void:
 		print(name, " stance shifted to ", GameEnums.StanceState.keys()[current_stance], " (", stance_points, "/12)")
 		
 		if current_stance == GameEnums.StanceState.FELLED:
-			print("[FELLED] ", name, " has collapsed and will lose the next turn.")
+			print("[FELLED] ", name, " has collapsed and must use GET UP.")
 			felled.emit()
 			
 		if current_stance == GameEnums.StanceState.STUMBLING:

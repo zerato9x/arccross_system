@@ -48,7 +48,7 @@ enum EquipmentSlot {
 }
 
 # Weapon Classifications
-enum WeaponClass { NONE, BLUNT, BLADE, PISTOL, RIFLE }
+enum WeaponClass { NONE, BLUNT, BLADE, PISTOL, RIFLE, SHOTGUN }
 
 ## Functional classification of an item determining which systems interact with it.
 enum ItemType {
@@ -56,7 +56,8 @@ enum ItemType {
 	WEAPON,      ## Equips to HANDS. Has DamageType, flesh_damage, stance_damage.
 	ARMOR,       ## Equips to torso/legs/feet. Provides PROTECTION and BULK.
 	CONSUMABLE,  ## Single-use. Restores hunger, thirst, stops bleeding, fights fatigue.
-	TOOL         ## Contextual world-interaction or campsite equipment.
+	TOOL,        ## Contextual world-interaction or campsite equipment.
+	AMMUNITION   ## Loose rounds, magazines, clips, speedloaders, and shells.
 }
 
 ## Specific metabolic or trauma effect a consumable item applies on use.
@@ -140,11 +141,11 @@ enum ActionType {
 	CHARGE,         # 4 AP: Sprints 2 cells forward. Grapple Intercept risk at distance 1.
 	SHOOT,          # 4 AP: Fire a ranged weapon at a random body part
 	AIMED_SHOT,     # 6 AP: Fire a ranged weapon at a specific target limb
-	CYCLE,          # 1 AP: Manually cycle a rifle bolt between shots
-	RELOAD,         # 2 AP: Refill a pistol's internal magazine from backpack ammo
+	CYCLE,          # 1 AP: Cycle an action or hand-load one round where supported
+	RELOAD,         # 2 AP: Reload through a compatible magazine, clip, or speedloader
 	OBJ_INTERACT,   # 4 AP: Interact with the object at any tile
 	USE_ITEM,       # 2 AP: Use a consumable from the backpack
-	TAKE_COVER,     # 4 AP: Drop profile. Sets stance to 1 (STUMBLING floor). Evasion bonus.
+	TAKE_COVER,     # 4 AP: Brace behind cover and recover a small amount of Stance.
 	
 	# --- Duel-Locked Actions ---
 	STRIKE,         # Core melee attack. Resolution randomly selects a non-Head Limb Region.
@@ -158,7 +159,7 @@ enum ActionType {
 	
 	# --- Prone Window Actions ---
 	TRIP,           # ALL AP: Ground sweep. Dexterity check to pull standing opponent into FELLED.
-	GET_UP,         # ALL AP: Emergency tax. Clears FELLED, restores stance to 12.
+	GET_UP,         # ALL AP: Rise from FELLED into STUMBLING with recovery protection.
 	EXECUTE,        # Trait-gated finishing action. Disabled until trait ownership exists.
 	
 	# --- Reaction Strikes (Off-Turn) ---

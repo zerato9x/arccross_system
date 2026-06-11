@@ -1,12 +1,14 @@
-[gd_resource type="Resource" script_class="SpawnLoadout" load_steps=8 format=3]
+[gd_resource type="Resource" script_class="SpawnLoadout" load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://ItemCore/SpawnLoadout.gd" id="1_loadout"]
-[ext_resource type="Resource" path="res://ItemCore/Items/makeshift_sidearm.tres" id="2_weapon"]
+[ext_resource type="Resource" path="res://ItemCore/Items/carbon_pistol.tres" id="2_weapon"]
 [ext_resource type="Resource" path="res://ItemCore/Items/thermal_undershirt.tres" id="3_inner"]
 [ext_resource type="Resource" path="res://ItemCore/Items/scavenger_coat.tres" id="4_outer"]
 [ext_resource type="Resource" path="res://ItemCore/Items/scavenger_greaves.tres" id="5_legs"]
 [ext_resource type="Resource" path="res://ItemCore/Items/combat_boots.tres" id="6_boots"]
 [ext_resource type="Resource" path="res://ItemCore/Items/military_backpack.tres" id="7_pack"]
+[ext_resource type="Resource" path="res://ItemCore/Items/carbon_pistol_magazine.tres" id="8_magazine"]
+[ext_resource type="Resource" path="res://ItemCore/Items/pistol_round.tres" id="9_round"]
 
 [resource]
 script = ExtResource("1_loadout")
@@ -16,3 +18,4 @@ outer_torso = ExtResource("4_outer")
 legs = ExtResource("5_legs")
 feet = ExtResource("6_boots")
 backpack_gear = ExtResource("7_pack")
+starting_items = [ExtResource("8_magazine"), ExtResource("9_round"), ExtResource("9_round"), ExtResource("9_round"), ExtResource("9_round"), ExtResource("9_round"), ExtResource("9_round"), ExtResource("9_round"), ExtResource("9_round"), ExtResource("9_round"), ExtResource("9_round"), ExtResource("9_round"), ExtResource("9_round"), ExtResource("9_round"), ExtResource("9_round"), ExtResource("9_round"), ExtResource("9_round")]
