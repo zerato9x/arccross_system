@@ -69,6 +69,16 @@ func _build_loadout(weapon_id: String, armor_ids: Array[String], consumable_ids:
 	
 	if _item_pool.has(weapon_id):
 		loadout.weapon = _item_pool[weapon_id]
+		var weapon: ItemData = loadout.weapon
+		if weapon.is_ranged():
+			for support_id in [weapon.magazine_id, weapon.reload_aid_id]:
+				if not support_id.is_empty() and _item_pool.has(support_id):
+					loadout.starting_items.append(_item_pool[support_id])
+			if _item_pool.has(weapon.ammunition_id):
+				for _round_index in range(mini(12, weapon.max_magazine)):
+					loadout.starting_items.append(
+						_item_pool[weapon.ammunition_id]
+					)
 	
 	for armor_id in armor_ids:
 		if not _item_pool.has(armor_id): continue
@@ -88,7 +98,11 @@ func _build_loadout(weapon_id: String, armor_ids: Array[String], consumable_ids:
 
 ## Generate a random SCAVENGER loadout.
 func _generate_scavenger_loadout(rng: RandomNumberGenerator = null) -> SpawnLoadout:
-	var weapons: Array[String] = ["rusty_pipe", "makeshift_sidearm"]
+	var weapons: Array[String] = [
+		"rusty_pipe",
+		"service_pistol",
+		"revolver",
+	]
 	var weapon_index := rng.randi_range(0, weapons.size() - 1) if rng else randi() % weapons.size()
 	var chosen_weapon: String = weapons[weapon_index]
 	

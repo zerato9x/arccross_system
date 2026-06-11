@@ -84,7 +84,7 @@ Damage Type describes an attack vector. Trauma describes a resulting condition.
 - **Runtime Item Instance:** A unique mutable item copy with a stable
   `instance_id` and instance-specific state.
 - **Item Type:** A broad functional category such as weapon, armor, consumable,
-  tool, or junk.
+  tool, ammunition, or junk.
 - **Equipment Slot:** A closed Paper Doll location.
 - **Paper Doll:** The equipped-item portion of an inventory.
 - **Backpack Contents:** Carried Runtime Item Instances that are not equipped.
@@ -99,6 +99,24 @@ Damage Type describes an attack vector. Trauma describes a resulting condition.
 - **Insulation:** Numeric protection against environmental temperature pressure.
 - **Protection:** Numeric resistance to a Damage Type.
 - **Weapon Class:** A weapon's broad handling and equipment classification.
+- **One-Handed Weapon:** A weapon that does not require both hands. It generally
+  has lower Weight and Bulk but less Accuracy than a comparable two-handed
+  weapon.
+- **Two-Handed Weapon:** A weapon that requires both hands. It generally trades
+  greater Weight and Bulk for better Accuracy.
+- **Accuracy Rating:** A weapon's authored contribution to ranged or melee hit
+  resolution. It combines with the wielder and encounter context.
+- **Effective Range:** The farthest Combat Lane distance at which a ranged
+  weapon may attempt a shot.
+- **Optimal Range:** The distance through which a ranged weapon retains full
+  authored damage before any configured falloff.
+- **Firearm Feed:** The exact loose-ammunition ID and optional magazine, clip,
+  or speedloader ID accepted by a firearm.
+- **Cycle State:** Runtime firearm state indicating that its action must be
+  cycled before another shot.
+- **Attachment Compatibility:** Authored weapon IDs to which an attachment may
+  be fitted. Compatibility metadata does not itself implement the granted
+  action.
 - **Loadout:** Item definitions used to create initial Runtime Item Instances.
 - **Spill:** Capacity overflow converted into persistent ground items instead of
   deleted inventory.
@@ -126,7 +144,7 @@ describes a tool; Damage Type describes a hit.
 - **Stance Points:** Encounter-local physical equilibrium on the `0` to `12`
   scale. It resets at combat boundaries; wounds and systemic vitals do not.
 - **Stance State:** A Stance bracket: Planted (`7-12`), Stumbling (`1-6`), or
-  Felled (`0`).
+  Felled (`0`). A Felled combatant receives an explicit all-AP GET UP turn.
 - **Recovery Guard:** A one-cycle Stance floor applied after a combatant spends
   a turn recovering from Felled. Incoming pressure may reduce them to `1`
   Stance but cannot Fell them again before their next usable active turn.
@@ -147,11 +165,22 @@ describes a tool; Damage Type describes a hit.
 - **Damage Type:** The physical vector of an attack: Blunt, Sharp, or Ballistic.
 - **Flesh Damage:** Damage to anatomy and biological health.
 - **Stance Damage:** Damage to equilibrium that can create openings without
-  directly causing a wound.
+  directly causing a wound. Ordinary pressure floors at `1`; only explicit
+  takedown-capable effects may reduce Stance to `0`.
+- **Ballistic Hit:** A firearm impact that applies authored Flesh Damage to one
+  Limb Region and deals `0` Stance Damage.
 - **Strike:** A melee attack whose impact region is resolved randomly from all
   non-head Limb Regions.
+- **BREAK:** A braced melee Stance attack. It may Fell an already-Stumbling
+  target but ordinary use cannot knock a Planted target directly to `0`.
 - **Grapple:** An opposed base-12 takedown check. Success fells the defender;
   failure costs the initiator Stance.
+- **CYCLE:** Cycle a firearm action after firing, or hand-load one compatible
+  loose round when that weapon supports manual loading.
+- **RELOAD:** Load a firearm through its exact compatible magazine, clip, or
+  speedloader.
+- **GET UP:** Spend the active turn's remaining AP to rise from Felled with `6`
+  Stance and Recovery Guard.
 - **Pull / Follow:** While Melee Locked, drag the opponent one lane toward the
   initiator's rear and follow into that lane, preserving the lock.
 - **Disengage:** Break away from a Melee Lock and retreat alone. It is distinct

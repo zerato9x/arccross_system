@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "shotgun"
+display_name = "Combat Shotgun"
+lore_description = "A manually cycled shotgun devastating inside two tiles. Beyond four tiles its payload has no useful combat effect."
+item_type = 1
+size_cost = 4
+target_slot = 7
+requires_two_hands = true
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Special/shotgun.png"
+equipped_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Special/shotgun.png"
+weapon_type = 5
+damage_type = 2
+flesh_damage = 12.0
+stance_damage = 0.0
+armor_penetration = 4.0
+accuracy_rating = 8.0
+effective_range = 4
+optimal_range = 2
+minimum_damage_multiplier = 0.35
+bulk = 3.0
+weight = 3.5
+threat = 10.0
+max_magazine = 6
+starting_magazine = 6
+ammunition_id = "shotgun_shell"
+requires_cycle_after_shot = true
+cycle_loads_one_round = true

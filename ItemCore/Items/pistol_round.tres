@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "pistol_round"
+display_name = "Pistol Round"
+lore_description = "A conventional pistol cartridge compatible with service, carbon, and revolver platforms."
+item_type = 5
+size_cost = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Ammo/pistol_ammo.png"
+weight = 0.02

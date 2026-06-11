@@ -73,6 +73,9 @@ func _run() -> void:
 	if not arena.lane_hud._player_label.text.contains("CORE HD"):
 		_fail("CombatLaneHUD did not render the limb structure readout.")
 		return
+	if not arena.lane_hud._player_label.text.contains("08/08 R06"):
+		_fail("CombatLaneHUD did not render firearm rounds and range.")
+		return
 	if arena.lane_hud.is_showing_melee_lock():
 		_fail("The lane HUD entered lock mode before combatants shared a slot.")
 		return
@@ -106,6 +109,73 @@ func _run() -> void:
 	turn_probe.halt_loop()
 	turn_probe.queue_free()
 
+	player.reset_stance()
+	player.apply_stance_damage(GameEnums.SCALE_MAX)
+	if (
+		player.current_stance != GameEnums.StanceState.STUMBLING
+		or player.stance_points != 1
+	):
+		_fail("Ordinary stance damage directly FELLED a combatant.")
+		return
+
+	arena.resolution_engine.execute_break(arena.enemy_core, player)
+	if player.current_stance != GameEnums.StanceState.FELLED:
+		_fail("BREAK could not finish a combatant who was already STUMBLING.")
+		return
+
+	var ai_get_up_probe := CombatAIEvaluator.new()
+	ai_get_up_probe.ai_core = player
+	var ai_get_up_action: int = ai_get_up_probe._evaluate_tactics()
+	ai_get_up_probe.free()
+	if ai_get_up_action != GameEnums.ActionType.GET_UP:
+		_fail("AI did not prioritize GET UP while FELLED.")
+		return
+
+	arena.command_adapter.refresh_snapshot()
+	snapshot = arena.command_adapter.get_snapshot()
+	var felled_actions: Array = snapshot.get("actions", [])
+	if (
+		felled_actions.size() != 1
+		or not _snapshot_has_action(snapshot, GameEnums.ActionType.GET_UP)
+		or snapshot.get("can_pass", true)
+	):
+		_fail("A FELLED player was not restricted to GET UP.")
+		return
+
+	var get_up_probe := CombatTurnManager.new()
+	holder.add_child(get_up_probe)
+	get_up_probe.combatants = [player]
+	get_up_probe.active_entity_index = 0
+	var get_up_turn_events: Array = []
+	get_up_probe.turn_started.connect(
+		func(entity: HumanoidCore) -> void:
+			get_up_turn_events.append(entity)
+	)
+	get_up_probe._start_turn()
+	if (
+		get_up_turn_events.size() != 1
+		or get_up_probe.current_ap_pool != player.current_max_ap
+		or player.current_stance != GameEnums.StanceState.FELLED
+	):
+		_fail("A FELLED combatant did not receive an actionable GET UP turn.")
+		return
+	if not get_up_probe.request_action(player, GameEnums.ActionType.GET_UP):
+		_fail("The turn manager rejected GET UP for a FELLED combatant.")
+		return
+	if not arena.resolution_engine.execute_get_up(player):
+		_fail("GET UP did not restore the FELLED combatant.")
+		return
+	if (
+		player.current_stance != GameEnums.StanceState.STUMBLING
+		or player.stance_points != CombatRules.FELLED_RECOVERY_POINTS
+		or not player.has_stance_recovery_guard
+	):
+		_fail("GET UP restored an invalid stance state.")
+		return
+	get_up_probe.halt_loop()
+	get_up_probe.queue_free()
+
+	player.expire_stance_recovery_guard()
 	player.try_fell()
 	player.begin_felled_recovery(CombatRules.FELLED_RECOVERY_POINTS)
 	for _hit in range(4):
@@ -131,8 +201,22 @@ func _run() -> void:
 	player.recover_stance(CombatRules.STUMBLING_TURN_RECOVERY)
 	player.expire_stance_recovery_guard()
 	player.apply_stance_damage(GameEnums.SCALE_MAX)
+	if (
+		player.current_stance != GameEnums.StanceState.STUMBLING
+		or player.stance_points != 1
+	):
+		_fail("Ordinary pressure bypassed the Stumbling floor.")
+		return
+	player.apply_stance_damage(GameEnums.SCALE_MAX, true)
 	if player.current_stance != GameEnums.StanceState.FELLED:
-		_fail("Stance could not reach FELLED after Recovery Guard expiry.")
+		_fail("An explicit takedown could not reach FELLED.")
+		return
+	player.reset_stance()
+	player.stance_points = 4
+	player._evaluate_stance_state()
+	arena.resolution_engine.execute_take_cover(player)
+	if player.stance_points != 6:
+		_fail("TAKE COVER did not brace and recover Stance.")
 		return
 	player.reset_stance()
 

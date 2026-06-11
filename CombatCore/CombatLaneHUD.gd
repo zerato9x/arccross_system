@@ -155,8 +155,8 @@ func _combatant_text(data: Dictionary, heading: String) -> String:
 	return (
 		"%s%s // SLOT %02d\n"
 		+ "%s\n"
-		+ "BLOOD %04.1f  STANCE %02d%s  MORALE %04.1f\n"
-		+ "AP-R %02d  KINETIC %s  WEAPON %s%s\n"
+		+ "BLOOD %04.1f  STANCE %02d %s%s  MORALE %04.1f\n"
+		+ "AP-R %02d  KINETIC %s  WEAPON %s%s%s\n"
 		+ "%s"
 	) % [
 		heading,
@@ -165,11 +165,13 @@ func _combatant_text(data: Dictionary, heading: String) -> String:
 		str(data.get("archetype", data.get("name", "UNKNOWN"))).to_upper(),
 		float(data.get("blood", 0.0)),
 		int(data.get("stance", 0)),
+		str(data.get("stance_state", "UNKNOWN")),
 		guard_marker,
 		float(data.get("morale", 0.0)),
 		int(data.get("reserved_ap", 0)),
 		str(data.get("kinetic_tier", "UNKNOWN")),
 		str(data.get("weapon", "UNARMED")).to_upper(),
+		str(data.get("weapon_detail", "")),
 		escape_marker,
 		_limb_text(data.get("limbs", [])),
 	]

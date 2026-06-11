@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "carbon_knife"
+display_name = "Carbon Knife"
+lore_description = "A light, rigid fighting knife with an exceptionally clean edge."
+item_type = 1
+target_slot = 8
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Melee_Sharp/1H/knife_carbon.png"
+equipped_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Melee_Sharp/1H/equip_knife1.png"
+weapon_type = 2
+damage_type = 1
+flesh_damage = 5.0
+stance_damage = 0.0
+armor_penetration = 6.0
+accuracy_rating = 7.0
+bulk = 0.2
+weight = 0.4
+threat = 3.0

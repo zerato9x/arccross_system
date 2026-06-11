@@ -68,14 +68,11 @@ func _run_simulation() -> void:
 				var weapon_instance = weapon_res.create_runtime_instance()
 				battle_player.inventory.equip_item(weapon_instance, GameEnums.EquipmentSlot.HANDS)
 				if weapon_instance.is_ranged():
-					# Give ammo
-					for r in range(18):
-						var ammo = ItemData.new()
-						ammo.id = "ammo_round"
-						ammo.display_name = "Loose Ammo"
-						ammo.item_type = GameEnums.ItemType.JUNK
-						ammo.weight = 0.05
-						battle_player.inventory.add_to_backpack(ammo)
+					_supply_ammunition(
+						battle_player.inventory,
+						weapon_instance,
+						18
+					)
 		
 		# 3. Setup the duel. MainDuelScene will fabricate the enemy scavenger using setup_duel.
 		var enemy_definition_copy = scavenger_definition.duplicate() as EntityDefinition
@@ -144,14 +141,11 @@ func _run_simulation() -> void:
 				arena.enemy_core.inventory.paper_doll.erase(GameEnums.EquipmentSlot.HANDS)
 				arena.enemy_core.inventory.equip_item(weapon_instance, GameEnums.EquipmentSlot.HANDS)
 				if weapon_instance.is_ranged():
-					# Give ammo
-					for r in range(18):
-						var ammo = ItemData.new()
-						ammo.id = "ammo_round"
-						ammo.display_name = "Loose Ammo"
-						ammo.item_type = GameEnums.ItemType.JUNK
-						ammo.weight = 0.05
-						arena.enemy_core.inventory.add_to_backpack(ammo)
+					_supply_ammunition(
+						arena.enemy_core.inventory,
+						weapon_instance,
+						18
+					)
 		
 		# Start the duel loop
 		print("Duel starting: ", battle_player.name, " (", GameEnums.CombatTactic.keys()[battle_player.definition.combat_tactic], ") vs ", arena.enemy_core.name, " (", GameEnums.CombatTactic.keys()[arena.enemy_core.definition.combat_tactic], ")")
@@ -198,3 +192,26 @@ func _run_simulation() -> void:
 func _fail(message: String) -> void:
 	push_error("[SIMULATION FAILED] " + message)
 	quit(1)
+
+func _supply_ammunition(
+	inventory: InventorySystem,
+	weapon: ItemData,
+	round_count: int
+) -> void:
+	if weapon.ammunition_id.is_empty():
+		return
+	var ammo_definition := load(
+		"res://ItemCore/Items/%s.tres" % weapon.ammunition_id
+	) as ItemData
+	if ammo_definition:
+		for _round_index in range(round_count):
+			inventory.add_to_backpack(ammo_definition)
+
+	for support_id in [weapon.magazine_id, weapon.reload_aid_id]:
+		if support_id.is_empty():
+			continue
+		var support_definition := load(
+			"res://ItemCore/Items/%s.tres" % support_id
+		) as ItemData
+		if support_definition:
+			inventory.add_to_backpack(support_definition)

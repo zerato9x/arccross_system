@@ -68,6 +68,8 @@ func _process_action_loop() -> void:
 		turn_manager.pass_turn(ai_core)
 
 func _evaluate_tactics() -> int:
+	if ai_core.current_stance == GameEnums.StanceState.FELLED:
+		return GameEnums.ActionType.GET_UP
 	if not target_core or target_core.is_dead:
 		return -1
 
@@ -154,63 +156,40 @@ func _score_ranged() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.SHOOT): return 0.0
 	var weapon = ai_core.inventory.get_active_weapon(false) # Ranged context
 	if weapon == null: return 0.0
-	if weapon.weapon_type == GameEnums.WeaponClass.PISTOL and weapon.current_magazine <= 0: return 0.0
-	if weapon.weapon_type == GameEnums.WeaponClass.RIFLE:
-		if weapon.needs_cycling: return 0.0
-		# Ensure they actually have loose ammo
-		var has_ammo = false
-		for item in ai_core.inventory.backpack_array:
-			if item.id == "ammo_round" or item.id.begins_with("ammo_"):
-				has_ammo = true
-				break
-		if not has_ammo: return 0.0
 	
 	var my_idx = _get_lane_idx(ai_core)
 	var target_idx = _get_lane_idx(target_core)
-	if my_idx == target_idx: return 0.2
 	var distance = abs(my_idx - target_idx)
-	return 0.7 + (distance * 0.02)
+	if not weapon.is_ready_to_fire() or distance > weapon.effective_range:
+		return 0.0
+	if my_idx == target_idx: return 0.2
+	return 0.8 - (distance * 0.02)
 
 func _score_aimed_shot() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.AIMED_SHOT): return 0.0
 	var weapon = ai_core.inventory.get_active_weapon(false) # Ranged context
 	if weapon == null: return 0.0
-	if weapon.weapon_type == GameEnums.WeaponClass.PISTOL and weapon.current_magazine <= 0: return 0.0
-	if weapon.weapon_type == GameEnums.WeaponClass.RIFLE:
-		if weapon.needs_cycling: return 0.0
-		# Ensure they actually have loose ammo
-		var has_ammo = false
-		for item in ai_core.inventory.backpack_array:
-			if item.id == "ammo_round" or item.id.begins_with("ammo_"):
-				has_ammo = true
-				break
-		if not has_ammo: return 0.0
 	
 	var my_idx = _get_lane_idx(ai_core)
 	var target_idx = _get_lane_idx(target_core)
-	if my_idx == target_idx: return 0.1
 	var distance = abs(my_idx - target_idx)
-	return 0.85 + (distance * 0.01)
+	if not weapon.is_ready_to_fire() or distance > weapon.effective_range:
+		return 0.0
+	if my_idx == target_idx: return 0.1
+	return 0.9 - (distance * 0.015)
 
 func _score_reload() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.RELOAD): return 0.0
 	var weapon = ai_core.inventory.get_active_weapon(false) # Ranged context
-	if weapon != null and weapon.weapon_type == GameEnums.WeaponClass.PISTOL and weapon.current_magazine <= 0:
-		# AI must verify it actually has loose ammo or a magazine to avoid reload loops
-		var has_ammo = false
-		for item in ai_core.inventory.backpack_array:
-			if item.id.ends_with("_magazine") or item.id == "magazine" or item.id.begins_with("ammo_"):
-				has_ammo = true
-				break
-		if has_ammo:
-			return 0.95
+	if weapon != null and weapon.current_magazine <= 0 and _can_reload_weapon(weapon):
+		return 0.98
 	return 0.0
 
 func _score_cycle() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.CYCLE): return 0.0
 	var weapon = ai_core.inventory.get_active_weapon(false) # Ranged context
-	if weapon != null and weapon.weapon_type == GameEnums.WeaponClass.RIFLE and weapon.needs_cycling:
-		return 0.95
+	if weapon != null and _can_cycle_weapon(weapon):
+		return 1.0 if weapon.needs_cycling else 0.95
 	return 0.0
 
 func _score_advance() -> float:
@@ -284,6 +263,10 @@ func _score_take_cover() -> float:
 
 func _execute_action(action: int) -> void:
 	match action:
+		GameEnums.ActionType.GET_UP:
+			if turn_manager.request_action(ai_core, GameEnums.ActionType.GET_UP):
+				resolution_engine.execute_get_up(ai_core)
+
 		GameEnums.ActionType.STRIKE:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.STRIKE):
 				resolution_engine.execute_melee_strike(ai_core, target_core)
@@ -408,3 +391,47 @@ func _get_lane_idx(entity: HumanoidCore) -> int:
 	for i in range(lane_manager.lane_slots.size()):
 		if lane_manager.lane_slots[i].occupants.has(entity): return i
 	return -1
+
+func _can_reload_weapon(weapon: ItemData) -> bool:
+	if weapon.current_magazine >= weapon.max_magazine:
+		return false
+	if (
+		not weapon.magazine_id.is_empty()
+		and not _has_inventory_item(weapon.magazine_id)
+	):
+		return false
+	if (
+		not weapon.reload_aid_id.is_empty()
+		and not _has_inventory_item(weapon.reload_aid_id)
+	):
+		return false
+	if (
+		weapon.magazine_id.is_empty()
+		and weapon.reload_aid_id.is_empty()
+		and weapon.cycle_loads_one_round
+	):
+		return false
+	return _has_inventory_item(
+		weapon.ammunition_id
+			if not weapon.ammunition_id.is_empty()
+			else "ammo_round"
+	)
+
+func _can_cycle_weapon(weapon: ItemData) -> bool:
+	if weapon.needs_cycling:
+		return true
+	return (
+		weapon.cycle_loads_one_round
+		and weapon.current_magazine < weapon.max_magazine
+		and _has_inventory_item(
+			weapon.ammunition_id
+				if not weapon.ammunition_id.is_empty()
+				else "ammo_round"
+		)
+	)
+
+func _has_inventory_item(item_id: String) -> bool:
+	for item in ai_core.inventory.backpack_array:
+		if item.id == item_id:
+			return true
+	return false

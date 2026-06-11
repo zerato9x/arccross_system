@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "service_knife"
+display_name = "Service Knife"
+lore_description = "A durable field knife built for predictable handling rather than spectacle."
+item_type = 1
+target_slot = 8
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Melee_Sharp/1H/knife_service.png"
+equipped_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Melee_Sharp/1H/equip_knife2.png"
+weapon_type = 2
+damage_type = 1
+flesh_damage = 4.5
+stance_damage = 0.0
+armor_penetration = 5.0
+accuracy_rating = 6.0
+bulk = 0.3
+weight = 0.5
+threat = 3.0

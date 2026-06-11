@@ -10,11 +10,14 @@ calculate AP costs, legal actions, targets, reactions, or outcomes.
   and color.
 - Preserve exact lane positions even when perspective compresses distant slots.
 - Show the active combatant, AP, Reserved AP, Stance, and immediate biological
-  danger without covering the lane.
+  danger without covering the lane. Label the current Stance State instead of
+  relying on the numeric value alone.
 - Show every Limb Region's current and maximum Structural Integrity separately
   from systemic Blood Level. Mark active Trauma without treating Blood as total
   HP.
 - Mark Recovery Guard while its temporary anti-knockdown floor is active.
+- For the equipped ranged weapon, show current rounds, capacity, effective
+  range, and whether CYCLE is required before another shot.
 
 ## Melee Lock
 
@@ -38,6 +41,8 @@ when the lock ends.
 - Flash the struck anatomical region and update its value immediately.
 - Use brief camera or panel shake for meaningful impacts, not every log entry.
 - Distinguish Flesh Damage, Stance Damage, collapse, and death visually.
+- Do not present ballistic impact as Stance loss; firearm hits update the
+  resolved Limb Region.
 - Keep the combat log readable after effects finish.
 
 ## Reaction Window

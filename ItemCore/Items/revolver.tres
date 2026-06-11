@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "revolver"
+display_name = "Service Revolver"
+lore_description = "A six-shot revolver with simple controls and a heavy trigger. It can be hand-loaded without any feed device."
+item_type = 1
+size_cost = 2
+target_slot = 8
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Pistol/revolver.png"
+equipped_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Pistol/pistol_equip.png"
+weapon_type = 3
+damage_type = 2
+flesh_damage = 7.0
+stance_damage = 0.0
+armor_penetration = 6.0
+accuracy_rating = 6.0
+effective_range = 6
+optimal_range = 4
+bulk = 0.7
+weight = 1.2
+threat = 6.0
+max_magazine = 6
+starting_magazine = 6
+ammunition_id = "pistol_round"
+reload_aid_id = "revolver_speedloader"
+cycle_loads_one_round = true

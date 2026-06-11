@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "ak47"
+display_name = "AK-47"
+lore_description = "A rugged rifle that trades refinement for power and reliability. It is heavy, bulky, and hard to ignore."
+item_type = 1
+size_cost = 4
+target_slot = 7
+requires_two_hands = true
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Rifle/ak47_loaded.png"
+unloaded_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Rifle/ak47_unloaded.png"
+equipped_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Rifle/ak47_equip.png"
+weapon_type = 4
+damage_type = 2
+flesh_damage = 11.5
+stance_damage = 0.0
+armor_penetration = 8.5
+accuracy_rating = 7.0
+effective_range = 11
+optimal_range = 7
+bulk = 3.0
+weight = 4.3
+threat = 11.0
+max_magazine = 31
+starting_magazine = 31
+ammunition_id = "rifle_round"
+magazine_id = "ak47_magazine"

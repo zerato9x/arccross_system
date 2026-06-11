@@ -45,6 +45,11 @@ database, stat registry, or rule table.
 
 - Owns encounter flow, lanes, turns, AI, AP costs, action legality, reactions,
   and combat resolution.
+- Validates firearm range and readiness before consuming ammunition, combines
+  actor and weapon accuracy, and resolves successful shots against one Limb
+  Region.
+- Applies ballistic Flesh Damage without Stance Damage. Ordinary Stance
+  pressure floors at `1`; only explicit takedown-capable resolution may Fell.
 - `CombatRules` contains combat-private categories and tuning tables.
 - `CombatCommandAdapter` translates neutral player intent into owner-validated
   calls.
@@ -63,6 +68,9 @@ database, stat registry, or rule table.
   equipment calculations.
 - Keeps authored `.tres` resources immutable.
 - Stores mutable firearm and consumable state on unique runtime instances.
+- Authors weapon handling, damage, accuracy, range and falloff, exact
+  ammunition feeds, loading aids, cycling, inventory/unloaded/equipped sprite
+  paths, and attachment compatibility.
 - Authors Loot Profiles and data-only SEARCH or CAMP item modifiers.
 - Does not import BiologicalCore, CombatCore, or WorldCore types.
 
@@ -146,6 +154,10 @@ ambush_position: GameEnums.AmbushPosition
   required by that action.
 - `CombatCommandAdapter` revalidates commands before routing them to turn, lane,
   inventory, biological, or resolution owners.
+- Combat snapshots expose weapon rounds, capacity, effective range, and cycle
+  state; presentation does not infer firearm readiness.
+- GET UP is an explicit all-AP command for Felled combatants. TAKE COVER applies
+  its owner-resolved Stance recovery through normal command routing.
 - Passing may preserve unused AP as Reserved AP. An unresolved Reaction Window
   blocks turn advancement.
 - CombatCore emits outcomes and runtime snapshots. SystemCore applies those
