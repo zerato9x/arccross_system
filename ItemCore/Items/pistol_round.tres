@@ -6,8 +6,11 @@
 script = ExtResource("1_itemdata")
 id = "pistol_round"
 display_name = "Pistol Round"
-lore_description = "A conventional pistol cartridge compatible with service, carbon, and revolver platforms."
+lore_description = "Field catalog entry for Pistol Round."
 item_type = 5
+catalog_category = 8
+tags = Array[String](["weapon"])
 size_cost = 0
+target_slot = 9
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Ammo/pistol_ammo.png"
 weight = 0.02

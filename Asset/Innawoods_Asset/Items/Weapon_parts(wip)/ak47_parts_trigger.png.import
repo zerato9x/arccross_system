@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cb31gfvycefi4"
-path="res://.godot/imported/ak47_parts_trigger.png-dff91da9e81cf616dcf4ba309566255d.ctex"
+path="res://.godot/imported/ak47_parts_trigger.png-812b61bb518f6d3ec97fb12b0ca07353.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Asset/Innawoods_Asset/Items/Weapon_parts/ak47_parts_trigger.png"
-dest_files=["res://.godot/imported/ak47_parts_trigger.png-dff91da9e81cf616dcf4ba309566255d.ctex"]
+source_file="res://Asset/Innawoods_Asset/Items/Weapon_parts(wip)/ak47_parts_trigger.png"
+dest_files=["res://.godot/imported/ak47_parts_trigger.png-812b61bb518f6d3ec97fb12b0ca07353.ctex"]
 
 [params]
 

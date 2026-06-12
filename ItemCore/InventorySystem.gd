@@ -71,7 +71,7 @@ func equip_item(item: ItemData, slot: GameEnums.EquipmentSlot) -> bool:
 	var old_item: ItemData = paper_doll[slot]
 	if old_item != null:
 		if not add_to_backpack(old_item):
-			items_spilled.emit([old_item])
+			_emit_spilled_item(old_item)
 			
 	paper_doll[slot] = runtime_item
 	equipment_changed.emit(slot, runtime_item)
@@ -87,7 +87,7 @@ func unequip_item(slot: GameEnums.EquipmentSlot) -> void:
 	equipment_changed.emit(slot, null)
 	
 	if not add_to_backpack(item):
-		items_spilled.emit([item])
+		_emit_spilled_item(item)
 		
 	_recalculate_bounds()
 
@@ -125,6 +125,10 @@ func _execute_spill_over() -> void:
 	if dropped_items.size() > 0:
 		items_spilled.emit(dropped_items)
 		inventory_error.emit("Your bag overflowed. Items spilled into the dirt.")
+
+func _emit_spilled_item(item: ItemData) -> void:
+	var spilled: Array[ItemData] = [item]
+	items_spilled.emit(spilled)
 
 # ---------------------------------------------------------
 # GEAR STAT AGGREGATION (The Paper Doll Math)

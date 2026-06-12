@@ -6,8 +6,11 @@
 script = ExtResource("1_itemdata")
 id = "shotgun_shell"
 display_name = "Shotgun Shell"
-lore_description = "A heavy shell carrying a close-range payload with rapid loss of effectiveness over distance."
+lore_description = "Field catalog entry for Shotgun Shell."
 item_type = 5
+catalog_category = 8
+tags = Array[String](["weapon"])
 size_cost = 0
+target_slot = 9
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Ammo/shell.png"
 weight = 0.05

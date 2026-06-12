@@ -167,14 +167,14 @@ func _fabricate_humanoid(
 		print("[FABRICATE] ", unit_name, " spawned naked. Giving them a random weapon for the test!")
 		
 		# Give them a backpack so they have pocket space
-		var test_bag = load("res://ItemCore/Items/military_backpack.tres")
+		var test_bag = load("res://ItemCore/Items/backpack_service_big.tres")
 		if test_bag:
 			inv.equip_item(test_bag, GameEnums.EquipmentSlot.BACKPACK)
 			
 		# Give them a weapon so they can actually fight
-		var test_weapon = load("res://ItemCore/Items/rusty_pipe.tres")
+		var test_weapon = load("res://ItemCore/Items/rebar.tres")
 		if unit_name == "Player_Unit":
-			test_weapon = load("res://ItemCore/Items/makeshift_sidearm.tres")
+			test_weapon = load("res://ItemCore/Items/service_pistol.tres")
 		if test_weapon:
 			inv.equip_item(test_weapon, GameEnums.EquipmentSlot.HANDS)
 			

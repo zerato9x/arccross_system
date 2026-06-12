@@ -70,7 +70,7 @@ func _prepare_and_save(game_director: GameDirector) -> bool:
 	var hex_data: MacroHexData = macro_map.world_generator.get_hex_at(save_coords)
 	hex_data.search_count = 2
 	hex_data.camp_rest_count = 1
-	hex_data.camp_item_states = [_runtime_item_state("tarp_shelter")]
+	hex_data.camp_item_states = [_runtime_item_state("tentkit")]
 
 	var enemy_records: Array = world_state.get_all_entity_records()
 	if enemy_records.is_empty():
@@ -82,7 +82,7 @@ func _prepare_and_save(game_director: GameDirector) -> bool:
 		GameEnums.EntityLifeState.DEAD
 	)
 
-	var ground_state: Dictionary = _runtime_item_state("clean_water")
+	var ground_state: Dictionary = _runtime_item_state("water_bottle")
 	world_state.add_ground_items(save_coords, [ground_state])
 	world_state.advance_world_time(137)
 

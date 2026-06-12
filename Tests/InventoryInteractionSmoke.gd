@@ -24,8 +24,8 @@ func _run() -> void:
 
 	var player_core := macro_map.player_token.get_humanoid_core()
 	var coords := macro_map.player_token.current_hex_coords
-	var water_state := _runtime_item_state("clean_water")
-	var shirt_state := _runtime_item_state("thermal_undershirt")
+	var water_state := _runtime_item_state("water_bottle")
+	var shirt_state := _runtime_item_state("shirt_thermo")
 	if water_state.is_empty() or shirt_state.is_empty():
 		_fail("Could not create test item runtime states.")
 		return
@@ -137,6 +137,14 @@ func _run() -> void:
 	if coat == null:
 		_fail("The test loadout is missing its capacity-granting coat.")
 		return
+	var filler := load("res://ItemCore/Items/water_bottle_empty.tres") as ItemData
+	while (
+		filler
+		and player_core.inventory.current_size
+			< player_core.inventory.current_max_capacity
+	):
+		if not player_core.inventory.add_to_backpack(filler):
+			break
 	var ground_count_before_spill := world_state.get_ground_items(coords).size()
 	macro_map.resolve_inventory_action(
 		InventoryPanel.ACTION_UNEQUIP,

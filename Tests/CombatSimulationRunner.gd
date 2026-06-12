@@ -4,9 +4,9 @@ const PLAYER_DEF := "res://BiologicalCore/player_def.tres"
 const SCAVENGER_DEF := "res://BiologicalCore/scavenger_def.tres"
 
 const WEAPONS := [
-	"res://ItemCore/Items/makeshift_sidearm.tres",
-	"res://ItemCore/Items/rusty_pipe.tres",
-	"res://ItemCore/Items/scrap_pipe.tres",
+	"res://ItemCore/Items/service_pistol.tres",
+	"res://ItemCore/Items/rebar.tres",
+	"res://ItemCore/Items/crowbar.tres",
 	"" # Unarmed
 ]
 
@@ -58,7 +58,7 @@ func _run_simulation() -> void:
 		for slot in battle_player.inventory.paper_doll.keys():
 			battle_player.inventory.paper_doll[slot] = null
 		
-		var backpack_res = load("res://ItemCore/Items/military_backpack.tres")
+		var backpack_res = load("res://ItemCore/Items/backpack_service_big.tres")
 		if backpack_res:
 			battle_player.inventory.equip_item(backpack_res.create_runtime_instance(), GameEnums.EquipmentSlot.BACKPACK)
 			

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "goggles_nightvision"
+display_name = "Goggles Nightvision"
+lore_description = "Field catalog entry for Goggles Nightvision."
+item_type = 2
+catalog_category = 14
+tags = Array[String](["equipment"])
+size_cost = 1
+target_slot = 11
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/Eyes/goggles_nightvision.png"
+weight = 0.5
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Eyes/equip_goggles_nightvision.png"])

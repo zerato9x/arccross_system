@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "coat_leather"
+display_name = "Scavenger Leather Coat"
+lore_description = "Field catalog entry for Coat Leather."
+item_type = 2
+catalog_category = 21
+tags = Array[String](["equipment"])
+size_cost = 1
+target_slot = 2
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/Outer_Torso/coat_leather.png"
+weight = 2.0
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Outer_Torso/equip_coat_leather.png", "res://Asset/Innawoods_Asset/Equipments/Outer_Torso/equip2_coat_leather.png", "res://Asset/Innawoods_Asset/Equipments/Outer_Torso/equip3_coat_leather.png", "res://Asset/Innawoods_Asset/Equipments/Outer_Torso/equip4_coat_leather.png"])
+protection_sharp = 4.0
+threat = 1.0
+protection_blunt = 2.0
+capacity_bonus = 4
+insulation = 7.0
+bulk = 2.0
+protection_ballistic = 1.0

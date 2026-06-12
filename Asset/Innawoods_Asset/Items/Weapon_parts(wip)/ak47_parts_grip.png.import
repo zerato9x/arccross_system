@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://jiadtfdq63r"
-path="res://.godot/imported/ak47_parts_grip.png-bb86045707c9e1aafef61a6c69702e42.ctex"
+path="res://.godot/imported/ak47_parts_grip.png-54dae2b6bd198a6f15a71ed31e0d5abc.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Asset/Innawoods_Asset/Items/Weapon_parts/ak47_parts_grip.png"
-dest_files=["res://.godot/imported/ak47_parts_grip.png-bb86045707c9e1aafef61a6c69702e42.ctex"]
+source_file="res://Asset/Innawoods_Asset/Items/Weapon_parts(wip)/ak47_parts_grip.png"
+dest_files=["res://.godot/imported/ak47_parts_grip.png-54dae2b6bd198a6f15a71ed31e0d5abc.ctex"]
 
 [params]
 

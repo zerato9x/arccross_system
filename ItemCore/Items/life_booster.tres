@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "life_booster"
+display_name = "Life Booster"
+lore_description = "Field catalog entry for Life Booster."
+item_type = 3
+catalog_category = 4
+tags = Array[String](["medicines"])
+size_cost = 1
+target_slot = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Items/Medicines/life_booster.png"
+weight = 0.2
+consumable_potency = 10.0
+consumable_effect = 2

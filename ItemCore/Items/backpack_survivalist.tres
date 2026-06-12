@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "backpack_survivalist"
+display_name = "Survivalist Backpack"
+lore_description = "Field catalog entry for Backpack Survivalist."
+item_type = 2
+catalog_category = 12
+tags = Array[String](["equipment"])
+size_cost = 1
+target_slot = 6
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/Back/backpack_survivalist.png"
+weight = 1.2
+capacity_bonus = 10
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Back/equip_backpack_survivalist.png"])
+bulk = 1.5

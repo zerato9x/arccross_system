@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "shield_ballistic"
+display_name = "Shield Ballistic"
+lore_description = "Field catalog entry for Shield Ballistic."
+item_type = 2
+catalog_category = 11
+tags = Array[String](["weapon"])
+size_cost = 3
+target_slot = 3
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Special/shield_ballistic.png"
+weight = 0.2
+requires_two_hands = true
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Weapons/Special/equip_shield_ballistic.png"])

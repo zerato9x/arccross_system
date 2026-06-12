@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "pants_cargo"
+display_name = "Cargo Pants"
+lore_description = "Field catalog entry for Pants Cargo."
+item_type = 2
+catalog_category = 19
+tags = Array[String](["equipment"])
+size_cost = 1
+target_slot = 4
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/Leg/pants_cargo.png"
+weight = 0.8
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Leg/equip_pants_cargo.png", "res://Asset/Innawoods_Asset/Equipments/Leg/equip_pants_cargo_camo.png"])
+bulk = 0.5
+protection_sharp = 1.0
+capacity_bonus = 2
+insulation = 2.0
+protection_blunt = 1.0

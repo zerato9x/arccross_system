@@ -6,6 +6,8 @@ class_name ItemData
 @export var display_name: String = "Generic Junk"
 @export_multiline var lore_description: String = "Cryptic three-sentence lore goes here."
 @export var item_type: GameEnums.ItemType = GameEnums.ItemType.JUNK
+@export var catalog_category: GameEnums.ItemCategory = GameEnums.ItemCategory.MISC
+@export var tags: Array[String] = []
 
 @export_group("Grid Math & Requirements")
 @export var size_cost: int = 1
@@ -17,6 +19,7 @@ class_name ItemData
 @export_file("*.png") var inventory_sprite_path: String = ""
 @export_file("*.png") var unloaded_sprite_path: String = ""
 @export_file("*.png") var equipped_sprite_path: String = ""
+@export_file("*.png") var equipped_sprite_paths: Array[String] = []
 
 @export_group("Combat Variables")
 @export var weapon_type: GameEnums.WeaponClass = GameEnums.WeaponClass.NONE
@@ -102,6 +105,18 @@ func is_melee() -> bool:
 func is_ready_to_fire() -> bool:
 	return is_ranged() and current_magazine > 0 and not needs_cycling
 
+func get_inventory_sprite_path() -> String:
+	if current_magazine == 0 and not unloaded_sprite_path.is_empty():
+		return unloaded_sprite_path
+	return inventory_sprite_path
+
+func get_equipped_sprite_paths() -> Array[String]:
+	if not equipped_sprite_paths.is_empty():
+		return equipped_sprite_paths.duplicate()
+	if not equipped_sprite_path.is_empty():
+		return [equipped_sprite_path]
+	return []
+
 func damage_multiplier_at_distance(distance: int) -> float:
 	if distance <= optimal_range or effective_range <= optimal_range:
 		return 1.0
@@ -161,6 +176,8 @@ func to_definition_state() -> Dictionary:
 		"display_name": display_name,
 		"lore_description": lore_description,
 		"item_type": item_type,
+		"catalog_category": catalog_category,
+		"tags": tags.duplicate(),
 		"size_cost": size_cost,
 		"capacity_bonus": capacity_bonus,
 		"target_slot": target_slot,
@@ -168,6 +185,7 @@ func to_definition_state() -> Dictionary:
 		"inventory_sprite_path": inventory_sprite_path,
 		"unloaded_sprite_path": unloaded_sprite_path,
 		"equipped_sprite_path": equipped_sprite_path,
+		"equipped_sprite_paths": equipped_sprite_paths.duplicate(),
 		"weapon_type": weapon_type,
 		"damage_type": damage_type,
 		"flesh_damage": flesh_damage,
@@ -228,7 +246,23 @@ static func from_runtime_state(state: Dictionary) -> ItemData:
 
 func _apply_definition_state(state: Dictionary) -> void:
 	for property_name in state.keys():
-		set(property_name, state[property_name])
+		var value = state[property_name]
+		if property_name in [
+			"tags",
+			"equipped_sprite_paths",
+			"compatible_weapon_ids",
+		]:
+			var strings: Array[String] = []
+			for entry in value:
+				strings.append(str(entry))
+			set(property_name, strings)
+		elif property_name == "interaction_roles":
+			var roles: Array[int] = []
+			for entry in value:
+				roles.append(int(entry))
+			interaction_roles = roles
+		else:
+			set(property_name, value)
 	armor_penetration = clampf(armor_penetration, 0.0, GameEnums.SCALE_MAX)
 	accuracy_rating = clampf(accuracy_rating, 0.0, GameEnums.SCALE_MAX)
 	effective_range = clampi(effective_range, 0, int(GameEnums.SCALE_MAX))

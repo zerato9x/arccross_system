@@ -175,10 +175,10 @@ func _search_and_camp(macro_map: MacroGameManager) -> bool:
 
 	var player := macro_map.player_token.get_humanoid_core()
 	var crowbar := _find_item(player, "crowbar")
-	var lockpick := _find_item(player, "lockpick_set")
+	var lockpick := _find_item(player, "multitool")
 	var sleeping_bag := _find_item(player, "sleeping_bag")
-	var tarp := _find_item(player, "tarp_shelter")
-	var noise_trap := _find_item(player, "noise_trap")
+	var tarp := _find_item(player, "tentkit")
+	var noise_trap := _find_item(player, "trap_makeshift")
 	if (
 		crowbar == null
 		or lockpick == null

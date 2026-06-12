@@ -5,7 +5,7 @@
 
 [sub_resource type="Resource" id="Entry_water"]
 script = ExtResource("2_entry")
-item_id = "clean_water"
+item_id = "water_bottle"
 weight = 5.0
 
 [sub_resource type="Resource" id="Entry_blood"]
@@ -15,12 +15,12 @@ weight = 3.0
 
 [sub_resource type="Resource" id="Entry_ration"]
 script = ExtResource("2_entry")
-item_id = "ration_bar"
+item_id = "mre"
 weight = 2.0
 
 [sub_resource type="Resource" id="Entry_stim"]
 script = ExtResource("2_entry")
-item_id = "stim_shot"
+item_id = "life_booster"
 weight = 1.0
 
 [resource]

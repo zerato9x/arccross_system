@@ -4,37 +4,8 @@ extends Node
 ## Procedural mob factory. Rolls randomized genetics and assigns faction-appropriate
 ## loadouts from preloaded item pools. Uses strict Base-12 math for all attribute rolls.
 
-# ---------------------------------------------------------
-# PRELOADED ITEM POOLS (Loaded once at startup)
-# ---------------------------------------------------------
-
-var _item_pool: Dictionary = {} # String ID -> ItemData
-
 # Mob definition presets keyed by faction
 var _loadout_presets: Dictionary = {} # GameEnums.Faction -> Array[SpawnLoadout]
-
-func _ready() -> void:
-	_load_item_pool()
-
-func _load_item_pool() -> void:
-	var items_dir: String = "res://ItemCore/Items/"
-	var dir = DirAccess.open(items_dir)
-	if dir == null:
-		push_error("[MOB SPAWNER] Cannot open items directory: " + items_dir)
-		return
-	
-	dir.list_dir_begin()
-	var file_name = dir.get_next()
-	while file_name != "":
-		if file_name.ends_with(".tres"):
-			var item = load(items_dir + file_name) as ItemData
-			if item:
-				_item_pool[item.id] = item
-				print("[MOB SPAWNER] Loaded item: ", item.id)
-		file_name = dir.get_next()
-	dir.list_dir_end()
-	
-	print("[MOB SPAWNER] Item pool loaded: ", _item_pool.size(), " items.")
 
 # ---------------------------------------------------------
 # THE GENETICS RANDOMIZER (Base-12 Bell Curve)
@@ -67,22 +38,24 @@ func _roll_attribute(
 func _build_loadout(weapon_id: String, armor_ids: Array[String], consumable_ids: Array[String]) -> SpawnLoadout:
 	var loadout = SpawnLoadout.new()
 	
-	if _item_pool.has(weapon_id):
-		loadout.weapon = _item_pool[weapon_id]
+	var weapon_definition := _get_item_definition(weapon_id)
+	if weapon_definition:
+		loadout.weapon = weapon_definition
 		var weapon: ItemData = loadout.weapon
 		if weapon.is_ranged():
 			for support_id in [weapon.magazine_id, weapon.reload_aid_id]:
-				if not support_id.is_empty() and _item_pool.has(support_id):
-					loadout.starting_items.append(_item_pool[support_id])
-			if _item_pool.has(weapon.ammunition_id):
+				var support := _get_item_definition(support_id)
+				if support:
+					loadout.starting_items.append(support)
+			var ammunition := _get_item_definition(weapon.ammunition_id)
+			if ammunition:
 				for _round_index in range(mini(12, weapon.max_magazine)):
-					loadout.starting_items.append(
-						_item_pool[weapon.ammunition_id]
-					)
+					loadout.starting_items.append(ammunition)
 	
 	for armor_id in armor_ids:
-		if not _item_pool.has(armor_id): continue
-		var item: ItemData = _item_pool[armor_id]
+		var item := _get_item_definition(armor_id)
+		if not item:
+			continue
 		match item.target_slot:
 			GameEnums.EquipmentSlot.INNER_TORSO: loadout.inner_torso = item
 			GameEnums.EquipmentSlot.OUTER_TORSO: loadout.outer_torso = item
@@ -91,15 +64,25 @@ func _build_loadout(weapon_id: String, armor_ids: Array[String], consumable_ids:
 			GameEnums.EquipmentSlot.BACKPACK: loadout.backpack_gear = item
 	
 	for con_id in consumable_ids:
-		if _item_pool.has(con_id):
-			loadout.starting_items.append(_item_pool[con_id])
+		var consumable := _get_item_definition(con_id)
+		if consumable:
+			loadout.starting_items.append(consumable)
 	
 	return loadout
+
+func _get_item_definition(item_id: String) -> ItemData:
+	if item_id.is_empty():
+		return null
+	var catalog := get_node_or_null("/root/LootCatalog")
+	if not catalog:
+		push_error("[MOB SPAWNER] LootCatalog is unavailable.")
+		return null
+	return catalog.call("get_item_definition", item_id) as ItemData
 
 ## Generate a random SCAVENGER loadout.
 func _generate_scavenger_loadout(rng: RandomNumberGenerator = null) -> SpawnLoadout:
 	var weapons: Array[String] = [
-		"rusty_pipe",
+		"rebar",
 		"service_pistol",
 		"revolver",
 	]
@@ -107,14 +90,14 @@ func _generate_scavenger_loadout(rng: RandomNumberGenerator = null) -> SpawnLoad
 	var chosen_weapon: String = weapons[weapon_index]
 	
 	# Scavengers always have a coat and boots, sometimes greaves
-	var armor: Array[String] = ["scavenger_coat", "combat_boots"]
+	var armor: Array[String] = ["coat_leather", "boot_service"]
 	var armor_roll := rng.randf() if rng else randf()
 	if armor_roll > 0.4:
-		armor.append("scavenger_greaves")
+		armor.append("pants_cargo")
 	
 	# Random consumable roll (1-3 items)
 	var consumables: Array[String] = []
-	var possible_cons: Array[String] = ["ration_bar", "clean_water", "blood_bag"]
+	var possible_cons: Array[String] = ["mre", "water_bottle", "blood_bag"]
 	var num_cons: int = rng.randi_range(1, 3) if rng else randi_range(1, 3)
 	for i in range(num_cons):
 		var item_index := (
@@ -129,10 +112,10 @@ func _generate_scavenger_loadout(rng: RandomNumberGenerator = null) -> SpawnLoad
 ## Generate a random ARCBORN RESISTANCE loadout (better equipped).
 func _generate_arcborn_loadout() -> SpawnLoadout:
 	# Arcborn always carry a sidearm and full armor kit
-	var armor: Array[String] = ["thermal_undershirt", "scavenger_coat", "scavenger_greaves", "combat_boots", "military_backpack"]
-	var consumables: Array[String] = ["ration_bar", "clean_water", "stim_shot", "blood_bag"]
+	var armor: Array[String] = ["shirt_thermo", "armor_arcborn", "pants_carbon", "boot_service", "backpack_service_big"]
+	var consumables: Array[String] = ["mre", "water_bottle", "life_booster", "blood_bag"]
 	
-	return _build_loadout("makeshift_sidearm", armor, consumables)
+	return _build_loadout("carbon_pistol", armor, consumables)
 
 ## Generate a CRAVEN HIVE loadout (mindless, no tools, bare fists).
 func _generate_craven_loadout() -> SpawnLoadout:

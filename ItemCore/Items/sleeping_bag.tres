@@ -5,11 +5,16 @@
 [resource]
 script = ExtResource("1_itemdata")
 id = "sleeping_bag"
-display_name = "Field Sleeping Bag"
-lore_description = "A dry insulated roll that makes hard ground survivable."
+display_name = "Sleeping Bag"
+lore_description = "Field catalog entry for Sleeping Bag."
 item_type = 4
+catalog_category = 1
+tags = Array[String](["camping"])
 size_cost = 1
-interaction_roles = Array[int]([2])
-camp_sleep_bonus = 4.0
+target_slot = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Items/Camping/Sleeping_bag.png"
+weight = 0.2
 camp_healing_bonus = 1.0
+camp_sleep_bonus = 4.0
+interaction_roles = Array[int]([2])
 camp_concealment_bonus = -1.0

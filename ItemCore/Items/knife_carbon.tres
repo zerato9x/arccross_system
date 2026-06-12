@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "knife_carbon"
+display_name = "Knife Carbon"
+lore_description = "Field catalog entry for Knife Carbon."
+item_type = 1
+catalog_category = 9
+tags = Array[String](["weapon"])
+size_cost = 2
+target_slot = 8
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Melee_Sharp/1H/knife_carbon.png"
+weight = 0.2
+accuracy_rating = 6.0
+flesh_damage = 5.0
+damage_type = 1
+weapon_type = 2
+threat = 2.0
+stance_damage = 0.0
+armor_penetration = 3.0
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Weapons/Melee_Sharp/1H/equip_knife1.png"])

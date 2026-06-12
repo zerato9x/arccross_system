@@ -27,19 +27,32 @@ func create_runtime_item_state(item_id: String) -> Dictionary:
 func has_item(item_id: String) -> bool:
 	return _items_by_id.has(item_id)
 
+func get_item_definition(item_id: String) -> ItemData:
+	return _items_by_id.get(item_id) as ItemData
+
 func _load_items() -> void:
 	_items_by_id.clear()
-	var directory := DirAccess.open(ITEM_DIRECTORY)
+	_load_items_from_directory(ITEM_DIRECTORY)
+
+func _load_items_from_directory(directory_path: String) -> void:
+	var directory := DirAccess.open(directory_path)
 	if not directory:
-		push_error("[LOOT CATALOG] Cannot open item directory.")
+		push_error("[LOOT CATALOG] Cannot open item directory: " + directory_path)
 		return
 	directory.list_dir_begin()
 	var file_name := directory.get_next()
 	while not file_name.is_empty():
-		if file_name.ends_with(".tres"):
-			var item := load(ITEM_DIRECTORY + file_name) as ItemData
+		var resource_path := directory_path.path_join(file_name)
+		if directory.current_is_dir():
+			if not file_name.begins_with("."):
+				_load_items_from_directory(resource_path)
+		elif file_name.ends_with(".tres"):
+			var item := load(resource_path) as ItemData
 			if item and not item.id.is_empty():
-				_items_by_id[item.id] = item
+				if _items_by_id.has(item.id):
+					push_error("[LOOT CATALOG] Duplicate item ID: " + item.id)
+				else:
+					_items_by_id[item.id] = item
 		file_name = directory.get_next()
 	directory.list_dir_end()
 

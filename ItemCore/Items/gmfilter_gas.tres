@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "gmfilter_gas"
+display_name = "Gmfilter Gas"
+lore_description = "Field catalog entry for Gmfilter Gas."
+item_type = 6
+catalog_category = 3
+tags = Array[String](["materials"])
+size_cost = 1
+target_slot = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Items/Materials/gmfilter_gas.png"
+weight = 0.2

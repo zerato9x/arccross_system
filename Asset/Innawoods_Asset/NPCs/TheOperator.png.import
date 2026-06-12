@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cx0y4abtgijbj"
-path="res://.godot/imported/TheOperator.png-87b57b17342fdf05c963861ec5cd67c6.ctex"
+path="res://.godot/imported/TheOperator.png-722f137b7fb83b98732771256b1631fb.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Asset/Innawoods_Asset/TheOperator.png"
-dest_files=["res://.godot/imported/TheOperator.png-87b57b17342fdf05c963861ec5cd67c6.ctex"]
+source_file="res://Asset/Innawoods_Asset/NPCs/TheOperator.png"
+dest_files=["res://.godot/imported/TheOperator.png-722f137b7fb83b98732771256b1631fb.ctex"]
 
 [params]
 

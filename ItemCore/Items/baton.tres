@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "baton"
+display_name = "Baton"
+lore_description = "Field catalog entry for Baton."
+item_type = 1
+catalog_category = 9
+tags = Array[String](["weapon"])
+size_cost = 2
+target_slot = 8
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Melee_Blunt/baton.png"
+weight = 0.2
+accuracy_rating = 6.0
+flesh_damage = 2.0
+damage_type = 0
+weapon_type = 1
+threat = 2.0
+stance_damage = 4.0
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Weapons/Melee_Blunt/equip_baton.png"])

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "multitool"
+display_name = "Multitool"
+lore_description = "Field catalog entry for Multitool."
+item_type = 4
+catalog_category = 6
+tags = Array[String](["tools"])
+size_cost = 1
+target_slot = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Items/Tools/multitool.png"
+weight = 0.2
+search_sneak_bonus = 1.0
+search_loot_bonus = 4.0
+interaction_roles = Array[int]([1])

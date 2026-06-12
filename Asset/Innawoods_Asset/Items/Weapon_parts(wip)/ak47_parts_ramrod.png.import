@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b0fstmnnuugpc"
-path="res://.godot/imported/ak47_parts_ramrod.png-af48162deb08cb3b7defbbf39dd1e1da.ctex"
+path="res://.godot/imported/ak47_parts_ramrod.png-8dc030fafe8e96c436269b18d5c45ed6.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Asset/Innawoods_Asset/Items/Weapon_parts/ak47_parts_ramrod.png"
-dest_files=["res://.godot/imported/ak47_parts_ramrod.png-af48162deb08cb3b7defbbf39dd1e1da.ctex"]
+source_file="res://Asset/Innawoods_Asset/Items/Weapon_parts(wip)/ak47_parts_ramrod.png"
+dest_files=["res://.godot/imported/ak47_parts_ramrod.png-8dc030fafe8e96c436269b18d5c45ed6.ctex"]
 
 [params]
 

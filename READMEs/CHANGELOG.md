@@ -2,6 +2,21 @@
 
 ## June 12, 2026
 
+### Static Item Catalog
+
+- Replaced the prototype item set with 163 categorized Resource definitions
+  generated from the static Innawoods Items, Equipment, and Weapons assets.
+- Migrated player and enemy loadouts, loot profiles, spawners, combat fixtures,
+  and persistence tests to the new stable item IDs.
+- Added multi-layer Paper Doll paths while retaining singular equipped-sprite
+  compatibility. Duel Scene animation assets are deliberately excluded.
+- Made `LootCatalog` the single runtime item registry and removed duplicate
+  item loading from `MobSpawner`.
+- Added a non-runtime PowerShell catalog builder. Normal runs preserve existing
+  Inspector edits; `-Rebuild` explicitly replaces generated definitions.
+- Added catalog validation for IDs, static asset paths, required Phase 1
+  entries, and accidental Duel Scene references.
+
 ### Stance And Recovery
 
 - Prevented ordinary Stance Damage from reducing a combatant below `1`.

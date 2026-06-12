@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "unique_theoperator_magazine"
+display_name = "Unique Theoperator Magazine"
+lore_description = "Field catalog entry for Unique Theoperator Magazine."
+item_type = 5
+catalog_category = 8
+tags = Array[String](["weapon"])
+size_cost = 0
+target_slot = 9
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Pistol/unique_theoperator_magazine.png"
+weight = 0.2

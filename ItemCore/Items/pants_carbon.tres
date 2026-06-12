@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "pants_carbon"
+display_name = "Carbon Combat Pants"
+lore_description = "Field catalog entry for Pants Carbon."
+item_type = 2
+catalog_category = 19
+tags = Array[String](["equipment"])
+size_cost = 1
+target_slot = 4
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/Leg/pants_carbon.png"
+weight = 1.2
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Leg/equip_pants_carbon.png"])
+protection_blunt = 2.0
+bulk = 1.0
+protection_ballistic = 1.0
+capacity_bonus = 2
+protection_sharp = 3.0
+insulation = 2.0

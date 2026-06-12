@@ -1,13 +1,18 @@
-[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://kjceqyf0i7sy"]
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
 
-[ext_resource type="Script" uid="uid://jbxk0eeleei8" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
 
 [resource]
 script = ExtResource("1_itemdata")
 id = "blood_bag"
 display_name = "Salvaged Blood Bag"
-lore_description = "Universal type-O synthetic blood. An essential tool for surviving severe ballistic trauma."
+lore_description = "Field catalog entry for Bloodbag."
 item_type = 3
+catalog_category = 4
+tags = Array[String](["medicines"])
+size_cost = 1
+target_slot = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Items/Medicines/bloodbag.png"
 weight = 0.5
-consumable_effect = 4
 consumable_potency = 5.0
+consumable_effect = 4

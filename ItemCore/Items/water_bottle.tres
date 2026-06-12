@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "water_bottle"
+display_name = "Clean Water Bottle"
+lore_description = "Field catalog entry for Water Bottle."
+item_type = 3
+catalog_category = 5
+tags = Array[String](["nutrition"])
+size_cost = 1
+target_slot = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Items/Nutrition/water_bottle.png"
+weight = 0.5
+consumable_potency = 7.0
+consumable_effect = 1

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "armor_arcborn"
+display_name = "Arcborn Armor"
+lore_description = "Field catalog entry for Armor Arcborn."
+item_type = 2
+catalog_category = 11
+tags = Array[String](["equipment"])
+size_cost = 1
+target_slot = 2
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/Armour/armor_arcborn.png"
+weight = 3.5
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Armour/euip.png"])
+protection_ballistic = 5.0
+bulk = 3.0
+protection_sharp = 6.0
+threat = 5.0
+protection_blunt = 4.0

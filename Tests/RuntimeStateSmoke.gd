@@ -122,7 +122,7 @@ func _run() -> void:
 
 func _verify_item_instance_isolation() -> bool:
 	var pistol_definition := load(
-		"res://ItemCore/Items/makeshift_sidearm.tres"
+		"res://ItemCore/Items/service_pistol.tres"
 	) as ItemData
 	var first := pistol_definition.create_runtime_instance()
 	var second := pistol_definition.create_runtime_instance()

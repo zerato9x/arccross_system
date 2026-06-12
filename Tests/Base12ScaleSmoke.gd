@@ -67,9 +67,9 @@ func _verify_body_scale() -> bool:
 	return true
 
 func _verify_item_scale() -> bool:
-	var pistol := load("res://ItemCore/Items/makeshift_sidearm.tres") as ItemData
-	var water := load("res://ItemCore/Items/clean_water.tres") as ItemData
-	var coat := load("res://ItemCore/Items/scavenger_coat.tres") as ItemData
+	var pistol := load("res://ItemCore/Items/service_pistol.tres") as ItemData
+	var water := load("res://ItemCore/Items/water_bottle.tres") as ItemData
+	var coat := load("res://ItemCore/Items/coat_leather.tres") as ItemData
 	if not pistol or not water or not coat:
 		return _fail("Base-12 item fixtures could not be loaded.")
 

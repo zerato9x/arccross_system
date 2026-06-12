@@ -6,9 +6,11 @@
 script = ExtResource("1_itemdata")
 id = "service_rifle_clip"
 display_name = "Service Rifle Clip"
-lore_description = "A five-round clip that charges the service rifle's internal magazine in one motion."
+lore_description = "Field catalog entry for Service Rifle Clip."
 item_type = 5
+catalog_category = 8
+tags = Array[String](["weapon"])
+size_cost = 0
 target_slot = 9
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Rifle/service_rifle_clip.png"
-bulk = 0.1
-weight = 0.08
+weight = 0.2

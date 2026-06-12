@@ -5,7 +5,7 @@
 
 [sub_resource type="Resource" id="Entry_scrap"]
 script = ExtResource("2_entry")
-item_id = "scrap_pipe"
+item_id = "rebar"
 weight = 5.0
 
 [sub_resource type="Resource" id="Entry_crowbar"]
@@ -15,7 +15,7 @@ weight = 2.0
 
 [sub_resource type="Resource" id="Entry_water"]
 script = ExtResource("2_entry")
-item_id = "clean_water"
+item_id = "water_bottle"
 weight = 2.0
 
 [sub_resource type="Resource" id="Entry_blood"]

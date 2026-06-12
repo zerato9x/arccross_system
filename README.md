@@ -33,9 +33,17 @@ measurements retain meaningful units.
   revolvers, rifles, and a distance-sensitive shotgun.
 - The service-rifle scope carries compatibility and future macro-SNIPE
   metadata. The SNIPE world action is not implemented yet.
-- Item and Paper Doll sprite paths are wired from the Innawoods assets. Duel
-  Scene animation remains placeholder, and shield-specific BLOCK behavior has
-  not been implemented in this weapon pass.
+- The static Innawoods inventory set is mapped into a 163-definition Resource
+  catalog. Paper Doll layers are authored as data, while Duel Scene animation
+  remains intentionally excluded.
+- Item definitions are shared Resources loaded once by `LootCatalog`; items do
+  not require individual scripts or scene nodes.
+
+## Item Authoring
+
+Run `Tools/Build-StaticItemCatalog.ps1` after adding static Innawoods assets.
+The default mode creates only missing definitions and preserves Inspector
+edits. Use `-Rebuild` only when intentionally replacing the generated catalog.
 
 ## Documentation
 

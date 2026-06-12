@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "tentkit"
+display_name = "Tent Kit"
+lore_description = "Field catalog entry for Tentkit."
+item_type = 4
+catalog_category = 1
+tags = Array[String](["camping"])
+size_cost = 1
+target_slot = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Items/Camping/tentkit.png"
+weight = 0.2
+interaction_roles = Array[int]([2])
+camp_shelter_bonus = 6.0
+camp_healing_bonus = 1.0
+camp_concealment_bonus = -1.0
+camp_sleep_bonus = 2.0

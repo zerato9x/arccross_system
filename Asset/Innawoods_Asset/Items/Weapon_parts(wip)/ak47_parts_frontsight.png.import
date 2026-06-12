@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://fx358s1n554s"
-path="res://.godot/imported/ak47_parts_frontsight.png-4256f62a41e69bd4fd3cf07a445ba8a5.ctex"
+path="res://.godot/imported/ak47_parts_frontsight.png-9d2ee773c0990b6cc1f822438f9c1b81.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Asset/Innawoods_Asset/Items/Weapon_parts/ak47_parts_frontsight.png"
-dest_files=["res://.godot/imported/ak47_parts_frontsight.png-4256f62a41e69bd4fd3cf07a445ba8a5.ctex"]
+source_file="res://Asset/Innawoods_Asset/Items/Weapon_parts(wip)/ak47_parts_frontsight.png"
+dest_files=["res://.godot/imported/ak47_parts_frontsight.png-9d2ee773c0990b6cc1f822438f9c1b81.ctex"]
 
 [params]
 

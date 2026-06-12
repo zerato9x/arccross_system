@@ -6,9 +6,11 @@
 script = ExtResource("1_itemdata")
 id = "ak47_magazine"
 display_name = "AK-47 Magazine"
-lore_description = "A curved thirty-round magazine built for the AK pattern."
+lore_description = "Field catalog entry for AK-47 Magazine."
 item_type = 5
+catalog_category = 8
+tags = Array[String](["weapon"])
+size_cost = 0
 target_slot = 9
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Rifle/ak47_magazine.png"
-bulk = 0.5
-weight = 0.45
+weight = 0.2

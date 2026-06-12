@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "helmet"
+display_name = "Helmet"
+lore_description = "Field catalog entry for Helmet."
+item_type = 2
+catalog_category = 17
+tags = Array[String](["equipment"])
+size_cost = 1
+target_slot = 10
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/Helmet/helmet.png"
+weight = 0.5
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Helmet/equip_helmet.png", "res://Asset/Innawoods_Asset/Equipments/Helmet/equip_helmet_2.png", "res://Asset/Innawoods_Asset/Equipments/Helmet/equip_helmet_3.png", "res://Asset/Innawoods_Asset/Equipments/Helmet/equip_helmet_service.png"])

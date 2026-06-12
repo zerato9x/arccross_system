@@ -27,6 +27,11 @@ Status updated on **June 12, 2026**:
   checks.
 - Service-rifle scope data is present, but the macro SNIPE action remains
   planned.
+- The static Innawoods inventory set now supplies 163 categorized item
+  Resources. Loadouts, loot, enemy generation, persistence, and inventory
+  tests use the new IDs instead of the removed prototype entries.
+- `LootCatalog` is the single runtime registry. The offline catalog builder
+  adds missing definitions without overwriting later Inspector edits.
 - Duel Scene animation remains placeholder, and the existing BLOCK rules have
   not yet been replaced by shield-specific coverage and mitigation.
 

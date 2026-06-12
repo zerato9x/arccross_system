@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "unique_theoperator"
+display_name = "Unique Theoperator"
+lore_description = "Field catalog entry for Unique Theoperator."
+item_type = 1
+catalog_category = 10
+tags = Array[String](["weapon"])
+size_cost = 2
+target_slot = 8
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Pistol/unique_theoperator.png"
+weight = 0.2
+accuracy_rating = 6.0
+flesh_damage = 8.0
+damage_type = 2
+weapon_type = 3
+threat = 6.0
+stance_damage = 0.0
+max_magazine = 8
+optimal_range = 4
+requires_two_hands = false
+starting_magazine = 8
+effective_range = 6
+ammunition_id = "pistol_round"
+armor_penetration = 6.0
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Weapons/Pistol/unique_theoperator_equip.png"])

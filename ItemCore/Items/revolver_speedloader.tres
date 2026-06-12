@@ -6,9 +6,11 @@
 script = ExtResource("1_itemdata")
 id = "revolver_speedloader"
 display_name = "Revolver Speedloader"
-lore_description = "A six-round carrier that turns a slow cylinder reload into one practiced motion."
+lore_description = "Field catalog entry for Revolver Speedloader."
 item_type = 5
+catalog_category = 8
+tags = Array[String](["weapon"])
+size_cost = 0
 target_slot = 9
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Pistol/revolver_speedloader.png"
-bulk = 0.2
-weight = 0.12
+weight = 0.2

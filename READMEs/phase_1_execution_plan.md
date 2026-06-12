@@ -102,10 +102,12 @@ local user data. Standalone helpers and completion percentages are not proof.
 
 ## Verification Status
 
-Status recorded on **June 10, 2026**:
+Status recorded on **June 12, 2026**:
 
 - **Verified:** The acceptance behavior passed from the configured main scene
   under automated clean-state or isolated-save conditions.
+- The replacement 163-item static catalog also passes path, ID, inventory,
+  loadout, loot, persistence, combat, and full vertical-slice checks.
 
 | Item | Status | Recorded evidence |
 | --- | --- | --- |

@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "unique_railgun"
+display_name = "Unique Railgun"
+lore_description = "Field catalog entry for Unique Railgun."
+item_type = 1
+catalog_category = 10
+tags = Array[String](["weapon"])
+size_cost = 4
+target_slot = 7
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Special/unique_railgun.png"
+weight = 0.2
+accuracy_rating = 6.0
+flesh_damage = 10.0
+damage_type = 2
+weapon_type = 4
+threat = 9.0
+stance_damage = 0.0
+max_magazine = 8
+optimal_range = 7
+requires_two_hands = true
+starting_magazine = 8
+effective_range = 10
+ammunition_id = "rifle_round"
+armor_penetration = 8.0
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Weapons/Special/unique_railgun_equip.png"])

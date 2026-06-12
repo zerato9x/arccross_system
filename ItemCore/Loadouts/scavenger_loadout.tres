@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="SpawnLoadout" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://ItemCore/SpawnLoadout.gd" id="1_loadout"]
-[ext_resource type="Resource" path="res://ItemCore/Items/rusty_pipe.tres" id="2_weapon"]
-[ext_resource type="Resource" path="res://ItemCore/Items/scavenger_coat.tres" id="3_armor"]
-[ext_resource type="Resource" path="res://ItemCore/Items/clean_water.tres" id="4_water"]
+[ext_resource type="Resource" path="res://ItemCore/Items/rebar.tres" id="2_weapon"]
+[ext_resource type="Resource" path="res://ItemCore/Items/coat_leather.tres" id="3_armor"]
+[ext_resource type="Resource" path="res://ItemCore/Items/water_bottle.tres" id="4_water"]
 
 [resource]
 script = ExtResource("1_loadout")

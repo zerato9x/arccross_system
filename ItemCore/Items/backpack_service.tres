@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "backpack_service"
+display_name = "Service Backpack"
+lore_description = "Field catalog entry for Backpack Service."
+item_type = 2
+catalog_category = 12
+tags = Array[String](["equipment"])
+size_cost = 1
+target_slot = 6
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/Back/backpack_service.png"
+weight = 1.0
+capacity_bonus = 8
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Back/equip_backpack_service.png", "res://Asset/Innawoods_Asset/Equipments/Back/equip_backpack_service_big.png"])
+bulk = 1.5

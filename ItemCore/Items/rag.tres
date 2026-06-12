@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "rag"
+display_name = "Rag"
+lore_description = "Field catalog entry for Rag."
+item_type = 6
+catalog_category = 3
+tags = Array[String](["materials"])
+size_cost = 1
+target_slot = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Items/Materials/rag.png"
+weight = 0.2

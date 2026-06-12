@@ -44,7 +44,12 @@ enum EquipmentSlot {
 	BACKPACK,
 	SLING,     # For Rifles / Long Melee
 	BELT,      # For Pistols / Short Melee
-	VEST       # For Magazines / Armor Rigs
+	VEST,      # For Magazines / Armor Rigs
+	HEAD,
+	EYES,
+	FACE,
+	NECK,
+	ARMS
 }
 
 # Weapon Classifications
@@ -57,7 +62,37 @@ enum ItemType {
 	ARMOR,       ## Equips to torso/legs/feet. Provides PROTECTION and BULK.
 	CONSUMABLE,  ## Single-use. Restores hunger, thirst, stops bleeding, fights fatigue.
 	TOOL,        ## Contextual world-interaction or campsite equipment.
-	AMMUNITION   ## Loose rounds, magazines, clips, speedloaders, and shells.
+	AMMUNITION,  ## Loose rounds, magazines, clips, speedloaders, and shells.
+	MATERIAL,
+	ATTACHMENT
+}
+
+## Presentation and content-authoring category. Gameplay behavior remains
+## governed by ItemType and the item's authored fields.
+enum ItemCategory {
+	MISC,
+	CAMPING,
+	ELECTRONICS,
+	MATERIALS,
+	MEDICINE,
+	NUTRITION,
+	TOOLS,
+	TRAPS,
+	AMMUNITION,
+	MELEE_WEAPON,
+	FIREARM,
+	ARMOR,
+	BACKPACK,
+	CHEST_RIG,
+	EYEWEAR,
+	FACEWEAR,
+	FOOTWEAR,
+	HEADWEAR,
+	INNER_TORSO,
+	LEGWEAR,
+	NECKWEAR,
+	OUTER_TORSO,
+	ATTACHMENT
 }
 
 ## Specific metabolic or trauma effect a consumable item applies on use.

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "boot_service"
+display_name = "Service Boots"
+lore_description = "Field catalog entry for Boot Service."
+item_type = 2
+catalog_category = 16
+tags = Array[String](["equipment"])
+size_cost = 1
+target_slot = 5
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/Foot/boot_service.png"
+weight = 1.5
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Foot/equip_boot_service.png"])
+bulk = 1.0
+protection_blunt = 1.0
+protection_sharp = 1.0

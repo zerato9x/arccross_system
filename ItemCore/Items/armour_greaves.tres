@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "armour_greaves"
+display_name = "Armour Greaves"
+lore_description = "Field catalog entry for Armour Greaves."
+item_type = 2
+catalog_category = 11
+tags = Array[String](["equipment"])
+size_cost = 1
+target_slot = 4
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/armour_greaves.png"
+weight = 0.5
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/equip_armour_greaves.png"])

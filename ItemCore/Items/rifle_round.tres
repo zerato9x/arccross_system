@@ -6,8 +6,11 @@
 script = ExtResource("1_itemdata")
 id = "rifle_round"
 display_name = "Rifle Round"
-lore_description = "A full-power rifle cartridge used by carbon, Kalashnikov, and service rifle actions."
+lore_description = "Field catalog entry for Rifle Round."
 item_type = 5
+catalog_category = 8
+tags = Array[String](["weapon"])
 size_cost = 0
+target_slot = 9
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Ammo/rifle_ammo.png"
 weight = 0.025

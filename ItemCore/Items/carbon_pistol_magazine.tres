@@ -6,9 +6,11 @@
 script = ExtResource("1_itemdata")
 id = "carbon_pistol_magazine"
 display_name = "Carbon Pistol Magazine"
-lore_description = "A lightweight double-stack magazine fitted specifically to the carbon pistol."
+lore_description = "Field catalog entry for Carbon Pistol Magazine."
 item_type = 5
+catalog_category = 8
+tags = Array[String](["weapon"])
+size_cost = 0
 target_slot = 9
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Pistol/carbon_pistol_magazine.png"
-bulk = 0.1
-weight = 0.12
+weight = 0.2

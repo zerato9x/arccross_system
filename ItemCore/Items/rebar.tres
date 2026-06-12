@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "rebar"
+display_name = "Scrap Rebar"
+lore_description = "Field catalog entry for Rebar."
+item_type = 1
+catalog_category = 9
+tags = Array[String](["weapon"])
+size_cost = 2
+target_slot = 8
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Melee_Blunt/rebar.png"
+weight = 3.0
+accuracy_rating = 7.0
+flesh_damage = 1.5
+damage_type = 0
+weapon_type = 1
+threat = 2.0
+stance_damage = 6.0
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Weapons/Melee_Blunt/equip_rebar.png", "res://Asset/Innawoods_Asset/Weapons/Melee_Blunt/equip_rebar_pointy.png"])
+bulk = 1.5

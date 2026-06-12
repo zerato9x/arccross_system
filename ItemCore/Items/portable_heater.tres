@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "portable_heater"
+display_name = "Portable Heater"
+lore_description = "Field catalog entry for Portable Heater."
+item_type = 4
+catalog_category = 1
+tags = Array[String](["camping"])
+size_cost = 1
+target_slot = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Items/Camping/portable_heater.png"
+weight = 0.2
+camp_healing_bonus = 2.0
+camp_shelter_bonus = 3.0
+interaction_roles = Array[int]([2])

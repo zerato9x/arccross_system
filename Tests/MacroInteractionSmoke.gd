@@ -33,10 +33,10 @@ func _run() -> void:
 		return
 
 	var sleeping_bag := _find_inventory_item(player_core, "sleeping_bag")
-	var tarp := _find_inventory_item(player_core, "tarp_shelter")
-	var noise_trap := _find_inventory_item(player_core, "noise_trap")
+	var tarp := _find_inventory_item(player_core, "tentkit")
+	var noise_trap := _find_inventory_item(player_core, "trap_makeshift")
 	var crowbar := _find_inventory_item(player_core, "crowbar")
-	var lockpick := _find_inventory_item(player_core, "lockpick_set")
+	var lockpick := _find_inventory_item(player_core, "multitool")
 	if (
 		sleeping_bag == null
 		or tarp == null

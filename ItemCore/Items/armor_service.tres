@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "armor_service"
+display_name = "Armor Service"
+lore_description = "Field catalog entry for Armor Service."
+item_type = 2
+catalog_category = 11
+tags = Array[String](["equipment"])
+size_cost = 1
+target_slot = 2
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/Armour/armor_service.png"
+weight = 0.5
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Armour/equip_armor_service.png"])

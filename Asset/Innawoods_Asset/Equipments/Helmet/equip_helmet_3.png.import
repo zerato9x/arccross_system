@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d046laopfeckt"
-path="res://.godot/imported/equip_helmet_3.png-cddc59f4c17da5bed6187a1aa87b66c4.ctex"
+path="res://.godot/imported/equip_helmet_3.png-e98458023087639f78a7fa6e28b21e6d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Asset/Innawoods_Asset/Equipments/Head/equip_helmet_3.png"
-dest_files=["res://.godot/imported/equip_helmet_3.png-cddc59f4c17da5bed6187a1aa87b66c4.ctex"]
+source_file="res://Asset/Innawoods_Asset/Equipments/Helmet/equip_helmet_3.png"
+dest_files=["res://.godot/imported/equip_helmet_3.png-e98458023087639f78a7fa6e28b21e6d.ctex"]
 
 [params]
 

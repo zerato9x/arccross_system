@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "carbon_rifle_round"
+display_name = "Carbon Rifle Round"
+lore_description = "Field catalog entry for Carbon Rifle Round."
+item_type = 5
+catalog_category = 8
+tags = Array[String](["weapon"])
+size_cost = 0
+target_slot = 9
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Ammo/carbon_rifle_ammo.png"
+weight = 0.02
