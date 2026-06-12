@@ -442,6 +442,8 @@ func halt_loop() -> void:
 	is_halted = true
 
 func resume_loop() -> void:
+	if not is_halted:
+		return
 	is_halted = false
 	call_deferred("_start_turn")
 

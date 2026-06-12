@@ -36,7 +36,7 @@ func _ready() -> void:
 	combat_panel.open_panel()
 
 	# AUTO-TEST BOOTSTRAP: Only run if we are testing the scene directly!
-	if get_parent() == get_tree().root:
+	if get_parent() == get_tree().root and get_tree().current_scene == self:
 		print("\n>>> INITIALIZING ARCCROSS COMBAT SIMULATION (STANDALONE) <<<")
 		var p_def = preload("res://BiologicalCore/player_def.tres")
 		var e_def = preload("res://BiologicalCore/scavenger_def.tres")
@@ -59,6 +59,18 @@ func setup_duel(
 		push_error("Cannot start duel without an authoritative player core.")
 		return
 
+	# Clean up any existing HumanoidCore children from previous setups or ready bootstrap
+	for child in get_children():
+		if child is HumanoidCore and child != existing_player_core:
+			child.queue_free()
+
+	# Clear the lane slots of any old occupants to prevent ghost locks
+	if lane_manager:
+		for slot in lane_manager.lane_slots:
+			slot.occupants.clear()
+			slot.is_melee_locked = false
+			slot.grapple_stance_scale = 12
+
 	# Reuse the persistent player and fabricate only the encounter enemy.
 	player_core = existing_player_core
 	enemy_entity_id = enemy_record.get("entity_id", "")
@@ -77,7 +89,8 @@ func setup_duel(
 	if not player_core.inventory.items_spilled.is_connected(_on_player_items_spilled):
 		player_core.inventory.items_spilled.connect(_on_player_items_spilled)
 	
-	turn_manager.entity_escaped.connect(_on_entity_escaped)
+	if not turn_manager.entity_escaped.is_connected(_on_entity_escaped):
+		turn_manager.entity_escaped.connect(_on_entity_escaped)
 	
 	# 2. Wire up death listeners for duel resolution
 	player_core.died.connect(_on_combatant_died.bind(player_core))
@@ -225,7 +238,7 @@ func _on_combatant_died(cause: String, dead_entity: HumanoidCore) -> void:
 		_capture_dropped_item_states()
 	)
 	
-	if get_parent() == get_tree().root:
+	if get_parent() == get_tree().root and get_tree().current_scene == self:
 		if winner == player_core:
 			print("\n[SYSTEM] Standalone Test: Player won! Spawning next mob in 2 seconds...")
 			get_tree().create_timer(2.0).timeout.connect(_spawn_next_mob)
@@ -250,7 +263,7 @@ func _on_entity_escaped(escaper: HumanoidCore) -> void:
 		_capture_dropped_item_states()
 	)
 	
-	if get_parent() == get_tree().root:
+	if get_parent() == get_tree().root and get_tree().current_scene == self:
 		print("\n[SYSTEM] Standalone Test: Entity escaped! Spawning next mob in 2 seconds...")
 		get_tree().create_timer(2.0).timeout.connect(_spawn_next_mob)
 

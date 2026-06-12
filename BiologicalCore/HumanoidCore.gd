@@ -276,7 +276,7 @@ func _on_limb_destroyed(limb: GameEnums.LimbRegion) -> void:
 func _validate_equipment_requirements() -> void:
 	if body.has_functional_arms(): return
 		
-	var held_item: ItemData = inventory.paper_doll[GameEnums.EquipmentSlot.HANDS]
+	var held_item: ItemData = inventory.paper_doll.get(GameEnums.EquipmentSlot.HANDS, null)
 	
 	if held_item != null and held_item.requires_two_hands:
 		print(name, " physically cannot hold [", held_item.display_name, "] with one arm!")

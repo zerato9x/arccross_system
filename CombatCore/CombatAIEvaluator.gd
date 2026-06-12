@@ -66,6 +66,9 @@ func _process_action_loop() -> void:
 	if initial_ap == turn_manager.current_ap_pool and not turn_manager._reaction_pending:
 		print("[AI] Failsafe: Action ", best_action, " failed to consume AP. Passing turn.")
 		turn_manager.pass_turn(ai_core)
+	else:
+		if turn_manager.current_ap_pool > 0 and not turn_manager._reaction_pending and turn_manager.get_active_entity() == ai_core:
+			call_deferred("_process_action_loop")
 
 func _evaluate_tactics() -> int:
 	if ai_core.current_stance == GameEnums.StanceState.FELLED:
@@ -328,7 +331,6 @@ func _execute_action(action: int) -> void:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.TAKE_COVER):
 				resolution_engine.execute_take_cover(ai_core)
 
-	call_deferred("_process_action_loop")
 
 # ---------------------------------------------------------
 # REACTION HANDLERS (Off-Turn)
