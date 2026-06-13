@@ -11,7 +11,7 @@ signal combat_requested(request: Dictionary)
 @export var enemy_token_scene: PackedScene
 @export var mob_spawner: MobSpawner
 @export var interaction_panel: MacroInteractionPanel
-@export var inventory_panel: InventoryPanel
+@export var inventory_panel: InventoryUI
 
 @export_group("Proximity Loading")
 @export_range(1, 12) var active_radius: int = 4
@@ -153,7 +153,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		event is InputEventKey
 		and event.pressed
 		and not event.echo
-		and event.keycode == KEY_I
+		and (event.keycode == KEY_I or event.keycode == KEY_TAB)
 	):
 		if inventory_panel:
 			if inventory_panel.is_open():
@@ -451,7 +451,7 @@ func resolve_inventory_action(
 	var message := ""
 
 	match action_id:
-		InventoryPanel.ACTION_TAKE:
+		InventoryUI.ACTION_TAKE:
 			var item_state := _world_state.take_ground_item(
 				coords,
 				instance_id
@@ -467,7 +467,7 @@ func resolve_inventory_action(
 					message = _inventory_error_or(
 						"That item does not fit in the backpack."
 					)
-		InventoryPanel.ACTION_DROP:
+		InventoryUI.ACTION_DROP:
 			var dropped := inventory.remove_item_by_instance_id(instance_id)
 			if dropped:
 				_world_state.add_ground_items(
@@ -477,7 +477,7 @@ func resolve_inventory_action(
 				message = "Dropped %s." % dropped.display_name
 			else:
 				message = "That carried item is no longer available."
-		InventoryPanel.ACTION_EQUIP:
+		InventoryUI.ACTION_EQUIP:
 			var equippable := inventory.find_item_by_instance_id(instance_id)
 			if equippable == null or not inventory.backpack_array.has(equippable):
 				message = "Only backpack items can be equipped."
@@ -490,7 +490,7 @@ func resolve_inventory_action(
 				message = "Equipped %s." % equippable.display_name
 			else:
 				message = _inventory_error_or("The equipment change failed.")
-		InventoryPanel.ACTION_UNEQUIP:
+		InventoryUI.ACTION_UNEQUIP:
 			if not inventory.paper_doll.has(equipment_slot):
 				message = "That equipment slot does not exist."
 			else:
@@ -500,7 +500,7 @@ func resolve_inventory_action(
 				else:
 					inventory.unequip_item(equipment_slot)
 					message = "Unequipped %s." % equipped.display_name
-		InventoryPanel.ACTION_CONSUME:
+		InventoryUI.ACTION_CONSUME:
 			var consumable := inventory.find_item_by_instance_id(instance_id)
 			if consumable == null or not inventory.backpack_array.has(consumable):
 				message = "Only backpack consumables can be used."
@@ -554,11 +554,25 @@ func _build_inventory_snapshot() -> Dictionary:
 	):
 		ground.append(_ground_inventory_descriptor(item_state))
 
+	var capacity_breakdown: Array = []
+	capacity_breakdown.append({
+		"name": "Base Capacity",
+		"capacity": inventory.base_max_capacity
+	})
+	for slot in inventory.paper_doll.keys():
+		var equipped: ItemData = inventory.paper_doll.get(slot)
+		if equipped and equipped.capacity_bonus > 0:
+			capacity_breakdown.append({
+				"name": equipped.display_name,
+				"capacity": equipped.capacity_bonus
+			})
+
 	return {
 		"coords": player_token.current_hex_coords,
 		"world_time": _world_state.get_world_time_snapshot(),
 		"current_capacity": inventory.current_size,
 		"maximum_capacity": inventory.current_max_capacity,
+		"capacity_breakdown": capacity_breakdown,
 		"equipment": equipment,
 		"backpack": backpack,
 		"ground": ground,
@@ -578,6 +592,7 @@ func _item_inventory_descriptor(
 		"equipment_slot": equipment_slot,
 		"can_equip": _can_offer_equip(item),
 		"can_consume": item.item_type == GameEnums.ItemType.CONSUMABLE,
+		"sprite_path": item.get_inventory_sprite_path(),
 	}
 
 func _ground_inventory_descriptor(item_state: Dictionary) -> Dictionary:
@@ -598,6 +613,7 @@ func _ground_inventory_descriptor(item_state: Dictionary) -> Dictionary:
 		"equipment_slot": GameEnums.EquipmentSlot.NONE,
 		"can_equip": false,
 		"can_consume": false,
+		"sprite_path": definition.get("inventory_sprite_path", ""),
 	}
 
 func _can_offer_equip(item: ItemData) -> bool:

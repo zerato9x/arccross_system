@@ -20,6 +20,11 @@ GameEnums="*res://SystemCore/GameEnums.gd"
 WorldState="*res://SystemCore/RuntimeStateStore.gd"
 LootCatalog="*res://SystemCore/LootCatalog.gd"
 MobSpawner="*res://SystemCore/MobSpawner.gd"
+_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg")
 
 [physics]
 

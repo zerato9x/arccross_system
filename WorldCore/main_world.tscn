@@ -17,7 +17,7 @@
 [ext_resource type="Script" path="res://BiologicalCore/HumanoidBody.gd" id="27_humanoid_body"]
 [ext_resource type="Script" path="res://ItemCore/InventorySystem.gd" id="28_inventory"]
 [ext_resource type="Script" path="res://WorldCore/MacroInteractionPanel.gd" id="29_interaction"]
-[ext_resource type="Script" path="res://WorldCore/InventoryPanel.gd" id="30_inventory_panel"]
+[ext_resource type="PackedScene" uid="uid://b72xqqy5yyt02" path="res://UI/Inventory/InventoryUI.tscn" id="30_inventory_panel"]
 [ext_resource type="Texture2D" uid="uid://lopsakt5em76" path="res://Asset/forestPack/forest_14_house.png" id="10_n2nnu"]
 [ext_resource type="Texture2D" uid="uid://dusx3o6ucd80f" path="res://Asset/forestPack/forest_15_village.png" id="11_7y61r"]
 [ext_resource type="Texture2D" uid="uid://blxl2fwmc1f3y" path="res://Asset/forestPack/forest_16_watchTower.png" id="12_jskb3"]
@@ -165,7 +165,7 @@ map_visualizer = NodePath("HexMapVisualizer")
 player_token = NodePath("PlayerMacroToken")
 enemy_token_scene = ExtResource("2_uks48")
 interaction_panel = NodePath("MacroInteractionPanel")
-inventory_panel = NodePath("InventoryPanel")
+inventory_panel = NodePath("InventoryPanel/InventoryUI")
 
 [node name="HexWorldGenerator" type="Node" parent="." unique_id=1630662270]
 script = ExtResource("2_3etub")
@@ -203,4 +203,5 @@ target = NodePath("../PlayerMacroToken")
 script = ExtResource("29_interaction")
 
 [node name="InventoryPanel" type="CanvasLayer" parent="."]
-script = ExtResource("30_inventory_panel")
+
+[node name="InventoryUI" parent="InventoryPanel" instance=ExtResource("30_inventory_panel")]
