@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://1gqnj7ywtfnj"
-path="res://.godot/imported/Arm_1H.png-31966ef82f04b456639131433eb4e6ad.ctex"
+uid="uid://6dno6pk7lq6f"
+path="res://.godot/imported/arm_equip.png-2be4e4af7ba8db7d22b9d7552e91f979.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Asset/Innawoods_Asset/Humanoid/Body/Arm_1H.png"
-dest_files=["res://.godot/imported/Arm_1H.png-31966ef82f04b456639131433eb4e6ad.ctex"]
+source_file="res://Asset/Innawoods_Asset/Humanoid/Body/arm_equip.png"
+dest_files=["res://.godot/imported/arm_equip.png-2be4e4af7ba8db7d22b9d7552e91f979.ctex"]
 
 [params]
 

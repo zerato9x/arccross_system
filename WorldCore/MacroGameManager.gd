@@ -584,28 +584,69 @@ func _item_inventory_descriptor(
 ) -> Dictionary:
 	return {
 		"instance_id": item.instance_id,
+		"item_id": item.id,
 		"name": item.display_name,
 		"description": item.lore_description,
 		"item_type": item.item_type,
+		"catalog_category": item.catalog_category,
+		"tags": item.tags.duplicate(),
 		"size_cost": item.size_cost,
+		"capacity_bonus": item.capacity_bonus,
 		"target_slot": item.target_slot,
 		"equipment_slot": equipment_slot,
 		"can_equip": _can_offer_equip(item),
 		"can_consume": item.item_type == GameEnums.ItemType.CONSUMABLE,
 		"sprite_path": item.get_inventory_sprite_path(),
+		"equipped_sprite_paths": item.get_equipped_sprite_paths(),
+		"requires_two_hands": item.requires_two_hands,
+		"weapon_type": item.weapon_type,
+		"damage_type": item.damage_type,
+		"flesh_damage": item.flesh_damage,
+		"stance_damage": item.stance_damage,
+		"armor_penetration": item.armor_penetration,
+		"accuracy_rating": item.accuracy_rating,
+		"effective_range": item.effective_range,
+		"optimal_range": item.optimal_range,
+		"protection_blunt": item.protection_blunt,
+		"protection_sharp": item.protection_sharp,
+		"protection_ballistic": item.protection_ballistic,
+		"bulk": item.bulk,
+		"weight": item.weight,
+		"threat": item.threat,
+		"insulation": item.insulation,
+		"consumable_effect": item.consumable_effect,
+		"consumable_potency": item.consumable_potency,
+		"current_magazine": item.current_magazine,
+		"max_magazine": item.max_magazine,
+		"needs_cycling": item.needs_cycling,
+		"search_loot_bonus": item.search_loot_bonus,
+		"search_safety_bonus": item.search_safety_bonus,
+		"search_sneak_bonus": item.search_sneak_bonus,
+		"camp_sleep_bonus": item.camp_sleep_bonus,
+		"camp_shelter_bonus": item.camp_shelter_bonus,
+		"camp_healing_bonus": item.camp_healing_bonus,
+		"camp_concealment_bonus": item.camp_concealment_bonus,
+		"camp_alertness_bonus": item.camp_alertness_bonus,
 	}
 
 func _ground_inventory_descriptor(item_state: Dictionary) -> Dictionary:
 	var definition: Dictionary = item_state.get("definition", {})
 	return {
 		"instance_id": item_state.get("instance_id", ""),
+		"item_id": definition.get("id", ""),
 		"name": definition.get("display_name", "Unknown Item"),
 		"description": definition.get("lore_description", ""),
 		"item_type": definition.get(
 			"item_type",
 			GameEnums.ItemType.JUNK
 		),
+		"catalog_category": definition.get(
+			"catalog_category",
+			GameEnums.ItemCategory.MISC
+		),
+		"tags": definition.get("tags", []).duplicate(),
 		"size_cost": definition.get("size_cost", 0),
+		"capacity_bonus": definition.get("capacity_bonus", 0),
 		"target_slot": definition.get(
 			"target_slot",
 			GameEnums.EquipmentSlot.NONE
@@ -613,7 +654,63 @@ func _ground_inventory_descriptor(item_state: Dictionary) -> Dictionary:
 		"equipment_slot": GameEnums.EquipmentSlot.NONE,
 		"can_equip": false,
 		"can_consume": false,
-		"sprite_path": definition.get("inventory_sprite_path", ""),
+		"sprite_path": (
+			definition.get("unloaded_sprite_path", "")
+			if item_state.get("current_magazine", 0) == 0
+				and not definition.get("unloaded_sprite_path", "").is_empty()
+			else definition.get("inventory_sprite_path", "")
+		),
+		"equipped_sprite_paths": definition.get(
+			"equipped_sprite_paths",
+			[]
+		).duplicate(),
+		"requires_two_hands": definition.get("requires_two_hands", false),
+		"weapon_type": definition.get(
+			"weapon_type",
+			GameEnums.WeaponClass.NONE
+		),
+		"damage_type": definition.get(
+			"damage_type",
+			GameEnums.DamageType.BLUNT
+		),
+		"flesh_damage": definition.get("flesh_damage", 0.0),
+		"stance_damage": definition.get("stance_damage", 0.0),
+		"armor_penetration": definition.get("armor_penetration", 0.0),
+		"accuracy_rating": definition.get("accuracy_rating", 0.0),
+		"effective_range": definition.get("effective_range", 0),
+		"optimal_range": definition.get("optimal_range", 0),
+		"protection_blunt": definition.get("protection_blunt", 0.0),
+		"protection_sharp": definition.get("protection_sharp", 0.0),
+		"protection_ballistic": definition.get(
+			"protection_ballistic",
+			0.0
+		),
+		"bulk": definition.get("bulk", 0.0),
+		"weight": definition.get("weight", 0.0),
+		"threat": definition.get("threat", 0.0),
+		"insulation": definition.get("insulation", 0.0),
+		"consumable_effect": definition.get(
+			"consumable_effect",
+			GameEnums.ConsumableEffect.RESTORE_HUNGER
+		),
+		"consumable_potency": definition.get("consumable_potency", 0.0),
+		"current_magazine": item_state.get("current_magazine", 0),
+		"max_magazine": definition.get("max_magazine", 0),
+		"needs_cycling": item_state.get("needs_cycling", false),
+		"search_loot_bonus": definition.get("search_loot_bonus", 0.0),
+		"search_safety_bonus": definition.get("search_safety_bonus", 0.0),
+		"search_sneak_bonus": definition.get("search_sneak_bonus", 0.0),
+		"camp_sleep_bonus": definition.get("camp_sleep_bonus", 0.0),
+		"camp_shelter_bonus": definition.get("camp_shelter_bonus", 0.0),
+		"camp_healing_bonus": definition.get("camp_healing_bonus", 0.0),
+		"camp_concealment_bonus": definition.get(
+			"camp_concealment_bonus",
+			0.0
+		),
+		"camp_alertness_bonus": definition.get(
+			"camp_alertness_bonus",
+			0.0
+		),
 	}
 
 func _can_offer_equip(item: ItemData) -> bool:

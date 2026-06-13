@@ -1,27 +1,68 @@
-[gd_scene format=3 uid="uid://c83pdxx4xxt01"]
+[gd_scene load_steps=2 format=3 uid="uid://c83pdxx4xxt01"]
 
-[ext_resource type="Script" uid="uid://bu0m6y061igk5" path="res://UI/Inventory/InventorySlot.gd" id="1_slotgd"]
+[ext_resource type="Script" path="res://UI/Inventory/InventorySlot.gd" id="1_slot"]
 
-[node name="InventorySlot" type="PanelContainer" unique_id=1901531642]
-custom_minimum_size = Vector2(64, 64)
-offset_right = 64.0
-offset_bottom = 64.0
-script = ExtResource("1_slotgd")
+[node name="InventorySlot" type="PanelContainer"]
+custom_minimum_size = Vector2(62, 62)
+mouse_default_cursor_shape = 2
+script = ExtResource("1_slot")
 
-[node name="EmptyBackground" type="TextureRect" parent="." unique_id=131321916]
-modulate = Color(1, 1, 1, 0.4)
+[node name="EmptyBackground" type="TextureRect" parent="."]
+unique_name_in_owner = true
 layout_mode = 2
+mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1767941347]
+[node name="IconMargin" type="MarginContainer" parent="."]
 layout_mode = 2
-theme_override_constants/margin_left = 4
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 4
-theme_override_constants/margin_bottom = 4
+mouse_filter = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
 
-[node name="IconRect" type="TextureRect" parent="MarginContainer" unique_id=449950198]
+[node name="IconRect" type="TextureRect" parent="IconMargin"]
+unique_name_in_owner = true
 layout_mode = 2
+mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
+
+[node name="SlotLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.78, 0.84, 0.82, 0.9)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 9
+text = "SLOT"
+horizontal_alignment = 1
+vertical_alignment = 2
+text_overrun_behavior = 3
+
+[node name="SizeBadge" type="Label" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.08, 0.1, 0.1, 1)
+theme_override_colors/font_outline_color = Color(0.86, 0.72, 0.34, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 12
+text = "2"
+horizontal_alignment = 2
+vertical_alignment = 0
+
+[node name="ReservationLabel" type="Label" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.45, 0.55, 0.56, 0.8)
+theme_override_font_sizes/font_size = 22
+text = "+"
+horizontal_alignment = 1
+vertical_alignment = 1
