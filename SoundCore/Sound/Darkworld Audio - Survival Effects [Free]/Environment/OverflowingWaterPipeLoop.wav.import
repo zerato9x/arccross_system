@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://dsvngtbkhk70d"
+path="res://.godot/imported/OverflowingWaterPipeLoop.wav-917f84523f3b8b5766fb13327fd955f2.sample"
+
+[deps]
+
+source_file="res://SoundCore/Sound/Darkworld Audio - Survival Effects [Free]/Environment/OverflowingWaterPipeLoop.wav"
+dest_files=["res://.godot/imported/OverflowingWaterPipeLoop.wav-917f84523f3b8b5766fb13327fd955f2.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

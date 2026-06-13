@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://cyk7mcdh8wq4t"
+path="res://.godot/imported/Assault(loop) - angry - tension - battle.wav-78ec8e7c29372328a87d3e673ca51033.sample"
+
+[deps]
+
+source_file="res://SoundCore/Sound/abandoned_wav_1.2/Assault(loop) - angry - tension - battle.wav"
+dest_files=["res://.godot/imported/Assault(loop) - angry - tension - battle.wav-78ec8e7c29372328a87d3e673ca51033.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

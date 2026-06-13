@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://cc474hjjsg75u"
+path="res://.godot/imported/CoastalWavesOnRocksLoop.wav-475552d354d7fe556f1609923a3f3696.sample"
+
+[deps]
+
+source_file="res://SoundCore/Sound/Darkworld Audio - Survival Effects [Free]/Environment/CoastalWavesOnRocksLoop.wav"
+dest_files=["res://.godot/imported/CoastalWavesOnRocksLoop.wav-475552d354d7fe556f1609923a3f3696.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

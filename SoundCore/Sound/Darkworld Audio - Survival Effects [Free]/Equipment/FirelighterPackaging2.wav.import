@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://8lyw5yoyd78t"
+path="res://.godot/imported/FirelighterPackaging2.wav-4e9d5d714f985a6c061fd043ba31e28d.sample"
+
+[deps]
+
+source_file="res://SoundCore/Sound/Darkworld Audio - Survival Effects [Free]/Equipment/FirelighterPackaging2.wav"
+dest_files=["res://.godot/imported/FirelighterPackaging2.wav-4e9d5d714f985a6c061fd043ba31e28d.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

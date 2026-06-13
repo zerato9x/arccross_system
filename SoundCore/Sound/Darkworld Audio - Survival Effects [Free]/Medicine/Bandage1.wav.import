@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://dvce5ffilxjht"
+path="res://.godot/imported/Bandage1.wav-439c50e8ac99f1998b989f2c4a24363e.sample"
+
+[deps]
+
+source_file="res://SoundCore/Sound/Darkworld Audio - Survival Effects [Free]/Medicine/Bandage1.wav"
+dest_files=["res://.godot/imported/Bandage1.wav-439c50e8ac99f1998b989f2c4a24363e.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2
