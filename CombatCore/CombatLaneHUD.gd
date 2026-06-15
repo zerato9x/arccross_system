@@ -1,6 +1,10 @@
 extends CanvasLayer
 class_name CombatLaneHUD
 
+const COMBAT_LANE_VIEW_SCENE := preload(
+	"res://CombatCore/CombatLaneView.tscn"
+)
+
 const PANEL_COLOR := Color(0.015, 0.045, 0.045, 0.96)
 const CYAN := Color(0.28, 0.95, 0.88)
 const AMBER := Color(1.0, 0.68, 0.25)
@@ -38,6 +42,10 @@ func show_snapshot(snapshot: Dictionary) -> void:
 		return
 	_root.visible = true
 	_render()
+
+func show_presentation_event(event: Dictionary) -> void:
+	if _lane_view:
+		_lane_view.show_presentation_event(event)
 
 func get_snapshot() -> Dictionary:
 	return _snapshot.duplicate(true)
@@ -103,7 +111,7 @@ func _build_hud() -> void:
 	_enemy_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	status_row.add_child(_enemy_label)
 
-	_lane_view = CombatLaneView.new()
+	_lane_view = COMBAT_LANE_VIEW_SCENE.instantiate() as CombatLaneView
 	_lane_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_lane_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(_lane_view)

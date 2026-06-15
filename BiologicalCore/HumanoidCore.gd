@@ -82,8 +82,8 @@ func _derive_physical_reality() -> void:
 	# 1. Fortitude dictates structural integrity (Base 12)
 	body.configure_structure(definition.fortitude)
 		
-	# 2. Brawn strictly equals base pocket space
-	inventory.base_max_capacity = definition.brawn
+	# 2. Carrying space comes from worn containers, not unexplained anatomy.
+	inventory.base_max_capacity = 0
 	inventory._recalculate_bounds()
 	
 	# 3. Will establishes psychological baseline
@@ -276,11 +276,11 @@ func _on_limb_destroyed(limb: GameEnums.LimbRegion) -> void:
 func _validate_equipment_requirements() -> void:
 	if body.has_functional_arms(): return
 		
-	var held_item: ItemData = inventory.paper_doll.get(GameEnums.EquipmentSlot.HANDS, null)
+	var held_item: ItemData = inventory.paper_doll.get(GameEnums.EquipmentSlot.HAND, null)
 	
 	if held_item != null and held_item.requires_two_hands:
 		print(name, " physically cannot hold [", held_item.display_name, "] with one arm!")
-		inventory.unequip_item(GameEnums.EquipmentSlot.HANDS) # Vault handles spill-over automatically
+		inventory.unequip_item(GameEnums.EquipmentSlot.HAND)
 
 func _can_equip_item(item: ItemData, _slot: GameEnums.EquipmentSlot) -> bool:
 	if item.requires_two_hands and not body.has_functional_arms():
@@ -443,7 +443,7 @@ func _mutate_into_craven() -> void:
 	red_mist_corruption_maxed.emit()
 	
 	# Strip complex items to prevent tactical zombies
-	inventory.unequip_item(GameEnums.EquipmentSlot.HANDS)
+	inventory.unequip_item(GameEnums.EquipmentSlot.HAND)
 	inventory.unequip_item(GameEnums.EquipmentSlot.BACKPACK)
 	print(name, " succumbed to the Red Mist. Structural autonomy and tools lost.")
 
@@ -451,8 +451,8 @@ func _mutate_into_craven() -> void:
 # CONSUMABLE USE
 # ---------------------------------------------------------
 
-func use_consumable_item(item: ItemData) -> bool:
-	if not inventory.use_consumable(item):
+func use_consumable_item(item: ItemData, combat_only: bool = false) -> bool:
+	if not inventory.use_consumable(item, combat_only):
 		return false
 	
 	# Route the effect to the appropriate biological system

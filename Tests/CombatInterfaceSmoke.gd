@@ -144,6 +144,10 @@ func _run() -> void:
 	death_loot.display_name = "Outcome Test Loot"
 	death_loot.size_cost = 0
 	var death_loot_instance := death_loot.create_runtime_instance()
+	arena.enemy_core.inventory.equip_item(
+		load("res://ItemCore/Items/sidebag_1.tres"),
+		GameEnums.EquipmentSlot.BACKPACK
+	)
 	if not arena.enemy_core.inventory.add_to_backpack(death_loot_instance):
 		_fail("Could not place the outcome test item in the enemy inventory.")
 		return

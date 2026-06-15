@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://dfu8ub0f7hfkl"]
+
+[ext_resource type="Script" uid="uid://c0t0lh0ghm6ys" path="res://CombatCore/CombatLaneView.gd" id="1_sm7e3"]
+[ext_resource type="PackedScene" uid="uid://bidwe2cg476w8" path="res://UI/Humanoid/HumanoidToken.tscn" id="2_jaj0l"]
+
+[node name="CombatLaneView" type="Control" unique_id=1975616386]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1_sm7e3")
+
+[node name="PlayerHumanoidToken" parent="." unique_id=680516095 instance=ExtResource("2_jaj0l")]
+visible = false
+z_index = 10
+
+[node name="EnemyHumanoidToken" parent="." unique_id=534285340 instance=ExtResource("2_jaj0l")]
+visible = false
+z_index = 10

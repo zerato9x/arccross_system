@@ -4,6 +4,7 @@ class_name CombatCommandAdapter
 signal snapshot_changed(snapshot: Dictionary)
 signal reaction_requested(prompt: Dictionary)
 signal command_feedback(message: String)
+signal presentation_event(event: Dictionary)
 
 var player_core: HumanoidCore
 var enemy_core: HumanoidCore
@@ -54,6 +55,27 @@ func configure(
 		turn_manager.reaction_resolved.connect(_on_reaction_resolved)
 	if not lane_manager.lane_changed.is_connected(_on_lane_changed):
 		lane_manager.lane_changed.connect(_on_lane_changed)
+	if not resolution_engine.action_started.is_connected(
+		_on_resolution_action_started
+	):
+		resolution_engine.action_started.connect(
+			_on_resolution_action_started
+		)
+	if not resolution_engine.damage_applied.is_connected(
+		_on_resolution_damage_applied
+	):
+		resolution_engine.damage_applied.connect(
+			_on_resolution_damage_applied
+		)
+	for entity in [player_core, enemy_core]:
+		var death_callback := _on_entity_died.bind(entity)
+		if not entity.died.is_connected(death_callback):
+			entity.died.connect(death_callback)
+	for inventory in [player_core.inventory, enemy_core.inventory]:
+		if not inventory.equipment_changed.is_connected(
+			_on_equipment_changed
+		):
+			inventory.equipment_changed.connect(_on_equipment_changed)
 
 func refresh_snapshot() -> void:
 	if not player_core or not enemy_core or not turn_manager or not lane_manager:
@@ -233,7 +255,10 @@ func _execute_player_action(
 			)
 			if item == null or not turn_manager.request_action(player_core, action):
 				return false
-			return player_core.use_consumable_item(item)
+			var used: bool = player_core.use_consumable_item(item, true)
+			if used:
+				_emit_presentation_action(player_core, action)
+			return used
 		GameEnums.ActionType.TAKE_COVER:
 			if not turn_manager.request_action(player_core, action):
 				return false
@@ -260,6 +285,7 @@ func _execute_player_action(
 		GameEnums.ActionType.PUSH_STAY, GameEnums.ActionType.PUSH_FOLLOW:
 			if not turn_manager.request_action(player_core, action):
 				return false
+			_emit_presentation_action(player_core, action)
 			if resolution_engine.execute_leverage_check(
 				player_core,
 				enemy_core,
@@ -276,6 +302,7 @@ func _execute_player_action(
 		GameEnums.ActionType.PULL_FOLLOW:
 			if not turn_manager.request_action(player_core, action):
 				return false
+			_emit_presentation_action(player_core, action)
 			if resolution_engine.execute_leverage_check(
 				player_core,
 				enemy_core,
@@ -382,7 +409,10 @@ func _build_legal_actions() -> Array:
 			_add_action(actions, GameEnums.ActionType.EXECUTE, "EXECUTE")
 
 	for item in player_core.inventory.backpack_array:
-		if item.item_type == GameEnums.ItemType.CONSUMABLE:
+		if (
+			item.item_type == GameEnums.ItemType.CONSUMABLE
+			and player_core.inventory.is_combat_accessible(item)
+		):
 			_add_action(
 				actions,
 				GameEnums.ActionType.USE_ITEM,
@@ -446,6 +476,12 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"kinetic_tier": GameEnums.KineticTier.keys()[entity.kinetic_tier],
 		"weapon": weapon_name,
 		"weapon_detail": weapon_detail,
+		"has_firearm": weapon != null and weapon.is_ranged(),
+		"both_legs_broken": entity.body.are_both_legs_disabled(),
+		"appearance": HumanoidVisualCatalog.appearance_from_inventory(
+			entity.inventory
+		),
+		"is_dead": entity.is_dead,
 		"is_escaping": entity.is_escaping,
 		"reserved_ap": turn_manager.reserved_ap.get(entity, 0),
 		"is_active": turn_manager.get_active_entity() == entity,
@@ -539,16 +575,13 @@ func _ranged_weapon_ready(weapon: ItemData, distance: int) -> bool:
 func _can_reload(weapon: ItemData) -> bool:
 	if weapon.current_magazine >= weapon.max_magazine:
 		return false
-	if (
-		not weapon.magazine_id.is_empty()
-		and not _has_inventory_item(weapon.magazine_id)
-	):
-		return false
-	if (
-		not weapon.reload_aid_id.is_empty()
-		and not _has_inventory_item(weapon.reload_aid_id)
-	):
-		return false
+	var feed_id := (
+		weapon.magazine_id
+		if not weapon.magazine_id.is_empty()
+		else weapon.reload_aid_id
+	)
+	if not feed_id.is_empty():
+		return player_core.inventory.find_filled_magazine(feed_id) != null
 	if (
 		weapon.magazine_id.is_empty()
 		and weapon.reload_aid_id.is_empty()
@@ -569,10 +602,7 @@ func _can_cycle(weapon: ItemData) -> bool:
 func _has_inventory_item(item_id: String) -> bool:
 	if item_id.is_empty():
 		return true
-	for item in player_core.inventory.backpack_array:
-		if item.id == item_id:
-			return true
-	return false
+	return player_core.inventory.has_combat_item(item_id)
 
 func _has_ammunition(ammunition_id: String) -> bool:
 	var resolved_id := ammunition_id if not ammunition_id.is_empty() else "ammo_round"
@@ -617,3 +647,41 @@ func _on_reaction_resolved(
 
 func _on_lane_changed() -> void:
 	refresh_snapshot()
+
+func _on_equipment_changed(
+	_slot: GameEnums.EquipmentSlot,
+	_item: ItemData
+) -> void:
+	refresh_snapshot()
+
+func _on_resolution_action_started(
+	entity: HumanoidCore,
+	action: int
+) -> void:
+	_emit_presentation_action(entity, action)
+
+func _on_resolution_damage_applied(entity: HumanoidCore) -> void:
+	if not entity.is_dead:
+		presentation_event.emit({
+			"side": _entity_side(entity),
+			"type": "damage",
+		})
+	call_deferred("refresh_snapshot")
+
+func _on_entity_died(cause: String, entity: HumanoidCore) -> void:
+	presentation_event.emit({
+		"side": _entity_side(entity),
+		"type": "death",
+		"cause": cause,
+	})
+	call_deferred("refresh_snapshot")
+
+func _emit_presentation_action(
+	entity: HumanoidCore,
+	action: int
+) -> void:
+	presentation_event.emit({
+		"side": _entity_side(entity),
+		"type": "action",
+		"action": action,
+	})

@@ -6,10 +6,10 @@ const BODY_PATH := "res://Asset/Innawoods_Asset/Humanoid/Body/Body_Nude.png"
 const HEAD_PATH := "res://Asset/Innawoods_Asset/Humanoid/Head/Male_1.png"
 const ARM_REST_PATH := "res://Asset/Innawoods_Asset/Humanoid/Body/arm_rest.png"
 const ARM_EQUIP_PATH := "res://Asset/Innawoods_Asset/Humanoid/Body/arm_equip.png"
-const ARM_OFFHAND_PATH := "res://Asset/Innawoods_Asset/Humanoid/Body/arm_offhand.png"
 const ARM_OFFHAND_2H_PATH := (
 	"res://Asset/Innawoods_Asset/Humanoid/Body/arm_offhand_2hequip.png"
 )
+const GRIP_MASK_RECT := Rect2i(64, 62, 54, 56)
 
 enum ArmPose {
 	REST,
@@ -24,17 +24,16 @@ const POSE_SLOTS := [
 ]
 
 const WEAPON_SLOT_PRIORITY := [
-	GameEnums.EquipmentSlot.HANDS,
-	GameEnums.EquipmentSlot.SLING,
-	GameEnums.EquipmentSlot.BELT,
+	GameEnums.EquipmentSlot.HAND,
+	GameEnums.EquipmentSlot.OFFHAND,
 ]
 
 var layer_nodes: Dictionary = {}
 var secondary_layer_nodes: Dictionary = {}
 
 var _model_frame: Control
-var _base_main_arm: TextureRect
-var _base_offhand_arm: TextureRect
+var _base_main_arm_under: TextureRect
+var _base_main_arm_over: TextureRect
 var _two_handed_grip: TextureRect
 
 func _ready() -> void:
@@ -51,11 +50,17 @@ func update_model(equipment_data: Array) -> void:
 		layer.texture = null
 
 	var arm_pose := _resolve_arm_pose(equipment_data)
-	_base_main_arm.texture = _load_texture(
-		ARM_REST_PATH if arm_pose == ArmPose.REST else ARM_EQUIP_PATH
+	var has_clothing_arm := _has_authored_arm_layer(
+		equipment_data,
+		arm_pose
 	)
-	_base_offhand_arm.texture = _load_texture(
-		ARM_OFFHAND_PATH if arm_pose != ArmPose.TWO_HANDED else ""
+	_base_main_arm_under.texture = _load_texture(
+		ARM_REST_PATH if arm_pose == ArmPose.REST else ""
+	)
+	_base_main_arm_over.texture = _load_texture(
+		ARM_EQUIP_PATH
+			if arm_pose != ArmPose.REST and not has_clothing_arm
+			else ""
 	)
 	_two_handed_grip.texture = _load_texture(
 		ARM_OFFHAND_2H_PATH if arm_pose == ArmPose.TWO_HANDED else ""
@@ -70,16 +75,29 @@ func update_model(equipment_data: Array) -> void:
 		if not layer_nodes.has(slot):
 			continue
 
-		var display_paths := _select_display_paths(
+		var display_layers := _select_display_layers(
 			descriptor,
 			slot,
 			arm_pose
 		)
-		if not display_paths.is_empty():
-			layer_nodes[slot].texture = _load_texture(display_paths[0])
-		if display_paths.size() > 1:
+		var base_path := str(display_layers.get("base", ""))
+		var overlay_path := str(display_layers.get("overlay", ""))
+		var grip_mask_path := str(display_layers.get("grip_mask", ""))
+		if not base_path.is_empty():
+			layer_nodes[slot].texture = _load_texture(base_path)
+		if (
+			secondary_layer_nodes.has(slot)
+			and not overlay_path.is_empty()
+		):
 			secondary_layer_nodes[slot].texture = _load_texture(
-				display_paths[1]
+				overlay_path
+			)
+		elif (
+			secondary_layer_nodes.has(slot)
+			and not grip_mask_path.is_empty()
+		):
+			secondary_layer_nodes[slot].texture = _load_grip_mask(
+				grip_mask_path
 			)
 
 func _build_model() -> void:
@@ -121,19 +139,17 @@ func _build_model() -> void:
 	var body := _make_layer("Layer_Body")
 	body.texture = _load_texture(BODY_PATH)
 
-	# Skin arms establish the pose. Clothing arm assets render over these.
-	_base_main_arm = _make_layer("Layer_Arm_Main")
-	_base_main_arm.texture = _load_texture(ARM_REST_PATH)
-	_base_offhand_arm = _make_layer("Layer_Arm_Offhand")
-	_base_offhand_arm.texture = _load_texture(ARM_OFFHAND_PATH)
+	# The relaxed arm remains below torso clothing.
+	_base_main_arm_under = _make_layer("Layer_Arm_Main_Rest")
+	_base_main_arm_under.texture = _load_texture(ARM_REST_PATH)
 
 	# Lower body and torso clothing sit below the head.
 	_create_slot_layers(GameEnums.EquipmentSlot.LEGS)
 	_create_slot_layers(GameEnums.EquipmentSlot.FEET)
-	_create_slot_layers(GameEnums.EquipmentSlot.INNER_TORSO)
-	_create_slot_layers(GameEnums.EquipmentSlot.OUTER_TORSO)
-	_create_slot_layers(GameEnums.EquipmentSlot.VEST)
-	_create_slot_layers(GameEnums.EquipmentSlot.ARMS)
+	_create_slot_base(GameEnums.EquipmentSlot.INNER_TORSO)
+	_create_slot_base(GameEnums.EquipmentSlot.OUTER_TORSO)
+	_create_slot_base(GameEnums.EquipmentSlot.VEST)
+	_create_slot_base(GameEnums.EquipmentSlot.ARMS)
 
 	# The bare head must render over collars, coats, rigs, and torso layers.
 	var head := _make_layer("Layer_Head_Base")
@@ -144,17 +160,31 @@ func _build_model() -> void:
 	_create_slot_layers(GameEnums.EquipmentSlot.EYES)
 	_create_slot_layers(GameEnums.EquipmentSlot.HEAD)
 
-	# Weapons render over the posed main arm.
+	# Belt and sling are worn gear, not weapon hands.
 	_create_slot_layers(GameEnums.EquipmentSlot.BELT)
 	_create_slot_layers(GameEnums.EquipmentSlot.SLING)
-	_create_slot_layers(GameEnums.EquipmentSlot.HANDS)
 
-	# Two-handed art supplies only the gripping off hand, so it belongs above
-	# the weapon layer instead of underneath it.
+	# Readied weapons sit below the gripping arm and clothing-arm artwork.
+	_create_slot_layers(GameEnums.EquipmentSlot.HAND)
+	_create_slot_layers(GameEnums.EquipmentSlot.OFFHAND)
+
+	_base_main_arm_over = _make_layer("Layer_Arm_Main_Equipped")
+	_create_slot_overlay(GameEnums.EquipmentSlot.INNER_TORSO)
+	_create_slot_overlay(GameEnums.EquipmentSlot.OUTER_TORSO)
+	_create_slot_overlay(GameEnums.EquipmentSlot.VEST)
+	_create_slot_overlay(GameEnums.EquipmentSlot.ARMS)
+
+	# The offhand only exists for the authored two-handed grip.
 	_two_handed_grip = _make_layer("Layer_Arm_Offhand_2H")
 
 func _create_slot_layers(slot: int) -> void:
+	_create_slot_base(slot)
+	_create_slot_overlay(slot)
+
+func _create_slot_base(slot: int) -> void:
 	layer_nodes[slot] = _make_layer("Layer_%d" % slot)
+
+func _create_slot_overlay(slot: int) -> void:
 	secondary_layer_nodes[slot] = _make_layer(
 		"Layer_%d_Secondary" % slot
 	)
@@ -200,14 +230,38 @@ func _is_weapon_descriptor(descriptor: Dictionary) -> bool:
 		)) != GameEnums.WeaponClass.NONE
 	)
 
-func _select_display_paths(
+func _has_authored_arm_layer(
+	equipment_data: Array,
+	arm_pose: ArmPose
+) -> bool:
+	if arm_pose == ArmPose.REST:
+		return false
+	for raw_descriptor in equipment_data:
+		var descriptor: Dictionary = raw_descriptor
+		var slot := int(descriptor.get(
+			"equipment_slot",
+			GameEnums.EquipmentSlot.NONE
+		))
+		if slot not in POSE_SLOTS and slot != GameEnums.EquipmentSlot.VEST:
+			continue
+		var paths := _get_source_paths(descriptor)
+		if paths.size() >= 2:
+			return true
+		for path in paths:
+			if "arm" in path.get_file().to_lower():
+				return true
+	return false
+
+func _select_display_layers(
 	descriptor: Dictionary,
 	slot: int,
 	arm_pose: ArmPose
-) -> Array[String]:
+) -> Dictionary:
 	var source_paths := _get_source_paths(descriptor)
-	if source_paths.size() <= 1:
-		return source_paths
+	if source_paths.is_empty():
+		return {}
+	if source_paths.size() == 1:
+		return {"base": source_paths[0]}
 
 	var torso_candidates: Array[String] = []
 	var arm_candidates: Array[String] = []
@@ -223,27 +277,29 @@ func _select_display_paths(
 
 	# Explicit arm filenames are authoritative, including unusual rig slots.
 	if not arm_candidates.is_empty():
-		var layered_paths: Array[String] = []
+		var result := {}
 		if not torso_candidates.is_empty():
-			layered_paths.append(_choose_torso_path(torso_candidates))
+			result["base"] = _choose_torso_path(torso_candidates)
 		elif not static_candidates.is_empty():
-			layered_paths.append(static_candidates[0])
-		layered_paths.append(
-			_choose_clothing_arm_path(arm_candidates, arm_pose)
+			result["base"] = static_candidates[0]
+		result["overlay"] = _choose_clothing_arm_path(
+			arm_candidates,
+			arm_pose
 		)
-		return layered_paths
+		return result
 
 	if slot in POSE_SLOTS:
-		# Some assets encode the whole torso and arm pose in numbered files.
-		# The first is resting, the second is the weapon-holding pose.
-		return [
-			source_paths[0]
-			if arm_pose == ArmPose.REST
-			else source_paths[1]
-		]
+		# Whole-body composites remain below the weapon. A small masked copy of
+		# the authored grip is placed above it so the gun stays visible.
+		if arm_pose == ArmPose.REST:
+			return {"base": source_paths[0]}
+		return {
+			"base": source_paths[1],
+			"grip_mask": source_paths[1],
+		}
 
 	# Multiple paths in other slots are authored visual variants, not layers.
-	return [source_paths[0]]
+	return {"base": source_paths[0]}
 
 func _get_source_paths(descriptor: Dictionary) -> Array[String]:
 	var source_paths: Array[String] = []
@@ -303,3 +359,18 @@ func _load_texture(path: String) -> Texture2D:
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return null
 	return load(path) as Texture2D
+
+func _load_grip_mask(path: String) -> Texture2D:
+	var texture := _load_texture(path)
+	if texture == null:
+		return null
+	var source := texture.get_image()
+	var masked := Image.create(
+		source.get_width(),
+		source.get_height(),
+		false,
+		Image.FORMAT_RGBA8
+	)
+	masked.fill(Color.TRANSPARENT)
+	masked.blit_rect(source, GRIP_MASK_RECT, GRIP_MASK_RECT.position)
+	return ImageTexture.create_from_image(masked)

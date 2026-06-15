@@ -8,14 +8,20 @@ of restating it.
 - [Project Glossary](GLOSSARY.md): canonical terms and distinctions.
 - [System Architecture](SYSTEM_ARCHITECTURE.md): ownership, dependencies,
   records, and presentation boundaries.
+- [Humanoid Token Pipeline](HUMANOID_TOKEN_PIPELINE.md): layered sprite
+  contract, current visual coverage, and runtime asset preparation.
 - [Phase 1 Execution Plan](PHASE_1_EXECUTION_PLAN.md): scope, acceptance
   criteria, current status, and remaining work.
 - [Changelog](CHANGELOG.md): dated implementation and verification notes.
 
 ## Current Implementation
 
-Status updated on **June 12, 2026**:
+Status updated on **June 14, 2026**:
 
+- Layered Humanoid Tokens now mirror supported equipped Innawoods visuals in
+  the macro world and combat lane.
+- Token runtime animation is restricted to six gameplay-relevant sheets;
+  strafe and other unreachable variants are excluded from runtime loading.
 - The revised Stance loop prevents routine pressure from causing immediate
   knockdowns and gives Felled combatants an explicit all-AP GET UP turn.
 - Weapon definitions now author handling, accuracy, range, distance falloff,
@@ -34,8 +40,16 @@ Status updated on **June 12, 2026**:
   adds missing definitions without overwriting later Inspector edits.
 - Duel Scene animation remains placeholder, and the existing BLOCK rules have
   not yet been replaced by shield-specific coverage and mitigation.
+- The static Innawoods inventory set now supplies 163 categorized item
+  Resources. Loadouts, loot, enemy generation, persistence, and inventory
+  tests use the new IDs instead of the removed prototype entries.
+- `LootCatalog` is the single runtime registry. The offline catalog builder
+  adds missing definitions without overwriting later Inspector edits.
+- Token art coverage remains incomplete for rigs, face and eye equipment,
+  several armor regions, and unsupported weapons. The existing BLOCK rules
+  have not yet been replaced by shield-specific coverage and mitigation.
 
-See the [June 12 changelog](CHANGELOG.md#june-12-2026) for implementation and
+See the [June 14 changelog](CHANGELOG.md#june-14-2026) for implementation and
 verification detail.
 
 ## Design Direction

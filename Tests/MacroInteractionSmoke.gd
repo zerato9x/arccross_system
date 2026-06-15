@@ -11,10 +11,37 @@ func _run() -> void:
 	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
 	var player_core := macro_map.player_token.get_humanoid_core()
 	var world_state := root.get_node("WorldState") as RuntimeStateStore
+	if (
+		macro_map.player_token.humanoid_token.get_animation()
+		!= "Idle"
+	):
+		_fail("The macro player did not use the neutral idle.")
+		return
+	for enemy_token in macro_map.active_enemies.values():
+		if enemy_token.humanoid_token.get_animation() != "Idle2":
+			_fail("A hostile macro NPC did not use the aggressive idle.")
+			return
+	var disposition_probe: MacroEnemy = macro_map.active_enemies.values()[0]
+	var hostile_record := world_state.get_entity(
+		disposition_probe.entity_id
+	)
+	var passive_record := hostile_record.duplicate(true)
+	passive_record["world_status"] = GameEnums.EntityWorldStatus.CEASEFIRE
+	disposition_probe.setup_from_record(passive_record)
+	if disposition_probe.humanoid_token.get_animation() != "Idle3":
+		_fail("A passive macro NPC did not use the friendly idle.")
+		return
+	disposition_probe.setup_from_record(hostile_record)
 	var starting_time := world_state.world_time_minutes
 	var poi_coords := Vector2i(1, 0)
 	macro_map._execute_player_step(poi_coords)
 	await process_frame
+	if (
+		macro_map.player_token.humanoid_token.get_animation()
+		!= "Walk"
+	):
+		_fail("Normal macro travel did not use Walk.")
+		return
 	if (
 		world_state.world_time_minutes
 		!= starting_time + GameTimeRules.MOVE_MINUTES
@@ -30,6 +57,13 @@ func _run() -> void:
 		return
 	if not macro_map.interaction_panel.is_open():
 		_fail("The macro interaction panel did not become visible.")
+		return
+	await create_timer(MacroPlayer.WALK_DURATION_SECONDS + 0.05).timeout
+	if (
+		macro_map.player_token.humanoid_token.get_animation()
+		!= "Taunt"
+	):
+		_fail("The queued POI interaction did not use Taunt after walking.")
 		return
 
 	var sleeping_bag := _find_inventory_item(player_core, "sleeping_bag")

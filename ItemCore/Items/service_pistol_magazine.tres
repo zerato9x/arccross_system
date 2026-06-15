@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://dbj2gmxxnnecx"]
 
-[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+[ext_resource type="Script" uid="uid://jbxk0eeleei8" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
 
 [resource]
 script = ExtResource("1_itemdata")
@@ -11,6 +11,49 @@ item_type = 5
 catalog_category = 8
 tags = Array[String](["weapon"])
 size_cost = 0
+capacity_bonus = null
 target_slot = 9
+requires_two_hands = null
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Pistol/service_pistol_magazine.png"
+unloaded_sprite_path = null
+equipped_sprite_path = null
+equipped_sprite_paths = null
+weapon_type = null
+damage_type = null
+flesh_damage = null
+stance_damage = null
+armor_penetration = null
+accuracy_rating = null
+effective_range = null
+optimal_range = null
+minimum_damage_multiplier = null
+protection_blunt = null
+protection_sharp = null
+protection_ballistic = null
+bulk = null
 weight = 0.2
+threat = null
+insulation = null
+consumable_effect = null
+consumable_potency = null
+interaction_roles = null
+search_loot_bonus = null
+search_safety_bonus = null
+search_sneak_bonus = null
+camp_sleep_bonus = null
+camp_shelter_bonus = null
+camp_healing_bonus = null
+camp_concealment_bonus = null
+camp_alertness_bonus = null
+max_magazine = null
+starting_magazine = null
+ammunition_id = null
+magazine_id = null
+reload_aid_id = null
+requires_cycle_after_shot = null
+cycle_loads_one_round = null
+compatible_weapon_ids = null
+grants_snipe = null
+macro_snipe_range = null
+accepted_ammunition_id = "pistol_round"
+magazine_capacity = 8

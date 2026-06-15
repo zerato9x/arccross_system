@@ -244,6 +244,7 @@ func _begin_poi_interaction(
 		"type": GameEnums.MacroInteractionType.POI,
 		"coords": coords,
 	}
+	player_token.play_interaction()
 	set_process_unhandled_input(false)
 	if not interaction_panel:
 		push_error("POI interaction opened without a presentation subscriber.")
@@ -282,6 +283,10 @@ func _begin_entity_collision(enemy_id: String, coords: Vector2i) -> void:
 		"coords": coords,
 		"enemy_id": enemy_id,
 	}
+	player_token.play_interaction()
+	if active_enemies.has(coords):
+		var enemy: MacroEnemy = active_enemies[coords]
+		enemy.play_interaction()
 	set_process_unhandled_input(false)
 	if not interaction_panel:
 		push_error("Entity interaction opened without a presentation subscriber.")
@@ -339,6 +344,7 @@ func resolve_poi_action(
 ) -> void:
 	if _pending_interaction.get("type") != GameEnums.MacroInteractionType.POI:
 		return
+	player_token.play_interaction()
 	var coords: Vector2i = _pending_interaction.get("coords", Vector2i.ZERO)
 	var hex_data := world_generator.get_hex_at(coords)
 	var profile := MacroInteractionResolver.build_poi_profile(
@@ -365,6 +371,16 @@ func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 		!= GameEnums.MacroInteractionType.ENTITY_COLLISION
 	):
 		return
+	player_token.play_interaction()
+	var interaction_coords: Vector2i = _pending_interaction.get(
+		"coords",
+		Vector2i.ZERO
+	)
+	if active_enemies.has(interaction_coords):
+		var interaction_enemy: MacroEnemy = active_enemies[
+			interaction_coords
+		]
+		interaction_enemy.play_interaction()
 	var enemy_id: String = _pending_interaction.get("enemy_id", "")
 	var enemy_record := _world_state.get_entity(enemy_id)
 	var attempt: int = enemy_record.get("negotiation_attempts", 0)
@@ -460,7 +476,10 @@ func resolve_inventory_action(
 				message = "That ground item is no longer available."
 			else:
 				var ground_item := ItemData.from_runtime_state(item_state)
-				if inventory.add_to_backpack(ground_item):
+				if inventory.add_to_backpack(
+					ground_item,
+					equipment_slot as GameEnums.EquipmentSlot
+				):
 					message = "Took %s." % ground_item.display_name
 				else:
 					_world_state.add_ground_items(coords, [item_state])
@@ -480,13 +499,19 @@ func resolve_inventory_action(
 		InventoryUI.ACTION_EQUIP:
 			var equippable := inventory.find_item_by_instance_id(instance_id)
 			if equippable == null or not inventory.backpack_array.has(equippable):
-				message = "Only backpack items can be equipped."
+				message = "Only stowed items can be equipped."
 			elif (
-				equipment_slot != equippable.target_slot
+				not inventory.can_equip_in_slot(
+					equippable,
+					equipment_slot as GameEnums.EquipmentSlot
+				)
 				or not _can_offer_equip(equippable)
 			):
 				message = "That item cannot be equipped in the requested slot."
-			elif inventory.equip_item(equippable, equippable.target_slot):
+			elif inventory.equip_item(
+				equippable,
+				equipment_slot as GameEnums.EquipmentSlot
+			):
 				message = "Equipped %s." % equippable.display_name
 			else:
 				message = _inventory_error_or("The equipment change failed.")
@@ -508,6 +533,29 @@ func resolve_inventory_action(
 				message = "Used %s." % consumable.display_name
 			else:
 				message = _inventory_error_or("The item could not be used.")
+		InventoryUI.ACTION_MOVE:
+			var movable := inventory.find_item_by_instance_id(instance_id)
+			if movable == null or not inventory.backpack_array.has(movable):
+				message = "That stowed item is no longer available."
+			elif inventory.move_to_container(
+				movable,
+				equipment_slot as GameEnums.EquipmentSlot
+			):
+				message = "Moved %s." % movable.display_name
+			else:
+				message = _inventory_error_or("That item does not fit there.")
+		InventoryUI.ACTION_LOAD_MAGAZINE:
+			var magazine := inventory.find_item_by_instance_id(instance_id)
+			var loaded_rounds := inventory.load_magazine(magazine)
+			if loaded_rounds > 0:
+				message = "Fitted %d rounds into %s." % [
+					loaded_rounds,
+					magazine.display_name,
+				]
+			else:
+				message = _inventory_error_or("The magazine could not be loaded.")
+		InventoryUI.ACTION_INTERACT:
+			message = "That object is too large to carry. It remains on the ground."
 		_:
 			message = "Unknown inventory command."
 
@@ -537,16 +585,24 @@ func _on_inventory_closed() -> void:
 func _build_inventory_snapshot() -> Dictionary:
 	var inventory := player_token.get_humanoid_core().inventory
 	var equipment: Array = []
+	var seen_slots: Dictionary = {}
 	for slot in GameEnums.EquipmentSlot.values():
 		if slot == GameEnums.EquipmentSlot.NONE:
 			continue
+		if seen_slots.has(slot):
+			continue
+		seen_slots[slot] = true
 		var equipped: ItemData = inventory.paper_doll.get(slot)
 		if equipped:
 			equipment.append(_item_inventory_descriptor(equipped, slot))
 
 	var backpack: Array = []
 	for item in inventory.backpack_array:
-		backpack.append(_item_inventory_descriptor(item))
+		backpack.append(_item_inventory_descriptor(
+			item,
+			GameEnums.EquipmentSlot.NONE,
+			inventory.get_item_container_slot(item)
+		))
 
 	var ground: Array = []
 	for item_state in _world_state.get_ground_items(
@@ -555,17 +611,28 @@ func _build_inventory_snapshot() -> Dictionary:
 		ground.append(_ground_inventory_descriptor(item_state))
 
 	var capacity_breakdown: Array = []
-	capacity_breakdown.append({
-		"name": "Base Capacity",
-		"capacity": inventory.base_max_capacity
-	})
-	for slot in inventory.paper_doll.keys():
+	var containers: Array = []
+	for slot in inventory.get_storage_slots():
 		var equipped: ItemData = inventory.paper_doll.get(slot)
-		if equipped and equipped.capacity_bonus > 0:
-			capacity_breakdown.append({
-				"name": equipped.display_name,
-				"capacity": equipped.capacity_bonus
-			})
+		var container_items: Array = []
+		for item in inventory.get_container_items(slot):
+			container_items.append(_item_inventory_descriptor(
+				item,
+				GameEnums.EquipmentSlot.NONE,
+				slot
+			))
+		capacity_breakdown.append({
+			"name": equipped.display_name,
+			"capacity": equipped.capacity_bonus,
+		})
+		containers.append({
+			"slot": slot,
+			"name": equipped.display_name,
+			"capacity": inventory.get_container_capacity(slot),
+			"used": inventory.get_container_used_capacity(slot),
+			"combat_accessible": slot == GameEnums.EquipmentSlot.VEST,
+			"items": container_items,
+		})
 
 	return {
 		"coords": player_token.current_hex_coords,
@@ -573,6 +640,7 @@ func _build_inventory_snapshot() -> Dictionary:
 		"current_capacity": inventory.current_size,
 		"maximum_capacity": inventory.current_max_capacity,
 		"capacity_breakdown": capacity_breakdown,
+		"containers": containers,
 		"equipment": equipment,
 		"backpack": backpack,
 		"ground": ground,
@@ -580,8 +648,10 @@ func _build_inventory_snapshot() -> Dictionary:
 
 func _item_inventory_descriptor(
 	item: ItemData,
-	equipment_slot: int = GameEnums.EquipmentSlot.NONE
+	equipment_slot: int = GameEnums.EquipmentSlot.NONE,
+	container_slot: int = GameEnums.EquipmentSlot.NONE
 ) -> Dictionary:
+	var allowed_slots := _allowed_equipment_slots(item)
 	return {
 		"instance_id": item.instance_id,
 		"item_id": item.id,
@@ -590,12 +660,26 @@ func _item_inventory_descriptor(
 		"item_type": item.item_type,
 		"catalog_category": item.catalog_category,
 		"tags": item.tags.duplicate(),
-		"size_cost": item.size_cost,
+		"size_cost": item.get_inventory_cost(),
+		"item_size": item.get_effective_item_size(),
+		"stack_count": item.stack_count,
+		"stack_limit": item.get_stack_limit(),
 		"capacity_bonus": item.capacity_bonus,
 		"target_slot": item.target_slot,
+		"preferred_equipment_slot": (
+			player_token.get_humanoid_core().inventory
+				.get_preferred_equipment_slot(item)
+		),
+		"allowed_equipment_slots": allowed_slots,
 		"equipment_slot": equipment_slot,
+		"container_slot": container_slot,
 		"can_equip": _can_offer_equip(item),
 		"can_consume": item.item_type == GameEnums.ItemType.CONSUMABLE,
+		"can_load_magazine": (
+			item.is_magazine()
+			and item.loaded_rounds < item.magazine_capacity
+		),
+		"can_pick_up": item.get_effective_item_size() != GameEnums.ItemSize.BIG,
 		"sprite_path": item.get_inventory_sprite_path(),
 		"equipped_sprite_paths": item.get_equipped_sprite_paths(),
 		"requires_two_hands": item.requires_two_hands,
@@ -619,6 +703,9 @@ func _item_inventory_descriptor(
 		"current_magazine": item.current_magazine,
 		"max_magazine": item.max_magazine,
 		"needs_cycling": item.needs_cycling,
+		"accepted_ammunition_id": item.accepted_ammunition_id,
+		"magazine_capacity": item.magazine_capacity,
+		"loaded_rounds": item.loaded_rounds,
 		"search_loot_bonus": item.search_loot_bonus,
 		"search_safety_bonus": item.search_safety_bonus,
 		"search_sneak_bonus": item.search_sneak_bonus,
@@ -630,97 +717,38 @@ func _item_inventory_descriptor(
 	}
 
 func _ground_inventory_descriptor(item_state: Dictionary) -> Dictionary:
-	var definition: Dictionary = item_state.get("definition", {})
-	return {
-		"instance_id": item_state.get("instance_id", ""),
-		"item_id": definition.get("id", ""),
-		"name": definition.get("display_name", "Unknown Item"),
-		"description": definition.get("lore_description", ""),
-		"item_type": definition.get(
-			"item_type",
-			GameEnums.ItemType.JUNK
-		),
-		"catalog_category": definition.get(
-			"catalog_category",
-			GameEnums.ItemCategory.MISC
-		),
-		"tags": definition.get("tags", []).duplicate(),
-		"size_cost": definition.get("size_cost", 0),
-		"capacity_bonus": definition.get("capacity_bonus", 0),
-		"target_slot": definition.get(
-			"target_slot",
-			GameEnums.EquipmentSlot.NONE
-		),
-		"equipment_slot": GameEnums.EquipmentSlot.NONE,
-		"can_equip": false,
-		"can_consume": false,
-		"sprite_path": (
-			definition.get("unloaded_sprite_path", "")
-			if item_state.get("current_magazine", 0) == 0
-				and not definition.get("unloaded_sprite_path", "").is_empty()
-			else definition.get("inventory_sprite_path", "")
-		),
-		"equipped_sprite_paths": definition.get(
-			"equipped_sprite_paths",
-			[]
-		).duplicate(),
-		"requires_two_hands": definition.get("requires_two_hands", false),
-		"weapon_type": definition.get(
-			"weapon_type",
-			GameEnums.WeaponClass.NONE
-		),
-		"damage_type": definition.get(
-			"damage_type",
-			GameEnums.DamageType.BLUNT
-		),
-		"flesh_damage": definition.get("flesh_damage", 0.0),
-		"stance_damage": definition.get("stance_damage", 0.0),
-		"armor_penetration": definition.get("armor_penetration", 0.0),
-		"accuracy_rating": definition.get("accuracy_rating", 0.0),
-		"effective_range": definition.get("effective_range", 0),
-		"optimal_range": definition.get("optimal_range", 0),
-		"protection_blunt": definition.get("protection_blunt", 0.0),
-		"protection_sharp": definition.get("protection_sharp", 0.0),
-		"protection_ballistic": definition.get(
-			"protection_ballistic",
-			0.0
-		),
-		"bulk": definition.get("bulk", 0.0),
-		"weight": definition.get("weight", 0.0),
-		"threat": definition.get("threat", 0.0),
-		"insulation": definition.get("insulation", 0.0),
-		"consumable_effect": definition.get(
-			"consumable_effect",
-			GameEnums.ConsumableEffect.RESTORE_HUNGER
-		),
-		"consumable_potency": definition.get("consumable_potency", 0.0),
-		"current_magazine": item_state.get("current_magazine", 0),
-		"max_magazine": definition.get("max_magazine", 0),
-		"needs_cycling": item_state.get("needs_cycling", false),
-		"search_loot_bonus": definition.get("search_loot_bonus", 0.0),
-		"search_safety_bonus": definition.get("search_safety_bonus", 0.0),
-		"search_sneak_bonus": definition.get("search_sneak_bonus", 0.0),
-		"camp_sleep_bonus": definition.get("camp_sleep_bonus", 0.0),
-		"camp_shelter_bonus": definition.get("camp_shelter_bonus", 0.0),
-		"camp_healing_bonus": definition.get("camp_healing_bonus", 0.0),
-		"camp_concealment_bonus": definition.get(
-			"camp_concealment_bonus",
-			0.0
-		),
-		"camp_alertness_bonus": definition.get(
-			"camp_alertness_bonus",
-			0.0
-		),
-	}
+	var item := ItemData.from_runtime_state(item_state)
+	var descriptor := _item_inventory_descriptor(item)
+	descriptor["can_equip"] = false
+	descriptor["can_consume"] = false
+	descriptor["can_load_magazine"] = false
+	return descriptor
 
 func _can_offer_equip(item: ItemData) -> bool:
 	return (
-		item.target_slot != GameEnums.EquipmentSlot.NONE
+		not _allowed_equipment_slots(item).is_empty()
 		and (
 			item.item_type == GameEnums.ItemType.WEAPON
 			or item.item_type == GameEnums.ItemType.ARMOR
 		)
 	)
+
+func _allowed_equipment_slots(item: ItemData) -> Array[int]:
+	if item.item_type == GameEnums.ItemType.WEAPON:
+		if item.requires_two_hands:
+			return [GameEnums.EquipmentSlot.HAND]
+		return [
+			GameEnums.EquipmentSlot.HAND,
+			GameEnums.EquipmentSlot.OFFHAND,
+		]
+	if (
+		item.item_type == GameEnums.ItemType.ARMOR
+		and item.target_slot == GameEnums.EquipmentSlot.HAND
+	):
+		return [GameEnums.EquipmentSlot.OFFHAND]
+	if item.target_slot != GameEnums.EquipmentSlot.NONE:
+		return [item.target_slot]
+	return []
 
 func _on_player_inventory_error(message: String) -> void:
 	_last_inventory_error = message
@@ -1091,7 +1119,6 @@ func load_enemy_token(entity_id: String) -> MacroEnemy:
 	if (
 		record.is_empty()
 		or not _world_state.is_entity_alive(entity_id)
-		or not _world_state.is_entity_hostile(entity_id)
 	):
 		return null
 	return _spawn_enemy_token(record)
@@ -1106,10 +1133,7 @@ func refresh_proximity(center_coords: Vector2i) -> void:
 		var entity_id: String = record.get("entity_id", "")
 		var coords: Vector2i = record.get("coords", Vector2i.ZERO)
 		if _hex_distance(center_coords, coords) <= active_radius:
-			if (
-				_world_state.is_entity_alive(entity_id)
-				and _world_state.is_entity_hostile(entity_id)
-			):
+			if _world_state.is_entity_alive(entity_id):
 				_spawn_enemy_token(record)
 
 	for coords in active_enemies.keys().duplicate():
@@ -1117,7 +1141,6 @@ func refresh_proximity(center_coords: Vector2i) -> void:
 		if (
 			_hex_distance(center_coords, coords) > unload_radius
 			or not _world_state.is_entity_alive(token.entity_id)
-			or not _world_state.is_entity_hostile(token.entity_id)
 		):
 			unload_enemy_token(coords)
 
@@ -1207,7 +1230,7 @@ func _spawn_enemy_token(record: Dictionary) -> MacroEnemy:
 		return null
 
 	var entity_id: String = record.get("entity_id", "")
-	if not _world_state.is_entity_hostile(entity_id):
+	if not _world_state.is_entity_alive(entity_id):
 		return null
 
 	var coords: Vector2i = record.get("coords", Vector2i.ZERO)

@@ -8,22 +8,55 @@ const CRIMSON_DIM := Color(0.38, 0.06, 0.09)
 const AMBER := Color(1.0, 0.68, 0.25)
 const MUTED := Color(0.34, 0.58, 0.55)
 const VOID := Color(0.006, 0.018, 0.02, 0.98)
+const LANE_MOVE_DURATION_SECONDS := 0.4
 
 var _snapshot: Dictionary = {}
 var _font: SystemFont
 var _showing_melee_lock := false
+var _last_player_lane := -1
+var _last_enemy_lane := -1
+var _player_move_tween: Tween
+var _enemy_move_tween: Tween
+var _player_uses_right_swing := true
+var _enemy_uses_right_swing := true
+var _player_uses_right_strafe := true
+var _enemy_uses_right_strafe := true
+@onready var _player_token: HumanoidTokenView = $PlayerHumanoidToken
+@onready var _enemy_token: HumanoidTokenView = $EnemyHumanoidToken
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	custom_minimum_size = Vector2(620.0, 290.0)
 	_font = SystemFont.new()
 	_font.font_names = PackedStringArray(["Consolas", "Courier New", "monospace"])
-	resized.connect(queue_redraw)
+	resized.connect(_on_resized)
 
 func show_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
 	_showing_melee_lock = _find_lock_slot() >= 0
+	_sync_tokens()
 	queue_redraw()
+
+func show_presentation_event(event: Dictionary) -> void:
+	var side := str(event.get("side", ""))
+	var token := _token_for_side(side)
+	var data: Dictionary = _snapshot.get(side, {})
+	if token == null or data.is_empty():
+		return
+
+	match str(event.get("type", "")):
+		"death":
+			token.play_animation("Die")
+		"damage":
+			if not data.get("is_dead", false):
+				token.play_one_shot("TakeDamage", _token_pose(data))
+		"action":
+			var animation := _animation_for_action(
+				side,
+				int(event.get("action", -1))
+			)
+			if not animation.is_empty():
+				token.play_one_shot(animation, _token_pose(data))
 
 func is_showing_melee_lock() -> bool:
 	return _showing_melee_lock
@@ -35,6 +68,8 @@ func _draw() -> void:
 	_draw_scanlines(frame)
 
 	if _snapshot.is_empty():
+		_player_token.visible = false
+		_enemy_token.visible = false
 		_draw_centered("NO TACTICAL FEED", size.y * 0.52, 20, MUTED)
 		return
 
@@ -155,9 +190,9 @@ func _draw_occupant(data: Dictionary, center_x: float, top: float) -> void:
 	draw_rect(rect, color, false, 2.0 if data.get("is_active", false) else 1.0)
 	_draw_text(
 		marker,
-		Vector2(rect.position.x, rect.position.y + 2.0),
+		Vector2(rect.position.x, rect.position.y + 19.0),
 		rect.size.x,
-		23,
+		11,
 		color,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
@@ -218,10 +253,16 @@ func _draw_lock_combatant(
 ) -> void:
 	draw_rect(rect, Color(color.r, color.g, color.b, 0.07), true)
 	draw_rect(rect, Color(color, 0.7), false, 1.0)
-	_draw_text(marker, rect.position + Vector2(0.0, 12.0), rect.size.x, 44, color)
+	_draw_text(
+		marker,
+		rect.position + Vector2(8.0, 16.0),
+		28.0,
+		18,
+		color
+	)
 	_draw_text(
 		str(data.get("archetype", data.get("name", "UNKNOWN"))).to_upper(),
-		rect.position + Vector2(0.0, 68.0),
+		Vector2(rect.position.x, rect.end.y - 70.0),
 		rect.size.x,
 		15,
 		color
@@ -231,7 +272,7 @@ func _draw_lock_combatant(
 			int(data.get("stance", 0)),
 			str(data.get("stance_state", "UNKNOWN")),
 		],
-		rect.position + Vector2(0.0, 98.0),
+		Vector2(rect.position.x, rect.end.y - 45.0),
 		rect.size.x,
 		14,
 		AMBER
@@ -241,7 +282,7 @@ func _draw_lock_combatant(
 			float(data.get("blood", 0.0)),
 			int(data.get("reserved_ap", 0)),
 		],
-		rect.position + Vector2(0.0, 126.0),
+		Vector2(rect.position.x, rect.end.y - 20.0),
 		rect.size.x,
 		14,
 		color
@@ -249,8 +290,8 @@ func _draw_lock_combatant(
 	if data.get("is_active", false):
 		_draw_text(
 			"ACTIVE",
-			rect.position + Vector2(0.0, rect.size.y - 30.0),
-			rect.size.x,
+			rect.position + Vector2(rect.size.x - 70.0, 16.0),
+			62.0,
 			15,
 			color
 		)
@@ -306,6 +347,267 @@ func _find_lock_slot() -> int:
 		if descriptor.get("is_melee_locked", false):
 			return int(descriptor.get("index", -1))
 	return -1
+
+func _sync_tokens() -> void:
+	if _snapshot.is_empty():
+		_player_token.visible = false
+		_enemy_token.visible = false
+		return
+
+	_sync_token(
+		_player_token,
+		_snapshot.get("player", {}),
+		true
+	)
+	_sync_token(
+		_enemy_token,
+		_snapshot.get("enemy", {}),
+		false
+	)
+	_layout_tokens()
+
+func _sync_token(
+	token: HumanoidTokenView,
+	data: Dictionary,
+	is_player: bool
+) -> void:
+	token.visible = not data.is_empty()
+	if not token.visible:
+		return
+
+	token.set_appearance(data.get(
+		"appearance",
+		HumanoidVisualCatalog.appearance_from_slot_item_ids({})
+	))
+	token.set_direction_row(
+		HumanoidVisualCatalog.DIRECTION_RIGHT
+		if is_player
+		else HumanoidVisualCatalog.DIRECTION_LEFT
+	)
+	var pose := _token_pose(data)
+	if data.get("is_dead", false):
+		token.play_animation("Die", false)
+	elif token.is_playing_one_shot():
+		token.set_return_animation(pose)
+	elif not _token_is_moving(is_player):
+		token.play_animation(pose, false)
+
+func _layout_tokens() -> void:
+	if not _player_token or not _enemy_token:
+		return
+	if _snapshot.is_empty():
+		return
+
+	if _showing_melee_lock:
+		_player_token.set_display_scale(2.0)
+		_enemy_token.set_display_scale(2.0)
+		_move_or_place_token(
+			_player_token,
+			Vector2(size.x * 0.27, size.y * 0.43),
+			int(_snapshot.get("player", {}).get("lane", -1)),
+			true
+		)
+		_move_or_place_token(
+			_enemy_token,
+			Vector2(size.x * 0.73, size.y * 0.43),
+			int(_snapshot.get("enemy", {}).get("lane", -1)),
+			false
+		)
+		_store_current_lanes()
+		return
+
+	var left := 24.0
+	var right := size.x - 24.0
+	var center_y := size.y * 0.56
+	var cell_width := (right - left) / 12.0
+	var player_lane := int(_snapshot.get("player", {}).get("lane", -1))
+	var enemy_lane := int(_snapshot.get("enemy", {}).get("lane", -1))
+	var shared_lane := player_lane >= 0 and player_lane == enemy_lane
+
+	_player_token.set_display_scale(1.25)
+	_enemy_token.set_display_scale(1.25)
+	if player_lane >= 0:
+		_move_or_place_token(
+			_player_token,
+			Vector2(
+			left + cell_width * (float(player_lane) + 0.5)
+				- (8.0 if shared_lane else 0.0),
+			center_y - 10.0
+			),
+			player_lane,
+			true
+		)
+	if enemy_lane >= 0:
+		_move_or_place_token(
+			_enemy_token,
+			Vector2(
+			left + cell_width * (float(enemy_lane) + 0.5)
+				+ (8.0 if shared_lane else 0.0),
+			center_y - 10.0
+			),
+			enemy_lane,
+			false
+		)
+	_store_current_lanes()
+
+func _move_or_place_token(
+	token: HumanoidTokenView,
+	target: Vector2,
+	lane: int,
+	is_player: bool
+) -> void:
+	var previous_lane := (
+		_last_player_lane if is_player else _last_enemy_lane
+	)
+	if previous_lane < 0 or previous_lane == lane:
+		if not _token_is_moving(is_player):
+			token.position = target
+		return
+
+	var active_tween := (
+		_player_move_tween if is_player else _enemy_move_tween
+	)
+	if active_tween and active_tween.is_valid():
+		active_tween.kill()
+
+	var side := "player" if is_player else "enemy"
+	var opponent_side := "enemy" if is_player else "player"
+	var data: Dictionary = _snapshot.get(side, {})
+	var opponent_lane := int(
+		_snapshot.get(opponent_side, {}).get("lane", -1)
+	)
+	token.play_animation(
+		_movement_animation(
+			data,
+			previous_lane,
+			lane,
+			opponent_lane
+		)
+	)
+	var tween := create_tween()
+	tween.tween_property(
+		token,
+		"position",
+		target,
+		LANE_MOVE_DURATION_SECONDS
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.finished.connect(_finish_token_move.bind(is_player))
+	if is_player:
+		_player_move_tween = tween
+	else:
+		_enemy_move_tween = tween
+
+func _finish_token_move(is_player: bool) -> void:
+	var token := _player_token if is_player else _enemy_token
+	var side := "player" if is_player else "enemy"
+	var data: Dictionary = _snapshot.get(side, {})
+	var pose := _token_pose(data)
+	if (
+		not data.get("is_dead", false)
+		and not _token_is_impaired(data)
+		and data.get("has_firearm", false)
+	):
+		token.play_one_shot("Taunt", pose)
+	else:
+		token.play_animation(pose)
+
+func _token_is_moving(is_player: bool) -> bool:
+	var tween := (
+		_player_move_tween if is_player else _enemy_move_tween
+	)
+	return tween != null and tween.is_valid() and tween.is_running()
+
+func _token_pose(data: Dictionary) -> String:
+	if data.get("is_dead", false):
+		return "Die"
+	if _token_is_impaired(data):
+		return "CrouchIdle"
+	return "Idle2"
+
+func _token_is_impaired(data: Dictionary) -> bool:
+	return (
+		int(data.get("stance", int(GameEnums.SCALE_MAX))) <= 6
+		or data.get("both_legs_broken", false)
+	)
+
+func _movement_animation(
+	data: Dictionary,
+	previous_lane: int,
+	lane: int,
+	opponent_lane: int
+) -> String:
+	if _token_is_impaired(data):
+		return "CrouchRun"
+	if previous_lane < 0 or opponent_lane < 0:
+		return "Run"
+	return (
+		"Run"
+		if absi(lane - opponent_lane) < absi(
+			previous_lane - opponent_lane
+		)
+		else "RunBackwards"
+	)
+
+func _animation_for_action(side: String, action: int) -> String:
+	match action:
+		GameEnums.ActionType.SHOOT, GameEnums.ActionType.AIMED_SHOT:
+			return "Attack1"
+		GameEnums.ActionType.GRAPPLE, GameEnums.ActionType.BREAK, \
+		GameEnums.ActionType.PUSH_STAY, GameEnums.ActionType.PUSH_FOLLOW, \
+		GameEnums.ActionType.PULL_FOLLOW, GameEnums.ActionType.TRIP, \
+		GameEnums.ActionType.EXECUTE, GameEnums.ActionType.BLOCK:
+			return "Attack2"
+		GameEnums.ActionType.STRIKE:
+			return _next_swing_animation(side)
+		GameEnums.ActionType.TAKE_COVER, GameEnums.ActionType.DODGE:
+			return _next_strafe_animation(side)
+		GameEnums.ActionType.GET_UP, GameEnums.ActionType.RELOAD, \
+		GameEnums.ActionType.CYCLE, GameEnums.ActionType.USE_ITEM:
+			return "Taunt"
+	return ""
+
+func _next_swing_animation(side: String) -> String:
+	var use_right := (
+		_player_uses_right_swing
+		if side == "player"
+		else _enemy_uses_right_swing
+	)
+	if side == "player":
+		_player_uses_right_swing = not _player_uses_right_swing
+	else:
+		_enemy_uses_right_swing = not _enemy_uses_right_swing
+	return "Attack3" if use_right else "Attack4"
+
+func _next_strafe_animation(side: String) -> String:
+	var use_right := (
+		_player_uses_right_strafe
+		if side == "player"
+		else _enemy_uses_right_strafe
+	)
+	if side == "player":
+		_player_uses_right_strafe = not _player_uses_right_strafe
+	else:
+		_enemy_uses_right_strafe = not _enemy_uses_right_strafe
+	return "StrafeRight" if use_right else "StrafeLeft"
+
+func _token_for_side(side: String) -> HumanoidTokenView:
+	if side == "player":
+		return _player_token
+	if side == "enemy":
+		return _enemy_token
+	return null
+
+func _store_current_lanes() -> void:
+	_last_player_lane = int(
+		_snapshot.get("player", {}).get("lane", -1)
+	)
+	_last_enemy_lane = int(
+		_snapshot.get("enemy", {}).get("lane", -1)
+	)
+
+func _on_resized() -> void:
+	_layout_tokens()
+	queue_redraw()
 
 func _draw_scanlines(rect: Rect2) -> void:
 	var y := rect.position.y + 3.0

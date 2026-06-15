@@ -11,9 +11,11 @@ class_name ItemData
 
 @export_group("Grid Math & Requirements")
 @export var size_cost: int = 1
-@export var capacity_bonus: int = 0 # THE FIX: Pockets are data-driven now
+@export var item_size: GameEnums.ItemSize = GameEnums.ItemSize.SMALL
+@export var capacity_bonus: int = 0
 @export var target_slot: GameEnums.EquipmentSlot = GameEnums.EquipmentSlot.BACKPACK
 @export var requires_two_hands: bool = false 
+@export var max_stack_size: int = 1
 
 @export_group("Presentation")
 @export_file("*.png") var inventory_sprite_path: String = ""
@@ -72,6 +74,10 @@ class_name ItemData
 @export var magazine_id: String = ""
 ## Optional clip or speedloader required for the fast RELOAD action.
 @export var reload_aid_id: String = ""
+## Magazine/clip metadata. Loose rounds leave these at their defaults.
+@export var accepted_ammunition_id: String = ""
+@export var magazine_capacity: int = 0
+@export var starting_loaded_rounds: int = 0
 ## Firing leaves the action locked until CYCLE is used.
 @export var requires_cycle_after_shot: bool = false
 ## When not cycling the action, CYCLE may hand-load one loose round.
@@ -89,6 +95,10 @@ var template_path: String = ""
 var current_magazine: int = 0
 ## Rifles: Whether the bolt needs cycling before the next shot.
 var needs_cycling: bool = false
+## Loose items stack in one inventory footprint.
+var stack_count: int = 1
+## Runtime rounds currently fitted into a magazine, clip, or speedloader.
+var loaded_rounds: int = 0
 
 ## Helper: Is this item a ranged weapon?
 func is_ranged() -> bool:
@@ -109,6 +119,39 @@ func get_inventory_sprite_path() -> String:
 	if current_magazine == 0 and not unloaded_sprite_path.is_empty():
 		return unloaded_sprite_path
 	return inventory_sprite_path
+
+func get_effective_item_size() -> GameEnums.ItemSize:
+	if item_size == GameEnums.ItemSize.BIG:
+		return GameEnums.ItemSize.BIG
+	if item_size == GameEnums.ItemSize.AVERAGE or size_cost >= 3:
+		return GameEnums.ItemSize.AVERAGE
+	return GameEnums.ItemSize.SMALL
+
+func get_inventory_cost() -> int:
+	return maxi(1, size_cost)
+
+func get_stack_limit() -> int:
+	if max_stack_size > 1:
+		return max_stack_size
+	if item_type != GameEnums.ItemType.AMMUNITION:
+		return 1
+	if id == "pistol_round":
+		return 24
+	if id in ["rifle_round", "carbon_rifle_round", "shotgun_shell"]:
+		return 12
+	return 1
+
+func is_magazine() -> bool:
+	return magazine_capacity > 0 and not accepted_ammunition_id.is_empty()
+
+func can_stack_with(other: ItemData) -> bool:
+	return (
+		other != null
+		and id == other.id
+		and get_stack_limit() > 1
+		and current_magazine == other.current_magazine
+		and loaded_rounds == other.loaded_rounds
+	)
 
 func get_equipped_sprite_paths() -> Array[String]:
 	if not equipped_sprite_paths.is_empty():
@@ -159,6 +202,12 @@ func create_runtime_instance() -> ItemData:
 	instance.template_path = template_path if not template_path.is_empty() else resource_path
 	instance.current_magazine = max_magazine if starting_magazine < 0 else starting_magazine
 	instance.needs_cycling = false
+	instance.stack_count = 1
+	instance.loaded_rounds = clampi(
+		starting_loaded_rounds,
+		0,
+		magazine_capacity
+	)
 	return instance
 
 func to_runtime_state() -> Dictionary:
@@ -167,6 +216,8 @@ func to_runtime_state() -> Dictionary:
 		"template_path": template_path if not template_path.is_empty() else resource_path,
 		"current_magazine": current_magazine,
 		"needs_cycling": needs_cycling,
+		"stack_count": stack_count,
+		"loaded_rounds": loaded_rounds,
 		"definition": to_definition_state(),
 	}
 
@@ -179,9 +230,11 @@ func to_definition_state() -> Dictionary:
 		"catalog_category": catalog_category,
 		"tags": tags.duplicate(),
 		"size_cost": size_cost,
+		"item_size": item_size,
 		"capacity_bonus": capacity_bonus,
 		"target_slot": target_slot,
 		"requires_two_hands": requires_two_hands,
+		"max_stack_size": max_stack_size,
 		"inventory_sprite_path": inventory_sprite_path,
 		"unloaded_sprite_path": unloaded_sprite_path,
 		"equipped_sprite_path": equipped_sprite_path,
@@ -218,6 +271,9 @@ func to_definition_state() -> Dictionary:
 		"ammunition_id": ammunition_id,
 		"magazine_id": magazine_id,
 		"reload_aid_id": reload_aid_id,
+		"accepted_ammunition_id": accepted_ammunition_id,
+		"magazine_capacity": magazine_capacity,
+		"starting_loaded_rounds": starting_loaded_rounds,
 		"requires_cycle_after_shot": requires_cycle_after_shot,
 		"cycle_loads_one_round": cycle_loads_one_round,
 		"compatible_weapon_ids": compatible_weapon_ids.duplicate(),
@@ -242,6 +298,12 @@ static func from_runtime_state(state: Dictionary) -> ItemData:
 	item.template_path = source_path
 	item.current_magazine = state.get("current_magazine", item.current_magazine)
 	item.needs_cycling = state.get("needs_cycling", false)
+	item.stack_count = maxi(1, int(state.get("stack_count", 1)))
+	item.loaded_rounds = clampi(
+		int(state.get("loaded_rounds", item.loaded_rounds)),
+		0,
+		item.magazine_capacity
+	)
 	return item
 
 func _apply_definition_state(state: Dictionary) -> void:

@@ -34,6 +34,17 @@ measurements retain meaningful units.
 - The service-rifle scope carries compatibility and future macro-SNIPE
   metadata. The SNIPE world action is not implemented yet.
 - The static Innawoods inventory set is mapped into a 163-definition Resource
+  catalog. Supported equipped visuals now drive layered Humanoid Tokens in the
+  macro world and combat lane.
+- Item definitions are shared Resources loaded once by `LootCatalog`; items do
+  not require individual scripts or scene nodes.
+
+## Item Authoring
+
+Run `Tools/Build-StaticItemCatalog.ps1` after adding static Innawoods assets.
+The default mode creates only missing definitions and preserves Inspector
+edits. Use `-Rebuild` only when intentionally replacing the generated catalog.
+- The static Innawoods inventory set is mapped into a 163-definition Resource
   catalog. Paper Doll layers are authored as data, while Duel Scene animation
   remains intentionally excluded.
 - Item definitions are shared Resources loaded once by `LootCatalog`; items do
@@ -51,4 +62,5 @@ edits. Use `-Rebuild` only when intentionally replacing the generated catalog.
 - [Project glossary](READMEs/GLOSSARY.md)
 - [System architecture](READMEs/SYSTEM_ARCHITECTURE.md)
 - [Phase 1 execution plan](READMEs/PHASE_1_EXECUTION_PLAN.md)
+- [Humanoid token pipeline](READMEs/HUMANOID_TOKEN_PIPELINE.md)
 - [Changelog](READMEs/CHANGELOG.md)

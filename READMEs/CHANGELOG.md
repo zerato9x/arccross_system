@@ -1,5 +1,74 @@
 # ARCCROSS Changelog
 
+## June 15, 2026
+
+### Humanoid Token Animation Contract
+
+- Expanded the layered token runtime contract from six animations to seventeen:
+  three disposition idles, macro walking, combat forward/backward running,
+  impaired crouch movement, four attacks, two cover strafes, damage, contextual
+  interaction/aiming, and death.
+- Added combat presentation events shared by player and AI actions. Firearms use
+  `Attack1`; Grapple and Break use `Attack2`; melee strikes alternate
+  `Attack3`/`Attack4`; Take Cover and Dodge use retained Strafe animations.
+- Added combat movement sequencing: forward `Run`, retreat `RunBackwards`,
+  firearm `Taunt` aim recovery, then aggressive `Idle2`.
+- Added `CrouchIdle` and `CrouchRun` for Stance `0-6` or two disabled legs.
+- Added macro disposition presentation: neutral player `Idle`, hostile NPC
+  `Idle2`, passive NPC `Idle3`, with `Taunt` queued after movement for POI and
+  pre-combat interactions.
+- Kept only the four simultaneous moving-attack variants outside the runtime
+  contract: `RunAttack`, `RunBackwardsAttack`, `StrafeLeftAttack`, and
+  `StrafeRightAttack`.
+
+### Humanoid Token Movement
+
+- Corrected the eight-direction sprite-row mapping. Sheet rows now resolve
+  clockwise from right through down, left, and up instead of mirroring every
+  horizontal direction.
+- Corrected combat presentation so player and enemy tokens face each other.
+- Extended macro movement long enough to display several `Walk` frames.
+- Added tweened `Walk` presentation when combatants change lane slots.
+- Added direction-aware backpack depth: packs remain behind torso clothing when
+  facing the camera and move above torso and armor layers when facing away.
+- Added smoke coverage for facing rows, frame advancement, lane translation,
+  backpack depth, and returning to the idle pose after movement.
+
+## June 14, 2026
+
+### Humanoid Tokens
+
+- Added a shared layered Humanoid Token renderer for macro-world and combat-lane
+  presentation.
+- Authored the token as a reusable Godot scene with twelve pooled `Sprite2D`
+  layer nodes. Macro actors and the combat lane now instance that scene instead
+  of constructing presentation nodes from scripts.
+- Derived player appearance from the authoritative equipped inventory and enemy
+  appearance from persistent runtime equipment or authored spawn loadouts.
+- Replaced full-character faction tinting with macro token ground rings so
+  equipped colors remain faithful to their visual layers.
+- Added shared visual aliases for definitions that intentionally use the same
+  Innawoods appearance, including jeans, generic pistols, and bat variants.
+- Limited runtime animation loading to `Idle`, `Walk`, `CrouchIdle`, `Attack1`,
+  `TakeDamage`, and `Die`. Strafe and backwards movement variants remain source
+  assets but are not runtime behavior.
+- Preserved the old macro sprites as hidden scene fallbacks so inherited scene
+  overrides remain valid during migration.
+- Added token assertions to persistent-player and combat-lane HUD smoke tests.
+- Verified the authored node hierarchy and live macro rendering through the
+  Godot AI editor, runtime-tree, and game-capture tools.
+- Added a pipeline contract covering missing visual categories, source/runtime
+  separation, manifest preparation, shared cropping, import settings, and
+  benchmark targets.
+
+### Verification
+
+- Passed the headless editor import on Godot `4.6.3`.
+- Passed `PersistentPlayerSmoke.gd` with macro token, equipment layer, enemy
+  projection, movement animation, and macro-to-combat persistence checks.
+- Passed `CombatLaneHUDSmoke.gd` with layered lane tokens and Felled pose
+  checks while retaining the existing combat and Melee Lock contract.
+
 ## June 12, 2026
 
 ### Static Item Catalog
@@ -65,6 +134,8 @@
   accuracy, Weight, and Bulk tradeoffs.
 - Updated player, Arcborn, and generated ranged-enemy loadouts with compatible
   weapons and ammunition support.
+- Kept Duel Scene animation as placeholder content. Shield-specific BLOCK
+  coverage and mitigation remain outside this weapon-data pass.
 - Kept Duel Scene animation as placeholder content. Shield-specific BLOCK
   coverage and mitigation remain outside this weapon-data pass.
 - Added `WeaponDataSmoke.gd` coverage for the firearm roster, exact feeds,

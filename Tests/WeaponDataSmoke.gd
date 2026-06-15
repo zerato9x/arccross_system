@@ -48,6 +48,7 @@ func _run() -> void:
 	)
 	await process_frame
 	_clear_inventory(target)
+	_clear_inventory(target)
 
 	if not _verify_ballistic_limb_damage(arena, target):
 		return
@@ -95,6 +96,13 @@ func _verify_authored_roster() -> bool:
 			<= service_pistol.accuracy_rating
 	):
 		return _fail("Carbon and service pistol distinctions are incorrect.")
+	var sprite_probe := service_pistol.create_runtime_instance()
+	sprite_probe.current_magazine = 0
+	if sprite_probe.get_inventory_sprite_path() != service_pistol.unloaded_sprite_path:
+		return _fail("An empty firearm did not use its unloaded inventory sprite.")
+	sprite_probe.current_magazine = 1
+	if sprite_probe.get_inventory_sprite_path() != service_pistol.inventory_sprite_path:
+		return _fail("A loaded firearm did not use its loaded inventory sprite.")
 
 	var shotgun := load(
 		"res://ItemCore/Items/shotgun.tres"
@@ -148,24 +156,34 @@ func _verify_service_pistol_reload(
 	var pistol := (
 		load("res://ItemCore/Items/service_pistol.tres") as ItemData
 	).create_runtime_instance()
-	shooter.inventory.equip_item(pistol, GameEnums.EquipmentSlot.HANDS)
+	shooter.inventory.equip_item(pistol, GameEnums.EquipmentSlot.HAND)
 	pistol.current_magazine = 0
 	_add_item_copies(shooter, "pistol_round", 8)
 
 	if arena.resolution_engine.execute_reload(shooter):
 		return _fail("Service pistol reloaded without its magazine.")
-	shooter.inventory.add_to_backpack(
-		load("res://ItemCore/Items/carbon_pistol_magazine.tres")
-	)
+	var wrong_magazine := (
+		load("res://ItemCore/Items/carbon_pistol_magazine.tres") as ItemData
+	).create_runtime_instance()
+	shooter.inventory.add_to_backpack(wrong_magazine)
+	shooter.inventory.load_magazine(wrong_magazine)
 	if arena.resolution_engine.execute_reload(shooter):
 		return _fail("Service pistol accepted a carbon pistol magazine.")
-	shooter.inventory.add_to_backpack(
-		load("res://ItemCore/Items/service_pistol_magazine.tres")
-	)
+	_add_item_copies(shooter, "pistol_round", 8)
+	var service_magazine := (
+		load("res://ItemCore/Items/service_pistol_magazine.tres") as ItemData
+	).create_runtime_instance()
+	shooter.inventory.add_to_backpack(service_magazine)
+	if shooter.inventory.load_magazine(service_magazine) != 8:
+		return _fail("Service pistol magazine did not accept eight pistol rounds.")
 	if not arena.resolution_engine.execute_reload(shooter):
-		return _fail("Service pistol rejected its correct magazine and rounds.")
+		return _fail("Service pistol rejected its fitted magazine.")
 	if pistol.current_magazine != 8:
 		return _fail("Service pistol did not load its 7+1 capacity.")
+	if shooter.inventory.find_item_by_instance_id(
+		service_magazine.instance_id
+	) != null:
+		return _fail("Reload did not spend the fitted service pistol magazine.")
 	return true
 
 func _verify_revolver_reload(
@@ -176,7 +194,7 @@ func _verify_revolver_reload(
 	var revolver := (
 		load("res://ItemCore/Items/revolver.tres") as ItemData
 	).create_runtime_instance()
-	shooter.inventory.equip_item(revolver, GameEnums.EquipmentSlot.HANDS)
+	shooter.inventory.equip_item(revolver, GameEnums.EquipmentSlot.HAND)
 	revolver.current_magazine = 0
 	_add_item_copies(shooter, "pistol_round", 6)
 
@@ -187,9 +205,13 @@ func _verify_revolver_reload(
 	if revolver.current_magazine != 1:
 		return _fail("Revolver CYCLE loaded more than one round.")
 
-	shooter.inventory.add_to_backpack(
-		load("res://ItemCore/Items/revolver_speedloader.tres")
-	)
+	_add_item_copies(shooter, "pistol_round", 1)
+	var speedloader := (
+		load("res://ItemCore/Items/revolver_speedloader.tres") as ItemData
+	).create_runtime_instance()
+	shooter.inventory.add_to_backpack(speedloader)
+	if shooter.inventory.load_magazine(speedloader) != 6:
+		return _fail("The speedloader did not accept six pistol rounds.")
 	if not arena.resolution_engine.execute_reload(shooter):
 		return _fail("Revolver rejected its speedloader.")
 	if revolver.current_magazine != 6:
@@ -203,10 +225,12 @@ func _verify_runtime_round_trip() -> bool:
 	var runtime := definition.create_runtime_instance()
 	runtime.current_magazine = 3
 	runtime.needs_cycling = true
+	runtime.stack_count = 2
 	var restored := ItemData.from_runtime_state(runtime.to_runtime_state())
 	if (
 		restored.current_magazine != 3
 		or not restored.needs_cycling
+		or restored.stack_count != 2
 		or restored.ammunition_id != "rifle_round"
 		or restored.reload_aid_id != "service_rifle_clip"
 		or restored.effective_range != 11
@@ -227,13 +251,14 @@ func _add_item_copies(
 
 func _clear_hands(entity: HumanoidCore) -> void:
 	var held: ItemData = entity.inventory.paper_doll.get(
-		GameEnums.EquipmentSlot.HANDS
+		GameEnums.EquipmentSlot.HAND
 	)
 	if held:
 		entity.inventory.remove_item_by_instance_id(held.instance_id)
 
 func _clear_inventory(entity: HumanoidCore) -> void:
 	entity.inventory.backpack_array.clear()
+	entity.inventory.item_container_slots.clear()
 	for slot in entity.inventory.paper_doll.keys():
 		entity.inventory.paper_doll[slot] = null
 	entity.inventory._recalculate_bounds()

@@ -43,6 +43,7 @@ func _build_loadout(weapon_id: String, armor_ids: Array[String], consumable_ids:
 		loadout.weapon = weapon_definition
 		var weapon: ItemData = loadout.weapon
 		if weapon.is_ranged():
+			loadout.vest = _get_item_definition("webbing")
 			for support_id in [weapon.magazine_id, weapon.reload_aid_id]:
 				var support := _get_item_definition(support_id)
 				if support:
@@ -61,6 +62,7 @@ func _build_loadout(weapon_id: String, armor_ids: Array[String], consumable_ids:
 			GameEnums.EquipmentSlot.OUTER_TORSO: loadout.outer_torso = item
 			GameEnums.EquipmentSlot.LEGS: loadout.legs = item
 			GameEnums.EquipmentSlot.FEET: loadout.feet = item
+			GameEnums.EquipmentSlot.VEST: loadout.vest = item
 			GameEnums.EquipmentSlot.BACKPACK: loadout.backpack_gear = item
 	
 	for con_id in consumable_ids:

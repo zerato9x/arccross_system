@@ -397,16 +397,13 @@ func _get_lane_idx(entity: HumanoidCore) -> int:
 func _can_reload_weapon(weapon: ItemData) -> bool:
 	if weapon.current_magazine >= weapon.max_magazine:
 		return false
-	if (
-		not weapon.magazine_id.is_empty()
-		and not _has_inventory_item(weapon.magazine_id)
-	):
-		return false
-	if (
-		not weapon.reload_aid_id.is_empty()
-		and not _has_inventory_item(weapon.reload_aid_id)
-	):
-		return false
+	var feed_id := (
+		weapon.magazine_id
+		if not weapon.magazine_id.is_empty()
+		else weapon.reload_aid_id
+	)
+	if not feed_id.is_empty():
+		return ai_core.inventory.find_filled_magazine(feed_id) != null
 	if (
 		weapon.magazine_id.is_empty()
 		and weapon.reload_aid_id.is_empty()
@@ -433,7 +430,4 @@ func _can_cycle_weapon(weapon: ItemData) -> bool:
 	)
 
 func _has_inventory_item(item_id: String) -> bool:
-	for item in ai_core.inventory.backpack_array:
-		if item.id == item_id:
-			return true
-	return false
+	return ai_core.inventory.has_combat_item(item_id)

@@ -5,11 +5,13 @@ class_name SpawnLoadout
 ## Drag ItemData .tres files into these slots in the Inspector.
 
 @export_group("Paper Doll (Equipped)")
-@export var weapon: ItemData         ## HANDS slot
+@export var weapon: ItemData         ## HAND slot
+@export var offhand: ItemData        ## OFFHAND slot
 @export var inner_torso: ItemData    ## INNER_TORSO slot
 @export var outer_torso: ItemData    ## OUTER_TORSO slot
 @export var legs: ItemData           ## LEGS slot
 @export var feet: ItemData           ## FEET slot
+@export var vest: ItemData           ## VEST slot / combat-accessible rig
 @export var backpack_gear: ItemData  ## BACKPACK slot (the bag itself, not contents)
 
 @export_group("Backpack Contents (Loose Items)")
@@ -29,21 +31,33 @@ func apply_to(inventory: InventorySystem) -> void:
 		inventory.equip_item(legs, GameEnums.EquipmentSlot.LEGS)
 	if feet:
 		inventory.equip_item(feet, GameEnums.EquipmentSlot.FEET)
+	if vest:
+		inventory.equip_item(vest, GameEnums.EquipmentSlot.VEST)
 	if weapon:
-		inventory.equip_item(weapon, GameEnums.EquipmentSlot.HANDS)
+		inventory.equip_item(weapon, GameEnums.EquipmentSlot.HAND)
+	if offhand:
+		inventory.equip_item(offhand, GameEnums.EquipmentSlot.OFFHAND)
 	
 	# 2. Stuff loose items into the backpack
 	for item in starting_items:
 		if not inventory.add_to_backpack(item):
 			print("[LOADOUT] WARNING: Backpack full. Could not fit: ", item.display_name)
 
+	# Authored loadouts begin field-ready. Replacement magazines found later
+	# must be fitted through the inventory action.
+	for carried_item in inventory.backpack_array.duplicate():
+		if carried_item.is_magazine() and carried_item.loaded_rounds == 0:
+			inventory.load_magazine(carried_item)
+
 func to_state() -> Dictionary:
 	return {
 		"weapon": _item_definition_path(weapon),
+		"offhand": _item_definition_path(offhand),
 		"inner_torso": _item_definition_path(inner_torso),
 		"outer_torso": _item_definition_path(outer_torso),
 		"legs": _item_definition_path(legs),
 		"feet": _item_definition_path(feet),
+		"vest": _item_definition_path(vest),
 		"backpack_gear": _item_definition_path(backpack_gear),
 		"starting_items": starting_items.map(
 			func(item: ItemData) -> String: return _item_definition_path(item)
@@ -53,10 +67,12 @@ func to_state() -> Dictionary:
 static func from_state(state: Dictionary) -> SpawnLoadout:
 	var loadout := SpawnLoadout.new()
 	loadout.weapon = _load_item_definition(state.get("weapon", ""))
+	loadout.offhand = _load_item_definition(state.get("offhand", ""))
 	loadout.inner_torso = _load_item_definition(state.get("inner_torso", ""))
 	loadout.outer_torso = _load_item_definition(state.get("outer_torso", ""))
 	loadout.legs = _load_item_definition(state.get("legs", ""))
 	loadout.feet = _load_item_definition(state.get("feet", ""))
+	loadout.vest = _load_item_definition(state.get("vest", ""))
 	loadout.backpack_gear = _load_item_definition(state.get("backpack_gear", ""))
 
 	for item_path in state.get("starting_items", []):

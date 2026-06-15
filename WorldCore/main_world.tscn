@@ -12,12 +12,6 @@
 [ext_resource type="Script" uid="uid://yet2ng3qfd24" path="res://WorldCore/camera_2d.gd" id="7_aac4l"]
 [ext_resource type="Texture2D" uid="uid://dnwhciogoduey" path="res://Asset/forestPack/forest_12_hill.png" id="8_ohlbx"]
 [ext_resource type="Texture2D" uid="uid://by4ngt7l0fdlp" path="res://Asset/forestPack/forest_13_stones.png" id="9_gs8yn"]
-[ext_resource type="Resource" uid="uid://dt3cxr74y2xao" path="res://BiologicalCore/player_def.tres" id="25_player_def"]
-[ext_resource type="Script" path="res://BiologicalCore/HumanoidCore.gd" id="26_humanoid_core"]
-[ext_resource type="Script" path="res://BiologicalCore/HumanoidBody.gd" id="27_humanoid_body"]
-[ext_resource type="Script" path="res://ItemCore/InventorySystem.gd" id="28_inventory"]
-[ext_resource type="Script" path="res://WorldCore/MacroInteractionPanel.gd" id="29_interaction"]
-[ext_resource type="PackedScene" uid="uid://b72xqqy5yyt02" path="res://UI/Inventory/InventoryUI.tscn" id="30_inventory_panel"]
 [ext_resource type="Texture2D" uid="uid://lopsakt5em76" path="res://Asset/forestPack/forest_14_house.png" id="10_n2nnu"]
 [ext_resource type="Texture2D" uid="uid://dusx3o6ucd80f" path="res://Asset/forestPack/forest_15_village.png" id="11_7y61r"]
 [ext_resource type="Texture2D" uid="uid://blxl2fwmc1f3y" path="res://Asset/forestPack/forest_16_watchTower.png" id="12_jskb3"]
@@ -33,6 +27,13 @@
 [ext_resource type="Texture2D" uid="uid://b6c54u52u4gqy" path="res://Asset/forestPack/forest_08_spider.png" id="22_rbnne"]
 [ext_resource type="Texture2D" uid="uid://u6a81jsk2582" path="res://Asset/forestPack/forest_09_tree.png" id="23_vg3c2"]
 [ext_resource type="Texture2D" uid="uid://cnhflxv7cbmfb" path="res://Asset/forestPack/forest_10_mushroom.png" id="24_2h6sp"]
+[ext_resource type="Resource" uid="uid://dt3cxr74y2xao" path="res://BiologicalCore/player_def.tres" id="25_player_def"]
+[ext_resource type="Script" uid="uid://c6bbmynmpcyyd" path="res://BiologicalCore/HumanoidCore.gd" id="26_humanoid_core"]
+[ext_resource type="Script" uid="uid://cyby11uaje4em" path="res://BiologicalCore/HumanoidBody.gd" id="27_humanoid_body"]
+[ext_resource type="Script" uid="uid://cfggpum5ci84n" path="res://ItemCore/InventorySystem.gd" id="28_inventory"]
+[ext_resource type="Script" uid="uid://b3cich77l6nye" path="res://WorldCore/MacroInteractionPanel.gd" id="29_interaction"]
+[ext_resource type="PackedScene" uid="uid://b72xqqy5yyt02" path="res://UI/Inventory/InventoryUI.tscn" id="30_inventory_panel"]
+[ext_resource type="PackedScene" uid="uid://bidwe2cg476w8" path="res://UI/Humanoid/HumanoidToken.tscn" id="31_bnpb6"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_n2nnu"]
 texture = ExtResource("20_cr12t")
@@ -184,24 +185,27 @@ position = Vector2(0, -64)
 scale = Vector2(0.25, 0.25)
 texture = ExtResource("6_aac4l")
 
-[node name="HumanoidCore" type="Node" parent="PlayerMacroToken"]
+[node name="HumanoidCore" type="Node" parent="PlayerMacroToken" unique_id=2001012132]
 script = ExtResource("26_humanoid_core")
 definition = ExtResource("25_player_def")
 
-[node name="HumanoidBody" type="Node" parent="PlayerMacroToken/HumanoidCore"]
+[node name="HumanoidBody" type="Node" parent="PlayerMacroToken/HumanoidCore" unique_id=1544549518]
 script = ExtResource("27_humanoid_body")
 
-[node name="InventorySystem" type="Node" parent="PlayerMacroToken/HumanoidCore"]
+[node name="InventorySystem" type="Node" parent="PlayerMacroToken/HumanoidCore" unique_id=122647834]
 script = ExtResource("28_inventory")
+
+[node name="HumanoidTokenView" parent="PlayerMacroToken" unique_id=680516095 instance=ExtResource("31_bnpb6")]
+position = Vector2(0, -64)
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1897637502 node_paths=PackedStringArray("target")]
 position = Vector2(0, 1)
 script = ExtResource("7_aac4l")
 target = NodePath("../PlayerMacroToken")
 
-[node name="MacroInteractionPanel" type="CanvasLayer" parent="."]
+[node name="MacroInteractionPanel" type="CanvasLayer" parent="." unique_id=1948304426]
 script = ExtResource("29_interaction")
 
-[node name="InventoryPanel" type="CanvasLayer" parent="."]
+[node name="InventoryPanel" type="CanvasLayer" parent="." unique_id=661175097]
 
-[node name="InventoryUI" parent="InventoryPanel" instance=ExtResource("30_inventory_panel")]
+[node name="InventoryUI" parent="InventoryPanel" unique_id=515846596 instance=ExtResource("30_inventory_panel")]

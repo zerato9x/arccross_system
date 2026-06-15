@@ -1,0 +1,44 @@
+[gd_scene format=3 uid="uid://bidwe2cg476w8"]
+
+[ext_resource type="Script" path="res://UI/Humanoid/HumanoidTokenView.gd" id="1_3sc2c"]
+
+[node name="HumanoidToken" type="Node2D" unique_id=680516095]
+script = ExtResource("1_3sc2c")
+
+[node name="Layers" type="Node2D" parent="." unique_id=815221209]
+
+[node name="Layer_00" type="Sprite2D" parent="Layers" unique_id=1561636225]
+visible = false
+
+[node name="Layer_01" type="Sprite2D" parent="Layers" unique_id=1709845969]
+visible = false
+
+[node name="Layer_02" type="Sprite2D" parent="Layers" unique_id=623411334]
+visible = false
+
+[node name="Layer_03" type="Sprite2D" parent="Layers" unique_id=570219744]
+visible = false
+
+[node name="Layer_04" type="Sprite2D" parent="Layers" unique_id=1149065242]
+visible = false
+
+[node name="Layer_05" type="Sprite2D" parent="Layers" unique_id=1494931915]
+visible = false
+
+[node name="Layer_06" type="Sprite2D" parent="Layers" unique_id=1238572781]
+visible = false
+
+[node name="Layer_07" type="Sprite2D" parent="Layers" unique_id=520023100]
+visible = false
+
+[node name="Layer_08" type="Sprite2D" parent="Layers" unique_id=1272149250]
+visible = false
+
+[node name="Layer_09" type="Sprite2D" parent="Layers" unique_id=1224170077]
+visible = false
+
+[node name="Layer_10" type="Sprite2D" parent="Layers" unique_id=1390950476]
+visible = false
+
+[node name="Layer_11" type="Sprite2D" parent="Layers" unique_id=1959554955]
+visible = false

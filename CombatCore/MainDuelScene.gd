@@ -30,6 +30,9 @@ func _ready() -> void:
 	)
 	command_adapter.snapshot_changed.connect(combat_panel.show_snapshot)
 	command_adapter.snapshot_changed.connect(lane_hud.show_snapshot)
+	command_adapter.presentation_event.connect(
+		lane_hud.show_presentation_event
+	)
 	command_adapter.reaction_requested.connect(combat_panel.show_reaction)
 	command_adapter.command_feedback.connect(combat_panel.show_feedback)
 	lane_hud.open_hud()
@@ -170,13 +173,16 @@ func _fabricate_humanoid(
 		var test_bag = load("res://ItemCore/Items/backpack_service_big.tres")
 		if test_bag:
 			inv.equip_item(test_bag, GameEnums.EquipmentSlot.BACKPACK)
+		var test_rig = load("res://ItemCore/Items/webbing.tres")
+		if test_rig:
+			inv.equip_item(test_rig, GameEnums.EquipmentSlot.VEST)
 			
 		# Give them a weapon so they can actually fight
 		var test_weapon = load("res://ItemCore/Items/rebar.tres")
 		if unit_name == "Player_Unit":
 			test_weapon = load("res://ItemCore/Items/service_pistol.tres")
 		if test_weapon:
-			inv.equip_item(test_weapon, GameEnums.EquipmentSlot.HANDS)
+			inv.equip_item(test_weapon, GameEnums.EquipmentSlot.HAND)
 			
 			if test_weapon.is_ranged():
 				_supply_test_ammunition(inv, test_weapon, 18)
@@ -208,7 +214,9 @@ func _supply_test_ammunition(
 			"res://ItemCore/Items/%s.tres" % support_id
 		) as ItemData
 		if support_definition:
-			inventory.add_to_backpack(support_definition)
+			var runtime_support := support_definition.create_runtime_instance()
+			if inventory.add_to_backpack(runtime_support):
+				inventory.load_magazine(runtime_support)
 
 func _on_items_spilled(spilled_items: Array[ItemData], entity: HumanoidCore) -> void:
 	print("[COMBAT DROPS] ", entity.name, " spilled ", spilled_items.size(), " items into the dirt!")

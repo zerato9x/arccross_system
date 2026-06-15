@@ -206,6 +206,21 @@ func get_motor_efficiency() -> float:
 func has_functional_arms() -> bool:
 	return limb_hp[GameEnums.LimbRegion.LEFT_ARM] > 0 and limb_hp[GameEnums.LimbRegion.RIGHT_ARM] > 0
 
+func are_both_legs_disabled() -> bool:
+	return (
+		_is_limb_disabled(GameEnums.LimbRegion.LEFT_LEG)
+		and _is_limb_disabled(GameEnums.LimbRegion.RIGHT_LEG)
+	)
+
+func _is_limb_disabled(limb: GameEnums.LimbRegion) -> bool:
+	return (
+		float(limb_hp.get(limb, 0.0)) <= 0.0
+		or int(limb_trauma.get(
+			limb,
+			GameEnums.TraumaType.NONE
+		)) == GameEnums.TraumaType.SHATTERED_LIMB
+	)
+
 func capture_runtime_state() -> Dictionary:
 	var hp_state: Dictionary = {}
 	var trauma_state: Dictionary = {}

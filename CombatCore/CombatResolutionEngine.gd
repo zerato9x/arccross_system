@@ -1,6 +1,9 @@
 extends Node
 class_name CombatResolutionEngine
 
+signal action_started(entity: HumanoidCore, action: int)
+signal damage_applied(entity: HumanoidCore)
+
 @export var lane_manager: CombatLaneManager
 @export var turn_manager: CombatTurnManager
 
@@ -56,6 +59,12 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 		print("DENIED: ", attacker.name, "'s ", weapon.display_name, " needs CYCLING.")
 		return
 
+	var action_type := (
+		GameEnums.ActionType.AIMED_SHOT
+		if is_aimed
+		else GameEnums.ActionType.SHOOT
+	)
+	action_started.emit(attacker, action_type)
 	weapon.current_magazine -= 1
 	weapon.needs_cycling = weapon.requires_cycle_after_shot
 	var action_name := (
@@ -129,7 +138,6 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 				reaction_success = success
 		
 		turn_manager.reaction_resolved.connect(on_res)
-		var action_type = GameEnums.ActionType.AIMED_SHOT if is_aimed else GameEnums.ActionType.SHOOT
 		var reactions = turn_manager.open_reaction_window(victim, attacker, action_type)
 		if turn_manager._reaction_pending and not reaction_occurred:
 			await turn_manager.reaction_resolved
@@ -197,28 +205,39 @@ func execute_reload(entity: HumanoidCore) -> bool:
 		print(entity.name, "'s ", weapon.display_name, " is already full.")
 		return false
 
-	if (
-		not weapon.magazine_id.is_empty()
-		and not _inventory_has_item(entity, weapon.magazine_id)
-	):
-		print(
-			"DENIED: ",
-			weapon.display_name,
-			" requires ",
-			weapon.magazine_id,
-			"."
+	var feed_id := (
+		weapon.magazine_id
+		if not weapon.magazine_id.is_empty()
+		else weapon.reload_aid_id
+	)
+	if not feed_id.is_empty():
+		var fitted_magazine := entity.inventory.consume_filled_magazine(feed_id)
+		if fitted_magazine == null:
+			print(
+				"DENIED: ",
+				weapon.display_name,
+				" requires a loaded ",
+				feed_id,
+				" in the combat rig."
+			)
+			return false
+		weapon.current_magazine = mini(
+			weapon.max_magazine,
+			fitted_magazine.loaded_rounds
 		)
-		return false
-	if (
-		not weapon.reload_aid_id.is_empty()
-		and not _inventory_has_item(entity, weapon.reload_aid_id)
-	):
+		weapon.needs_cycling = false
 		print(
-			"DENIED: Fast RELOAD requires ",
-			weapon.reload_aid_id,
-			"; use CYCLE to load one round."
+			"[RELOAD] ",
+			entity.name,
+			" fitted ",
+			feed_id,
+			". Rounds: ",
+			weapon.current_magazine,
+			"/",
+			weapon.max_magazine
 		)
-		return false
+		action_started.emit(entity, GameEnums.ActionType.RELOAD)
+		return true
 	if (
 		weapon.magazine_id.is_empty()
 		and weapon.reload_aid_id.is_empty()
@@ -227,36 +246,29 @@ func execute_reload(entity: HumanoidCore) -> bool:
 		print("DENIED: ", weapon.display_name, " is loaded one round at a time with CYCLE.")
 		return false
 
-	var rounds_needed: int = weapon.max_magazine - weapon.current_magazine
-	var rounds_loaded: int = 0
-	
-	for i in range(rounds_needed):
-		if _consume_ammunition_from_backpack(
-			entity,
-			weapon.ammunition_id
-		):
-			rounds_loaded += 1
-		else:
-			break
-	
-	if rounds_loaded > 0:
-		weapon.current_magazine += rounds_loaded
-		print(
-			"[RELOAD] ",
-			entity.name,
-			" loaded ",
-			rounds_loaded,
-			" rounds into ",
-			weapon.display_name,
-			". Rounds: ",
-			weapon.current_magazine,
-			"/",
-			weapon.max_magazine
-		)
-		return true
-	
-	print("DENIED: ", entity.name, " has no compatible ", weapon.ammunition_id, ".")
-	return false
+	var rounds_needed := weapon.max_magazine - weapon.current_magazine
+	var rounds_loaded := entity.inventory.consume_ammunition(
+		weapon.ammunition_id,
+		rounds_needed,
+		true
+	)
+	if rounds_loaded <= 0:
+		print("DENIED: No compatible ammunition is available in the combat rig.")
+		return false
+	weapon.current_magazine += rounds_loaded
+	weapon.needs_cycling = false
+	print(
+		"[RELOAD] ",
+		entity.name,
+		" loaded ",
+		rounds_loaded,
+		" loose rounds. Rounds: ",
+		weapon.current_magazine,
+		"/",
+		weapon.max_magazine
+	)
+	action_started.emit(entity, GameEnums.ActionType.RELOAD)
+	return true
 
 # ---------------------------------------------------------
 # RIFLE CYCLE
@@ -271,6 +283,7 @@ func execute_cycle(entity: HumanoidCore) -> bool:
 	if weapon.needs_cycling:
 		weapon.needs_cycling = false
 		print("[CYCLE] ", entity.name, " cycles ", weapon.display_name, ". Ready to fire.")
+		action_started.emit(entity, GameEnums.ActionType.CYCLE)
 		return true
 
 	if not weapon.cycle_loads_one_round:
@@ -297,6 +310,7 @@ func execute_cycle(entity: HumanoidCore) -> bool:
 		"/",
 		weapon.max_magazine
 	)
+	action_started.emit(entity, GameEnums.ActionType.CYCLE)
 	return true
 
 
@@ -335,6 +349,7 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 				print("[STRIKE BLOCKED] Block succeeded, mitigated damage applied.")
 				return
 	
+	action_started.emit(attacker, GameEnums.ActionType.STRIKE)
 	var target_limb := roll_melee_target()
 	print("\n--- MELEE STRIKE ---")
 	print(attacker.name, " swings at ", defender.name, "'s ", GameEnums.LimbRegion.keys()[target_limb])
@@ -345,6 +360,7 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 		# Unarmed strike — minimal damage
 		defender.body.apply_targeted_hit(target_limb, 0.5, 0.0)
 		defender.apply_stance_damage(2.0)
+		damage_applied.emit(defender)
 		print("[UNARMED] Fists connect for minor trauma.")
 
 func roll_melee_target() -> GameEnums.LimbRegion:
@@ -371,6 +387,7 @@ func execute_grapple(
 		print("DENIED: ", defender.name, " is already FELLED.")
 		return false
 
+	action_started.emit(initiator, GameEnums.ActionType.GRAPPLE)
 	var attack_roll := _base12_roll(attack_roll_override)
 	var defense_roll := _base12_roll(defense_roll_override)
 	var force := (
@@ -421,6 +438,7 @@ func execute_execute(executioner: HumanoidCore, victim: HumanoidCore) -> void:
 		print("DENIED: ", executioner.name, " is not in the same grid slot as ", victim.name)
 		return
 	
+	action_started.emit(executioner, GameEnums.ActionType.EXECUTE)
 	print("\n--- EXECUTION ---")
 	print(executioner.name, " delivers the killing blow to ", victim.name, "!")
 	
@@ -440,6 +458,7 @@ func execute_execute(executioner: HumanoidCore, victim: HumanoidCore) -> void:
 func execute_break(attacker: HumanoidCore, defender: HumanoidCore) -> void:
 	var weapon: ItemData = attacker.inventory.get_active_weapon(true) # Melee context
 	
+	action_started.emit(attacker, GameEnums.ActionType.BREAK)
 	print("\n--- BREAK STRIKE ---")
 	print(attacker.name, " delivers a destabilizing strike against ", defender.name, "'s footing!")
 	
@@ -463,6 +482,7 @@ func execute_break(attacker: HumanoidCore, defender: HumanoidCore) -> void:
 # Evasion benefit calculated from environmental assets.
 
 func execute_take_cover(entity: HumanoidCore) -> void:
+	action_started.emit(entity, GameEnums.ActionType.TAKE_COVER)
 	print("\n--- TAKE COVER ---")
 	print(entity.name, " drops to the ground behind available cover!")
 	
@@ -487,6 +507,7 @@ func execute_get_up(entity: HumanoidCore) -> bool:
 		print("DENIED: ", entity.name, " is not FELLED.")
 		return false
 
+	action_started.emit(entity, GameEnums.ActionType.GET_UP)
 	print("\n--- GET UP ---")
 	entity.begin_felled_recovery(CombatRules.FELLED_RECOVERY_POINTS)
 	print(
@@ -515,6 +536,7 @@ func execute_trip(tripper: HumanoidCore, target: HumanoidCore) -> bool:
 		print("DENIED: Must be in the same grid slot to TRIP.")
 		return false
 	
+	action_started.emit(tripper, GameEnums.ActionType.TRIP)
 	print("\n--- TRIP ATTEMPT ---")
 	print(tripper.name, " sweeps at ", target.name, "'s legs from the ground!")
 	
@@ -641,6 +663,7 @@ func resolve_block(defender: HumanoidCore, attacker: HumanoidCore, weapon: ItemD
 		print("[BLOCK FAILED] ", defender.name, " cannot block — arms are shattered.")
 		return false
 	
+	action_started.emit(defender, GameEnums.ActionType.BLOCK)
 	print("[BLOCK] ", defender.name, " raises a guard against the incoming strike!")
 	
 	# Damage type rules: blunt stance bleed-through (50% stance damage) vs. sharp mitigation (0 stance, 10% flesh)
@@ -676,6 +699,8 @@ func resolve_block(defender: HumanoidCore, attacker: HumanoidCore, weapon: ItemD
 		var resulting_state = defender.apply_stance_damage(final_stance)
 		print("[BLOCK BLEED-THROUGH] Blunt impact rattled posture: -", final_stance, " stance → ", GameEnums.StanceState.keys()[resulting_state])
 		
+	if final_flesh > 0.0 or final_stance > 0.0:
+		damage_applied.emit(defender)
 	return true
 
 # ---------------------------------------------------------
@@ -688,6 +713,7 @@ func resolve_dodge(defender: HumanoidCore, attacker: HumanoidCore) -> bool:
 		print("[DODGE FAILED] ", defender.name, " cannot dodge — legs are crippled.")
 		return false
 	
+	action_started.emit(defender, GameEnums.ActionType.DODGE)
 	# Finesse-based dodge roll
 	var dodge_roll: float = randf() * float(defender.definition.finesse)
 	
@@ -795,6 +821,8 @@ func _resolve_damage(
 		var resulting_state = victim.apply_stance_damage(final_stance)
 		print("STANCE IMPACT: -", final_stance, " equilibrium → ", GameEnums.StanceState.keys()[resulting_state], " (", victim.stance_points, "/12)")
 
+	damage_applied.emit(victim)
+
 # ---------------------------------------------------------
 # AMMO UTILITY
 # ---------------------------------------------------------
@@ -802,10 +830,7 @@ func _resolve_damage(
 func _inventory_has_item(entity: HumanoidCore, item_id: String) -> bool:
 	if item_id.is_empty():
 		return true
-	for item in entity.inventory.backpack_array:
-		if item.id == item_id:
-			return true
-	return false
+	return entity.inventory.has_combat_item(item_id)
 
 ## Consume one compatible loose round from the backpack.
 func _consume_ammunition_from_backpack(
@@ -813,12 +838,7 @@ func _consume_ammunition_from_backpack(
 	ammunition_id: String
 ) -> bool:
 	var resolved_id := ammunition_id if not ammunition_id.is_empty() else "ammo_round"
-	for item in entity.inventory.backpack_array:
-		if item.id == resolved_id:
-			entity.inventory.backpack_array.erase(item)
-			entity.inventory._recalculate_bounds()
-			return true
-	return false
+	return entity.inventory.consume_ammunition(resolved_id, 1, true) == 1
 
 func _find_entity_index(entity: HumanoidCore) -> int:
 	for i in range(lane_manager.lane_slots.size()):

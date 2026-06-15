@@ -67,6 +67,54 @@ func _run() -> void:
 	if hud_snapshot.get("lane_slots", []).size() != 12:
 		_fail("CombatLaneHUD did not receive the twelve-slot snapshot.")
 		return
+	if (
+		hud_snapshot.get("player", {}).get("appearance", {}).get(
+			"signature",
+			""
+		).is_empty()
+		or not arena.lane_hud._lane_view._player_token.visible
+		or not arena.lane_hud._lane_view._enemy_token.visible
+	):
+		_fail("CombatLaneHUD did not project layered humanoid tokens.")
+		return
+	if (
+		arena.lane_hud._lane_view._player_token.get_direction_row()
+		!= HumanoidVisualCatalog.DIRECTION_RIGHT
+		or arena.lane_hud._lane_view._enemy_token.get_direction_row()
+		!= HumanoidVisualCatalog.DIRECTION_LEFT
+	):
+		_fail("Combat tokens did not face each other.")
+		return
+	for token in [
+		arena.lane_hud._lane_view._player_token,
+		arena.lane_hud._lane_view._enemy_token,
+	]:
+		if token._layer_sprites.is_empty():
+			_fail("A combat token rendered without any sprite layers.")
+			return
+		for layer_sprite in token._layer_sprites:
+			if layer_sprite.texture == null:
+				_fail("A combat token layer did not load its texture.")
+				return
+	var required_animations := [
+		"Idle", "Idle2", "Idle3", "Walk", "Run", "RunBackwards",
+		"CrouchIdle", "CrouchRun", "Attack1", "Attack2", "Attack3",
+		"Attack4", "StrafeLeft", "StrafeRight", "TakeDamage",
+		"Taunt", "Die",
+	]
+	for animation in required_animations:
+		if not HumanoidVisualCatalog.supports_animation(animation):
+			_fail("The runtime catalog omitted " + animation + ".")
+			return
+	for discarded_animation in [
+		"RunAttack",
+		"RunBackwardsAttack",
+		"StrafeLeftAttack",
+		"StrafeRightAttack",
+	]:
+		if HumanoidVisualCatalog.supports_animation(discarded_animation):
+			_fail("An unused moving-attack sheet entered the runtime contract.")
+			return
 	if hud_snapshot.get("player", {}).get("limbs", []).size() != 7:
 		_fail("CombatLaneHUD did not receive all seven Limb Regions.")
 		return
@@ -76,9 +124,118 @@ func _run() -> void:
 	if not arena.lane_hud._player_label.text.contains("08/08 R06"):
 		_fail("CombatLaneHUD did not render firearm rounds and range.")
 		return
+	if not arena.lane_hud._player_label.text.contains("08/08 R06"):
+		_fail("CombatLaneHUD did not render firearm rounds and range.")
+		return
 	if arena.lane_hud.is_showing_melee_lock():
 		_fail("The lane HUD entered lock mode before combatants shared a slot.")
 		return
+	var player_token: HumanoidTokenView = (
+		arena.lane_hud._lane_view._player_token
+	)
+	if player_token.get_animation() != "Idle2":
+		_fail("A combat-ready token did not use the aggressive idle.")
+		return
+	player.body.limb_hp[GameEnums.LimbRegion.LEFT_LEG] = 0.0
+	player.body.limb_hp[GameEnums.LimbRegion.RIGHT_LEG] = 0.0
+	arena.command_adapter.refresh_snapshot()
+	if (
+		not arena.command_adapter.get_snapshot().get(
+			"player",
+			{}
+		).get("both_legs_broken", false)
+		or player_token.get_animation() != "CrouchIdle"
+	):
+		_fail("Two disabled legs did not force the crouched token pose.")
+		return
+	player.body.limb_hp[GameEnums.LimbRegion.LEFT_LEG] = (
+		player.body.get_limb_max(GameEnums.LimbRegion.LEFT_LEG)
+	)
+	player.body.limb_hp[GameEnums.LimbRegion.RIGHT_LEG] = (
+		player.body.get_limb_max(GameEnums.LimbRegion.RIGHT_LEG)
+	)
+	arena.command_adapter.refresh_snapshot()
+	arena.lane_hud.show_presentation_event({
+		"side": "player",
+		"type": "action",
+		"action": GameEnums.ActionType.SHOOT,
+	})
+	if player_token.get_animation() != "Attack1":
+		_fail("SHOOT did not use Attack1.")
+		return
+	arena.lane_hud.show_presentation_event({
+		"side": "player",
+		"type": "action",
+		"action": GameEnums.ActionType.GRAPPLE,
+	})
+	if player_token.get_animation() != "Attack2":
+		_fail("GRAPPLE did not use Attack2.")
+		return
+	arena.lane_hud.show_presentation_event({
+		"side": "player",
+		"type": "action",
+		"action": GameEnums.ActionType.STRIKE,
+	})
+	if player_token.get_animation() != "Attack3":
+		_fail("The first STRIKE did not use the right swing.")
+		return
+	arena.lane_hud.show_presentation_event({
+		"side": "player",
+		"type": "action",
+		"action": GameEnums.ActionType.STRIKE,
+	})
+	if player_token.get_animation() != "Attack4":
+		_fail("The second STRIKE did not alternate to the left swing.")
+		return
+	arena.lane_hud.show_presentation_event({
+		"side": "player",
+		"type": "action",
+		"action": GameEnums.ActionType.TAKE_COVER,
+	})
+	if player_token.get_animation() != "StrafeRight":
+		_fail("TAKE COVER did not use a retained Strafe animation.")
+		return
+	arena.lane_hud.show_presentation_event({
+		"side": "player",
+		"type": "damage",
+	})
+	if player_token.get_animation() != "TakeDamage":
+		_fail("Combat damage did not use TakeDamage.")
+		return
+	player_token.play_animation("Idle2")
+	var starting_token_position: Vector2 = player_token.position
+	if not arena.lane_manager.move_entity(player, 2, 3):
+		_fail("Combat lane movement setup could not move the player.")
+		return
+	await process_frame
+	await create_timer(0.16).timeout
+	if (
+		player_token.get_animation() != "Run"
+		or player_token.get_frame_index() < 1
+		or player_token.position.is_equal_approx(starting_token_position)
+	):
+		_fail("Forward combat movement did not visibly use Run.")
+		return
+	await create_timer(0.3).timeout
+	if player_token.get_animation() != "Taunt":
+		_fail("Firearm movement did not transition through the aiming pose.")
+		return
+	await create_timer(1.3).timeout
+	if player_token.get_animation() != "Idle2":
+		_fail("Firearm aiming did not return to the aggressive idle.")
+		return
+	if not arena.lane_manager.move_entity(player, 3, 2):
+		_fail("Combat lane movement setup could not restore the player.")
+		return
+	await create_timer(0.16).timeout
+	if player_token.get_animation() != "RunBackwards":
+		_fail("Retreating combat movement did not use RunBackwards.")
+		return
+	await create_timer(0.3).timeout
+	if player_token.get_animation() != "Taunt":
+		_fail("Retreating with a firearm did not reacquire aim.")
+		return
+	await create_timer(1.3).timeout
 
 	player.stance_points = 4
 	player._evaluate_stance_state()
@@ -106,6 +263,26 @@ func _run() -> void:
 	if snapshot.get("actions", []).is_empty():
 		_fail("A STUMBLING player received no legal combat actions.")
 		return
+	if player_token.get_animation() != "CrouchIdle":
+		_fail("Stance 0-6 did not use CrouchIdle.")
+		return
+	if not arena.lane_manager.move_entity(player, 2, 3):
+		_fail("Could not move the Stumbling token for animation coverage.")
+		return
+	await create_timer(0.16).timeout
+	if player_token.get_animation() != "CrouchRun":
+		_fail("A moving Stumbling token did not use CrouchRun.")
+		return
+	await create_timer(0.3).timeout
+	if player_token.get_animation() != "CrouchIdle":
+		_fail("Impaired movement did not return to CrouchIdle.")
+		return
+	if not arena.lane_manager.move_entity(player, 3, 2):
+		_fail("Could not restore the Stumbling token lane.")
+		return
+	await create_timer(
+		CombatLaneView.LANE_MOVE_DURATION_SECONDS + 0.05
+	).timeout
 	turn_probe.halt_loop()
 	turn_probe.queue_free()
 
@@ -134,6 +311,9 @@ func _run() -> void:
 	arena.command_adapter.refresh_snapshot()
 	snapshot = arena.command_adapter.get_snapshot()
 	var felled_actions: Array = snapshot.get("actions", [])
+	if arena.lane_hud._lane_view._player_token.get_animation() != "CrouchIdle":
+		_fail("A FELLED combatant did not switch to the crouched token pose.")
+		return
 	if (
 		felled_actions.size() != 1
 		or not _snapshot_has_action(snapshot, GameEnums.ActionType.GET_UP)

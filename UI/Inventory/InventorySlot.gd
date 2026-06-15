@@ -16,6 +16,7 @@ const SOURCE_GROUND := "ground"
 var item_descriptor: Dictionary = {}
 var source_kind: String = SOURCE_BACKPACK
 var slot_index: int = -1
+var container_slot: GameEnums.EquipmentSlot = GameEnums.EquipmentSlot.NONE
 var is_reservation: bool = false
 var is_selected: bool = false
 var _configured_label: String = ""
@@ -44,10 +45,12 @@ func configure(
 	new_source_kind: String,
 	new_slot_index: int,
 	new_label: String = "",
-	new_empty_texture: Texture2D = null
+	new_empty_texture: Texture2D = null,
+	new_container_slot: GameEnums.EquipmentSlot = GameEnums.EquipmentSlot.NONE
 ) -> void:
 	source_kind = new_source_kind
 	slot_index = new_slot_index
+	container_slot = new_container_slot
 	_configured_label = new_label
 	if new_empty_texture:
 		empty_texture = new_empty_texture
@@ -140,14 +143,22 @@ func _update_visuals() -> void:
 			icon_rect.texture = load(sprite_path)
 			icon_rect.visible = true
 
+		var stack_count := int(item_descriptor.get("stack_count", 1))
 		var item_size := maxi(1, int(item_descriptor.get("size_cost", 1)))
-		size_badge.text = str(item_size)
-		size_badge.visible = item_size > 1
+		if stack_count > 1:
+			size_badge.text = "x%d" % stack_count
+			size_badge.visible = true
+		elif item_size > 1:
+			size_badge.text = "%du" % item_size
+			size_badge.visible = true
 
-		if slot_label.text.is_empty():
-			slot_label.text = str(item_descriptor.get("name", "ITEM"))
-
-	slot_label.visible = not slot_label.text.is_empty()
+	slot_label.visible = (
+		not slot_label.text.is_empty()
+		and (
+			item_descriptor.is_empty()
+			or source_kind == SOURCE_EQUIPMENT
+		)
+	)
 	_apply_style()
 
 func _on_gui_input(event: InputEvent) -> void:
@@ -196,13 +207,17 @@ func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
 		SOURCE_EQUIPMENT:
 			return (
 				from_slot.source_kind == SOURCE_BACKPACK
-				and int(from_slot.item_descriptor.get(
-					"target_slot",
-					GameEnums.EquipmentSlot.NONE
-				)) == equipment_slot
+				and equipment_slot in from_slot.item_descriptor.get(
+					"allowed_equipment_slots",
+					[]
+				)
 			)
 		SOURCE_BACKPACK:
-			return from_slot.source_kind in [SOURCE_EQUIPMENT, SOURCE_GROUND]
+			return from_slot.source_kind in [
+				SOURCE_EQUIPMENT,
+				SOURCE_GROUND,
+				SOURCE_BACKPACK,
+			]
 		SOURCE_GROUND:
 			return from_slot.source_kind in [SOURCE_BACKPACK, SOURCE_EQUIPMENT]
 	return false

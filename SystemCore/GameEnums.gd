@@ -35,22 +35,27 @@ enum TraumaType {
 # 2. ITEMS & INVENTORY
 # ==========================================
 enum EquipmentSlot { 
-	NONE, 
-	INNER_TORSO, 
-	OUTER_TORSO, 
-	HANDS, 
-	LEGS, 
-	FEET, 
-	BACKPACK,
-	SLING,     # For Rifles / Long Melee
-	BELT,      # For Pistols / Short Melee
-	VEST,      # For Magazines / Armor Rigs
-	HEAD,
-	EYES,
-	FACE,
-	NECK,
-	ARMS
+	NONE = 0,
+	INNER_TORSO = 1,
+	OUTER_TORSO = 2,
+	HAND = 3,
+	LEGS = 4,
+	FEET = 5,
+	BACKPACK = 6,
+	SLING = 7,
+	BELT = 8,
+	VEST = 9,
+	HEAD = 10,
+	EYES = 11,
+	FACE = 12,
+	NECK = 13,
+	ARMS = 14,
+	OFFHAND = 15,
+	# Runtime saves and older tests used value 3 under this name.
+	HANDS = 3,
 }
+
+enum ItemSize { SMALL, AVERAGE, BIG }
 
 # Weapon Classifications
 enum WeaponClass { NONE, BLUNT, BLADE, PISTOL, RIFLE, SHOTGUN }

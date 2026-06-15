@@ -27,6 +27,94 @@ func _run() -> void:
 	if not player_core:
 		_fail("Macro player has no authoritative HumanoidCore.")
 		return
+	var player_token := macro_map.player_token.humanoid_token
+	if player_token == null:
+		_fail("Macro player did not create the layered Humanoid Token.")
+		return
+	if macro_map.player_token.get_node("Sprite2D").visible:
+		_fail("The legacy macro placeholder remained visible behind the token.")
+		return
+	if not HumanoidVisualCatalog.supports_animation("StrafeLeft"):
+		_fail("The token runtime omitted the Take Cover strafe animation.")
+		return
+	if HumanoidVisualCatalog.supports_animation("StrafeLeftAttack"):
+		_fail("The token runtime still includes an unused moving attack.")
+		return
+	if (
+		HumanoidVisualCatalog.visual_directory_for_item_id("jeans_1")
+		!= HumanoidVisualCatalog.visual_directory_for_item_id("jeans_2")
+	):
+		_fail("Items sharing an Innawoods look resolved to different token art.")
+		return
+
+	var player_signature := player_token.get_appearance_signature()
+	for expected_layer in [
+		"bag_big_service",
+		"jacket_leather",
+		"boots_grey",
+		"weapons/guns/pistol",
+	]:
+		if expected_layer not in player_signature:
+			_fail("Player token omitted visual layer: " + expected_layer)
+			return
+	if player_token._layer_sprites.size() < 5:
+		_fail("Player token did not build its expected layered sprites.")
+		return
+	for layer_sprite in player_token._layer_sprites:
+		if layer_sprite.texture == null:
+			_fail("Player token created a layer without a loaded texture.")
+			return
+	player_token.face_direction(Vector2.RIGHT)
+	if (
+		player_token.get_direction_row()
+		!= HumanoidVisualCatalog.DIRECTION_RIGHT
+	):
+		_fail("The Humanoid Token right-facing sheet row is reversed.")
+		return
+	player_token.face_direction(Vector2.LEFT)
+	if (
+		player_token.get_direction_row()
+		!= HumanoidVisualCatalog.DIRECTION_LEFT
+	):
+		_fail("The Humanoid Token left-facing sheet row is reversed.")
+		return
+	var backpack_index := player_token._layer_directories.find(
+		HumanoidVisualCatalog.visual_directory_for_item_id(
+			"backpack_service_big"
+		)
+	)
+	var coat_index := player_token._layer_directories.find(
+		HumanoidVisualCatalog.visual_directory_for_item_id("coat_leather")
+	)
+	if backpack_index < 0 or coat_index < 0:
+		_fail("The depth test could not find the backpack and coat layers.")
+		return
+	player_token.set_direction_row(
+		HumanoidVisualCatalog.DIRECTION_DOWN_RIGHT
+	)
+	if (
+		player_token._layer_sprites[backpack_index].z_index
+		>= player_token._layer_sprites[coat_index].z_index
+	):
+		_fail("A front-facing backpack rendered over torso clothing.")
+		return
+	player_token.set_direction_row(
+		HumanoidVisualCatalog.DIRECTION_UP_RIGHT
+	)
+	if (
+		player_token._layer_sprites[backpack_index].z_index
+		<= player_token._layer_sprites[coat_index].z_index
+	):
+		_fail("A back-facing diagonal hid the backpack under torso clothing.")
+		return
+
+	var first_enemy := macro_map.active_enemies.values()[0] as MacroEnemy
+	if (
+		first_enemy.humanoid_token == null
+		or first_enemy.get_node("Sprite2D").visible
+	):
+		_fail("A macro enemy did not replace its legacy sprite with a token.")
+		return
 
 	if player_core.inventory.get_active_weapon(false) == null:
 		_fail("Persistent player loadout was not applied.")
@@ -71,6 +159,20 @@ func _run() -> void:
 		if step_index == 0 and player_core.body.hunger >= hunger_before_move:
 			_fail("Macro movement did not tick the persistent player's biology.")
 			return
+		if (
+			step_index == 0
+			and player_token.get_animation() != "Walk"
+		):
+			_fail("Macro movement did not drive the token Walk animation.")
+			return
+		if step_index == 0:
+			await create_timer(0.22).timeout
+			if (
+				player_token.get_animation() != "Walk"
+				or player_token.get_frame_index() < 1
+			):
+				_fail("Macro movement ended before the Walk sheet advanced.")
+				return
 
 	if (
 		macro_map._pending_interaction.get("type")

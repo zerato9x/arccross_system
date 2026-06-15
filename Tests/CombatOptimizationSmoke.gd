@@ -52,6 +52,22 @@ const STRATEGIES := [
 		"reserve_ap": 4,
 	},
 	{
+		"id": "carbon_hybrid_aimed",
+		"weapon": "carbon_pistol",
+		"secondary_weapon": "knife_service",
+		"armor": ["coat_leather", "pants_cargo"],
+		"policy": "aimed",
+		"reserve_ap": 0,
+	},
+	{
+		"id": "carbon_hybrid_guard",
+		"weapon": "carbon_pistol",
+		"secondary_weapon": "knife_service",
+		"armor": ["coat_leather", "pants_cargo"],
+		"policy": "aimed",
+		"reserve_ap": 4,
+	},
+	{
 		"id": "carbon_light_body",
 		"weapon": "carbon_pistol",
 		"armor": ["coat_leather", "pants_cargo"],
@@ -233,6 +249,14 @@ func _run_battle(
 		player_definition,
 		false
 	)
+	var secondary_weapon := _load_item(
+		strategy.get("secondary_weapon", "")
+	)
+	if secondary_weapon:
+		player.inventory.equip_item(
+			secondary_weapon,
+			GameEnums.EquipmentSlot.OFFHAND
+		)
 	var secondary_weapon := _load_item(
 		strategy.get("secondary_weapon", "")
 	)

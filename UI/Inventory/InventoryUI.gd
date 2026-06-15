@@ -13,6 +13,9 @@ const ACTION_DROP := "drop"
 const ACTION_EQUIP := "equip"
 const ACTION_UNEQUIP := "unequip"
 const ACTION_CONSUME := "consume"
+const ACTION_MOVE := "move"
+const ACTION_LOAD_MAGAZINE := "load_magazine"
+const ACTION_INTERACT := "interact"
 
 const SLOT_SCENE := preload("res://UI/Inventory/InventorySlot.tscn")
 const PAPERDOLL_SCENE := preload("res://UI/Inventory/PaperDollModel.tscn")
@@ -48,9 +51,14 @@ const EQUIPMENT_LAYOUT := {
 		"label": "NECK",
 		"texture": "res://Asset/UI/pocket.png",
 	},
-	GameEnums.EquipmentSlot.HANDS: {
-		"position": Vector2(0.10, 0.79),
-		"label": "HANDS",
+	GameEnums.EquipmentSlot.HAND: {
+		"position": Vector2(0.10, 0.77),
+		"label": "HAND",
+		"texture": "res://Asset/UI/pocket_front.png",
+	},
+	GameEnums.EquipmentSlot.OFFHAND: {
+		"position": Vector2(0.90, 0.77),
+		"label": "OFFHAND",
 		"texture": "res://Asset/UI/pocket_front.png",
 	},
 	GameEnums.EquipmentSlot.BACKPACK: {
@@ -74,7 +82,7 @@ const EQUIPMENT_LAYOUT := {
 		"texture": "res://Asset/UI/webbing.png",
 	},
 	GameEnums.EquipmentSlot.BELT: {
-		"position": Vector2(0.90, 0.79),
+		"position": Vector2(0.90, 0.91),
 		"label": "BELT",
 		"texture": "res://Asset/UI/belt.png",
 	},
@@ -104,7 +112,7 @@ var equipment_slots_ui: Dictionary = {}
 var backpack_slots_ui: Array[InventorySlot] = []
 var ground_slots_ui: Array[InventorySlot] = []
 
-var dynamic_capacity_grids: GridContainer
+var dynamic_capacity_grids: VBoxContainer
 var ground_list: GridContainer
 var paperdoll_model: PaperDollModel
 
@@ -198,7 +206,7 @@ func show_item_details(descriptor: Dictionary) -> void:
 			GameEnums.ItemCategory.MISC
 		))),
 		_equipment_slot_name(int(descriptor.get(
-			"target_slot",
+			"preferred_equipment_slot",
 			GameEnums.EquipmentSlot.NONE
 		))),
 	]
@@ -407,12 +415,10 @@ func _build_backpack_column() -> Control:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	column.add_child(scroll)
 
-	dynamic_capacity_grids = GridContainer.new()
+	dynamic_capacity_grids = VBoxContainer.new()
 	dynamic_capacity_grids.name = "DynamicCapacityGrids"
-	dynamic_capacity_grids.columns = 4
 	dynamic_capacity_grids.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	dynamic_capacity_grids.add_theme_constant_override("h_separation", 5)
-	dynamic_capacity_grids.add_theme_constant_override("v_separation", 5)
+	dynamic_capacity_grids.add_theme_constant_override("separation", 8)
 	scroll.add_child(dynamic_capacity_grids)
 	return panel
 
@@ -617,55 +623,114 @@ func _render() -> void:
 		if equipment_slots_ui.has(slot):
 			equipment_slots_ui[slot].set_item(descriptor)
 
-	_render_backpack(_snapshot.get("backpack", []), maximum)
+	_render_backpack(
+		_snapshot.get("containers", []),
+		_snapshot.get("backpack", []),
+		maximum
+	)
 	_render_ground(_snapshot.get("ground", []))
 	_clear_selection()
 
-func _render_backpack(items: Array, maximum_capacity: int) -> void:
+func _render_backpack(
+	containers: Array,
+	legacy_items: Array,
+	maximum_capacity: int
+) -> void:
 	_clear_container(dynamic_capacity_grids)
 	backpack_slots_ui.clear()
 
-	var occupied_units := 0
-	for descriptor: Dictionary in items:
-		var item_slot := _make_slot(
-			dynamic_capacity_grids,
-			InventorySlot.SOURCE_BACKPACK,
-			occupied_units,
-			"",
-			"res://Asset/UI/backpack_item_slot.png"
+	if containers.is_empty() and maximum_capacity > 0:
+		containers = [{
+			"slot": GameEnums.EquipmentSlot.BACKPACK,
+			"name": "LEGACY STORAGE",
+			"capacity": maximum_capacity,
+			"used": int(_snapshot.get("current_capacity", 0)),
+			"combat_accessible": false,
+			"items": legacy_items,
+		}]
+
+	var rendered_items := 0
+	for container: Dictionary in containers:
+		var container_slot := int(container.get(
+			"slot",
+			GameEnums.EquipmentSlot.NONE
+		)) as GameEnums.EquipmentSlot
+		var section := VBoxContainer.new()
+		section.add_theme_constant_override("separation", 4)
+		dynamic_capacity_grids.add_child(section)
+
+		var title := Label.new()
+		title.text = "%s  %d/%d%s" % [
+			str(container.get("name", "STORAGE")).to_upper(),
+			int(container.get("used", 0)),
+			int(container.get("capacity", 0)),
+			"  [COMBAT]" if container.get("combat_accessible", false) else "",
+		]
+		title.add_theme_font_size_override("font_size", 10)
+		title.add_theme_color_override(
+			"font_color",
+			COLOR_GOLD
+				if container.get("combat_accessible", false)
+				else COLOR_MUTED
 		)
-		item_slot.set_item(descriptor)
-		backpack_slots_ui.append(item_slot)
-		var item_size := maxi(1, int(descriptor.get("size_cost", 1)))
-		occupied_units += 1
-		for unit in range(1, item_size):
-			var reserved := _make_slot(
-				dynamic_capacity_grids,
+		section.add_child(title)
+
+		var grid := GridContainer.new()
+		grid.columns = 4
+		grid.add_theme_constant_override("h_separation", 5)
+		grid.add_theme_constant_override("v_separation", 5)
+		section.add_child(grid)
+
+		var occupied_units := 0
+		var items: Array = container.get("items", [])
+		for descriptor: Dictionary in items:
+			var item_slot := _make_slot(
+				grid,
 				InventorySlot.SOURCE_BACKPACK,
 				occupied_units,
 				"",
-				"res://Asset/UI/backpack_item_slot.png"
+				"res://Asset/UI/backpack_item_slot.png",
+				container_slot
 			)
-			reserved.set_reserved(descriptor)
-			backpack_slots_ui.append(reserved)
+			item_slot.set_item(descriptor)
+			backpack_slots_ui.append(item_slot)
+			rendered_items += 1
+			var item_size := maxi(1, int(descriptor.get("size_cost", 1)))
+			occupied_units += 1
+			for unit in range(1, item_size):
+				var reserved := _make_slot(
+					grid,
+					InventorySlot.SOURCE_BACKPACK,
+					occupied_units,
+					"",
+					"res://Asset/UI/backpack_item_slot.png",
+					container_slot
+				)
+				reserved.set_reserved(descriptor)
+				backpack_slots_ui.append(reserved)
+				occupied_units += 1
+
+		var capacity := int(container.get("capacity", 0))
+		while occupied_units < capacity:
+			var empty_slot := _make_slot(
+				grid,
+				InventorySlot.SOURCE_BACKPACK,
+				occupied_units,
+				"",
+				"res://Asset/UI/backpack_item_slot.png",
+				container_slot
+			)
+			backpack_slots_ui.append(empty_slot)
 			occupied_units += 1
 
-	var total_cells := maxi(maximum_capacity, occupied_units)
-	if total_cells == 0:
-		total_cells = 1
-	while occupied_units < total_cells:
-		var empty_slot := _make_slot(
-			dynamic_capacity_grids,
-			InventorySlot.SOURCE_BACKPACK,
-			occupied_units,
-			"",
-			"res://Asset/UI/backpack_item_slot.png"
-		)
-		backpack_slots_ui.append(empty_slot)
-		occupied_units += 1
+	if containers.is_empty():
+		var empty_notice := Label.new()
+		empty_notice.text = "NO WORN STORAGE"
+		empty_notice.add_theme_color_override("font_color", COLOR_DANGER)
+		dynamic_capacity_grids.add_child(empty_notice)
 
 	_backpack_count_label.text = "%d ITEMS / %d UNITS" % [
-		items.size(),
+		rendered_items,
 		int(_snapshot.get("current_capacity", 0)),
 	]
 
@@ -701,7 +766,8 @@ func _make_slot(
 	source_kind: String,
 	index: int,
 	label: String,
-	empty_texture_path: String
+	empty_texture_path: String,
+	container_slot: GameEnums.EquipmentSlot = GameEnums.EquipmentSlot.NONE
 ) -> InventorySlot:
 	var slot := SLOT_SCENE.instantiate() as InventorySlot
 	parent.add_child(slot)
@@ -711,7 +777,7 @@ func _make_slot(
 		and ResourceLoader.exists(empty_texture_path)
 	):
 		texture = load(empty_texture_path) as Texture2D
-	slot.configure(source_kind, index, label, texture)
+	slot.configure(source_kind, index, label, texture, container_slot)
 	slot.slot_clicked.connect(_on_slot_clicked)
 	slot.item_dropped.connect(_on_item_dropped)
 	slot.item_hovered.connect(_on_slot_hovered)
@@ -764,7 +830,16 @@ func _on_item_dropped(
 				inventory_action_requested.emit(
 					ACTION_TAKE,
 					instance_id,
-					GameEnums.EquipmentSlot.NONE
+					to_slot.container_slot
+				)
+			elif (
+				from_slot.source_kind == InventorySlot.SOURCE_BACKPACK
+				and from_slot.container_slot != to_slot.container_slot
+			):
+				inventory_action_requested.emit(
+					ACTION_MOVE,
+					instance_id,
+					to_slot.container_slot
 				)
 		InventorySlot.SOURCE_GROUND:
 			inventory_action_requested.emit(
@@ -803,10 +878,17 @@ func _refresh_action_buttons() -> void:
 			_secondary_button.text = "DROP"
 			_secondary_button.disabled = false
 		InventorySlot.SOURCE_GROUND:
-			_primary_button.text = "TAKE"
+			_primary_button.text = (
+				"TAKE"
+				if descriptor.get("can_pick_up", true)
+				else "INTERACT"
+			)
 			_primary_button.disabled = false
 		InventorySlot.SOURCE_BACKPACK:
-			if descriptor.get("can_equip", false):
+			if descriptor.get("can_load_magazine", false):
+				_primary_button.text = "LOAD ROUNDS"
+				_primary_button.disabled = false
+			elif descriptor.get("can_equip", false):
 				_primary_button.text = "EQUIP"
 				_primary_button.disabled = false
 			elif descriptor.get("can_consume", false):
@@ -837,17 +919,25 @@ func _execute_primary(slot: InventorySlot) -> void:
 			)
 		InventorySlot.SOURCE_GROUND:
 			inventory_action_requested.emit(
-				ACTION_TAKE,
+				ACTION_TAKE
+					if descriptor.get("can_pick_up", true)
+					else ACTION_INTERACT,
 				instance_id,
 				GameEnums.EquipmentSlot.NONE
 			)
 		InventorySlot.SOURCE_BACKPACK:
-			if descriptor.get("can_equip", false):
+			if descriptor.get("can_load_magazine", false):
+				inventory_action_requested.emit(
+					ACTION_LOAD_MAGAZINE,
+					instance_id,
+					slot.container_slot
+				)
+			elif descriptor.get("can_equip", false):
 				inventory_action_requested.emit(
 					ACTION_EQUIP,
 					instance_id,
 					int(descriptor.get(
-						"target_slot",
+						"preferred_equipment_slot",
 						GameEnums.EquipmentSlot.NONE
 					))
 				)
@@ -880,11 +970,26 @@ func _execute_secondary(slot: InventorySlot) -> void:
 
 func _format_item_stats(descriptor: Dictionary) -> String:
 	var lines := PackedStringArray()
-	lines.append("Size %d  |  Weight %.1f  |  Bulk %.1f" % [
+	lines.append("%s  |  %d units  |  Weight %.1f  |  Bulk %.1f" % [
+		_enum_name(GameEnums.ItemSize, int(descriptor.get(
+			"item_size",
+			GameEnums.ItemSize.SMALL
+		))),
 		int(descriptor.get("size_cost", 1)),
 		float(descriptor.get("weight", 0.0)),
 		float(descriptor.get("bulk", 0.0)),
 	])
+	var stack_count := int(descriptor.get("stack_count", 1))
+	var stack_limit := int(descriptor.get("stack_limit", 1))
+	if stack_limit > 1:
+		lines.append("Stack %d / %d" % [stack_count, stack_limit])
+	var magazine_capacity := int(descriptor.get("magazine_capacity", 0))
+	if magazine_capacity > 0:
+		lines.append("Magazine %d / %d  |  %s" % [
+			int(descriptor.get("loaded_rounds", 0)),
+			magazine_capacity,
+			str(descriptor.get("accepted_ammunition_id", "UNKNOWN")).to_upper(),
+		])
 
 	var capacity_bonus := int(descriptor.get("capacity_bonus", 0))
 	if capacity_bonus != 0:
