@@ -54,9 +54,12 @@ func _on_combat_requested(request: Dictionary) -> void:
 	_active_arena.duel_finished.connect(_on_duel_finished)
 	
 	var enemy_record := _world_state.get_entity(enemy_id)
+	if enemy_record == null:
+		push_error("[DIRECTOR] No entity record for enemy_id: " + enemy_id)
+		return
 	_active_arena.setup_duel(
 		macro_map.player_token.get_humanoid_core(),
-		enemy_record,
+		enemy_record.to_dict(),
 		_combat_request
 	)
 

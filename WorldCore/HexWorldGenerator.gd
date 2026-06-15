@@ -59,8 +59,8 @@ func get_hex_at(coords: Vector2i) -> MacroHexData:
 	if world_hex_cache.has(coords):
 		return world_hex_cache[coords]
 
-	var persistent_state: Dictionary = _world_state.get_hex_record(coords)
-	if not persistent_state.is_empty():
+	var persistent_state: HexRecord = _world_state.get_hex_record(coords)
+	if persistent_state != null:
 		var persistent_hex := MacroHexData.from_state(persistent_state)
 		world_hex_cache[coords] = persistent_hex
 		return persistent_hex

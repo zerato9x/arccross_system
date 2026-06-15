@@ -84,7 +84,7 @@ func _initialize_demo() -> void:
 	refresh_proximity(start_coords)
 
 func _initialize_loaded_world() -> void:
-	if _world_state.world_seed.is_empty() or _world_state.player_record.is_empty():
+	if _world_state.world_seed.is_empty() or _world_state.player_record == null:
 		push_error("Loaded world state is incomplete. Starting a new demo world.")
 		_initialize_demo()
 		return
@@ -126,8 +126,8 @@ func spawn_procedural_enemy(coords: Vector2i, faction: GameEnums.Faction, diffic
 	
 	if _world_state.has_entity_at(coords):
 		var existing := _world_state.get_entity_at(coords)
-		if _world_state.is_entity_alive(existing.get("entity_id", "")):
-			_spawn_enemy_token(existing)
+		if existing != null and _world_state.is_entity_alive(existing.entity_id):
+			_spawn_enemy_token_from_record(existing)
 		return
 
 	var deterministic_key := _encounter_key(coords)
@@ -138,7 +138,7 @@ func spawn_procedural_enemy(coords: Vector2i, faction: GameEnums.Faction, diffic
 		deterministic_key
 	)
 	_world_state.register_entity(record)
-	_spawn_enemy_token(record)
+	_spawn_enemy_token_from_record(record)
 
 ## Legacy: spawn from a pre-built definition .tres (still works).
 func spawn_macro_enemy(coords: Vector2i) -> void:
@@ -275,9 +275,9 @@ func _present_poi_session(
 
 func _begin_entity_collision(enemy_id: String, coords: Vector2i) -> void:
 	var enemy_record := _world_state.get_entity(enemy_id)
-	if enemy_record.is_empty() or not _world_state.is_entity_hostile(enemy_id):
+	if enemy_record == null or not _world_state.is_entity_hostile(enemy_id):
 		return
-	var definition: Dictionary = enemy_record.get("definition", {})
+	var definition: Dictionary = enemy_record.definition
 	_pending_interaction = {
 		"type": GameEnums.MacroInteractionType.ENTITY_COLLISION,
 		"coords": coords,
@@ -383,7 +383,9 @@ func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 		interaction_enemy.play_interaction()
 	var enemy_id: String = _pending_interaction.get("enemy_id", "")
 	var enemy_record := _world_state.get_entity(enemy_id)
-	var attempt: int = enemy_record.get("negotiation_attempts", 0)
+	if enemy_record == null:
+		return
+	var attempt: int = enemy_record.negotiation_attempts
 	var player_core := player_token.get_humanoid_core()
 	var outcome := MacroInteractionResolver.resolve_negotiation(
 		_world_state.world_seed,
@@ -396,7 +398,7 @@ func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 			"finesse": player_core.definition.finesse,
 			"will": player_core.definition.will,
 		},
-		enemy_record.get("definition", {})
+		enemy_record.definition
 	)
 	_world_state.patch_entity_record(
 		enemy_id,
@@ -941,7 +943,7 @@ func _spawn_search_intruder(coords: Vector2i) -> void:
 			0
 		)
 	var record := _world_state.get_entity_at(coords)
-	if record.is_empty():
+	if record == null:
 		_show_interaction_result(
 			"INTERRUPTED",
 			"A hostile was heard nearby, but no encounter could be projected."
@@ -950,12 +952,12 @@ func _spawn_search_intruder(coords: Vector2i) -> void:
 	_pending_interaction = {
 		"type": GameEnums.MacroInteractionType.ENTITY_COLLISION,
 		"coords": coords,
-		"enemy_id": record.get("entity_id", ""),
+		"enemy_id": record.entity_id,
 	}
 	_request_pending_combat(
 		GameEnums.EncounterContext.ENEMY_AMBUSH,
 		GameEnums.AmbushPosition.STANDARD,
-		record.get("entity_id", "")
+		record.entity_id
 	)
 
 func _request_pending_combat(
@@ -1056,8 +1058,8 @@ func _get_camp_access(
 ) -> Dictionary:
 	var hostile_present := false
 	var entity_record := _world_state.get_entity_at(coords)
-	if not entity_record.is_empty():
-		var entity_id: String = entity_record.get("entity_id", "")
+	if entity_record != null:
+		var entity_id: String = entity_record.entity_id
 		hostile_present = (
 			_world_state.is_entity_alive(entity_id)
 			and _world_state.is_entity_hostile(entity_id)
@@ -1082,8 +1084,8 @@ func _format_world_time() -> String:
 		snapshot.get("minute", 0),
 	]
 
-func _rob_enemy(enemy_record: Dictionary) -> String:
-	var loadout: Dictionary = enemy_record.get("definition", {}).get("loadout", {})
+func _rob_enemy(enemy_record: EntityRecord) -> String:
+	var loadout: Dictionary = enemy_record.definition.get("loadout", {})
 	var candidate_paths: Array = loadout.get("starting_items", []).duplicate()
 	var weapon_path: String = loadout.get("weapon", "")
 	if not weapon_path.is_empty():
@@ -1117,11 +1119,11 @@ func unload_enemy_token(coords: Vector2i) -> void:
 func load_enemy_token(entity_id: String) -> MacroEnemy:
 	var record := _world_state.get_entity(entity_id)
 	if (
-		record.is_empty()
+		record == null
 		or not _world_state.is_entity_alive(entity_id)
 	):
 		return null
-	return _spawn_enemy_token(record)
+	return _spawn_enemy_token_from_record(record)
 
 func add_ground_item_states(coords: Vector2i, item_states: Array) -> void:
 	_world_state.add_ground_items(coords, item_states)
@@ -1130,11 +1132,11 @@ func refresh_proximity(center_coords: Vector2i) -> void:
 	_ensure_encounter_records(center_coords)
 
 	for record in _world_state.get_all_entity_records():
-		var entity_id: String = record.get("entity_id", "")
-		var coords: Vector2i = record.get("coords", Vector2i.ZERO)
+		var entity_id: String = record.entity_id
+		var coords: Vector2i = record.coords
 		if _hex_distance(center_coords, coords) <= active_radius:
 			if _world_state.is_entity_alive(entity_id):
-				_spawn_enemy_token(record)
+				_spawn_enemy_token_from_record(record)
 
 	for coords in active_enemies.keys().duplicate():
 		var token: MacroEnemy = active_enemies[coords]
@@ -1224,26 +1226,26 @@ func _encounter_key(coords: Vector2i) -> String:
 		+ str(coords.y)
 	)
 
-func _spawn_enemy_token(record: Dictionary) -> MacroEnemy:
+func _spawn_enemy_token_from_record(record: EntityRecord) -> MacroEnemy:
 	if not enemy_token_scene:
 		push_error("Cannot spawn enemy. Assign the PackedScene in the Inspector.")
 		return null
 
-	var entity_id: String = record.get("entity_id", "")
+	var entity_id: String = record.entity_id
 	if not _world_state.is_entity_alive(entity_id):
 		return null
 
-	var coords: Vector2i = record.get("coords", Vector2i.ZERO)
+	var coords: Vector2i = record.coords
 	if active_enemies.has(coords):
 		return active_enemies[coords]
 
 	var enemy := enemy_token_scene.instantiate() as MacroEnemy
 	add_child(enemy)
-	enemy.setup_from_record(record)
+	enemy.setup_from_record(record.to_dict())
 	enemy.snap_to_hex(coords, map_visualizer.map_to_local(coords))
 	active_enemies[coords] = enemy
 
-	var definition_state: Dictionary = record.get("definition", {})
+	var definition_state: Dictionary = record.definition
 	print(
 		"[MACRO] Spawned ",
 		definition_state.get("archetype_name", "Unknown"),

@@ -27,7 +27,7 @@ func _run() -> void:
 	var tracked_token := macro_map.active_enemies[tracked_coords] as MacroEnemy
 	var tracked_id := tracked_token.entity_id
 	var tracked_record := world_state.get_entity(tracked_id)
-	var tracked_definition: Dictionary = tracked_record.get("definition", {})
+	var tracked_definition: Dictionary = tracked_record.definition
 	world_state.update_entity_runtime(tracked_id, {"persistence_marker": 12})
 
 	var dead_coords := Vector2i.ZERO
@@ -50,7 +50,7 @@ func _run() -> void:
 		floori(float(macro_map._hex_distance(Vector2i.ZERO, tracked_coords)) / 8.0),
 		macro_map._encounter_key(tracked_coords)
 	)
-	if deterministic_copy.get("definition", {}) != tracked_definition:
+	if deterministic_copy.definition != tracked_definition:
 		_fail("Coordinate-stable mob generation produced a different definition.")
 		return
 
@@ -92,7 +92,7 @@ func _run() -> void:
 		return
 
 	var persisted_record := world_state.get_entity(tracked_id)
-	if persisted_record.get("runtime", {}).get("persistence_marker", 0) != 12:
+	if persisted_record.runtime.get("persistence_marker", 0) != 12:
 		_fail("Unloading the enemy token erased runtime state.")
 		return
 
@@ -120,7 +120,8 @@ func _run() -> void:
 
 	var dead_record := world_state.get_entity_at(dead_coords)
 	if (
-		dead_record.get("entity_id", "") != dead_id
+		dead_record == null
+		or dead_record.entity_id != dead_id
 		or world_state.is_entity_alive(dead_id)
 	):
 		_fail("Dead enemy state was replaced or revived after revisiting.")
@@ -143,7 +144,7 @@ func _run() -> void:
 func _entity_coordinates_are_unique(records: Array) -> bool:
 	var occupied: Dictionary = {}
 	for record in records:
-		var coords: Vector2i = record.get("coords", Vector2i.ZERO)
+		var coords: Vector2i = record.coords
 		if occupied.has(coords):
 			return false
 		occupied[coords] = true

@@ -617,26 +617,35 @@ func use_consumable(item: ItemData, combat_only: bool = false) -> bool:
 		return false
 	return consume_item_units(item)
 
-func capture_runtime_state() -> Dictionary:
+func capture_runtime_state() -> InventoryState:
+	var state := InventoryState.new()
+	state.base_max_capacity = 0
+
 	var equipment_state: Dictionary = {}
 	for slot in paper_doll.keys():
 		var item: ItemData = paper_doll[slot]
 		if item != null:
 			equipment_state[str(slot)] = item.to_runtime_state()
+	state.equipment = equipment_state
 
 	var backpack_state: Array = []
 	for item in backpack_array:
 		var item_state := item.to_runtime_state()
 		item_state["container_slot"] = get_item_container_slot(item)
 		backpack_state.append(item_state)
+	state.backpack = backpack_state
 
-	return {
-		"base_max_capacity": 0,
-		"equipment": equipment_state,
-		"backpack": backpack_state,
-	}
+	return state
 
-func restore_runtime_state(state: Dictionary) -> void:
+func restore_runtime_state(state) -> void:
+	var inv_state: InventoryState
+	if state is InventoryState:
+		inv_state = state
+	elif state is Dictionary:
+		inv_state = InventoryState.from_dict(state)
+	else:
+		return
+
 	base_max_capacity = 0
 	backpack_array.clear()
 	item_container_slots.clear()
@@ -644,15 +653,14 @@ func restore_runtime_state(state: Dictionary) -> void:
 	for slot in paper_doll.keys():
 		paper_doll[slot] = null
 
-	var equipment_state: Dictionary = state.get("equipment", {})
-	for slot_key in equipment_state.keys():
+	for slot_key in inv_state.equipment.keys():
 		var slot := int(slot_key)
 		if paper_doll.has(slot):
 			paper_doll[slot] = ItemData.from_runtime_state(
-				equipment_state[slot_key]
+				inv_state.equipment[slot_key]
 			)
 
-	for item_state in state.get("backpack", []):
+	for item_state in inv_state.backpack:
 		var item := ItemData.from_runtime_state(item_state)
 		backpack_array.append(item)
 		var container_slot := int(item_state.get(
