@@ -9,6 +9,12 @@ class_name HexWorldGenerator
 var noise_engine: FastNoiseLite
 var world_hex_cache: Dictionary = {} # Stores Vector2i -> MacroHexData
 var manual_poi_overrides: Dictionary = {} # Stores Vector2i -> Dictionary (POI Data)
+
+# --- SECTOR LOGIC ---
+@export var sector_size: int = 10
+# Registry of hand-crafted sectors. Key: Vector2i (Sector Coord), Value: Dictionary containing hex data
+var handcrafted_sectors: Dictionary = {} 
+
 var _world_state: RuntimeStateStore
 
 func _ready() -> void:
@@ -70,14 +76,53 @@ func get_hex_at(coords: Vector2i) -> MacroHexData:
 		new_hex.poi_id = override_data["id"]
 		new_hex.poi_name = override_data["name"]
 		
-	# 4. No override found. Roll the procedural noise engine.
+	# 4. Check if it's in a Hand-Crafted Sector
+	elif _is_in_handcrafted_sector(coords):
+		_load_from_handcrafted_sector(coords, new_hex)
+		
+	# 5. No override or hand-crafted sector found. Roll the procedural noise engine.
 	else:
 		_generate_procedural_biome(coords, new_hex)
 		
-	# 5. Save it to the cache so it never changes, and return it.
+	# 6. Save it to the cache so it never changes, and return it.
 	world_hex_cache[coords] = new_hex
 	_world_state.set_hex_record(coords, new_hex.to_state())
 	return new_hex
+
+# ---------------------------------------------------------
+# SECTOR HANDLERS
+# ---------------------------------------------------------
+
+func _get_sector_for_coords(coords: Vector2i) -> Vector2i:
+	# Integer division correctly chunks coordinates into grid boxes
+	var sx = int(floor(float(coords.x) / float(sector_size)))
+	var sy = int(floor(float(coords.y) / float(sector_size)))
+	return Vector2i(sx, sy)
+
+func _is_in_handcrafted_sector(coords: Vector2i) -> bool:
+	var sector = _get_sector_for_coords(coords)
+	return handcrafted_sectors.has(sector)
+
+func _load_from_handcrafted_sector(coords: Vector2i, hex: MacroHexData) -> void:
+	var sector = _get_sector_for_coords(coords)
+	var sector_data = handcrafted_sectors[sector]
+	
+	# Local coordinates within the sector (0 to sector_size - 1)
+	var local_x = posmod(coords.x, sector_size)
+	var local_y = posmod(coords.y, sector_size)
+	var local_coords = Vector2i(local_x, local_y)
+	
+	# If the sector data has explicitly defined this hex, use it.
+	if sector_data.has(local_coords):
+		var data = sector_data[local_coords]
+		hex.biome = data.get("biome", GameEnums.GridBiome.PLAINS)
+		if data.get("is_poi", false):
+			hex.is_poi = true
+			hex.poi_id = data.get("poi_id", "")
+			hex.poi_name = data.get("poi_name", "Unknown POI")
+	else:
+		# Fallback if a hex within a hand-crafted sector was left blank
+		hex.biome = GameEnums.GridBiome.PLAINS
 
 func _generate_procedural_biome(coords: Vector2i, hex: MacroHexData) -> void:
 	# Get a noise value between -1.0 and 1.0 based on the hex coordinates
