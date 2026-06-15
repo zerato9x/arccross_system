@@ -75,8 +75,8 @@ func _prepare_and_save(game_director: GameDirector) -> bool:
 	var enemy_records: Array = world_state.get_all_entity_records()
 	if enemy_records.is_empty():
 		return _fail("The save fixture generated no enemy records.")
-	var enemy_record: Dictionary = enemy_records[0]
-	var dead_enemy_id: String = enemy_record.get("entity_id", "")
+	var enemy_record: EntityRecord = enemy_records[0]
+	var dead_enemy_id: String = enemy_record.entity_id
 	world_state.set_entity_life_state(
 		dead_enemy_id,
 		GameEnums.EntityLifeState.DEAD
@@ -195,7 +195,7 @@ func _ground_has(coords: Vector2i, instance_id: String) -> bool:
 func _has_duplicate_entity_ids() -> bool:
 	var seen: Dictionary = {}
 	for record in world_state.get_all_entity_records():
-		var entity_id: String = record.get("entity_id", "")
+		var entity_id: String = record.entity_id
 		if seen.has(entity_id):
 			return true
 		seen[entity_id] = true

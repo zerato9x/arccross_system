@@ -221,50 +221,33 @@ func _is_limb_disabled(limb: GameEnums.LimbRegion) -> bool:
 		)) == GameEnums.TraumaType.SHATTERED_LIMB
 	)
 
-func capture_runtime_state() -> Dictionary:
-	var hp_state: Dictionary = {}
-	var trauma_state: Dictionary = {}
-	for limb in limb_hp.keys():
-		hp_state[str(limb)] = limb_hp[limb]
-		trauma_state[str(limb)] = limb_trauma[limb]
+func capture_runtime_state() -> BodyState:
+	var state := BodyState.new()
+	state.limb_hp = limb_hp.duplicate()
+	state.limb_trauma = limb_trauma.duplicate()
+	state.core_temperature = core_temperature
+	state.blood_level = blood_level
+	state.hunger = hunger
+	state.thirst = thirst
+	state.fatigue = fatigue
+	return state
 
-	return {
-		"limb_hp": hp_state,
-		"limb_trauma": trauma_state,
-		"core_temperature": core_temperature,
-		"blood_level": blood_level,
-		"hunger": hunger,
-		"thirst": thirst,
-		"fatigue": fatigue,
-	}
+func restore_runtime_state(state) -> void:
+	var body_state: BodyState
+	if state is BodyState:
+		body_state = state
+	elif state is Dictionary:
+		body_state = BodyState.from_dict(state)
+	else:
+		return
 
-func restore_runtime_state(state: Dictionary) -> void:
-	var hp_state: Dictionary = state.get("limb_hp", {})
-	for limb_key in hp_state.keys():
-		limb_hp[int(limb_key)] = hp_state[limb_key]
+	for limb in body_state.limb_hp.keys():
+		limb_hp[limb] = body_state.limb_hp[limb]
+	for limb in body_state.limb_trauma.keys():
+		limb_trauma[limb] = body_state.limb_trauma[limb]
 
-	var trauma_state: Dictionary = state.get("limb_trauma", {})
-	for limb_key in trauma_state.keys():
-		limb_trauma[int(limb_key)] = trauma_state[limb_key]
-
-	core_temperature = state.get("core_temperature", core_temperature)
-	blood_level = clampf(
-		float(state.get("blood_level", blood_level)),
-		0.0,
-		GameEnums.SCALE_MAX
-	)
-	hunger = clampf(
-		float(state.get("hunger", hunger)),
-		0.0,
-		GameEnums.SCALE_MAX
-	)
-	thirst = clampf(
-		float(state.get("thirst", thirst)),
-		0.0,
-		GameEnums.SCALE_MAX
-	)
-	fatigue = clampf(
-		float(state.get("fatigue", fatigue)),
-		0.0,
-		GameEnums.SCALE_MAX
-	)
+	core_temperature = body_state.core_temperature
+	blood_level = clampf(body_state.blood_level, 0.0, GameEnums.SCALE_MAX)
+	hunger = clampf(body_state.hunger, 0.0, GameEnums.SCALE_MAX)
+	thirst = clampf(body_state.thirst, 0.0, GameEnums.SCALE_MAX)
+	fatigue = clampf(body_state.fatigue, 0.0, GameEnums.SCALE_MAX)

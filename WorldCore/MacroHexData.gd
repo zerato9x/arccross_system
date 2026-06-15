@@ -18,36 +18,39 @@ var search_count: int = 0
 var camp_item_states: Array = []
 var camp_rest_count: int = 0
 
-func to_state() -> Dictionary:
-	return {
-		"biome": biome,
-		"is_poi": is_poi,
-		"poi_id": poi_id,
-		"poi_name": poi_name,
-		"is_explored": is_explored,
-		"hazard_level": hazard_level,
-		"encounter_evaluated": encounter_evaluated,
-		"encounter_entity_id": encounter_entity_id,
-		"search_count": search_count,
-		"camp_item_states": camp_item_states.duplicate(true),
-		"camp_rest_count": camp_rest_count,
-	}
+func to_state() -> HexRecord:
+	var record := HexRecord.new()
+	record.biome = biome
+	record.is_poi = is_poi
+	record.poi_id = poi_id
+	record.poi_name = poi_name
+	record.is_explored = is_explored
+	record.hazard_level = hazard_level
+	record.encounter_evaluated = encounter_evaluated
+	record.encounter_entity_id = encounter_entity_id
+	record.search_count = search_count
+	record.camp_item_states = camp_item_states.duplicate(true)
+	record.camp_rest_count = camp_rest_count
+	return record
 
-static func from_state(state: Dictionary) -> MacroHexData:
+static func from_state(state) -> MacroHexData:
 	var hex := MacroHexData.new()
-	hex.biome = state.get("biome", GameEnums.GridBiome.PLAINS)
-	hex.is_poi = state.get("is_poi", false)
-	hex.poi_id = state.get("poi_id", "")
-	hex.poi_name = state.get("poi_name", "")
-	hex.is_explored = state.get("is_explored", false)
-	hex.hazard_level = clampf(
-		float(state.get("hazard_level", 0.0)),
-		0.0,
-		GameEnums.SCALE_MAX
-	)
-	hex.encounter_evaluated = state.get("encounter_evaluated", false)
-	hex.encounter_entity_id = state.get("encounter_entity_id", "")
-	hex.search_count = state.get("search_count", 0)
-	hex.camp_item_states = state.get("camp_item_states", []).duplicate(true)
-	hex.camp_rest_count = state.get("camp_rest_count", 0)
+	var source: HexRecord
+	if state is HexRecord:
+		source = state
+	elif state is Dictionary:
+		source = HexRecord.from_dict(state)
+	else:
+		return hex
+	hex.biome = source.biome
+	hex.is_poi = source.is_poi
+	hex.poi_id = source.poi_id
+	hex.poi_name = source.poi_name
+	hex.is_explored = source.is_explored
+	hex.hazard_level = source.hazard_level
+	hex.encounter_evaluated = source.encounter_evaluated
+	hex.encounter_entity_id = source.encounter_entity_id
+	hex.search_count = source.search_count
+	hex.camp_item_states = source.camp_item_states.duplicate(true)
+	hex.camp_rest_count = source.camp_rest_count
 	return hex

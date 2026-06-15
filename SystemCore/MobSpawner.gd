@@ -191,27 +191,26 @@ func generate_mob_record(
 	faction: GameEnums.Faction,
 	difficulty_bias: int = 0,
 	deterministic_key: String = ""
-) -> Dictionary:
+) -> EntityRecord:
 	var rng: RandomNumberGenerator = null
 	if not deterministic_key.is_empty():
 		rng = RandomNumberGenerator.new()
 		rng.seed = deterministic_key.hash()
 
 	var definition := generate_mob(faction, difficulty_bias, rng)
-	var entity_id := (
+	var record := EntityRecord.new()
+	record.entity_id = (
 		"entity_" + str(abs(deterministic_key.hash()))
 		if not deterministic_key.is_empty()
 		else "entity_" + str(ResourceUID.create_id())
 	)
-	return {
-		"entity_id": entity_id,
-		"kind": GameEnums.RuntimeEntityKind.NPC,
-		"life_state": GameEnums.EntityLifeState.ALIVE,
-		"world_status": GameEnums.EntityWorldStatus.HOSTILE,
-		"coords": coords,
-		"definition": definition.to_state(),
-		"runtime": {},
-	}
+	record.kind = GameEnums.RuntimeEntityKind.NPC
+	record.life_state = GameEnums.EntityLifeState.ALIVE
+	record.world_status = GameEnums.EntityWorldStatus.HOSTILE
+	record.coords = coords
+	record.definition = definition.to_state()
+	record.runtime = {}
+	return record
 
 ## Convenience: spawn N mobs of a faction and return them as an array.
 func generate_mob_squad(faction: GameEnums.Faction, count: int, difficulty_bias: int = 0) -> Array[EntityDefinition]:

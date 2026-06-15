@@ -42,14 +42,27 @@ func capture_runtime_record() -> Dictionary:
 		),
 		"coords": current_hex_coords,
 		"definition": humanoid_core.definition.to_state(),
-		"runtime": humanoid_core.capture_runtime_state(),
+		"runtime": humanoid_core.capture_runtime_state().to_dict(),
 	}
 
-func restore_runtime_record(record: Dictionary) -> void:
-	if record.is_empty():
+func restore_runtime_record(record) -> void:
+	if record == null or (record is Dictionary and record.is_empty()):
 		return
 
-	var definition_state: Dictionary = record.get("definition", {})
+	var definition_state: Dictionary
+	var runtime_state
+	var coords_state: Vector2i
+
+	if record is EntityRecord:
+		definition_state = record.definition
+		runtime_state = record.runtime
+		coords_state = record.coords
+	elif record is Dictionary:
+		definition_state = record.get("definition", {})
+		runtime_state = record.get("runtime", {})
+		coords_state = record.get("coords", current_hex_coords)
+	else:
+		return
 	if not definition_state.is_empty():
 		definition = EntityDefinition.from_state(definition_state)
 		humanoid_core.definition = definition
@@ -57,8 +70,8 @@ func restore_runtime_record(record: Dictionary) -> void:
 		humanoid_core.inventory.base_max_capacity = 0
 		humanoid_core.inventory._recalculate_bounds()
 
-	humanoid_core.restore_runtime_state(record.get("runtime", {}))
-	current_hex_coords = record.get("coords", current_hex_coords)
+	humanoid_core.restore_runtime_state(runtime_state)
+	current_hex_coords = coords_state
 	if humanoid_token:
 		humanoid_token.refresh_from_inventory()
 		refresh_token_pose()

@@ -184,9 +184,9 @@ ambush_position: GameEnums.AmbushPosition
 GameEnums is interpreted by every domain.
 
 ItemCore <- BiologicalCore <- CombatCore
-                  ^
-                  |
-               WorldCore
+				  ^
+				  |
+			   WorldCore
 
 SystemCore coordinates domains through neutral records and signals.
 ```

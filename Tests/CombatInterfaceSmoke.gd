@@ -296,10 +296,11 @@ func _verify_enemy_escape() -> bool:
 	if not world_state.is_entity_alive(enemy_id):
 		_fail("Enemy escape incorrectly killed the persistent enemy.")
 		return false
-	var stored_hp: float = world_state.get_entity(enemy_id).get(
-		"runtime",
+	var escaped_entity := world_state.get_entity(enemy_id)
+	var stored_hp: float = escaped_entity.runtime.get(
+		"body",
 		{}
-	).get("body", {}).get("limb_hp", {}).get(
+	).get("limb_hp", {}).get(
 		str(GameEnums.LimbRegion.LEFT_ARM),
 		-1.0
 	)
@@ -351,14 +352,14 @@ func _verify_player_defeat() -> bool:
 	if macro_map.visible or macro_map.is_processing_unhandled_input():
 		_fail("Player defeat restored ordinary macro exploration.")
 		return false
-	if not world_state.player_record.get(
-		"runtime",
-		{}
-	).get("is_dead", false):
+	if not world_state.player_record.runtime.get(
+		"is_dead",
+		false
+	):
 		_fail("Player defeat did not preserve the dead runtime state.")
 		return false
 	if (
-		world_state.player_record.get("life_state")
+		world_state.player_record.life_state
 		!= GameEnums.EntityLifeState.DEAD
 	):
 		_fail("Player defeat did not persist the player's dead life state.")

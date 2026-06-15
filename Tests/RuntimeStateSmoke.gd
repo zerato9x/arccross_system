@@ -38,7 +38,7 @@ func _run() -> void:
 	macro_map.unload_enemy_token(enemy_coords)
 	await process_frame
 
-	if world_state.get_entity(enemy_id).is_empty():
+	if world_state.get_entity(enemy_id) == null:
 		_fail("Unloading a token deleted its persistent entity record.")
 		return
 
@@ -48,10 +48,10 @@ func _run() -> void:
 		return
 
 	var first_hex := macro_map.world_generator.get_hex_at(Vector2i(4, -2))
-	var first_hex_state := first_hex.to_state()
+	var first_hex_state := first_hex.to_state().to_dict()
 	macro_map.world_generator.world_hex_cache.clear()
 	var restored_hex := macro_map.world_generator.get_hex_at(Vector2i(4, -2))
-	if restored_hex.to_state() != first_hex_state:
+	if restored_hex.to_state().to_dict() != first_hex_state:
 		_fail("Hex state changed after the visual generator cache was cleared.")
 		return
 
@@ -60,7 +60,7 @@ func _run() -> void:
 	game_director.add_child(first_arena)
 	first_arena.setup_duel(
 		macro_map.player_token.get_humanoid_core(),
-		original_record
+		original_record.to_dict()
 	)
 	await process_frame
 
@@ -94,7 +94,7 @@ func _run() -> void:
 	game_director.add_child(second_arena)
 	second_arena.setup_duel(
 		macro_map.player_token.get_humanoid_core(),
-		world_state.get_entity(enemy_id)
+		world_state.get_entity(enemy_id).to_dict()
 	)
 	await process_frame
 

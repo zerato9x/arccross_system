@@ -173,9 +173,10 @@ func _run() -> void:
 		_fail("A hazardous location incorrectly allowed CAMP.")
 		return
 
-	var stored_runtime: Dictionary = world_state.player_record.get(
-		"runtime",
-		{}
+	var stored_runtime: Dictionary = (
+		world_state.player_record.runtime
+		if world_state.player_record
+		else {}
 	)
 	if stored_runtime.get("inventory", {}).is_empty():
 		_fail("Inventory commands did not update the persistent player record.")

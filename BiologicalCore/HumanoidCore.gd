@@ -513,59 +513,57 @@ func _on_vital_failure(reason: String) -> void:
 # RUNTIME STATE CONTRACT
 # ---------------------------------------------------------
 
-func capture_runtime_state() -> Dictionary:
-	return {
-		"body": body.capture_runtime_state(),
-		"inventory": inventory.capture_runtime_state(),
-		"base_ap": base_ap,
-		"current_max_ap": current_max_ap,
-		"is_dead": is_dead,
-		"stance_points": stance_points,
-		"current_morale": current_morale,
-		"is_fleeing": is_fleeing,
-		"is_escaping": is_escaping,
-		"current_arc_energy": current_arc_energy,
-		"red_mist_corruption": red_mist_corruption,
-		"is_mindless_hive_thrall": is_mindless_hive_thrall,
-		"is_comatose": is_comatose,
-	}
+func capture_runtime_state() -> HumanoidState:
+	var state := HumanoidState.new()
+	state.body = body.capture_runtime_state()
+	state.inventory = inventory.capture_runtime_state()
+	state.base_ap = base_ap
+	state.current_max_ap = current_max_ap
+	state.is_dead = is_dead
+	state.stance_points = stance_points
+	state.current_morale = current_morale
+	state.is_fleeing = is_fleeing
+	state.is_escaping = is_escaping
+	state.current_arc_energy = current_arc_energy
+	state.red_mist_corruption = red_mist_corruption
+	state.is_mindless_hive_thrall = is_mindless_hive_thrall
+	state.is_comatose = is_comatose
+	return state
 
-func restore_runtime_state(state: Dictionary) -> void:
-	if state.is_empty():
+func restore_runtime_state(state) -> void:
+	var humanoid_state: HumanoidState
+	if state is HumanoidState:
+		humanoid_state = state
+	elif state is Dictionary:
+		if state.is_empty():
+			return
+		humanoid_state = HumanoidState.from_dict(state)
+	else:
 		return
 
-	body.restore_runtime_state(state.get("body", {}))
-	inventory.restore_runtime_state(state.get("inventory", {}))
-	base_ap = state.get("base_ap", base_ap)
-	current_max_ap = state.get("current_max_ap", current_max_ap)
-	is_dead = state.get("is_dead", is_dead)
-	stance_points = clampi(
-		int(state.get("stance_points", stance_points)),
-		0,
-		int(GameEnums.SCALE_MAX)
-	)
-	current_morale = clampf(
-		float(state.get("current_morale", current_morale)),
-		0.0,
-		GameEnums.SCALE_MAX
-	)
-	is_fleeing = state.get("is_fleeing", false)
-	is_escaping = state.get("is_escaping", false)
+	if humanoid_state.body:
+		body.restore_runtime_state(humanoid_state.body)
+	if humanoid_state.inventory:
+		inventory.restore_runtime_state(humanoid_state.inventory)
+	base_ap = humanoid_state.base_ap
+	current_max_ap = humanoid_state.current_max_ap
+	is_dead = humanoid_state.is_dead
+	stance_points = clampi(humanoid_state.stance_points, 0, int(GameEnums.SCALE_MAX))
+	current_morale = clampf(humanoid_state.current_morale, 0.0, GameEnums.SCALE_MAX)
+	is_fleeing = humanoid_state.is_fleeing
+	is_escaping = humanoid_state.is_escaping
 	current_arc_energy = clampf(
-		float(state.get("current_arc_energy", current_arc_energy)),
+		humanoid_state.current_arc_energy,
 		0.0,
 		definition.max_arc_energy if definition else GameEnums.SCALE_MAX
 	)
 	red_mist_corruption = clampf(
-		float(state.get("red_mist_corruption", red_mist_corruption)),
+		humanoid_state.red_mist_corruption,
 		0.0,
 		GameEnums.SCALE_MAX
 	)
-	is_mindless_hive_thrall = state.get(
-		"is_mindless_hive_thrall",
-		is_mindless_hive_thrall
-	)
-	is_comatose = state.get("is_comatose", is_comatose)
+	is_mindless_hive_thrall = humanoid_state.is_mindless_hive_thrall
+	is_comatose = humanoid_state.is_comatose
 	has_stance_recovery_guard = false
 	_evaluate_stance_state()
 	_calculate_kinetic_burden()

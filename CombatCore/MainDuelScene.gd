@@ -122,7 +122,7 @@ func setup_duel_procedural(existing_player_core: HumanoidCore, enemy_faction: Ga
 		enemy_faction,
 		difficulty
 	)
-	setup_duel(existing_player_core, enemy_record)
+	setup_duel(existing_player_core, enemy_record.to_dict())
 
 func _fabricate_humanoid(
 	unit_name: String,
@@ -307,7 +307,7 @@ func _spawn_next_mob() -> void:
 func capture_enemy_runtime_state() -> Dictionary:
 	if not enemy_core:
 		return {}
-	return enemy_core.capture_runtime_state()
+	return enemy_core.capture_runtime_state().to_dict()
 
 func _clear_encounter_transients() -> void:
 	if player_core:
