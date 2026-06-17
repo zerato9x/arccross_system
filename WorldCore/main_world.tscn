@@ -5,28 +5,8 @@
 [ext_resource type="PackedScene" uid="uid://c2x1pj7ufkic3" path="res://WorldCore/enemy_macro_token.tscn" id="2_uks48"]
 [ext_resource type="Script" uid="uid://cx1mksiriifhy" path="res://WorldCore/HexMapVisualizer.gd" id="3_whfra"]
 [ext_resource type="Script" uid="uid://byad43fefe43p" path="res://WorldCore/MacroPlayer.gd" id="4_uue8y"]
-[ext_resource type="Texture2D" uid="uid://bxu3tohrd4uhn" path="res://Asset/forestPack/forest_01_full.png" id="5_qgqe1"]
 [ext_resource type="Texture2D" uid="uid://tpeur5u15cm8" path="res://Asset/asset.png" id="6_aac4l"]
-[ext_resource type="Texture2D" uid="uid://dqqrngm1uny1q" path="res://Asset/forestPack/forest_02_fewTrees.png" id="6_dk0k3"]
-[ext_resource type="Texture2D" uid="uid://bsk2bspwmyeca" path="res://Asset/forestPack/forest_11_cave.png" id="7_1485x"]
 [ext_resource type="Script" uid="uid://yet2ng3qfd24" path="res://WorldCore/camera_2d.gd" id="7_aac4l"]
-[ext_resource type="Texture2D" uid="uid://dnwhciogoduey" path="res://Asset/forestPack/forest_12_hill.png" id="8_ohlbx"]
-[ext_resource type="Texture2D" uid="uid://by4ngt7l0fdlp" path="res://Asset/forestPack/forest_13_stones.png" id="9_gs8yn"]
-[ext_resource type="Texture2D" uid="uid://lopsakt5em76" path="res://Asset/forestPack/forest_14_house.png" id="10_n2nnu"]
-[ext_resource type="Texture2D" uid="uid://dusx3o6ucd80f" path="res://Asset/forestPack/forest_15_village.png" id="11_7y61r"]
-[ext_resource type="Texture2D" uid="uid://blxl2fwmc1f3y" path="res://Asset/forestPack/forest_16_watchTower.png" id="12_jskb3"]
-[ext_resource type="Texture2D" uid="uid://y1ywnlvja04c" path="res://Asset/forestPack/forest_17_ruins.png" id="13_2bi6e"]
-[ext_resource type="Texture2D" uid="uid://c20li0jamw4xa" path="res://Asset/forestPack/forest_18_blast.png" id="14_88v13"]
-[ext_resource type="Texture2D" uid="uid://d18016rhmwd58" path="res://Asset/forestPack/forest_19_road.png" id="15_k6o0p"]
-[ext_resource type="Texture2D" uid="uid://bv4sygphebyqr" path="res://Asset/forestPack/forest_20_temple.png" id="16_g50ry"]
-[ext_resource type="Texture2D" uid="uid://cgnlnm6gm1aft" path="res://Asset/forestPack/forest_03_clearing.png" id="17_csnk0"]
-[ext_resource type="Texture2D" uid="uid://dng3jls6ekn7x" path="res://Asset/forestPack/forest_04_dead.png" id="18_3top3"]
-[ext_resource type="Texture2D" uid="uid://b4rsks6inn6j4" path="res://Asset/forestPack/forest_05_rift.png" id="19_vjhes"]
-[ext_resource type="Texture2D" uid="uid://cwc20hiyjf8mu" path="res://Asset/forestPack/forest_06_wildBushes.png" id="20_cr12t"]
-[ext_resource type="Texture2D" uid="uid://dtkr13s4guq8s" path="res://Asset/forestPack/forest_07_spikes.png" id="21_rpvt1"]
-[ext_resource type="Texture2D" uid="uid://b6c54u52u4gqy" path="res://Asset/forestPack/forest_08_spider.png" id="22_rbnne"]
-[ext_resource type="Texture2D" uid="uid://u6a81jsk2582" path="res://Asset/forestPack/forest_09_tree.png" id="23_vg3c2"]
-[ext_resource type="Texture2D" uid="uid://cnhflxv7cbmfb" path="res://Asset/forestPack/forest_10_mushroom.png" id="24_2h6sp"]
 [ext_resource type="Resource" uid="uid://dt3cxr74y2xao" path="res://BiologicalCore/player_def.tres" id="25_player_def"]
 [ext_resource type="Script" uid="uid://c6bbmynmpcyyd" path="res://BiologicalCore/HumanoidCore.gd" id="26_humanoid_core"]
 [ext_resource type="Script" uid="uid://cyby11uaje4em" path="res://BiologicalCore/HumanoidBody.gd" id="27_humanoid_body"]
@@ -34,130 +14,6 @@
 [ext_resource type="Script" uid="uid://b3cich77l6nye" path="res://WorldCore/MacroInteractionPanel.gd" id="29_interaction"]
 [ext_resource type="PackedScene" uid="uid://b72xqqy5yyt02" path="res://UI/Inventory/InventoryUI.tscn" id="30_inventory_panel"]
 [ext_resource type="PackedScene" uid="uid://bidwe2cg476w8" path="res://UI/Humanoid/HumanoidToken.tscn" id="31_bnpb6"]
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_n2nnu"]
-texture = ExtResource("20_cr12t")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_dk0k3"]
-texture = ExtResource("5_qgqe1")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_1485x"]
-texture = ExtResource("8_ohlbx")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_ohlbx"]
-texture = ExtResource("17_csnk0")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_gs8yn"]
-texture = ExtResource("19_vjhes")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_jskb3"]
-texture = ExtResource("22_rbnne")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_2bi6e"]
-texture = ExtResource("23_vg3c2")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_88v13"]
-texture = ExtResource("24_2h6sp")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_k6o0p"]
-texture = ExtResource("14_88v13")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_g50ry"]
-texture = ExtResource("7_1485x")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_csnk0"]
-texture = ExtResource("9_gs8yn")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_3top3"]
-texture = ExtResource("10_n2nnu")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_vjhes"]
-texture = ExtResource("11_7y61r")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_cr12t"]
-texture = ExtResource("12_jskb3")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_rpvt1"]
-texture = ExtResource("13_2bi6e")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_rbnne"]
-texture = ExtResource("15_k6o0p")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_vg3c2"]
-texture = ExtResource("16_g50ry")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_qgqe1"]
-texture = ExtResource("6_dk0k3")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_7y61r"]
-texture = ExtResource("21_rpvt1")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_2h6sp"]
-texture = ExtResource("18_3top3")
-texture_region_size = Vector2i(222, 255)
-0:0/0 = 0
-
-[sub_resource type="TileSet" id="TileSet_3etub"]
-tile_shape = 3
-tile_size = Vector2i(222, 255)
-sources/22 = SubResource("TileSetAtlasSource_ohlbx")
-sources/24 = SubResource("TileSetAtlasSource_gs8yn")
-sources/27 = SubResource("TileSetAtlasSource_jskb3")
-sources/28 = SubResource("TileSetAtlasSource_2bi6e")
-sources/29 = SubResource("TileSetAtlasSource_88v13")
-sources/30 = SubResource("TileSetAtlasSource_g50ry")
-sources/32 = SubResource("TileSetAtlasSource_csnk0")
-sources/33 = SubResource("TileSetAtlasSource_3top3")
-sources/34 = SubResource("TileSetAtlasSource_vjhes")
-sources/35 = SubResource("TileSetAtlasSource_cr12t")
-sources/36 = SubResource("TileSetAtlasSource_rpvt1")
-sources/38 = SubResource("TileSetAtlasSource_rbnne")
-sources/39 = SubResource("TileSetAtlasSource_vg3c2")
-sources/1 = SubResource("TileSetAtlasSource_dk0k3")
-sources/2 = SubResource("TileSetAtlasSource_1485x")
-sources/3 = SubResource("TileSetAtlasSource_k6o0p")
-sources/5 = SubResource("TileSetAtlasSource_2h6sp")
-sources/44 = SubResource("TileSetAtlasSource_7y61r")
-sources/4 = SubResource("TileSetAtlasSource_qgqe1")
-sources/0 = SubResource("TileSetAtlasSource_n2nnu")
 
 [node name="MainWorld" type="Node2D" unique_id=1029321409 node_paths=PackedStringArray("world_generator", "map_visualizer", "player_token", "interaction_panel", "inventory_panel")]
 script = ExtResource("1_tu7u5")
@@ -172,10 +28,11 @@ inventory_panel = NodePath("InventoryPanel/InventoryUI")
 script = ExtResource("2_3etub")
 
 [node name="HexMapVisualizer" type="TileMapLayer" parent="." unique_id=1261522321 node_paths=PackedStringArray("world_generator")]
-tile_set = SubResource("TileSet_3etub")
 script = ExtResource("3_whfra")
 world_generator = NodePath("../HexWorldGenerator")
+overlay_layer = NodePath("../HexOverlayVisualizer")
 
+[node name="HexOverlayVisualizer" type="TileMapLayer" parent="."]
 [node name="PlayerMacroToken" type="Node2D" parent="." unique_id=1082668946]
 script = ExtResource("4_uue8y")
 definition = ExtResource("25_player_def")

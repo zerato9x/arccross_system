@@ -6,7 +6,8 @@ class_name HexWorldGenerator
 # ---------------------------------------------------------
 @export var master_seed: String = "THE_NORTH_REMEMBERS"
 
-var noise_engine: FastNoiseLite
+var elevation_noise: FastNoiseLite
+var moisture_noise: FastNoiseLite
 var world_hex_cache: Dictionary = {} # Stores Vector2i -> MacroHexData
 var manual_poi_overrides: Dictionary = {} # Stores Vector2i -> Dictionary (POI Data)
 
@@ -22,13 +23,18 @@ func _ready() -> void:
 	_initialize_noise()
 
 func _initialize_noise() -> void:
-	noise_engine = FastNoiseLite.new()
-	# The hash turns your string phrase into a massive, unique integer
-	noise_engine.seed = master_seed.hash() 
-	
-	# Cellular noise creates chunky, distinct regional biomes (perfect for Hex games)
-	noise_engine.noise_type = FastNoiseLite.TYPE_CELLULAR
-	noise_engine.frequency = 0.05 # Lower = massive continents. Higher = scattered islands.
+	elevation_noise = FastNoiseLite.new()
+	elevation_noise.seed = (master_seed + ":elevation").hash()
+	elevation_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	elevation_noise.frequency = 0.04
+
+	moisture_noise = FastNoiseLite.new()
+	moisture_noise.seed = (master_seed + ":moisture").hash()
+	moisture_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	moisture_noise.frequency = 0.06
+
+static func compute_visual_variant_hash(coords: Vector2i, seed_value: String) -> int:
+	return absi((seed_value + ":variant:" + str(coords.x) + ":" + str(coords.y)).hash())
 
 func configure_seed(seed_value: String) -> void:
 	master_seed = seed_value
@@ -62,6 +68,12 @@ func get_hex_at(coords: Vector2i) -> MacroHexData:
 	var persistent_state: HexRecord = _world_state.get_hex_record(coords)
 	if persistent_state != null:
 		var persistent_hex := MacroHexData.from_state(persistent_state)
+		if persistent_hex.visual_variant_hash == 0:
+			persistent_hex.visual_variant_hash = compute_visual_variant_hash(
+				coords,
+				master_seed
+			)
+			_world_state.set_hex_record(coords, persistent_hex.to_state())
 		world_hex_cache[coords] = persistent_hex
 		return persistent_hex
 		
@@ -83,6 +95,8 @@ func get_hex_at(coords: Vector2i) -> MacroHexData:
 	# 5. No override or hand-crafted sector found. Roll the procedural noise engine.
 	else:
 		_generate_procedural_biome(coords, new_hex)
+
+	new_hex.visual_variant_hash = compute_visual_variant_hash(coords, master_seed)
 		
 	# 6. Save it to the cache so it never changes, and return it.
 	world_hex_cache[coords] = new_hex
@@ -125,20 +139,24 @@ func _load_from_handcrafted_sector(coords: Vector2i, hex: MacroHexData) -> void:
 		hex.biome = GameEnums.GridBiome.PLAINS
 
 func _generate_procedural_biome(coords: Vector2i, hex: MacroHexData) -> void:
-	# Get a noise value between -1.0 and 1.0 based on the hex coordinates
-	var altitude: float = noise_engine.get_noise_2dv(coords)
-	
-	# Translate the abstract math into physical dirt
-	if altitude < -0.4:
-		hex.biome = GameEnums.GridBiome.SWAMP
-	elif altitude < 0.0:
-		hex.biome = GameEnums.GridBiome.MUD
-	elif altitude < 0.4:
-		hex.biome = GameEnums.GridBiome.PLAINS
-	elif altitude < 0.7:
-		hex.biome = GameEnums.GridBiome.FOREST
-	else:
+	var elevation: float = elevation_noise.get_noise_2dv(coords)
+	var moisture: float = moisture_noise.get_noise_2dv(coords)
+
+	if elevation > 0.65:
+		hex.biome = GameEnums.GridBiome.MOUNTAIN
+	elif elevation > 0.40:
 		hex.biome = GameEnums.GridBiome.HILLS
+	elif elevation < -0.35:
+		if moisture > -0.1:
+			hex.biome = GameEnums.GridBiome.SWAMP
+		else:
+			hex.biome = GameEnums.GridBiome.MUD
+	elif moisture > 0.35:
+		hex.biome = GameEnums.GridBiome.FOREST
+	elif moisture < -0.35:
+		hex.biome = GameEnums.GridBiome.MUD
+	else:
+		hex.biome = GameEnums.GridBiome.PLAINS
 		
 	# Small random chance for a generic, non-unique scavenge location
 	var poi_rng := RandomNumberGenerator.new()

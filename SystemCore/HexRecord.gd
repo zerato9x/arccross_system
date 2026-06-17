@@ -10,6 +10,7 @@ class_name HexRecord
 @export var poi_name: String = ""
 @export var is_explored: bool = false
 @export_range(0.0, 12.0) var hazard_level: float = 0.0
+@export var visual_variant_hash: int = 0
 var encounter_evaluated: bool = false
 var encounter_entity_id: String = ""
 var search_count: int = 0
@@ -24,6 +25,7 @@ func to_dict() -> Dictionary:
 		"poi_name": poi_name,
 		"is_explored": is_explored,
 		"hazard_level": hazard_level,
+		"visual_variant_hash": visual_variant_hash,
 		"encounter_evaluated": encounter_evaluated,
 		"encounter_entity_id": encounter_entity_id,
 		"search_count": search_count,
@@ -43,6 +45,7 @@ static func from_dict(data: Dictionary) -> HexRecord:
 		0.0,
 		GameEnums.SCALE_MAX
 	)
+	record.visual_variant_hash = int(data.get("visual_variant_hash", 0))
 	record.encounter_evaluated = data.get("encounter_evaluated", false)
 	record.encounter_entity_id = data.get("encounter_entity_id", "")
 	record.search_count = data.get("search_count", 0)

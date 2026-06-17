@@ -220,7 +220,7 @@ enum CombatTactic {
 # ==========================================
 # 5. MACRO WORLD & ENVIRONMENT
 # ==========================================
-enum GridBiome { PLAINS, FOREST, HILLS, MUD, SWAMP }
+enum GridBiome { PLAINS, FOREST, HILLS, MOUNTAIN, MUD, SWAMP }
 
 enum MacroInteractionType { NONE, POI, ENTITY_COLLISION }
 enum PoiAction { SEARCH, CAMP }

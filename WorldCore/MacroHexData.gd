@@ -12,6 +12,7 @@ class_name MacroHexData
 # Fog of War / Exploration
 @export var is_explored: bool = false
 @export_range(0.0, 12.0) var hazard_level: float = 0.0
+@export var visual_variant_hash: int = 0
 var encounter_evaluated: bool = false
 var encounter_entity_id: String = ""
 var search_count: int = 0
@@ -26,6 +27,7 @@ func to_state() -> HexRecord:
 	record.poi_name = poi_name
 	record.is_explored = is_explored
 	record.hazard_level = hazard_level
+	record.visual_variant_hash = visual_variant_hash
 	record.encounter_evaluated = encounter_evaluated
 	record.encounter_entity_id = encounter_entity_id
 	record.search_count = search_count
@@ -48,6 +50,7 @@ static func from_state(state) -> MacroHexData:
 	hex.poi_name = source.poi_name
 	hex.is_explored = source.is_explored
 	hex.hazard_level = source.hazard_level
+	hex.visual_variant_hash = source.visual_variant_hash
 	hex.encounter_evaluated = source.encounter_evaluated
 	hex.encounter_entity_id = source.encounter_entity_id
 	hex.search_count = source.search_count

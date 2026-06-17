@@ -177,6 +177,10 @@ func _attempt_move_to_mouse() -> void:
 	if not HEX_NEIGHBORS.has(distance_vector):
 		return # Ignored. Too far away.
 		
+	var target_hex := world_generator.get_hex_at(clicked_hex_coords)
+	if target_hex.biome == GameEnums.GridBiome.MOUNTAIN:
+		return # Ignored. Mountains are unpassable.
+
 	_execute_player_step(clicked_hex_coords)
 
 func _execute_player_step(target_coords: Vector2i) -> void:
@@ -232,6 +236,8 @@ func _advance_survival_time(
 		)
 
 func _get_exertion_for_biome(biome: GameEnums.GridBiome) -> float:
+	if biome == GameEnums.GridBiome.HILLS:
+		return 2.5
 	if biome == GameEnums.GridBiome.SWAMP or biome == GameEnums.GridBiome.MUD:
 		return 2.0
 	return 1.0
