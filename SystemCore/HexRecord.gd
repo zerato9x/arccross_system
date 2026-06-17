@@ -5,6 +5,10 @@ class_name HexRecord
 ## WorldCore's MacroHexData converts to/from this at the domain boundary.
 
 @export var biome: GameEnums.GridBiome = GameEnums.GridBiome.PLAINS
+@export var terrain_tile: GameEnums.MacroTerrainTile = GameEnums.MacroTerrainTile.PLAINS_GRASS
+@export var flora_layer: GameEnums.MacroFloraLayer = GameEnums.MacroFloraLayer.SHRUBS
+@export var rock_layer: GameEnums.MacroRockLayer = GameEnums.MacroRockLayer.NONE
+@export var structure_layer: GameEnums.MacroStructureLayer = GameEnums.MacroStructureLayer.NONE
 @export var is_poi: bool = false
 @export var poi_id: String = ""
 @export var poi_name: String = ""
@@ -20,6 +24,10 @@ var camp_rest_count: int = 0
 func to_dict() -> Dictionary:
 	return {
 		"biome": biome,
+		"terrain_tile": terrain_tile,
+		"flora_layer": flora_layer,
+		"rock_layer": rock_layer,
+		"structure_layer": structure_layer,
 		"is_poi": is_poi,
 		"poi_id": poi_id,
 		"poi_name": poi_name,
@@ -36,9 +44,27 @@ func to_dict() -> Dictionary:
 static func from_dict(data: Dictionary) -> HexRecord:
 	var record := HexRecord.new()
 	record.biome = data.get("biome", GameEnums.GridBiome.PLAINS)
+	record.terrain_tile = data.get(
+		"terrain_tile",
+		_legacy_terrain_for_biome(record.biome)
+	)
+	record.flora_layer = data.get(
+		"flora_layer",
+		_legacy_flora_for_biome(record.biome)
+	)
+	record.rock_layer = data.get(
+		"rock_layer",
+		_legacy_rock_for_biome(record.biome)
+	)
+	record.structure_layer = data.get(
+		"structure_layer",
+		GameEnums.MacroStructureLayer.NONE
+	)
 	record.is_poi = data.get("is_poi", false)
 	record.poi_id = data.get("poi_id", "")
 	record.poi_name = data.get("poi_name", "")
+	if record.is_poi and record.structure_layer == GameEnums.MacroStructureLayer.NONE:
+		record.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
 	record.is_explored = data.get("is_explored", false)
 	record.hazard_level = clampf(
 		float(data.get("hazard_level", 0.0)),
@@ -52,3 +78,34 @@ static func from_dict(data: Dictionary) -> HexRecord:
 	record.camp_item_states = data.get("camp_item_states", []).duplicate(true)
 	record.camp_rest_count = data.get("camp_rest_count", 0)
 	return record
+
+static func _legacy_terrain_for_biome(
+	biome_value: GameEnums.GridBiome
+) -> GameEnums.MacroTerrainTile:
+	match biome_value:
+		GameEnums.GridBiome.FOREST:
+			return GameEnums.MacroTerrainTile.FOREST_SPARSE
+		GameEnums.GridBiome.MUD, GameEnums.GridBiome.SWAMP:
+			return GameEnums.MacroTerrainTile.MUD_YELLOW
+		GameEnums.GridBiome.HILLS, GameEnums.GridBiome.MOUNTAIN:
+			return GameEnums.MacroTerrainTile.SNOW_TRANSITION
+		_:
+			return GameEnums.MacroTerrainTile.PLAINS_GRASS
+
+static func _legacy_flora_for_biome(
+	biome_value: GameEnums.GridBiome
+) -> GameEnums.MacroFloraLayer:
+	if biome_value == GameEnums.GridBiome.FOREST:
+		return GameEnums.MacroFloraLayer.TREES
+	if biome_value == GameEnums.GridBiome.PLAINS:
+		return GameEnums.MacroFloraLayer.SHRUBS
+	return GameEnums.MacroFloraLayer.NONE
+
+static func _legacy_rock_for_biome(
+	biome_value: GameEnums.GridBiome
+) -> GameEnums.MacroRockLayer:
+	if biome_value == GameEnums.GridBiome.MOUNTAIN:
+		return GameEnums.MacroRockLayer.ROCKS
+	if biome_value == GameEnums.GridBiome.HILLS:
+		return GameEnums.MacroRockLayer.HILLS
+	return GameEnums.MacroRockLayer.NONE

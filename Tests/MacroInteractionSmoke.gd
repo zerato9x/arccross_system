@@ -25,7 +25,7 @@ func _run() -> void:
 	var hostile_record := world_state.get_entity(
 		disposition_probe.entity_id
 	)
-	var passive_record := hostile_record.duplicate(true)
+	var passive_record := hostile_record.to_dict()
 	passive_record["world_status"] = GameEnums.EntityWorldStatus.CEASEFIRE
 	disposition_probe.setup_from_record(passive_record)
 	if disposition_probe.humanoid_token.get_animation() != "Idle3":
@@ -205,7 +205,15 @@ func _run() -> void:
 		poi_coords,
 		macro_map.active_enemies.keys()
 	)
-	for step in _build_hex_path(poi_coords, enemy_coords):
+	var enemy_path := _build_hex_path(
+		poi_coords,
+		enemy_coords,
+		macro_map.world_generator
+	)
+	if enemy_path.is_empty():
+		_fail("No passable macro path could reach the hostile entity.")
+		return
+	for step in enemy_path:
 		macro_map._execute_player_step(step)
 		await process_frame
 
@@ -257,11 +265,19 @@ func _verify_failed_talk_deployment() -> bool:
 	var enemy_id: String = macro_map.active_enemies[enemy_coords].entity_id
 	var world_state := root.get_node("WorldState") as RuntimeStateStore
 	var enemy_record := world_state.get_entity(enemy_id)
-	var definition: Dictionary = enemy_record.get("definition", {})
+	var definition: Dictionary = enemy_record.definition.duplicate(true)
 	definition["will"] = 12
 	world_state.patch_entity_record(enemy_id, {"definition": definition})
 
-	for step in _build_hex_path(origin, enemy_coords):
+	var enemy_path := _build_hex_path(
+		origin,
+		enemy_coords,
+		macro_map.world_generator
+	)
+	if enemy_path.is_empty():
+		_fail("No passable macro path could reach the hostile entity.")
+		return false
+	for step in enemy_path:
 		macro_map._execute_player_step(step)
 		await process_frame
 
@@ -290,7 +306,7 @@ func _verify_failed_talk_deployment() -> bool:
 	game_director.add_child(enemy_initiated_arena)
 	enemy_initiated_arena.setup_duel(
 		macro_map.player_token.get_humanoid_core(),
-		world_state.get_entity(enemy_id),
+		world_state.get_entity(enemy_id).to_dict(),
 		{
 			"context": GameEnums.EncounterContext.ENEMY_AMBUSH,
 			"initiator_id": enemy_id,
@@ -303,6 +319,10 @@ func _verify_failed_talk_deployment() -> bool:
 	):
 		_fail("An enemy collider did not receive first initiative.")
 		return false
+	enemy_initiated_arena.turn_manager.halt_loop()
+	enemy_initiated_arena.queue_free()
+	game_director.queue_free()
+	await process_frame
 	return true
 
 func _spawn_game() -> Node:
@@ -379,20 +399,49 @@ func _nearest_enemy_coords(origin: Vector2i, candidates: Array) -> Vector2i:
 			nearest_distance = distance
 	return nearest
 
-func _build_hex_path(origin: Vector2i, destination: Vector2i) -> Array[Vector2i]:
-	var path: Array[Vector2i] = []
-	var current := origin
-	while current != destination:
-		var best_step := current
-		var best_distance := _hex_distance(current, destination)
+func _build_hex_path(
+	origin: Vector2i,
+	destination: Vector2i,
+	generator: HexWorldGenerator = null
+) -> Array[Vector2i]:
+	if origin == destination:
+		return []
+
+	var frontier: Array[Vector2i] = [origin]
+	var came_from: Dictionary = {}
+	var max_search_distance := maxi(_hex_distance(origin, destination) + 24, 32)
+	came_from[origin] = origin
+
+	var frontier_index := 0
+	while frontier_index < frontier.size():
+		var current := frontier[frontier_index]
+		frontier_index += 1
+		if current == destination:
+			break
+
 		for direction in MacroGameManager.HEX_NEIGHBORS:
 			var candidate: Vector2i = current + direction
-			var distance := _hex_distance(candidate, destination)
-			if distance < best_distance:
-				best_step = candidate
-				best_distance = distance
-		current = best_step
-		path.append(current)
+			if came_from.has(candidate):
+				continue
+			if _hex_distance(origin, candidate) > max_search_distance:
+				continue
+			if (
+				candidate != destination
+				and generator != null
+				and not generator.get_hex_at(candidate).is_passable()
+			):
+				continue
+			came_from[candidate] = current
+			frontier.append(candidate)
+
+	if not came_from.has(destination):
+		return []
+
+	var path: Array[Vector2i] = []
+	var step := destination
+	while step != origin:
+		path.push_front(step)
+		step = came_from[step]
 	return path
 
 func _hex_distance(from_coords: Vector2i, to_coords: Vector2i) -> int:

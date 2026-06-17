@@ -178,8 +178,8 @@ func _attempt_move_to_mouse() -> void:
 		return # Ignored. Too far away.
 		
 	var target_hex := world_generator.get_hex_at(clicked_hex_coords)
-	if target_hex.biome == GameEnums.GridBiome.MOUNTAIN:
-		return # Ignored. Mountains are unpassable.
+	if not target_hex.is_passable():
+		return # Ignored. Rock fields are unpassable.
 
 	_execute_player_step(clicked_hex_coords)
 
@@ -196,7 +196,7 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 	var hex_data := world_generator.get_hex_at(target_coords)
 	_advance_survival_time(
 		GameTimeRules.MOVE_MINUTES,
-		_get_exertion_for_biome(hex_data.biome),
+		_get_exertion_for_hex(hex_data),
 		target_coords
 	)
 	
@@ -241,6 +241,9 @@ func _get_exertion_for_biome(biome: GameEnums.GridBiome) -> float:
 	if biome == GameEnums.GridBiome.SWAMP or biome == GameEnums.GridBiome.MUD:
 		return 2.0
 	return 1.0
+
+func _get_exertion_for_hex(hex_data: MacroHexData) -> float:
+	return hex_data.travel_exertion()
 
 func _begin_poi_interaction(
 	coords: Vector2i,
@@ -1165,9 +1168,9 @@ func _ensure_encounter_records(center_coords: Vector2i) -> void:
 
 		var rng := RandomNumberGenerator.new()
 		rng.seed = _encounter_key(coords).hash()
-		var spawn_chance := _get_spawn_chance(hex_data.biome)
+		var spawn_chance := _get_spawn_chance(hex_data)
 		if rng.randf() < spawn_chance:
-			var faction := _roll_faction(rng, hex_data.biome)
+			var faction := _roll_faction(rng, hex_data)
 			var difficulty := mini(
 				3,
 				floori(float(_hex_distance(Vector2i.ZERO, coords)) / 8.0)
@@ -1183,25 +1186,31 @@ func _ensure_encounter_records(center_coords: Vector2i) -> void:
 
 		_world_state.set_hex_record(coords, hex_data.to_state())
 
-func _get_spawn_chance(biome: GameEnums.GridBiome) -> float:
-	match biome:
-		GameEnums.GridBiome.SWAMP:
-			return base_enemy_spawn_chance * 1.35
-		GameEnums.GridBiome.MUD:
-			return base_enemy_spawn_chance * 1.15
-		GameEnums.GridBiome.FOREST:
-			return base_enemy_spawn_chance * 1.1
-		GameEnums.GridBiome.HILLS:
-			return base_enemy_spawn_chance * 0.9
-		_:
-			return base_enemy_spawn_chance
+func _get_spawn_chance(hex_data: MacroHexData) -> float:
+	if not hex_data.is_passable():
+		return 0.0
+	var chance := base_enemy_spawn_chance
+	if hex_data.terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW:
+		chance *= 1.15
+	elif hex_data.terrain_tile == GameEnums.MacroTerrainTile.FOREST_SPARSE:
+		chance *= 1.1
+	elif hex_data.terrain_tile == GameEnums.MacroTerrainTile.SNOW_TRANSITION:
+		chance *= 0.9
+	if hex_data.rock_layer == GameEnums.MacroRockLayer.HILLS:
+		chance *= 0.9
+	if hex_data.structure_layer != GameEnums.MacroStructureLayer.NONE:
+		chance *= 1.2
+	return chance
 
 func _roll_faction(
 	rng: RandomNumberGenerator,
-	biome: GameEnums.GridBiome
+	hex_data: MacroHexData
 ) -> GameEnums.Faction:
 	var roll := rng.randf()
-	if biome == GameEnums.GridBiome.SWAMP and roll < 0.45:
+	if (
+		hex_data.terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW
+		and roll < 0.35
+	):
 		return GameEnums.Faction.CRAVEN_HIVE
 	if roll < 0.72:
 		return GameEnums.Faction.SCAVENGER_CELL

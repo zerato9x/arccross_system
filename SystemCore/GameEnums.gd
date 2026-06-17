@@ -222,6 +222,33 @@ enum CombatTactic {
 # ==========================================
 enum GridBiome { PLAINS, FOREST, HILLS, MOUNTAIN, MUD, SWAMP }
 
+## Phase 1 uses PLAINS as the only biome. These layers describe what is
+## painted and placed on top of that biome without lying to gameplay code.
+enum MacroTerrainTile {
+	PLAINS_GRASS,
+	FOREST_SPARSE,
+	MUD_YELLOW,
+	SNOW_TRANSITION,
+}
+
+enum MacroFloraLayer {
+	NONE,
+	SHRUBS,
+	TREES,
+}
+
+enum MacroRockLayer {
+	NONE,
+	HILLS,
+	ROCKS,
+}
+
+enum MacroStructureLayer {
+	NONE,
+	STRUCTURES,
+	REMNANTS,
+}
+
 enum MacroInteractionType { NONE, POI, ENTITY_COLLISION }
 enum PoiAction { SEARCH, CAMP }
 enum InteractionItemRole { NONE, SEARCH_TOOL, CAMP_GEAR }

@@ -5,6 +5,9 @@ class_name HexWorldGenerator
 # THE SEED & THE NOISE
 # ---------------------------------------------------------
 @export var master_seed: String = "THE_NORTH_REMEMBERS"
+@export var snow_transition_distance: int = 48
+@export_range(0.0, 1.0) var random_structure_chance: float = 0.015
+@export_range(0.0, 1.0) var random_remnant_chance: float = 0.025
 
 var elevation_noise: FastNoiseLite
 var moisture_noise: FastNoiseLite
@@ -83,10 +86,11 @@ func get_hex_at(coords: Vector2i) -> MacroHexData:
 	# 3. Check the Narrative Override Dict. Did An manually put a camp here?
 	if manual_poi_overrides.has(coords):
 		var override_data = manual_poi_overrides[coords]
-		new_hex.biome = override_data["biome"]
+		new_hex.biome = GameEnums.GridBiome.PLAINS
 		new_hex.is_poi = true
 		new_hex.poi_id = override_data["id"]
 		new_hex.poi_name = override_data["name"]
+		new_hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
 		
 	# 4. Check if it's in a Hand-Crafted Sector
 	elif _is_in_handcrafted_sector(coords):
@@ -94,7 +98,7 @@ func get_hex_at(coords: Vector2i) -> MacroHexData:
 		
 	# 5. No override or hand-crafted sector found. Roll the procedural noise engine.
 	else:
-		_generate_procedural_biome(coords, new_hex)
+		_generate_procedural_layers(coords, new_hex)
 
 	new_hex.visual_variant_hash = compute_visual_variant_hash(coords, master_seed)
 		
@@ -130,35 +134,90 @@ func _load_from_handcrafted_sector(coords: Vector2i, hex: MacroHexData) -> void:
 	if sector_data.has(local_coords):
 		var data = sector_data[local_coords]
 		hex.biome = data.get("biome", GameEnums.GridBiome.PLAINS)
+		hex.terrain_tile = data.get(
+			"terrain_tile",
+			HexRecord._legacy_terrain_for_biome(hex.biome)
+		)
+		hex.flora_layer = data.get(
+			"flora_layer",
+			HexRecord._legacy_flora_for_biome(hex.biome)
+		)
+		hex.rock_layer = data.get(
+			"rock_layer",
+			HexRecord._legacy_rock_for_biome(hex.biome)
+		)
+		hex.structure_layer = data.get(
+			"structure_layer",
+			GameEnums.MacroStructureLayer.NONE
+		)
 		if data.get("is_poi", false):
 			hex.is_poi = true
 			hex.poi_id = data.get("poi_id", "")
 			hex.poi_name = data.get("poi_name", "Unknown POI")
+			if hex.structure_layer == GameEnums.MacroStructureLayer.NONE:
+				hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
 	else:
 		# Fallback if a hex within a hand-crafted sector was left blank
 		hex.biome = GameEnums.GridBiome.PLAINS
+		hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
+		hex.flora_layer = GameEnums.MacroFloraLayer.SHRUBS
 
-func _generate_procedural_biome(coords: Vector2i, hex: MacroHexData) -> void:
+func _generate_procedural_layers(coords: Vector2i, hex: MacroHexData) -> void:
 	var elevation: float = elevation_noise.get_noise_2dv(coords)
 	var moisture: float = moisture_noise.get_noise_2dv(coords)
+	var distance := _hex_distance(Vector2i.ZERO, coords)
+
+	hex.biome = GameEnums.GridBiome.PLAINS
+	hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
+	hex.flora_layer = GameEnums.MacroFloraLayer.SHRUBS
+	hex.rock_layer = GameEnums.MacroRockLayer.NONE
+	hex.structure_layer = GameEnums.MacroStructureLayer.NONE
 
 	if elevation > 0.65:
-		hex.biome = GameEnums.GridBiome.MOUNTAIN
+		hex.rock_layer = GameEnums.MacroRockLayer.ROCKS
+		hex.flora_layer = GameEnums.MacroFloraLayer.NONE
 	elif elevation > 0.40:
-		hex.biome = GameEnums.GridBiome.HILLS
-	elif elevation < -0.35:
-		if moisture > -0.1:
-			hex.biome = GameEnums.GridBiome.SWAMP
+		hex.rock_layer = GameEnums.MacroRockLayer.HILLS
+
+	if hex.rock_layer != GameEnums.MacroRockLayer.ROCKS:
+		if elevation < -0.35 or moisture < -0.35:
+			hex.terrain_tile = GameEnums.MacroTerrainTile.MUD_YELLOW
+			hex.flora_layer = GameEnums.MacroFloraLayer.NONE
+		elif moisture > 0.35:
+			hex.terrain_tile = GameEnums.MacroTerrainTile.FOREST_SPARSE
+			hex.flora_layer = GameEnums.MacroFloraLayer.TREES
 		else:
-			hex.biome = GameEnums.GridBiome.MUD
-	elif moisture > 0.35:
-		hex.biome = GameEnums.GridBiome.FOREST
-	elif moisture < -0.35:
-		hex.biome = GameEnums.GridBiome.MUD
+			hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
+			hex.flora_layer = GameEnums.MacroFloraLayer.SHRUBS
+
+	if distance >= snow_transition_distance:
+		hex.terrain_tile = GameEnums.MacroTerrainTile.SNOW_TRANSITION
+		if hex.flora_layer == GameEnums.MacroFloraLayer.SHRUBS:
+			hex.flora_layer = GameEnums.MacroFloraLayer.NONE
+
+	_apply_structural_noise(coords, hex)
+
+func _apply_structural_noise(coords: Vector2i, hex: MacroHexData) -> void:
+	if not hex.is_passable():
+		return
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = (
+		master_seed
+		+ ":structure:"
+		+ str(coords.x)
+		+ ":"
+		+ str(coords.y)
+	).hash()
+	var roll := rng.randf()
+	if roll < random_structure_chance:
+		hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
+	elif roll < random_structure_chance + random_remnant_chance:
+		hex.structure_layer = GameEnums.MacroStructureLayer.REMNANTS
 	else:
-		hex.biome = GameEnums.GridBiome.PLAINS
-		
-	# Small random chance for a generic, non-unique scavenge location
+		hex.structure_layer = GameEnums.MacroStructureLayer.NONE
+
+	# Small random chance for a generic, non-unique scavenge location.
 	var poi_rng := RandomNumberGenerator.new()
 	poi_rng.seed = (
 		master_seed
@@ -171,3 +230,8 @@ func _generate_procedural_biome(coords: Vector2i, hex: MacroHexData) -> void:
 		hex.is_poi = true
 		hex.poi_id = "generic_ruins"
 		hex.poi_name = "Collapsing Scavenger Shack"
+		hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
+
+func _hex_distance(from_coords: Vector2i, to_coords: Vector2i) -> int:
+	var delta := to_coords - from_coords
+	return maxi(abs(delta.x), maxi(abs(delta.y), abs(delta.x + delta.y)))

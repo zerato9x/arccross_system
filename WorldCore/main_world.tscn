@@ -5,7 +5,6 @@
 [ext_resource type="PackedScene" uid="uid://c2x1pj7ufkic3" path="res://WorldCore/enemy_macro_token.tscn" id="2_uks48"]
 [ext_resource type="Script" uid="uid://cx1mksiriifhy" path="res://WorldCore/HexMapVisualizer.gd" id="3_whfra"]
 [ext_resource type="Script" uid="uid://byad43fefe43p" path="res://WorldCore/MacroPlayer.gd" id="4_uue8y"]
-[ext_resource type="Texture2D" uid="uid://tpeur5u15cm8" path="res://Asset/asset.png" id="6_aac4l"]
 [ext_resource type="Script" uid="uid://yet2ng3qfd24" path="res://WorldCore/camera_2d.gd" id="7_aac4l"]
 [ext_resource type="Resource" uid="uid://dt3cxr74y2xao" path="res://BiologicalCore/player_def.tres" id="25_player_def"]
 [ext_resource type="Script" uid="uid://c6bbmynmpcyyd" path="res://BiologicalCore/HumanoidCore.gd" id="26_humanoid_core"]
@@ -27,20 +26,22 @@ inventory_panel = NodePath("InventoryPanel/InventoryUI")
 [node name="HexWorldGenerator" type="Node" parent="." unique_id=1630662270]
 script = ExtResource("2_3etub")
 
-[node name="HexMapVisualizer" type="TileMapLayer" parent="." unique_id=1261522321 node_paths=PackedStringArray("world_generator")]
+[node name="HexMapVisualizer" type="TileMapLayer" parent="." unique_id=1261522321 node_paths=PackedStringArray("world_generator", "flora_layer", "rock_layer", "structure_layer")]
 script = ExtResource("3_whfra")
 world_generator = NodePath("../HexWorldGenerator")
-overlay_layer = NodePath("../HexOverlayVisualizer")
+flora_layer = NodePath("../HexFloraVisualizer")
+rock_layer = NodePath("../HexRockVisualizer")
+structure_layer = NodePath("../HexStructureVisualizer")
 
-[node name="HexOverlayVisualizer" type="TileMapLayer" parent="."]
+[node name="HexFloraVisualizer" type="TileMapLayer" parent="."]
+
+[node name="HexRockVisualizer" type="TileMapLayer" parent="."]
+
+[node name="HexStructureVisualizer" type="TileMapLayer" parent="."]
+
 [node name="PlayerMacroToken" type="Node2D" parent="." unique_id=1082668946]
 script = ExtResource("4_uue8y")
 definition = ExtResource("25_player_def")
-
-[node name="Sprite2D" type="Sprite2D" parent="PlayerMacroToken" unique_id=1987471005]
-position = Vector2(0, -64)
-scale = Vector2(0.25, 0.25)
-texture = ExtResource("6_aac4l")
 
 [node name="HumanoidCore" type="Node" parent="PlayerMacroToken" unique_id=2001012132]
 script = ExtResource("26_humanoid_core")

@@ -25,16 +25,26 @@ func snap_to_hex(coords: Vector2i, pixel_position: Vector2) -> void:
 		humanoid_token.play_animation(_idle_animation, false)
 
 ## Initialize presentation from a neutral persistent record.
-func setup_from_record(record: Dictionary) -> void:
-	entity_id = record.get("entity_id", "")
-	var definition_state: Dictionary = record.get("definition", {})
-	var faction: GameEnums.Faction = definition_state.get(
+func setup_from_record(record) -> void:
+	var definition_state: Dictionary = {}
+	var faction: GameEnums.Faction = GameEnums.Faction.UNALIGNED
+	var world_status: GameEnums.EntityWorldStatus = GameEnums.EntityWorldStatus.HOSTILE
+	if record is EntityRecord:
+		entity_id = record.entity_id
+		definition_state = record.definition
+		world_status = record.world_status
+	elif record is Dictionary:
+		entity_id = record.get("entity_id", "")
+		definition_state = record.get("definition", {})
+		world_status = record.get(
+			"world_status",
+			GameEnums.EntityWorldStatus.HOSTILE
+		)
+	else:
+		return
+	faction = definition_state.get(
 		"faction",
 		GameEnums.Faction.UNALIGNED
-	)
-	var world_status: GameEnums.EntityWorldStatus = record.get(
-		"world_status",
-		GameEnums.EntityWorldStatus.HOSTILE
 	)
 	_idle_animation = (
 		"Idle2"
@@ -44,7 +54,9 @@ func setup_from_record(record: Dictionary) -> void:
 
 	if humanoid_token:
 		humanoid_token.set_appearance(
-			HumanoidVisualCatalog.appearance_from_record(record)
+			HumanoidVisualCatalog.appearance_from_record(
+				record.to_dict() if record is EntityRecord else record
+			)
 		)
 		humanoid_token.play_animation(_idle_animation, false)
 

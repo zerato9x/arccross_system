@@ -1,16 +1,10 @@
 [gd_scene format=3 uid="uid://c2x1pj7ufkic3"]
 
 [ext_resource type="Script" uid="uid://y0mc8u270jhc" path="res://WorldCore/MacroEnemy.gd" id="1_m61jh"]
-[ext_resource type="Texture2D" uid="uid://bimy0no36qt26" path="res://Asset/free asset 2.png" id="2_r8l9m"]
 [ext_resource type="PackedScene" uid="uid://bidwe2cg476w8" path="res://UI/Humanoid/HumanoidToken.tscn" id="3_tw5ei"]
 
 [node name="EnemyMacroToken" type="Node2D" unique_id=638184439]
 script = ExtResource("1_m61jh")
-
-[node name="Sprite2D" type="Sprite2D" parent="." unique_id=405119339]
-position = Vector2(15.999998, -69)
-scale = Vector2(1.209681, 1.2096806)
-texture = ExtResource("2_r8l9m")
 
 [node name="HumanoidTokenView" parent="." unique_id=680516095 instance=ExtResource("3_tw5ei")]
 position = Vector2(16, -69)
