@@ -1,0 +1,56 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://CombatCore/DuelUI/CombatGridHoverCard.gd" id="1_hover"]
+
+[node name="CombatGridHoverCard" type="Node2D"]
+visible = false
+script = ExtResource("1_hover")
+
+[node name="PanelBox" type="Polygon2D" parent="."]
+unique_name_in_owner = true
+
+[node name="Border" type="Line2D" parent="."]
+unique_name_in_owner = true
+z_index = 1
+
+[node name="TitleLabel" type="Label" parent="."]
+unique_name_in_owner = true
+offset_left = 14.0
+offset_top = 10.0
+offset_right = 326.0
+offset_bottom = 30.0
+theme_override_colors/font_color = Color(0.83, 0.85, 0.8, 1)
+theme_override_font_sizes/font_size = 12
+text = "LANE SLOT"
+
+[node name="TerrainLabel" type="Label" parent="."]
+unique_name_in_owner = true
+offset_left = 14.0
+offset_top = 36.0
+offset_right = 326.0
+offset_bottom = 56.0
+theme_override_colors/font_color = Color(0.83, 0.85, 0.8, 1)
+theme_override_font_sizes/font_size = 10
+text = "FLOOR"
+
+[node name="OccupantsLabel" type="Label" parent="."]
+unique_name_in_owner = true
+offset_left = 14.0
+offset_top = 64.0
+offset_right = 326.0
+offset_bottom = 106.0
+theme_override_colors/font_color = Color(0.83, 0.85, 0.8, 1)
+theme_override_font_sizes/font_size = 10
+text = "OCCUPANTS"
+autowrap_mode = 2
+
+[node name="ActionsLabel" type="Label" parent="."]
+unique_name_in_owner = true
+offset_left = 14.0
+offset_top = 112.0
+offset_right = 326.0
+offset_bottom = 170.0
+theme_override_colors/font_color = Color(0.83, 0.85, 0.8, 1)
+theme_override_font_sizes/font_size = 10
+text = "ACTIONS"
+autowrap_mode = 2

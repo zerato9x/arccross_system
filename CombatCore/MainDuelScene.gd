@@ -14,7 +14,6 @@ signal duel_finished(
 @onready var command_adapter: CombatCommandAdapter = $CombatCommandAdapter
 @onready var mob_spawner: MobSpawner = get_node("/root/MobSpawner") as MobSpawner
 @onready var lane_hud: CombatLaneHUD = $CombatLaneHUD
-@onready var combat_panel: CombatPanel = $CombatPanel
 
 var player_core: HumanoidCore
 var enemy_core: HumanoidCore
@@ -23,20 +22,18 @@ var enemy_entity_id: String = ""
 var dropped_combat_loot: Array[ItemData] = []
 
 func _ready() -> void:
-	combat_panel.action_requested.connect(command_adapter.request_player_action)
-	combat_panel.pass_requested.connect(command_adapter.pass_player_turn)
-	combat_panel.reaction_selected.connect(
+	lane_hud.action_requested.connect(command_adapter.request_player_action)
+	lane_hud.pass_requested.connect(command_adapter.pass_player_turn)
+	lane_hud.reaction_selected.connect(
 		command_adapter.resolve_player_reaction
 	)
-	command_adapter.snapshot_changed.connect(combat_panel.show_snapshot)
 	command_adapter.snapshot_changed.connect(lane_hud.show_snapshot)
 	command_adapter.presentation_event.connect(
 		lane_hud.show_presentation_event
 	)
-	command_adapter.reaction_requested.connect(combat_panel.show_reaction)
-	command_adapter.command_feedback.connect(combat_panel.show_feedback)
+	command_adapter.reaction_requested.connect(lane_hud.show_reaction)
+	command_adapter.command_feedback.connect(lane_hud.show_feedback)
 	lane_hud.open_hud()
-	combat_panel.open_panel()
 
 	# AUTO-TEST BOOTSTRAP: Only run if we are testing the scene directly!
 	if get_parent() == get_tree().root and get_tree().current_scene == self:
@@ -242,7 +239,7 @@ func _on_player_items_spilled(spilled_items: Array[ItemData]) -> void:
 
 func _on_combatant_died(cause: String, dead_entity: HumanoidCore) -> void:
 	turn_manager.halt_loop()
-	combat_panel.close_panel()
+	lane_hud.close_hud()
 	if dead_entity == enemy_core:
 		_append_dropped_items(enemy_core.inventory.drain_all_items())
 	var outcome := (
@@ -271,7 +268,7 @@ func _on_combatant_died(cause: String, dead_entity: HumanoidCore) -> void:
 
 func _on_entity_escaped(escaper: HumanoidCore) -> void:
 	turn_manager.halt_loop()
-	combat_panel.close_panel()
+	lane_hud.close_hud()
 	print("\n[DUEL ESCAPED] ", escaper.name, " has successfully fled the battlefield!")
 	var outcome := (
 		GameEnums.CombatOutcome.PLAYER_ESCAPED
@@ -313,7 +310,6 @@ func _spawn_next_mob() -> void:
 		turn_manager,
 		resolution_engine
 	)
-	combat_panel.open_panel()
 	lane_hud.open_hud()
 	command_adapter.refresh_snapshot()
 	print("\n>>> NEW CHALLENGER APPROACHES <<<")

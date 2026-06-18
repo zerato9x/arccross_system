@@ -44,8 +44,8 @@ func _run() -> void:
 	if arena == null:
 		_fail("The collision did not create a combat arena.")
 		return
-	if not arena.combat_panel.visible:
-		_fail("The combat panel did not open.")
+	if not arena.lane_hud.visible:
+		_fail("The combat Node2D HUD did not open.")
 		return
 
 	var adapter: CombatCommandAdapter = arena.command_adapter

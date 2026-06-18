@@ -149,7 +149,7 @@ ambush_position: GameEnums.AmbushPosition
 
 ## Combat Interaction Boundary
 
-- `CombatPanel` receives a neutral combat snapshot and legal-action descriptors.
+- `CombatLaneHUD` receives a neutral combat snapshot and legal-action descriptors.
 - Player commands contain an `ActionType` plus only the target or item IDs
   required by that action.
 - `CombatCommandAdapter` revalidates commands before routing them to turn, lane,

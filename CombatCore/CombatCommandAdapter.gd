@@ -477,6 +477,7 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"weapon": weapon_name,
 		"weapon_detail": weapon_detail,
 		"has_firearm": weapon != null and weapon.is_ranged(),
+		"equipment": _equipment_snapshot(entity),
 		"both_legs_broken": entity.body.are_both_legs_disabled(),
 		"appearance": HumanoidVisualCatalog.appearance_from_inventory(
 			entity.inventory
@@ -511,6 +512,21 @@ func _limb_snapshot(entity: HumanoidCore) -> Array:
 			],
 		})
 	return limbs
+
+func _equipment_snapshot(entity: HumanoidCore) -> Array:
+	var equipment: Array = []
+	for slot_key in entity.inventory.paper_doll.keys():
+		var item: ItemData = entity.inventory.paper_doll[slot_key]
+		if item == null:
+			continue
+		var descriptor := item.to_definition_state()
+		descriptor["instance_id"] = item.instance_id
+		descriptor["equipment_slot"] = int(slot_key)
+		descriptor["current_magazine"] = item.current_magazine
+		descriptor["loaded_rounds"] = item.loaded_rounds
+		descriptor["needs_cycling"] = item.needs_cycling
+		equipment.append(descriptor)
+	return equipment
 
 func _lane_snapshot() -> Array:
 	var slots: Array = []
