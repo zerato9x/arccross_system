@@ -17,10 +17,12 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 [autoload]
 
 GameEnums="*res://SystemCore/GameEnums.gd"
+GameEventBus="*res://SystemCore/GameEventBus.gd"
 WorldState="*res://SystemCore/RuntimeStateStore.gd"
 LootCatalog="*res://SystemCore/LootCatalog.gd"
 MobSpawner="*res://SystemCore/MobSpawner.gd"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
+AudioConductor="*res://SoundCore/audio_conductor.gd"
 
 [editor_plugins]
 

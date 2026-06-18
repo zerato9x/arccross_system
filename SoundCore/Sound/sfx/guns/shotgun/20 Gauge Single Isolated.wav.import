@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://xe7bhdwc3bwr"
+path="res://.godot/imported/20 Gauge Single Isolated.wav-9d806753dd5cc9aa9314d8f527db63ad.sample"
+
+[deps]
+
+source_file="res://SoundCore/Sound/sfx/guns/shotgun/20 Gauge Single Isolated.wav"
+dest_files=["res://.godot/imported/20 Gauge Single Isolated.wav-9d806753dd5cc9aa9314d8f527db63ad.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

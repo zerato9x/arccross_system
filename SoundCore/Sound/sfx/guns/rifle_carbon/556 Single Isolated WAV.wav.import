@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://d0lm0ieben43m"
+path="res://.godot/imported/556 Single Isolated WAV.wav-9dc777f9ac0bba1b5f70cc1d87d831f9.sample"
+
+[deps]
+
+source_file="res://SoundCore/Sound/sfx/guns/rifle_carbon/556 Single Isolated WAV.wav"
+dest_files=["res://.godot/imported/556 Single Isolated WAV.wav-9dc777f9ac0bba1b5f70cc1d87d831f9.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

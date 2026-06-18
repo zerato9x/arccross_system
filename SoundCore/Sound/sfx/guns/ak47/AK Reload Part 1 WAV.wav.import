@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://dw0r5sp87fddy"
+path="res://.godot/imported/AK Reload Part 1 WAV.wav-bfab040b6ea0ff1e1b46ac6c7c5195cb.sample"
+
+[deps]
+
+source_file="res://SoundCore/Sound/sfx/guns/ak47/AK Reload Part 1 WAV.wav"
+dest_files=["res://.godot/imported/AK Reload Part 1 WAV.wav-bfab040b6ea0ff1e1b46ac6c7c5195cb.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://b0muvkmxrt05y"
+path="res://.godot/imported/AK Rack WAV.wav-061f32c44ea1a662b35dc677fe0c8354.sample"
+
+[deps]
+
+source_file="res://SoundCore/Sound/sfx/guns/ak47/AK Rack WAV.wav"
+dest_files=["res://.godot/imported/AK Rack WAV.wav-061f32c44ea1a662b35dc677fe0c8354.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

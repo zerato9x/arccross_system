@@ -27,6 +27,10 @@ func _ready() -> void:
 		macro_map.set_process_unhandled_input(false)
 		if defeat_panel:
 			defeat_panel.open_panel(_world_state.has_save_file())
+	
+	# AudioConductor: Start macro world music based on current time of day
+	_world_state.world_time_advanced.connect(_on_world_time_advanced)
+	_start_macro_audio()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
@@ -62,6 +66,11 @@ func _on_combat_requested(request: Dictionary) -> void:
 		enemy_record.to_dict(),
 		_combat_request
 	)
+	
+	# AudioConductor: Enter combat audio
+	var conductor = get_node_or_null("/root/AudioConductor")
+	if conductor:
+		conductor.enter_scene(AudioConductorSystem.AudioScene.COMBAT_STANDARD)
 
 func _on_duel_finished(
 	outcome: GameEnums.CombatOutcome,
@@ -95,6 +104,10 @@ func _on_duel_finished(
 		GameEnums.CombatOutcome.PLAYER_DEFEAT:
 			_teardown_arena()
 			macro_map.set_process_unhandled_input(false)
+			# AudioConductor: Game over
+			var conductor_defeat = get_node_or_null("/root/AudioConductor")
+			if conductor_defeat:
+				conductor_defeat.enter_scene(AudioConductorSystem.AudioScene.GAME_OVER)
 			if defeat_panel:
 				defeat_panel.open_panel(_world_state.has_save_file())
 			print("[DIRECTOR] Player defeat preserved. Run-ended presentation opened.")
@@ -108,6 +121,8 @@ func _on_duel_finished(
 	macro_map.show()
 	macro_map.set_process_unhandled_input(true)
 	set_process_unhandled_input(true)
+	# AudioConductor: Return to macro world audio
+	_start_macro_audio()
 	print("[DIRECTOR] Macro map re-enabled.")
 
 func _teardown_arena() -> void:
@@ -132,4 +147,25 @@ func load_saved_run(path: String = RuntimeStateStore.DEFAULT_SAVE_PATH) -> bool:
 		return false
 	get_tree().reload_current_scene()
 	return true
-	
+
+# ---------------------------------------------------------
+# AUDIO CONDUCTOR INTEGRATION
+# ---------------------------------------------------------
+
+func _start_macro_audio() -> void:
+	var conductor = get_node_or_null("/root/AudioConductor")
+	if not conductor:
+		return
+	var snapshot: Dictionary = _world_state.get_world_time_snapshot()
+	var hour: int = snapshot.get("hour", 8)
+	if hour >= 6 and hour < 18:
+		conductor.enter_scene(AudioConductorSystem.AudioScene.MACRO_DAY)
+	else:
+		conductor.enter_scene(AudioConductorSystem.AudioScene.MACRO_NIGHT)
+
+func _on_world_time_advanced(_previous: int, current: int, _elapsed: int) -> void:
+	var conductor = get_node_or_null("/root/AudioConductor")
+	if not conductor:
+		return
+	var snapshot: Dictionary = GameTimeRules.clock_snapshot(current)
+	conductor.on_world_time_changed(snapshot.get("hour", 8))

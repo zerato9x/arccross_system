@@ -107,7 +107,22 @@ func setup_duel(
 		resolution_engine
 	)
 	
-	# 3. Drop them into the mud using our tactical layout matrix
+	# 3. Wire player signals to AudioConductor (player-subjective audio only)
+	var conductor = get_node_or_null("/root/AudioConductor")
+	if conductor:
+		if not player_core.kinetic_burden_calculated.is_connected(conductor.on_kinetic_tier_changed):
+			player_core.kinetic_burden_calculated.connect(conductor.on_kinetic_tier_changed)
+		if not player_core.stance_changed.is_connected(conductor.on_stance_changed):
+			player_core.stance_changed.connect(conductor.on_stance_changed)
+		if not player_core.morale_broken.is_connected(conductor.on_morale_broken):
+			player_core.morale_broken.connect(conductor.on_morale_broken)
+		if not player_core.died.is_connected(conductor.on_player_died):
+			player_core.died.connect(conductor.on_player_died)
+		if not resolution_engine.first_combat_action.is_connected(conductor.on_first_strike):
+			resolution_engine.first_combat_action.connect(conductor.on_first_strike)
+		resolution_engine.reset_first_strike()
+	
+	# 4. Drop them into the mud using our tactical layout matrix
 	encounter_builder.build_encounter(
 		player_core,
 		enemy_core,

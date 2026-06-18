@@ -339,6 +339,8 @@ func _calculate_kinetic_burden() -> void:
 		print(name, " has entered a comatose/paralyzed state due to extreme physiological exhaustion!")
 	elif kinetic_tier != old_tier:
 		print(name, " Kinetic Tier shifted to ", GameEnums.KineticTier.keys()[kinetic_tier], " (Burden: ", total_burden, ")")
+		if kinetic_tier == GameEnums.KineticTier.AGONIZING:
+			GameEventBus.emit_humanoid_exhausted(self)
 		
 	kinetic_burden_calculated.emit(kinetic_tier, total_burden)
 # ---------------------------------------------------------

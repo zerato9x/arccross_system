@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://badwja77ta61w"
+path="res://.godot/imported/AR Reload Full WAV.wav-d674f9df17900cd0191451b7b78f7d5d.sample"
+
+[deps]
+
+source_file="res://SoundCore/Sound/sfx/guns/rifle_carbon/AR Reload Full WAV.wav"
+dest_files=["res://.godot/imported/AR Reload Full WAV.wav-d674f9df17900cd0191451b7b78f7d5d.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

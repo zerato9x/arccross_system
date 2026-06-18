@@ -66,6 +66,8 @@ func apply_targeted_hit(limb: GameEnums.LimbRegion, raw_damage: float, penetrati
 	
 	if limb_hp[limb] == 0:
 		_handle_destroyed_limb(limb)
+	
+	GameEventBus.emit_humanoid_injured(self, limb_trauma[limb])
 
 func _handle_destroyed_limb(limb: GameEnums.LimbRegion) -> void:
 	limb_trauma[limb] = GameEnums.TraumaType.SHATTERED_LIMB

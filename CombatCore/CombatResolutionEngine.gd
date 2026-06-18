@@ -3,9 +3,12 @@ class_name CombatResolutionEngine
 
 signal action_started(entity: HumanoidCore, action: int)
 signal damage_applied(entity: HumanoidCore)
+signal first_combat_action(action_type: int)
 
 @export var lane_manager: CombatLaneManager
 @export var turn_manager: CombatTurnManager
+
+var _first_strike_fired: bool = false
 
 const MELEE_HIT_REGIONS := [
 	GameEnums.LimbRegion.UPPER_TORSO,
@@ -65,6 +68,8 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 		else GameEnums.ActionType.SHOOT
 	)
 	action_started.emit(attacker, action_type)
+	_emit_first_strike(action_type)
+	GameEventBus.emit_combat_action(attacker, action_type, weapon.weapon_type)
 	weapon.current_magazine -= 1
 	weapon.needs_cycling = weapon.requires_cycle_after_shot
 	var action_name := (
@@ -350,6 +355,9 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 				return
 	
 	action_started.emit(attacker, GameEnums.ActionType.STRIKE)
+	_emit_first_strike(GameEnums.ActionType.STRIKE)
+	var w_type = weapon.weapon_type if weapon else GameEnums.WeaponClass.NONE
+	GameEventBus.emit_combat_action(attacker, GameEnums.ActionType.STRIKE, w_type)
 	var target_limb := roll_melee_target()
 	print("\n--- MELEE STRIKE ---")
 	print(attacker.name, " swings at ", defender.name, "'s ", GameEnums.LimbRegion.keys()[target_limb])
@@ -845,3 +853,16 @@ func _find_entity_index(entity: HumanoidCore) -> int:
 		if lane_manager.lane_slots[i].occupants.has(entity):
 			return i
 	return -1
+
+# ---------------------------------------------------------
+# FIRST STRIKE TRACKING (AudioConductor Integration)
+# ---------------------------------------------------------
+
+func _emit_first_strike(action_type: int) -> void:
+	if _first_strike_fired:
+		return
+	_first_strike_fired = true
+	first_combat_action.emit(action_type)
+
+func reset_first_strike() -> void:
+	_first_strike_fired = false
