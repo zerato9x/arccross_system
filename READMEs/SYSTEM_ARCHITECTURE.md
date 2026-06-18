@@ -24,7 +24,7 @@ database, stat registry, or rule table.
 
 - Owns orchestration, factories, and authoritative runtime records.
 - `RuntimeStateStore` owns player, entity, hex, world-time, and ground-item
-  records plus their versioned disk representation.
+  records plus their versioned disk representation, decoupled into explicit resource objects (`EntityRecord`, `HexRecord`, etc.).
 - `GameTimeRules` owns shared action durations and clock conversion.
 - `LootCatalog` translates ItemCore resources into neutral descriptors and
   runtime item records.
@@ -35,6 +35,7 @@ database, stat registry, or rule table.
 
 - Owns hex generation, movement, macro presentation, proximity loading, POI
   resolution, and macro interaction rules.
+- Generates the world map dynamically using `HexMapVisualizer` and `MacroTileCatalog` rather than a static scene.
 - Selects Loot Profile IDs from biome and POI state without exposing ItemCore
   resources to UI.
 - Creates encounter records deterministically from world seed and coordinates.
@@ -58,7 +59,7 @@ database, stat registry, or rule table.
 
 ### BiologicalCore
 
-- Owns anatomy, vitals, Morale, Stance, Trauma, and biological snapshots.
+- Owns anatomy, vitals, Morale, Stance, Trauma, and biological snapshots through explicit `BodyState` and `HumanoidState` resources.
 - Composes ItemCore through `InventorySystem`.
 - Supplies biological equipment restrictions to ItemCore through callbacks.
 
@@ -149,7 +150,7 @@ ambush_position: GameEnums.AmbushPosition
 
 ## Combat Interaction Boundary
 
-- `CombatLaneHUD` receives a neutral combat snapshot and legal-action descriptors.
+- `CombatLaneHUD` and `CombatLaneView` utilize a modular architecture composed of `DuelUI` presentation elements, receiving neutral combat snapshots and legal-action descriptors.
 - Player commands contain an `ActionType` plus only the target or item IDs
   required by that action.
 - `CombatCommandAdapter` revalidates commands before routing them to turn, lane,

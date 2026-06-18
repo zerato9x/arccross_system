@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bidwe2cg476w8"]
 
-[ext_resource type="Script" path="res://UI/Humanoid/HumanoidTokenView.gd" id="1_3sc2c"]
+[ext_resource type="Script" uid="uid://cbxgnp8q1m6s8" path="res://UI/Humanoid/HumanoidTokenView.gd" id="1_3sc2c"]
 
 [node name="HumanoidToken" type="Node2D" unique_id=680516095]
 script = ExtResource("1_3sc2c")

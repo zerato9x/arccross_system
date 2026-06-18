@@ -1,5 +1,36 @@
 # ARCCROSS Changelog
 
+## June 19, 2026
+
+### Combat Interface Revamp
+
+- Replaced the monolithic `CombatPanel` with a modular UI architecture under `CombatCore/DuelUI/`.
+- Introduced specialized presentation components: `CombatActionButton`, `CombatActorFloatHUD`, `CombatContextBoard`, `CombatGridHoverCard`, and `CombatGridSlot`.
+- Refactored `CombatLaneHUD` and `CombatLaneView` to integrate with the new modular UI framework.
+- Updated `MainDuelScene` to support the revamped combat lane interface.
+
+### Audio Conductor System
+
+- Implemented `audio_conductor.gd` and `sfx_conductor.gd` to manage music and dynamic sound effects playback.
+- Integrated a comprehensive new sound library covering environment, footsteps, combat interactions, firearms, and destruction events.
+- Created `audio_conductor_editor_bridge.gd` for tooling and timeline support.
+- Refactored project-wide audio imports to stabilize the newly integrated assets.
+
+### Macro Map Integration and Generation
+
+- Removed the monolithic static `game_director.tscn` map which previously stored thousands of nodes.
+- Shifted the world map to a dynamic, procedural generation and loading model utilizing the newly added `HexRecord`.
+- Established `MacroTileCatalog` for a data-driven approach to hex tile definitions.
+- Introduced Python automation scripts (`slice_hex.py`, `update_tscn.py`) to handle tile slicing and map data generation.
+- Re-architected `HexWorldGenerator` and `HexMapVisualizer` to utilize the dynamic loading system.
+
+### Core Systems Refactoring
+
+- Decoupled state management from logic nodes by extracting dedicated resource classes: `BodyState`, `HumanoidState`, `InventoryState`, `EntityRecord`, and `HexRecord`.
+- Refactored `HumanoidBody`, `HumanoidCore`, `RuntimeStateStore`, and `MacroGameManager` to align with the new decoupled state definitions.
+- Refined `GameEnums` definitions to clean up redundant configurations.
+- Cleaned up obsolete static test runners, replacing them with dynamic validation.
+
 ## June 15, 2026
 
 ### Humanoid Token Animation Contract

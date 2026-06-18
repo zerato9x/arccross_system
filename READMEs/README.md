@@ -16,7 +16,7 @@ of restating it.
 
 ## Current Implementation
 
-Status updated on **June 14, 2026**:
+Status updated on **June 19, 2026**:
 
 - Layered Humanoid Tokens now mirror supported equipped Innawoods visuals in
   the macro world and combat lane.
@@ -40,11 +40,10 @@ Status updated on **June 14, 2026**:
   adds missing definitions without overwriting later Inspector edits.
 - Duel Scene animation remains placeholder, and the existing BLOCK rules have
   not yet been replaced by shield-specific coverage and mitigation.
-- The static Innawoods inventory set now supplies 163 categorized item
-  Resources. Loadouts, loot, enemy generation, persistence, and inventory
-  tests use the new IDs instead of the removed prototype entries.
-- `LootCatalog` is the single runtime registry. The offline catalog builder
-  adds missing definitions without overwriting later Inspector edits.
+- The monolithic combat interface has been replaced with a fully modular `DuelUI` component architecture.
+- Macro world maps are now dynamically loaded and procedurally generated using `HexRecord` and `MacroTileCatalog`, replacing the static world scene.
+- An integrated Audio Conductor System handles synchronized dynamic playback of music and categorized sound effects.
+- Core biological and system states have been decoupled into explicit resource tracking classes (`BodyState`, `HumanoidState`, `InventoryState`, `EntityRecord`, `HexRecord`).
 - Token art coverage remains incomplete for rigs, face and eye equipment,
   several armor regions, and unsupported weapons. The existing BLOCK rules
   have not yet been replaced by shield-specific coverage and mitigation.

@@ -216,7 +216,7 @@ describes a tool; Damage Type describes a hit.
 ## Architecture
 
 - **Domain Core:** A major ownership boundary: SystemCore, WorldCore,
-  CombatCore, BiologicalCore, or ItemCore.
+  CombatCore, BiologicalCore, SoundCore, or ItemCore.
 - **SystemCore:** Orchestration, factories, authoritative runtime records, and
   translation between domains.
 - **WorldCore:** Hexes, movement, world presentation, proximity loading, and
@@ -224,6 +224,7 @@ describes a tool; Damage Type describes a hit.
 - **CombatCore:** Encounters, lanes, turns, AI, action rules, and resolution.
 - **BiologicalCore:** Anatomy, vitals, Morale, Stance, Trauma, and biological
   snapshots.
+- **SoundCore:** Audio routing, SFX synchronization, and dynamic music timeline management (Audio Conductor).
 - **ItemCore:** Item definitions, Runtime Item Instances, inventory rules, and
   equipment calculations.
 - **GameEnums:** Shared closed categories interpreted across domain boundaries.

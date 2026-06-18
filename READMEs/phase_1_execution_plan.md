@@ -153,6 +153,11 @@ Incremental verification recorded on **June 12, 2026**:
   combat-lane HUD, and combat-interface suites passed on Godot `4.6.3`.
 - A headless editor run completed without import or script compilation errors.
 
+Incremental architecture verification recorded on **June 19, 2026**:
+
+- Outdated monolithic map tests and static combat panel scripts were removed or refactored into modular interface tests and dynamic Hex map tests (`HexVisualDeterminismSmoke.gd`).
+- The Phase 1 criteria remain fulfilled under the new decoupled UI and data-driven macro architectures.
+
 ## Phase 1 Closure
 
 No known Phase 1 acceptance item remains open. Future work should preserve the

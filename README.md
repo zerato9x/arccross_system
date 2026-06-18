@@ -38,6 +38,10 @@ measurements retain meaningful units.
   macro world and combat lane.
 - Item definitions are shared Resources loaded once by `LootCatalog`; items do
   not require individual scripts or scene nodes.
+- The monolithic combat interface has been replaced with a fully modular `DuelUI` component architecture.
+- Macro world maps are now dynamically loaded and procedurally generated using `HexRecord` and `MacroTileCatalog`, replacing the static world scene.
+- An integrated Audio Conductor System handles synchronized dynamic playback of music and categorized sound effects.
+- Core biological and system states have been decoupled into explicit resource tracking classes (`BodyState`, `HumanoidState`, `InventoryState`, `EntityRecord`, `HexRecord`).
 
 ## Item Authoring
 
@@ -49,12 +53,6 @@ edits. Use `-Rebuild` only when intentionally replacing the generated catalog.
   remains intentionally excluded.
 - Item definitions are shared Resources loaded once by `LootCatalog`; items do
   not require individual scripts or scene nodes.
-
-## Item Authoring
-
-Run `Tools/Build-StaticItemCatalog.ps1` after adding static Innawoods assets.
-The default mode creates only missing definitions and preserves Inspector
-edits. Use `-Rebuild` only when intentionally replacing the generated catalog.
 
 ## Documentation
 
