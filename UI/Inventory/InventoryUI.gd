@@ -19,6 +19,7 @@ const ACTION_INTERACT := "interact"
 
 const SLOT_SCENE := preload("res://UI/Inventory/InventorySlot.tscn")
 const PAPERDOLL_SCENE := preload("res://UI/Inventory/PaperDollModel.tscn")
+const HUDAssetLibrary := preload("res://UI/HUD/HUDAssetLibrary.gd")
 
 const COLOR_BACKDROP := Color("#090d11")
 const COLOR_PANEL := Color("#111920")
@@ -236,10 +237,7 @@ func _build_interface() -> void:
 	shell.offset_top = 10.0
 	shell.offset_right = -10.0
 	shell.offset_bottom = -10.0
-	shell.add_theme_stylebox_override(
-		"panel",
-		_panel_style(COLOR_PANEL, COLOR_BORDER, 2, 5)
-	)
+	HUDAssetLibrary.apply_panel(shell, "neutral")
 	add_child(shell)
 
 	var margin := MarginContainer.new()
@@ -305,28 +303,13 @@ func _build_header() -> Control:
 	_capacity_bar = ProgressBar.new()
 	_capacity_bar.custom_minimum_size.y = 14.0
 	_capacity_bar.show_percentage = false
-	_capacity_bar.add_theme_stylebox_override(
-		"background",
-		_panel_style(Color("#0c1115"), Color("#29343b"), 1, 2)
-	)
-	_capacity_bar.add_theme_stylebox_override(
-		"fill",
-		_panel_style(COLOR_ACCENT, COLOR_ACCENT, 0, 2)
-	)
+	HUDAssetLibrary.apply_progress_bar(_capacity_bar, "health")
 	capacity_box.add_child(_capacity_bar)
 
 	var close_button := Button.new()
 	close_button.text = "CLOSE  [ESC]"
 	close_button.custom_minimum_size = Vector2(120, 36)
-	close_button.add_theme_color_override("font_color", COLOR_TEXT)
-	close_button.add_theme_stylebox_override(
-		"normal",
-		_panel_style(COLOR_PANEL_ALT, COLOR_BORDER, 1, 3)
-	)
-	close_button.add_theme_stylebox_override(
-		"hover",
-		_panel_style(Color("#253038"), COLOR_ACCENT, 1, 3)
-	)
+	HUDAssetLibrary.apply_button(close_button)
 	close_button.pressed.connect(close_panel)
 	header.add_child(close_button)
 	return header
@@ -336,10 +319,7 @@ func _build_paperdoll_column() -> Control:
 	panel.name = "PaperDollPanel"
 	panel.custom_minimum_size.x = 350.0
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_theme_stylebox_override(
-		"panel",
-		_panel_style(COLOR_PANEL_ALT, COLOR_BORDER, 1, 4)
-	)
+	HUDAssetLibrary.apply_panel(panel, "neutral")
 
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 4)
@@ -391,10 +371,7 @@ func _build_backpack_column() -> Control:
 	panel.custom_minimum_size.x = 280.0
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_theme_stylebox_override(
-		"panel",
-		_panel_style(COLOR_PANEL_ALT, COLOR_BORDER, 1, 4)
-	)
+	HUDAssetLibrary.apply_panel(panel, "neutral")
 
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 6)
@@ -427,10 +404,7 @@ func _build_ground_column() -> Control:
 	panel.name = "GroundPanel"
 	panel.custom_minimum_size.x = 215.0
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_theme_stylebox_override(
-		"panel",
-		_panel_style(COLOR_PANEL_ALT, COLOR_BORDER, 1, 4)
-	)
+	HUDAssetLibrary.apply_panel(panel, "neutral")
 
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 6)
@@ -476,6 +450,7 @@ func _build_action_bar() -> Control:
 	_primary_button.text = "NO ACTION"
 	_primary_button.disabled = true
 	_primary_button.custom_minimum_size.x = 125.0
+	HUDAssetLibrary.apply_button(_primary_button)
 	_primary_button.pressed.connect(_activate_selected_primary)
 	bar.add_child(_primary_button)
 
@@ -483,6 +458,7 @@ func _build_action_bar() -> Control:
 	_secondary_button.text = "NO ACTION"
 	_secondary_button.disabled = true
 	_secondary_button.custom_minimum_size.x = 125.0
+	HUDAssetLibrary.apply_button(_secondary_button)
 	_secondary_button.pressed.connect(_activate_selected_secondary)
 	bar.add_child(_secondary_button)
 
@@ -520,10 +496,7 @@ func _build_hover_card() -> void:
 	_hover_card.z_index = 100
 	_hover_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hover_card.custom_minimum_size.x = 360.0
-	_hover_card.add_theme_stylebox_override(
-		"panel",
-		_panel_style(Color("#0d1419"), COLOR_GOLD, 2, 5)
-	)
+	HUDAssetLibrary.apply_panel(_hover_card, "warning")
 	add_child(_hover_card)
 
 	var margin := MarginContainer.new()
@@ -592,11 +565,8 @@ func _render() -> void:
 	_capacity_bar.value = float(current)
 	_capacity_bar.add_theme_stylebox_override(
 		"fill",
-		_panel_style(
-			COLOR_DANGER if current > maximum else COLOR_ACCENT,
-			COLOR_DANGER if current > maximum else COLOR_ACCENT,
-			0,
-			2
+		HUDAssetLibrary.bar_fill_style(
+			"critical" if current > maximum else "health"
 		)
 	)
 	_spill_warning.visible = current > maximum

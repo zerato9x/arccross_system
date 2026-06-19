@@ -9,6 +9,7 @@ signal inventory_requested
 signal interaction_closed
 
 const MAX_TOOL_SLOTS := 3
+const HUDAssetLibrary := preload("res://UI/HUD/HUDAssetLibrary.gd")
 
 var _panel: PanelContainer
 var _content: VBoxContainer
@@ -19,7 +20,8 @@ var _active_poi_action := GameEnums.PoiAction.SEARCH
 
 func _ready() -> void:
 	layer = 20
-	_build_shell()
+	_bind_authored_shell()
+	_apply_hud_assets()
 	close_panel(false)
 
 func open_poi(session: Dictionary) -> void:
@@ -56,25 +58,15 @@ func close_panel(notify: bool = true) -> void:
 func is_open() -> bool:
 	return _panel != null and _panel.visible
 
-func _build_shell() -> void:
-	_panel = PanelContainer.new()
-	_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_panel.offset_left = -310.0
-	_panel.offset_top = -330.0
-	_panel.offset_right = 310.0
-	_panel.offset_bottom = 330.0
-	add_child(_panel)
+func _bind_authored_shell() -> void:
+	_panel = get_node_or_null("Panel") as PanelContainer
+	_content = get_node_or_null("Panel/Margin/Content") as VBoxContainer
+	if _panel == null or _content == null:
+		push_error("MacroInteractionPanel requires authored Panel/Margin/Content nodes.")
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_top", 20)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_bottom", 20)
-	_panel.add_child(margin)
-
-	_content = VBoxContainer.new()
-	_content.add_theme_constant_override("separation", 12)
-	margin.add_child(_content)
+func _apply_hud_assets() -> void:
+	if _panel:
+		HUDAssetLibrary.apply_panel(_panel, "warning")
 
 func _show_poi_root() -> void:
 	_clear_content()
@@ -147,6 +139,7 @@ func _show_tool_screen(
 			if slot_index < installed_ids.size() and installed_ids[slot_index] == instance_id:
 				selector.select(item_index)
 		selector.item_selected.connect(_on_slot_selection_changed)
+		HUDAssetLibrary.apply_option_button(selector)
 		_content.add_child(selector)
 		_slot_selectors.append(selector)
 
@@ -256,6 +249,8 @@ func _add_metric_row(key: String) -> void:
 	var label := Label.new()
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
+	HUDAssetLibrary.apply_label(label, "muted")
+	HUDAssetLibrary.apply_progress_bar(bar, "warning")
 	container.add_child(label)
 	container.add_child(bar)
 	_content.add_child(container)
@@ -266,20 +261,39 @@ func _add_title(text: String) -> void:
 	title.text = text
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 24)
+	HUDAssetLibrary.apply_label(title, "title")
 	_content.add_child(title)
 
 func _add_body(text: String) -> void:
 	var body := Label.new()
 	body.text = text
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	HUDAssetLibrary.apply_label(body, "body")
 	_content.add_child(body)
 
 func _add_button(text: String, callback: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.pressed.connect(callback)
+	HUDAssetLibrary.apply_button(button, _icon_for_button(text))
 	_content.add_child(button)
 	return button
+
+func _icon_for_button(text: String) -> String:
+	var normalized := text.to_lower()
+	if normalized.contains("search") or normalized.contains("scavenge"):
+		return "search"
+	if normalized.contains("camp"):
+		return "camp"
+	if normalized.contains("inventory"):
+		return "inventory"
+	if normalized.contains("talk") or normalized.contains("ceasefire"):
+		return "talk"
+	if normalized.contains("ambush"):
+		return "warning"
+	if normalized.contains("back") or normalized.contains("leave") or normalized.contains("close"):
+		return "pass"
+	return ""
 
 func _clear_content() -> void:
 	_slot_selectors.clear()

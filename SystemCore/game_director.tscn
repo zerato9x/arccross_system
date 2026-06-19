@@ -16,4 +16,50 @@ defeat_panel = NodePath("DefeatPanel")
 [node name="DefeatPanel" type="CanvasLayer" parent="." unique_id=913477116]
 script = ExtResource("3_defeat")
 
+[node name="Overlay" type="ColorRect" parent="DefeatPanel" unique_id=1616501470]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.023529412, 0.019607844, 0.023529412, 0.9607843)
+
+[node name="Center" type="CenterContainer" parent="DefeatPanel/Overlay" unique_id=586860074]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Panel" type="PanelContainer" parent="DefeatPanel/Overlay/Center" unique_id=617146949]
+custom_minimum_size = Vector2(440, 280)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="DefeatPanel/Overlay/Center/Panel" unique_id=374186363]
+layout_mode = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 28
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 28
+
+[node name="Content" type="VBoxContainer" parent="DefeatPanel/Overlay/Center/Panel/Margin" unique_id=129924899]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="TitleLabel" type="Label" parent="DefeatPanel/Overlay/Center/Panel/Margin/Content" unique_id=998168129]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "RUN ENDED"
+horizontal_alignment = 1
+
+[node name="BodyLabel" type="Label" parent="DefeatPanel/Overlay/Center/Panel/Margin/Content" unique_id=995942919]
+layout_mode = 2
+text = "This body cannot continue. The defeated runtime state remains authoritative until you begin a new run or load a save."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="BeginNewRunButton" type="Button" parent="DefeatPanel/Overlay/Center/Panel/Margin/Content" unique_id=1708338515]
+layout_mode = 2
+text = "BEGIN NEW RUN"
+
+[node name="LoadSavedRunButton" type="Button" parent="DefeatPanel/Overlay/Center/Panel/Margin/Content" unique_id=925985141]
+layout_mode = 2
+text = "LOAD SAVED RUN"
+
 [editable path="MainWorld"]

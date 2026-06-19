@@ -28,6 +28,42 @@ const WEAPON_SLOT_PRIORITY := [
 	GameEnums.EquipmentSlot.OFFHAND,
 ]
 
+const BASE_SLOT_LAYERS := [
+	GameEnums.EquipmentSlot.BACKPACK,
+	GameEnums.EquipmentSlot.LEGS,
+	GameEnums.EquipmentSlot.FEET,
+	GameEnums.EquipmentSlot.INNER_TORSO,
+	GameEnums.EquipmentSlot.OUTER_TORSO,
+	GameEnums.EquipmentSlot.VEST,
+	GameEnums.EquipmentSlot.ARMS,
+	GameEnums.EquipmentSlot.NECK,
+	GameEnums.EquipmentSlot.FACE,
+	GameEnums.EquipmentSlot.EYES,
+	GameEnums.EquipmentSlot.HEAD,
+	GameEnums.EquipmentSlot.BELT,
+	GameEnums.EquipmentSlot.SLING,
+	GameEnums.EquipmentSlot.HAND,
+	GameEnums.EquipmentSlot.OFFHAND,
+]
+
+const SECONDARY_SLOT_LAYERS := [
+	GameEnums.EquipmentSlot.BACKPACK,
+	GameEnums.EquipmentSlot.LEGS,
+	GameEnums.EquipmentSlot.FEET,
+	GameEnums.EquipmentSlot.NECK,
+	GameEnums.EquipmentSlot.FACE,
+	GameEnums.EquipmentSlot.EYES,
+	GameEnums.EquipmentSlot.HEAD,
+	GameEnums.EquipmentSlot.BELT,
+	GameEnums.EquipmentSlot.SLING,
+	GameEnums.EquipmentSlot.HAND,
+	GameEnums.EquipmentSlot.OFFHAND,
+	GameEnums.EquipmentSlot.INNER_TORSO,
+	GameEnums.EquipmentSlot.OUTER_TORSO,
+	GameEnums.EquipmentSlot.VEST,
+	GameEnums.EquipmentSlot.ARMS,
+]
+
 var layer_nodes: Dictionary = {}
 var secondary_layer_nodes: Dictionary = {}
 
@@ -38,11 +74,13 @@ var _two_handed_grip: TextureRect
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_build_model()
+	_bind_authored_model()
 
 func update_model(equipment_data: Array) -> void:
 	if not is_node_ready():
 		await ready
+	if _base_main_arm_under == null or _base_main_arm_over == null:
+		return
 
 	for layer: TextureRect in layer_nodes.values():
 		layer.texture = null
@@ -100,103 +138,57 @@ func update_model(equipment_data: Array) -> void:
 				grip_mask_path
 			)
 
-func _build_model() -> void:
-	for child in get_children():
-		child.queue_free()
+func _bind_authored_model() -> void:
 	layer_nodes.clear()
 	secondary_layer_nodes.clear()
 
-	var background := TextureRect.new()
-	background.name = "Background"
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	background.texture = _load_texture(BACKGROUND_PATH)
-	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	background.modulate = Color(0.58, 0.62, 0.62, 0.58)
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(background)
-
-	var vignette := ColorRect.new()
-	vignette.name = "Vignette"
-	vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	vignette.color = Color(0.03, 0.045, 0.052, 0.28)
-	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(vignette)
-
-	_model_frame = Control.new()
-	_model_frame.name = "ModelFrame"
-	_model_frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_model_frame.offset_left = 35.0
-	_model_frame.offset_top = 18.0
-	_model_frame.offset_right = -35.0
-	_model_frame.offset_bottom = -18.0
-	_model_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_model_frame)
-
-	# Back-mounted gear must stay behind the body.
-	_create_slot_layers(GameEnums.EquipmentSlot.BACKPACK)
-
-	var body := _make_layer("Layer_Body")
-	body.texture = _load_texture(BODY_PATH)
-
-	# The relaxed arm remains below torso clothing.
-	_base_main_arm_under = _make_layer("Layer_Arm_Main_Rest")
-	_base_main_arm_under.texture = _load_texture(ARM_REST_PATH)
-
-	# Lower body and torso clothing sit below the head.
-	_create_slot_layers(GameEnums.EquipmentSlot.LEGS)
-	_create_slot_layers(GameEnums.EquipmentSlot.FEET)
-	_create_slot_base(GameEnums.EquipmentSlot.INNER_TORSO)
-	_create_slot_base(GameEnums.EquipmentSlot.OUTER_TORSO)
-	_create_slot_base(GameEnums.EquipmentSlot.VEST)
-	_create_slot_base(GameEnums.EquipmentSlot.ARMS)
-
-	# The bare head must render over collars, coats, rigs, and torso layers.
-	var head := _make_layer("Layer_Head_Base")
-	head.texture = _load_texture(HEAD_PATH)
-
-	_create_slot_layers(GameEnums.EquipmentSlot.NECK)
-	_create_slot_layers(GameEnums.EquipmentSlot.FACE)
-	_create_slot_layers(GameEnums.EquipmentSlot.EYES)
-	_create_slot_layers(GameEnums.EquipmentSlot.HEAD)
-
-	# Belt and sling are worn gear, not weapon hands.
-	_create_slot_layers(GameEnums.EquipmentSlot.BELT)
-	_create_slot_layers(GameEnums.EquipmentSlot.SLING)
-
-	# Readied weapons sit below the gripping arm and clothing-arm artwork.
-	_create_slot_layers(GameEnums.EquipmentSlot.HAND)
-	_create_slot_layers(GameEnums.EquipmentSlot.OFFHAND)
-
-	_base_main_arm_over = _make_layer("Layer_Arm_Main_Equipped")
-	_create_slot_overlay(GameEnums.EquipmentSlot.INNER_TORSO)
-	_create_slot_overlay(GameEnums.EquipmentSlot.OUTER_TORSO)
-	_create_slot_overlay(GameEnums.EquipmentSlot.VEST)
-	_create_slot_overlay(GameEnums.EquipmentSlot.ARMS)
-
-	# The offhand only exists for the authored two-handed grip.
-	_two_handed_grip = _make_layer("Layer_Arm_Offhand_2H")
-
-func _create_slot_layers(slot: int) -> void:
-	_create_slot_base(slot)
-	_create_slot_overlay(slot)
-
-func _create_slot_base(slot: int) -> void:
-	layer_nodes[slot] = _make_layer("Layer_%d" % slot)
-
-func _create_slot_overlay(slot: int) -> void:
-	secondary_layer_nodes[slot] = _make_layer(
-		"Layer_%d_Secondary" % slot
+	var background := _require_texture_rect("Background")
+	_model_frame = get_node_or_null("ModelFrame") as Control
+	var body := _require_texture_rect("ModelFrame/Layer_Body")
+	var head := _require_texture_rect("ModelFrame/Layer_Head_Base")
+	_base_main_arm_under = _require_texture_rect(
+		"ModelFrame/Layer_Arm_Main_Rest"
+	)
+	_base_main_arm_over = _require_texture_rect(
+		"ModelFrame/Layer_Arm_Main_Equipped"
+	)
+	_two_handed_grip = _require_texture_rect(
+		"ModelFrame/Layer_Arm_Offhand_2H"
 	)
 
-func _make_layer(layer_name: String) -> TextureRect:
-	var layer := TextureRect.new()
-	layer.name = layer_name
-	layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_model_frame.add_child(layer)
+	if (
+		background == null
+		or _model_frame == null
+		or body == null
+		or head == null
+		or _base_main_arm_under == null
+		or _base_main_arm_over == null
+		or _two_handed_grip == null
+	):
+		push_error("PaperDollModel requires its authored layer tree.")
+		return
+
+	background.texture = _load_texture(BACKGROUND_PATH)
+	body.texture = _load_texture(BODY_PATH)
+	head.texture = _load_texture(HEAD_PATH)
+	_base_main_arm_under.texture = _load_texture(ARM_REST_PATH)
+
+	for slot in BASE_SLOT_LAYERS:
+		var layer := _require_texture_rect("ModelFrame/Layer_%d" % slot)
+		if layer != null:
+			layer_nodes[slot] = layer
+
+	for slot in SECONDARY_SLOT_LAYERS:
+		var layer := _require_texture_rect(
+			"ModelFrame/Layer_%d_Secondary" % slot
+		)
+		if layer != null:
+			secondary_layer_nodes[slot] = layer
+
+func _require_texture_rect(path: String) -> TextureRect:
+	var layer := get_node_or_null(path) as TextureRect
+	if layer == null:
+		push_error("PaperDollModel missing authored TextureRect: " + path)
 	return layer
 
 func _resolve_arm_pose(equipment_data: Array) -> ArmPose:
@@ -356,21 +348,7 @@ func _choose_clothing_arm_path(
 	return candidates[0]
 
 func _load_texture(path: String) -> Texture2D:
-	if path.is_empty() or not ResourceLoader.exists(path):
-		return null
-	return load(path) as Texture2D
+	return EntityProjectionAssets.texture(path)
 
 func _load_grip_mask(path: String) -> Texture2D:
-	var texture := _load_texture(path)
-	if texture == null:
-		return null
-	var source := texture.get_image()
-	var masked := Image.create(
-		source.get_width(),
-		source.get_height(),
-		false,
-		Image.FORMAT_RGBA8
-	)
-	masked.fill(Color.TRANSPARENT)
-	masked.blit_rect(source, GRIP_MASK_RECT, GRIP_MASK_RECT.position)
-	return ImageTexture.create_from_image(masked)
+	return EntityProjectionAssets.masked_texture(path, GRIP_MASK_RECT)

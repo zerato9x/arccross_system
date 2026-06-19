@@ -1,8 +1,9 @@
 # Humanoid Token Pipeline
 
-This document owns the runtime asset contract for layered humanoid tokens.
-Tokens appear in both the macro world and the combat lane and derive their
-appearance from authoritative equipped items.
+This document owns the runtime asset contract for humanoid Entity Projections.
+Macro-world tokens, combat-lane tokens, and the Innawoods Paper Doll derive
+their appearance from authoritative equipped items instead of owning gameplay
+state.
 
 ## Runtime Contract
 
@@ -62,8 +63,11 @@ Visual identity must not be inferred from unique item identity.
 `HumanoidToken.tscn` owns twelve pooled `Sprite2D` layer nodes.
 `HumanoidTokenView` activates only the nodes required by the current equipment,
 loads only their active animation, and reuses the pool across equipment swaps.
-Godot's resource cache shares those textures across tokens. The renderer uses
-nearest filtering and synchronizes one frame index across all active layers.
+`PaperDollModel.tscn` owns its static TextureRect layer stack for the
+inventory portrait. `EntityProjectionAssets` caches token sheets, paper-doll
+textures, and generated grip-mask textures so opening inventory or swapping
+equipment does not recreate the same resources. The token renderer uses nearest
+filtering and synchronizes one frame index across all active layers.
 
 ## Current Coverage
 
