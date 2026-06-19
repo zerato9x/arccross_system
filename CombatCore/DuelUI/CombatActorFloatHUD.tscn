@@ -21,9 +21,44 @@ unique_name_in_owner = true
 unique_name_in_owner = true
 z_index = 1
 
-[node name="PaperDollGreybox" type="Polygon2D" parent="."]
+[node name="LimbDoll" type="Node2D" parent="."]
 unique_name_in_owner = true
 z_index = 2
+
+[node name="DollPlate" type="Polygon2D" parent="LimbDoll"]
+unique_name_in_owner = true
+
+[node name="HD" type="Sprite2D" parent="LimbDoll"]
+position = Vector2(51, 53)
+scale = Vector2(0.36, 0.36)
+
+[node name="UT" type="Sprite2D" parent="LimbDoll"]
+position = Vector2(51, 69)
+scale = Vector2(0.48, 0.48)
+
+[node name="LT" type="Sprite2D" parent="LimbDoll"]
+position = Vector2(51, 87)
+scale = Vector2(0.44, 0.44)
+
+[node name="LA" type="Sprite2D" parent="LimbDoll"]
+position = Vector2(32, 74)
+scale = Vector2(0.40, 0.40)
+
+[node name="RA" type="Sprite2D" parent="LimbDoll"]
+position = Vector2(70, 74)
+scale = Vector2(0.40, 0.40)
+
+[node name="LL" type="Sprite2D" parent="LimbDoll"]
+position = Vector2(43, 105)
+scale = Vector2(0.40, 0.40)
+
+[node name="RL" type="Sprite2D" parent="LimbDoll"]
+position = Vector2(59, 105)
+scale = Vector2(0.40, 0.40)
+
+[node name="TargetReticle" type="Line2D" parent="."]
+unique_name_in_owner = true
+z_index = 4
 
 [node name="DetailBox" type="Polygon2D" parent="."]
 unique_name_in_owner = true

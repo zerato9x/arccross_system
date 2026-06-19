@@ -2,6 +2,8 @@ extends Node2D
 class_name CombatActionButton
 
 signal pressed(payload: Dictionary)
+signal target_limb_focused(limb: int)
+signal target_limb_unfocused
 
 const HUDAssetLibrary := preload("res://UI/HUD/HUDAssetLibrary.gd")
 const COLOR_NORMAL := Color(0.12, 0.13, 0.12, 0.96)
@@ -63,6 +65,11 @@ func activate() -> void:
 
 func get_payload() -> Dictionary:
 	return _payload.duplicate(true)
+
+func get_target_limb() -> int:
+	return int(
+		_payload.get("target_limb", GameEnums.LimbRegion.UPPER_TORSO)
+	)
 
 func _apply_geometry() -> void:
 	_frame_sprite.centered = false
@@ -167,6 +174,7 @@ func _cycle_target_limb() -> void:
 	_target_limb_index = (_target_limb_index + 1) % _target_limbs.size()
 	_apply_target_to_payload()
 	_refresh()
+	_emit_target_focus()
 
 func _apply_target_to_payload() -> void:
 	if _target_limbs.is_empty():
@@ -174,9 +182,20 @@ func _apply_target_to_payload() -> void:
 		return
 	_payload["target_limb"] = int(_target_limbs[_target_limb_index])
 
+func _emit_target_focus() -> void:
+	if _target_limbs.is_empty():
+		return
+	target_limb_focused.emit(get_target_limb())
+
 func _set_hovered(value: bool) -> void:
 	_hovered = value
 	_refresh()
+	if _target_limbs.is_empty():
+		return
+	if _hovered:
+		_emit_target_focus()
+	else:
+		target_limb_unfocused.emit()
 
 func _on_input_event(
 	_viewport: Node,

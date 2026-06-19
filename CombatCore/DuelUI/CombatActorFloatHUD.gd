@@ -1,6 +1,7 @@
 extends Node2D
 class_name CombatActorFloatHUD
 
+const HUDAssetLibrary := preload("res://UI/HUD/HUDAssetLibrary.gd")
 const SIDE_PLAYER := "player"
 const SIDE_ENEMY := "enemy"
 const PANEL_SIZE := Vector2(250.0, 168.0)
@@ -9,10 +10,21 @@ const COLOR_PANEL := Color(0.10, 0.11, 0.10, 0.92)
 const COLOR_BORDER := Color(0.69, 0.64, 0.50, 0.9)
 const COLOR_DANGER := Color(0.78, 0.34, 0.30, 1.0)
 const COLOR_OK := Color(0.50, 0.61, 0.53, 1.0)
+const COLOR_DAMAGED := Color(0.93, 0.68, 0.26, 1.0)
+const LIMB_ASSET_NAMES := {
+	"HD": "head",
+	"UT": "upper_torso",
+	"LT": "lower_torso",
+	"LA": "left_arm",
+	"RA": "right_arm",
+	"LL": "left_leg",
+	"RL": "right_leg",
+}
 
 var _actor_data: Dictionary = {}
 var _side := SIDE_PLAYER
 var _expanded := false
+var _targeted_limb := -1
 var _target_local := Vector2.ZERO
 var _anchor_global := Vector2.ZERO
 var _viewport_origin := Vector2.ZERO
@@ -23,7 +35,9 @@ var _camera_zoom := 1.0
 @onready var _border: Line2D = %Border
 @onready var _pointer: Line2D = %Pointer
 @onready var _pointer_triangle: Polygon2D = %PointerTriangle
-@onready var _paperdoll_box: Polygon2D = %PaperDollGreybox
+@onready var _doll_plate: Polygon2D = %DollPlate
+@onready var _limb_doll: Node2D = %LimbDoll
+@onready var _target_reticle: Line2D = %TargetReticle
 @onready var _detail_box: Polygon2D = %DetailBox
 @onready var _hover_area: Area2D = %HoverArea
 @onready var _collision_shape: CollisionShape2D = %CollisionShape2D
@@ -32,6 +46,8 @@ var _camera_zoom := 1.0
 @onready var _limb_strip_label: Label = %LimbStripLabel
 @onready var _detail_label: Label = %DetailLabel
 @onready var _limb_markers: Node2D = %LimbMarkers
+
+var _limb_sprites: Dictionary = {}
 
 func _ready() -> void:
 	_apply_geometry()
@@ -104,12 +120,37 @@ func set_actor(
 	_target_local = to_local(anchor_global)
 	_refresh_pointer()
 
+func set_targeted_limb(limb: int) -> void:
+	_targeted_limb = limb
+	_refresh_targeting()
+	_refresh_limb_strip()
+
+func clear_targeted_limb() -> void:
+	if _targeted_limb < 0:
+		return
+	_targeted_limb = -1
+	_refresh_targeting()
+	_refresh_limb_strip()
+
 func _apply_geometry() -> void:
 	_set_box(_panel_box, PANEL_SIZE, Vector2.ZERO)
 	_panel_box.color = COLOR_PANEL
 	_set_outline(_border, PANEL_SIZE, Vector2.ZERO)
-	_set_box(_paperdoll_box, Vector2(78.0, 118.0), Vector2(12.0, 36.0))
-	_paperdoll_box.color = Color(0.22, 0.23, 0.22, 0.94)
+	_set_box(_doll_plate, Vector2(78.0, 118.0), Vector2(12.0, 36.0))
+	_doll_plate.color = Color(0.035, 0.08, 0.09, 0.96)
+	for code in LIMB_ASSET_NAMES:
+		var limb_sprite := _limb_doll.get_node_or_null(code) as Sprite2D
+		if limb_sprite == null:
+			continue
+		_limb_sprites[code] = limb_sprite
+		limb_sprite.texture = HUDAssetLibrary.texture(
+			"res://Asset/UI/HUD/medical/limb_%s_64.png"
+			% str(LIMB_ASSET_NAMES[code])
+		)
+		limb_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_target_reticle.width = 1.5
+	_target_reticle.default_color = HUDAssetLibrary.COLOR_CAUTION
+	_target_reticle.visible = false
 	_set_box(_detail_box, DETAIL_SIZE, Vector2(0.0, PANEL_SIZE.y + 8.0))
 	_detail_box.color = Color(0.07, 0.08, 0.08, 0.94)
 	var shape := RectangleShape2D.new()
@@ -137,7 +178,7 @@ func _refresh_content() -> void:
 		str(_actor_data.get("weapon_detail", "")),
 	]
 	var limbs: Array = _actor_data.get("limbs", [])
-	_limb_strip_label.text = _limb_warning_strip(limbs)
+	_refresh_limb_strip(limbs)
 	_detail_label.text = _limb_detail_text(limbs)
 	_refresh_limb_markers(limbs)
 
@@ -154,7 +195,65 @@ func _refresh_limb_markers(limbs: Array) -> void:
 		var current := float(limb.get("current", 1.0))
 		var maximum := maxf(1.0, float(limb.get("maximum", 1.0)))
 		var trauma := str(limb.get("trauma", "NONE"))
-		polygon.color = COLOR_DANGER if current / maximum <= 0.35 or trauma != "NONE" else COLOR_OK
+		polygon.color = _limb_color(current, maximum, trauma)
+	for code in _limb_sprites:
+		var limb_sprite := _limb_sprites[code] as Sprite2D
+		var limb: Dictionary = by_code.get(code, {})
+		limb_sprite.modulate = _limb_color(
+			float(limb.get("current", 0.0)),
+			maxf(1.0, float(limb.get("maximum", 1.0))),
+			str(limb.get("trauma", "NONE"))
+		)
+	_refresh_targeting()
+
+func _refresh_limb_strip(limbs: Array = []) -> void:
+	if _limb_strip_label == null:
+		return
+	var source_limbs: Array = limbs
+	if source_limbs.is_empty():
+		source_limbs = _actor_data.get("limbs", [])
+	var warning := _limb_warning_strip(source_limbs)
+	if _targeted_limb >= 0:
+		_limb_strip_label.text = "AIM // %s\n%s" % [
+			_limb_code(_targeted_limb),
+			warning,
+		]
+		return
+	_limb_strip_label.text = warning
+
+func _refresh_targeting() -> void:
+	if _target_reticle == null:
+		return
+	var code := _limb_code(_targeted_limb)
+	var limb_sprite := _limb_sprites.get(code) as Sprite2D
+	if _targeted_limb < 0 or limb_sprite == null or limb_sprite.texture == null:
+		_target_reticle.visible = false
+		return
+	var texture_size := Vector2(
+		float(limb_sprite.texture.get_width()),
+		float(limb_sprite.texture.get_height())
+	) * limb_sprite.scale
+	var padding := Vector2(3.0, 3.0)
+	var upper_left := limb_sprite.position - texture_size * 0.5 - padding
+	var lower_right := limb_sprite.position + texture_size * 0.5 + padding
+	_target_reticle.points = PackedVector2Array([
+		upper_left,
+		Vector2(lower_right.x, upper_left.y),
+		lower_right,
+		Vector2(upper_left.x, lower_right.y),
+		upper_left,
+	])
+	_target_reticle.visible = true
+
+func _limb_color(current: float, maximum: float, trauma: String) -> Color:
+	var ratio := current / maxf(1.0, maximum)
+	if current <= 0.0 or trauma == "SHATTERED_LIMB":
+		return Color(0.78, 0.18, 0.25, 1.0)
+	if trauma != "NONE" or ratio <= 0.35:
+		return COLOR_DANGER
+	if ratio <= 0.70:
+		return COLOR_DAMAGED
+	return HUDAssetLibrary.COLOR_NORMAL
 
 func _set_expanded(value: bool) -> void:
 	_expanded = value
@@ -198,6 +297,24 @@ func _limb_warning_strip(limbs: Array) -> String:
 	if warnings.is_empty():
 		return "LIMBS STABLE"
 	return "DANGER " + "  ".join(warnings)
+
+func _limb_code(limb: int) -> String:
+	match limb:
+		GameEnums.LimbRegion.HEAD:
+			return "HD"
+		GameEnums.LimbRegion.UPPER_TORSO:
+			return "UT"
+		GameEnums.LimbRegion.LOWER_TORSO:
+			return "LT"
+		GameEnums.LimbRegion.LEFT_ARM:
+			return "LA"
+		GameEnums.LimbRegion.RIGHT_ARM:
+			return "RA"
+		GameEnums.LimbRegion.LEFT_LEG:
+			return "LL"
+		GameEnums.LimbRegion.RIGHT_LEG:
+			return "RL"
+	return ""
 
 func _limb_detail_text(limbs: Array) -> String:
 	if limbs.is_empty():

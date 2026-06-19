@@ -7,6 +7,7 @@ class_name CombatAIEvaluator
 @export var resolution_engine: CombatResolutionEngine
 
 var target_core: HumanoidCore
+var _forward_direction: int = -1
 
 func _ready() -> void:
 	# Wake the AI up when the clock says it's their turn
@@ -202,7 +203,11 @@ func _score_advance() -> float:
 	var my_idx = _get_lane_idx(ai_core)
 	var target_idx = _get_lane_idx(target_core)
 	var distance = abs(my_idx - target_idx)
-	if distance <= 0:
+	if distance <= 0 or not lane_manager.can_move_entity_to(
+		ai_core,
+		my_idx,
+		my_idx + _direction_toward_target()
+	):
 		return 0.0 
 	var weapon = ai_core.inventory.get_active_weapon(true) # Melee context
 	if weapon != null:
@@ -215,8 +220,10 @@ func _score_retreat() -> float:
 	var my_idx = _get_lane_idx(ai_core)
 	if my_idx >= 0 and lane_manager.lane_slots[my_idx].is_melee_locked:
 		if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.DISENGAGE): return 0.0
+		if not lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - _direction_toward_target(), true): return 0.0
 	else:
 		if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.MOVE_BACKWARD): return 0.0
+		if not lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - _direction_toward_target()): return 0.0
 		
 	if ai_core.is_fleeing: return 10.0 
 	if ai_core.current_stance == GameEnums.StanceState.STUMBLING: return 0.7
@@ -226,6 +233,7 @@ func _score_disengage() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.DISENGAGE): return 0.0
 	var my_idx = _get_lane_idx(ai_core)
 	if my_idx < 0 or not lane_manager.lane_slots[my_idx].is_melee_locked: return 0.0
+	if not lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - _direction_toward_target(), true): return 0.0
 	var weapon = ai_core.inventory.get_active_weapon(false) # Ranged context implies they want to shoot
 	if weapon != null:
 		return 0.90
@@ -294,11 +302,9 @@ func _execute_action(action: int) -> void:
 
 		GameEnums.ActionType.MOVE_FORWARD:
 			var my_idx = _get_lane_idx(ai_core)
-			var target_idx = _get_lane_idx(target_core)
-			var forward_dir = sign(target_idx - my_idx)
-			if forward_dir == 0: forward_dir = 1
+			var forward_dir = _direction_toward_target()
 			
-			if turn_manager.request_action(ai_core, GameEnums.ActionType.MOVE_FORWARD):
+			if lane_manager.can_move_entity_to(ai_core, my_idx, my_idx + forward_dir) and turn_manager.request_action(ai_core, GameEnums.ActionType.MOVE_FORWARD):
 				if lane_manager.move_entity(ai_core, my_idx, my_idx + forward_dir):
 					resolution_engine.check_hazard_trip(ai_core, lane_manager.lane_slots[my_idx + forward_dir], false)
 
@@ -311,17 +317,21 @@ func _execute_action(action: int) -> void:
 					ai_core.is_escaping = true
 					turn_manager.pass_turn(ai_core)
 					return
-			var target_idx = _get_lane_idx(target_core)
-			var forward_dir = sign(target_idx - my_idx)
-			if forward_dir == 0: forward_dir = 1
+			var forward_dir = _direction_toward_target()
 			
 			if current_slot.is_melee_locked:
-				if turn_manager.request_action(ai_core, GameEnums.ActionType.DISENGAGE):
+				if lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - forward_dir, true) and turn_manager.request_action(ai_core, GameEnums.ActionType.DISENGAGE):
 					lane_manager.attempt_disengage(ai_core, my_idx, my_idx - forward_dir)
 			else:
-				if turn_manager.request_action(ai_core, GameEnums.ActionType.MOVE_BACKWARD):
+				if lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - forward_dir) and turn_manager.request_action(ai_core, GameEnums.ActionType.MOVE_BACKWARD):
 					if lane_manager.move_entity(ai_core, my_idx, my_idx - forward_dir):
 						resolution_engine.check_hazard_trip(ai_core, lane_manager.lane_slots[my_idx - forward_dir], false)
+
+		GameEnums.ActionType.DISENGAGE:
+			var disengage_idx = _get_lane_idx(ai_core)
+			var disengage_direction = _direction_toward_target()
+			if lane_manager.can_move_entity_to(ai_core, disengage_idx, disengage_idx - disengage_direction, true) and turn_manager.request_action(ai_core, GameEnums.ActionType.DISENGAGE):
+				lane_manager.attempt_disengage(ai_core, disengage_idx, disengage_idx - disengage_direction)
 
 		GameEnums.ActionType.GRAPPLE:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.GRAPPLE):
@@ -393,6 +403,14 @@ func _get_lane_idx(entity: HumanoidCore) -> int:
 	for i in range(lane_manager.lane_slots.size()):
 		if lane_manager.lane_slots[i].occupants.has(entity): return i
 	return -1
+
+func _direction_toward_target() -> int:
+	if target_core:
+		var my_idx := _get_lane_idx(ai_core)
+		var target_idx := _get_lane_idx(target_core)
+		if my_idx >= 0 and target_idx >= 0 and my_idx != target_idx:
+			_forward_direction = signi(target_idx - my_idx)
+	return _forward_direction
 
 func _can_reload_weapon(weapon: ItemData) -> bool:
 	if weapon.current_magazine >= weapon.max_magazine:
