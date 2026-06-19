@@ -1,5 +1,18 @@
 # ARCCROSS Changelog
 
+## June 19, 2026
+
+### Entity Projections
+
+- Added `EntityProjectionAssets` as the shared texture cache for humanoid
+  presentation. Macro/combat token sheets, Innawoods Paper Doll textures, and
+  generated grip-mask textures now reuse cached resources.
+- Converted `PaperDollModel.tscn` from an empty scripted root into an authored
+  static layer stack. `PaperDollModel.gd` now binds those nodes and only updates
+  their texture state.
+- Adopted **Entity Projection** as the shared term for macro-world tokens,
+  combat-lane tokens, and the Innawoods Paper Doll.
+
 ## June 15, 2026
 
 ### Humanoid Token Animation Contract

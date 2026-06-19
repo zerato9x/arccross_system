@@ -207,7 +207,12 @@ describes a tool; Damage Type describes a hit.
   generated.
 - **Hysteresis:** The gap between load and unload thresholds that prevents
   boundary thrashing.
-- **Token Projection:** A temporary WorldCore node representing an entity record.
+- **Entity Projection:** A temporary visual representation of a persistent
+  entity. Macro-world tokens, combat-lane tokens, and the Innawoods Paper Doll
+  all project the same Runtime State instead of owning identity or gameplay
+  data.
+- **Innawoods Paper Doll:** The static inventory portrait projection built from
+  authored Innawoods equipment layers.
 - **Ground Item Record:** A Runtime Item Instance snapshot stored at a macro
   coordinate.
 - **World Time:** Authoritative elapsed run time shared by movement, SEARCH,

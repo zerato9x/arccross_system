@@ -4,12 +4,18 @@ class_name DefeatPanel
 signal restart_requested
 signal load_requested
 
+const HUDAssetLibrary := preload("res://UI/HUD/HUDAssetLibrary.gd")
+
 var _overlay: ColorRect
+var _panel: PanelContainer
+var _title_label: Label
+var _body_label: Label
 var _load_button: Button
+var _restart_button: Button
 
 func _ready() -> void:
 	layer = 100
-	_build_panel()
+	_bind_authored_nodes()
 	close_panel()
 
 func open_panel(can_load: bool) -> void:
@@ -23,52 +29,38 @@ func close_panel() -> void:
 func is_open() -> bool:
 	return _overlay != null and _overlay.visible
 
-func _build_panel() -> void:
-	_overlay = ColorRect.new()
-	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_overlay.color = Color(0.025, 0.02, 0.025, 0.96)
-	add_child(_overlay)
+func _bind_authored_nodes() -> void:
+	_overlay = get_node_or_null("Overlay") as ColorRect
+	_panel = get_node_or_null("Overlay/Center/Panel") as PanelContainer
+	_title_label = get_node_or_null(
+		"Overlay/Center/Panel/Margin/Content/TitleLabel"
+	) as Label
+	_body_label = get_node_or_null(
+		"Overlay/Center/Panel/Margin/Content/BodyLabel"
+	) as Label
+	_restart_button = get_node_or_null(
+		"Overlay/Center/Panel/Margin/Content/BeginNewRunButton"
+	) as Button
+	_load_button = get_node_or_null(
+		"Overlay/Center/Panel/Margin/Content/LoadSavedRunButton"
+	) as Button
 
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_overlay.add_child(center)
+	if (
+		_overlay == null
+		or _panel == null
+		or _restart_button == null
+		or _load_button == null
+	):
+		push_error("DefeatPanel requires its authored Overlay button tree.")
+		return
 
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(440.0, 280.0)
-	center.add_child(panel)
+	HUDAssetLibrary.apply_panel(_panel, "critical")
+	HUDAssetLibrary.apply_label(_title_label, "critical")
+	HUDAssetLibrary.apply_label(_body_label, "body")
+	HUDAssetLibrary.apply_button(_restart_button, "rest")
+	HUDAssetLibrary.apply_button(_load_button, "load")
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 32)
-	margin.add_theme_constant_override("margin_top", 28)
-	margin.add_theme_constant_override("margin_right", 32)
-	margin.add_theme_constant_override("margin_bottom", 28)
-	panel.add_child(margin)
-
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 16)
-	margin.add_child(content)
-
-	var title := Label.new()
-	title.text = "RUN ENDED"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 32)
-	content.add_child(title)
-
-	var body := Label.new()
-	body.text = (
-		"This body cannot continue. The defeated runtime state remains "
-		+ "authoritative until you begin a new run or load a save."
-	)
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	content.add_child(body)
-
-	var restart_button := Button.new()
-	restart_button.text = "BEGIN NEW RUN"
-	restart_button.pressed.connect(restart_requested.emit)
-	content.add_child(restart_button)
-
-	_load_button = Button.new()
-	_load_button.text = "LOAD SAVED RUN"
-	_load_button.pressed.connect(load_requested.emit)
-	content.add_child(_load_button)
+	if not _restart_button.pressed.is_connected(restart_requested.emit):
+		_restart_button.pressed.connect(restart_requested.emit)
+	if not _load_button.pressed.is_connected(load_requested.emit):
+		_load_button.pressed.connect(load_requested.emit)

@@ -189,10 +189,8 @@ func _refresh_textures() -> void:
 			_layer_directories[index],
 			_animation
 		)
-		_layer_sprites[index].texture = (
-			load(texture_path) as Texture2D
-			if not texture_path.is_empty()
-			else null
+		_layer_sprites[index].texture = EntityProjectionAssets.texture(
+			texture_path
 		)
 
 func _apply_frame() -> void:

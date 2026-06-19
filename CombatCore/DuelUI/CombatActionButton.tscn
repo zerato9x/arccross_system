@@ -5,6 +5,15 @@
 [node name="CombatActionButton" type="Node2D"]
 script = ExtResource("1_button")
 
+[node name="FrameSprite" type="Sprite2D" parent="."]
+unique_name_in_owner = true
+centered = false
+
+[node name="IconSprite" type="Sprite2D" parent="."]
+unique_name_in_owner = true
+z_index = 1
+centered = false
+
 [node name="ButtonBox" type="Polygon2D" parent="."]
 unique_name_in_owner = true
 

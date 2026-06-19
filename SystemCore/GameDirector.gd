@@ -19,6 +19,8 @@ func _ready() -> void:
 		return
 		
 	macro_map.combat_requested.connect(_on_combat_requested)
+	macro_map.save_requested.connect(save_game)
+	macro_map.load_requested.connect(load_saved_run)
 	if defeat_panel:
 		defeat_panel.restart_requested.connect(restart_new_run)
 		defeat_panel.load_requested.connect(load_saved_run)

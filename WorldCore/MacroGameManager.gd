@@ -3,6 +3,8 @@ class_name MacroGameManager
 
 # Cross-system handoff contains only IDs, primitives, and GameEnums values.
 signal combat_requested(request: Dictionary)
+signal save_requested
+signal load_requested
 
 @export_group("The Strings")
 @export var world_generator: HexWorldGenerator
@@ -12,6 +14,7 @@ signal combat_requested(request: Dictionary)
 @export var mob_spawner: MobSpawner
 @export var interaction_panel: MacroInteractionPanel
 @export var inventory_panel: InventoryUI
+@export var world_hud: WorldHUD
 
 @export_group("Proximity Loading")
 @export_range(1, 12) var active_radius: int = 4
@@ -55,6 +58,11 @@ func _ready() -> void:
 		)
 		inventory_panel.inventory_closed.connect(_on_inventory_closed)
 
+	if world_hud:
+		world_hud.inventory_requested.connect(open_inventory)
+		world_hud.save_requested.connect(save_requested.emit)
+		world_hud.load_requested.connect(load_requested.emit)
+
 	var player_inventory := player_token.get_humanoid_core().inventory
 	player_inventory.inventory_error.connect(_on_player_inventory_error)
 	player_inventory.items_spilled.connect(_on_player_items_spilled)
@@ -63,6 +71,7 @@ func _ready() -> void:
 		_initialize_loaded_world()
 	else:
 		_initialize_demo()
+	_refresh_world_hud()
 
 func _initialize_demo() -> void:
 	var seed := "DEMO_WASTELAND_01"
@@ -234,6 +243,7 @@ func _advance_survival_time(
 			current_player_core.capture_runtime_state(),
 			target_coords
 		)
+	_refresh_world_hud()
 
 func _get_exertion_for_biome(biome: GameEnums.GridBiome) -> float:
 	if biome == GameEnums.GridBiome.HILLS:
@@ -456,11 +466,14 @@ func resolve_entity_ambush(position: GameEnums.AmbushPosition) -> void:
 func close_macro_interaction() -> void:
 	_pending_interaction.clear()
 	set_process_unhandled_input(true)
+	_refresh_world_hud()
 
 func open_inventory() -> void:
 	if not inventory_panel:
 		push_error("Inventory requested without a presentation subscriber.")
 		return
+	if world_hud:
+		world_hud.set_inventory_open(true)
 	inventory_panel.open_inventory(_build_inventory_snapshot())
 
 func resolve_inventory_action(
@@ -578,8 +591,12 @@ func resolve_inventory_action(
 		_build_inventory_snapshot(),
 		message
 	)
+	_refresh_world_hud()
 
 func _on_inventory_closed() -> void:
+	if world_hud:
+		world_hud.set_inventory_open(false)
+	_refresh_world_hud()
 	if (
 		_pending_interaction.get("type")
 		!= GameEnums.MacroInteractionType.POI
@@ -656,6 +673,35 @@ func _build_inventory_snapshot() -> Dictionary:
 		"backpack": backpack,
 		"ground": ground,
 	}
+
+func _build_world_hud_snapshot() -> Dictionary:
+	if not player_token:
+		return {}
+	var player_core := player_token.get_humanoid_core()
+	if not player_core or not player_core.body or not player_core.inventory:
+		return {}
+	var body := player_core.body
+	var inventory := player_core.inventory
+	return {
+		"coords": player_token.current_hex_coords,
+		"world_time": _world_state.get_world_time_snapshot(),
+		"blood": body.blood_level,
+		"hunger": body.hunger,
+		"thirst": body.thirst,
+		"fatigue": body.fatigue,
+		"core_temperature": body.core_temperature,
+		"stance": player_core.stance_points,
+		"stance_state": GameEnums.StanceState.keys()[player_core.current_stance],
+		"morale": player_core.current_morale,
+		"arc_energy": player_core.current_arc_energy,
+		"red_mist": player_core.red_mist_corruption,
+		"current_capacity": inventory.current_size,
+		"maximum_capacity": inventory.current_max_capacity,
+	}
+
+func _refresh_world_hud() -> void:
+	if world_hud:
+		world_hud.show_snapshot(_build_world_hud_snapshot())
 
 func _item_inventory_descriptor(
 	item: ItemData,
@@ -831,6 +877,7 @@ func _resolve_search(
 		player_token.get_humanoid_core().capture_runtime_state(),
 		coords
 	)
+	_refresh_world_hud()
 
 	var message := (
 		"Found: " + ", ".join(found_names)
@@ -928,6 +975,7 @@ func _resolve_camp(
 		player_token.get_humanoid_core().capture_runtime_state(),
 		coords
 	)
+	_refresh_world_hud()
 
 	if result.get("interrupted", false):
 		_spawn_search_intruder(coords)
