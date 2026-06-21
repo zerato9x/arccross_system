@@ -682,6 +682,25 @@ func _build_world_hud_snapshot() -> Dictionary:
 		return {}
 	var body := player_core.body
 	var inventory := player_core.inventory
+	var limbs: Array = []
+	for region in [
+		GameEnums.LimbRegion.HEAD,
+		GameEnums.LimbRegion.UPPER_TORSO,
+		GameEnums.LimbRegion.LOWER_TORSO,
+		GameEnums.LimbRegion.LEFT_ARM,
+		GameEnums.LimbRegion.RIGHT_ARM,
+		GameEnums.LimbRegion.LEFT_LEG,
+		GameEnums.LimbRegion.RIGHT_LEG,
+	]:
+		var trauma_index := int(
+			body.limb_trauma.get(region, GameEnums.TraumaType.NONE)
+		)
+		limbs.append({
+			"region": GameEnums.LimbRegion.keys()[region],
+			"current": float(body.limb_hp.get(region, 0.0)),
+			"maximum": body.get_limb_max(region),
+			"trauma": GameEnums.TraumaType.keys()[trauma_index],
+		})
 	return {
 		"coords": player_token.current_hex_coords,
 		"world_time": _world_state.get_world_time_snapshot(),
@@ -697,6 +716,7 @@ func _build_world_hud_snapshot() -> Dictionary:
 		"red_mist": player_core.red_mist_corruption,
 		"current_capacity": inventory.current_size,
 		"maximum_capacity": inventory.current_max_capacity,
+		"limbs": limbs,
 	}
 
 func _refresh_world_hud() -> void:

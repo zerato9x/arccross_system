@@ -15,12 +15,14 @@ var _vital_rows: Dictionary = {}
 @onready var _command_panel: PanelContainer = %CommandPanel
 @onready var _menu_panel: PanelContainer = %MenuPanel
 @onready var _settings_panel: PanelContainer = %SettingsPanel
+@onready var _medical_monitor: MedicalMonitor = %MedicalMonitor
 @onready var _location_icon: TextureRect = %LocationIcon
 @onready var _time_icon: TextureRect = %TimeIcon
 @onready var _location_label: Label = %LocationLabel
 @onready var _time_label: Label = %TimeLabel
 @onready var _warning_label: Label = %WarningLabel
 @onready var _inventory_button: Button = %InventoryButton
+@onready var _medical_button: Button = %MedicalButton
 @onready var _menu_button: Button = %MenuButton
 @onready var _settings_button: Button = %SettingsButton
 @onready var _menu_inventory_button: Button = %MenuInventoryButton
@@ -44,17 +46,20 @@ func _ready() -> void:
 	_menu_panel.visible = false
 	_settings_panel.visible = false
 	_screen_overlay.visible = false
+	_medical_monitor.closed.connect(_on_medical_monitor_closed)
 	_update_scale_label()
 
 func show_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
 	_render()
+	_medical_monitor.show_snapshot(_snapshot)
 
 func set_inventory_open(open: bool) -> void:
 	visible = not open
 	if not visible:
 		_menu_panel.visible = false
 		_settings_panel.visible = false
+		_medical_monitor.close_monitor()
 
 func _bind_vital_rows() -> void:
 	for key in [
@@ -90,6 +95,7 @@ func _apply_assets() -> void:
 	_apply_vital_icon("fatigue", "fatigue", "stance")
 	_apply_vital_icon("temperature", "temperature", "anomaly")
 	HUDAssetLibrary.apply_button(_inventory_button, "inventory")
+	HUDAssetLibrary.apply_button(_medical_button, "blood")
 	HUDAssetLibrary.apply_button(_menu_button, "map")
 	HUDAssetLibrary.apply_button(_settings_button, "settings")
 	HUDAssetLibrary.apply_button(_menu_inventory_button, "inventory")
@@ -120,6 +126,7 @@ func _apply_vital_icon(
 
 func _connect_buttons() -> void:
 	_inventory_button.pressed.connect(inventory_requested.emit)
+	_medical_button.pressed.connect(_toggle_medical_monitor)
 	_menu_button.pressed.connect(_toggle_menu)
 	_settings_button.pressed.connect(_toggle_settings)
 	_menu_inventory_button.pressed.connect(inventory_requested.emit)
@@ -130,6 +137,18 @@ func _connect_buttons() -> void:
 	_settings_close_button.pressed.connect(_close_settings)
 	_screen_noise_toggle.toggled.connect(_set_screen_noise)
 	_hud_scale_slider.value_changed.connect(_set_hud_scale)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if (
+		not visible
+		or not event is InputEventKey
+		or not event.pressed
+		or event.echo
+		or event.keycode != KEY_M
+	):
+		return
+	_toggle_medical_monitor()
+	get_viewport().set_input_as_handled()
 
 func _render() -> void:
 	if _snapshot.is_empty():
@@ -207,6 +226,19 @@ func _open_settings() -> void:
 
 func _close_settings() -> void:
 	_settings_panel.visible = false
+
+func _toggle_medical_monitor() -> void:
+	if _snapshot.is_empty():
+		return
+	if _medical_monitor.is_open():
+		_medical_monitor.close_monitor()
+		return
+	_menu_panel.visible = false
+	_settings_panel.visible = false
+	_medical_monitor.open_monitor(_snapshot)
+
+func _on_medical_monitor_closed() -> void:
+	_medical_button.grab_focus()
 
 func _set_screen_noise(enabled: bool) -> void:
 	_screen_overlay.visible = enabled

@@ -44,8 +44,8 @@ var _enemy_label: Label
 @onready var _combat_camera: Camera2D = %CombatCamera
 @onready var _context_board: Node2D = %CombatContextBoard
 @onready var _grid_hover_card: Node2D = %CombatGridHoverCard
-@onready var _player_actor_hud: Node2D = %PlayerActorHUD
-@onready var _enemy_actor_hud: Node2D = %EnemyActorHUD
+@onready var _player_actor_hud: CombatActorFloatHUD = %PlayerActorHUD
+@onready var _enemy_actor_hud: CombatActorFloatHUD = %EnemyActorHUD
 @onready var _action_panel_box: Polygon2D = %ActionPanelBox
 @onready var _action_panel_border: Line2D = %ActionPanelBorder
 @onready var _action_title_label: Label = %ActionTitleLabel
@@ -269,6 +269,8 @@ func _add_button(payload: Dictionary, text: String, index: int) -> void:
 	button.set_button_size(ACTION_BUTTON_SIZE)
 	button.configure(payload, text)
 	button.pressed.connect(_on_action_button_pressed)
+	button.target_limb_focused.connect(_on_target_limb_focused)
+	button.target_limb_unfocused.connect(_on_target_limb_unfocused)
 	var column := index % 2
 	var row := index / 2
 	button.position = Vector2(
@@ -283,6 +285,17 @@ func _clear_action_buttons() -> void:
 		if is_instance_valid(button):
 			button.queue_free()
 	_action_buttons.clear()
+	_on_target_limb_unfocused()
+
+func _on_target_limb_focused(limb: int) -> void:
+	if _enemy_actor_hud == null:
+		return
+	_enemy_actor_hud.set_targeted_limb(limb)
+
+func _on_target_limb_unfocused() -> void:
+	if _enemy_actor_hud == null:
+		return
+	_enemy_actor_hud.clear_targeted_limb()
 
 func _on_action_button_pressed(payload: Dictionary) -> void:
 	match str(payload.get("mode", "")):

@@ -173,9 +173,11 @@ func _execute_player_action(
 				return false
 			return resolution_engine.execute_get_up(player_core)
 		GameEnums.ActionType.MOVE_FORWARD:
+			var destination := player_lane + direction
+			if not lane_manager.can_move_entity_to(player_core, player_lane, destination):
+				return false
 			if not turn_manager.request_action(player_core, action):
 				return false
-			var destination := player_lane + direction
 			if lane_manager.move_entity(
 				player_core,
 				player_lane,
@@ -188,13 +190,17 @@ func _execute_player_action(
 				)
 				return true
 		GameEnums.ActionType.MOVE_BACKWARD:
-			if not turn_manager.request_action(player_core, action):
-				return false
 			if lane_manager.lane_slots[player_lane].object_name == "Escape Zone":
+				if not turn_manager.request_action(player_core, action):
+					return false
 				player_core.is_escaping = true
 				turn_manager.pass_turn(player_core)
 				return true
 			var retreat := player_lane - direction
+			if not lane_manager.can_move_entity_to(player_core, player_lane, retreat):
+				return false
+			if not turn_manager.request_action(player_core, action):
+				return false
 			if lane_manager.move_entity(player_core, player_lane, retreat):
 				resolution_engine.check_hazard_trip(
 					player_core,
@@ -203,10 +209,16 @@ func _execute_player_action(
 				)
 				return true
 		GameEnums.ActionType.CHARGE:
-			if not turn_manager.request_action(player_core, action):
-				return false
 			var charge_distance := mini(2, abs(enemy_lane - player_lane))
 			var charge_destination := player_lane + (direction * charge_distance)
+			if not lane_manager.can_move_entity_to(
+				player_core,
+				player_lane,
+				charge_destination
+			):
+				return false
+			if not turn_manager.request_action(player_core, action):
+				return false
 			if lane_manager.move_entity(
 				player_core,
 				player_lane,
@@ -317,12 +329,20 @@ func _execute_player_action(
 				)
 			return true
 		GameEnums.ActionType.DISENGAGE:
+			var disengage_destination := player_lane - _player_forward_direction
+			if not lane_manager.can_move_entity_to(
+				player_core,
+				player_lane,
+				disengage_destination,
+				true
+			):
+				return false
 			if not turn_manager.request_action(player_core, action):
 				return false
 			return lane_manager.attempt_disengage(
 				player_core,
 				player_lane,
-				player_lane - _player_forward_direction
+				disengage_destination
 			)
 		GameEnums.ActionType.EXECUTE:
 			if not turn_manager.request_action(player_core, action):
@@ -400,7 +420,7 @@ func _build_legal_actions() -> Array:
 		_add_action(actions, GameEnums.ActionType.PUSH_STAY, "PUSH / STAY")
 		_add_action(actions, GameEnums.ActionType.PUSH_FOLLOW, "PUSH / FOLLOW")
 		_add_action(actions, GameEnums.ActionType.PULL_FOLLOW, "PULL / FOLLOW")
-		if _can_move_to(player_lane - _player_forward_direction):
+		if _can_move_to(player_lane - _player_forward_direction, true):
 			_add_action(actions, GameEnums.ActionType.DISENGAGE, "BREAK AWAY")
 		if (
 			CombatRules.EXECUTE_ENABLED
@@ -572,10 +592,17 @@ func _display_action_cost(action: int) -> int:
 	var cost := turn_manager.get_action_cost(player_core, action)
 	return turn_manager.current_ap_pool if cost == CombatTurnManager.COST_ALL_AP else cost
 
-func _can_move_to(lane_index: int) -> bool:
-	if lane_index < 0 or lane_index >= lane_manager.lane_slots.size():
-		return false
-	return lane_manager.lane_slots[lane_index].occupants.size() < 2
+func _can_move_to(
+	lane_index: int,
+	allow_break_from_melee_lock: bool = false
+) -> bool:
+	var player_lane := lane_manager._find_entity_lane(player_core)
+	return lane_manager.can_move_entity_to(
+		player_core,
+		player_lane,
+		lane_index,
+		allow_break_from_melee_lock
+	)
 
 func _direction_toward_enemy(player_lane: int, enemy_lane: int) -> int:
 	if player_lane == enemy_lane:

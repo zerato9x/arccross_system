@@ -24,31 +24,91 @@ func _initialize_lane() -> void:
 
 # --- MOVEMENT MATTERS ---
 
-func move_entity(entity: HumanoidCore, from_idx: int, to_idx: int, is_charge: bool = false) -> bool:
-	if to_idx < 0 or to_idx > 11:
+## The lane is an engagement line, not a transit tunnel. A combatant may enter
+## an opponent's lane to start a Melee Lock, but cannot move from one side of
+## an opponent to the other in a single relocation.
+func can_move_entity_to(
+	entity: HumanoidCore,
+	from_idx: int,
+	to_idx: int,
+	allow_break_from_melee_lock: bool = false
+) -> bool:
+	if entity == null or from_idx < 0 or from_idx >= lane_slots.size():
 		return false
-		
+	if to_idx < 0 or to_idx >= lane_slots.size() or from_idx == to_idx:
+		return false
+	if _find_entity_lane(entity) != from_idx:
+		return false
+
 	var origin_slot: CombatLaneSlot = lane_slots[from_idx]
 	var target_slot: CombatLaneSlot = lane_slots[to_idx]
-	
-	if origin_slot.is_melee_locked:
+	if origin_slot.is_melee_locked and not allow_break_from_melee_lock:
+		return false
+	if target_slot.occupants.size() >= 2:
+		return false
+	if _would_cross_an_opponent(entity, from_idx, to_idx):
+		return false
+	return true
+
+func move_entity(entity: HumanoidCore, from_idx: int, to_idx: int, is_charge: bool = false) -> bool:
+	if not can_move_entity_to(entity, from_idx, to_idx):
+		if from_idx >= 0 and from_idx < lane_slots.size() and lane_slots[from_idx].is_melee_locked:
+			print("Movement denied. You must explicitly 'Disengage' from the Melee Lock.")
+		elif _would_cross_an_opponent(entity, from_idx, to_idx):
+			print("Movement denied. Combatants cannot pass through one another.")
+		return false
+
+	if not _relocate_entity(entity, from_idx, to_idx):
+		return false
+
+	# THE GRAPPLE INTERCEPT: Check if a CHARGE ended directly adjacent to an enemy
+	if is_charge and turn_manager:
+		_check_charge_intercept(entity, to_idx)
+
+	lane_changed.emit()
+	return true
+
+func _relocate_entity(
+	entity: HumanoidCore,
+	from_idx: int,
+	to_idx: int,
+	allow_break_from_melee_lock: bool = false
+) -> bool:
+	if not can_move_entity_to(
+		entity,
+		from_idx,
+		to_idx,
+		allow_break_from_melee_lock
+	):
 		print("Movement denied. You must explicitly 'Disengage' from the Melee Lock.")
 		return false
-	
-	# Check if the path is obstructed by a trap/obstacle or if it's a hazard that trips them
-	# We assume the resolution engine handles the actual Trip check right after this succeeds,
-	# but we can return true indicating the movement occurred (even if they fell).
-		
-	if target_slot.enter_slot(entity):
-		origin_slot.exit_slot(entity)
-		
-		# THE GRAPPLE INTERCEPT: Check if a CHARGE ended directly adjacent to an enemy
-		if is_charge and turn_manager:
-			_check_charge_intercept(entity, to_idx)
-		
-		lane_changed.emit()
-		return true
-		
+
+	var origin_slot: CombatLaneSlot = lane_slots[from_idx]
+	var target_slot: CombatLaneSlot = lane_slots[to_idx]
+	if not target_slot.enter_slot(entity):
+		return false
+	origin_slot.exit_slot(entity)
+	return true
+
+func _would_cross_an_opponent(
+	entity: HumanoidCore,
+	from_idx: int,
+	to_idx: int
+) -> bool:
+	for slot in lane_slots:
+		for occupant in slot.occupants:
+			if occupant == entity or occupant.definition.faction == entity.definition.faction:
+				continue
+			var opponent_idx := slot.lane_index
+			# Entering an opponent's lane starts a Melee Lock. Leaving a shared
+			# lane is controlled by DISENGAGE and displacement actions.
+			if opponent_idx == from_idx or opponent_idx == to_idx:
+				continue
+			if (
+				(from_idx < opponent_idx and to_idx > opponent_idx)
+				or (from_idx > opponent_idx and to_idx < opponent_idx)
+			):
+				return true
 	return false
 
 func _check_charge_intercept(charger: HumanoidCore, charger_idx: int) -> void:
@@ -63,9 +123,9 @@ func _check_charge_intercept(charger: HumanoidCore, charger_idx: int) -> void:
 						print("\n[CHARGE INTERCEPT OPPORTUNITY] ", charger.name, " charged and ended adjacent to ", occupant.name, "!")
 						# Check if the defender wants to spend 6 AP to intercept
 						if turn_manager.request_grapple_intercept(occupant, charger):
-							# Force the charger into the defender's slot to initiate the lock
-							lane_slots[charger_idx].exit_slot(charger)
-							slot.enter_slot(charger)
+							# Force the charger into the defender's slot to initiate the lock.
+							if not move_entity(charger, charger_idx, adj_idx):
+								return
 							
 							# Charge interception is a special momentum takedown.
 							print("[INTERCEPT SUCCESS] ", occupant.name, " tackles ", charger.name, " mid-sprint!")
@@ -111,8 +171,9 @@ func resolve_displacement(
 	# Move the target
 	var movement_verb := "dragged" if action_name == "PULL" else "shoved"
 	print("\n[", action_name, "] ", target.name, " is ", movement_verb, " into Lane Slot ", destination_idx)
-	lane_slots[init_idx].exit_slot(target)
-	lane_slots[destination_idx].enter_slot(target)
+	if not _relocate_entity(target, init_idx, destination_idx, true):
+		print("[DISPLACEMENT] ", target.name, " cannot be moved through an opponent.")
+		return
 	
 	if chose_follow:
 		# Check if target has a Backup Braced ally that disables FOLLOW
@@ -126,8 +187,9 @@ func resolve_displacement(
 		
 		if not disabled_by_backup:
 			print("[FOLLOW] ", initiator.name, " follows to maintain the Melee Lock.")
-			lane_slots[init_idx].exit_slot(initiator)
-			lane_slots[destination_idx].enter_slot(initiator)
+			if not _relocate_entity(initiator, init_idx, destination_idx):
+				print("[FOLLOW FAILED] The destination is no longer valid.")
+				_break_lock_and_reset_stance(initiator, target)
 		else:
 			print("[FOLLOW FAILED] The Lock shatters.")
 			_break_lock_and_reset_stance(initiator, target)
@@ -154,6 +216,9 @@ func _break_lock_and_reset_stance(initiator: HumanoidCore, target: HumanoidCore)
 # --- THE MELEE HOTEL EXIT CLAUSE ---
 
 func attempt_disengage(entity: HumanoidCore, current_idx: int, retreat_idx: int) -> bool:
+	if not can_move_entity_to(entity, current_idx, retreat_idx, true):
+		return false
+
 	var slot: CombatLaneSlot = lane_slots[current_idx]
 	
 	if not slot.is_melee_locked:
@@ -178,8 +243,8 @@ func attempt_disengage(entity: HumanoidCore, current_idx: int, retreat_idx: int)
 	
 	if escape_roll > enemy_grip:
 		print("Disengage successful! Kicked away from the grapple.")
-		slot.exit_slot(entity)
-		lane_slots[retreat_idx].enter_slot(entity)
+		if not _relocate_entity(entity, current_idx, retreat_idx, true):
+			return false
 		_break_lock_and_reset_stance(entity, opponent)
 		lane_changed.emit()
 		return true
