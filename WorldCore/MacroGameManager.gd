@@ -77,14 +77,9 @@ func _initialize_demo() -> void:
 	var seed := "DEMO_WASTELAND_01"
 	_world_state.begin_new_world(seed)
 	world_generator.configure_seed(seed)
-	world_generator.inject_unique_poi(
-		Vector2i(1, 0),
-		"demo_relay_shelter",
-		"Abandoned Relay Shelter",
-		GameEnums.GridBiome.PLAINS
-	)
 	
-	# Spawn Player
+	# Alpha starts in the safe city. Random starts can replace this later
+	# without changing the hub's region or POI contract.
 	var start_coords = Vector2i(0, 0)
 	var start_pixel_pos = map_visualizer.map_to_local(start_coords)
 	player_token.snap_to_hex(start_coords, start_pixel_pos)
@@ -99,12 +94,6 @@ func _initialize_loaded_world() -> void:
 		return
 
 	world_generator.configure_seed(_world_state.world_seed)
-	world_generator.inject_unique_poi(
-		Vector2i(1, 0),
-		"demo_relay_shelter",
-		"Abandoned Relay Shelter",
-		GameEnums.GridBiome.PLAINS
-	)
 	player_token.restore_runtime_record(_world_state.player_record)
 	var loaded_coords := _world_state.player_coords
 	player_token.snap_to_hex(
@@ -1125,7 +1114,8 @@ func _camp_states_for_preview(
 func _get_loot_profile(hex_data: MacroHexData) -> Dictionary:
 	var profile_id := WorldRules.get_loot_profile_id(
 		hex_data.biome,
-		hex_data.poi_id
+		hex_data.poi_id,
+		hex_data.region
 	)
 	return _loot_catalog.call("get_profile_descriptor", profile_id)
 
@@ -1230,7 +1220,10 @@ func _ensure_encounter_records(center_coords: Vector2i) -> void:
 			continue
 
 		hex_data.encounter_evaluated = true
-		if _hex_distance(Vector2i.ZERO, coords) <= safe_start_radius:
+		if (
+			hex_data.region == GameEnums.MacroRegion.CENTRAL_HUB
+			or _hex_distance(Vector2i.ZERO, coords) <= safe_start_radius
+		):
 			_world_state.set_hex_record(coords, hex_data.to_state())
 			continue
 

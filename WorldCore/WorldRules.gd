@@ -10,17 +10,20 @@ const DEFAULT_LOOT_PROFILE_BY_BIOME := {
 }
 
 const LOOT_PROFILE_BY_POI_ID := {
-	"demo_relay_shelter": "loot_relay_shelter",
+	"alpha_central_hub": "loot_alpha_hub",
 }
 
 const CAMP_HAZARD_LIMIT: float = 8.0
 
 static func get_loot_profile_id(
 	biome: GameEnums.GridBiome,
-	poi_id: String
+	poi_id: String,
+	region: GameEnums.MacroRegion = GameEnums.MacroRegion.WASTELAND
 ) -> String:
 	if LOOT_PROFILE_BY_POI_ID.has(poi_id):
 		return LOOT_PROFILE_BY_POI_ID[poi_id]
+	if region == GameEnums.MacroRegion.HUB_BORDER:
+		return "loot_hub_border"
 	return DEFAULT_LOOT_PROFILE_BY_BIOME.get(biome, "loot_plains")
 
 static func get_camp_access(

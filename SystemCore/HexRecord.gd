@@ -9,6 +9,8 @@ class_name HexRecord
 @export var flora_layer: GameEnums.MacroFloraLayer = GameEnums.MacroFloraLayer.NONE
 @export var rock_layer: GameEnums.MacroRockLayer = GameEnums.MacroRockLayer.NONE
 @export var structure_layer: GameEnums.MacroStructureLayer = GameEnums.MacroStructureLayer.NONE
+@export var region: GameEnums.MacroRegion = GameEnums.MacroRegion.WASTELAND
+@export var arm_direction: GameEnums.MacroArmDirection = GameEnums.MacroArmDirection.NONE
 @export var is_poi: bool = false
 @export var poi_id: String = ""
 @export var poi_name: String = ""
@@ -28,6 +30,8 @@ func to_dict() -> Dictionary:
 		"flora_layer": flora_layer,
 		"rock_layer": rock_layer,
 		"structure_layer": structure_layer,
+		"region": region,
+		"arm_direction": arm_direction,
 		"is_poi": is_poi,
 		"poi_id": poi_id,
 		"poi_name": poi_name,
@@ -59,6 +63,14 @@ static func from_dict(data: Dictionary) -> HexRecord:
 	record.structure_layer = data.get(
 		"structure_layer",
 		GameEnums.MacroStructureLayer.NONE
+	)
+	record.region = data.get(
+		"region",
+		GameEnums.MacroRegion.WASTELAND
+	)
+	record.arm_direction = data.get(
+		"arm_direction",
+		GameEnums.MacroArmDirection.NONE
 	)
 	record.is_poi = data.get("is_poi", false)
 	record.poi_id = data.get("poi_id", "")

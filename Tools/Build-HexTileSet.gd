@@ -94,16 +94,16 @@ static func _categorize_tile(path: String, source_id: int, catalog: MacroTileCat
 		elif "sparse green" in lowered:
 			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.FOREST_SPARSE, source_id)
 			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.FOREST, source_id)
-			
+
 			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.PLAINS_GRASS, source_id)
 			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.PLAINS, source_id)
-			
+
 			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.MUD_YELLOW, source_id)
 			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.MUD, source_id)
 		# PLAINS (Dense green grass) - PUT ON HOLD
 		else:
 			pass
-			
+
 	# Overlays
 	elif "trees" in lowered:
 		if not "temperate trees v2" in lowered:

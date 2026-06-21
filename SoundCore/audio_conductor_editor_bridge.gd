@@ -123,7 +123,7 @@ func _on_toggle_overlay() -> void:
 	_game_eval("AudioConductor.set_critical_overlay(%s)" % str(_overlay_on).to_lower())
 
 func _on_trigger_first_strike() -> void:
-	_game_eval("AudioConductor.on_first_strike()")
+	_game_eval("AudioConductor.on_first_strike(GameEnums.ActionType.STRIKE)")
 
 func _on_reset_params() -> void:
 	_eq_low = 0.0

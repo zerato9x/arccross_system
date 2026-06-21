@@ -1,6 +1,8 @@
 extends Node
 class_name CombatLaneManager
 
+signal disengage_failed(entity: HumanoidCore, opponent: HumanoidCore)
+
 signal lane_changed
 
 var lane_slots: Array[CombatLaneSlot] = []
@@ -249,8 +251,9 @@ func attempt_disengage(entity: HumanoidCore, current_idx: int, retreat_idx: int)
 		lane_changed.emit()
 		return true
 	else:
-		print("Disengage failed! Slipped in the mud. Reaction Strike window opened.")
-		# Note: deduct AP and trigger enemy counter-attack here later
+		print("Disengage failed! Slipped in the mud.")
+		if opponent:
+			disengage_failed.emit(entity, opponent)
 		return false
 
 # --- SPAWN LOGIC ---

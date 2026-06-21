@@ -6,6 +6,8 @@ class_name MacroHexData
 @export var flora_layer: GameEnums.MacroFloraLayer = GameEnums.MacroFloraLayer.NONE
 @export var rock_layer: GameEnums.MacroRockLayer = GameEnums.MacroRockLayer.NONE
 @export var structure_layer: GameEnums.MacroStructureLayer = GameEnums.MacroStructureLayer.NONE
+@export var region: GameEnums.MacroRegion = GameEnums.MacroRegion.WASTELAND
+@export var arm_direction: GameEnums.MacroArmDirection = GameEnums.MacroArmDirection.NONE
 
 # POI Variables
 @export var is_poi: bool = false
@@ -29,6 +31,8 @@ func to_state() -> HexRecord:
 	record.flora_layer = flora_layer
 	record.rock_layer = rock_layer
 	record.structure_layer = structure_layer
+	record.region = region
+	record.arm_direction = arm_direction
 	record.is_poi = is_poi
 	record.poi_id = poi_id
 	record.poi_name = poi_name
@@ -56,6 +60,8 @@ static func from_state(state) -> MacroHexData:
 	hex.flora_layer = source.flora_layer
 	hex.rock_layer = source.rock_layer
 	hex.structure_layer = source.structure_layer
+	hex.region = source.region
+	hex.arm_direction = source.arm_direction
 	hex.is_poi = source.is_poi
 	hex.poi_id = source.poi_id
 	hex.poi_name = source.poi_name

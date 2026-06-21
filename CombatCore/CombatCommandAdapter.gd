@@ -55,6 +55,8 @@ func configure(
 		turn_manager.reaction_resolved.connect(_on_reaction_resolved)
 	if not lane_manager.lane_changed.is_connected(_on_lane_changed):
 		lane_manager.lane_changed.connect(_on_lane_changed)
+	if not lane_manager.disengage_failed.is_connected(_on_disengage_failed):
+		lane_manager.disengage_failed.connect(_on_disengage_failed)
 	if not resolution_engine.action_started.is_connected(
 		_on_resolution_action_started
 	):
@@ -85,6 +87,14 @@ func refresh_snapshot() -> void:
 	if player_lane >= 0 and enemy_lane >= 0 and player_lane != enemy_lane:
 		_player_forward_direction = signi(enemy_lane - player_lane)
 	snapshot_changed.emit(get_snapshot())
+
+func _on_disengage_failed(
+	entity: HumanoidCore,
+	opponent: HumanoidCore
+) -> void:
+	if entity.is_dead or opponent.is_dead:
+		return
+	resolution_engine.execute_fumble_strike(opponent, entity)
 
 func get_snapshot() -> Dictionary:
 	if not player_core or not enemy_core or not turn_manager or not lane_manager:

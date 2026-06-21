@@ -213,7 +213,7 @@ func on_world_time_changed(hour: int) -> void:
 # FIRST STRIKE TRANSITION (Special Combat)
 # ---------------------------------------------------------
 
-func on_first_strike() -> void:
+func on_first_strike(_action_type: int) -> void:
 	if current_scene != AudioScene.COMBAT_SPECIAL:
 		return
 	if _combat_first_strike_fired:

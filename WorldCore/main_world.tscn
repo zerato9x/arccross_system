@@ -28,14 +28,17 @@ world_hud = NodePath("WorldHUD")
 [node name="HexWorldGenerator" type="Node" parent="." unique_id=1630662270]
 script = ExtResource("2_3etub")
 
-[node name="HexMapVisualizer" type="TileMapLayer" parent="." unique_id=1261522321 node_paths=PackedStringArray("world_generator", "flora_layer", "rock_layer", "structure_layer")]
+[node name="HexMapVisualizer" type="TileMapLayer" parent="." unique_id=1261522321 node_paths=PackedStringArray("world_generator", "flora_layer", "rock_layer", "structure_layer", "shrub_layer")]
 script = ExtResource("3_whfra")
 world_generator = NodePath("../HexWorldGenerator")
 flora_layer = NodePath("../HexFloraVisualizer")
 rock_layer = NodePath("../HexRockVisualizer")
 structure_layer = NodePath("../HexStructureVisualizer")
+shrub_layer = NodePath("../ShrubDecorations")
 
 [node name="HexFloraVisualizer" type="TileMapLayer" parent="."]
+
+[node name="ShrubDecorations" type="Node2D" parent="."]
 
 [node name="HexRockVisualizer" type="TileMapLayer" parent="."]
 

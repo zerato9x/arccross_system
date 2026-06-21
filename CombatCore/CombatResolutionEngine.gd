@@ -636,6 +636,10 @@ func _base12_roll(override_value: int) -> int:
 func execute_fumble_strike(punisher: HumanoidCore, victim: HumanoidCore) -> void:
 	var weapon: ItemData = punisher.inventory.get_active_weapon(true)
 	var target_limb := roll_melee_target()
+	action_started.emit(punisher, GameEnums.ActionType.STRIKE)
+	_emit_first_strike(GameEnums.ActionType.STRIKE)
+	var weapon_type := weapon.weapon_type if weapon else GameEnums.WeaponClass.NONE
+	GameEventBus.emit_combat_action(punisher, GameEnums.ActionType.STRIKE, weapon_type)
 	print("\n--- FUMBLE STRIKE ---")
 	print(punisher.name, " punishes ", victim.name, "'s failed attempt!")
 

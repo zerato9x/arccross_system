@@ -23,6 +23,8 @@ func _run() -> void:
 	generator.configure_seed(generator.master_seed)
 	root.add_child(generator)
 	await process_frame
+	if not _verify_macro_regions(generator):
+		return
 
 	for coords in SAMPLE_COORDS:
 		var first := generator.get_hex_at(coords)
@@ -118,6 +120,44 @@ func _run() -> void:
 
 	print("[TEST PASS] Hex visual variant generation, TileSet geometry, and Phase 1 terrain layers are deterministic.")
 	quit(0)
+
+func _verify_macro_regions(generator: HexWorldGenerator) -> bool:
+	var hub := generator.get_hex_at(Vector2i.ZERO)
+	if (
+		hub.region != GameEnums.MacroRegion.CENTRAL_HUB
+		or not hub.is_poi
+		or hub.poi_id != "alpha_central_hub"
+		or hub.hazard_level != 0.0
+	):
+		return _fail("The alpha central hub was not generated as the safe spawn POI.")
+
+	var border := generator.get_hex_at(Vector2i(3, 0))
+	if border.region != GameEnums.MacroRegion.HUB_BORDER or border.is_poi:
+		return _fail("The hub border was not a non-POI wasteland region.")
+
+	var alpha_arm := generator.get_hex_at(Vector2i(12, 0))
+	if (
+		alpha_arm.region != GameEnums.MacroRegion.ARM_STAGE_1
+		or alpha_arm.arm_direction != GameEnums.MacroArmDirection.EAST
+	):
+		return _fail("The alpha eastward cone did not resolve to ARM_STAGE_1.")
+
+	var outside_alpha_arm := generator.get_hex_at(Vector2i(12, 8))
+	if outside_alpha_arm.region != GameEnums.MacroRegion.WASTELAND:
+		return _fail("The alpha arm expanded beyond its configured cone.")
+
+	var shrub_count := 0
+	for q in range(-20, 21):
+		for r in range(-20, 21):
+			var coords := Vector2i(q, r)
+			if maxi(abs(q), maxi(abs(r), abs(q + r))) > 20:
+				continue
+			var hex := generator.get_hex_at(coords)
+			if hex.flora_layer == GameEnums.MacroFloraLayer.SHRUBS:
+				shrub_count += 1
+	if shrub_count == 0:
+		return _fail("Deterministic plains generation produced no sparse shrub decorations.")
+	return true
 
 func _verify_tileset_geometry_and_catalog() -> bool:
 	var tile_set := load("res://Asset/MacroTileSet.tres") as TileSet

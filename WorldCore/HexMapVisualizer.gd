@@ -7,6 +7,7 @@ class_name HexMapVisualizer
 @export var flora_layer: TileMapLayer
 @export var rock_layer: TileMapLayer
 @export var structure_layer: TileMapLayer
+@export var shrub_layer: Node2D
 
 const LEGACY_BIOME_TO_SOURCE_ID := {
 	GameEnums.GridBiome.PLAINS: 0,
@@ -22,6 +23,7 @@ const TILESET_PATH := "res://Asset/MacroTileSet.tres"
 
 var rendered_cells: Dictionary = {}
 var poi_markers: Dictionary = {}
+var shrub_sprites: Dictionary = {}
 
 func _ready() -> void:
 	if not world_generator:
@@ -68,11 +70,16 @@ func _paint_single_hex(coords: Vector2i) -> void:
 	var target_structure_layer := (
 		structure_layer if structure_layer != null else overlay_layer
 	)
-	_paint_optional_layer(
-		target_flora_layer,
-		coords,
-		_resolve_flora_source_id(hex_data)
-	)
+	if hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS:
+		_paint_optional_layer(target_flora_layer, coords, -1)
+		_paint_shrub(coords, hex_data)
+	else:
+		_clear_shrub(coords)
+		_paint_optional_layer(
+			target_flora_layer,
+			coords,
+			_resolve_flora_source_id(hex_data)
+		)
 	_paint_optional_layer(
 		target_rock_layer,
 		coords,
@@ -149,6 +156,39 @@ func _paint_optional_layer(
 	else:
 		layer.erase_cell(coords)
 
+func _paint_shrub(coords: Vector2i, hex_data: MacroHexData) -> void:
+	if shrub_sprites.has(coords):
+		return
+	if shrub_layer == null or tile_set == null:
+		return
+	var source_id := _resolve_flora_source_id(hex_data)
+	if source_id < 0:
+		return
+	var atlas := tile_set.get_source(source_id) as TileSetAtlasSource
+	if atlas == null or atlas.texture == null:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = ("shrub-visual:" + str(hex_data.visual_variant_hash)).hash()
+	var shrub := Sprite2D.new()
+	shrub.texture = atlas.texture
+	shrub.scale = Vector2.ONE * rng.randf_range(0.12, 0.20)
+	shrub.position = map_to_local(coords) + Vector2(
+		rng.randf_range(-96.0, 96.0),
+		rng.randf_range(-56.0, 56.0)
+	)
+	# Keep small scenery behind tokens and interaction UI.
+	shrub.z_index = 0
+	shrub_layer.add_child(shrub)
+	shrub_sprites[coords] = shrub
+
+func _clear_shrub(coords: Vector2i) -> void:
+	if not shrub_sprites.has(coords):
+		return
+	var shrub := shrub_sprites[coords] as Sprite2D
+	if is_instance_valid(shrub):
+		shrub.queue_free()
+	shrub_sprites.erase(coords)
+
 func _structure_layer_key(
 	structure: GameEnums.MacroStructureLayer
 ) -> String:
@@ -184,6 +224,7 @@ func _prune_outside_radius(center_coords: Vector2i, radius: int) -> void:
 			rock_layer.erase_cell(coords)
 		if structure_layer != null:
 			structure_layer.erase_cell(coords)
+		_clear_shrub(coords)
 		rendered_cells.erase(coords)
 		if poi_markers.has(coords):
 			poi_markers[coords].queue_free()

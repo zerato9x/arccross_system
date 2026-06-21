@@ -249,6 +249,27 @@ enum MacroStructureLayer {
 	REMNANTS,
 }
 
+## Macro regions describe the authored world layout independently from the
+## terrain and overlay layers that decorate each hex.
+enum MacroRegion {
+	CENTRAL_HUB,
+	HUB_BORDER,
+	ARM_STAGE_1,
+	ARM_STAGE_2,
+	ARM_STAGE_3,
+	WASTELAND,
+}
+
+## Cardinal arm identity is stored separately so more directions can be
+## enabled without multiplying the region enum for every future stage.
+enum MacroArmDirection {
+	NONE,
+	NORTH,
+	EAST,
+	SOUTH,
+	WEST,
+}
+
 enum MacroInteractionType { NONE, POI, ENTITY_COLLISION }
 enum PoiAction { SEARCH, CAMP }
 enum InteractionItemRole { NONE, SEARCH_TOOL, CAMP_GEAR }
