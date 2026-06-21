@@ -160,7 +160,7 @@ func _load_from_handcrafted_sector(coords: Vector2i, hex: MacroHexData) -> void:
 		# Fallback if a hex within a hand-crafted sector was left blank
 		hex.biome = GameEnums.GridBiome.PLAINS
 		hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
-		hex.flora_layer = GameEnums.MacroFloraLayer.SHRUBS
+		hex.flora_layer = GameEnums.MacroFloraLayer.NONE
 
 func _generate_procedural_layers(coords: Vector2i, hex: MacroHexData) -> void:
 	var elevation: float = elevation_noise.get_noise_2dv(coords)
@@ -169,7 +169,7 @@ func _generate_procedural_layers(coords: Vector2i, hex: MacroHexData) -> void:
 
 	hex.biome = GameEnums.GridBiome.PLAINS
 	hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
-	hex.flora_layer = GameEnums.MacroFloraLayer.SHRUBS
+	hex.flora_layer = GameEnums.MacroFloraLayer.NONE
 	hex.rock_layer = GameEnums.MacroRockLayer.NONE
 	hex.structure_layer = GameEnums.MacroStructureLayer.NONE
 
@@ -188,7 +188,7 @@ func _generate_procedural_layers(coords: Vector2i, hex: MacroHexData) -> void:
 			hex.flora_layer = GameEnums.MacroFloraLayer.TREES
 		else:
 			hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
-			hex.flora_layer = GameEnums.MacroFloraLayer.SHRUBS
+			hex.flora_layer = GameEnums.MacroFloraLayer.NONE
 
 	if distance >= snow_transition_distance:
 		hex.terrain_tile = GameEnums.MacroTerrainTile.SNOW_TRANSITION

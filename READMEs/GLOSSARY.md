@@ -144,7 +144,7 @@ describes a tool; Damage Type describes a hit.
 - **Stance Points:** Encounter-local physical equilibrium on the `0` to `12`
   scale. It resets at combat boundaries; wounds and systemic vitals do not.
 - **Stance State:** A Stance bracket: Planted (`7-12`), Stumbling (`1-6`), or
-  Felled (`0`). A Felled combatant receives an explicit all-AP GET UP turn.
+  Felled (`0`). A Felled combatant must spend a HEAVY action to GET UP.
 - **Recovery Guard:** A one-cycle Stance floor applied after a combatant spends
   a turn recovering from Felled. Incoming pressure may reduce them to `1`
   Stance but cannot Fell them again before their next usable active turn.
@@ -171,22 +171,28 @@ describes a tool; Damage Type describes a hit.
   Limb Region and deals `0` Stance Damage.
 - **Strike:** A melee attack whose impact region is resolved randomly from all
   non-head Limb Regions.
-- **BREAK:** A braced melee Stance attack. It may Fell an already-Stumbling
-  target but ordinary use cannot knock a Planted target directly to `0`.
+- **BREAK:** A braced melee Stance attack costing MINOR AP. It may Fell an
+  already-Stumbling target but ordinary use cannot knock a Planted target
+  directly to `0`. Its low cost enables stance-erosion combos.
 - **Grapple:** An opposed base-12 takedown check. Success fells the defender;
   failure costs the initiator Stance.
 - **CYCLE:** Cycle a firearm action after firing, or hand-load one compatible
   loose round when that weapon supports manual loading.
 - **RELOAD:** Load a firearm through its exact compatible magazine, clip, or
   speedloader.
-- **GET UP:** Spend the active turn's remaining AP to rise from Felled with `6`
-  Stance and Recovery Guard.
+- **GET UP:** Spend HEAVY AP to rise from Felled with `6`
+  Stance and Recovery Guard. The remaining AP allows defensive actions
+  or an immediate counter.
 - **Pull / Follow:** While Melee Locked, drag the opponent one lane toward the
   initiator's rear and follow into that lane, preserving the lock.
 - **Disengage:** Break away from a Melee Lock and retreat alone. It is distinct
   from Pull / Follow.
 - **Execute** *(planned trait action):* A finishing command reserved for a future
   trait unlock. It is disabled in the current demo rules.
+- **Grounded Strike:** A Strike against a Felled target automatically targets
+  the HEAD at `1.5×` flesh damage. The target cannot Dodge.
+- **Fumble Strike:** A free punishment hit triggered when an opponent fails a
+  Grapple or Disengage attempt. No reaction window is opened.
 
 ## Macro World
 

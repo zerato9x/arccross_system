@@ -194,12 +194,12 @@ enum ActionType {
 	PUSH_FOLLOW,    # 4 AP: Leverage check → displace enemy 1 cell away, initiator follows. Lock holds.
 	PULL_FOLLOW,    # Leverage check: drag both combatants 1 cell toward the initiator's rear.
 	PULL_STAY,      # 4 AP: Leverage check → drag enemy 1 cell closer, initiator stays. Lock breaks.
-	BREAK,          # 4 AP: Braced stance attack. Erodes stance points only, no flesh damage.
+	BREAK,          # 2 AP: Braced stance attack. Erodes stance points only, no flesh damage.
 	DISENGAGE,      # 6 AP: Desperate attempt to tear away from a melee lock
 	
 	# --- Prone Window Actions ---
 	TRIP,           # ALL AP: Ground sweep. Dexterity check to pull standing opponent into FELLED.
-	GET_UP,         # ALL AP: Rise from FELLED into STUMBLING with recovery protection.
+	GET_UP,         # 4 AP: Rise from FELLED into STUMBLING with recovery protection.
 	EXECUTE,        # Trait-gated finishing action. Disabled until trait ownership exists.
 	
 	# --- Reaction Strikes (Off-Turn) ---

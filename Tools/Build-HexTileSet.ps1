@@ -2,7 +2,6 @@ param(
     [switch]$Rebuild
 )
 
-Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path

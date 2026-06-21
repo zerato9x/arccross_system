@@ -82,23 +82,27 @@ static func _categorize_tile(path: String, source_id: int, catalog: MacroTileCat
 		# SWAMP
 		if "v2 red" in lowered or "redmist" in lowered:
 			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.SWAMP, source_id)
-		# MUD (Yellow grass)
+		# MUD (Yellow grass) - PUT ON HOLD
 		elif "yellow" in lowered or "t crossroad" in lowered:
-			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.MUD_YELLOW, source_id)
-			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.MUD, source_id)
+			pass
 		# HILLS / MOUNTAIN (Snowy/high altitude)
 		elif "snowy" in lowered:
 			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.SNOW_TRANSITION, source_id)
 			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.HILLS, source_id)
 			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.MOUNTAIN, source_id)
-		# FOREST (Sparse green grass)
+		# FOREST (Sparse green grass) - CURRENTLY USED FOR ALL GRASS
 		elif "sparse green" in lowered:
 			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.FOREST_SPARSE, source_id)
 			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.FOREST, source_id)
-		# PLAINS (Dense green grass)
-		else:
+			
 			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.PLAINS_GRASS, source_id)
 			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.PLAINS, source_id)
+			
+			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.MUD_YELLOW, source_id)
+			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.MUD, source_id)
+		# PLAINS (Dense green grass) - PUT ON HOLD
+		else:
+			pass
 			
 	# Overlays
 	elif "trees" in lowered:

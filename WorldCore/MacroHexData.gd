@@ -3,7 +3,7 @@ class_name MacroHexData
 
 @export var biome: GameEnums.GridBiome = GameEnums.GridBiome.PLAINS
 @export var terrain_tile: GameEnums.MacroTerrainTile = GameEnums.MacroTerrainTile.PLAINS_GRASS
-@export var flora_layer: GameEnums.MacroFloraLayer = GameEnums.MacroFloraLayer.SHRUBS
+@export var flora_layer: GameEnums.MacroFloraLayer = GameEnums.MacroFloraLayer.NONE
 @export var rock_layer: GameEnums.MacroRockLayer = GameEnums.MacroRockLayer.NONE
 @export var structure_layer: GameEnums.MacroStructureLayer = GameEnums.MacroStructureLayer.NONE
 

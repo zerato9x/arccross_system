@@ -6,7 +6,7 @@ class_name HexRecord
 
 @export var biome: GameEnums.GridBiome = GameEnums.GridBiome.PLAINS
 @export var terrain_tile: GameEnums.MacroTerrainTile = GameEnums.MacroTerrainTile.PLAINS_GRASS
-@export var flora_layer: GameEnums.MacroFloraLayer = GameEnums.MacroFloraLayer.SHRUBS
+@export var flora_layer: GameEnums.MacroFloraLayer = GameEnums.MacroFloraLayer.NONE
 @export var rock_layer: GameEnums.MacroRockLayer = GameEnums.MacroRockLayer.NONE
 @export var structure_layer: GameEnums.MacroStructureLayer = GameEnums.MacroStructureLayer.NONE
 @export var is_poi: bool = false
@@ -98,7 +98,7 @@ static func _legacy_flora_for_biome(
 	if biome_value == GameEnums.GridBiome.FOREST:
 		return GameEnums.MacroFloraLayer.TREES
 	if biome_value == GameEnums.GridBiome.PLAINS:
-		return GameEnums.MacroFloraLayer.SHRUBS
+		return GameEnums.MacroFloraLayer.NONE
 	return GameEnums.MacroFloraLayer.NONE
 
 static func _legacy_rock_for_biome(

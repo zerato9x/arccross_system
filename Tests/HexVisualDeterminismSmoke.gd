@@ -152,11 +152,11 @@ func _verify_tileset_geometry_and_catalog() -> bool:
 		return _fail("MacroTileCatalog could not be loaded.")
 	if catalog.tile_size != Vector2i(512, 512):
 		return _fail("MacroTileCatalog tile size drifted away from the TileSet.")
-	if not _expect_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.PLAINS_GRASS), 10, "plains terrain"):
+	if not _expect_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.PLAINS_GRASS), 5, "plains terrain"):
 		return false
 	if not _expect_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.FOREST_SPARSE), 5, "forest terrain"):
 		return false
-	if not _expect_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.MUD_YELLOW), 3, "mud terrain"):
+	if not _expect_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.MUD_YELLOW), 5, "mud terrain"):
 		return false
 	if not _expect_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.SNOW_TRANSITION), 8, "snow transition terrain"):
 		return false

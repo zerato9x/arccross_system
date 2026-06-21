@@ -358,15 +358,25 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 	_emit_first_strike(GameEnums.ActionType.STRIKE)
 	var w_type = weapon.weapon_type if weapon else GameEnums.WeaponClass.NONE
 	GameEventBus.emit_combat_action(attacker, GameEnums.ActionType.STRIKE, w_type)
-	var target_limb := roll_melee_target()
-	print("\n--- MELEE STRIKE ---")
-	print(attacker.name, " swings at ", defender.name, "'s ", GameEnums.LimbRegion.keys()[target_limb])
+
+	# GROUNDED STRIKE: A FELLED target cannot evade — aim for the skull.
+	var grounded_bonus: float = 1.0
+	var target_limb: GameEnums.LimbRegion
+	if defender.current_stance == GameEnums.StanceState.FELLED:
+		target_limb = GameEnums.LimbRegion.HEAD
+		grounded_bonus = 1.5
+		print("\n--- GROUNDED STRIKE ---")
+		print(attacker.name, " strikes the helpless ", defender.name, " in the HEAD at 1.5\u00d7 damage!")
+	else:
+		target_limb = roll_melee_target()
+		print("\n--- MELEE STRIKE ---")
+		print(attacker.name, " swings at ", defender.name, "'s ", GameEnums.LimbRegion.keys()[target_limb])
 	
 	if weapon:
-		_resolve_damage(defender, weapon, target_limb)
+		_resolve_damage(defender, weapon, target_limb, grounded_bonus)
 	else:
 		# Unarmed strike — minimal damage
-		defender.body.apply_targeted_hit(target_limb, 0.5, 0.0)
+		defender.body.apply_targeted_hit(target_limb, 0.5 * grounded_bonus, 0.0)
 		defender.apply_stance_damage(2.0)
 		damage_applied.emit(defender)
 		print("[UNARMED] Fists connect for minor trauma.")
@@ -417,6 +427,7 @@ func execute_grapple(
 	if force <= resistance:
 		print("[GRAPPLE FAILED] ", defender.name, " keeps their footing.")
 		initiator.apply_stance_damage(2.0)
+		execute_fumble_strike(defender, initiator)
 		return false
 
 	print("[GRAPPLE SUCCESS] ", initiator.name, " takes ", defender.name, " down.")
@@ -615,6 +626,26 @@ func _base12_roll(override_value: int) -> int:
 	if override_value >= 1:
 		return clampi(override_value, 1, int(GameEnums.SCALE_MAX))
 	return randi_range(1, int(GameEnums.SCALE_MAX))
+
+# ---------------------------------------------------------
+# FUMBLE STRIKE (Free Punishment Hit)
+# ---------------------------------------------------------
+# Triggered when an opponent fails a GRAPPLE or DISENGAGE.
+# No reaction window — this is a punishment, not an exchange.
+
+func execute_fumble_strike(punisher: HumanoidCore, victim: HumanoidCore) -> void:
+	var weapon: ItemData = punisher.inventory.get_active_weapon(true)
+	var target_limb := roll_melee_target()
+	print("\n--- FUMBLE STRIKE ---")
+	print(punisher.name, " punishes ", victim.name, "'s failed attempt!")
+
+	if weapon:
+		_resolve_damage(victim, weapon, target_limb)
+	else:
+		victim.body.apply_targeted_hit(target_limb, 0.5, 0.0)
+		victim.apply_stance_damage(2.0)
+		damage_applied.emit(victim)
+		print("[UNARMED FUMBLE] A quick fist finds an opening.")
 
 # ---------------------------------------------------------
 # HAZARD TILE CHECKS (Trip Clause / Momentum Risk)

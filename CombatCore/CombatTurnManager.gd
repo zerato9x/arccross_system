@@ -44,11 +44,11 @@ const ACTION_CATEGORIES = {
 	GameEnums.ActionType.PUSH_FOLLOW: CombatRules.ActionCategory.MAJOR,
 	GameEnums.ActionType.PULL_FOLLOW: CombatRules.ActionCategory.MAJOR,
 	GameEnums.ActionType.PULL_STAY: CombatRules.ActionCategory.MAJOR,
-	GameEnums.ActionType.BREAK: CombatRules.ActionCategory.MAJOR,
+	GameEnums.ActionType.BREAK: CombatRules.ActionCategory.MINOR,
 	GameEnums.ActionType.DISENGAGE: CombatRules.ActionCategory.HEAVY,
 	# --- Prone Window ---
 	GameEnums.ActionType.TRIP: CombatRules.ActionCategory.ALL_AP,
-	GameEnums.ActionType.GET_UP: CombatRules.ActionCategory.ALL_AP,
+	GameEnums.ActionType.GET_UP: CombatRules.ActionCategory.HEAVY,
 	GameEnums.ActionType.EXECUTE: CombatRules.ActionCategory.MINOR,
 	# --- Reactions (Off-Turn, consume leftover AP) ---
 	GameEnums.ActionType.BLOCK: CombatRules.ActionCategory.MINOR,

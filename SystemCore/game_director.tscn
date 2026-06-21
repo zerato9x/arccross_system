@@ -1,9 +1,195 @@
-[gd_scene format=3 uid="uid://b75pfheha1hoi"]
+[gd_scene format=4 uid="uid://b75pfheha1hoi"]
 
 [ext_resource type="Script" uid="uid://cygfmj8gajpts" path="res://SystemCore/GameDirector.gd" id="1_8d223"]
 [ext_resource type="PackedScene" uid="uid://d0hbgydineb18" path="res://CombatCore/MainDuelScene.tscn" id="2_po17x"]
 [ext_resource type="PackedScene" uid="uid://bwooo54kfekny" path="res://WorldCore/main_world.tscn" id="2_x1nkk"]
 [ext_resource type="Script" uid="uid://dbogqs5va221c" path="res://SystemCore/DefeatPanel.gd" id="3_defeat"]
+[ext_resource type="Texture2D" uid="uid://b3tfxc3ah4g1v" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_38.png" id="4_4o032"]
+[ext_resource type="Texture2D" uid="uid://dibh5as1fmju2" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_39.png" id="5_woxu5"]
+[ext_resource type="Texture2D" uid="uid://bxsbn6cxha0p5" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - snowy_hex_28.png" id="6_wlp1y"]
+[ext_resource type="Texture2D" uid="uid://cvoe66kn0c1q7" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - sparse green_hex_5.png" id="7_m816q"]
+[ext_resource type="Texture2D" uid="uid://bnnoavlwv1h7p" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - sparse green_hex_6.png" id="8_c0fkf"]
+[ext_resource type="Texture2D" uid="uid://cc4hms1ubibri" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - sparse green_hex_7.png" id="9_hblwp"]
+[ext_resource type="Texture2D" uid="uid://bm88idcsn7o6e" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - sparse green_hex_8.png" id="10_wykgk"]
+[ext_resource type="Texture2D" uid="uid://ljnjuqkrnb4h" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - sparse green_hex_9.png" id="11_25t6w"]
+[ext_resource type="Texture2D" uid="uid://cub5gyp5pdb11" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - V2 Green - Old Riverbed_hex_5.png" id="12_nxhjj"]
+[ext_resource type="Texture2D" uid="uid://dmqk3rf0cs4n0" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - V2 Green - Old Riverbed_hex_6.png" id="13_s3t38"]
+[ext_resource type="Texture2D" uid="uid://cgnudttousiqe" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - V2 Green - Old Riverbed_hex_7.png" id="14_ujw8e"]
+[ext_resource type="Texture2D" uid="uid://bmy25d73i5s7l" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - V2 Green - Old Riverbed_hex_8.png" id="15_b5khv"]
+[ext_resource type="Texture2D" uid="uid://p36ojmlgr7id" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_40.png" id="16_kdoy0"]
+[ext_resource type="Texture2D" uid="uid://blugpclwn4dtt" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - V2 Green - Old Riverbed_hex_9.png" id="17_3xuxn"]
+[ext_resource type="Texture2D" uid="uid://b382q8qir8ulq" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - V2 Green - Old Riverbed_hex_19.png" id="18_w0uc8"]
+[ext_resource type="Texture2D" uid="uid://dvqa7kxs5tbnu" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - V2 Green - Old Riverbed_hex_20.png" id="19_y71dl"]
+[ext_resource type="Texture2D" uid="uid://kyomup0ae4e0" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - yellow - T crossroad_hex_7.png" id="20_mdlxj"]
+[ext_resource type="Texture2D" uid="uid://doyl13g4dml72" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - yellow - T crossroad_hex_8.png" id="21_gql4u"]
+[ext_resource type="Texture2D" uid="uid://s1h5u4bg8fhx" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - yellow - T crossroad_hex_9.png" id="22_11jku"]
+[ext_resource type="Texture2D" uid="uid://cp04jusgwxrxn" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - snowy_hex_19.png" id="23_rbca8"]
+[ext_resource type="Texture2D" uid="uid://cior3wkdqft57" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - snowy_hex_20.png" id="24_a5dtj"]
+[ext_resource type="Texture2D" uid="uid://dam2avugot2s3" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - snowy_hex_21.png" id="25_0tp28"]
+[ext_resource type="Texture2D" uid="uid://dpuaot0ukjpuy" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - snowy_hex_22.png" id="26_53xxa"]
+[ext_resource type="Texture2D" uid="uid://cbf6545a5cf5n" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - snowy_hex_23.png" id="27_jwlcy"]
+[ext_resource type="Texture2D" uid="uid://bpvfl70yxn6fr" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - snowy_hex_26.png" id="28_xvbon"]
+[ext_resource type="Texture2D" uid="uid://g31f0h0hdtxa" path="res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - snowy_hex_27.png" id="29_3ea4w"]
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_syf2n"]
+texture = ExtResource("4_4o032")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_u11ls"]
+texture = ExtResource("5_woxu5")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_vovpe"]
+texture = ExtResource("6_wlp1y")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_pov5y"]
+texture = ExtResource("7_m816q")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_y1lmw"]
+texture = ExtResource("8_c0fkf")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_5x628"]
+texture = ExtResource("9_hblwp")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_w04dp"]
+texture = ExtResource("10_wykgk")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_l8xbl"]
+texture = ExtResource("11_25t6w")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_a5bar"]
+texture = ExtResource("12_nxhjj")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_6hsb0"]
+texture = ExtResource("13_s3t38")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_xo5ju"]
+texture = ExtResource("14_ujw8e")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_v7as4"]
+texture = ExtResource("15_b5khv")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_vwon3"]
+texture = ExtResource("16_kdoy0")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_k7edc"]
+texture = ExtResource("17_3xuxn")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_waga5"]
+texture = ExtResource("18_w0uc8")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_lxes0"]
+texture = ExtResource("19_y71dl")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_hay4y"]
+texture = ExtResource("20_mdlxj")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_v0uld"]
+texture = ExtResource("21_gql4u")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_ixk6y"]
+texture = ExtResource("22_11jku")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_ju0jr"]
+texture = ExtResource("23_rbca8")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_xkusb"]
+texture = ExtResource("24_a5dtj")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_8h1ew"]
+texture = ExtResource("25_0tp28")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_uukhk"]
+texture = ExtResource("26_53xxa")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_wu7ou"]
+texture = ExtResource("27_jwlcy")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_k48sw"]
+texture = ExtResource("28_xvbon")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_jx0rx"]
+texture = ExtResource("29_3ea4w")
+texture_region_size = Vector2i(512, 512)
+0:0/0 = 0
+
+[sub_resource type="TileSet" id="TileSet_456m5"]
+tile_shape = 3
+tile_size = Vector2i(512, 512)
+sources/0 = SubResource("TileSetAtlasSource_syf2n")
+sources/1 = SubResource("TileSetAtlasSource_u11ls")
+sources/2 = SubResource("TileSetAtlasSource_vwon3")
+sources/3 = SubResource("TileSetAtlasSource_ju0jr")
+sources/4 = SubResource("TileSetAtlasSource_xkusb")
+sources/5 = SubResource("TileSetAtlasSource_8h1ew")
+sources/6 = SubResource("TileSetAtlasSource_uukhk")
+sources/7 = SubResource("TileSetAtlasSource_wu7ou")
+sources/8 = SubResource("TileSetAtlasSource_k48sw")
+sources/9 = SubResource("TileSetAtlasSource_jx0rx")
+sources/10 = SubResource("TileSetAtlasSource_vovpe")
+sources/11 = SubResource("TileSetAtlasSource_pov5y")
+sources/12 = SubResource("TileSetAtlasSource_y1lmw")
+sources/13 = SubResource("TileSetAtlasSource_5x628")
+sources/14 = SubResource("TileSetAtlasSource_w04dp")
+sources/15 = SubResource("TileSetAtlasSource_l8xbl")
+sources/16 = SubResource("TileSetAtlasSource_a5bar")
+sources/17 = SubResource("TileSetAtlasSource_6hsb0")
+sources/18 = SubResource("TileSetAtlasSource_xo5ju")
+sources/19 = SubResource("TileSetAtlasSource_v7as4")
+sources/20 = SubResource("TileSetAtlasSource_k7edc")
+sources/21 = SubResource("TileSetAtlasSource_waga5")
+sources/22 = SubResource("TileSetAtlasSource_lxes0")
+sources/23 = SubResource("TileSetAtlasSource_hay4y")
+sources/24 = SubResource("TileSetAtlasSource_v0uld")
+sources/25 = SubResource("TileSetAtlasSource_ixk6y")
 
 [node name="GameDirector" type="Node" unique_id=1731536390 node_paths=PackedStringArray("macro_map", "defeat_panel")]
 script = ExtResource("1_8d223")
@@ -12,6 +198,10 @@ duel_scene = ExtResource("2_po17x")
 defeat_panel = NodePath("DefeatPanel")
 
 [node name="MainWorld" parent="." unique_id=1029321409 instance=ExtResource("2_x1nkk")]
+
+[node name="TileMapLayer" type="TileMapLayer" parent="MainWorld" unique_id=953708589]
+tile_map_data = PackedByteArray("AAD/////EwAAAAAAAAD+////EwAAAAAAAAD//wAAEwAAAAAAAAAAAAAAEwAAAAAAAAAAAP//EwAAAAAAAAD///7/EwAAAAAAAAAAAP7/EwAAAAAAAAABAP7/EAAAAAAAAAA=")
+tile_set = SubResource("TileSet_456m5")
 
 [node name="DefeatPanel" type="CanvasLayer" parent="." unique_id=913477116]
 script = ExtResource("3_defeat")
