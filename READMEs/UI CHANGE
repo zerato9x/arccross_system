@@ -1,0 +1,85 @@
+# Pocket Inventory HUD — Walkthrough
+
+## Summary
+
+Replaced the existing flat-colored `WorldHUD` with a new pixel-art HUD built from the **POCKET INVENTORY (MAIN)** sprite pack. The new HUD is a tabbed device interface with 5 pages, animated light flicker, and page-flip transitions.
+
+## Changes Made
+
+### 1. [HUDAssetLibrary.gd](file:///c:/Users/Zerato/OneDrive/Documents/arccross_system/UI/HUD/HUDAssetLibrary.gd)
+
+**Added 18 new path constants** for all sprite categories:
+- `SIDE_TABS_ROOT`, `BUTTONS_ROOT`, `UI_BUTTONS_ROOT`, `HOLDERS_ROOT`, `PROGRESS_BARS_ROOT`
+- `CLOCK_ROOT`, `COMPASS_ROOT`, `BULB_ROOT`, `POWER_HUB_ROOT`, `PIXEL_MAP_BASE_ROOT`
+- `LIGHT_FLICKER_ROOT`, `PAGE_FLIP_NEXT_ROOT`, `PAGE_FLIP_PREV_ROOT`, `PIXEL_MAP_FRAME`
+
+**Added 13 new static accessor methods**:
+- `side_tab_texture(index)`, `button_sprite(index)`, `ui_button_sprite(index)`
+- `holder_texture(index)`, `progress_bar_texture(index)`
+- `clock_texture(index)`, `compass_texture(index)`, `bulb_texture(index)`, `power_hub_texture(index)`
+- `pixel_map_base_texture(index)`, `pixel_map_frame_texture()`
+- `light_flicker_frames()` — batch loads 16 animation frames
+- `page_flip_frames(direction)` — batch loads 11 transition frames
+
+All existing methods and constants are **untouched** so nothing breaks in `InventoryUI`, `MedicalMonitor`, or the combat UI.
+
+---
+
+### 2. [WorldHUD.gd](file:///c:/Users/Zerato/OneDrive/Documents/arccross_system/UI/HUD/WorldHUD.gd) — Full Rewrite
+
+The script was completely rewritten while **preserving the exact public API**:
+
+| API Element | Status |
+|---|---|
+| `class_name WorldHUD` | ✅ Preserved |
+| `signal inventory_requested` | ✅ Preserved |
+| `signal save_requested` | ✅ Preserved |
+| `signal load_requested` | ✅ Preserved |
+| `func show_snapshot(snapshot)` | ✅ Preserved |
+| `func set_inventory_open(open)` | ✅ Preserved |
+
+**New internal architecture:**
+
+- **Device Frame** — `TextureRect` using `Pixel Map/0.png` (the full pixel-art device), scaled by `PIX = 3.0`
+- **Light Flicker Overlay** — `TextureRect` cycling through 16 frames at 0.15s intervals, rendered at 12% opacity
+- **5 Side Tab Buttons** — `TextureButton` strip using `Side Tabs/` sprites, swapping normal/active textures
+- **5 Page Views** (toggle visibility on tab click):
+  - **Profile** — Title, vital bars (blood/stance/hunger/thirst/fatigue/temperature), warning label, INV/MED quick buttons
+  - **Inventory** — Simple page that emits `inventory_requested` to open the full `InventoryUI`
+  - **World Map** — Title + grid background display
+  - **Save/Load** — Save/Load buttons that emit the respective signals
+  - **Options** — Scanline toggle, HUD scale slider
+- **Clock Widget** — `TextureRect` with time label overlay in the left gadget strip
+- **Compass Widget** — `TextureRect` with location label overlay
+- **Bottom Bar** — 3 decorative `TextureButton`s
+- **MedicalMonitor** — Instantiated from scene programmatically, preserving M-key toggle
+
+**Page transitions** use `page_flip_frames()` for a smooth animated page turn.
+
+---
+
+### 3. [WorldHUD.tscn](file:///c:/Users/Zerato/OneDrive/Documents/arccross_system/UI/HUD/WorldHUD.tscn) — Simplified
+
+Reduced from **432 lines** to **6 lines**. Just the root `CanvasLayer` + script attachment. All child nodes are now built in code. The scene UID (`uid://bvb733315s2d8`) is preserved so [main_world.tscn](file:///c:/Users/Zerato/OneDrive/Documents/arccross_system/WorldCore/main_world.tscn) continues to reference it without modification.
+
+---
+
+## Files NOT Modified
+
+| File | Reason |
+|---|---|
+| [MacroGameManager.gd](file:///c:/Users/Zerato/OneDrive/Documents/arccross_system/WorldCore/MacroGameManager.gd) | Uses public API only — zero changes needed |
+| [InventoryUI.gd](file:///c:/Users/Zerato/OneDrive/Documents/arccross_system/UI/Inventory/InventoryUI.gd) | Independent full-screen panel |
+| [MedicalMonitor.gd](file:///c:/Users/Zerato/OneDrive/Documents/arccross_system/UI/HUD/MedicalMonitor.gd) | Instantiated as child, no API change |
+| [main_world.tscn](file:///c:/Users/Zerato/OneDrive/Documents/arccross_system/WorldCore/main_world.tscn) | References via preserved UID |
+
+## Verification
+
+> [!IMPORTANT]
+> Please open the project in **Godot** and run the main world scene to verify:
+> 1. The new pixel-art HUD renders at the bottom-left corner
+> 2. Clicking side tabs switches between Profile/Map/Save/Options pages
+> 3. Clicking the Inventory tab opens the full `InventoryUI`
+> 4. Vital bars update as you walk around
+> 5. M key opens the Medical Monitor overlay
+> 6. Light flicker animation plays subtly on the device frame

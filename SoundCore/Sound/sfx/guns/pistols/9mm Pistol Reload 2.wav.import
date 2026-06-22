@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://mpa0pfp1ajwd"
+path="res://.godot/imported/9mm Pistol Reload 2.wav-05d0eb6fab5f0ec5ed493b2fddf595c9.sample"
+
+[deps]
+
+source_file="res://SoundCore/Sound/sfx/guns/pistols/9mm Pistol Reload 2.wav"
+dest_files=["res://.godot/imported/9mm Pistol Reload 2.wav-05d0eb6fab5f0ec5ed493b2fddf595c9.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

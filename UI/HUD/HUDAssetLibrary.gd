@@ -21,6 +21,24 @@ const MAIN_EQUIPMENT_HOLDER := MAIN_ROOT + "Holders/0.png"
 const MAIN_INVENTORY_HOLDER := MAIN_ROOT + "Holders/1.png"
 const THEME_PATH := "res://UI/HUD/PocketInventoryTheme.tres"
 
+const SPRITES_ROOT := (
+	"res://Asset/UI/revampedHUD/POCKET INVENTORY (MAIN)/Sprites/"
+)
+const SIDE_TABS_ROOT := MAIN_ROOT + "Side Tabs/"
+const BUTTONS_ROOT := MAIN_ROOT + "Buttons/"
+const UI_BUTTONS_ROOT := MAIN_ROOT + "UI Buttons/"
+const HOLDERS_ROOT := MAIN_ROOT + "Holders/"
+const PROGRESS_BARS_ROOT := MAIN_ROOT + "Progress Bars/"
+const CLOCK_ROOT := MAIN_ROOT + "Clock/"
+const COMPASS_ROOT := MAIN_ROOT + "Compass/"
+const BULB_ROOT := MAIN_ROOT + "Bulb/"
+const POWER_HUB_ROOT := MAIN_ROOT + "Power Hub/"
+const PIXEL_MAP_BASE_ROOT := MAIN_ROOT + "Pixel Map Base/"
+const LIGHT_FLICKER_ROOT := SPRITES_ROOT + "Light Flicker/"
+const PAGE_FLIP_NEXT_ROOT := SPRITES_ROOT + "Page Flip/Next Page/"
+const PAGE_FLIP_PREV_ROOT := SPRITES_ROOT + "Page Flip/Previous Page/"
+const PIXEL_MAP_FRAME := SPRITES_ROOT + "Pixel Map/0.png"
+
 static func texture(path: String) -> Texture2D:
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return null
@@ -205,3 +223,55 @@ static func _flat_style(
 	style.shadow_size = 3
 	style.shadow_offset = Vector2(1.0, 2.0)
 	return style
+
+# ── Pocket Inventory sprite accessors ──────────────────────
+
+static func side_tab_texture(index: int) -> Texture2D:
+	return texture(SIDE_TABS_ROOT + "%d.png" % index)
+
+static func button_sprite(index: int) -> Texture2D:
+	return texture(BUTTONS_ROOT + "%d.png" % index)
+
+static func ui_button_sprite(index: int) -> Texture2D:
+	return texture(UI_BUTTONS_ROOT + "%d.png" % index)
+
+static func holder_texture(index: int) -> Texture2D:
+	return texture(HOLDERS_ROOT + "%d.png" % index)
+
+static func progress_bar_texture(index: int) -> Texture2D:
+	return texture(PROGRESS_BARS_ROOT + "%d.png" % index)
+
+static func clock_texture(index: int) -> Texture2D:
+	return texture(CLOCK_ROOT + "%d.png" % index)
+
+static func compass_texture(index: int) -> Texture2D:
+	return texture(COMPASS_ROOT + "%d.png" % index)
+
+static func bulb_texture(index: int) -> Texture2D:
+	return texture(BULB_ROOT + "%d.png" % index)
+
+static func power_hub_texture(index: int) -> Texture2D:
+	return texture(POWER_HUB_ROOT + "%d.png" % index)
+
+static func pixel_map_base_texture(index: int) -> Texture2D:
+	return texture(PIXEL_MAP_BASE_ROOT + "%d.png" % index)
+
+static func pixel_map_frame_texture() -> Texture2D:
+	return texture(PIXEL_MAP_FRAME)
+
+static func light_flicker_frames() -> Array[Texture2D]:
+	var frames: Array[Texture2D] = []
+	for i in range(16):
+		var tex := texture(LIGHT_FLICKER_ROOT + "%d.png" % i)
+		if tex:
+			frames.append(tex)
+	return frames
+
+static func page_flip_frames(direction: String = "next") -> Array[Texture2D]:
+	var root := PAGE_FLIP_NEXT_ROOT if direction == "next" else PAGE_FLIP_PREV_ROOT
+	var frames: Array[Texture2D] = []
+	for i in range(1, 12):
+		var tex := texture(root + "%d.png" % i)
+		if tex:
+			frames.append(tex)
+	return frames

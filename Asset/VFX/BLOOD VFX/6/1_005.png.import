@@ -1,0 +1,50 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+<<<<<<< Updated upstream:Asset/SFX/BLOOD VFX/6/1_005.png.import
+uid="uid://ud8sa24cjnce"
+path="res://.godot/imported/1_005.png-0ae3b46ccbce65c219b529cea605abfe.ctex"
+=======
+uid="uid://cpnpe0h06kclo"
+path="res://.godot/imported/1_005.png-75a6d32a60f97fcefc2f4fa860009e04.ctex"
+>>>>>>> Stashed changes:Asset/VFX/BLOOD VFX/6/1_005.png.import
+metadata={
+"vram_texture": false
+}
+
+[deps]
+
+<<<<<<< Updated upstream:Asset/SFX/BLOOD VFX/6/1_005.png.import
+source_file="res://Asset/SFX/BLOOD VFX/6/1_005.png"
+dest_files=["res://.godot/imported/1_005.png-0ae3b46ccbce65c219b529cea605abfe.ctex"]
+=======
+source_file="res://Asset/VFX/BLOOD VFX/6/1_005.png"
+dest_files=["res://.godot/imported/1_005.png-75a6d32a60f97fcefc2f4fa860009e04.ctex"]
+>>>>>>> Stashed changes:Asset/VFX/BLOOD VFX/6/1_005.png.import
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/uastc_level=0
+compress/rdo_quality_loss=0.0
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=false
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/channel_remap/red=0
+process/channel_remap/green=1
+process/channel_remap/blue=2
+process/channel_remap/alpha=3
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1
