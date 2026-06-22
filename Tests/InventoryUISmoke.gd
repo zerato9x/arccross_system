@@ -27,7 +27,7 @@ func _run() -> void:
 			{
 				"instance_id": "item_helm_01",
 				"equipment_slot": GameEnums.EquipmentSlot.HEAD,
-				"sprite_path": "res://Asset/UI/head.png",
+				"sprite_path": "res://Asset/UI/revampedHUD/POCKET INVENTORY (MAIN)/Sprites/Content/Items/0.png",
 				"paperdoll_texture_path": "res://Asset/Innawoods_Asset/Equipments/Head/boonie_equip.png",
 				"name": "Test Helmet"
 			}
@@ -39,7 +39,7 @@ func _run() -> void:
 		"backpack": [
 			{
 				"instance_id": "item_medkit_01",
-				"sprite_path": "res://Asset/UI/backpack.png",
+				"sprite_path": "res://Asset/UI/revampedHUD/POCKET INVENTORY (MAIN)/Sprites/Content/Items/1.png",
 				"name": "First Aid Kit"
 			}
 		],

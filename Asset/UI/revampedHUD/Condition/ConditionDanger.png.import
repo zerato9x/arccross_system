@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ctkxvi68kpom1"
-path="res://.godot/imported/ConditionDanger.png-38015f60d23b725fc60f255f49b42e38.ctex"
+path="res://.godot/imported/ConditionDanger.png-493ed000fd6c7b57219a332254336b40.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Asset/UI/revampedHUD/PNG/ConditionDanger.png"
-dest_files=["res://.godot/imported/ConditionDanger.png-38015f60d23b725fc60f255f49b42e38.ctex"]
+source_file="res://Asset/UI/revampedHUD/Condition/ConditionDanger.png"
+dest_files=["res://.godot/imported/ConditionDanger.png-493ed000fd6c7b57219a332254336b40.ctex"]
 
 [params]
 

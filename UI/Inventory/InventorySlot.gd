@@ -80,18 +80,18 @@ func has_item() -> bool:
 
 func _build_styles() -> void:
 	_default_style = _slot_style(
-		Color("#151c22"),
-		Color("#3a4852"),
-		1
+		Color("#132128"),
+		Color("#4b6670"),
+		2
 	)
 	_hover_style = _slot_style(
-		Color("#1d2930"),
-		Color("#91b6a7"),
+		Color("#2d4650"),
+		Color("#efe1bd"),
 		2
 	)
 	_selected_style = _slot_style(
-		Color("#263830"),
-		Color("#d6b86a"),
+		Color("#4a3a2c"),
+		Color("#f0d899"),
 		2
 	)
 	_apply_style()
@@ -105,11 +105,8 @@ func _slot_style(
 	style.bg_color = background
 	style.border_color = border
 	style.set_border_width_all(border_width)
-	style.set_corner_radius_all(3)
-	style.content_margin_left = 3.0
-	style.content_margin_top = 3.0
-	style.content_margin_right = 3.0
-	style.content_margin_bottom = 3.0
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(4.0)
 	return style
 
 func _apply_style(hovered: bool = false) -> void:

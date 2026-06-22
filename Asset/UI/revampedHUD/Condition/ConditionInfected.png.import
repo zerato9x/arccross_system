@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bxyv0gfry12en"
-path="res://.godot/imported/ConditionInfected.png-d01562012ab74a8f241bde79d3a1f7b4.ctex"
+path="res://.godot/imported/ConditionInfected.png-40cf7c856fdb0b71ccb03404d06bddbf.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Asset/UI/revampedHUD/PNG/ConditionInfected.png"
-dest_files=["res://.godot/imported/ConditionInfected.png-d01562012ab74a8f241bde79d3a1f7b4.ctex"]
+source_file="res://Asset/UI/revampedHUD/Condition/ConditionInfected.png"
+dest_files=["res://.godot/imported/ConditionInfected.png-40cf7c856fdb0b71ccb03404d06bddbf.ctex"]
 
 [params]
 

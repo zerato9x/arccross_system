@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dr36d8yvveum7"
-path="res://.godot/imported/ConditionHealing.png-11524ef17bf87f50b7e771fd5e10a83e.ctex"
+path="res://.godot/imported/ConditionHealing.png-ff280cc02859efcdf5ec900eb6ac43c0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Asset/UI/revampedHUD/PNG/ConditionHealing.png"
-dest_files=["res://.godot/imported/ConditionHealing.png-11524ef17bf87f50b7e771fd5e10a83e.ctex"]
+source_file="res://Asset/UI/revampedHUD/Condition/ConditionHealing.png"
+dest_files=["res://.godot/imported/ConditionHealing.png-ff280cc02859efcdf5ec900eb6ac43c0.ctex"]
 
 [params]
 

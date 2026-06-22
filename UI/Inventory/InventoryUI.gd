@@ -20,92 +20,96 @@ const ACTION_INTERACT := "interact"
 const SLOT_SCENE := preload("res://UI/Inventory/InventorySlot.tscn")
 const PAPERDOLL_SCENE := preload("res://UI/Inventory/PaperDollModel.tscn")
 const HUDAssetLibrary := preload("res://UI/HUD/HUDAssetLibrary.gd")
+const EQUIPMENT_HOLDER_TEXTURE := HUDAssetLibrary.MAIN_EQUIPMENT_HOLDER
+const INVENTORY_HOLDER_TEXTURE := HUDAssetLibrary.MAIN_INVENTORY_HOLDER
 
-const COLOR_BACKDROP := Color("#090d11")
-const COLOR_PANEL := Color("#111920")
-const COLOR_PANEL_ALT := Color("#151f26")
-const COLOR_BORDER := Color("#40505a")
-const COLOR_TEXT := Color("#d8ded9")
-const COLOR_MUTED := Color("#899892")
-const COLOR_ACCENT := Color("#96b9a8")
-const COLOR_GOLD := Color("#d0ae62")
-const COLOR_DANGER := Color("#cf6a5f")
+const COLOR_BACKDROP := Color("#081014")
+const COLOR_PANEL := Color("#101b20")
+const COLOR_PANEL_ALT := Color("#162730")
+const COLOR_BORDER := Color("#4b6670")
+const COLOR_TEXT := HUDAssetLibrary.COLOR_TEXT
+const COLOR_MUTED := HUDAssetLibrary.COLOR_MUTED
+const COLOR_ACCENT := HUDAssetLibrary.COLOR_NORMAL
+const COLOR_GOLD := Color("#d8b575")
+const COLOR_DANGER := HUDAssetLibrary.COLOR_CRITICAL
+const COLOR_PAPER_TEXT := Color("#3e3025")
+const COLOR_PAPER_MUTED := Color("#6d5941")
 
 const EQUIPMENT_LAYOUT := {
 	GameEnums.EquipmentSlot.HEAD: {
 		"position": Vector2(0.10, 0.08),
 		"label": "HEAD",
-		"texture": "res://Asset/UI/head.png",
+		"texture": EQUIPMENT_HOLDER_TEXTURE,
 	},
 	GameEnums.EquipmentSlot.EYES: {
 		"position": Vector2(0.10, 0.25),
 		"label": "EYES",
-		"texture": "res://Asset/UI/eyes.png",
+		"texture": EQUIPMENT_HOLDER_TEXTURE,
 	},
 	GameEnums.EquipmentSlot.FACE: {
 		"position": Vector2(0.10, 0.42),
 		"label": "FACE",
-		"texture": "res://Asset/UI/mask.png",
+		"texture": EQUIPMENT_HOLDER_TEXTURE,
 	},
 	GameEnums.EquipmentSlot.NECK: {
 		"position": Vector2(0.10, 0.59),
 		"label": "NECK",
-		"texture": "res://Asset/UI/pocket.png",
+		"texture": EQUIPMENT_HOLDER_TEXTURE,
 	},
 	GameEnums.EquipmentSlot.HAND: {
 		"position": Vector2(0.10, 0.77),
 		"label": "HAND",
-		"texture": "res://Asset/UI/pocket_front.png",
+		"texture": EQUIPMENT_HOLDER_TEXTURE,
 	},
 	GameEnums.EquipmentSlot.OFFHAND: {
 		"position": Vector2(0.90, 0.77),
 		"label": "OFFHAND",
-		"texture": "res://Asset/UI/pocket_front.png",
+		"texture": EQUIPMENT_HOLDER_TEXTURE,
 	},
 	GameEnums.EquipmentSlot.BACKPACK: {
 		"position": Vector2(0.90, 0.08),
 		"label": "PACK",
-		"texture": "res://Asset/UI/backpack.png",
+		"texture": EQUIPMENT_HOLDER_TEXTURE,
 	},
 	GameEnums.EquipmentSlot.SLING: {
 		"position": Vector2(0.90, 0.25),
 		"label": "SLING",
-		"texture": "res://Asset/UI/weapon_2h.png",
+		"texture": EQUIPMENT_HOLDER_TEXTURE,
 	},
 	GameEnums.EquipmentSlot.OUTER_TORSO: {
 		"position": Vector2(0.90, 0.42),
 		"label": "ARMOR",
-		"texture": "res://Asset/UI/armor.png",
+		"texture": EQUIPMENT_HOLDER_TEXTURE,
 	},
 	GameEnums.EquipmentSlot.VEST: {
 		"position": Vector2(0.90, 0.59),
 		"label": "RIG",
-		"texture": "res://Asset/UI/webbing.png",
+		"texture": EQUIPMENT_HOLDER_TEXTURE,
 	},
 	GameEnums.EquipmentSlot.BELT: {
 		"position": Vector2(0.90, 0.91),
 		"label": "BELT",
-		"texture": "res://Asset/UI/belt.png",
+		"texture": EQUIPMENT_HOLDER_TEXTURE,
 	},
 	GameEnums.EquipmentSlot.ARMS: {
 		"position": Vector2(0.24, 0.90),
 		"label": "ARMS",
-		"texture": "res://Asset/UI/armor.png",
+		"texture": EQUIPMENT_HOLDER_TEXTURE,
 	},
 	GameEnums.EquipmentSlot.INNER_TORSO: {
 		"position": Vector2(0.42, 0.90),
 		"label": "INNER",
-		"texture": "res://Asset/UI/clothing.png",
+		"texture": EQUIPMENT_HOLDER_TEXTURE,
 	},
 	GameEnums.EquipmentSlot.LEGS: {
 		"position": Vector2(0.60, 0.90),
 		"label": "LEGS",
-		"texture": "res://Asset/UI/clothing.png",
+		"texture": EQUIPMENT_HOLDER_TEXTURE,
 	},
 	GameEnums.EquipmentSlot.FEET: {
 		"position": Vector2(0.78, 0.90),
 		"label": "FEET",
-		"texture": "res://Asset/UI/pocket.png",
+		"texture": EQUIPMENT_HOLDER_TEXTURE,
 	},
 }
 
@@ -259,6 +263,7 @@ func _build_interface() -> void:
 	var content := HBoxContainer.new()
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 10)
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
 	root_vbox.add_child(content)
 	content.add_child(_build_paperdoll_column())
 	content.add_child(_build_backpack_column())
@@ -279,13 +284,13 @@ func _build_header() -> Control:
 	header.add_child(title_box)
 
 	var title := Label.new()
-	title.text = "FIELD LOADOUT"
+	title.text = "POCKET INVENTORY"
 	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_color_override("font_color", COLOR_GOLD)
 	title_box.add_child(title)
 
 	_location_label = Label.new()
-	_location_label.text = "HEX 0, 0"
+	_location_label.text = "SECTOR 0, 0"
 	_location_label.add_theme_font_size_override("font_size", 11)
 	_location_label.add_theme_color_override("font_color", COLOR_MUTED)
 	title_box.add_child(_location_label)
@@ -324,7 +329,7 @@ func _build_paperdoll_column() -> Control:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 4)
 	panel.add_child(column)
-	column.add_child(_section_header("EQUIPMENT", "RIGHT CLICK TO UNEQUIP"))
+	column.add_child(_section_header("PROFILE", "RIGHT CLICK TO UNEQUIP"))
 
 	var stage := Control.new()
 	stage.name = "PaperDollStage"
@@ -368,22 +373,23 @@ func _build_paperdoll_column() -> Control:
 func _build_backpack_column() -> Control:
 	var panel := PanelContainer.new()
 	panel.name = "BackpackPanel"
-	panel.custom_minimum_size.x = 280.0
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.custom_minimum_size.x = 640.0
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	HUDAssetLibrary.apply_panel(panel, "neutral")
+	HUDAssetLibrary.apply_panel(panel, "paper")
 
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 6)
 	panel.add_child(column)
 
-	var header := _section_header("INVENTORY", "SLOT CAPACITY")
+	var header := _section_header("POCKETS", "SLOT CAPACITY")
+	_apply_paper_header(header)
 	_backpack_count_label = header.get_child(1) as Label
 	column.add_child(header)
 
 	_capacity_sources_label = Label.new()
 	_capacity_sources_label.add_theme_font_size_override("font_size", 10)
-	_capacity_sources_label.add_theme_color_override("font_color", COLOR_MUTED)
+	_capacity_sources_label.add_theme_color_override("font_color", COLOR_PAPER_MUTED)
 	_capacity_sources_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_capacity_sources_label)
 
@@ -410,7 +416,7 @@ func _build_ground_column() -> Control:
 	column.add_theme_constant_override("separation", 6)
 	panel.add_child(column)
 
-	var header := _section_header("GROUND", "LOCAL CACHE")
+	var header := _section_header("FIELD CACHE", "LOCAL ITEMS")
 	_ground_count_label = header.get_child(1) as Label
 	column.add_child(header)
 
@@ -556,7 +562,7 @@ func _render() -> void:
 	var maximum := int(_snapshot.get("maximum_capacity", 0))
 	var coords: Vector2i = _snapshot.get("coords", Vector2i.ZERO)
 
-	_location_label.text = "HEX %d, %d  |  EQUIPMENT AND LOCAL GROUND" % [
+	_location_label.text = "SECTOR %d, %d  |  PROFILE AND FIELD CACHE" % [
 		coords.x,
 		coords.y,
 	]
@@ -639,14 +645,14 @@ func _render_backpack(
 		title.add_theme_font_size_override("font_size", 10)
 		title.add_theme_color_override(
 			"font_color",
-			COLOR_GOLD
+			Color("#6f3e2f")
 				if container.get("combat_accessible", false)
-				else COLOR_MUTED
+				else COLOR_PAPER_MUTED
 		)
 		section.add_child(title)
 
 		var grid := GridContainer.new()
-		grid.columns = 4
+		grid.columns = 6
 		grid.add_theme_constant_override("h_separation", 5)
 		grid.add_theme_constant_override("v_separation", 5)
 		section.add_child(grid)
@@ -659,7 +665,7 @@ func _render_backpack(
 				InventorySlot.SOURCE_BACKPACK,
 				occupied_units,
 				"",
-				"res://Asset/UI/backpack_item_slot.png",
+				INVENTORY_HOLDER_TEXTURE,
 				container_slot
 			)
 			item_slot.set_item(descriptor)
@@ -673,7 +679,7 @@ func _render_backpack(
 					InventorySlot.SOURCE_BACKPACK,
 					occupied_units,
 					"",
-					"res://Asset/UI/backpack_item_slot.png",
+					INVENTORY_HOLDER_TEXTURE,
 					container_slot
 				)
 				reserved.set_reserved(descriptor)
@@ -687,7 +693,7 @@ func _render_backpack(
 				InventorySlot.SOURCE_BACKPACK,
 				occupied_units,
 				"",
-				"res://Asset/UI/backpack_item_slot.png",
+				INVENTORY_HOLDER_TEXTURE,
 				container_slot
 			)
 			backpack_slots_ui.append(empty_slot)
@@ -696,7 +702,7 @@ func _render_backpack(
 	if containers.is_empty():
 		var empty_notice := Label.new()
 		empty_notice.text = "NO WORN STORAGE"
-		empty_notice.add_theme_color_override("font_color", COLOR_DANGER)
+		empty_notice.add_theme_color_override("font_color", Color("#8d3e35"))
 		dynamic_capacity_grids.add_child(empty_notice)
 
 	_backpack_count_label.text = "%d ITEMS / %d UNITS" % [
@@ -715,7 +721,7 @@ func _render_ground(items: Array) -> void:
 			InventorySlot.SOURCE_GROUND,
 			index,
 			"",
-			"res://Asset/UI/backpack_item_slot.png"
+			INVENTORY_HOLDER_TEXTURE
 		)
 		slot.set_item(descriptor)
 		ground_slots_ui.append(slot)
@@ -726,7 +732,7 @@ func _render_ground(items: Array) -> void:
 		InventorySlot.SOURCE_GROUND,
 		index,
 		"DROP",
-		"res://Asset/UI/backpack_item_slot.png"
+		INVENTORY_HOLDER_TEXTURE
 	)
 	ground_slots_ui.append(drop_target)
 	_ground_count_label.text = "%d ITEMS" % items.size()
@@ -1063,6 +1069,12 @@ func _section_header(title_text: String, side_text: String) -> HBoxContainer:
 	side.add_theme_color_override("font_color", COLOR_MUTED)
 	header.add_child(side)
 	return header
+
+func _apply_paper_header(header: HBoxContainer) -> void:
+	var title := header.get_child(0) as Label
+	var side := header.get_child(1) as Label
+	title.add_theme_color_override("font_color", COLOR_PAPER_TEXT)
+	side.add_theme_color_override("font_color", COLOR_PAPER_MUTED)
 
 func _panel_style(
 	background: Color,

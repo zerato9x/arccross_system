@@ -1,8 +1,9 @@
-[gd_scene load_steps=2 format=3 uid="uid://b72xqqy5yyt02"]
+[gd_scene format=3 uid="uid://b72xqqy5yyt02"]
 
-[ext_resource type="Script" path="res://UI/Inventory/InventoryUI.gd" id="1_inventory"]
+[ext_resource type="Script" uid="uid://dtgqjaxyyn5j0" path="res://UI/Inventory/InventoryUI.gd" id="1_inventory"]
+[ext_resource type="Theme" uid="uid://ceojn5yms8c8m" path="res://UI/HUD/PocketInventoryTheme.tres" id="1_tesbg"]
 
-[node name="InventoryUI" type="Control"]
+[node name="InventoryUI" type="Control" unique_id=1925038078]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -10,4 +11,5 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 1
+theme = ExtResource("1_tesbg")
 script = ExtResource("1_inventory")
