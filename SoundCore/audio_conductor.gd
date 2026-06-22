@@ -2,11 +2,10 @@ extends Node
 class_name AudioConductorSystem
 
 # ---------------------------------------------------------
-# AUDIO CONDUCTOR: Algorave Realtime Sound Engine
+# AUDIO CONDUCTOR: Simplified Audio Engine
 # ---------------------------------------------------------
-# Manages procedural audio buses and soundtrack routing based
-# on game state, player actions, and world time.
-# Tracks the player's subjective experience only.
+# Manages soundtrack routing and crossfading based
+# on game state and world time.
 # ---------------------------------------------------------
 
 # ---------------------------------------------------------
@@ -33,32 +32,16 @@ var algorave_bus_idx: int = -1
 var overlay_bus_idx: int = -1
 
 # ---------------------------------------------------------
-# AUDIO EFFECTS (Main Bus)
+# AUDIO EFFECTS
 # ---------------------------------------------------------
-var eq_effect: AudioEffectEQ6
-var phantom_eq: AudioEffectBandPassFilter
-var pitch_shift: AudioEffectPitchShift
 var amp_effect: AudioEffectAmplify
-
-# ---------------------------------------------------------
-# AUDIO EFFECTS (Overlay Bus)
-# ---------------------------------------------------------
-var overlay_eq: AudioEffectEQ6
 var overlay_amp: AudioEffectAmplify
 
 # ---------------------------------------------------------
 # TARGET PARAMETERS (smoothed via _process)
 # ---------------------------------------------------------
-var target_low_db: float = 0.0
-var target_mid_db: float = 0.0
-var target_high_db: float = 0.0
-var target_time_scale: float = 1.0
 var target_gain_db: float = 0.0
-var target_phantom_cutoff: float = 2000.0
 var target_overlay_gain_db: float = -80.0 # Starts silent
-
-var is_pitch_preserved: bool = true
-var is_phantom_active: bool = false
 var is_overlay_active: bool = false
 var smooth_speed: float = 5.0
 
@@ -107,22 +90,12 @@ func _setup_main_bus() -> void:
 		AudioServer.set_bus_name(algorave_bus_idx, "AlgoraveBus")
 		AudioServer.set_bus_send(algorave_bus_idx, "Master")
 
-	eq_effect = AudioEffectEQ6.new()
-	phantom_eq = AudioEffectBandPassFilter.new()
-	phantom_eq.resonance = 0.7
-	pitch_shift = AudioEffectPitchShift.new()
 	amp_effect = AudioEffectAmplify.new()
 
 	while AudioServer.get_bus_effect_count(algorave_bus_idx) > 0:
 		AudioServer.remove_bus_effect(algorave_bus_idx, 0)
 
-	AudioServer.add_bus_effect(algorave_bus_idx, eq_effect)       # 0
-	AudioServer.add_bus_effect(algorave_bus_idx, phantom_eq)      # 1
-	AudioServer.add_bus_effect(algorave_bus_idx, pitch_shift)     # 2
-	AudioServer.add_bus_effect(algorave_bus_idx, amp_effect)      # 3
-
-	AudioServer.set_bus_effect_enabled(algorave_bus_idx, 1, false) # phantom off
-	AudioServer.set_bus_effect_enabled(algorave_bus_idx, 2, false) # pitch shift off
+	AudioServer.add_bus_effect(algorave_bus_idx, amp_effect)
 
 func _setup_overlay_bus() -> void:
 	overlay_bus_idx = AudioServer.get_bus_index("OverlayBus")
@@ -132,24 +105,13 @@ func _setup_overlay_bus() -> void:
 		AudioServer.set_bus_name(overlay_bus_idx, "OverlayBus")
 		AudioServer.set_bus_send(overlay_bus_idx, "Master")
 
-	overlay_eq = AudioEffectEQ6.new()
 	overlay_amp = AudioEffectAmplify.new()
 	overlay_amp.volume_db = -80.0
 
 	while AudioServer.get_bus_effect_count(overlay_bus_idx) > 0:
 		AudioServer.remove_bus_effect(overlay_bus_idx, 0)
 
-	AudioServer.add_bus_effect(overlay_bus_idx, overlay_eq)  # 0
-	AudioServer.add_bus_effect(overlay_bus_idx, overlay_amp) # 1
-
-	# Carve the overlay EQ so Battlefield doesn't clash with the combat track:
-	# Cut highs, boost lows — rumbling dread underneath
-	overlay_eq.set_band_gain_db(0, 3.0)   # 32Hz  — boost
-	overlay_eq.set_band_gain_db(1, 2.0)   # 100Hz — boost
-	overlay_eq.set_band_gain_db(2, -2.0)  # 320Hz — slight cut
-	overlay_eq.set_band_gain_db(3, -6.0)  # 1kHz  — cut
-	overlay_eq.set_band_gain_db(4, -12.0) # 3.2kHz — heavy cut
-	overlay_eq.set_band_gain_db(5, -20.0) # 10kHz — near silent
+	AudioServer.add_bus_effect(overlay_bus_idx, overlay_amp)
 
 func _setup_players() -> void:
 	music_player = AudioStreamPlayer.new()
@@ -251,78 +213,38 @@ func set_critical_overlay(active: bool) -> void:
 		# overlay_player.stop() is handled by _process when gain reaches ~-79
 
 # ---------------------------------------------------------
-# PLAYER STATE HOOKS (Algorave Warping — No Track Override)
+# PLAYER STATE HOOKS (Trigger SFX but no track warping)
 # ---------------------------------------------------------
 
 ## Called when the player's kinetic burden tier changes.
 func on_kinetic_tier_changed(tier: GameEnums.KineticTier, _burden: int) -> void:
 	match tier:
 		GameEnums.KineticTier.FLUID:
-			set_time_stretch(1.0)
-			set_3band_eq(0.0, 0.0, 0.0)
 			set_critical_overlay(false)
 		GameEnums.KineticTier.LABORED:
-			set_time_stretch(0.92)
-			set_3band_eq(1.0, -1.0, -2.0)
 			set_critical_overlay(false)
 		GameEnums.KineticTier.AGONIZING:
-			set_time_stretch(0.82)
-			set_3band_eq(2.0, -3.0, -8.0) # Muffled, labored breathing feel
-			
 			# Only allow critical overlay during combat scenes
 			if current_scene == AudioScene.COMBAT_STANDARD or current_scene == AudioScene.COMBAT_SPECIAL:
 				set_critical_overlay(true)
 
 ## Called when the player's stance state changes.
-func on_stance_changed(new_state: GameEnums.StanceState, _points: int) -> void:
-	match new_state:
-		GameEnums.StanceState.PLANTED:
-			set_phantom_eq(false)
-		GameEnums.StanceState.STUMBLING:
-			set_3band_eq(0.0, 0.0, -4.0) # Slight high cut
-		GameEnums.StanceState.FELLED:
-			# Activate phantom sweep — ringing/daze effect
-			set_phantom_eq(true, 600.0, 0.9)
-			set_3band_eq(3.0, -6.0, -15.0) # Heavy high cut, boosted lows
+func on_stance_changed(_new_state: GameEnums.StanceState, _points: int) -> void:
+	pass
 
-## Called when the player's morale breaks — warp existing track, no override.
+## Called when the player's morale breaks.
 func on_morale_broken() -> void:
-	set_time_stretch(0.7, false) # Raw vinyl stretch — pitch drops
-	set_phantom_eq(true, 400.0, 0.95) # Deep, narrow sweep
-	set_3band_eq(4.0, -8.0, -20.0) # Underwater panic
-	print("[CONDUCTOR] MORALE BROKEN — algorave panic warp engaged")
+	print("[CONDUCTOR] MORALE BROKEN")
 
-## Called on player death — vinyl stop effect.
+## Called on player death — fade out.
 func on_player_died(_cause: String) -> void:
-	set_time_stretch(0.1, false, true) # Instant slow-to-stop
-	set_3band_eq(-10.0, -20.0, -40.0, true) # Instant mute highs
+	set_gain(-80.0) # Fade out to silence
 	set_critical_overlay(false)
-	print("[CONDUCTOR] PLAYER DIED — vinyl stop")
+	print("[CONDUCTOR] PLAYER DIED")
 
 # ---------------------------------------------------------
 # LOW-LEVEL CONTROLS
 # ---------------------------------------------------------
-
-func set_3band_eq(low_db: float, mid_db: float, high_db: float, instant: bool = false) -> void:
-	target_low_db = clampf(low_db, -60.0, 24.0)
-	target_mid_db = clampf(mid_db, -60.0, 24.0)
-	target_high_db = clampf(high_db, -60.0, 24.0)
-	if instant:
-		_apply_eq(target_low_db, target_mid_db, target_high_db)
-
-func set_phantom_eq(active: bool, cutoff_hz: float = 2000.0, resonance: float = 0.7, instant: bool = false) -> void:
-	is_phantom_active = active
-	AudioServer.set_bus_effect_enabled(algorave_bus_idx, 1, active)
-	target_phantom_cutoff = clampf(cutoff_hz, 20.0, 20000.0)
-	phantom_eq.resonance = resonance
-	if instant:
-		phantom_eq.cutoff_hz = target_phantom_cutoff
-
-func set_time_stretch(time_scale: float, pitch_preserve: bool = true, instant: bool = false) -> void:
-	target_time_scale = maxf(time_scale, 0.01)
-	is_pitch_preserved = pitch_preserve
-	if instant:
-		_apply_time_stretch(target_time_scale)
 
 func set_gain(gain_db: float, instant: bool = false) -> void:
 	target_gain_db = clampf(gain_db, -80.0, 24.0)
@@ -345,15 +267,7 @@ func _play_main(track_name: String) -> void:
 		push_error("[CONDUCTOR] Unknown track: " + track_name)
 
 func _reset_algorave_params() -> void:
-	target_low_db = 0.0
-	target_mid_db = 0.0
-	target_high_db = 0.0
-	target_time_scale = 1.0
 	target_gain_db = 0.0
-	is_pitch_preserved = true
-	set_phantom_eq(false, 2000.0, 0.7, true)
-	_apply_eq(0.0, 0.0, 0.0)
-	_apply_time_stretch(1.0)
 	amp_effect.volume_db = 0.0
 
 func _on_music_finished() -> void:
@@ -372,46 +286,13 @@ func _on_overlay_finished() -> void:
 func _process(delta: float) -> void:
 	var t: float = delta * smooth_speed
 
-	# Main EQ
-	var current_low = eq_effect.get_band_gain_db(0)
-	var current_mid = eq_effect.get_band_gain_db(2)
-	var current_high = eq_effect.get_band_gain_db(4)
-	_apply_eq(
-		lerpf(current_low, target_low_db, t),
-		lerpf(current_mid, target_mid_db, t),
-		lerpf(current_high, target_high_db, t)
-	)
-
-	# Time Stretch
-	_apply_time_stretch(lerpf(music_player.pitch_scale, target_time_scale, t))
-
 	# Main Gain
 	amp_effect.volume_db = lerpf(amp_effect.volume_db, target_gain_db, t)
-
-	# Phantom EQ
-	if is_phantom_active:
-		phantom_eq.cutoff_hz = lerpf(phantom_eq.cutoff_hz, target_phantom_cutoff, t)
 
 	# Overlay Gain
 	overlay_amp.volume_db = lerpf(overlay_amp.volume_db, target_overlay_gain_db, t)
 	if not is_overlay_active and overlay_amp.volume_db < -78.0 and overlay_player.playing:
 		overlay_player.stop()
-
-func _apply_eq(low: float, mid: float, high: float) -> void:
-	eq_effect.set_band_gain_db(0, low)
-	eq_effect.set_band_gain_db(1, low)
-	eq_effect.set_band_gain_db(2, mid)
-	eq_effect.set_band_gain_db(3, mid)
-	eq_effect.set_band_gain_db(4, high)
-	eq_effect.set_band_gain_db(5, high)
-
-func _apply_time_stretch(scale: float) -> void:
-	music_player.pitch_scale = scale
-	if is_pitch_preserved:
-		AudioServer.set_bus_effect_enabled(algorave_bus_idx, 2, true)
-		pitch_shift.pitch_scale = clampf(1.0 / scale, 0.01, 16.0)
-	else:
-		AudioServer.set_bus_effect_enabled(algorave_bus_idx, 2, false)
 
 # ---------------------------------------------------------
 # LEGACY COMPAT

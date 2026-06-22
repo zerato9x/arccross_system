@@ -57,6 +57,35 @@ const SOUNDS_PUNCH := [
 	preload("res://SoundCore/Sound/sfx/Combat/DesignedPunch4.wav")
 ]
 
+# Footsteps
+const SOUNDS_FOOTSTEP_CONCRETE := [
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsConcrete1.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsConcrete2.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsConcrete3.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsConcrete4.wav")
+]
+const SOUNDS_FOOTSTEP_MUD := [
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsWetGravelStones1.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsWetGravelStones2.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsWetGravelStones3.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsWetGravelStones4.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsSlushSnow1.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsSlushSnow2.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsSlushSnow3.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsSlushSnow4.wav")
+]
+const SOUNDS_FOOTSTEP_TREES := [
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsDryBeachTwigs1.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsDryBeachTwigs2.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsDryBeachTwigs3.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsDryBeachTwigs4.wav")
+]
+const SOUNDS_FOOTSTEP_DIRT := [
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsStoneDirt1.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsStoneDirt2.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsStoneDirt3.wav"),
+	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsStoneDirt4.wav")
+]
 
 func _ready() -> void:
 	_init_pool()
@@ -76,6 +105,7 @@ func _connect_to_bus() -> void:
 		bus.humanoid_injured.connect(_on_humanoid_injured)
 		bus.humanoid_exhausted.connect(_on_humanoid_exhausted)
 		bus.item_used.connect(_on_item_used)
+		bus.humanoid_footstep_taken.connect(_on_humanoid_footstep)
 
 func _play_sound(stream: AudioStream, pitch_variance: float = 0.05, volume_db: float = 0.0) -> void:
 	if not stream:
@@ -118,3 +148,14 @@ func _on_item_used(_entity: Node, category: GameEnums.ItemCategory) -> void:
 			_play_sound(SOUNDS_PILLS.pick_random())
 		_:
 			pass # Hook for future item categories
+
+func _on_humanoid_footstep(_entity: Node, background: String) -> void:
+	match background:
+		"MUD":
+			_play_sound(SOUNDS_FOOTSTEP_MUD.pick_random(), 0.08, -6.0)
+		"TREES":
+			_play_sound(SOUNDS_FOOTSTEP_TREES.pick_random(), 0.08, -6.0)
+		"DIRT":
+			_play_sound(SOUNDS_FOOTSTEP_DIRT.pick_random(), 0.08, -6.0)
+		_:
+			_play_sound(SOUNDS_FOOTSTEP_CONCRETE.pick_random(), 0.08, -6.0)

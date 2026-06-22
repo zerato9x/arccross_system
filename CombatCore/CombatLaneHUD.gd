@@ -35,6 +35,9 @@ var _camera_zoom_bias := 0.0
 var _camera_dragging := false
 var _camera_initialized := false
 
+var _presentation_queue: Array[Dictionary] = []
+var _is_processing_queue: bool = false
+
 var _round_label: Label
 var _active_label: Label
 var _player_label: Label
@@ -87,6 +90,7 @@ func open_hud() -> void:
 
 func close_hud() -> void:
 	visible = false
+	_presentation_queue.clear()
 	_snapshot.clear()
 	_reaction_prompt.clear()
 	_feedback = ""
@@ -95,22 +99,60 @@ func close_hud() -> void:
 	_feedback_label.visible = false
 
 func show_snapshot(snapshot: Dictionary) -> void:
-	_snapshot = snapshot.duplicate(true)
+	_presentation_queue.append({ "type": "snapshot", "data": snapshot.duplicate(true) })
+	_try_process_queue()
+
+func show_reaction(prompt: Dictionary) -> void:
+	_presentation_queue.append({ "type": "reaction", "data": prompt.duplicate(true) })
+	_try_process_queue()
+
+func show_feedback(message: String) -> void:
+	_presentation_queue.append({ "type": "feedback", "data": message })
+	_try_process_queue()
+
+func show_presentation_event(event: Dictionary) -> void:
+	_presentation_queue.append({ "type": "presentation", "data": event.duplicate(true) })
+	_try_process_queue()
+
+func _try_process_queue() -> void:
+	if _is_processing_queue or _presentation_queue.is_empty():
+		return
+	_is_processing_queue = true
+	_process_queue()
+
+func _process_queue() -> void:
+	while not _presentation_queue.is_empty():
+		var item: Dictionary = _presentation_queue.pop_front()
+		match str(item.get("type", "")):
+			"snapshot":
+				_apply_snapshot(item.get("data", {}))
+			"reaction":
+				_apply_reaction(item.get("data", {}))
+			"feedback":
+				_apply_feedback(item.get("data", ""))
+			"presentation":
+				_apply_presentation_event(item.get("data", {}))
+				# Delay to let the presentation animation play out
+				await get_tree().create_timer(0.6).timeout
+	_is_processing_queue = false
+
+func _apply_snapshot(snapshot: Dictionary) -> void:
+	_snapshot = snapshot
 	if not _snapshot.get("reaction_pending", false):
 		_reaction_prompt.clear()
 	visible = true
 	_render()
 
-func show_reaction(prompt: Dictionary) -> void:
-	_reaction_prompt = prompt.duplicate(true)
+func _apply_reaction(prompt: Dictionary) -> void:
+	_reaction_prompt = prompt
 	_render_actions()
 	_render_feedback()
 
-func show_feedback(message: String) -> void:
+func _apply_feedback(message: String) -> void:
 	_feedback = message
 	_render_feedback()
 
-func show_presentation_event(event: Dictionary) -> void:
+func _apply_presentation_event(event: Dictionary) -> void:
 	if _lane_view:
 		_lane_view.show_presentation_event(event)
 

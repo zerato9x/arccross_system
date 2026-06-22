@@ -1,0 +1,191 @@
+[gd_scene load_steps=17 format=3]
+
+[ext_resource type="Script" path="effects_showcase.gd" id="1_script"]
+[ext_resource type="Shader" path="res://shaders/outline_2d.gdshader" id="2_outline"]
+[ext_resource type="Shader" path="res://shaders/dissolve_burn_2d.gdshader" id="3_dissolve"]
+[ext_resource type="Shader" path="res://shaders/heat_distortion_2d.gdshader" id="4_heat"]
+[ext_resource type="Shader" path="res://shaders/drop_shadow_2d.gdshader" id="5_shadow"]
+[ext_resource type="Shader" path="res://shaders/flash_tint_2d.gdshader" id="6_flash"]
+[ext_resource type="Shader" path="res://shaders/radial_wipe_2d.gdshader" id="7_radial"]
+[ext_resource type="Texture2D" path="assets/placeholder_icon.svg" id="8_placeholder"]
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_demo"]
+seed = 1337
+frequency = 0.08
+fractal_octaves = 3
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_demo"]
+seamless = true
+as_normal_map = false
+noise = SubResource("FastNoiseLite_demo")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_outline"]
+shader = ExtResource("2_outline")
+shader_parameter/_OutlineColor = Color(0.180392, 0.878431, 1, 1)
+shader_parameter/_OutlineThicknessPx = 2.0
+shader_parameter/_DrawInside = false
+shader_parameter/_KeepOriginalAlpha = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_dissolve"]
+shader = ExtResource("3_dissolve")
+shader_parameter/_NoiseTex = SubResource("NoiseTexture2D_demo")
+shader_parameter/_Dissolve = 0.35
+shader_parameter/_EdgeWidth = 0.08
+shader_parameter/_EdgeColor = Color(1, 0.447059, 0.117647, 1)
+shader_parameter/_NoiseScale = 2.5
+shader_parameter/_EmissionStrength = 1.35
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_heat"]
+shader = ExtResource("4_heat")
+shader_parameter/_NoiseTex = SubResource("NoiseTexture2D_demo")
+shader_parameter/_Strength = 0.02
+shader_parameter/_NoiseScale = 4.0
+shader_parameter/_ScrollSpeed = 0.6
+shader_parameter/_DirectionAngleDeg = 35.0
+shader_parameter/_Opacity = 0.72
+shader_parameter/_MaskSoftness = 0.12
+shader_parameter/_VisibilityBoost = 0.28
+shader_parameter/_ShimmerStrength = 0.12
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_shadow"]
+shader = ExtResource("5_shadow")
+shader_parameter/_ShadowColor = Color(0, 0, 0, 0.68)
+shader_parameter/_ShadowOffsetPx = Vector2(4, 4)
+shader_parameter/_ShadowSoftnessPx = 1.5
+shader_parameter/_ShadowOpacity = 1.0
+shader_parameter/_ShadowOnly = false
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_flash"]
+shader = ExtResource("6_flash")
+shader_parameter/_FlashColor = Color(1, 0.317647, 0.317647, 1)
+shader_parameter/_FlashAmount = 0.25
+shader_parameter/_UseAdditive = false
+shader_parameter/_AutoPulse = false
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_radial"]
+shader = ExtResource("7_radial")
+shader_parameter/_Progress = 0.75
+shader_parameter/_Center = Vector2(0.5, 0.5)
+shader_parameter/_StartAngleDeg = -90.0
+shader_parameter/_Clockwise = true
+shader_parameter/_Invert = false
+shader_parameter/_EdgeFeather = 0.01
+
+[node name="EffectsShowcase" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="Backdrop" type="CanvasLayer" parent="."]
+layer = -10
+
+[node name="Background" type="ColorRect" parent="Backdrop"]
+offset_right = 1280.0
+offset_bottom = 720.0
+color = Color(0.0588235, 0.0784314, 0.129412, 1)
+
+[node name="Lanes" type="Node2D" parent="."]
+position = Vector2(0, 64)
+
+[node name="LaneOutline" type="Sprite2D" parent="Lanes"]
+position = Vector2(160, 160)
+texture = ExtResource("8_placeholder")
+material = SubResource("ShaderMaterial_outline")
+
+[node name="LaneDissolve" type="Sprite2D" parent="Lanes"]
+position = Vector2(400, 160)
+texture = ExtResource("8_placeholder")
+material = SubResource("ShaderMaterial_dissolve")
+
+[node name="LaneDistortSource" type="Sprite2D" parent="Lanes"]
+position = Vector2(640, 160)
+texture = ExtResource("8_placeholder")
+modulate = Color(1, 1, 1, 0.92)
+
+[node name="LaneDistort" type="Sprite2D" parent="Lanes"]
+position = Vector2(640, 160)
+texture = ExtResource("8_placeholder")
+z_index = 1
+material = SubResource("ShaderMaterial_heat")
+
+[node name="LaneShadow" type="Sprite2D" parent="Lanes"]
+position = Vector2(880, 160)
+texture = ExtResource("8_placeholder")
+material = SubResource("ShaderMaterial_shadow")
+
+[node name="LaneFlash" type="Sprite2D" parent="Lanes"]
+position = Vector2(1120, 160)
+texture = ExtResource("8_placeholder")
+material = SubResource("ShaderMaterial_flash")
+
+[node name="LaneRadial" type="TextureRect" parent="Lanes"]
+offset_left = 48.0
+offset_top = 332.0
+offset_right = 272.0
+offset_bottom = 556.0
+texture = ExtResource("8_placeholder")
+stretch_mode = 5
+material = SubResource("ShaderMaterial_radial")
+
+[node name="LaneRadialLabel" type="Label" parent="Lanes"]
+offset_left = 70.0
+offset_top = 578.0
+offset_right = 288.0
+offset_bottom = 592.0
+text = "Radial Wipe"
+horizontal_alignment = 1
+
+[node name="LaneOutlineLabel" type="Label" parent="Lanes"]
+offset_left = 64.0
+offset_top = 296.0
+offset_right = 256.0
+offset_bottom = 310.0
+text = "Outline"
+horizontal_alignment = 1
+
+[node name="LaneDissolveLabel" type="Label" parent="Lanes"]
+offset_left = 304.0
+offset_top = 296.0
+offset_right = 496.0
+offset_bottom = 310.0
+text = "Dissolve Burn"
+horizontal_alignment = 1
+
+[node name="LaneDistortLabel" type="Label" parent="Lanes"]
+offset_left = 544.0
+offset_top = 296.0
+offset_right = 736.0
+offset_bottom = 310.0
+text = "Heat Distortion"
+horizontal_alignment = 1
+
+[node name="LaneShadowLabel" type="Label" parent="Lanes"]
+offset_left = 784.0
+offset_top = 296.0
+offset_right = 976.0
+offset_bottom = 310.0
+text = "Drop Shadow"
+horizontal_alignment = 1
+
+[node name="LaneFlashLabel" type="Label" parent="Lanes"]
+offset_left = 1024.0
+offset_top = 296.0
+offset_right = 1216.0
+offset_bottom = 310.0
+text = "Flash Tint"
+horizontal_alignment = 1
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Title" type="Label" parent="UI"]
+offset_left = 32.0
+offset_top = 16.0
+offset_right = 650.0
+offset_bottom = 48.0
+text = "Godot 4 Essential 2D Effects — Ready Demo"
+
+[node name="Hints" type="Label" parent="UI"]
+offset_left = 32.0
+offset_top = 52.0
+offset_right = 1160.0
+offset_bottom = 104.0
+text = "Script animates Dissolve, Heat, Flash, and Radial lanes. Edit lane ShaderMaterial uniforms live in Inspector for quick test."
+autowrap_mode = 2

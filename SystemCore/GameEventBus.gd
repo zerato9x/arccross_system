@@ -12,6 +12,7 @@ signal combat_action_executed(entity: Node, action: GameEnums.ActionType, weapon
 signal humanoid_injured(entity: Node, trauma: GameEnums.TraumaType)
 signal humanoid_exhausted(entity: Node)
 signal item_used(entity: Node, category: GameEnums.ItemCategory)
+signal humanoid_footstep_taken(entity: Node, background: String)
 
 # ---------------------------------------------------------
 # EMITTERS
@@ -28,3 +29,6 @@ func emit_humanoid_exhausted(entity: Node) -> void:
 
 func emit_item_used(entity: Node, category: GameEnums.ItemCategory) -> void:
 	item_used.emit(entity, category)
+
+func emit_humanoid_footstep(entity: Node, background: String) -> void:
+	humanoid_footstep_taken.emit(entity, background)

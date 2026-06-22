@@ -4,7 +4,7 @@ class_name CombatLaneView
 signal slot_hovered(slot_data: Dictionary, global_position: Vector2)
 signal slot_unhovered
 
-const LANE_MOVE_DURATION_SECONDS := 0.4
+const LANE_MOVE_DURATION_SECONDS := 2.0
 
 var _snapshot: Dictionary = {}
 var _showing_melee_lock := false
@@ -33,6 +33,19 @@ func _ready() -> void:
 	_player_token.visible = false
 	_enemy_token.visible = false
 	_melee_lock_banner.visible = false
+	
+	_player_token.footstep_taken.connect(_on_token_footstep.bind(true))
+	_enemy_token.footstep_taken.connect(_on_token_footstep.bind(false))
+
+func _on_token_footstep(is_player: bool) -> void:
+	var side := "player" if is_player else "enemy"
+	var lane := int(_snapshot.get(side, {}).get("lane", -1))
+	if lane >= 0 and lane < _slot_nodes.size():
+		var slot_data: Dictionary = _slot_data_by_index.get(lane, {})
+		var background := str(slot_data.get("background", "NONE"))
+		var bus = get_node_or_null("/root/GameEventBus")
+		if bus:
+			bus.emit_humanoid_footstep(self, background)
 
 func show_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
