@@ -84,7 +84,9 @@ func _apply_assets() -> void:
 	HUDAssetLibrary.apply_panel(_settings_panel, "anomaly")
 	_location_icon.texture = HUDAssetLibrary.status_icon("location")
 	_time_icon.texture = HUDAssetLibrary.status_icon("time")
-	_screen_overlay.texture = HUDAssetLibrary.background_texture()
+	_screen_overlay.texture = HUDAssetLibrary.texture(
+		"res://Asset/UI/HUD/overlays/scanline_tile_16.png"
+	)
 	_screen_overlay.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	_apply_vital_icon("blood", "blood", "blood")
 	_apply_vital_icon("stance", "stance", "stance")

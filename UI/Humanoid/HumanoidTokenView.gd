@@ -1,8 +1,6 @@
 extends Node2D
 class_name HumanoidTokenView
 
-signal footstep_taken
-
 var _appearance: Dictionary = {}
 var _layer_directories: Array[String] = []
 var _layer_sprites: Array[Sprite2D] = []
@@ -162,9 +160,6 @@ func _process(delta: float) -> void:
 
 	if next_frame != _frame_index:
 		_frame_index = next_frame
-		if _animation in ["Run", "RunBackwards", "CrouchRun", "Walk"]:
-			if _frame_index == 1 or _frame_index == 7:
-				footstep_taken.emit()
 		_apply_frame()
 
 func _rebuild_layers() -> void:

@@ -4,11 +4,12 @@ class_name CombatLaneHUD
 const ACTION_BUTTON_SCENE := preload(
 	"res://CombatCore/DuelUI/CombatActionButton.tscn"
 )
+const HUDAssetLibrary := preload("res://UI/HUD/HUDAssetLibrary.gd")
 const ACTION_PANEL_SIZE := Vector2(380.0, 286.0)
 const ACTION_BUTTON_SIZE := Vector2(176.0, 42.0)
 const ACTION_BUTTON_GAP := Vector2(10.0, 8.0)
-const COLOR_ACTION_PANEL := Color("#101b20")
-const COLOR_ACTION_BORDER := Color("#4b6670")
+const COLOR_ACTION_PANEL := Color(0.08, 0.09, 0.08, 0.91)
+const COLOR_ACTION_BORDER := Color(0.54, 0.52, 0.42, 0.88)
 const BUTTON_MODE_ACTION := "action"
 const BUTTON_MODE_PASS := "pass"
 const BUTTON_MODE_REACTION := "reaction"
@@ -34,9 +35,6 @@ var _camera_zoom_bias := 0.0
 var _camera_dragging := false
 var _camera_initialized := false
 
-var _presentation_queue: Array[Dictionary] = []
-var _is_processing_queue: bool = false
-
 var _round_label: Label
 var _active_label: Label
 var _player_label: Label
@@ -52,6 +50,7 @@ var _enemy_label: Label
 @onready var _action_panel_border: Line2D = %ActionPanelBorder
 @onready var _action_title_label: Label = %ActionTitleLabel
 @onready var _action_button_root: Node2D = %ActionButtons
+@onready var _action_panel_frame: Sprite2D = %ActionPanelFrame
 @onready var _feedback_label: Label = %FeedbackLabel
 @onready var _legacy_readouts: Node = %LegacyReadouts
 
@@ -88,7 +87,6 @@ func open_hud() -> void:
 
 func close_hud() -> void:
 	visible = false
-	_presentation_queue.clear()
 	_snapshot.clear()
 	_reaction_prompt.clear()
 	_feedback = ""
@@ -97,60 +95,22 @@ func close_hud() -> void:
 	_feedback_label.visible = false
 
 func show_snapshot(snapshot: Dictionary) -> void:
-	_presentation_queue.append({ "type": "snapshot", "data": snapshot.duplicate(true) })
-	_try_process_queue()
-
-func show_reaction(prompt: Dictionary) -> void:
-	_presentation_queue.append({ "type": "reaction", "data": prompt.duplicate(true) })
-	_try_process_queue()
-
-func show_feedback(message: String) -> void:
-	_presentation_queue.append({ "type": "feedback", "data": message })
-	_try_process_queue()
-
-func show_presentation_event(event: Dictionary) -> void:
-	_presentation_queue.append({ "type": "presentation", "data": event.duplicate(true) })
-	_try_process_queue()
-
-func _try_process_queue() -> void:
-	if _is_processing_queue or _presentation_queue.is_empty():
-		return
-	_is_processing_queue = true
-	_process_queue()
-
-func _process_queue() -> void:
-	while not _presentation_queue.is_empty():
-		var item: Dictionary = _presentation_queue.pop_front()
-		match str(item.get("type", "")):
-			"snapshot":
-				_apply_snapshot(item.get("data", {}))
-			"reaction":
-				_apply_reaction(item.get("data", {}))
-			"feedback":
-				_apply_feedback(item.get("data", ""))
-			"presentation":
-				_apply_presentation_event(item.get("data", {}))
-				# Delay to let the presentation animation play out
-				await get_tree().create_timer(0.6).timeout
-	_is_processing_queue = false
-
-func _apply_snapshot(snapshot: Dictionary) -> void:
-	_snapshot = snapshot
+	_snapshot = snapshot.duplicate(true)
 	if not _snapshot.get("reaction_pending", false):
 		_reaction_prompt.clear()
 	visible = true
 	_render()
 
-func _apply_reaction(prompt: Dictionary) -> void:
-	_reaction_prompt = prompt
+func show_reaction(prompt: Dictionary) -> void:
+	_reaction_prompt = prompt.duplicate(true)
 	_render_actions()
 	_render_feedback()
 
-func _apply_feedback(message: String) -> void:
+func show_feedback(message: String) -> void:
 	_feedback = message
 	_render_feedback()
 
-func _apply_presentation_event(event: Dictionary) -> void:
+func show_presentation_event(event: Dictionary) -> void:
 	if _lane_view:
 		_lane_view.show_presentation_event(event)
 
@@ -177,6 +137,7 @@ func _layout_screen_hud(viewport_size: Vector2) -> void:
 		viewport_size
 	)
 	_action_panel_border.global_position = _action_panel_box.global_position
+	_action_panel_frame.global_position = _action_panel_box.global_position
 	_action_title_label.global_position = _screen_to_world(
 		action_panel_screen_position + Vector2(14.0, 10.0),
 		viewport_size
@@ -187,6 +148,10 @@ func _layout_screen_hud(viewport_size: Vector2) -> void:
 	)
 	_action_panel_box.scale = ui_scale
 	_action_panel_border.scale = ui_scale
+	_action_panel_frame.scale = Vector2(
+		ACTION_PANEL_SIZE.x / 64.0,
+		ACTION_PANEL_SIZE.y / 64.0
+	) * ui_scale
 	_action_title_label.scale = ui_scale
 	_action_button_root.scale = ui_scale
 	_feedback_label.global_position = _screen_to_world(
@@ -214,10 +179,15 @@ func _render() -> void:
 
 func _setup_action_panel() -> void:
 	_set_box(_action_panel_box, ACTION_PANEL_SIZE)
-	_action_panel_box.color = COLOR_ACTION_PANEL
+	_action_panel_box.color = Color(COLOR_ACTION_PANEL, 0.0)
 	_set_outline(_action_panel_border, ACTION_PANEL_SIZE)
-	_action_panel_border.default_color = COLOR_ACTION_BORDER
-	_action_panel_border.width = 2.0
+	_action_panel_border.default_color = Color(COLOR_ACTION_BORDER, 0.0)
+	_action_panel_border.width = 1.0
+	HUDAssetLibrary.texture_panel_sprite(
+		_action_panel_frame,
+		"neutral",
+		ACTION_PANEL_SIZE
+	)
 	_action_title_label.text = "ACTIONS"
 
 func _render_actions() -> void:
@@ -225,6 +195,7 @@ func _render_actions() -> void:
 	var has_snapshot := not _snapshot.is_empty()
 	_action_panel_box.visible = has_snapshot
 	_action_panel_border.visible = has_snapshot
+	_action_panel_frame.visible = has_snapshot
 	_action_title_label.visible = has_snapshot
 	_action_button_root.visible = has_snapshot
 	if not has_snapshot:

@@ -1,7 +1,7 @@
 extends Node2D
 class_name MacroPlayer
 
-const WALK_DURATION_SECONDS := 2.0
+const WALK_DURATION_SECONDS := 0.55
 
 @export var definition: EntityDefinition
 
@@ -131,30 +131,7 @@ func _configure_humanoid_token() -> void:
 		humanoid_core.body.limb_destroyed.connect(_on_limb_destroyed)
 	if not humanoid_core.died.is_connected(_on_died):
 		humanoid_core.died.connect(_on_died)
-	
-	if not humanoid_token.footstep_taken.is_connected(_on_token_footstep):
-		humanoid_token.footstep_taken.connect(_on_token_footstep)
-		
 	refresh_token_pose()
-
-func _on_token_footstep() -> void:
-	if not WorldState:
-		return
-	var hex_data = WorldState.get_hex_record(current_hex_coords)
-	if hex_data == null:
-		return
-		
-	var bg := "NONE"
-	if hex_data.terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW or hex_data.terrain_tile == GameEnums.MacroTerrainTile.SNOW_TRANSITION:
-		bg = "MUD"
-	elif hex_data.flora_layer == GameEnums.MacroFloraLayer.TREES or hex_data.terrain_tile == GameEnums.MacroTerrainTile.FOREST_SPARSE:
-		bg = "TREES"
-	else:
-		bg = "DIRT"
-		
-	var bus = get_node_or_null("/root/GameEventBus")
-	if bus:
-		bus.emit_humanoid_footstep(self, bg)
 
 func _finish_walk(movement_id: int) -> void:
 	if movement_id != _movement_serial or not humanoid_token:

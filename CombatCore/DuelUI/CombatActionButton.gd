@@ -6,13 +6,13 @@ signal target_limb_focused(limb: int)
 signal target_limb_unfocused
 
 const HUDAssetLibrary := preload("res://UI/HUD/HUDAssetLibrary.gd")
-const COLOR_NORMAL := Color("#1c2c33")
-const COLOR_HOVER := Color("#2d4650")
-const COLOR_DISABLED := Color("#10191d")
-const COLOR_BORDER := Color("#66848d")
-const COLOR_BORDER_HOVER := Color("#efe1bd")
-const COLOR_TEXT := HUDAssetLibrary.COLOR_TEXT
-const COLOR_MUTED := HUDAssetLibrary.COLOR_MUTED
+const COLOR_NORMAL := Color(0.12, 0.13, 0.12, 0.96)
+const COLOR_HOVER := Color(0.22, 0.24, 0.21, 0.98)
+const COLOR_DISABLED := Color(0.08, 0.085, 0.08, 0.82)
+const COLOR_BORDER := Color(0.62, 0.60, 0.50, 0.92)
+const COLOR_BORDER_HOVER := Color(0.86, 0.75, 0.50, 1.0)
+const COLOR_TEXT := Color(0.83, 0.85, 0.80, 1.0)
+const COLOR_MUTED := Color(0.48, 0.50, 0.47, 1.0)
 
 var _payload: Dictionary = {}
 var _base_text := ""
@@ -22,6 +22,7 @@ var _hovered := false
 var _target_limbs: Array = []
 var _target_limb_index := 0
 
+@onready var _frame_sprite: Sprite2D = %FrameSprite
 @onready var _icon_sprite: Sprite2D = %IconSprite
 @onready var _box: Polygon2D = %ButtonBox
 @onready var _border: Line2D = %Border
@@ -71,6 +72,8 @@ func get_target_limb() -> int:
 	)
 
 func _apply_geometry() -> void:
+	_frame_sprite.centered = false
+	_frame_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_icon_sprite.centered = false
 	_icon_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_box.polygon = PackedVector2Array([
@@ -86,20 +89,33 @@ func _apply_geometry() -> void:
 		Vector2(0.0, _button_size.y),
 		Vector2.ZERO,
 	])
-	_box.visible = true
-	_border.visible = true
+	_box.visible = false
+	_border.visible = false
+	_scale_frame_sprite()
 	var shape := RectangleShape2D.new()
 	shape.size = _button_size
 	_collision.shape = shape
 	_collision.position = _button_size * 0.5
 
 func _refresh() -> void:
+	var state := "disabled" if not _enabled else ("hover" if _hovered else "normal")
+	_frame_sprite.texture = HUDAssetLibrary.button_texture(state)
+	_scale_frame_sprite()
 	_refresh_icon()
 	_box.color = COLOR_DISABLED if not _enabled else (COLOR_HOVER if _hovered else COLOR_NORMAL)
 	_border.default_color = COLOR_BORDER_HOVER if _hovered and _enabled else COLOR_BORDER
 	_border.width = 2.0 if _hovered and _enabled else 1.2
 	_label.modulate = COLOR_TEXT if _enabled else COLOR_MUTED
 	_label.text = _display_text()
+
+func _scale_frame_sprite() -> void:
+	var texture := _frame_sprite.texture
+	if texture == null:
+		return
+	_frame_sprite.scale = Vector2(
+		_button_size.x / maxf(1.0, float(texture.get_width())),
+		_button_size.y / maxf(1.0, float(texture.get_height()))
+	)
 
 func _refresh_icon() -> void:
 	var texture := _icon_texture_for_payload()
