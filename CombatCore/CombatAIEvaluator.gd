@@ -84,6 +84,7 @@ func _evaluate_tactics() -> int:
 		GameEnums.ActionType.RELOAD: _score_reload(),
 		GameEnums.ActionType.CYCLE: _score_cycle(),
 		GameEnums.ActionType.MOVE_FORWARD: _score_advance(),
+		GameEnums.ActionType.CHARGE: _score_charge(),
 		GameEnums.ActionType.MOVE_BACKWARD: _score_retreat(),
 		GameEnums.ActionType.DISENGAGE: _score_disengage(),
 		GameEnums.ActionType.GRAPPLE: _score_grapple(),
@@ -158,6 +159,9 @@ func _score_melee() -> float:
 
 func _score_ranged() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.SHOOT): return 0.0
+	# SHOOT is a NON_DUEL action and is rejected while Melee Locked; scoring it
+	# above zero here would let the AI burn its whole turn on a denied request.
+	if _is_self_locked(): return 0.0
 	var weapon = ai_core.inventory.get_active_weapon(false) # Ranged context
 	if weapon == null: return 0.0
 	
@@ -171,6 +175,7 @@ func _score_ranged() -> float:
 
 func _score_aimed_shot() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.AIMED_SHOT): return 0.0
+	if _is_self_locked(): return 0.0
 	var weapon = ai_core.inventory.get_active_weapon(false) # Ranged context
 	if weapon == null: return 0.0
 	
@@ -184,6 +189,7 @@ func _score_aimed_shot() -> float:
 
 func _score_reload() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.RELOAD): return 0.0
+	if _is_self_locked(): return 0.0
 	var weapon = ai_core.inventory.get_active_weapon(false) # Ranged context
 	if weapon != null and weapon.current_magazine <= 0 and _can_reload_weapon(weapon):
 		return 0.98
@@ -191,6 +197,7 @@ func _score_reload() -> float:
 
 func _score_cycle() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.CYCLE): return 0.0
+	if _is_self_locked(): return 0.0
 	var weapon = ai_core.inventory.get_active_weapon(false) # Ranged context
 	if weapon != null and _can_cycle_weapon(weapon):
 		return 1.0 if weapon.needs_cycling else 0.95
@@ -214,10 +221,48 @@ func _score_advance() -> float:
 		return 0.85
 	return 0.4
 
+func _score_charge() -> float:
+	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.CHARGE):
+		return 0.0
+	# CHARGE is NON_DUEL: it cannot start from inside a Melee Lock.
+	if _is_self_locked():
+		return 0.0
+	var my_idx = _get_lane_idx(ai_core)
+	var target_idx = _get_lane_idx(target_core)
+	if my_idx < 0 or target_idx < 0:
+		return 0.0
+	# Short gaps are handled by MOVE_FORWARD; CHARGE is for closing real ground.
+	var distance = abs(my_idx - target_idx)
+	if distance < 2:
+		return 0.0
+	var step = mini(2, distance)
+	var destination = my_idx + _direction_toward_target() * step
+	if not lane_manager.can_move_entity_to(ai_core, my_idx, destination):
+		return 0.0
+	# Charging into a Melee Lock only pays off with something to swing.
+	var weapon = ai_core.inventory.get_active_weapon(true) # Melee context
+	if weapon != null:
+		return 0.88
+	return 0.45
+
 func _score_retreat() -> float:
 	if ai_core.is_mindless_hive_thrall: return 0.0 
 	
 	var my_idx = _get_lane_idx(ai_core)
+	# THE ESCAPE HATCH: while standing on an Escape Zone tile, MOVE_BACKWARD
+	# commits to the hunker-down escape rather than stepping to a tile behind
+	# (there is none at the lane edge). Only a fleeing combatant should take it,
+	# otherwise the AID would accidentally surrender the fight.
+	if (
+		my_idx >= 0
+		and lane_manager.lane_slots[my_idx].object_name == "Escape Zone"
+		and not lane_manager.lane_slots[my_idx].is_melee_locked
+	):
+		if not ai_core.is_fleeing:
+			return 0.0
+		if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.MOVE_BACKWARD):
+			return 0.0
+		return 10.0
 	if my_idx >= 0 and lane_manager.lane_slots[my_idx].is_melee_locked:
 		if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.DISENGAGE): return 0.0
 		if not lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - _direction_toward_target(), true): return 0.0
@@ -258,6 +303,7 @@ func _score_grapple() -> float:
 
 func _score_take_cover() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.TAKE_COVER): return 0.0
+	if _is_self_locked(): return 0.0
 	var my_idx = _get_lane_idx(ai_core)
 	if my_idx < 0: return 0.0
 	var slot = lane_manager.lane_slots[my_idx]
@@ -307,6 +353,17 @@ func _execute_action(action: int) -> void:
 			if lane_manager.can_move_entity_to(ai_core, my_idx, my_idx + forward_dir) and turn_manager.request_action(ai_core, GameEnums.ActionType.MOVE_FORWARD):
 				if lane_manager.move_entity(ai_core, my_idx, my_idx + forward_dir):
 					resolution_engine.check_hazard_trip(ai_core, lane_manager.lane_slots[my_idx + forward_dir], false)
+
+		GameEnums.ActionType.CHARGE:
+			var my_idx = _get_lane_idx(ai_core)
+			var target_idx = _get_lane_idx(target_core)
+			var forward_dir = _direction_toward_target()
+			var step = mini(2, abs(target_idx - my_idx))
+			var destination = my_idx + forward_dir * step
+			# Validate the relocation before paying AP, mirroring the player path.
+			if lane_manager.can_move_entity_to(ai_core, my_idx, destination) and turn_manager.request_action(ai_core, GameEnums.ActionType.CHARGE):
+				if lane_manager.move_entity(ai_core, my_idx, destination, true):
+					resolution_engine.check_hazard_trip(ai_core, lane_manager.lane_slots[destination], true)
 
 		GameEnums.ActionType.MOVE_BACKWARD:
 			var my_idx = _get_lane_idx(ai_core)
@@ -392,9 +449,10 @@ func _on_displacement_choice_opened(initiator: HumanoidCore, displaced_entity: H
 		
 	# AI logic: if it has a melee weapon, it wants to FOLLOW to keep the lock.
 	# If it has a gun, it wants to STAY to break the lock.
+	# A fleeing combatant always STAYS so the shattered lock frees it to run.
 	var weapon = ai_core.inventory.get_active_weapon(true) # Check if we have melee
 	var chose_follow: bool = false
-	if weapon != null:
+	if weapon != null and not ai_core.is_fleeing:
 		chose_follow = true
 		
 	turn_manager.resolve_displacement_choice(ai_core, chose_follow)
@@ -403,6 +461,12 @@ func _get_lane_idx(entity: HumanoidCore) -> int:
 	for i in range(lane_manager.lane_slots.size()):
 		if lane_manager.lane_slots[i].occupants.has(entity): return i
 	return -1
+
+## True when the AI shares a Melee Locked slot, which forbids NON_DUEL actions
+## (shooting, reloading, cycling, charging, taking cover) until it DISENGAGEs.
+func _is_self_locked() -> bool:
+	var my_idx = _get_lane_idx(ai_core)
+	return my_idx >= 0 and lane_manager.lane_slots[my_idx].is_melee_locked
 
 func _direction_toward_target() -> int:
 	if target_core:
