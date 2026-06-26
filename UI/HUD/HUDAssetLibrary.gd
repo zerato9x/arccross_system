@@ -1,14 +1,18 @@
 extends RefCounted
 class_name HUDAssetLibrary
 
-const COLOR_TEXT := Color("#d6e6dc")
-const COLOR_MUTED := Color("#7e9691")
-const COLOR_NORMAL := Color("#48dedc")
-const COLOR_CAUTION := Color("#f4b540")
-const COLOR_CRITICAL := Color("#e63a46")
-const COLOR_ANOMALY := Color("#d94ad6")
-const COLOR_PANEL := Color("#04080a")
-const COLOR_PANEL_ALT := Color("#071215")
+const COLOR_TEXT := Color("#e2d6b8")
+const COLOR_MUTED := Color("#8b8572")
+const COLOR_NORMAL := Color("#c2aa78")
+const COLOR_CAUTION := Color("#d19a3d")
+const COLOR_CRITICAL := Color("#b94b3e")
+const COLOR_ANOMALY := Color("#8f6958")
+const COLOR_PANEL := Color("#0b0d0b")
+const COLOR_PANEL_ALT := Color("#151711")
+const COLOR_PANEL_WARM := Color("#201b13")
+const COLOR_BORDER := Color("#6f634d")
+const COLOR_BORDER_DARK := Color("#37372f")
+const COLOR_SLOT := Color("#11140f")
 
 const ROOT := "res://Asset/UI/HUD/"
 const PANEL_NEUTRAL := ROOT + "frames/panel_neutral_64.png"
@@ -20,8 +24,11 @@ const BUTTON_HOVER := ROOT + "frames/button_hover_64x24.png"
 const BUTTON_ACTIVE := ROOT + "frames/button_active_64x24.png"
 const BUTTON_DISABLED := ROOT + "frames/button_disabled_64x24.png"
 const BAR_FRAME := ROOT + "bars/bar_frame_96x12.png"
+const USE_HUD_TEXTURES := false
 
 static func texture(path: String) -> Texture2D:
+	if not USE_HUD_TEXTURES:
+		return null
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return null
 	return load(path) as Texture2D
@@ -41,36 +48,50 @@ static func menu_icon(name: String) -> Texture2D:
 	return status_icon(name)
 
 static func panel_style(kind: String = "neutral") -> StyleBox:
-	var path := PANEL_NEUTRAL
+	var background := COLOR_PANEL
+	var border := COLOR_BORDER
 	match kind:
 		"warning":
-			path = PANEL_WARNING
+			background = COLOR_PANEL_WARM
+			border = COLOR_CAUTION
 		"critical":
-			path = PANEL_CRITICAL
+			background = Color("#211512")
+			border = COLOR_CRITICAL
 		"anomaly":
-			path = PANEL_ANOMALY
-	return _texture_style(path, 8.0, 10.0)
+			background = Color("#1f1714")
+			border = COLOR_ANOMALY
+	return _pixel_panel_style(background, border, 1, 8.0, 0.94)
 
 static func button_style(state: String = "normal") -> StyleBox:
-	var path := BUTTON_IDLE
+	var background := Color("#171912")
+	var border := COLOR_BORDER_DARK
 	match state:
 		"hover":
-			path = BUTTON_HOVER
+			background = Color("#242317")
+			border = COLOR_CAUTION
 		"pressed":
-			path = BUTTON_ACTIVE
+			background = Color("#2a2114")
+			border = COLOR_CAUTION
 		"disabled":
-			path = BUTTON_DISABLED
-	return _texture_style(path, 6.0, 8.0)
+			background = Color("#0d0f0c")
+			border = Color("#2d2d27")
+	return _pixel_panel_style(background, border, 1, 7.0, 0.96)
 
 static func bar_background_style() -> StyleBox:
-	return _texture_style(BAR_FRAME, 3.0, 2.0)
+	return _pixel_panel_style(Color("#080908"), Color("#2f3029"), 1, 1.0, 0.96)
 
 static func bar_fill_style(kind: String = "health") -> StyleBox:
-	return _texture_style(
-		ROOT + "bars/bar_fill_%s_96x8.png" % kind,
-		1.0,
-		1.0
-	)
+	var fill := COLOR_NORMAL
+	match kind:
+		"blood", "critical":
+			fill = COLOR_CRITICAL
+		"warning", "ap":
+			fill = COLOR_CAUTION
+		"stance":
+			fill = Color("#c9c1a2")
+		"anomaly":
+			fill = COLOR_ANOMALY
+	return _pixel_panel_style(fill, fill.darkened(0.32), 0, 0.0, 1.0)
 
 static func apply_panel(panel: PanelContainer, kind: String = "neutral") -> void:
 	if panel == null:
@@ -89,6 +110,7 @@ static func apply_button(button: Button, icon_name: String = "") -> void:
 	button.add_theme_color_override("font_pressed_color", COLOR_CAUTION)
 	button.add_theme_color_override("font_disabled_color", COLOR_MUTED)
 	button.add_theme_font_size_override("font_size", 12)
+	button.add_theme_constant_override("outline_size", 0)
 	if not icon_name.is_empty():
 		button.icon = menu_icon(icon_name)
 		button.expand_icon = false
@@ -129,57 +151,60 @@ static func apply_label(label: Label, role: String = "body") -> void:
 			label.add_theme_color_override("font_color", COLOR_TEXT)
 			label.add_theme_font_size_override("font_size", 12)
 
-static func texture_panel_sprite(sprite: Sprite2D, kind: String, size: Vector2) -> void:
+static func texture_panel_sprite(sprite: Sprite2D, _kind: String, _size: Vector2) -> void:
 	if sprite == null:
 		return
-	var style_path := PANEL_NEUTRAL
+	sprite.texture = null
+	sprite.visible = false
+
+static func button_texture(_state: String) -> Texture2D:
+	return null
+
+static func pocket_slot_style(active: bool = false) -> StyleBox:
+	var background := Color("#171a14") if active else COLOR_SLOT
+	var border := COLOR_CAUTION if active else COLOR_BORDER_DARK
+	return _pixel_panel_style(background, border, 1, 3.0, 0.96)
+
+static func pocket_grid_texture() -> Texture2D:
+	return null
+
+static func pocket_panel_texture() -> Texture2D:
+	return null
+
+static func pixel_panel_color(kind: String = "neutral") -> Color:
 	match kind:
 		"warning":
-			style_path = PANEL_WARNING
+			return COLOR_PANEL_WARM
 		"critical":
-			style_path = PANEL_CRITICAL
+			return Color("#211512")
 		"anomaly":
-			style_path = PANEL_ANOMALY
-	var tex := texture(style_path)
-	sprite.texture = tex
-	sprite.centered = false
-	if tex:
-		sprite.scale = Vector2(
-			size.x / maxf(1.0, float(tex.get_width())),
-			size.y / maxf(1.0, float(tex.get_height()))
-		)
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			return Color("#1f1714")
+	return COLOR_PANEL
 
-static func button_texture(state: String) -> Texture2D:
-	match state:
-		"hover":
-			return texture(BUTTON_HOVER)
-		"pressed":
-			return texture(BUTTON_ACTIVE)
-		"disabled":
-			return texture(BUTTON_DISABLED)
-	return texture(BUTTON_IDLE)
+static func pixel_border_color(kind: String = "neutral") -> Color:
+	match kind:
+		"warning":
+			return COLOR_CAUTION
+		"critical":
+			return COLOR_CRITICAL
+		"anomaly":
+			return COLOR_ANOMALY
+	return COLOR_BORDER
 
-static func _texture_style(
-	path: String,
-	texture_margin: float,
-	content_margin: float
-) -> StyleBox:
-	var tex := texture(path)
-	if tex == null:
-		return _flat_fallback()
-	var style := StyleBoxTexture.new()
-	style.texture = tex
-	style.set_texture_margin_all(texture_margin)
-	style.set_content_margin_all(content_margin)
-	style.draw_center = true
-	return style
-
-static func _flat_fallback() -> StyleBoxFlat:
+static func _pixel_panel_style(
+	background: Color,
+	border: Color,
+	border_width: int,
+	content_margin: float,
+	alpha: float = 0.94
+) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(COLOR_PANEL, 0.94)
-	style.border_color = Color(COLOR_NORMAL, 0.65)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(3)
-	style.set_content_margin_all(8.0)
+	style.bg_color = Color(background, alpha)
+	style.border_color = border
+	style.set_border_width_all(border_width)
+	style.set_corner_radius_all(1)
+	style.content_margin_left = content_margin
+	style.content_margin_top = content_margin
+	style.content_margin_right = content_margin
+	style.content_margin_bottom = content_margin
 	return style

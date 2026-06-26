@@ -2,8 +2,8 @@ extends Node2D
 class_name CombatContextBoard
 
 const BOARD_SIZE := Vector2(430.0, 132.0)
-const COLOR_PANEL := Color(0.08, 0.09, 0.08, 0.88)
-const COLOR_BORDER := Color(0.49, 0.54, 0.48, 0.9)
+const COLOR_PANEL := Color(0.08, 0.085, 0.07, 0.88)
+const COLOR_BORDER := Color(0.67, 0.58, 0.43, 0.9)
 
 @onready var _panel_box: Polygon2D = %PanelBox
 @onready var _border: Line2D = %Border

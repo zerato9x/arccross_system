@@ -4,12 +4,11 @@ class_name CombatLaneHUD
 const ACTION_BUTTON_SCENE := preload(
 	"res://CombatCore/DuelUI/CombatActionButton.tscn"
 )
-const HUDAssetLibrary := preload("res://UI/HUD/HUDAssetLibrary.gd")
 const ACTION_PANEL_SIZE := Vector2(380.0, 286.0)
 const ACTION_BUTTON_SIZE := Vector2(176.0, 42.0)
 const ACTION_BUTTON_GAP := Vector2(10.0, 8.0)
-const COLOR_ACTION_PANEL := Color(0.08, 0.09, 0.08, 0.91)
-const COLOR_ACTION_BORDER := Color(0.54, 0.52, 0.42, 0.88)
+const COLOR_ACTION_PANEL := Color(0.07, 0.075, 0.06, 0.91)
+const COLOR_ACTION_BORDER := Color(0.73, 0.62, 0.45, 0.88)
 const BUTTON_MODE_ACTION := "action"
 const BUTTON_MODE_PASS := "pass"
 const BUTTON_MODE_REACTION := "reaction"
@@ -223,9 +222,9 @@ func _render() -> void:
 
 func _setup_action_panel() -> void:
 	_set_box(_action_panel_box, ACTION_PANEL_SIZE)
-	_action_panel_box.color = Color(COLOR_ACTION_PANEL, 0.0)
+	_action_panel_box.color = Color(COLOR_ACTION_PANEL, 0.96)
 	_set_outline(_action_panel_border, ACTION_PANEL_SIZE)
-	_action_panel_border.default_color = Color(COLOR_ACTION_BORDER, 0.0)
+	_action_panel_border.default_color = COLOR_ACTION_BORDER
 	_action_panel_border.width = 1.0
 	HUDAssetLibrary.texture_panel_sprite(
 		_action_panel_frame,
@@ -239,7 +238,7 @@ func _render_actions() -> void:
 	var has_snapshot := not _snapshot.is_empty()
 	_action_panel_box.visible = has_snapshot
 	_action_panel_border.visible = has_snapshot
-	_action_panel_frame.visible = has_snapshot
+	_action_panel_frame.visible = false
 	_action_title_label.visible = has_snapshot
 	_action_button_root.visible = has_snapshot
 	if not has_snapshot:
