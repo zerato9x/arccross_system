@@ -366,6 +366,7 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 		target_limb = GameEnums.LimbRegion.HEAD
 		grounded_bonus = 1.5
 		print("\n--- GROUNDED STRIKE ---")
+		print("[Combat] COMBO PAYOFF: grounded strike on FELLED ", defender.name, ".")
 		print(attacker.name, " strikes the helpless ", defender.name, " in the HEAD at 1.5\u00d7 damage!")
 	else:
 		target_limb = roll_melee_target()
@@ -435,6 +436,7 @@ func execute_grapple(
 		print("[GRAPPLE CHECK] Recovery Guard prevented the knockdown.")
 		return false
 	initiator.apply_stance_damage(3.0)
+	print("[Combat] COMBO SETUP: ", defender.name, " is FELLED — grounded-strike window is open for ", initiator.name, ".")
 	return true
 
 # ---------------------------------------------------------

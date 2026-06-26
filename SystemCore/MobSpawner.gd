@@ -164,9 +164,12 @@ func generate_mob(
 			def.archetype_name = "Craven Thrall"
 			def.faction = faction
 			def.agenda = GameEnums.Agenda.MINDLESS
-			def.brawn = _roll_attribute(9 + difficulty_bias, 3, rng) # Muscle mutation
+			# "Craven" = cowardly. These are malnourished, frail thralls — the
+			# weakest melee bruiser in the bestiary, not a damage sponge. Stats
+			# sit at/below the Drifter baseline (6) and the Scavenger (B5/T4).
+			def.brawn = _roll_attribute(5 + difficulty_bias, 3, rng) # Feral but underfed
 			def.finesse = _roll_attribute(3, 3, rng) # Clumsy, feral
-			def.fortitude = _roll_attribute(10 + difficulty_bias, 3, rng) # Hard to kill
+			def.fortitude = _roll_attribute(5 + difficulty_bias, 3, rng) # Frail, easy to put down
 			def.will = 1 # No willpower, pure instinct
 			def.red_mist_resistance = 0.0
 			def.loadout = _generate_craven_loadout()
@@ -182,6 +185,13 @@ func generate_mob(
 			def.loadout = _generate_scavenger_loadout(rng)
 	
 	print("[MOB SPAWNER] Generated: ", def.archetype_name, " | B:", def.brawn, " F:", def.finesse, " T:", def.fortitude, " W:", def.will)
+	print(
+		"[Stats] Rolled ", def.archetype_name,
+		" (", GameEnums.Faction.keys()[def.faction], ", bias ", difficulty_bias, ")",
+		" -> BRAWN ", def.brawn, " FINESSE ", def.finesse,
+		" FORT ", def.fortitude, " WILL ", def.will,
+		" | agenda ", GameEnums.Agenda.keys()[def.agenda]
+	)
 	return def
 
 ## Generate a neutral persistent record. WorldCore never needs the biological

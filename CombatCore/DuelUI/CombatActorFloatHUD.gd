@@ -88,10 +88,14 @@ func set_actor(
 		if is_left_side
 		else -PANEL_SIZE.x * 0.76
 	) * inverse_zoom
-	var target := anchor_global + Vector2(
-		x_offset,
-		(-height - 46.0) * inverse_zoom
+	# Player panel floats above the lane, enemy panel drops below it so the two
+	# readouts never overlap on the same row.
+	var y_offset := (
+		46.0 * inverse_zoom
+		if _side == SIDE_ENEMY
+		else (-height - 46.0) * inverse_zoom
 	)
+	var target := anchor_global + Vector2(x_offset, y_offset)
 	var margin := 18.0 * inverse_zoom
 	target.x = clampf(
 		target.x,
@@ -269,10 +273,14 @@ func _set_expanded(value: bool) -> void:
 		)
 
 func _refresh_pointer() -> void:
-	var bottom_center := Vector2(PANEL_SIZE.x * 0.5, PANEL_SIZE.y - 2.0)
-	_pointer.points = PackedVector2Array([bottom_center, _target_local])
+	var panel_anchor := (
+		Vector2(PANEL_SIZE.x * 0.5, 2.0)
+		if _side == SIDE_ENEMY
+		else Vector2(PANEL_SIZE.x * 0.5, PANEL_SIZE.y - 2.0)
+	)
+	_pointer.points = PackedVector2Array([panel_anchor, _target_local])
 	_pointer.default_color = Color(COLOR_BORDER, 0.7)
-	var direction := (_target_local - bottom_center).normalized()
+	var direction := (_target_local - panel_anchor).normalized()
 	if direction.length_squared() <= 0.0:
 		direction = Vector2.DOWN
 	var base := _target_local - direction * 16.0

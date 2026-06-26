@@ -153,9 +153,18 @@ func _score_melee() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.STRIKE): return 0.0
 	var my_idx = _get_lane_idx(ai_core)
 	var target_idx = _get_lane_idx(target_core)
-	if my_idx == target_idx:
-		return 0.80
-	return 0.0
+	if my_idx != target_idx:
+		return 0.0
+	# COMBO PAYOFF: an off-balance foe cannot meaningfully react, and a FELLED
+	# foe eats a guaranteed 1.5x grounded head strike. Prioritize cashing in the
+	# knockdown we (or a hazard) just set up instead of re-grappling thin air.
+	if target_core.current_stance == GameEnums.StanceState.FELLED:
+		print("[Combat] ", ai_core.name, " sets up GROUNDED STRIKE combo on FELLED ", target_core.name, ".")
+		return 1.6
+	if target_core.current_stance == GameEnums.StanceState.STUMBLING:
+		print("[Combat] ", ai_core.name, " presses advantage on STUMBLING ", target_core.name, ".")
+		return 1.0
+	return 0.80
 
 func _score_ranged() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.SHOOT): return 0.0
@@ -319,6 +328,15 @@ func _score_take_cover() -> float:
 # ---------------------------------------------------------
 
 func _execute_action(action: int) -> void:
+	var action_label := (
+		GameEnums.ActionType.keys()[action]
+		if action >= 0 and action < GameEnums.ActionType.keys().size()
+		else "PASS"
+	)
+	print(
+		"[Combat] ", ai_core.name, " executes ", action_label,
+		" (AP left ", turn_manager.current_ap_pool, ")."
+	)
 	match action:
 		GameEnums.ActionType.GET_UP:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.GET_UP):

@@ -77,6 +77,7 @@ func _initialize_metaphysics() -> void:
 	if definition.faction == GameEnums.Faction.CRAVEN_HIVE or definition.agenda == GameEnums.Agenda.MINDLESS:
 		is_mindless_hive_thrall = true
 		red_mist_corruption = GameEnums.SCALE_MAX
+		print("[Stats] ", name, " flagged MINDLESS HIVE THRALL (no flight response, ignores THREAT).")
 
 func _derive_physical_reality() -> void:
 	# 1. Fortitude dictates structural integrity (Base 12)
@@ -92,6 +93,14 @@ func _derive_physical_reality() -> void:
 	# 4. Time is a constant. AP is heavily punished later by condition.
 	base_ap = 12 
 	_calculate_kinetic_burden()
+
+	print(
+		"[Stats] ", name, " (", definition.archetype_name, ") derived -> ",
+		"BRAWN ", definition.brawn, " FINESSE ", definition.finesse,
+		" FORT ", definition.fortitude, " WILL ", definition.will,
+		" | morale ", current_morale, " | tactic ",
+		GameEnums.CombatTactic.keys()[definition.combat_tactic]
+	)
 
 # ---------------------------------------------------------
 # THE HIDDEN COMBAT MECHANICS (Base-12 Getters)

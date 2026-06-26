@@ -25,9 +25,23 @@ signal load_requested
 @export_range(1, 8) var max_visible_npc_tokens: int = 3
 @export_range(0, 8) var max_new_encounters_per_refresh: int = 1
 
+@export_group("Fog Of War")
+## Hexes within this radius of the player are currently "visible" (in sight).
+## Visited hexes stay "explored" forever; everything else is unseen fog.
+@export_range(1, 8) var vision_radius: int = 2
+## When true, encounters only seed in explored territory that is NOT currently
+## visible, so hostiles can never pop into existence inside the player's sight.
+@export var fog_gated_spawning: bool = true
+## Emit verbose [MacroMap] traces for the spawn/despawn/movement pipeline.
+@export var debug_macro_logging: bool = true
+
 @export_group("NPC Evaluation")
 @export_range(1, 12) var npc_evaluation_radius: int = 7
 @export_range(1, 12) var npc_pursuit_radius: int = 5
+## Craven Hive thralls are cowardly: they only commit to a chase when prey is
+## almost on top of them and break off quickly. This is a much shorter aggro
+## leash than the relentless default pursuit radius.
+@export_range(1, 12) var craven_pursuit_radius: int = 2
 @export_range(0.0, 1.0) var npc_wander_chance: float = 0.35
 
 const NPC_PURPOSE_SCAVENGE := "scavenge"
@@ -36,6 +50,7 @@ const NPC_PURPOSE_HUNT := "hunt"
 const NPC_PURPOSE_ROAM := "roam"
 
 var active_enemies: Dictionary = {} # Stores Vector2i -> MacroEnemy projections
+var _visible_hexes: Dictionary = {} # Vector2i -> true for the current line of sight
 var _world_state: RuntimeStateStore
 var _loot_catalog: Node
 var _pending_interaction: Dictionary = {}
@@ -101,8 +116,10 @@ func _initialize_demo() -> void:
 	player_token.snap_to_hex(start_coords, start_pixel_pos)
 	_world_state.set_player_record(player_token.capture_runtime_record(), start_coords)
 	_mark_hex_explored(start_coords)
+	_update_fog_of_war(start_coords)
 	_select_hex_for_hud(start_coords)
 	map_visualizer.render_radius(start_coords, 3)
+	_macro_log("Demo world initialized at %s." % str(start_coords))
 	refresh_proximity(start_coords)
 
 func _initialize_loaded_world() -> void:
@@ -119,8 +136,10 @@ func _initialize_loaded_world() -> void:
 		map_visualizer.map_to_local(loaded_coords)
 	)
 	_mark_hex_explored(loaded_coords)
+	_update_fog_of_war(loaded_coords)
 	_select_hex_for_hud(loaded_coords)
 	map_visualizer.render_radius(loaded_coords, 3)
+	_macro_log("Loaded world initialized at %s." % str(loaded_coords))
 	refresh_proximity(loaded_coords)
 
 func synchronize_runtime_state() -> void:
@@ -157,6 +176,10 @@ func spawn_procedural_enemy(coords: Vector2i, faction: GameEnums.Faction, diffic
 	)
 	_initialize_npc_runtime(record)
 	_world_state.register_entity(record)
+	_macro_log(
+		"Procedural enemy %s (%s) requested @%s."
+		% [record.entity_id, GameEnums.Faction.keys()[faction], str(coords)]
+	)
 	_spawn_enemy_token_from_record(record)
 
 ## Legacy: spawn from a pre-built definition .tres (still works).
@@ -223,6 +246,8 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 		target_coords
 	)
 	map_visualizer.render_radius(target_coords, 3)
+	_macro_log("Player stepped to %s." % str(target_coords))
+	_update_fog_of_war(target_coords)
 	refresh_proximity(target_coords)
 
 	var hex_data := world_generator.get_hex_at(target_coords)
@@ -320,6 +345,38 @@ func _mark_hex_explored(
 		return
 	target_hex.is_explored = true
 	_world_state.set_hex_record(coords, target_hex.to_state())
+
+# ---------------------------------------------------------
+# FOG OF WAR
+# ---------------------------------------------------------
+
+## Tagged, filterable trace for the spawn/despawn/movement pipeline.
+func _macro_log(message: String) -> void:
+	if debug_macro_logging:
+		print("[MacroMap] ", message)
+
+## Recompute the player's line of sight around a center and reveal it.
+## "Visible" = currently in sight this turn. "Explored" = seen at least once.
+func _update_fog_of_war(center_coords: Vector2i) -> void:
+	_visible_hexes.clear()
+	var newly_revealed := 0
+	for coords in _coords_in_radius(center_coords, vision_radius):
+		_visible_hexes[coords] = true
+		var hex_data := world_generator.get_hex_at(coords)
+		if not hex_data.is_explored:
+			hex_data.is_explored = true
+			_world_state.set_hex_record(coords, hex_data.to_state())
+			newly_revealed += 1
+	_macro_log(
+		"Fog update @%s: %d visible hex(es), %d newly explored."
+		% [str(center_coords), _visible_hexes.size(), newly_revealed]
+	)
+
+func _is_hex_visible(coords: Vector2i) -> bool:
+	return _visible_hexes.has(coords)
+
+func _is_hex_explored(coords: Vector2i) -> bool:
+	return world_generator.get_hex_at(coords).is_explored
 
 func _advance_survival_time(
 	elapsed_minutes: int,
@@ -1601,6 +1658,7 @@ func unload_enemy_token(coords: Vector2i) -> void:
 		return
 	var enemy: MacroEnemy = active_enemies[coords]
 	active_enemies.erase(coords)
+	_macro_log("Despawned token %s @%s." % [enemy.entity_id, str(coords)])
 	enemy.queue_free()
 
 func load_enemy_token(entity_id: String) -> MacroEnemy:
@@ -1616,14 +1674,22 @@ func add_ground_item_states(coords: Vector2i, item_states: Array) -> void:
 	_world_state.add_ground_items(coords, item_states)
 
 func refresh_proximity(center_coords: Vector2i) -> void:
+	var tokens_before := active_enemies.size()
 	_ensure_encounter_records(center_coords)
 
+	# Hysteresis: tokens are projected within active_radius but only torn down
+	# once they drift past the larger unload_radius. Using a single radius for
+	# both made tokens thrash (despawn/respawn) whenever the player stepped back
+	# and forth across the boundary.
 	for coords in active_enemies.keys().duplicate():
 		var token: MacroEnemy = active_enemies[coords]
-		if (
-			_hex_distance(center_coords, coords) > active_radius
-			or not _world_state.is_entity_alive(token.entity_id)
-		):
+		var distance := _hex_distance(center_coords, coords)
+		var alive := _world_state.is_entity_alive(token.entity_id)
+		if distance > unload_radius or not alive:
+			_macro_log(
+				"Unload token %s @%s (dist %d, alive %s)."
+				% [token.entity_id, str(coords), distance, str(alive)]
+			)
 			unload_enemy_token(coords)
 
 	_trim_visible_npc_tokens(center_coords)
@@ -1634,6 +1700,16 @@ func refresh_proximity(center_coords: Vector2i) -> void:
 		_spawn_enemy_token_from_record(record)
 
 	_trim_visible_npc_tokens(center_coords)
+	if active_enemies.size() != tokens_before:
+		_macro_log(
+			"Proximity @%s: tokens %d -> %d (cap %d)."
+			% [
+				str(center_coords),
+				tokens_before,
+				active_enemies.size(),
+				max_visible_npc_tokens,
+			]
+		)
 
 func _projection_candidates(center_coords: Vector2i) -> Array:
 	var candidates: Array = []
@@ -1719,6 +1795,14 @@ func _advance_npc_macro_turn(allow_during_interaction: bool = false) -> bool:
 	var player_coords := player_token.current_hex_coords
 	var moved_count := 0
 	var collision_enemy_id := ""
+	_macro_log(
+		"NPC macro turn %d begins (player @%s, %d total records)."
+		% [
+			_macro_turn_index,
+			str(player_coords),
+			_world_state.get_all_entity_records().size(),
+		]
+	)
 	var records := _world_state.get_all_entity_records()
 	records.sort_custom(func(a: EntityRecord, b: EntityRecord) -> bool:
 		return _hex_distance(player_coords, a.coords) < _hex_distance(player_coords, b.coords)
@@ -1752,6 +1836,7 @@ func _advance_npc_macro_turn(allow_during_interaction: bool = false) -> bool:
 	refresh_proximity(player_coords)
 	if not collision_enemy_id.is_empty():
 		_last_macro_event = "A hostile closes on your hex."
+		_macro_log("NPC macro turn %d ended in a collision." % _macro_turn_index)
 		_begin_entity_collision(collision_enemy_id, player_coords)
 		return true
 	elif moved_count > 0:
@@ -1761,6 +1846,13 @@ func _advance_npc_macro_turn(allow_during_interaction: bool = false) -> bool:
 		]
 	else:
 		_last_macro_event = "NPC turn %d: no nearby token committed." % _macro_turn_index
+	_macro_log(
+		"NPC macro turn %d ended: %d moved." % [_macro_turn_index, moved_count]
+	)
+	# Keep the macro-activity HUD in sync with the post-turn world so observers
+	# (and the exploration smoke test) always see current hostile counts even
+	# when the turn is advanced outside the normal player-step wrapper.
+	_refresh_world_hud()
 	return false
 
 func _evaluate_npc_step(
@@ -1820,16 +1912,43 @@ func _evaluate_hunt_step(
 	rng: RandomNumberGenerator
 ) -> Vector2i:
 	if record.world_status == GameEnums.EntityWorldStatus.HOSTILE:
+		var pursuit_radius := _pursuit_radius_for(record)
+		var label := _record_aggro_label(record)
 		if distance_to_player == 1:
+			print("[Aggro] ", label, " lunges at adjacent prey.")
 			if _npc_can_enter(record, player_coords, player_coords):
 				return player_coords
 			return record.coords
-		if distance_to_player <= npc_pursuit_radius:
+		if distance_to_player <= pursuit_radius:
+			print(
+				"[Aggro] ", label, " pursues (dist ", distance_to_player,
+				" <= leash ", pursuit_radius, ")."
+			)
 			return _best_npc_neighbor(record, player_coords, true)
+		# Outside the aggro leash: relentless hunters loiter, but cowards lose
+		# their nerve entirely and drift away from the player.
+		print(
+			"[Aggro] ", label, " breaks off (dist ", distance_to_player,
+			" > leash ", pursuit_radius, ")."
+		)
 		if rng.randf() <= npc_wander_chance:
 			return _wander_npc_neighbor(record, rng)
 		return record.coords
 	return record.coords
+
+## Aggro leash (pursuit radius) for this record. Craven Hive thralls use a much
+## shorter, cowardly leash; everyone else uses the relentless default.
+func _pursuit_radius_for(record: EntityRecord) -> int:
+	var faction: GameEnums.Faction = record.definition.get(
+		"faction",
+		GameEnums.Faction.UNALIGNED
+	)
+	if faction == GameEnums.Faction.CRAVEN_HIVE:
+		return clampi(craven_pursuit_radius, 1, npc_pursuit_radius)
+	return npc_pursuit_radius
+
+func _record_aggro_label(record: EntityRecord) -> String:
+	return str(record.definition.get("archetype_name", "NPC")) + " " + str(record.entity_id)
 
 func _evaluate_targeted_purpose_step(
 	record: EntityRecord,
@@ -2024,8 +2143,17 @@ func _move_npc_record(
 	var token: MacroEnemy = active_enemies.get(old_coords, null)
 	if token != null:
 		active_enemies.erase(old_coords)
+		# Defensive: if some stale token already occupies the destination key,
+		# discard it before relocating so we never strand or double-count tokens.
+		if active_enemies.has(target_coords) and active_enemies[target_coords] != token:
+			unload_enemy_token(target_coords)
 		active_enemies[target_coords] = token
 		token.walk_to_hex(target_coords, map_visualizer.map_to_local(target_coords))
+		_apply_fog_tint(token, target_coords)
+		_macro_log(
+			"Token %s moved %s -> %s."
+			% [record.entity_id, str(old_coords), str(target_coords)]
+		)
 	return true
 
 func _ensure_encounter_records(center_coords: Vector2i) -> void:
@@ -2038,6 +2166,15 @@ func _ensure_encounter_records(center_coords: Vector2i) -> void:
 			return
 		var hex_data := world_generator.get_hex_at(coords)
 		if hex_data.encounter_evaluated:
+			continue
+
+		# Fog-of-war gate: encounters are never rolled inside the player's current
+		# line of sight, so a hostile can never pop into existence on-screen or on
+		# top of the player. They still seed deterministically in the surrounding
+		# fog (the ring between vision_radius and generation_radius) and walk into
+		# view. Visible hexes are intentionally left UN-evaluated so they get a
+		# fair roll later, once the player has moved on and they fall out of sight.
+		if fog_gated_spawning and _is_hex_visible(coords):
 			continue
 
 		hex_data.encounter_evaluated = true
@@ -2067,6 +2204,15 @@ func _ensure_encounter_records(center_coords: Vector2i) -> void:
 			var entity_id := _world_state.register_entity(record)
 			hex_data.encounter_entity_id = entity_id
 			new_encounter_count += 1
+			_macro_log(
+				"Seeded encounter %s (%s) @%s [chance %.3f, out-of-sight fog]."
+				% [
+					entity_id,
+					GameEnums.Faction.keys()[faction],
+					str(coords),
+					spawn_chance,
+				]
+			)
 
 		_world_state.set_hex_record(coords, hex_data.to_state())
 
@@ -2136,19 +2282,45 @@ func _spawn_enemy_token_from_record(record: EntityRecord) -> MacroEnemy:
 
 	var coords: Vector2i = record.coords
 	if active_enemies.has(coords):
-		return active_enemies[coords]
+		var existing := active_enemies[coords] as MacroEnemy
+		# Same entity already projected here: reuse it. A DIFFERENT entity sharing
+		# the coord means the index desynced (e.g. a record relocated without its
+		# token); tear the stale token down so we never render the wrong identity.
+		if existing != null and existing.entity_id == entity_id:
+			_apply_fog_tint(existing, coords)
+			return existing
+		_macro_log(
+			"Replacing stale token at %s (%s -> %s)."
+			% [
+				str(coords),
+				str(existing.entity_id) if existing != null else "<null>",
+				entity_id,
+			]
+		)
+		unload_enemy_token(coords)
 
 	var enemy := enemy_token_scene.instantiate() as MacroEnemy
 	add_child(enemy)
 	enemy.setup_from_record(record.to_dict())
 	enemy.snap_to_hex(coords, map_visualizer.map_to_local(coords))
 	active_enemies[coords] = enemy
+	_apply_fog_tint(enemy, coords)
 
 	var definition_state: Dictionary = record.definition
-	print(
-		"[MACRO] Spawned ",
-		definition_state.get("archetype_name", "Unknown"),
-		" at hex ",
-		coords
+	_macro_log(
+		"Spawned token %s (%s) at hex %s."
+		% [
+			entity_id,
+			str(definition_state.get("archetype_name", "Unknown")),
+			str(coords),
+		]
 	)
 	return enemy
+
+## Dim tokens that sit in explored-but-currently-unseen hexes so the fog-of-war
+## state reads visually: enemies inside the player's sight are fully lit, those
+## lurking just out of view are shadowed.
+func _apply_fog_tint(enemy: MacroEnemy, coords: Vector2i) -> void:
+	if enemy == null:
+		return
+	enemy.modulate.a = 1.0 if _is_hex_visible(coords) else 0.45
