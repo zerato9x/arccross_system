@@ -664,13 +664,19 @@ func check_hazard_trip(entity: HumanoidCore, tile_slot: CombatLaneSlot, is_charg
 	if tile_slot.background != CombatRules.TileBackground.MUD:
 		return false
 	
-	var slip_base: float = 0.15 # 15% base slip chance on MUD
+	var slip_base: float = CombatRules.MUD_MOVE_TRIP_CHANCE
 	if is_charge:
-		slip_base = 0.30 # 30% — The Momentum Risk for CHARGE
-	
+		slip_base = CombatRules.MUD_CHARGE_TRIP_CHANCE
+
 	# Finesse helps keep your footing
-	var finesse_bonus: float = float(entity.definition.finesse) * 0.02
-	var final_slip_chance: float = max(0.05, slip_base - finesse_bonus)
+	var finesse_bonus: float = (
+		float(entity.definition.finesse)
+		* CombatRules.MUD_MOVE_FINESSE_REDUCTION
+	)
+	var final_slip_chance: float = max(
+		CombatRules.MUD_MIN_TRIP_CHANCE,
+		slip_base - finesse_bonus
+	)
 	
 	var roll: float = randf()
 	
@@ -689,9 +695,15 @@ func check_dodge_hazard(entity: HumanoidCore, tile_slot: CombatLaneSlot) -> bool
 	if tile_slot.background != CombatRules.TileBackground.MUD:
 		return false
 	
-	var trip_chance: float = 0.20 # 20% chance of tripping while dodging in mud
-	var finesse_bonus: float = float(entity.definition.finesse) * 0.015
-	var final_chance: float = max(0.05, trip_chance - finesse_bonus)
+	var trip_chance: float = CombatRules.MUD_DODGE_TRIP_CHANCE
+	var finesse_bonus: float = (
+		float(entity.definition.finesse)
+		* CombatRules.MUD_DODGE_FINESSE_REDUCTION
+	)
+	var final_chance: float = max(
+		CombatRules.MUD_MIN_TRIP_CHANCE,
+		trip_chance - finesse_bonus
+	)
 	
 	if randf() < final_chance:
 		print("[DODGE HAZARD] ", entity.name, " slipped while dodging in the mud!")

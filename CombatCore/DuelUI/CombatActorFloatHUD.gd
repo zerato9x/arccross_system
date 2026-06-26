@@ -29,6 +29,9 @@ var _anchor_global := Vector2.ZERO
 var _viewport_origin := Vector2.ZERO
 var _viewport_size := Vector2(1280.0, 720.0)
 var _camera_zoom := 1.0
+var _fixed_layout := false
+var _fixed_position := Vector2.ZERO
+var _fixed_scale := 1.0
 
 @onready var _panel_box: Polygon2D = %PanelBox
 @onready var _border: Line2D = %Border
@@ -71,10 +74,13 @@ func set_actor(
 	_viewport_origin = viewport_origin
 	_viewport_size = viewport_size
 	_camera_zoom = maxf(0.01, camera_zoom)
+	_fixed_layout = false
 	visible = not _actor_data.is_empty()
 	if not visible:
 		return
 
+	_pointer.visible = true
+	_pointer_triangle.visible = true
 	_refresh_content()
 	var height := PANEL_SIZE.y + (DETAIL_SIZE.y if _expanded else 0.0)
 	var inverse_zoom := 1.0 / _camera_zoom
@@ -122,6 +128,27 @@ func set_actor(
 	global_position = target
 	_target_local = to_local(anchor_global)
 	_refresh_pointer()
+
+func set_fixed_actor(
+	actor_data: Dictionary,
+	side: String,
+	panel_position: Vector2,
+	panel_scale: float = 1.0
+) -> void:
+	_actor_data = actor_data.duplicate(true)
+	_side = side
+	_fixed_layout = true
+	_fixed_position = panel_position
+	_fixed_scale = maxf(0.01, panel_scale)
+	visible = not _actor_data.is_empty()
+	if not visible:
+		return
+
+	_pointer.visible = false
+	_pointer_triangle.visible = false
+	_refresh_content()
+	scale = Vector2.ONE * _fixed_scale
+	global_position = _fixed_position
 
 func set_targeted_limb(limb: int) -> void:
 	_targeted_limb = limb
@@ -263,14 +290,22 @@ func _set_expanded(value: bool) -> void:
 	_detail_box.visible = _expanded
 	_detail_label.visible = _expanded
 	if visible:
-		set_actor(
-			_actor_data,
-			_side,
-			_anchor_global,
-			_viewport_size,
-			_viewport_origin,
-			_camera_zoom
-		)
+		if _fixed_layout:
+			set_fixed_actor(
+				_actor_data,
+				_side,
+				_fixed_position,
+				_fixed_scale
+			)
+		else:
+			set_actor(
+				_actor_data,
+				_side,
+				_anchor_global,
+				_viewport_size,
+				_viewport_origin,
+				_camera_zoom
+			)
 
 func _refresh_pointer() -> void:
 	var panel_anchor := (

@@ -17,6 +17,66 @@ unique_name_in_owner = true
 position = Vector2(640, 360)
 enabled = true
 
+[node name="DuelLayoutShell" type="Node2D" parent="."]
+unique_name_in_owner = true
+z_index = 25
+
+[node name="PlayerTopPanelBox" type="Polygon2D" parent="DuelLayoutShell"]
+unique_name_in_owner = true
+
+[node name="PlayerTopPanelBorder" type="Line2D" parent="DuelLayoutShell"]
+unique_name_in_owner = true
+z_index = 1
+
+[node name="EnemyTopPanelBox" type="Polygon2D" parent="DuelLayoutShell"]
+unique_name_in_owner = true
+
+[node name="EnemyTopPanelBorder" type="Line2D" parent="DuelLayoutShell"]
+unique_name_in_owner = true
+z_index = 1
+
+[node name="PlayerBottomPanelBox" type="Polygon2D" parent="DuelLayoutShell"]
+unique_name_in_owner = true
+
+[node name="PlayerBottomPanelBorder" type="Line2D" parent="DuelLayoutShell"]
+unique_name_in_owner = true
+z_index = 1
+
+[node name="EnemyBottomPanelBox" type="Polygon2D" parent="DuelLayoutShell"]
+unique_name_in_owner = true
+
+[node name="EnemyBottomPanelBorder" type="Line2D" parent="DuelLayoutShell"]
+unique_name_in_owner = true
+z_index = 1
+
+[node name="PlayerPortraitPlate" type="Polygon2D" parent="DuelLayoutShell"]
+unique_name_in_owner = true
+z_index = 2
+
+[node name="PlayerPortraitBorder" type="Line2D" parent="DuelLayoutShell"]
+unique_name_in_owner = true
+z_index = 3
+
+[node name="EnemyPortraitPlate" type="Polygon2D" parent="DuelLayoutShell"]
+unique_name_in_owner = true
+z_index = 2
+
+[node name="EnemyPortraitBorder" type="Line2D" parent="DuelLayoutShell"]
+unique_name_in_owner = true
+z_index = 3
+
+[node name="PlayerCommandRail" type="Node2D" parent="DuelLayoutShell"]
+unique_name_in_owner = true
+z_index = 2
+
+[node name="EnemyStatusRail" type="Node2D" parent="DuelLayoutShell"]
+unique_name_in_owner = true
+z_index = 2
+
+[node name="PortraitRoot" type="Node2D" parent="."]
+unique_name_in_owner = true
+z_index = 37
+
 [node name="CombatContextBoard" parent="." instance=ExtResource("3_context")]
 unique_name_in_owner = true
 z_index = 35

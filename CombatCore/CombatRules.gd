@@ -10,6 +10,12 @@ const EXECUTE_ENABLED: bool = false
 const FELLED_RECOVERY_POINTS: int = 6
 const STUMBLING_TURN_RECOVERY: int = 2
 const TAKE_COVER_STANCE_RECOVERY: int = 2
+const MUD_MOVE_TRIP_CHANCE: float = 0.15
+const MUD_CHARGE_TRIP_CHANCE: float = 0.30
+const MUD_DODGE_TRIP_CHANCE: float = 0.20
+const MUD_MIN_TRIP_CHANCE: float = 0.05
+const MUD_MOVE_FINESSE_REDUCTION: float = 0.02
+const MUD_DODGE_FINESSE_REDUCTION: float = 0.015
 
 ## Mathematical categorization of action costs. Scales through KineticTier.
 enum ActionCategory {

@@ -1,7 +1,7 @@
 extends Node2D
 class_name CombatGridHoverCard
 
-const CARD_SIZE := Vector2(340.0, 180.0)
+const CARD_SIZE := Vector2(380.0, 226.0)
 const COLOR_PANEL := Color(0.08, 0.075, 0.06, 0.95)
 const COLOR_BORDER := Color(0.72, 0.62, 0.45, 0.95)
 
@@ -47,17 +47,25 @@ func hide_card() -> void:
 	visible = false
 
 func _terrain_text(slot_data: Dictionary) -> String:
-	var floor := str(slot_data.get("background", "NONE"))
-	var object := str(slot_data.get("cover", "NONE"))
+	var floor := str(slot_data.get("background_label", slot_data.get("background", "NONE")))
+	var surface := str(slot_data.get("surface_label", "GRASS"))
+	var object := str(slot_data.get("object_name", slot_data.get("cover", "NONE")))
 	var durability := float(slot_data.get("cover_durability", 0.0))
 	var spawnable := "SPAWN OK" if slot_data.get("is_spawnable", true) else "NO SPAWN"
 	var escape := " EXIT" if slot_data.get("is_escape", false) else ""
-	return "FLOOR %s | OBJECT %s %.1f | %s%s" % [
+	var modifiers := PackedStringArray()
+	for raw_modifier in slot_data.get("terrain_modifiers", []):
+		modifiers.append(str(raw_modifier))
+	if modifiers.is_empty():
+		modifiers.append("No terrain modifier")
+	return ("FLOOR %s / %s | OBJECT %s %.0f | %s%s\nMOD %s") % [
 		floor,
+		surface,
 		object,
 		durability,
 		spawnable,
 		escape,
+		"; ".join(modifiers),
 	]
 
 func _occupants_text(slot_data: Dictionary) -> String:
@@ -81,9 +89,14 @@ func _actions_text(
 	snapshot: Dictionary
 ) -> String:
 	var relevant := _relevant_actions(slot_data, actions, snapshot)
-	if relevant.is_empty():
+	var interactions := PackedStringArray()
+	for raw_interaction in slot_data.get("object_interactions", []):
+		interactions.append(str(raw_interaction))
+	if relevant.is_empty() and interactions.is_empty():
 		return "ACTIONS\n- No legal player action from here."
 	var rows := PackedStringArray(["ACTIONS"])
+	for interaction in interactions:
+		rows.append("- CTX " + interaction)
 	for descriptor in relevant:
 		rows.append("- %s  AP %02d" % [
 			str(descriptor.get("label", "ACTION")),

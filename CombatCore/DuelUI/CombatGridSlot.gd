@@ -4,20 +4,25 @@ class_name CombatGridSlot
 signal hovered(slot_index: int)
 signal unhovered(slot_index: int)
 
-const COLOR_EMPTY := Color(0.23, 0.24, 0.23, 0.78)
-const COLOR_PLAYER := Color(0.36, 0.42, 0.39, 0.92)
-const COLOR_ENEMY := Color(0.43, 0.35, 0.35, 0.92)
-const COLOR_LOCK := Color(0.47, 0.43, 0.31, 0.98)
+const COLOR_EMPTY := Color(0.12, 0.13, 0.11, 0.16)
+const COLOR_PLAYER := Color(0.30, 0.44, 0.38, 0.30)
+const COLOR_ENEMY := Color(0.48, 0.26, 0.24, 0.30)
+const COLOR_LOCK := Color(0.62, 0.45, 0.20, 0.38)
 const COLOR_BORDER := Color(0.66, 0.66, 0.61, 0.9)
 const COLOR_HOVER := Color(0.84, 0.72, 0.48, 0.95)
+const COLOR_OBJECT_FALLBACK := Color(0.12, 0.105, 0.085, 0.82)
 
 @export var slot_index := 0
 @export var slot_size := Vector2(132.0, 88.0)
 
 var _slot_data: Dictionary = {}
 var _hovered := false
+var _texture_cache: Dictionary = {}
 
+@onready var _ground_sprite: Sprite2D = %GroundSprite
+@onready var _surface_sprite: Sprite2D = %SurfaceSprite
 @onready var _floor_box: Polygon2D = %FloorBox
+@onready var _object_sprite: Sprite2D = %ObjectSprite
 @onready var _border: Line2D = %Border
 @onready var _object_box: Polygon2D = %ObjectBox
 @onready var _hover_area: Area2D = %HoverArea
@@ -49,10 +54,13 @@ func set_highlighted(value: bool) -> void:
 	_refresh()
 
 func get_actor_anchor(side: String, shared_lane: bool = false) -> Vector2:
-	var offset := 0.0
+	var offset := maxf(10.0, slot_size.x * 0.12)
+	if side == "player":
+		offset *= -1.0
 	if shared_lane:
-		offset = -18.0 if side == "player" else 18.0
-	return global_position + Vector2(offset, -12.0)
+		var shared_offset := maxf(32.0, slot_size.x * 0.30)
+		offset = -shared_offset if side == "player" else shared_offset
+	return global_position + Vector2(offset, -maxf(34.0, slot_size.y * 0.48))
 
 func _apply_geometry() -> void:
 	var half := slot_size * 0.5
@@ -63,6 +71,9 @@ func _apply_geometry() -> void:
 		Vector2(-half.x, half.y),
 	])
 	_floor_box.polygon = points
+	_ground_sprite.position = Vector2.ZERO
+	_surface_sprite.position = Vector2.ZERO
+	_object_sprite.position = Vector2(0.0, -half.y * 0.14)
 	_border.points = PackedVector2Array([
 		points[0],
 		points[1],
@@ -88,6 +99,7 @@ func _apply_geometry() -> void:
 func _refresh() -> void:
 	if not is_inside_tree():
 		return
+	_refresh_asset_layers()
 	_index_label.text = "%02d" % slot_index
 	var occupants: Array = _slot_data.get("occupants", [])
 	var has_player := false
@@ -105,14 +117,75 @@ func _refresh() -> void:
 	else:
 		_floor_box.color = COLOR_EMPTY
 
-	var floor_name := str(_slot_data.get("background", "OPEN"))
-	var object_name := str(_slot_data.get("cover", "NONE"))
+	var floor_name := _tile_label()
+	var object_name := str(_slot_data.get("object_name", _slot_data.get("cover", "NONE")))
 	_floor_label.text = floor_name
 	_object_label.text = object_name if object_name != "NONE" else ""
-	_object_box.visible = object_name != "NONE"
-	_object_box.color = Color(0.18, 0.18, 0.17, 0.92)
+	_object_box.visible = object_name != "NONE" and not _object_sprite.visible
+	_object_box.color = COLOR_OBJECT_FALLBACK
 	_border.default_color = COLOR_HOVER if _hovered else COLOR_BORDER
 	_border.width = 3.0 if _hovered else 1.5
+
+func _refresh_asset_layers() -> void:
+	var ground_path := str(
+		_slot_data.get("ground_asset", CombatLaneSlot.PLAINS_GROUND_ASSET)
+	)
+	_ground_sprite.texture = _load_texture(ground_path)
+	_ground_sprite.visible = _ground_sprite.texture != null
+	_fit_sprite_to_slot(_ground_sprite, 1.08)
+
+	var surface_path := str(_slot_data.get("surface_asset", ""))
+	_surface_sprite.texture = _load_texture(surface_path)
+	_surface_sprite.visible = _surface_sprite.texture != null
+	_fit_sprite_to_slot(_surface_sprite, 1.0)
+
+	var object_path := str(_slot_data.get("object_asset", ""))
+	_object_sprite.texture = _load_texture(object_path)
+	_object_sprite.visible = _object_sprite.texture != null
+	_fit_object_sprite(_object_sprite)
+
+func _load_texture(path: String) -> Texture2D:
+	if path.strip_edges().is_empty():
+		return null
+	if not _texture_cache.has(path):
+		_texture_cache[path] = load(path) as Texture2D
+	return _texture_cache[path]
+
+func _fit_sprite_to_slot(sprite: Sprite2D, fill_scale: float) -> void:
+	if sprite == null or sprite.texture == null:
+		return
+	var texture_size := sprite.texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var scale_factor := maxf(
+		slot_size.x / texture_size.x,
+		slot_size.y / texture_size.y
+	) * fill_scale
+	sprite.scale = Vector2.ONE * scale_factor
+
+func _fit_object_sprite(sprite: Sprite2D) -> void:
+	if sprite == null or sprite.texture == null:
+		return
+	var texture_size := sprite.texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var scale_factor := minf(
+		(slot_size.x * 0.74) / texture_size.x,
+		(slot_size.y * 0.78) / texture_size.y
+	)
+	sprite.scale = Vector2.ONE * scale_factor
+	sprite.position = Vector2(0.0, -slot_size.y * 0.14)
+
+func _tile_label() -> String:
+	var background_label := str(
+		_slot_data.get("background_label", _slot_data.get("background", "PLAINS"))
+	)
+	var surface_label := str(_slot_data.get("surface_label", "GRASS"))
+	if background_label == "MUD":
+		return "MUD +TRIP"
+	if surface_label == "DIRT ROAD":
+		return "ROAD"
+	return background_label
 
 func _on_mouse_entered() -> void:
 	set_highlighted(true)

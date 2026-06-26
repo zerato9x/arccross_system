@@ -5,6 +5,7 @@ signal slot_hovered(slot_data: Dictionary, global_position: Vector2)
 signal slot_unhovered
 
 const LANE_MOVE_DURATION_SECONDS := 2.0
+const STAGE_GROUND_ASSET := "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png"
 
 var _snapshot: Dictionary = {}
 var _showing_melee_lock := false
@@ -24,12 +25,14 @@ var _stage_size := Vector2(1280.0, 720.0)
 @onready var _slots_root: Node2D = %Slots
 @onready var _actor_root: Node2D = %ActorPawns
 @onready var _stage_backdrop: Polygon2D = %StageBackdrop
+@onready var _stage_grass: Sprite2D = %StageGrass
 @onready var _player_token: HumanoidTokenView = %PlayerHumanoidToken
 @onready var _enemy_token: HumanoidTokenView = %EnemyHumanoidToken
 @onready var _melee_lock_banner: Label = %MeleeLockBanner
 
 func _ready() -> void:
 	_collect_slots()
+	_stage_grass.texture = load(STAGE_GROUND_ASSET) as Texture2D
 	_player_token.visible = false
 	_enemy_token.visible = false
 	_melee_lock_banner.visible = false
@@ -78,11 +81,11 @@ func show_presentation_event(event: Dictionary) -> void:
 func layout_for_viewport(viewport_size: Vector2) -> void:
 	_stage_size = viewport_size
 	_resize_stage_backdrop(viewport_size)
-	var lane_y := viewport_size.y * 0.52
+	var lane_y := viewport_size.y * 0.49
 	var usable_width := maxf(720.0, viewport_size.x - 64.0)
 	var cell_step := usable_width / 12.0
 	var start_x := viewport_size.x * 0.5 - usable_width * 0.5 + cell_step * 0.5
-	var slot_size := Vector2(cell_step - 8.0, clampf(viewport_size.y * 0.115, 72.0, 108.0))
+	var slot_size := Vector2(cell_step - 10.0, clampf(viewport_size.y * 0.13, 82.0, 116.0))
 	for index in range(_slot_nodes.size()):
 		var slot = _slot_nodes[index]
 		slot.set_slot_size(slot_size)
@@ -163,6 +166,20 @@ func _resize_stage_backdrop(viewport_size: Vector2) -> void:
 		Vector2(viewport_size.x + pad, viewport_size.y + pad),
 		Vector2(-pad, viewport_size.y + pad),
 	])
+	_resize_stage_grass(viewport_size)
+
+func _resize_stage_grass(viewport_size: Vector2) -> void:
+	if _stage_grass == null or _stage_grass.texture == null:
+		return
+	var texture_size := _stage_grass.texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var scale_factor := maxf(
+		viewport_size.x / texture_size.x,
+		viewport_size.y / texture_size.y
+	)
+	_stage_grass.position = viewport_size * 0.5
+	_stage_grass.scale = Vector2.ONE * scale_factor
 
 func _on_slot_hovered(slot_index: int) -> void:
 	_hovered_slot_index = slot_index
@@ -236,8 +253,8 @@ func _layout_tokens() -> void:
 			if shared_lane
 			else global_position + _stage_size * 0.5
 		)
-		_player_token.set_display_scale(1.65)
-		_enemy_token.set_display_scale(1.65)
+		_player_token.set_display_scale(1.36)
+		_enemy_token.set_display_scale(1.36)
 		_move_or_place_token(
 			_player_token,
 			to_local(
@@ -265,8 +282,8 @@ func _layout_tokens() -> void:
 	var enemy_lane := int(_snapshot.get("enemy", {}).get("lane", -1))
 	var shared_lane := player_lane >= 0 and player_lane == enemy_lane
 
-	_player_token.set_display_scale(1.25)
-	_enemy_token.set_display_scale(1.25)
+	_player_token.set_display_scale(1.08)
+	_enemy_token.set_display_scale(1.08)
 	if player_lane >= 0 and player_lane < _slot_nodes.size():
 		_move_or_place_token(
 			_player_token,
@@ -370,9 +387,14 @@ func _animation_for_action(side: String, action: int) -> String:
 	match action:
 		GameEnums.ActionType.SHOOT, GameEnums.ActionType.AIMED_SHOT:
 			return "Attack1"
-		GameEnums.ActionType.GRAPPLE, GameEnums.ActionType.BREAK, \
-		GameEnums.ActionType.PUSH_STAY, GameEnums.ActionType.PUSH_FOLLOW, \
-		GameEnums.ActionType.PULL_FOLLOW, GameEnums.ActionType.TRIP, \
+		GameEnums.ActionType.GRAPPLE:
+			return "Attack2"
+		GameEnums.ActionType.BREAK:
+			return "Attack2"
+		GameEnums.ActionType.PUSH_STAY, GameEnums.ActionType.PUSH_FOLLOW:
+			return "Attack2"
+		GameEnums.ActionType.PULL_FOLLOW, GameEnums.ActionType.TRIP:
+			return "Attack2"
 		GameEnums.ActionType.EXECUTE, GameEnums.ActionType.BLOCK:
 			return "Attack2"
 		GameEnums.ActionType.STRIKE:

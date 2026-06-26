@@ -56,6 +56,43 @@ func _run() -> void:
 	if lane_slots.size() != 12:
 		_fail("Combat snapshot did not expose exactly twelve lane slots.")
 		return
+	if (
+		lane_slots[2].get("background_label", "") != "PLAINS"
+		or lane_slots[2].get("ground_asset", "").is_empty()
+		or not str(lane_slots[2].get("terrain_modifiers", [])).contains(
+			"0 movement"
+		)
+	):
+		_fail("The plains combat tile did not expose neutral terrain metadata.")
+		return
+	if (
+		lane_slots[5].get("background", "") != "MUD"
+		or not str(lane_slots[5].get("surface_asset", "")).contains(
+			"Earth Patch"
+		)
+		or not str(lane_slots[5].get("terrain_modifiers", [])).contains(
+			"walk trip"
+		)
+	):
+		_fail("The mud combat tile did not expose hazard terrain metadata.")
+		return
+	if (
+		lane_slots[4].get("object_name", "") != "Supply Crates"
+		or lane_slots[4].get("object_asset", "").is_empty()
+		or not str(lane_slots[4].get("object_interactions", [])).contains(
+			"TAKE COVER"
+		)
+	):
+		_fail("The combat tile object did not expose cover interaction metadata.")
+		return
+	if (
+		lane_slots[0].get("surface_label", "") != "DIRT ROAD"
+		or not str(lane_slots[0].get("object_interactions", [])).contains(
+			"RETREAT"
+		)
+	):
+		_fail("The escape road tile did not expose retreat metadata.")
+		return
 	if not _slot_has_side(lane_slots[2], "player"):
 		_fail("Neutral deployment did not project the player in slot 2.")
 		return
@@ -76,6 +113,23 @@ func _run() -> void:
 		or not arena.lane_hud._lane_view._enemy_token.visible
 	):
 		_fail("CombatLaneHUD did not project layered humanoid tokens.")
+		return
+	var visual_slots: Array = arena.lane_hud._lane_view._slot_nodes
+	if visual_slots[2]._ground_sprite.texture == null:
+		_fail("The duel grid did not load the plains ground texture.")
+		return
+	if visual_slots[5]._surface_sprite.texture == null:
+		_fail("The duel grid did not load the mud surface texture.")
+		return
+	if visual_slots[4]._object_sprite.texture == null:
+		_fail("The duel grid did not load the cover object texture.")
+		return
+	var shared_anchor_distance: float = visual_slots[5].get_actor_anchor(
+		"player",
+		true
+	).distance_to(visual_slots[5].get_actor_anchor("enemy", true))
+	if shared_anchor_distance < 48.0:
+		_fail("Shared-lane token anchors are too close together.")
 		return
 	if (
 		arena.lane_hud._lane_view._player_token.get_direction_row()
@@ -160,7 +214,7 @@ func _run() -> void:
 		"type": "action",
 		"action": GameEnums.ActionType.SHOOT,
 	})
-	if player_token.get_animation() != "Attack1":
+	if not await _wait_for_animation(player_token, "Attack1"):
 		_fail("SHOOT did not use Attack1.")
 		return
 	arena.lane_hud.show_presentation_event({
@@ -168,15 +222,19 @@ func _run() -> void:
 		"type": "action",
 		"action": GameEnums.ActionType.GRAPPLE,
 	})
-	if player_token.get_animation() != "Attack2":
-		_fail("GRAPPLE did not use Attack2.")
+	if not await _wait_for_animation(player_token, "Attack2"):
+		_fail(
+			"GRAPPLE did not use Attack2; got "
+			+ player_token.get_animation()
+			+ "."
+		)
 		return
 	arena.lane_hud.show_presentation_event({
 		"side": "player",
 		"type": "action",
 		"action": GameEnums.ActionType.STRIKE,
 	})
-	if player_token.get_animation() != "Attack3":
+	if not await _wait_for_animation(player_token, "Attack3"):
 		_fail("The first STRIKE did not use the right swing.")
 		return
 	arena.lane_hud.show_presentation_event({
@@ -184,7 +242,7 @@ func _run() -> void:
 		"type": "action",
 		"action": GameEnums.ActionType.STRIKE,
 	})
-	if player_token.get_animation() != "Attack4":
+	if not await _wait_for_animation(player_token, "Attack4"):
 		_fail("The second STRIKE did not alternate to the left swing.")
 		return
 	arena.lane_hud.show_presentation_event({
@@ -192,16 +250,17 @@ func _run() -> void:
 		"type": "action",
 		"action": GameEnums.ActionType.TAKE_COVER,
 	})
-	if player_token.get_animation() != "StrafeRight":
+	if not await _wait_for_animation(player_token, "StrafeRight"):
 		_fail("TAKE COVER did not use a retained Strafe animation.")
 		return
 	arena.lane_hud.show_presentation_event({
 		"side": "player",
 		"type": "damage",
 	})
-	if player_token.get_animation() != "TakeDamage":
+	if not await _wait_for_animation(player_token, "TakeDamage"):
 		_fail("Combat damage did not use TakeDamage.")
 		return
+	await create_timer(0.7).timeout
 	player_token.play_animation("Idle2")
 	var starting_token_position: Vector2 = player_token.position
 	if not arena.lane_manager.move_entity(player, 2, 3):
@@ -216,7 +275,9 @@ func _run() -> void:
 	):
 		_fail("Forward combat movement did not visibly use Run.")
 		return
-	await create_timer(0.3).timeout
+	await create_timer(
+		CombatLaneView.LANE_MOVE_DURATION_SECONDS + 0.1
+	).timeout
 	if player_token.get_animation() != "Taunt":
 		_fail("Firearm movement did not transition through the aiming pose.")
 		return
@@ -231,7 +292,9 @@ func _run() -> void:
 	if player_token.get_animation() != "RunBackwards":
 		_fail("Retreating combat movement did not use RunBackwards.")
 		return
-	await create_timer(0.3).timeout
+	await create_timer(
+		CombatLaneView.LANE_MOVE_DURATION_SECONDS + 0.1
+	).timeout
 	if player_token.get_animation() != "Taunt":
 		_fail("Retreating with a firearm did not reacquire aim.")
 		return
@@ -273,7 +336,9 @@ func _run() -> void:
 	if player_token.get_animation() != "CrouchRun":
 		_fail("A moving Stumbling token did not use CrouchRun.")
 		return
-	await create_timer(0.3).timeout
+	await create_timer(
+		CombatLaneView.LANE_MOVE_DURATION_SECONDS + 0.05
+	).timeout
 	if player_token.get_animation() != "CrouchIdle":
 		_fail("Impaired movement did not return to CrouchIdle.")
 		return
@@ -403,10 +468,21 @@ func _run() -> void:
 	var enemy_lane: int = arena.lane_manager._find_entity_lane(arena.enemy_core)
 	arena.lane_manager.remove_entity(player)
 	arena.lane_manager.force_spawn_entity(player, enemy_lane)
+	arena.lane_hud._apply_snapshot(arena.command_adapter.get_snapshot())
 	await process_frame
 
 	if not arena.lane_hud.is_showing_melee_lock():
-		_fail("The lane HUD did not switch to the melee-lock overlay.")
+		var adapter_lock_slot: Dictionary = (
+			arena.command_adapter.get_snapshot().get("lane_slots", [])[enemy_lane]
+		)
+		_fail(
+			"The lane HUD did not switch to the melee-lock overlay. "
+			+ "Adapter lock="
+			+ str(adapter_lock_slot.get("is_melee_locked", false))
+			+ " occupants="
+			+ str(adapter_lock_slot.get("occupants", []).size())
+			+ "."
+		)
 		return
 	var lock_snapshot: Dictionary = arena.lane_hud.get_snapshot()
 	var lock_slot: Dictionary = lock_snapshot.get("lane_slots", [])[enemy_lane]
@@ -533,6 +609,17 @@ func _slot_has_side(slot: Dictionary, side: String) -> bool:
 		if occupant.get("side", "") == side:
 			return true
 	return false
+
+func _wait_for_animation(
+	token: HumanoidTokenView,
+	animation: String,
+	frame_limit: int = 90
+) -> bool:
+	for _frame in range(frame_limit):
+		if token.get_animation() == animation:
+			return true
+		await process_frame
+	return token.get_animation() == animation
 
 func _snapshot_has_action(snapshot: Dictionary, action: int) -> bool:
 	return not _find_action(snapshot, action).is_empty()

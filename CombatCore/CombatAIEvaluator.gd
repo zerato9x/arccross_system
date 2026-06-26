@@ -328,7 +328,7 @@ func _score_take_cover() -> float:
 # ---------------------------------------------------------
 
 func _execute_action(action: int) -> void:
-	var action_label := (
+	var action_label: String = (
 		GameEnums.ActionType.keys()[action]
 		if action >= 0 and action < GameEnums.ActionType.keys().size()
 		else "PASS"

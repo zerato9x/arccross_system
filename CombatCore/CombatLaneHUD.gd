@@ -4,11 +4,17 @@ class_name CombatLaneHUD
 const ACTION_BUTTON_SCENE := preload(
 	"res://CombatCore/DuelUI/CombatActionButton.tscn"
 )
-const ACTION_PANEL_SIZE := Vector2(380.0, 286.0)
-const ACTION_BUTTON_SIZE := Vector2(176.0, 42.0)
+const PORTRAIT_TOKEN_SCENE := preload("res://UI/Humanoid/HumanoidToken.tscn")
+const ACTION_PANEL_SIZE := Vector2(204.0, 286.0)
+const ACTION_BUTTON_SIZE := Vector2(176.0, 38.0)
 const ACTION_BUTTON_GAP := Vector2(10.0, 8.0)
+const ACTION_BUTTON_COLUMNS := 1
 const COLOR_ACTION_PANEL := Color(0.07, 0.075, 0.06, 0.91)
 const COLOR_ACTION_BORDER := Color(0.73, 0.62, 0.45, 0.88)
+const COLOR_SHELL_PANEL := Color(0.04, 0.035, 0.025, 0.20)
+const COLOR_SHELL_BORDER := Color(0.03, 0.025, 0.018, 0.72)
+const COLOR_PORTRAIT_PLATE := Color(0.58, 0.18, 0.15, 0.72)
+const COLOR_COMMAND_RAIL := Color(0.08, 0.055, 0.045, 0.36)
 const BUTTON_MODE_ACTION := "action"
 const BUTTON_MODE_PASS := "pass"
 const BUTTON_MODE_REACTION := "reaction"
@@ -44,6 +50,17 @@ var _round_label: Label
 var _active_label: Label
 var _player_label: Label
 var _enemy_label: Label
+var _player_portrait_token: HumanoidTokenView
+var _enemy_portrait_token: HumanoidTokenView
+var _player_top_rect := Rect2()
+var _enemy_top_rect := Rect2()
+var _player_bottom_rect := Rect2()
+var _enemy_bottom_rect := Rect2()
+var _player_portrait_rect := Rect2()
+var _enemy_portrait_rect := Rect2()
+var _player_command_rect := Rect2()
+var _enemy_status_rect := Rect2()
+var _enemy_status_bars: Array[Polygon2D] = []
 
 @onready var _lane_view: CombatLaneView = %CombatLaneView
 @onready var _combat_camera: Camera2D = %CombatCamera
@@ -58,11 +75,29 @@ var _enemy_label: Label
 @onready var _action_panel_frame: Sprite2D = %ActionPanelFrame
 @onready var _feedback_label: Label = %FeedbackLabel
 @onready var _legacy_readouts: Node = %LegacyReadouts
+@onready var _duel_layout_shell: Node2D = %DuelLayoutShell
+@onready var _player_top_panel_box: Polygon2D = %PlayerTopPanelBox
+@onready var _player_top_panel_border: Line2D = %PlayerTopPanelBorder
+@onready var _enemy_top_panel_box: Polygon2D = %EnemyTopPanelBox
+@onready var _enemy_top_panel_border: Line2D = %EnemyTopPanelBorder
+@onready var _player_bottom_panel_box: Polygon2D = %PlayerBottomPanelBox
+@onready var _player_bottom_panel_border: Line2D = %PlayerBottomPanelBorder
+@onready var _enemy_bottom_panel_box: Polygon2D = %EnemyBottomPanelBox
+@onready var _enemy_bottom_panel_border: Line2D = %EnemyBottomPanelBorder
+@onready var _player_portrait_plate: Polygon2D = %PlayerPortraitPlate
+@onready var _player_portrait_border: Line2D = %PlayerPortraitBorder
+@onready var _enemy_portrait_plate: Polygon2D = %EnemyPortraitPlate
+@onready var _enemy_portrait_border: Line2D = %EnemyPortraitBorder
+@onready var _player_command_rail: Node2D = %PlayerCommandRail
+@onready var _enemy_status_rail: Node2D = %EnemyStatusRail
+@onready var _portrait_root: Node2D = %PortraitRoot
 
 func _ready() -> void:
 	_font = SystemFont.new()
 	_font.font_names = PackedStringArray(["Consolas", "Courier New", "monospace"])
 	_bind_legacy_labels()
+	_setup_duel_layout_shell()
+	_setup_portrait_tokens()
 	_lane_view.slot_hovered.connect(_on_lane_slot_hovered)
 	_lane_view.slot_unhovered.connect(_on_lane_slot_unhovered)
 	_grid_hover_card.hide_card()
@@ -169,12 +204,27 @@ func _layout_for_viewport(viewport_size: Vector2) -> void:
 
 func _layout_screen_hud(viewport_size: Vector2) -> void:
 	var ui_scale := Vector2.ONE / _camera_zoom_value()
-	_context_board.global_position = _screen_to_world(Vector2(24.0, 24.0), viewport_size)
-	_context_board.scale = ui_scale
-	var action_panel_screen_position := Vector2(
-		24.0,
-		maxf(180.0, viewport_size.y - ACTION_PANEL_SIZE.y - 24.0)
+	_calculate_duel_layout(viewport_size)
+	_layout_duel_shell(viewport_size, ui_scale)
+
+	var center_gap := maxf(
+		160.0,
+		_enemy_top_rect.position.x - _player_top_rect.end.x
 	)
+	var context_scale := minf(1.0, (center_gap - 24.0) / 430.0)
+	var context_position := Vector2(
+		viewport_size.x * 0.5 - 215.0 * context_scale,
+		24.0
+	)
+	_context_board.global_position = _screen_to_world(
+		context_position,
+		viewport_size
+	)
+	_context_board.scale = ui_scale * context_scale
+	var action_panel_screen_position := _player_command_rect.position
+	var action_panel_size := _player_command_rect.size
+	_set_box(_action_panel_box, action_panel_size)
+	_set_outline(_action_panel_border, action_panel_size)
 	_action_panel_box.global_position = _screen_to_world(
 		action_panel_screen_position,
 		viewport_size
@@ -192,16 +242,114 @@ func _layout_screen_hud(viewport_size: Vector2) -> void:
 	_action_panel_box.scale = ui_scale
 	_action_panel_border.scale = ui_scale
 	_action_panel_frame.scale = Vector2(
-		ACTION_PANEL_SIZE.x / 64.0,
-		ACTION_PANEL_SIZE.y / 64.0
+		action_panel_size.x / 64.0,
+		action_panel_size.y / 64.0
 	) * ui_scale
 	_action_title_label.scale = ui_scale
 	_action_button_root.scale = ui_scale
 	_feedback_label.global_position = _screen_to_world(
-		Vector2(24.0, viewport_size.y - 64.0),
+		_enemy_status_rect.position + Vector2(0.0, _enemy_status_rect.size.y + 8.0),
 		viewport_size
 	)
 	_feedback_label.scale = ui_scale
+	_sync_duel_portraits(viewport_size)
+
+func _calculate_duel_layout(viewport_size: Vector2) -> void:
+	var margin := maxf(18.0, viewport_size.x * 0.014)
+	var grid_center_y := viewport_size.y * 0.49
+	var grid_height := clampf(viewport_size.y * 0.13, 82.0, 116.0)
+	var grid_top := grid_center_y - grid_height * 0.5
+	var grid_bottom := grid_center_y + grid_height * 0.5
+	var side_width := minf(660.0, viewport_size.x * 0.335)
+	var top_height := maxf(160.0, grid_top - margin * 2.0)
+	var bottom_y := grid_bottom + margin
+	var bottom_height := maxf(180.0, viewport_size.y - bottom_y - margin)
+
+	_player_top_rect = Rect2(Vector2(margin, margin), Vector2(side_width, top_height))
+	_enemy_top_rect = Rect2(
+		Vector2(viewport_size.x - margin - side_width, margin),
+		Vector2(side_width, top_height)
+	)
+	_player_bottom_rect = Rect2(
+		Vector2(margin, bottom_y),
+		Vector2(side_width, bottom_height)
+	)
+	_enemy_bottom_rect = Rect2(
+		Vector2(viewport_size.x - margin - side_width, bottom_y),
+		Vector2(side_width, bottom_height)
+	)
+
+	var portrait_size := Vector2(
+		minf(250.0, side_width * 0.37),
+		maxf(150.0, bottom_height - 30.0)
+	)
+	_player_portrait_rect = Rect2(
+		Vector2(
+			_player_bottom_rect.position.x + side_width * 0.52,
+			_player_bottom_rect.position.y + 15.0
+		),
+		portrait_size
+	)
+	_enemy_portrait_rect = Rect2(
+		Vector2(
+			_enemy_bottom_rect.position.x + side_width * 0.52,
+			_enemy_bottom_rect.position.y + 15.0
+		),
+		portrait_size
+	)
+	_player_command_rect = Rect2(
+		Vector2(
+			_player_bottom_rect.position.x + maxf(42.0, side_width * 0.16),
+			_player_bottom_rect.position.y + 24.0
+		),
+		Vector2(ACTION_PANEL_SIZE.x, minf(ACTION_PANEL_SIZE.y, bottom_height - 48.0))
+	)
+	_enemy_status_rect = Rect2(
+		Vector2(
+			_enemy_bottom_rect.position.x + maxf(42.0, side_width * 0.16),
+			_enemy_bottom_rect.position.y + 42.0
+		),
+		Vector2(176.0, minf(286.0, bottom_height - 72.0))
+	)
+
+func _layout_duel_shell(viewport_size: Vector2, ui_scale: Vector2) -> void:
+	_duel_layout_shell.visible = not _snapshot.is_empty()
+	if not _duel_layout_shell.visible:
+		return
+	_place_panel(_player_top_panel_box, _player_top_panel_border, _player_top_rect, viewport_size, ui_scale)
+	_place_panel(_enemy_top_panel_box, _enemy_top_panel_border, _enemy_top_rect, viewport_size, ui_scale)
+	_place_panel(_player_bottom_panel_box, _player_bottom_panel_border, _player_bottom_rect, viewport_size, ui_scale)
+	_place_panel(_enemy_bottom_panel_box, _enemy_bottom_panel_border, _enemy_bottom_rect, viewport_size, ui_scale)
+	_place_panel(_player_portrait_plate, _player_portrait_border, _player_portrait_rect, viewport_size, ui_scale)
+	_place_panel(_enemy_portrait_plate, _enemy_portrait_border, _enemy_portrait_rect, viewport_size, ui_scale)
+	_layout_enemy_status_bars(viewport_size, ui_scale)
+
+func _place_panel(
+	box: Polygon2D,
+	border: Line2D,
+	rect: Rect2,
+	viewport_size: Vector2,
+	ui_scale: Vector2
+) -> void:
+	_set_box(box, rect.size)
+	_set_outline(border, rect.size)
+	box.global_position = _screen_to_world(rect.position, viewport_size)
+	border.global_position = box.global_position
+	box.scale = ui_scale
+	border.scale = ui_scale
+
+func _layout_enemy_status_bars(viewport_size: Vector2, ui_scale: Vector2) -> void:
+	_enemy_status_rail.global_position = _screen_to_world(
+		_enemy_status_rect.position,
+		viewport_size
+	)
+	_enemy_status_rail.scale = ui_scale
+	var bar_height := 36.0
+	var gap := 11.0
+	for index in range(_enemy_status_bars.size()):
+		var bar := _enemy_status_bars[index]
+		_set_box(bar, Vector2(_enemy_status_rect.size.x, bar_height))
+		bar.position = Vector2(0.0, float(index) * (bar_height + gap))
 
 func _render() -> void:
 	_render_legacy_readouts()
@@ -210,6 +358,8 @@ func _render() -> void:
 		_context_board.visible = false
 		_player_actor_hud.visible = false
 		_enemy_actor_hud.visible = false
+		_duel_layout_shell.visible = false
+		_sync_duel_portraits(get_viewport_rect().size)
 		_grid_hover_card.hide_card()
 		_render_actions()
 		_render_feedback()
@@ -232,6 +382,52 @@ func _setup_action_panel() -> void:
 		ACTION_PANEL_SIZE
 	)
 	_action_title_label.text = "ACTIONS"
+
+func _setup_duel_layout_shell() -> void:
+	for polygon in [
+		_player_top_panel_box,
+		_enemy_top_panel_box,
+		_player_bottom_panel_box,
+		_enemy_bottom_panel_box,
+	]:
+		polygon.color = COLOR_SHELL_PANEL
+	for line in [
+		_player_top_panel_border,
+		_enemy_top_panel_border,
+		_player_bottom_panel_border,
+		_enemy_bottom_panel_border,
+	]:
+		line.default_color = COLOR_SHELL_BORDER
+		line.width = 2.0
+	for plate in [_player_portrait_plate, _enemy_portrait_plate]:
+		plate.color = COLOR_PORTRAIT_PLATE
+	for border in [_player_portrait_border, _enemy_portrait_border]:
+		border.default_color = Color(COLOR_ACTION_BORDER, 0.72)
+		border.width = 1.25
+	_build_enemy_status_bars()
+
+func _setup_portrait_tokens() -> void:
+	_player_portrait_token = PORTRAIT_TOKEN_SCENE.instantiate()
+	_player_portrait_token.name = "PlayerPortraitToken"
+	_portrait_root.add_child(_player_portrait_token)
+	_player_portrait_token.visible = false
+
+	_enemy_portrait_token = PORTRAIT_TOKEN_SCENE.instantiate()
+	_enemy_portrait_token.name = "EnemyPortraitToken"
+	_portrait_root.add_child(_enemy_portrait_token)
+	_enemy_portrait_token.visible = false
+
+func _build_enemy_status_bars() -> void:
+	for child in _enemy_status_rail.get_children():
+		child.queue_free()
+	_enemy_status_bars.clear()
+	for index in range(5):
+		var bar := Polygon2D.new()
+		bar.name = "EnemyStatusBar_%02d" % index
+		bar.color = Color(0.48, 0.14, 0.13, 0.78)
+		bar.z_index = 1
+		_enemy_status_rail.add_child(bar)
+		_enemy_status_bars.append(bar)
 
 func _render_actions() -> void:
 	_clear_action_buttons()
@@ -314,8 +510,8 @@ func _add_button(payload: Dictionary, text: String, index: int) -> void:
 	button.pressed.connect(_on_action_button_pressed)
 	button.target_limb_focused.connect(_on_target_limb_focused)
 	button.target_limb_unfocused.connect(_on_target_limb_unfocused)
-	var column := index % 2
-	var row := index / 2
+	var column := index % ACTION_BUTTON_COLUMNS
+	var row := index / ACTION_BUTTON_COLUMNS
 	button.position = Vector2(
 		float(column) * (ACTION_BUTTON_SIZE.x + ACTION_BUTTON_GAP.x),
 		float(row) * (ACTION_BUTTON_SIZE.y + ACTION_BUTTON_GAP.y)
@@ -488,23 +684,85 @@ func _camera_zoom_value() -> float:
 func _sync_actor_huds(viewport_size: Vector2) -> void:
 	if _snapshot.is_empty():
 		return
-	var viewport_origin := _screen_to_world(Vector2.ZERO, viewport_size)
-	var camera_zoom := _camera_zoom_value()
-	_player_actor_hud.set_actor(
+	var ui_scale := 1.0 / _camera_zoom_value()
+	var actor_panel_scale := ui_scale * 1.45
+	var player_hud_position := _screen_to_world(
+		_player_top_rect.position + Vector2(36.0, 32.0),
+		viewport_size
+	)
+	var enemy_hud_position := _screen_to_world(
+		_enemy_top_rect.position + Vector2(36.0, 32.0),
+		viewport_size
+	)
+	_player_actor_hud.set_fixed_actor(
 		_snapshot.get("player", {}),
 		"player",
-		_lane_view.get_actor_anchor_global("player"),
-		viewport_size,
-		viewport_origin,
-		camera_zoom
+		player_hud_position,
+		actor_panel_scale
 	)
-	_enemy_actor_hud.set_actor(
+	_enemy_actor_hud.set_fixed_actor(
 		_snapshot.get("enemy", {}),
 		"enemy",
-		_lane_view.get_actor_anchor_global("enemy"),
+		enemy_hud_position,
+		actor_panel_scale
+	)
+	_sync_duel_portraits(viewport_size)
+
+func _sync_duel_portraits(viewport_size: Vector2) -> void:
+	if _snapshot.is_empty() or _player_portrait_token == null:
+		if _player_portrait_token:
+			_player_portrait_token.visible = false
+		if _enemy_portrait_token:
+			_enemy_portrait_token.visible = false
+		return
+	var ui_scale := Vector2.ONE / _camera_zoom_value()
+	_sync_portrait_token(
+		_player_portrait_token,
+		_snapshot.get("player", {}),
+		_player_portrait_rect,
+		true,
 		viewport_size,
-		viewport_origin,
-		camera_zoom
+		ui_scale
+	)
+	_sync_portrait_token(
+		_enemy_portrait_token,
+		_snapshot.get("enemy", {}),
+		_enemy_portrait_rect,
+		false,
+		viewport_size,
+		ui_scale
+	)
+
+func _sync_portrait_token(
+	token: HumanoidTokenView,
+	data: Dictionary,
+	rect: Rect2,
+	is_player: bool,
+	viewport_size: Vector2,
+	ui_scale: Vector2
+) -> void:
+	if token == null:
+		return
+	token.visible = not data.is_empty()
+	if not token.visible:
+		return
+	token.set_appearance(data.get(
+		"appearance",
+		HumanoidVisualCatalog.appearance_from_slot_item_ids({})
+	))
+	token.set_direction_row(
+		HumanoidVisualCatalog.DIRECTION_RIGHT
+		if is_player
+		else HumanoidVisualCatalog.DIRECTION_LEFT
+	)
+	if not token.is_playing_one_shot():
+		token.play_animation("Idle2", false)
+	var display_scale := clampf(rect.size.y / 78.0, 2.2, 7.0)
+	token.set_display_scale(display_scale)
+	token.scale = ui_scale
+	token.global_position = _screen_to_world(
+		rect.position + Vector2(rect.size.x * 0.5, rect.size.y * 0.68),
+		viewport_size
 	)
 
 func _on_lane_slot_hovered(

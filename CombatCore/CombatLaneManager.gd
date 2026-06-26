@@ -13,16 +13,43 @@ func _ready() -> void:
 	_initialize_lane()
 
 func _initialize_lane() -> void:
+	lane_slots.clear()
 	for i in range(12):
 		var slot = CombatLaneSlot.new(i)
-		
-		# Define the geography of the lane
-		if i == 0 or i == 11:
-			slot.object_name = "Escape Zone"
-		elif i == 5 or i == 6:
-			slot.is_spawnable = false
-			
+		_configure_lane_slot(slot)
 		lane_slots.append(slot)
+
+func _configure_lane_slot(slot: CombatLaneSlot) -> void:
+	match slot.lane_index:
+		0, 11:
+			slot.object_name = "Escape Zone"
+			slot.configure_surface(
+				"DIRT ROAD",
+				CombatLaneSlot.DIRT_ROAD_ASSET,
+				"ROAD: 0 trip modifier, clear retreat route"
+			)
+		1, 10:
+			slot.configure_surface(
+				"DIRT ROAD",
+				CombatLaneSlot.DIRT_ROAD_ASSET,
+				"ROAD: 0 trip modifier, fast visual route"
+			)
+		4:
+			slot.current_cover = CombatRules.TileObject.COVER
+			slot.object_name = "Supply Crates"
+			slot.object_durability = 70.0
+		5, 6:
+			slot.background = CombatRules.TileBackground.MUD
+			slot.is_spawnable = false
+			slot.surface_note = "CENTER GRID: deployment blocked"
+		7:
+			slot.current_cover = CombatRules.TileObject.COVER
+			slot.object_name = "Barricade"
+			slot.object_durability = 120.0
+		8:
+			slot.current_cover = CombatRules.TileObject.OBSTACLE
+			slot.object_name = "Rock Outcrop"
+			slot.object_durability = 160.0
 
 # --- MOVEMENT MATTERS ---
 

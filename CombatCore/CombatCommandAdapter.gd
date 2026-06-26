@@ -561,6 +561,7 @@ func _equipment_snapshot(entity: HumanoidCore) -> Array:
 func _lane_snapshot() -> Array:
 	var slots: Array = []
 	for slot in lane_manager.lane_slots:
+		var presentation := slot.get_presentation_descriptor()
 		var occupants: Array = []
 		for occupant in slot.occupants:
 			occupants.append({
@@ -578,7 +579,15 @@ func _lane_snapshot() -> Array:
 			"is_escape": slot.object_name == "Escape Zone",
 			"is_spawnable": slot.is_spawnable,
 			"background": CombatRules.TileBackground.keys()[slot.background],
+			"background_label": presentation.get("background_label", "PLAINS"),
+			"ground_asset": presentation.get("ground_asset", ""),
+			"surface_label": presentation.get("surface_label", "GRASS"),
+			"surface_asset": presentation.get("surface_asset", ""),
+			"terrain_modifiers": presentation.get("terrain_modifiers", []),
 			"cover": CombatRules.TileObject.keys()[slot.current_cover],
+			"object_name": presentation.get("object_name", "NONE"),
+			"object_asset": presentation.get("object_asset", ""),
+			"object_interactions": presentation.get("object_interactions", []),
 			"cover_durability": slot.object_durability,
 			"is_melee_locked": slot.is_melee_locked,
 			"occupants": occupants,

@@ -34,8 +34,8 @@ func _battlefield_type(snapshot: Dictionary) -> String:
 	var objects := {}
 	for raw_slot in snapshot.get("lane_slots", []):
 		var slot: Dictionary = raw_slot
-		var background := str(slot.get("background", "NONE"))
-		var object := str(slot.get("cover", "NONE"))
+		var background := str(slot.get("background_label", slot.get("background", "NONE")))
+		var object := str(slot.get("object_name", slot.get("cover", "NONE")))
 		backgrounds[background] = int(backgrounds.get(background, 0)) + 1
 		if object != "NONE":
 			objects[object] = int(objects.get(object, 0)) + 1
