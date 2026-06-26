@@ -1,6 +1,6 @@
 extends SceneTree
 
-const MAX_UNLOAD_RADIUS_CELLS := 127
+const MAX_VISIBLE_TOKENS := 3
 const MAX_RENDERED_RADIUS_CELLS := 91
 
 func _initialize() -> void:
@@ -19,8 +19,15 @@ func _run() -> void:
 		_fail("World systems did not initialize.")
 		return
 
-	if macro_map.active_enemies.is_empty():
-		_fail("Initial proximity refresh loaded no enemies.")
+	if macro_map.active_enemies.size() < 2:
+		_seed_probe_enemies(macro_map, world_state)
+
+	if macro_map.active_enemies.size() < 2:
+		_fail("Proximity smoke could not create two controlled enemies.")
+		return
+
+	if macro_map.active_enemies.size() > MAX_VISIBLE_TOKENS:
+		_fail("Initial proximity refresh projected more than 3 enemies.")
 		return
 
 	var tracked_coords: Vector2i = macro_map.active_enemies.keys()[0]
@@ -79,8 +86,8 @@ func _run() -> void:
 		_fail("A distant enemy token was not unloaded.")
 		return
 
-	if peak_tokens > MAX_UNLOAD_RADIUS_CELLS:
-		_fail("Enemy token count exceeded the unload-radius bound.")
+	if peak_tokens > MAX_VISIBLE_TOKENS:
+		_fail("Enemy token count exceeded the visible token cap.")
 		return
 
 	if peak_cells > MAX_RENDERED_RADIUS_CELLS:
@@ -149,6 +156,32 @@ func _entity_coordinates_are_unique(records: Array) -> bool:
 			return false
 		occupied[coords] = true
 	return true
+
+func _seed_probe_enemies(
+	macro_map: MacroGameManager,
+	world_state: RuntimeStateStore
+) -> void:
+	for coords in [
+		Vector2i(3, 0),
+		Vector2i(3, -1),
+		Vector2i(3, 1),
+		Vector2i(2, -3),
+	]:
+		if macro_map.active_enemies.size() >= 2:
+			return
+		if world_state.has_entity_at(coords):
+			var record := world_state.get_entity_at(coords)
+			if record != null and world_state.is_entity_alive(record.entity_id):
+				macro_map.load_enemy_token(record.entity_id)
+			continue
+		var hex := macro_map.world_generator.get_hex_at(coords)
+		if not hex.is_passable():
+			continue
+		macro_map.spawn_procedural_enemy(
+			coords,
+			GameEnums.Faction.SCAVENGER_CELL,
+			0
+		)
 
 func _tokens_within_unload_radius(
 	macro_map: MacroGameManager,

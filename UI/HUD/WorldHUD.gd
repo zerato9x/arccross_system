@@ -4,6 +4,7 @@ class_name WorldHUD
 signal inventory_requested
 signal save_requested
 signal load_requested
+signal hex_action_requested(action: String)
 
 const MAX_SCALE := 12.0
 
@@ -12,6 +13,7 @@ var _vital_rows: Dictionary = {}
 
 @onready var _root: Control = %Root
 @onready var _status_panel: PanelContainer = %StatusPanel
+@onready var _hex_panel: PanelContainer = %HexPanel
 @onready var _command_panel: PanelContainer = %CommandPanel
 @onready var _menu_panel: PanelContainer = %MenuPanel
 @onready var _settings_panel: PanelContainer = %SettingsPanel
@@ -21,10 +23,17 @@ var _vital_rows: Dictionary = {}
 @onready var _location_label: Label = %LocationLabel
 @onready var _time_label: Label = %TimeLabel
 @onready var _warning_label: Label = %WarningLabel
+@onready var _current_hex_label: Label = %CurrentHexLabel
+@onready var _selected_hex_label: Label = %SelectedHexLabel
+@onready var _hex_details_label: Label = %HexDetailsLabel
+@onready var _macro_activity_label: Label = %MacroActivityLabel
 @onready var _inventory_button: Button = %InventoryButton
 @onready var _medical_button: Button = %MedicalButton
 @onready var _menu_button: Button = %MenuButton
 @onready var _settings_button: Button = %SettingsButton
+@onready var _scan_button: Button = %ScanButton
+@onready var _travel_button: Button = %TravelButton
+@onready var _act_button: Button = %ActButton
 @onready var _menu_inventory_button: Button = %MenuInventoryButton
 @onready var _menu_save_button: Button = %MenuSaveButton
 @onready var _menu_load_button: Button = %MenuLoadButton
@@ -79,6 +88,7 @@ func _bind_vital_rows() -> void:
 
 func _apply_assets() -> void:
 	HUDAssetLibrary.apply_panel(_status_panel, "neutral")
+	HUDAssetLibrary.apply_panel(_hex_panel, "neutral")
 	HUDAssetLibrary.apply_panel(_command_panel, "neutral")
 	HUDAssetLibrary.apply_panel(_menu_panel, "warning")
 	HUDAssetLibrary.apply_panel(_settings_panel, "anomaly")
@@ -98,6 +108,9 @@ func _apply_assets() -> void:
 	HUDAssetLibrary.apply_button(_medical_button, "blood")
 	HUDAssetLibrary.apply_button(_menu_button, "map")
 	HUDAssetLibrary.apply_button(_settings_button, "settings")
+	HUDAssetLibrary.apply_button(_scan_button, "search")
+	HUDAssetLibrary.apply_button(_travel_button, "map")
+	HUDAssetLibrary.apply_button(_act_button, "warning")
 	HUDAssetLibrary.apply_button(_menu_inventory_button, "inventory")
 	HUDAssetLibrary.apply_button(_menu_save_button, "save")
 	HUDAssetLibrary.apply_button(_menu_load_button, "load")
@@ -108,6 +121,10 @@ func _apply_assets() -> void:
 	HUDAssetLibrary.apply_label(_location_label, "body")
 	HUDAssetLibrary.apply_label(_time_label, "body")
 	HUDAssetLibrary.apply_label(_warning_label, "warning")
+	HUDAssetLibrary.apply_label(_current_hex_label, "body")
+	HUDAssetLibrary.apply_label(_selected_hex_label, "title")
+	HUDAssetLibrary.apply_label(_hex_details_label, "muted")
+	HUDAssetLibrary.apply_label(_macro_activity_label, "warning")
 	HUDAssetLibrary.apply_label(_hud_scale_label, "muted")
 
 func _apply_vital_icon(
@@ -129,6 +146,9 @@ func _connect_buttons() -> void:
 	_medical_button.pressed.connect(_toggle_medical_monitor)
 	_menu_button.pressed.connect(_toggle_menu)
 	_settings_button.pressed.connect(_toggle_settings)
+	_scan_button.pressed.connect(func(): hex_action_requested.emit("scan"))
+	_travel_button.pressed.connect(func(): hex_action_requested.emit("travel"))
+	_act_button.pressed.connect(func(): hex_action_requested.emit("act"))
 	_menu_inventory_button.pressed.connect(inventory_requested.emit)
 	_menu_save_button.pressed.connect(save_requested.emit)
 	_menu_load_button.pressed.connect(load_requested.emit)
@@ -176,6 +196,7 @@ func _render() -> void:
 		"TEMP %.1fC" % temperature
 	)
 	_warning_label.text = _warning_text()
+	_render_hex_panel()
 
 func _update_vital(
 	key: String,
@@ -205,6 +226,88 @@ func _warning_text() -> String:
 	if warnings.is_empty():
 		return "BODY SIGNAL STABLE"
 	return " / ".join(warnings)
+
+func _render_hex_panel() -> void:
+	var current_hex: Dictionary = _snapshot.get("current_hex", {})
+	var selected_hex: Dictionary = _snapshot.get("selected_hex", {})
+	var activity: Dictionary = _snapshot.get("macro_activity", {})
+	if current_hex.is_empty() or selected_hex.is_empty():
+		_current_hex_label.text = "CURRENT HEX --"
+		_selected_hex_label.text = "TARGET HEX --"
+		_hex_details_label.text = "NO HEX SIGNAL"
+		_macro_activity_label.text = ""
+		_travel_button.disabled = true
+		_act_button.disabled = true
+		return
+
+	_current_hex_label.text = "CURRENT " + str(current_hex.get("label", "HEX --"))
+	_selected_hex_label.text = "TARGET " + str(selected_hex.get("label", "HEX --"))
+	_hex_details_label.text = _hex_detail_text(selected_hex)
+	_macro_activity_label.text = _macro_activity_text(activity)
+	_travel_button.disabled = (
+		bool(selected_hex.get("is_current", false))
+		or not bool(selected_hex.get("can_travel", false))
+	)
+	_act_button.disabled = not bool(current_hex.get("can_interact", false))
+
+func _hex_detail_text(hex: Dictionary) -> String:
+	var lines := PackedStringArray()
+	lines.append(
+		"%s // %s // HAZ %.1f // DIST %d"
+		% [
+			str(hex.get("terrain", "TERRAIN")),
+			str(hex.get("structure", "NONE")),
+			float(hex.get("hazard", 0.0)),
+			int(hex.get("distance", 0)),
+		]
+	)
+	if bool(hex.get("is_poi", false)):
+		lines.append("POI " + str(hex.get("poi_name", "Unknown")))
+	if int(hex.get("ground_item_count", 0)) > 0:
+		lines.append("GROUND ITEMS " + str(hex.get("ground_item_count", 0)))
+	if not str(hex.get("entity_name", "")).is_empty():
+		lines.append(
+			"ENTITY %s // %s // %s"
+			% [
+				str(hex.get("entity_name", "")),
+				str(hex.get("entity_status", "")),
+				str(hex.get("entity_purpose", "")),
+			]
+		)
+	if not bool(hex.get("passable", true)):
+		lines.append("BLOCKED")
+	if not bool(hex.get("explored", false)):
+		lines.append("UNEXPLORED")
+	return "\n".join(lines)
+
+func _macro_activity_text(activity: Dictionary) -> String:
+	if activity.is_empty():
+		return ""
+	var nearest_distance := int(activity.get("nearest_hostile_distance", 999999))
+	var nearest_text := "NONE"
+	if nearest_distance < 999999:
+		var nearest_coords: Vector2i = activity.get("nearest_hostile_coords", Vector2i.ZERO)
+		nearest_text = "%s @ %d,%d / D%d" % [
+			str(activity.get("nearest_hostile_name", "Unknown")),
+			nearest_coords.x,
+			nearest_coords.y,
+			nearest_distance,
+		]
+	var purpose_counts: Dictionary = activity.get("purpose_counts", {})
+	var purpose_text := PackedStringArray()
+	for key in purpose_counts.keys():
+		purpose_text.append("%s:%d" % [str(key).to_upper(), int(purpose_counts[key])])
+	var purpose_line := " // " + ", ".join(purpose_text) if not purpose_text.is_empty() else ""
+	return (
+		"TOKENS %d // HOSTILES %d%s // NEAREST %s\n%s"
+		% [
+			int(activity.get("active_tokens", 0)),
+			int(activity.get("hostile_count", 0)),
+			purpose_line,
+			nearest_text,
+			str(_snapshot.get("last_macro_event", "")),
+		]
+	)
 
 func _toggle_menu() -> void:
 	_menu_panel.visible = not _menu_panel.visible
@@ -245,6 +348,7 @@ func _set_screen_noise(enabled: bool) -> void:
 
 func _set_hud_scale(value: float) -> void:
 	_status_panel.scale = Vector2.ONE * value
+	_hex_panel.scale = Vector2.ONE * value
 	_command_panel.scale = Vector2.ONE * value
 	_menu_panel.scale = Vector2.ONE * value
 	_settings_panel.scale = Vector2.ONE * value

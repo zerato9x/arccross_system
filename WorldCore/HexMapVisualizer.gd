@@ -24,12 +24,14 @@ const TILESET_PATH := "res://Asset/MacroTileSet.tres"
 var rendered_cells: Dictionary = {}
 var poi_markers: Dictionary = {}
 var shrub_sprites: Dictionary = {}
+var selection_marker: Polygon2D
 
 func _ready() -> void:
 	if not world_generator:
 		push_error("Visualizer cannot see the Cartographer. Hook it up.")
 		return
 	_load_generated_assets()
+	_ensure_selection_marker()
 
 func _load_generated_assets() -> void:
 	if tile_catalog == null and ResourceLoader.exists(CATALOG_PATH):
@@ -57,6 +59,29 @@ func render_radius(center_coords: Vector2i, radius: int) -> void:
 			var check_coord := center_coords + Vector2i(q, r)
 			_paint_single_hex(check_coord)
 	_prune_outside_radius(center_coords, radius + 2)
+
+func show_selection(coords: Vector2i) -> void:
+	_ensure_selection_marker()
+	selection_marker.position = map_to_local(coords)
+	selection_marker.visible = true
+
+func _ensure_selection_marker() -> void:
+	if selection_marker != null:
+		return
+	selection_marker = Polygon2D.new()
+	selection_marker.name = "HexSelectionMarker"
+	selection_marker.polygon = PackedVector2Array([
+		Vector2(0.0, -74.0),
+		Vector2(86.0, -37.0),
+		Vector2(86.0, 37.0),
+		Vector2(0.0, 74.0),
+		Vector2(-86.0, 37.0),
+		Vector2(-86.0, -37.0),
+	])
+	selection_marker.color = Color(0.98, 0.86, 0.28, 0.18)
+	selection_marker.z_index = 4
+	selection_marker.visible = false
+	add_child(selection_marker)
 
 func _paint_single_hex(coords: Vector2i) -> void:
 	var hex_data: MacroHexData = world_generator.get_hex_at(coords)

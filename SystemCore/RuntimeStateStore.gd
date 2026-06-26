@@ -131,6 +131,29 @@ func update_entity_runtime(entity_id: String, runtime_state) -> void:
 	elif runtime_state is Dictionary:
 		entity.runtime = runtime_state.duplicate(true)
 
+func move_entity(entity_id: String, target_coords: Vector2i) -> bool:
+	if not entity_records.has(entity_id):
+		return false
+	var entity: EntityRecord = entity_records[entity_id]
+	if entity.life_state != GameEnums.EntityLifeState.ALIVE:
+		return false
+
+	var occupying_id: String = entity_ids_by_coords.get(target_coords, "")
+	if not occupying_id.is_empty() and occupying_id != entity_id:
+		var occupying_record := get_entity(occupying_id)
+		if (
+			occupying_record != null
+			and occupying_record.life_state == GameEnums.EntityLifeState.ALIVE
+		):
+			return false
+
+	var old_coords := entity.coords
+	if entity_ids_by_coords.get(old_coords, "") == entity_id:
+		entity_ids_by_coords.erase(old_coords)
+	entity.coords = target_coords
+	entity_ids_by_coords[target_coords] = entity_id
+	return true
+
 func set_entity_life_state(entity_id: String, life_state: GameEnums.EntityLifeState) -> void:
 	if not entity_records.has(entity_id):
 		return

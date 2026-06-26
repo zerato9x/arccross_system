@@ -11,6 +11,14 @@ func _run() -> void:
 	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
 	var player_core := macro_map.player_token.get_humanoid_core()
 	var world_state := root.get_node("WorldState") as RuntimeStateStore
+	var disposition_probe_id := _ensure_collision_probe(
+		macro_map,
+		world_state,
+		macro_map.player_token.current_hex_coords
+	)
+	if disposition_probe_id.is_empty():
+		_fail("Could not create a controlled macro NPC disposition probe.")
+		return
 	if (
 		macro_map.player_token.humanoid_token.get_animation()
 		!= "Idle"
@@ -21,7 +29,10 @@ func _run() -> void:
 		if enemy_token.humanoid_token.get_animation() != "Idle2":
 			_fail("A hostile macro NPC did not use the aggressive idle.")
 			return
-	var disposition_probe: MacroEnemy = macro_map.active_enemies.values()[0]
+	var disposition_record := world_state.get_entity(disposition_probe_id)
+	var disposition_probe: MacroEnemy = macro_map.active_enemies[
+		disposition_record.coords
+	]
 	var hostile_record := world_state.get_entity(
 		disposition_probe.entity_id
 	)
@@ -201,27 +212,22 @@ func _run() -> void:
 
 	macro_map.interaction_panel.close_panel()
 	await process_frame
-	var enemy_coords := _nearest_enemy_coords(
-		poi_coords,
-		macro_map.active_enemies.keys()
+	var collision_enemy_id := _ensure_collision_probe(
+		macro_map,
+		world_state,
+		poi_coords
 	)
-	var enemy_path := _build_hex_path(
-		poi_coords,
-		enemy_coords,
-		macro_map.world_generator
-	)
-	if enemy_path.is_empty():
-		_fail("No passable macro path could reach the hostile entity.")
+	if collision_enemy_id.is_empty():
+		_fail("Could not create a controlled hostile collision probe.")
 		return
-	for step in enemy_path:
-		macro_map._execute_player_step(step)
-		await process_frame
-
+	var collision_record := world_state.get_entity(collision_enemy_id)
+	macro_map._begin_entity_collision(collision_enemy_id, collision_record.coords)
+	await process_frame
 	if (
 		macro_map._pending_interaction.get("type")
 		!= GameEnums.MacroInteractionType.ENTITY_COLLISION
 	):
-		_fail("Moving into a hostile entity did not open collision choices.")
+		_fail("Opening a hostile entity collision did not show collision choices.")
 		return
 
 	macro_map.resolve_entity_ambush(GameEnums.AmbushPosition.CLOSE)
@@ -260,26 +266,18 @@ func _verify_failed_talk_deployment() -> bool:
 	if game_director == null:
 		return false
 	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
-	var origin := macro_map.player_token.current_hex_coords
-	var enemy_coords := _nearest_enemy_coords(origin, macro_map.active_enemies.keys())
-	var enemy_id: String = macro_map.active_enemies[enemy_coords].entity_id
 	var world_state := root.get_node("WorldState") as RuntimeStateStore
+	var origin := macro_map.player_token.current_hex_coords
+	var enemy_id := _ensure_collision_probe(macro_map, world_state, origin)
+	if enemy_id.is_empty():
+		_fail("Could not create a controlled hostile collision probe.")
+		return false
 	var enemy_record := world_state.get_entity(enemy_id)
 	var definition: Dictionary = enemy_record.definition.duplicate(true)
 	definition["will"] = 12
 	world_state.patch_entity_record(enemy_id, {"definition": definition})
-
-	var enemy_path := _build_hex_path(
-		origin,
-		enemy_coords,
-		macro_map.world_generator
-	)
-	if enemy_path.is_empty():
-		_fail("No passable macro path could reach the hostile entity.")
-		return false
-	for step in enemy_path:
-		macro_map._execute_player_step(step)
-		await process_frame
+	macro_map._begin_entity_collision(enemy_id, enemy_record.coords)
+	await process_frame
 
 	macro_map.resolve_talk_action(GameEnums.TalkAction.CEASEFIRE)
 	await process_frame
@@ -398,6 +396,71 @@ func _nearest_enemy_coords(origin: Vector2i, candidates: Array) -> Vector2i:
 			nearest = coords
 			nearest_distance = distance
 	return nearest
+
+func _ensure_collision_probe(
+	macro_map: MacroGameManager,
+	world_state: RuntimeStateStore,
+	origin: Vector2i
+) -> String:
+	var candidates := [
+		Vector2i(3, 0),
+		Vector2i(3, -1),
+		Vector2i(3, 1),
+		origin + Vector2i(2, 0),
+	]
+	for coords in candidates:
+		var hex := macro_map.world_generator.get_hex_at(coords)
+		if not hex.is_passable():
+			continue
+		var record := world_state.get_entity_at(coords)
+		if record != null:
+			if (
+				world_state.is_entity_alive(record.entity_id)
+				and world_state.is_entity_hostile(record.entity_id)
+			):
+				macro_map.load_enemy_token(record.entity_id)
+				return record.entity_id
+			continue
+		macro_map.spawn_procedural_enemy(
+			coords,
+			GameEnums.Faction.SCAVENGER_CELL,
+			0
+		)
+		record = world_state.get_entity_at(coords)
+		if record != null:
+			return record.entity_id
+	return ""
+
+func _walk_to_nearest_collision(
+	macro_map: MacroGameManager,
+	max_steps: int = 48
+) -> bool:
+	for _step_index in range(max_steps):
+		if (
+			macro_map._pending_interaction.get("type")
+			== GameEnums.MacroInteractionType.ENTITY_COLLISION
+		):
+			return true
+		if macro_map.active_enemies.is_empty():
+			return false
+		var origin := macro_map.player_token.current_hex_coords
+		var enemy_coords := _nearest_enemy_coords(
+			origin,
+			macro_map.active_enemies.keys()
+		)
+		var enemy_path := _build_hex_path(
+			origin,
+			enemy_coords,
+			macro_map.world_generator
+		)
+		if enemy_path.is_empty():
+			return false
+		macro_map._execute_player_step(enemy_path[0])
+		await process_frame
+	return (
+		macro_map._pending_interaction.get("type")
+		== GameEnums.MacroInteractionType.ENTITY_COLLISION
+	)
 
 func _build_hex_path(
 	origin: Vector2i,

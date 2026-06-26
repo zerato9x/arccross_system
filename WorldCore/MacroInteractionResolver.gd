@@ -4,6 +4,193 @@ class_name MacroInteractionResolver
 const SEARCH_KEYS := ["loot", "safety", "sneak"]
 const CAMP_KEYS := ["sleep", "shelter", "healing", "concealment", "alertness"]
 
+static func build_search_options(
+	world_seed: String,
+	coords: Vector2i,
+	hex_data: MacroHexData
+) -> Array:
+	var options: Array = []
+	var _seed_signature := (
+		world_seed
+		+ ":search_options:"
+		+ str(coords.x)
+		+ ":"
+		+ str(coords.y)
+	)
+
+	options.append(_search_option(
+		"surface_sweep",
+		"Open Ground Sweep",
+		"Loose supplies, tracks, and anything not nailed to civilization's corpse.",
+		{},
+		{"loot": -1.0, "safety": 1.0, "sneak": 1.0}
+	))
+
+	if hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS:
+		options.append(_search_option(
+			"shrub_cache",
+			"Shrub Cache",
+			"Check low brush and half-buried containers.",
+			{"any_tags": ["tools"], "any_roles": [GameEnums.InteractionItemRole.SEARCH_TOOL]},
+			{"loot": 1.0, "safety": -0.5, "sneak": 0.5}
+		))
+	elif hex_data.flora_layer == GameEnums.MacroFloraLayer.TREES:
+		options.append(_search_option(
+			"tree_line",
+			"Tree Line",
+			"Search roots, hanging scraps, and concealed travel traces.",
+			{},
+			{"loot": 0.5, "safety": 0.5, "sneak": 1.5}
+		))
+
+	if hex_data.structure_layer == GameEnums.MacroStructureLayer.STRUCTURES:
+		options.append(_search_option(
+			"building_shell",
+			"Building Shell",
+			"Rooms, counters, shelves, and all the places loot designers hide mercy.",
+			{},
+			{"loot": 1.5, "safety": -1.0, "sneak": -0.5}
+		))
+		options.append(_search_option(
+			"locked_chest",
+			"Locked Chest",
+			"A sealed container that wants tools, patience, or both.",
+			{"any_item_ids": ["crowbar", "multitool", "keys"]},
+			{"loot": 3.0, "safety": -1.0, "sneak": -1.0}
+		))
+		options.append(_search_option(
+			"drawers",
+			"Drawers",
+			"Small storage, office trash, and maybe something sharp enough to matter.",
+			{},
+			{"loot": 0.75, "safety": 0.0, "sneak": 0.5}
+		))
+	elif hex_data.structure_layer == GameEnums.MacroStructureLayer.REMNANTS:
+		options.append(_search_option(
+			"wreckage",
+			"Wreckage",
+			"Collapsed storage and metal cavities. Extremely normal. Definitely safe.",
+			{"any_item_ids": ["crowbar", "multitool"], "any_tags": ["tools"]},
+			{"loot": 2.0, "safety": -2.0, "sneak": -1.0}
+		))
+
+	if hex_data.rock_layer == GameEnums.MacroRockLayer.HILLS:
+		options.append(_search_option(
+			"ridge_overlook",
+			"Ridge Overlook",
+			"Scout the terrain before rummaging through trouble.",
+			{"any_item_ids": ["binoculars", "map"]},
+			{"loot": -0.5, "safety": 2.0, "sneak": 1.0}
+		))
+
+	if hex_data.is_poi:
+		options.append(_search_option(
+			"poi_core",
+			hex_data.poi_name if not hex_data.poi_name.is_empty() else "POI Core",
+			"Search the location's main point of interest.",
+			{},
+			{"loot": 2.0, "safety": -0.5, "sneak": -0.5}
+		))
+
+	return options
+
+static func build_camp_interactions(
+	hex_data: MacroHexData,
+	camp_access: Dictionary
+) -> Array:
+	var allowed := bool(camp_access.get("allowed", false))
+	var lock_reason := str(camp_access.get("reason", ""))
+	var locked_requirements := {"reason": lock_reason} if not allowed else {}
+	var interactions: Array = []
+	interactions.append(_camp_interaction(
+		"rest",
+		"Rest",
+		"Recover fatigue using the selected shelter and sleep gear.",
+		allowed,
+		locked_requirements
+	))
+	interactions.append(_camp_interaction(
+		"install_gear",
+		"Install Camp Gear",
+		"Place up to three persistent camp items on this hex.",
+		allowed,
+		locked_requirements
+	))
+	interactions.append(_camp_interaction(
+		"field_treatment",
+		"Field Treatment",
+		"Convert healing score into limb recovery after rest.",
+		allowed,
+		locked_requirements
+	))
+	interactions.append(_camp_interaction(
+		"watch",
+		"Watch Rotation",
+		"Use concealment and alertness to reduce interruption risk.",
+		allowed,
+		locked_requirements
+	))
+	if hex_data.region == GameEnums.MacroRegion.CENTRAL_HUB:
+		interactions.append(_camp_interaction(
+			"hub_safety",
+			"Hub Safety",
+			"The central hub suppresses hazard and hostile camp interruption.",
+			true,
+			{}
+		))
+	return interactions
+
+static func apply_search_option_metrics(
+	base_metrics: Dictionary,
+	option: Dictionary
+) -> Dictionary:
+	var metrics := base_metrics.duplicate(true)
+	var modifiers: Dictionary = option.get("metric_modifiers", {})
+	for key in SEARCH_KEYS:
+		metrics[key] = clampf(
+			float(metrics.get(key, 0.0)) + float(modifiers.get(key, 0.0)),
+			0.0,
+			GameEnums.SCALE_MAX
+		)
+	return metrics
+
+static func find_option(options: Array, option_id: String) -> Dictionary:
+	for option in options:
+		if str(option.get("id", "")) == option_id:
+			return option
+	return {}
+
+static func _search_option(
+	option_id: String,
+	label: String,
+	description: String,
+	requirements: Dictionary,
+	metric_modifiers: Dictionary
+) -> Dictionary:
+	return {
+		"id": option_id,
+		"label": label,
+		"description": description,
+		"requirements": requirements.duplicate(true),
+		"metric_modifiers": metric_modifiers.duplicate(true),
+		"priority": 0 if requirements.is_empty() else 1,
+	}
+
+static func _camp_interaction(
+	interaction_id: String,
+	label: String,
+	description: String,
+	available: bool,
+	requirements: Dictionary
+) -> Dictionary:
+	return {
+		"id": interaction_id,
+		"label": label,
+		"description": description,
+		"available": available,
+		"requirements": requirements.duplicate(true),
+	}
+
 static func build_poi_profile(
 	world_seed: String,
 	coords: Vector2i,
@@ -90,7 +277,8 @@ static func resolve_search(
 	coords: Vector2i,
 	search_count: int,
 	metrics: Dictionary,
-	loot_profile: Dictionary
+	loot_profile: Dictionary,
+	target_id: String = ""
 ) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = (
@@ -101,6 +289,8 @@ static func resolve_search(
 		+ str(coords.y)
 		+ ":"
 		+ str(search_count)
+		+ ":"
+		+ target_id
 	).hash()
 
 	var max_searches := int(loot_profile.get("max_searches", 4))

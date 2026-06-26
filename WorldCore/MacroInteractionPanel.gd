@@ -1,8 +1,16 @@
 extends CanvasLayer
 class_name MacroInteractionPanel
 
-signal poi_action_submitted(action: GameEnums.PoiAction, selected_item_ids: Array)
-signal poi_preview_requested(action: GameEnums.PoiAction, selected_item_ids: Array)
+signal poi_action_submitted(
+	action: GameEnums.PoiAction,
+	selected_item_ids: Array,
+	selected_search_option_id: String
+)
+signal poi_preview_requested(
+	action: GameEnums.PoiAction,
+	selected_item_ids: Array,
+	selected_search_option_id: String
+)
 signal talk_action_submitted(action: GameEnums.TalkAction)
 signal ambush_submitted(position: GameEnums.AmbushPosition)
 signal inventory_requested
@@ -16,7 +24,9 @@ var _content: VBoxContainer
 var _session: Dictionary = {}
 var _slot_selectors: Array[OptionButton] = []
 var _metric_rows: Dictionary = {}
+var _search_option_buttons: Dictionary = {}
 var _active_poi_action := GameEnums.PoiAction.SEARCH
+var _selected_search_option_id := ""
 
 func _ready() -> void:
 	layer = 20
@@ -26,6 +36,7 @@ func _ready() -> void:
 
 func open_poi(session: Dictionary) -> void:
 	_session = session.duplicate(true)
+	_selected_search_option_id = _first_unlocked_search_option_id()
 	_panel.visible = true
 	_show_poi_root()
 
@@ -93,7 +104,7 @@ func _show_search() -> void:
 	_active_poi_action = GameEnums.PoiAction.SEARCH
 	_show_tool_screen(
 		"SEARCH",
-		"Insert up to three tools. Better loot can trade away safety or stealth.",
+		"Choose a search target, then insert up to three tools.",
 		GameEnums.InteractionItemRole.SEARCH_TOOL
 	)
 
@@ -107,7 +118,7 @@ func _show_camp() -> void:
 	_active_poi_action = GameEnums.PoiAction.CAMP
 	_show_tool_screen(
 		"CAMP",
-		"Install up to three campsite items. Installed gear remains stored at this hex.",
+		"Review this hex's camp interactions, then install up to three campsite items.",
 		GameEnums.InteractionItemRole.CAMP_GEAR
 	)
 
@@ -119,6 +130,10 @@ func _show_tool_screen(
 	_clear_content()
 	_add_title(title)
 	_add_body(description)
+	if _active_poi_action == GameEnums.PoiAction.SEARCH:
+		_add_search_options()
+	else:
+		_add_camp_interactions()
 
 	var compatible := _compatible_items(role)
 	var installed_ids: Array = (
@@ -203,13 +218,26 @@ func _show_ambush_options() -> void:
 	_add_button("BACK", open_entity_collision.bind(_session))
 
 func _submit_poi_action() -> void:
-	poi_action_submitted.emit(_active_poi_action, _selected_item_ids())
+	poi_action_submitted.emit(
+		_active_poi_action,
+		_selected_item_ids(),
+		_selected_search_option_id
+	)
 
 func _on_slot_selection_changed(_index: int) -> void:
 	_request_preview()
 
 func _request_preview() -> void:
-	poi_preview_requested.emit(_active_poi_action, _selected_item_ids())
+	if (
+		_active_poi_action == GameEnums.PoiAction.SEARCH
+		and _selected_search_option_id.is_empty()
+	):
+		_selected_search_option_id = _first_unlocked_search_option_id()
+	poi_preview_requested.emit(
+		_active_poi_action,
+		_selected_item_ids(),
+		_selected_search_option_id
+	)
 
 func show_poi_preview(
 	action: GameEnums.PoiAction,
@@ -243,6 +271,71 @@ func _selected_item_ids() -> Array:
 		if not instance_id.is_empty() and not selected.has(instance_id):
 			selected.append(instance_id)
 	return selected
+
+func _add_search_options() -> void:
+	_search_option_buttons.clear()
+	var options: Array = _session.get("search_options", [])
+	if options.is_empty():
+		_add_body("No searchable targets are exposed at this hex.")
+		return
+	for option in options:
+		var option_id := str(option.get("id", ""))
+		var button := Button.new()
+		button.text = _search_option_label(option)
+		button.disabled = bool(option.get("locked", false))
+		button.tooltip_text = str(option.get("lock_reason", ""))
+		button.pressed.connect(_select_search_option.bind(option_id))
+		HUDAssetLibrary.apply_button(button, "search")
+		_content.add_child(button)
+		_search_option_buttons[option_id] = button
+		var description := str(option.get("description", ""))
+		if bool(option.get("locked", false)):
+			description += "\nLOCKED: " + str(option.get("lock_reason", ""))
+		_add_body(description)
+	_refresh_search_option_buttons()
+
+func _select_search_option(option_id: String) -> void:
+	_selected_search_option_id = option_id
+	_refresh_search_option_buttons()
+	_request_preview()
+
+func _refresh_search_option_buttons() -> void:
+	var options: Array = _session.get("search_options", [])
+	for option in options:
+		var option_id := str(option.get("id", ""))
+		if not _search_option_buttons.has(option_id):
+			continue
+		var button := _search_option_buttons[option_id] as Button
+		button.text = _search_option_label(option)
+
+func _search_option_label(option: Dictionary) -> String:
+	var prefix := "> " if str(option.get("id", "")) == _selected_search_option_id else ""
+	var locked := "LOCKED: " if bool(option.get("locked", false)) else ""
+	return prefix + locked + str(option.get("label", "Search Target"))
+
+func _first_unlocked_search_option_id() -> String:
+	for option in _session.get("search_options", []):
+		if not bool(option.get("locked", false)):
+			return str(option.get("id", ""))
+	return ""
+
+func _add_camp_interactions() -> void:
+	var interactions: Array = _session.get("camp_interactions", [])
+	if interactions.is_empty():
+		_add_body("No camp interactions are exposed at this hex.")
+		return
+	for interaction in interactions:
+		var label := str(interaction.get("label", "Camp Interaction"))
+		var description := str(interaction.get("description", ""))
+		if bool(interaction.get("available", false)):
+			_add_body("AVAILABLE: " + label + "\n" + description)
+		else:
+			_add_body(
+				"LOCKED: "
+				+ label
+				+ "\n"
+				+ str(interaction.get("lock_reason", "Unavailable."))
+			)
 
 func _add_metric_row(key: String) -> void:
 	var container := VBoxContainer.new()
@@ -298,6 +391,7 @@ func _icon_for_button(text: String) -> String:
 func _clear_content() -> void:
 	_slot_selectors.clear()
 	_metric_rows.clear()
+	_search_option_buttons.clear()
 	for child in _content.get_children():
 		_content.remove_child(child)
 		child.queue_free()

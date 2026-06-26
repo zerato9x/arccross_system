@@ -17,17 +17,32 @@ signal load_requested
 @export var world_hud: WorldHUD
 
 @export_group("Proximity Loading")
-@export_range(1, 12) var active_radius: int = 4
+@export_range(1, 12) var active_radius: int = 3
 @export_range(2, 16) var unload_radius: int = 6
-@export_range(1, 12) var generation_radius: int = 5
+@export_range(1, 12) var generation_radius: int = 4
 @export_range(0, 4) var safe_start_radius: int = 1
-@export_range(0.0, 1.0) var base_enemy_spawn_chance: float = 0.12
+@export_range(0.0, 1.0) var base_enemy_spawn_chance: float = 0.025
+@export_range(1, 8) var max_visible_npc_tokens: int = 3
+@export_range(0, 8) var max_new_encounters_per_refresh: int = 1
+
+@export_group("NPC Evaluation")
+@export_range(1, 12) var npc_evaluation_radius: int = 7
+@export_range(1, 12) var npc_pursuit_radius: int = 5
+@export_range(0.0, 1.0) var npc_wander_chance: float = 0.35
+
+const NPC_PURPOSE_SCAVENGE := "scavenge"
+const NPC_PURPOSE_PATROL := "patrol"
+const NPC_PURPOSE_HUNT := "hunt"
+const NPC_PURPOSE_ROAM := "roam"
 
 var active_enemies: Dictionary = {} # Stores Vector2i -> MacroEnemy projections
 var _world_state: RuntimeStateStore
 var _loot_catalog: Node
 var _pending_interaction: Dictionary = {}
 var _last_inventory_error: String = ""
+var _selected_hex_coords: Vector2i = Vector2i.ZERO
+var _macro_turn_index := 0
+var _last_macro_event := "Macro systems nominal."
 
 const HEX_NEIGHBORS = [
 	Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1), 
@@ -62,6 +77,7 @@ func _ready() -> void:
 		world_hud.inventory_requested.connect(open_inventory)
 		world_hud.save_requested.connect(save_requested.emit)
 		world_hud.load_requested.connect(load_requested.emit)
+		world_hud.hex_action_requested.connect(_resolve_hex_hud_action)
 
 	var player_inventory := player_token.get_humanoid_core().inventory
 	player_inventory.inventory_error.connect(_on_player_inventory_error)
@@ -84,6 +100,8 @@ func _initialize_demo() -> void:
 	var start_pixel_pos = map_visualizer.map_to_local(start_coords)
 	player_token.snap_to_hex(start_coords, start_pixel_pos)
 	_world_state.set_player_record(player_token.capture_runtime_record(), start_coords)
+	_mark_hex_explored(start_coords)
+	_select_hex_for_hud(start_coords)
 	map_visualizer.render_radius(start_coords, 3)
 	refresh_proximity(start_coords)
 
@@ -100,6 +118,8 @@ func _initialize_loaded_world() -> void:
 		loaded_coords,
 		map_visualizer.map_to_local(loaded_coords)
 	)
+	_mark_hex_explored(loaded_coords)
+	_select_hex_for_hud(loaded_coords)
 	map_visualizer.render_radius(loaded_coords, 3)
 	refresh_proximity(loaded_coords)
 
@@ -135,6 +155,7 @@ func spawn_procedural_enemy(coords: Vector2i, faction: GameEnums.Faction, diffic
 		difficulty,
 		deterministic_key
 	)
+	_initialize_npc_runtime(record)
 	_world_state.register_entity(record)
 	_spawn_enemy_token_from_record(record)
 
@@ -164,26 +185,39 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not _pending_interaction.is_empty():
 		return
+	if (
+		event is InputEventMouseButton
+		and event.pressed
+		and event.button_index == MOUSE_BUTTON_RIGHT
+	):
+		_select_hex_at_mouse()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		_attempt_move_to_mouse()
 
-func _attempt_move_to_mouse() -> void:
+func _attempt_move_to_mouse() -> bool:
 	var mouse_pos = map_visualizer.get_local_mouse_position()
 	var clicked_hex_coords = map_visualizer.local_to_map(mouse_pos)
+	_select_hex_for_hud(clicked_hex_coords)
 	
 	var distance_vector = clicked_hex_coords - player_token.current_hex_coords
 	if not HEX_NEIGHBORS.has(distance_vector):
-		return # Ignored. Too far away.
+		return false # Ignored. Too far away.
 		
 	var target_hex := world_generator.get_hex_at(clicked_hex_coords)
 	if not target_hex.is_passable():
-		return # Ignored. Rock fields are unpassable.
+		return false # Ignored. Rock fields are unpassable.
 
 	_execute_player_step(clicked_hex_coords)
+	return true
 
 func _execute_player_step(target_coords: Vector2i) -> void:
+	if not _pending_interaction.is_empty():
+		return
 	var pixel_pos = map_visualizer.map_to_local(target_coords)
 	player_token.walk_to_hex(target_coords, pixel_pos)
+	_select_hex_for_hud(target_coords)
 	_world_state.update_player_runtime(
 		player_token.get_humanoid_core().capture_runtime_state(),
 		target_coords
@@ -192,26 +226,100 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 	refresh_proximity(target_coords)
 
 	var hex_data := world_generator.get_hex_at(target_coords)
+	_mark_hex_explored(target_coords, hex_data)
 	_advance_survival_time(
 		GameTimeRules.MOVE_MINUTES,
 		_get_exertion_for_hex(hex_data),
 		target_coords
 	)
 	
-	if active_enemies.has(target_coords):
-		var enemy: MacroEnemy = active_enemies[target_coords]
-		if not _world_state.is_entity_alive(enemy.entity_id):
+	var target_entity := _world_state.get_entity_at(target_coords)
+	if target_entity != null:
+		if not _world_state.is_entity_alive(target_entity.entity_id):
 			unload_enemy_token(target_coords)
+		elif _world_state.is_entity_hostile(target_entity.entity_id):
+			_force_project_npc_token(target_entity)
+			_begin_entity_collision(target_entity.entity_id, target_coords)
 			return
-		_begin_entity_collision(enemy.entity_id, target_coords)
-		return
 		
 	if hex_data.is_poi:
 		_begin_poi_interaction(target_coords, hex_data)
 		return
 		
 	if _world_state.has_ground_items(target_coords):
-		print(">>> You stumbled upon dropped items on this hex! <<<")
+		_last_macro_event = "Ground items detected at HEX %d,%d." % [
+			target_coords.x,
+			target_coords.y,
+		]
+
+	_advance_npc_macro_turn()
+	_refresh_world_hud()
+
+func _select_hex_at_mouse() -> void:
+	var mouse_pos = map_visualizer.get_local_mouse_position()
+	_select_hex_for_hud(map_visualizer.local_to_map(mouse_pos))
+
+func _select_hex_for_hud(coords: Vector2i) -> void:
+	_selected_hex_coords = coords
+	if map_visualizer and map_visualizer.has_method("show_selection"):
+		map_visualizer.call("show_selection", coords)
+	_refresh_world_hud()
+
+func _resolve_hex_hud_action(action: String) -> void:
+	if not _pending_interaction.is_empty():
+		return
+	match action:
+		"scan":
+			_select_hex_for_hud(_selected_hex_coords)
+		"travel":
+			_try_travel_to_selected_hex()
+		"act":
+			_resolve_current_hex_action()
+
+func _try_travel_to_selected_hex() -> void:
+	if _selected_hex_coords == player_token.current_hex_coords:
+		_resolve_current_hex_action()
+		return
+	var distance_vector := _selected_hex_coords - player_token.current_hex_coords
+	if not HEX_NEIGHBORS.has(distance_vector):
+		_last_macro_event = "Selected hex is not adjacent."
+		_refresh_world_hud()
+		return
+	var target_hex := world_generator.get_hex_at(_selected_hex_coords)
+	if not target_hex.is_passable():
+		_last_macro_event = "Selected hex is blocked by rock fields."
+		_refresh_world_hud()
+		return
+	_execute_player_step(_selected_hex_coords)
+
+func _resolve_current_hex_action() -> void:
+	var coords := player_token.current_hex_coords
+	var hex_data := world_generator.get_hex_at(coords)
+	if active_enemies.has(coords):
+		var enemy: MacroEnemy = active_enemies[coords]
+		_begin_entity_collision(enemy.entity_id, coords)
+		return
+	if hex_data.is_poi:
+		_begin_poi_interaction(coords, hex_data)
+		return
+	if _world_state.has_ground_items(coords):
+		open_inventory()
+		return
+	_last_macro_event = "No immediate interaction at HEX %d,%d." % [
+		coords.x,
+		coords.y,
+	]
+	_refresh_world_hud()
+
+func _mark_hex_explored(
+	coords: Vector2i,
+	hex_data: MacroHexData = null
+) -> void:
+	var target_hex := hex_data if hex_data != null else world_generator.get_hex_at(coords)
+	if target_hex.is_explored:
+		return
+	target_hex.is_explored = true
+	_world_state.set_hex_record(coords, target_hex.to_state())
 
 func _advance_survival_time(
 	elapsed_minutes: int,
@@ -269,10 +377,20 @@ func _present_poi_session(
 	for descriptor in camp_items:
 		camp_item_ids.append(descriptor.get("instance_id", ""))
 	var camp_access := _get_camp_access(coords, hex_data)
+	var search_options := _evaluated_search_options(coords, hex_data)
+	var camp_interactions := _evaluated_camp_interactions(
+		MacroInteractionResolver.build_camp_interactions(
+			hex_data,
+			camp_access
+		)
+	)
 	interaction_panel.open_poi({
 		"poi_name": hex_data.poi_name,
+		"hex_label": _hex_label(coords, hex_data),
 		"search_metric_keys": MacroInteractionResolver.SEARCH_KEYS,
 		"camp_metric_keys": MacroInteractionResolver.CAMP_KEYS,
+		"search_options": search_options,
+		"camp_interactions": camp_interactions,
 		"available_items": _available_interaction_options(),
 		"camp_items": _camp_item_options(hex_data.camp_item_states),
 		"camp_item_ids": camp_item_ids,
@@ -306,7 +424,8 @@ func _begin_entity_collision(enemy_id: String, coords: Vector2i) -> void:
 
 func preview_poi_action(
 	action: GameEnums.PoiAction,
-	selected_item_ids: Array
+	selected_item_ids: Array,
+	selected_search_option_id: String = ""
 ) -> void:
 	if (
 		_pending_interaction.get("type")
@@ -324,13 +443,23 @@ func preview_poi_action(
 	)
 	var metrics: Dictionary
 	if action == GameEnums.PoiAction.SEARCH:
+		var search_option := _available_search_option(
+			_evaluated_search_options(coords, hex_data),
+			selected_search_option_id
+		)
+		var base_metrics: Dictionary = profile["search"]
+		if not selected_search_option_id.is_empty():
+			base_metrics = MacroInteractionResolver.apply_search_option_metrics(
+				profile["search"],
+				search_option
+			)
 		var loot_profile := _get_loot_profile(hex_data)
 		var descriptors := _inventory_descriptors_for_ids(
 			selected_item_ids,
 			GameEnums.InteractionItemRole.SEARCH_TOOL
 		)
 		metrics = MacroInteractionResolver.calculate_search_metrics(
-			profile["search"],
+			base_metrics,
 			descriptors,
 			hex_data.search_count,
 			loot_profile.get("max_searches", 4)
@@ -348,7 +477,8 @@ func preview_poi_action(
 
 func resolve_poi_action(
 	action: GameEnums.PoiAction,
-	selected_item_ids: Array
+	selected_item_ids: Array,
+	selected_search_option_id: String = ""
 ) -> void:
 	if _pending_interaction.get("type") != GameEnums.MacroInteractionType.POI:
 		return
@@ -362,7 +492,13 @@ func resolve_poi_action(
 		hex_data.poi_id
 	)
 	if action == GameEnums.PoiAction.SEARCH:
-		_resolve_search(coords, hex_data, profile["search"], selected_item_ids)
+		_resolve_search(
+			coords,
+			hex_data,
+			profile["search"],
+			selected_item_ids,
+			selected_search_option_id
+		)
 	else:
 		var camp_access := _get_camp_access(coords, hex_data)
 		if not camp_access.get("allowed", false):
@@ -692,6 +828,10 @@ func _build_world_hud_snapshot() -> Dictionary:
 		})
 	return {
 		"coords": player_token.current_hex_coords,
+		"current_hex": _build_hex_descriptor(player_token.current_hex_coords),
+		"selected_hex": _build_hex_descriptor(_selected_hex_coords),
+		"macro_activity": _build_macro_activity_snapshot(),
+		"last_macro_event": _last_macro_event,
 		"world_time": _world_state.get_world_time_snapshot(),
 		"blood": body.blood_level,
 		"hunger": body.hunger,
@@ -711,6 +851,115 @@ func _build_world_hud_snapshot() -> Dictionary:
 func _refresh_world_hud() -> void:
 	if world_hud:
 		world_hud.show_snapshot(_build_world_hud_snapshot())
+
+func _build_hex_descriptor(coords: Vector2i) -> Dictionary:
+	var hex_data := world_generator.get_hex_at(coords)
+	var player_coords := player_token.current_hex_coords
+	var entity_record := _world_state.get_entity_at(coords)
+	var entity_name := ""
+	var entity_status := ""
+	var entity_purpose := ""
+	var hostile := false
+	if entity_record != null and _world_state.is_entity_alive(entity_record.entity_id):
+		entity_name = str(entity_record.definition.get("archetype_name", "Unknown"))
+		entity_status = _enum_key(
+			GameEnums.EntityWorldStatus.keys(),
+			int(entity_record.world_status)
+		)
+		entity_purpose = _ensure_npc_purpose(entity_record).capitalize()
+		hostile = _world_state.is_entity_hostile(entity_record.entity_id)
+
+	var ground_items := _world_state.get_ground_items(coords)
+	var distance := _hex_distance(player_coords, coords)
+	return {
+		"coords": coords,
+		"label": _hex_label(coords, hex_data),
+		"region": _enum_key(GameEnums.MacroRegion.keys(), int(hex_data.region)),
+		"arm_direction": _enum_key(
+			GameEnums.MacroArmDirection.keys(),
+			int(hex_data.arm_direction)
+		),
+		"terrain": _enum_key(
+			GameEnums.MacroTerrainTile.keys(),
+			int(hex_data.terrain_tile)
+		),
+		"flora": _enum_key(
+			GameEnums.MacroFloraLayer.keys(),
+			int(hex_data.flora_layer)
+		),
+		"rock": _enum_key(GameEnums.MacroRockLayer.keys(), int(hex_data.rock_layer)),
+		"structure": _enum_key(
+			GameEnums.MacroStructureLayer.keys(),
+			int(hex_data.structure_layer)
+		),
+		"passable": hex_data.is_passable(),
+		"explored": hex_data.is_explored,
+		"hazard": hex_data.hazard_level,
+		"distance": distance,
+		"is_current": coords == player_coords,
+		"can_travel": distance == 1 and hex_data.is_passable(),
+		"can_interact": (
+			coords == player_coords
+			and (
+				hex_data.is_poi
+				or not ground_items.is_empty()
+				or hostile
+			)
+		),
+		"is_poi": hex_data.is_poi,
+		"poi_name": hex_data.poi_name,
+		"search_count": hex_data.search_count,
+		"camp_rest_count": hex_data.camp_rest_count,
+		"ground_item_count": ground_items.size(),
+		"entity_name": entity_name,
+		"entity_status": entity_status,
+		"entity_purpose": entity_purpose,
+		"hostile": hostile,
+	}
+
+func _build_macro_activity_snapshot() -> Dictionary:
+	var hostile_count := 0
+	var passive_count := 0
+	var purpose_counts: Dictionary = {}
+	var nearest_hostile_distance := 999999
+	var nearest_hostile_coords := Vector2i.ZERO
+	var nearest_hostile_name := ""
+	var player_coords := player_token.current_hex_coords
+	for record in _world_state.get_all_entity_records():
+		if (
+			record.kind != GameEnums.RuntimeEntityKind.NPC
+			or record.life_state != GameEnums.EntityLifeState.ALIVE
+			or record.world_status == GameEnums.EntityWorldStatus.WITHDRAWN
+		):
+			continue
+		if record.world_status == GameEnums.EntityWorldStatus.HOSTILE:
+			hostile_count += 1
+			var purpose := _ensure_npc_purpose(record)
+			purpose_counts[purpose] = int(purpose_counts.get(purpose, 0)) + 1
+			var distance := _hex_distance(player_coords, record.coords)
+			if distance < nearest_hostile_distance:
+				nearest_hostile_distance = distance
+				nearest_hostile_coords = record.coords
+				nearest_hostile_name = str(
+					record.definition.get("archetype_name", "Unknown")
+				)
+		else:
+			passive_count += 1
+	return {
+		"turn": _macro_turn_index,
+		"active_tokens": active_enemies.size(),
+		"hostile_count": hostile_count,
+		"passive_count": passive_count,
+		"purpose_counts": purpose_counts,
+		"nearest_hostile_distance": nearest_hostile_distance,
+		"nearest_hostile_coords": nearest_hostile_coords,
+		"nearest_hostile_name": nearest_hostile_name,
+	}
+
+func _enum_key(keys: Array, value: int) -> String:
+	if value >= 0 and value < keys.size():
+		return str(keys[value])
+	return str(value)
 
 func _item_inventory_descriptor(
 	item: ItemData,
@@ -834,14 +1083,39 @@ func _resolve_search(
 	coords: Vector2i,
 	hex_data: MacroHexData,
 	base_metrics: Dictionary,
-	selected_item_ids: Array
+	selected_item_ids: Array,
+	selected_search_option_id: String = ""
 ) -> void:
+	var search_options := _evaluated_search_options(coords, hex_data)
+	var search_option := _available_search_option(
+		search_options,
+		selected_search_option_id
+	)
+	if search_option.is_empty():
+		_show_interaction_result(
+			"SEARCH BLOCKED",
+			"No unlocked search target is available at this hex."
+		)
+		return
+	if bool(search_option.get("locked", false)):
+		_show_interaction_result(
+			"SEARCH LOCKED",
+			str(search_option.get("lock_reason", "That target is locked."))
+		)
+		return
+
+	var option_metrics: Dictionary = base_metrics
+	if not selected_search_option_id.is_empty():
+		option_metrics = MacroInteractionResolver.apply_search_option_metrics(
+			base_metrics,
+			search_option
+		)
 	var descriptors := _inventory_descriptors_for_ids(
 		selected_item_ids,
 		GameEnums.InteractionItemRole.SEARCH_TOOL
 	)
 	var metrics := MacroInteractionResolver.calculate_search_metrics(
-		base_metrics,
+		option_metrics,
 		descriptors,
 		hex_data.search_count,
 		_get_loot_profile(hex_data).get("max_searches", 4)
@@ -857,8 +1131,12 @@ func _resolve_search(
 		coords,
 		hex_data.search_count,
 		metrics,
-		loot_profile
+		loot_profile,
+		selected_search_option_id
 	)
+	if hex_data.region == GameEnums.MacroRegion.CENTRAL_HUB:
+		result["injured"] = false
+		result["attracted_enemy"] = false
 	hex_data.search_count += 1
 
 	var found_names: Array[String] = []
@@ -888,7 +1166,8 @@ func _resolve_search(
 	)
 	_refresh_world_hud()
 
-	var message := (
+	var message := "Target: %s\n" % str(search_option.get("label", "Search"))
+	message += (
 		"Found: " + ", ".join(found_names)
 		if not found_names.is_empty()
 		else "The search produced no usable supplies."
@@ -900,6 +1179,13 @@ func _resolve_search(
 	if result.get("attracted_enemy", false):
 		message += "\nThe noise attracted a hostile."
 		_spawn_search_intruder(coords)
+		return
+	_last_macro_event = "Searched %s at HEX %d,%d." % [
+		str(search_option.get("label", "target")),
+		coords.x,
+		coords.y,
+	]
+	if _advance_npc_macro_turn(true):
 		return
 	_show_interaction_result("SEARCH COMPLETE", message)
 
@@ -958,6 +1244,8 @@ func _resolve_camp(
 		hex_data.camp_rest_count,
 		metrics
 	)
+	if hex_data.region == GameEnums.MacroRegion.CENTRAL_HUB:
+		result["interrupted"] = false
 	hex_data.camp_rest_count += 1
 
 	var body := player_token.get_humanoid_core().body
@@ -988,6 +1276,12 @@ func _resolve_camp(
 
 	if result.get("interrupted", false):
 		_spawn_search_intruder(coords)
+		return
+	_last_macro_event = "Camp rest resolved at HEX %d,%d." % [
+		coords.x,
+		coords.y,
+	]
+	if _advance_npc_macro_turn(true):
 		return
 	_show_interaction_result(
 		"REST COMPLETE",
@@ -1049,7 +1343,9 @@ func _available_interaction_options() -> Array:
 		if not item.interaction_roles.is_empty():
 			descriptors.append({
 				"instance_id": item.instance_id,
+				"item_id": item.id,
 				"name": item.display_name,
+				"tags": item.tags.duplicate(),
 				"roles": item.interaction_roles.duplicate(),
 			})
 	return descriptors
@@ -1137,6 +1433,130 @@ func _get_camp_access(
 		hostile_present
 	)
 
+func _evaluated_search_options(
+	coords: Vector2i,
+	hex_data: MacroHexData
+) -> Array:
+	var evaluated_options: Array = []
+	for option in MacroInteractionResolver.build_search_options(
+		_world_state.world_seed,
+		coords,
+		hex_data
+	):
+		var evaluated: Dictionary = option.duplicate(true)
+		var requirements: Dictionary = evaluated.get("requirements", {})
+		var unlocked := _requirements_met(requirements)
+		evaluated["locked"] = not unlocked
+		evaluated["lock_reason"] = "" if unlocked else _requirement_text(requirements)
+		evaluated_options.append(evaluated)
+	return evaluated_options
+
+func _evaluated_camp_interactions(interactions: Array) -> Array:
+	var evaluated_interactions: Array = []
+	for interaction in interactions:
+		var evaluated: Dictionary = interaction.duplicate(true)
+		if bool(evaluated.get("available", false)):
+			evaluated["lock_reason"] = ""
+		else:
+			var requirements: Dictionary = evaluated.get("requirements", {})
+			evaluated["lock_reason"] = str(
+				requirements.get("reason", "This camp interaction is unavailable.")
+			)
+		evaluated_interactions.append(evaluated)
+	return evaluated_interactions
+
+func _available_search_option(
+	options: Array,
+	selected_search_option_id: String
+) -> Dictionary:
+	var selected := MacroInteractionResolver.find_option(
+		options,
+		selected_search_option_id
+	)
+	if not selected.is_empty():
+		return selected
+	for option in options:
+		if not bool(option.get("locked", false)):
+			return option
+	return {}
+
+func _requirements_met(requirements: Dictionary) -> bool:
+	if requirements.is_empty():
+		return true
+
+	var has_requirement := false
+	var satisfied := false
+	var item_ids: Array = requirements.get("any_item_ids", [])
+	if not item_ids.is_empty():
+		has_requirement = true
+		satisfied = satisfied or _inventory_has_any_item_id(item_ids)
+
+	var tags: Array = requirements.get("any_tags", [])
+	if not tags.is_empty():
+		has_requirement = true
+		satisfied = satisfied or _inventory_has_any_tag(tags)
+
+	var roles: Array = requirements.get("any_roles", [])
+	if not roles.is_empty():
+		has_requirement = true
+		satisfied = satisfied or _inventory_has_any_role(roles)
+
+	var traits: Array = requirements.get("any_traits", [])
+	if not traits.is_empty():
+		has_requirement = true
+
+	return not has_requirement or satisfied
+
+func _requirement_text(requirements: Dictionary) -> String:
+	var parts: Array[String] = []
+	var item_ids: Array = requirements.get("any_item_ids", [])
+	if not item_ids.is_empty():
+		parts.append("item: " + "/".join(PackedStringArray(item_ids)))
+	var tags: Array = requirements.get("any_tags", [])
+	if not tags.is_empty():
+		parts.append("tag: " + "/".join(PackedStringArray(tags)))
+	var roles: Array = requirements.get("any_roles", [])
+	if not roles.is_empty():
+		var role_names := PackedStringArray()
+		for role in roles:
+			role_names.append(_interaction_role_name(int(role)))
+		parts.append("role: " + "/".join(role_names))
+	var traits: Array = requirements.get("any_traits", [])
+	if not traits.is_empty():
+		parts.append("trait: " + "/".join(PackedStringArray(traits)))
+	if parts.is_empty():
+		return str(requirements.get("reason", "Requirement not met."))
+	return "Requires " + " or ".join(parts) + "."
+
+func _inventory_has_any_item_id(item_ids: Array) -> bool:
+	for item in player_token.get_humanoid_core().inventory.get_all_items():
+		if item_ids.has(item.id):
+			return true
+	return false
+
+func _inventory_has_any_tag(tags: Array) -> bool:
+	for item in player_token.get_humanoid_core().inventory.get_all_items():
+		for tag in tags:
+			if item.tags.has(str(tag)):
+				return true
+	return false
+
+func _inventory_has_any_role(roles: Array) -> bool:
+	for item in player_token.get_humanoid_core().inventory.get_all_items():
+		for role in roles:
+			if item.has_interaction_role(int(role)):
+				return true
+	return false
+
+func _interaction_role_name(role: int) -> String:
+	if role >= 0 and role < GameEnums.InteractionItemRole.keys().size():
+		return GameEnums.InteractionItemRole.keys()[role]
+	return str(role)
+
+func _hex_label(coords: Vector2i, hex_data: MacroHexData) -> String:
+	var region := _enum_key(GameEnums.MacroRegion.keys(), int(hex_data.region))
+	return "HEX %d,%d // %s" % [coords.x, coords.y, region]
+
 func _show_interaction_result(title: String, message: String) -> void:
 	if interaction_panel:
 		interaction_panel.show_result(title, message)
@@ -1198,23 +1618,424 @@ func add_ground_item_states(coords: Vector2i, item_states: Array) -> void:
 func refresh_proximity(center_coords: Vector2i) -> void:
 	_ensure_encounter_records(center_coords)
 
-	for record in _world_state.get_all_entity_records():
-		var entity_id: String = record.entity_id
-		var coords: Vector2i = record.coords
-		if _hex_distance(center_coords, coords) <= active_radius:
-			if _world_state.is_entity_alive(entity_id):
-				_spawn_enemy_token_from_record(record)
-
 	for coords in active_enemies.keys().duplicate():
 		var token: MacroEnemy = active_enemies[coords]
 		if (
-			_hex_distance(center_coords, coords) > unload_radius
+			_hex_distance(center_coords, coords) > active_radius
 			or not _world_state.is_entity_alive(token.entity_id)
 		):
 			unload_enemy_token(coords)
 
+	_trim_visible_npc_tokens(center_coords)
+
+	for record in _projection_candidates(center_coords):
+		if active_enemies.size() >= max_visible_npc_tokens:
+			break
+		_spawn_enemy_token_from_record(record)
+
+	_trim_visible_npc_tokens(center_coords)
+
+func _projection_candidates(center_coords: Vector2i) -> Array:
+	var candidates: Array = []
+	for record in _world_state.get_all_entity_records():
+		if not _can_project_npc_record(record, center_coords):
+			continue
+		candidates.append(record)
+	candidates.sort_custom(func(a: EntityRecord, b: EntityRecord) -> bool:
+		return _projection_score(a, center_coords) > _projection_score(b, center_coords)
+	)
+	return candidates
+
+func _can_project_npc_record(record: EntityRecord, center_coords: Vector2i) -> bool:
+	if (
+		record == null
+		or record.kind != GameEnums.RuntimeEntityKind.NPC
+		or record.world_status == GameEnums.EntityWorldStatus.WITHDRAWN
+		or not _world_state.is_entity_alive(record.entity_id)
+		or _hex_distance(center_coords, record.coords) > active_radius
+	):
+		return false
+	return true
+
+func _projection_score(record: EntityRecord, center_coords: Vector2i) -> float:
+	var distance := float(_hex_distance(center_coords, record.coords))
+	var score := 100.0 - (distance * 12.0)
+	if record.world_status == GameEnums.EntityWorldStatus.HOSTILE:
+		score += 20.0
+	var purpose := _ensure_npc_purpose(record)
+	match purpose:
+		NPC_PURPOSE_HUNT:
+			score += 12.0
+		NPC_PURPOSE_SCAVENGE:
+			score += 6.0
+		NPC_PURPOSE_PATROL:
+			score += 4.0
+	return score
+
+func _trim_visible_npc_tokens(center_coords: Vector2i) -> void:
+	var visible_coords := active_enemies.keys()
+	visible_coords.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		var a_record := _world_state.get_entity(
+			(active_enemies[a] as MacroEnemy).entity_id
+		)
+		var b_record := _world_state.get_entity(
+			(active_enemies[b] as MacroEnemy).entity_id
+		)
+		if a_record == null or b_record == null:
+			return a_record != null
+		return _projection_score(a_record, center_coords) > _projection_score(b_record, center_coords)
+	)
+	while visible_coords.size() > max_visible_npc_tokens:
+		var coords_to_unload: Vector2i = visible_coords.pop_back()
+		unload_enemy_token(coords_to_unload)
+
+func _force_project_npc_token(record: EntityRecord) -> MacroEnemy:
+	if record == null:
+		return null
+	if active_enemies.has(record.coords):
+		return active_enemies[record.coords]
+	if active_enemies.size() >= max_visible_npc_tokens:
+		_trim_visible_npc_tokens(player_token.current_hex_coords)
+	if active_enemies.size() >= max_visible_npc_tokens:
+		var farthest_coords := _farthest_visible_token_coords(player_token.current_hex_coords)
+		if active_enemies.has(farthest_coords):
+			unload_enemy_token(farthest_coords)
+	return _spawn_enemy_token_from_record(record)
+
+func _farthest_visible_token_coords(center_coords: Vector2i) -> Vector2i:
+	var farthest := Vector2i.ZERO
+	var farthest_distance := -1
+	for coords in active_enemies.keys():
+		var distance := _hex_distance(center_coords, coords)
+		if distance > farthest_distance:
+			farthest = coords
+			farthest_distance = distance
+	return farthest
+
+func _advance_npc_macro_turn(allow_during_interaction: bool = false) -> bool:
+	if _pending_interaction.is_empty() == false and not allow_during_interaction:
+		return false
+	_macro_turn_index += 1
+	var player_coords := player_token.current_hex_coords
+	var moved_count := 0
+	var collision_enemy_id := ""
+	var records := _world_state.get_all_entity_records()
+	records.sort_custom(func(a: EntityRecord, b: EntityRecord) -> bool:
+		return _hex_distance(player_coords, a.coords) < _hex_distance(player_coords, b.coords)
+	)
+
+	for record_entry in records:
+		var record := record_entry as EntityRecord
+		if record == null:
+			continue
+		if (
+			record.kind != GameEnums.RuntimeEntityKind.NPC
+			or record.life_state != GameEnums.EntityLifeState.ALIVE
+			or record.world_status == GameEnums.EntityWorldStatus.WITHDRAWN
+			or _hex_distance(player_coords, record.coords) > npc_evaluation_radius
+		):
+			continue
+		var old_coords: Vector2i = record.coords
+		var target_coords: Vector2i = _evaluate_npc_step(record, player_coords)
+		if target_coords == old_coords:
+			continue
+		if not _move_npc_record(record, target_coords):
+			continue
+		moved_count += 1
+		if (
+			target_coords == player_coords
+			and record.world_status == GameEnums.EntityWorldStatus.HOSTILE
+		):
+			collision_enemy_id = record.entity_id
+			break
+
+	refresh_proximity(player_coords)
+	if not collision_enemy_id.is_empty():
+		_last_macro_event = "A hostile closes on your hex."
+		_begin_entity_collision(collision_enemy_id, player_coords)
+		return true
+	elif moved_count > 0:
+		_last_macro_event = "NPC turn %d: %d token(s) repositioned." % [
+			_macro_turn_index,
+			moved_count,
+		]
+	else:
+		_last_macro_event = "NPC turn %d: no nearby token committed." % _macro_turn_index
+	return false
+
+func _evaluate_npc_step(
+	record: EntityRecord,
+	player_coords: Vector2i
+) -> Vector2i:
+	var current_coords := record.coords
+	var distance_to_player := _hex_distance(current_coords, player_coords)
+	if distance_to_player <= 0:
+		return current_coords
+
+	var purpose := _ensure_npc_purpose(record)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = (
+		_world_state.world_seed
+		+ ":npc_eval:"
+		+ record.entity_id
+		+ ":"
+		+ str(_macro_turn_index)
+	).hash()
+
+	if record.world_status != GameEnums.EntityWorldStatus.HOSTILE:
+		if distance_to_player <= 2:
+			return _best_npc_neighbor(record, player_coords, false)
+		if rng.randf() <= npc_wander_chance * 0.5:
+			return _wander_npc_neighbor(record, rng)
+		return current_coords
+
+	match purpose:
+		NPC_PURPOSE_HUNT:
+			return _evaluate_hunt_step(record, player_coords, distance_to_player, rng)
+		NPC_PURPOSE_SCAVENGE:
+			return _evaluate_targeted_purpose_step(
+				record,
+				player_coords,
+				_purpose_target_for(record, purpose),
+				rng,
+				true
+			)
+		NPC_PURPOSE_PATROL:
+			return _evaluate_targeted_purpose_step(
+				record,
+				player_coords,
+				_purpose_target_for(record, purpose),
+				rng,
+				false
+			)
+		_:
+			if rng.randf() <= npc_wander_chance:
+				return _wander_npc_neighbor(record, rng)
+			return current_coords
+
+func _evaluate_hunt_step(
+	record: EntityRecord,
+	player_coords: Vector2i,
+	distance_to_player: int,
+	rng: RandomNumberGenerator
+) -> Vector2i:
+	if record.world_status == GameEnums.EntityWorldStatus.HOSTILE:
+		if distance_to_player == 1:
+			if _npc_can_enter(record, player_coords, player_coords):
+				return player_coords
+			return record.coords
+		if distance_to_player <= npc_pursuit_radius:
+			return _best_npc_neighbor(record, player_coords, true)
+		if rng.randf() <= npc_wander_chance:
+			return _wander_npc_neighbor(record, rng)
+		return record.coords
+	return record.coords
+
+func _evaluate_targeted_purpose_step(
+	record: EntityRecord,
+	player_coords: Vector2i,
+	target_coords: Vector2i,
+	rng: RandomNumberGenerator,
+	avoid_player: bool
+) -> Vector2i:
+	var distance_to_player := _hex_distance(record.coords, player_coords)
+	if avoid_player and distance_to_player <= 1:
+		return _best_npc_neighbor(record, player_coords, false)
+	if target_coords == record.coords:
+		record.runtime.erase("macro_target_coords")
+		if rng.randf() <= npc_wander_chance:
+			return _wander_npc_neighbor(record, rng)
+		return record.coords
+	var next_step := _best_step_toward(record, target_coords)
+	if next_step != record.coords:
+		return next_step
+	if rng.randf() <= npc_wander_chance:
+		return _wander_npc_neighbor(record, rng)
+	return record.coords
+
+func _ensure_npc_purpose(record: EntityRecord) -> String:
+	var purpose := str(record.runtime.get("macro_purpose", ""))
+	if not purpose.is_empty():
+		return purpose
+	var faction: GameEnums.Faction = record.definition.get(
+		"faction",
+		GameEnums.Faction.UNALIGNED
+	)
+	match faction:
+		GameEnums.Faction.CRAVEN_HIVE:
+			purpose = NPC_PURPOSE_HUNT
+		GameEnums.Faction.ARCBORN_RESISTANCE:
+			purpose = NPC_PURPOSE_PATROL
+		GameEnums.Faction.SCAVENGER_CELL:
+			purpose = NPC_PURPOSE_SCAVENGE
+		_:
+			purpose = NPC_PURPOSE_ROAM
+	record.runtime["macro_purpose"] = purpose
+	record.runtime["macro_purpose_label"] = purpose.capitalize()
+	return purpose
+
+func _initialize_npc_runtime(record: EntityRecord) -> void:
+	if record == null:
+		return
+	if not record.runtime.has("macro_origin_coords"):
+		record.runtime["macro_origin_coords"] = record.coords
+	var purpose := _ensure_npc_purpose(record)
+	if not record.runtime.has("macro_target_coords"):
+		record.runtime["macro_target_coords"] = _purpose_target_for(record, purpose)
+
+func _purpose_target_for(record: EntityRecord, purpose: String) -> Vector2i:
+	var existing = record.runtime.get("macro_target_coords", null)
+	if existing is Vector2i:
+		return existing
+	var target := record.coords
+	match purpose:
+		NPC_PURPOSE_SCAVENGE:
+			target = _find_scavenge_target(record.coords)
+		NPC_PURPOSE_PATROL:
+			target = _patrol_target(record)
+		NPC_PURPOSE_HUNT:
+			target = player_token.current_hex_coords
+		_:
+			target = _roam_target(record)
+	record.runtime["macro_target_coords"] = target
+	return target
+
+func _find_scavenge_target(origin: Vector2i) -> Vector2i:
+	var best := origin
+	var best_score := -999999.0
+	for coords in _coords_in_radius(origin, 5):
+		var hex_data := world_generator.get_hex_at(coords)
+		if not hex_data.is_passable():
+			continue
+		var score := -float(_hex_distance(origin, coords))
+		if hex_data.is_poi:
+			score += 12.0
+		if hex_data.structure_layer != GameEnums.MacroStructureLayer.NONE:
+			score += 8.0
+		if _world_state.has_ground_items(coords):
+			score += 6.0
+		if hex_data.region == GameEnums.MacroRegion.CENTRAL_HUB:
+			score -= 20.0
+		if score > best_score:
+			best = coords
+			best_score = score
+	return best
+
+func _patrol_target(record: EntityRecord) -> Vector2i:
+	var patrol_points := [
+		Vector2i(3, 0),
+		Vector2i(3, -2),
+		Vector2i(1, -3),
+		Vector2i(-2, -1),
+		Vector2i(-1, 3),
+		Vector2i(2, 2),
+	]
+	var index := absi((record.entity_id + ":patrol").hash()) % patrol_points.size()
+	return patrol_points[index]
+
+func _roam_target(record: EntityRecord) -> Vector2i:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = (
+		_world_state.world_seed
+		+ ":npc_roam:"
+		+ record.entity_id
+		+ ":"
+		+ str(_macro_turn_index / 4)
+	).hash()
+	var choices := _coords_in_radius(record.coords, 3)
+	if choices.is_empty():
+		return record.coords
+	return choices[rng.randi_range(0, choices.size() - 1)]
+
+func _best_npc_neighbor(
+	record: EntityRecord,
+	player_coords: Vector2i,
+	pursue: bool
+) -> Vector2i:
+	var best_coords := record.coords
+	var best_distance := _hex_distance(record.coords, player_coords)
+	for direction in HEX_NEIGHBORS:
+		var candidate: Vector2i = record.coords + direction
+		if not _npc_can_enter(record, candidate, player_coords):
+			continue
+		var candidate_distance := _hex_distance(candidate, player_coords)
+		if (
+			(pursue and candidate_distance < best_distance)
+			or (not pursue and candidate_distance > best_distance)
+		):
+			best_coords = candidate
+			best_distance = candidate_distance
+	return best_coords
+
+func _best_step_toward(record: EntityRecord, target_coords: Vector2i) -> Vector2i:
+	var best_coords := record.coords
+	var best_distance := _hex_distance(record.coords, target_coords)
+	for direction in HEX_NEIGHBORS:
+		var candidate: Vector2i = record.coords + direction
+		if not _npc_can_enter(record, candidate, player_token.current_hex_coords):
+			continue
+		var candidate_distance := _hex_distance(candidate, target_coords)
+		if candidate_distance < best_distance:
+			best_coords = candidate
+			best_distance = candidate_distance
+	return best_coords
+
+func _wander_npc_neighbor(
+	record: EntityRecord,
+	rng: RandomNumberGenerator
+) -> Vector2i:
+	var candidates: Array[Vector2i] = []
+	for direction in HEX_NEIGHBORS:
+		var candidate: Vector2i = record.coords + direction
+		if _npc_can_enter(record, candidate, player_token.current_hex_coords):
+			candidates.append(candidate)
+	if candidates.is_empty():
+		return record.coords
+	return candidates[rng.randi_range(0, candidates.size() - 1)]
+
+func _npc_can_enter(
+	record: EntityRecord,
+	target_coords: Vector2i,
+	player_coords: Vector2i
+) -> bool:
+	var target_hex := world_generator.get_hex_at(target_coords)
+	if not target_hex.is_passable():
+		return false
+	if (
+		record.world_status == GameEnums.EntityWorldStatus.HOSTILE
+		and target_hex.region == GameEnums.MacroRegion.CENTRAL_HUB
+	):
+		return false
+	if target_coords == player_coords:
+		return record.world_status == GameEnums.EntityWorldStatus.HOSTILE
+	var occupying_id: String = _world_state.entity_ids_by_coords.get(
+		target_coords,
+		""
+	)
+	return occupying_id.is_empty() or occupying_id == record.entity_id
+
+func _move_npc_record(
+	record: EntityRecord,
+	target_coords: Vector2i
+) -> bool:
+	var old_coords := record.coords
+	if not _world_state.move_entity(record.entity_id, target_coords):
+		return false
+	var token: MacroEnemy = active_enemies.get(old_coords, null)
+	if token != null:
+		active_enemies.erase(old_coords)
+		active_enemies[target_coords] = token
+		token.walk_to_hex(target_coords, map_visualizer.map_to_local(target_coords))
+	return true
+
 func _ensure_encounter_records(center_coords: Vector2i) -> void:
+	var new_encounter_count := 0
 	for coords in _coords_in_radius(center_coords, generation_radius):
+		if (
+			max_new_encounters_per_refresh > 0
+			and new_encounter_count >= max_new_encounters_per_refresh
+		):
+			return
 		var hex_data := world_generator.get_hex_at(coords)
 		if hex_data.encounter_evaluated:
 			continue
@@ -1242,8 +2063,10 @@ func _ensure_encounter_records(center_coords: Vector2i) -> void:
 				difficulty,
 				_encounter_key(coords)
 			)
+			_initialize_npc_runtime(record)
 			var entity_id := _world_state.register_entity(record)
 			hex_data.encounter_entity_id = entity_id
+			new_encounter_count += 1
 
 		_world_state.set_hex_record(coords, hex_data.to_state())
 

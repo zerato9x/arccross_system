@@ -138,9 +138,10 @@ func _configure_humanoid_token() -> void:
 	refresh_token_pose()
 
 func _on_token_footstep() -> void:
-	if not WorldState:
+	var world_state := get_node_or_null("/root/WorldState") as RuntimeStateStore
+	if not world_state:
 		return
-	var hex_data = WorldState.get_hex_record(current_hex_coords)
+	var hex_data = world_state.get_hex_record(current_hex_coords)
 	if hex_data == null:
 		return
 		

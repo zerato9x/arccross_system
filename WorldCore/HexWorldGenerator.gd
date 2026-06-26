@@ -274,9 +274,13 @@ func _apply_central_hub(coords: Vector2i, hex: MacroHexData) -> void:
 	hex.flora_layer = GameEnums.MacroFloraLayer.NONE
 	hex.rock_layer = GameEnums.MacroRockLayer.NONE
 	hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
-	hex.is_poi = coords == Vector2i.ZERO
-	hex.poi_id = "alpha_central_hub" if hex.is_poi else ""
-	hex.poi_name = "Alpha Hub" if hex.is_poi else ""
+	hex.is_poi = true
+	if coords == Vector2i.ZERO:
+		hex.poi_id = "alpha_central_hub"
+		hex.poi_name = "Alpha Hub"
+	else:
+		hex.poi_id = "alpha_hub_district"
+		hex.poi_name = "Alpha Hub District"
 	hex.hazard_level = 0.0
 
 func _generate_procedural_layers(coords: Vector2i, hex: MacroHexData) -> void:

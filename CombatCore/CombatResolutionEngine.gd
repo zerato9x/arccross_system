@@ -69,7 +69,7 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 	)
 	action_started.emit(attacker, action_type)
 	_emit_first_strike(action_type)
-	GameEventBus.emit_combat_action(attacker, action_type, weapon.weapon_type)
+	_emit_combat_action(attacker, action_type, weapon.weapon_type)
 	weapon.current_magazine -= 1
 	weapon.needs_cycling = weapon.requires_cycle_after_shot
 	var action_name := (
@@ -357,7 +357,7 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 	action_started.emit(attacker, GameEnums.ActionType.STRIKE)
 	_emit_first_strike(GameEnums.ActionType.STRIKE)
 	var w_type = weapon.weapon_type if weapon else GameEnums.WeaponClass.NONE
-	GameEventBus.emit_combat_action(attacker, GameEnums.ActionType.STRIKE, w_type)
+	_emit_combat_action(attacker, GameEnums.ActionType.STRIKE, w_type)
 
 	# GROUNDED STRIKE: A FELLED target cannot evade — aim for the skull.
 	var grounded_bonus: float = 1.0
@@ -639,7 +639,7 @@ func execute_fumble_strike(punisher: HumanoidCore, victim: HumanoidCore) -> void
 	action_started.emit(punisher, GameEnums.ActionType.STRIKE)
 	_emit_first_strike(GameEnums.ActionType.STRIKE)
 	var weapon_type := weapon.weapon_type if weapon else GameEnums.WeaponClass.NONE
-	GameEventBus.emit_combat_action(punisher, GameEnums.ActionType.STRIKE, weapon_type)
+	_emit_combat_action(punisher, GameEnums.ActionType.STRIKE, weapon_type)
 	print("\n--- FUMBLE STRIKE ---")
 	print(punisher.name, " punishes ", victim.name, "'s failed attempt!")
 
@@ -898,6 +898,15 @@ func _emit_first_strike(action_type: int) -> void:
 		return
 	_first_strike_fired = true
 	first_combat_action.emit(action_type)
+
+func _emit_combat_action(
+	attacker: HumanoidCore,
+	action_type: int,
+	weapon_type: int
+) -> void:
+	var bus = get_node_or_null("/root/GameEventBus")
+	if bus:
+		bus.emit_combat_action(attacker, action_type, weapon_type)
 
 func reset_first_strike() -> void:
 	_first_strike_fired = false
