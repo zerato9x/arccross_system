@@ -1,16 +1,15 @@
 extends Node2D
 class_name CombatActorFloatHUD
 
-const HUDAssetLibrary := preload("res://UI/HUD/HUDAssetLibrary.gd")
 const SIDE_PLAYER := "player"
 const SIDE_ENEMY := "enemy"
 const PANEL_SIZE := Vector2(250.0, 168.0)
 const DETAIL_SIZE := Vector2(250.0, 104.0)
-const COLOR_PANEL := Color(0.10, 0.11, 0.10, 0.92)
-const COLOR_BORDER := Color(0.69, 0.64, 0.50, 0.9)
-const COLOR_DANGER := Color(0.78, 0.34, 0.30, 1.0)
-const COLOR_OK := Color(0.50, 0.61, 0.53, 1.0)
-const COLOR_DAMAGED := Color(0.93, 0.68, 0.26, 1.0)
+const COLOR_PANEL := Color(0.09, 0.10, 0.08, 0.92)
+const COLOR_BORDER := Color(0.73, 0.62, 0.45, 0.9)
+const COLOR_DANGER := Color(0.72, 0.28, 0.24, 1.0)
+const COLOR_OK := Color(0.62, 0.63, 0.46, 1.0)
+const COLOR_DAMAGED := Color(0.88, 0.58, 0.22, 1.0)
 const LIMB_ASSET_NAMES := {
 	"HD": "head",
 	"UT": "upper_torso",
@@ -137,7 +136,7 @@ func _apply_geometry() -> void:
 	_panel_box.color = COLOR_PANEL
 	_set_outline(_border, PANEL_SIZE, Vector2.ZERO)
 	_set_box(_doll_plate, Vector2(78.0, 118.0), Vector2(12.0, 36.0))
-	_doll_plate.color = Color(0.035, 0.08, 0.09, 0.96)
+	_doll_plate.color = Color(0.08, 0.085, 0.07, 0.96)
 	for code in LIMB_ASSET_NAMES:
 		var limb_sprite := _limb_doll.get_node_or_null(code) as Sprite2D
 		if limb_sprite == null:
@@ -152,7 +151,7 @@ func _apply_geometry() -> void:
 	_target_reticle.default_color = HUDAssetLibrary.COLOR_CAUTION
 	_target_reticle.visible = false
 	_set_box(_detail_box, DETAIL_SIZE, Vector2(0.0, PANEL_SIZE.y + 8.0))
-	_detail_box.color = Color(0.07, 0.08, 0.08, 0.94)
+	_detail_box.color = Color(0.08, 0.075, 0.06, 0.94)
 	var shape := RectangleShape2D.new()
 	shape.size = PANEL_SIZE + Vector2(0.0, DETAIL_SIZE.y)
 	_collision_shape.shape = shape

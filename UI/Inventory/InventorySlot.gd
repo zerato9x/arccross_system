@@ -27,9 +27,9 @@ var _configured_label: String = ""
 @onready var size_badge: Label = %SizeBadge
 @onready var reservation_label: Label = %ReservationLabel
 
-var _default_style: StyleBoxFlat
-var _hover_style: StyleBoxFlat
-var _selected_style: StyleBoxFlat
+var _default_style: StyleBox
+var _hover_style: StyleBox
+var _selected_style: StyleBox
 
 func _ready() -> void:
 	gui_input.connect(_on_gui_input)
@@ -79,21 +79,27 @@ func has_item() -> bool:
 	return not item_descriptor.is_empty() and not is_reservation
 
 func _build_styles() -> void:
-	_default_style = _slot_style(
-		Color("#151c22"),
-		Color("#3a4852"),
-		1
-	)
-	_hover_style = _slot_style(
-		Color("#1d2930"),
-		Color("#91b6a7"),
-		2
-	)
-	_selected_style = _slot_style(
-		Color("#263830"),
-		Color("#d6b86a"),
-		2
-	)
+	_default_style = HUDAssetLibrary.pocket_slot_style(false)
+	_hover_style = HUDAssetLibrary.pocket_slot_style(true)
+	_selected_style = HUDAssetLibrary.pocket_slot_style(true)
+	if _default_style == null:
+		_default_style = _slot_style(
+			Color("#151c22"),
+			Color("#3a4852"),
+			1
+		)
+	if _hover_style == null:
+		_hover_style = _slot_style(
+			Color("#1d2930"),
+			Color("#b99e7a"),
+			2
+		)
+	if _selected_style == null:
+		_selected_style = _slot_style(
+			Color("#302616"),
+			Color("#d6a652"),
+			2
+		)
 	_apply_style()
 
 func _slot_style(

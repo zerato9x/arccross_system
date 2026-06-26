@@ -5,14 +5,13 @@ signal pressed(payload: Dictionary)
 signal target_limb_focused(limb: int)
 signal target_limb_unfocused
 
-const HUDAssetLibrary := preload("res://UI/HUD/HUDAssetLibrary.gd")
-const COLOR_NORMAL := Color(0.12, 0.13, 0.12, 0.96)
-const COLOR_HOVER := Color(0.22, 0.24, 0.21, 0.98)
-const COLOR_DISABLED := Color(0.08, 0.085, 0.08, 0.82)
-const COLOR_BORDER := Color(0.62, 0.60, 0.50, 0.92)
-const COLOR_BORDER_HOVER := Color(0.86, 0.75, 0.50, 1.0)
-const COLOR_TEXT := Color(0.83, 0.85, 0.80, 1.0)
-const COLOR_MUTED := Color(0.48, 0.50, 0.47, 1.0)
+const COLOR_NORMAL := Color(0.10, 0.11, 0.09, 0.96)
+const COLOR_HOVER := Color(0.25, 0.21, 0.14, 0.98)
+const COLOR_DISABLED := Color(0.07, 0.075, 0.065, 0.82)
+const COLOR_BORDER := Color(0.72, 0.62, 0.46, 0.92)
+const COLOR_BORDER_HOVER := Color(0.90, 0.74, 0.42, 1.0)
+const COLOR_TEXT := Color(0.90, 0.84, 0.72, 1.0)
+const COLOR_MUTED := Color(0.53, 0.51, 0.43, 1.0)
 
 var _payload: Dictionary = {}
 var _base_text := ""
@@ -100,11 +99,17 @@ func _apply_geometry() -> void:
 func _refresh() -> void:
 	var state := "disabled" if not _enabled else ("hover" if _hovered else "normal")
 	_frame_sprite.texture = HUDAssetLibrary.button_texture(state)
+	_frame_sprite.visible = false
 	_scale_frame_sprite()
 	_refresh_icon()
-	_box.color = COLOR_DISABLED if not _enabled else (COLOR_HOVER if _hovered else COLOR_NORMAL)
+	_box.visible = true
+	_border.visible = true
+	_box.color = Color(
+		COLOR_DISABLED if not _enabled else (COLOR_HOVER if _hovered else COLOR_NORMAL),
+		0.96
+	)
 	_border.default_color = COLOR_BORDER_HOVER if _hovered and _enabled else COLOR_BORDER
-	_border.width = 2.0 if _hovered and _enabled else 1.2
+	_border.width = 1.0
 	_label.modulate = COLOR_TEXT if _enabled else COLOR_MUTED
 	_label.text = _display_text()
 

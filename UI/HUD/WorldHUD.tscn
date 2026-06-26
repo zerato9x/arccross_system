@@ -325,7 +325,7 @@ theme_override_constants/separation = 8
 
 [node name="MenuTitle" type="Label" parent="Root/MenuPanel/MenuMargin/MenuContent"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.95686275, 0.7078431, 0.2509804, 1)
+theme_override_colors/font_color = Color(0.8392157, 0.6039216, 0.2627451, 1)
 theme_override_font_sizes/font_size = 16
 text = "FIELD MENU"
 
@@ -388,7 +388,7 @@ theme_override_constants/separation = 10
 
 [node name="SettingsTitle" type="Label" parent="Root/SettingsPanel/SettingsMargin/SettingsContent"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.8509804, 0.2901961, 0.8392157, 1)
+theme_override_colors/font_color = Color(0.8392157, 0.6039216, 0.2627451, 1)
 theme_override_font_sizes/font_size = 18
 text = "HUD SETTINGS"
 horizontal_alignment = 1
@@ -417,7 +417,7 @@ value = 1.0
 
 [node name="SettingsHint" type="Label" parent="Root/SettingsPanel/SettingsMargin/SettingsContent"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.49411765, 0.5882353, 0.5686275, 1)
+theme_override_colors/font_color = Color(0.5568628, 0.54509807, 0.47058824, 1)
 theme_override_font_sizes/font_size = 11
 text = "More audio and control settings belong here once those systems stop pretending UI is optional."
 autowrap_mode = 2

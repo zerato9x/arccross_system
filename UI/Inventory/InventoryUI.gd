@@ -19,93 +19,92 @@ const ACTION_INTERACT := "interact"
 
 const SLOT_SCENE := preload("res://UI/Inventory/InventorySlot.tscn")
 const PAPERDOLL_SCENE := preload("res://UI/Inventory/PaperDollModel.tscn")
-const HUDAssetLibrary := preload("res://UI/HUD/HUDAssetLibrary.gd")
 
-const COLOR_BACKDROP := Color("#090d11")
-const COLOR_PANEL := Color("#111920")
-const COLOR_PANEL_ALT := Color("#151f26")
-const COLOR_BORDER := Color("#40505a")
-const COLOR_TEXT := Color("#d8ded9")
-const COLOR_MUTED := Color("#899892")
-const COLOR_ACCENT := Color("#96b9a8")
-const COLOR_GOLD := Color("#d0ae62")
-const COLOR_DANGER := Color("#cf6a5f")
+const COLOR_BACKDROP := Color("#080907")
+const COLOR_PANEL := Color("#11140f")
+const COLOR_PANEL_ALT := Color("#1a1b16")
+const COLOR_BORDER := Color("#6f6752")
+const COLOR_TEXT := Color("#e8dcc0")
+const COLOR_MUTED := Color("#8e8b78")
+const COLOR_ACCENT := Color("#b9a789")
+const COLOR_GOLD := Color("#d69a43")
+const COLOR_DANGER := Color("#b9493e")
 
 const EQUIPMENT_LAYOUT := {
 	GameEnums.EquipmentSlot.HEAD: {
 		"position": Vector2(0.10, 0.08),
 		"label": "HEAD",
-		"texture": "res://Asset/UI/head.png",
+		"texture": "",
 	},
 	GameEnums.EquipmentSlot.EYES: {
 		"position": Vector2(0.10, 0.25),
 		"label": "EYES",
-		"texture": "res://Asset/UI/eyes.png",
+		"texture": "",
 	},
 	GameEnums.EquipmentSlot.FACE: {
 		"position": Vector2(0.10, 0.42),
 		"label": "FACE",
-		"texture": "res://Asset/UI/mask.png",
+		"texture": "",
 	},
 	GameEnums.EquipmentSlot.NECK: {
 		"position": Vector2(0.10, 0.59),
 		"label": "NECK",
-		"texture": "res://Asset/UI/pocket.png",
+		"texture": "",
 	},
 	GameEnums.EquipmentSlot.HAND: {
 		"position": Vector2(0.10, 0.77),
 		"label": "HAND",
-		"texture": "res://Asset/UI/pocket_front.png",
+		"texture": "",
 	},
 	GameEnums.EquipmentSlot.OFFHAND: {
 		"position": Vector2(0.90, 0.77),
 		"label": "OFFHAND",
-		"texture": "res://Asset/UI/pocket_front.png",
+		"texture": "",
 	},
 	GameEnums.EquipmentSlot.BACKPACK: {
 		"position": Vector2(0.90, 0.08),
 		"label": "PACK",
-		"texture": "res://Asset/UI/backpack.png",
+		"texture": "",
 	},
 	GameEnums.EquipmentSlot.SLING: {
 		"position": Vector2(0.90, 0.25),
 		"label": "SLING",
-		"texture": "res://Asset/UI/weapon_2h.png",
+		"texture": "",
 	},
 	GameEnums.EquipmentSlot.OUTER_TORSO: {
 		"position": Vector2(0.90, 0.42),
 		"label": "ARMOR",
-		"texture": "res://Asset/UI/armor.png",
+		"texture": "",
 	},
 	GameEnums.EquipmentSlot.VEST: {
 		"position": Vector2(0.90, 0.59),
 		"label": "RIG",
-		"texture": "res://Asset/UI/webbing.png",
+		"texture": "",
 	},
 	GameEnums.EquipmentSlot.BELT: {
 		"position": Vector2(0.90, 0.91),
 		"label": "BELT",
-		"texture": "res://Asset/UI/belt.png",
+		"texture": "",
 	},
 	GameEnums.EquipmentSlot.ARMS: {
 		"position": Vector2(0.24, 0.90),
 		"label": "ARMS",
-		"texture": "res://Asset/UI/armor.png",
+		"texture": "",
 	},
 	GameEnums.EquipmentSlot.INNER_TORSO: {
 		"position": Vector2(0.42, 0.90),
 		"label": "INNER",
-		"texture": "res://Asset/UI/clothing.png",
+		"texture": "",
 	},
 	GameEnums.EquipmentSlot.LEGS: {
 		"position": Vector2(0.60, 0.90),
 		"label": "LEGS",
-		"texture": "res://Asset/UI/clothing.png",
+		"texture": "",
 	},
 	GameEnums.EquipmentSlot.FEET: {
 		"position": Vector2(0.78, 0.90),
 		"label": "FEET",
-		"texture": "res://Asset/UI/pocket.png",
+		"texture": "",
 	},
 }
 
@@ -659,7 +658,7 @@ func _render_backpack(
 				InventorySlot.SOURCE_BACKPACK,
 				occupied_units,
 				"",
-				"res://Asset/UI/backpack_item_slot.png",
+				"",
 				container_slot
 			)
 			item_slot.set_item(descriptor)
@@ -673,7 +672,7 @@ func _render_backpack(
 					InventorySlot.SOURCE_BACKPACK,
 					occupied_units,
 					"",
-					"res://Asset/UI/backpack_item_slot.png",
+					"",
 					container_slot
 				)
 				reserved.set_reserved(descriptor)
@@ -687,7 +686,7 @@ func _render_backpack(
 				InventorySlot.SOURCE_BACKPACK,
 				occupied_units,
 				"",
-				"res://Asset/UI/backpack_item_slot.png",
+				"",
 				container_slot
 			)
 			backpack_slots_ui.append(empty_slot)
@@ -715,7 +714,7 @@ func _render_ground(items: Array) -> void:
 			InventorySlot.SOURCE_GROUND,
 			index,
 			"",
-			"res://Asset/UI/backpack_item_slot.png"
+			""
 		)
 		slot.set_item(descriptor)
 		ground_slots_ui.append(slot)
@@ -726,7 +725,7 @@ func _render_ground(items: Array) -> void:
 		InventorySlot.SOURCE_GROUND,
 		index,
 		"DROP",
-		"res://Asset/UI/backpack_item_slot.png"
+		""
 	)
 	ground_slots_ui.append(drop_target)
 	_ground_count_label.text = "%d ITEMS" % items.size()
@@ -736,18 +735,12 @@ func _make_slot(
 	source_kind: String,
 	index: int,
 	label: String,
-	empty_texture_path: String,
+	_empty_texture_path: String,
 	container_slot: GameEnums.EquipmentSlot = GameEnums.EquipmentSlot.NONE
 ) -> InventorySlot:
 	var slot := SLOT_SCENE.instantiate() as InventorySlot
 	parent.add_child(slot)
-	var texture: Texture2D
-	if (
-		not empty_texture_path.is_empty()
-		and ResourceLoader.exists(empty_texture_path)
-	):
-		texture = load(empty_texture_path) as Texture2D
-	slot.configure(source_kind, index, label, texture, container_slot)
+	slot.configure(source_kind, index, label, null, container_slot)
 	slot.slot_clicked.connect(_on_slot_clicked)
 	slot.item_dropped.connect(_on_item_dropped)
 	slot.item_hovered.connect(_on_slot_hovered)
@@ -940,7 +933,7 @@ func _execute_secondary(slot: InventorySlot) -> void:
 
 func _format_item_stats(descriptor: Dictionary) -> String:
 	var lines := PackedStringArray()
-	lines.append("%s  |  %d units  |  Weight %.1f  |  Bulk %.1f" % [
+	lines.append("Size %s  |  %d units  |  Weight %.1f  |  Bulk %.1f" % [
 		_enum_name(GameEnums.ItemSize, int(descriptor.get(
 			"item_size",
 			GameEnums.ItemSize.SMALL

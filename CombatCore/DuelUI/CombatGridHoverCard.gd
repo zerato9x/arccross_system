@@ -2,8 +2,8 @@ extends Node2D
 class_name CombatGridHoverCard
 
 const CARD_SIZE := Vector2(340.0, 180.0)
-const COLOR_PANEL := Color(0.08, 0.09, 0.08, 0.95)
-const COLOR_BORDER := Color(0.70, 0.66, 0.51, 0.95)
+const COLOR_PANEL := Color(0.08, 0.075, 0.06, 0.95)
+const COLOR_BORDER := Color(0.72, 0.62, 0.45, 0.95)
 
 @onready var _panel_box: Polygon2D = %PanelBox
 @onready var _border: Line2D = %Border
