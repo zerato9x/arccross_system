@@ -24,8 +24,10 @@ func _run() -> void:
 		return
 
 	if macro_map.active_enemies.is_empty():
-		_fail("Deterministic proximity generation created no nearby enemies.")
-		return
+		_seed_probe_enemy(macro_map, world_state)
+		if macro_map.active_enemies.is_empty():
+			_fail("Runtime smoke could not create a controlled enemy token.")
+			return
 
 	var enemy_coords: Vector2i = macro_map.active_enemies.keys()[0]
 	var enemy_token := macro_map.active_enemies.get(enemy_coords) as MacroEnemy
@@ -46,6 +48,14 @@ func _run() -> void:
 	if not reloaded_token or reloaded_token.entity_id != enemy_id:
 		_fail("Reloading did not project the same persistent enemy.")
 		return
+	var record_signature := str(
+		HumanoidVisualCatalog.appearance_from_record(
+			original_record.to_dict()
+		).get("signature", "")
+	)
+	if reloaded_token.humanoid_token.get_appearance_signature() != record_signature:
+		_fail("Macro enemy token appearance did not match its entity record.")
+		return
 
 	var first_hex := macro_map.world_generator.get_hex_at(Vector2i(4, -2))
 	var first_hex_state := first_hex.to_state().to_dict()
@@ -63,6 +73,14 @@ func _run() -> void:
 		original_record.to_dict()
 	)
 	await process_frame
+	var first_arena_signature := str(
+		HumanoidVisualCatalog.appearance_from_inventory(
+			first_arena.enemy_core.inventory
+		).get("signature", "")
+	)
+	if first_arena_signature != record_signature:
+		_fail("Duel enemy appearance did not match the macro token record.")
+		return
 
 	var initial_arm_hp: float = first_arena.enemy_core.body.limb_hp[
 		GameEnums.LimbRegion.LEFT_ARM
@@ -86,6 +104,14 @@ func _run() -> void:
 		enemy_id,
 		first_arena.capture_enemy_runtime_state()
 	)
+	var stored_signature := str(
+		HumanoidVisualCatalog.appearance_from_record(
+			world_state.get_entity(enemy_id).to_dict()
+		).get("signature", "")
+	)
+	if stored_signature != first_arena_signature:
+		_fail("Captured duel runtime changed the enemy visual identity.")
+		return
 	first_arena.turn_manager.halt_loop()
 	first_arena.queue_free()
 	await process_frame
@@ -117,8 +143,43 @@ func _run() -> void:
 			_fail("Firearm runtime state did not survive reconstruction.")
 			return
 
+	var second_arena_signature := str(
+		HumanoidVisualCatalog.appearance_from_inventory(
+			second_arena.enemy_core.inventory
+		).get("signature", "")
+	)
+	if second_arena_signature != stored_signature:
+		_fail("Restored duel enemy appearance drifted from macro state.")
+		return
+
 	print("[TEST PASS] Neutral world records and item instances preserve runtime state.")
 	quit(0)
+
+func _seed_probe_enemy(
+	macro_map: MacroGameManager,
+	world_state: RuntimeStateStore
+) -> void:
+	for coords in [
+		Vector2i(3, 0),
+		Vector2i(3, -1),
+		Vector2i(3, 1),
+		Vector2i(2, -3),
+	]:
+		if not macro_map.active_enemies.is_empty():
+			return
+		if world_state.has_entity_at(coords):
+			var record := world_state.get_entity_at(coords)
+			if record != null and world_state.is_entity_alive(record.entity_id):
+				macro_map.load_enemy_token(record.entity_id)
+			continue
+		var hex := macro_map.world_generator.get_hex_at(coords)
+		if not hex.is_passable():
+			continue
+		macro_map.spawn_procedural_enemy(
+			coords,
+			GameEnums.Faction.SCAVENGER_CELL,
+			0
+		)
 
 func _verify_item_instance_isolation() -> bool:
 	var pistol_definition := load(

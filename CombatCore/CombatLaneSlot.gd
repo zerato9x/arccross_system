@@ -129,6 +129,8 @@ func get_object_interactions() -> Array[String]:
 # --- PHYSICAL OCCUPANCY ---
 
 func enter_slot(entity: HumanoidCore) -> bool:
+	if occupants.has(entity):
+		return true
 	if occupants.size() >= 2:
 		print("Slot ", lane_index, " is at capacity. Access denied.")
 		return false

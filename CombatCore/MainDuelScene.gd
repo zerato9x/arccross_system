@@ -172,12 +172,23 @@ func _fabricate_humanoid(
 	add_child(core)
 	
 	# A persistent snapshot supersedes the initial loadout.
-	if not runtime_state.is_empty():
+	var has_humanoid_runtime := _has_humanoid_runtime(runtime_state)
+	var inventory_runtime = runtime_state.get("inventory", {})
+	var has_inventory_runtime: bool = (
+		has_humanoid_runtime
+		and inventory_runtime is Dictionary
+		and not inventory_runtime.is_empty()
+	)
+	if has_inventory_runtime:
 		core.restore_runtime_state(runtime_state)
 		print("[FABRICATE] ", unit_name, " restored from persistent runtime state.")
 	elif definition.loadout:
 		definition.loadout.apply_to(inv)
-		print("[FABRICATE] ", unit_name, " spawned with loadout. Weight: ", inv.get_total_weight(), " | Threat: ", inv.get_total_threat())
+		if has_humanoid_runtime:
+			core.restore_runtime_state(runtime_state)
+			print("[FABRICATE] ", unit_name, " restored body state on generated loadout.")
+		else:
+			print("[FABRICATE] ", unit_name, " spawned with loadout. Weight: ", inv.get_total_weight(), " | Threat: ", inv.get_total_threat())
 	else:
 		print("[FABRICATE] ", unit_name, " spawned naked. Giving them a random weapon for the test!")
 		
@@ -203,8 +214,24 @@ func _fabricate_humanoid(
 					unit_name,
 					" with 18 compatible rounds and feed equipment."
 				)
+		if has_humanoid_runtime:
+			core.restore_runtime_state(runtime_state)
 	
 	return core
+
+func _has_humanoid_runtime(runtime_state: Dictionary) -> bool:
+	for key in [
+		"body",
+		"inventory",
+		"base_ap",
+		"current_max_ap",
+		"is_dead",
+		"stance_points",
+		"current_morale",
+	]:
+		if runtime_state.has(key):
+			return true
+	return false
 
 func _supply_test_ammunition(
 	inventory: InventorySystem,
@@ -239,7 +266,6 @@ func _on_player_items_spilled(spilled_items: Array[ItemData]) -> void:
 
 func _on_combatant_died(cause: String, dead_entity: HumanoidCore) -> void:
 	turn_manager.halt_loop()
-	lane_hud.close_hud()
 	if dead_entity == enemy_core:
 		_append_dropped_items(enemy_core.inventory.drain_all_items())
 	var outcome := (
@@ -250,6 +276,15 @@ func _on_combatant_died(cause: String, dead_entity: HumanoidCore) -> void:
 	var winner := enemy_core if dead_entity == player_core else player_core
 
 	print("\n[DUEL RESOLVED] ", winner.name, " stands victorious. Cause of death: ", cause)
+	if lane_hud and dead_entity == enemy_core:
+		await lane_hud.show_resolve_screen({
+			"title": "Combat Resolved",
+			"focus_side": "enemy",
+			"dead_side": "enemy",
+			"dead_name": dead_entity.name,
+			"cause": cause,
+		})
+	lane_hud.close_hud()
 	_clear_encounter_transients()
 	duel_finished.emit(
 		outcome,
@@ -318,7 +353,7 @@ func _spawn_next_mob() -> void:
 func capture_enemy_runtime_state() -> Dictionary:
 	if not enemy_core:
 		return {}
-	return {}
+	return enemy_core.capture_runtime_state().to_dict()
 
 func _clear_encounter_transients() -> void:
 	if player_core:

@@ -31,19 +31,13 @@ func _run() -> void:
 	lanes.force_spawn_entity(player, 6)
 	lanes.force_spawn_entity(enemy, 6)
 
-	var punishment_hits := 0
-	arena.resolution_engine.damage_applied.connect(
-		func(victim: HumanoidCore) -> void:
-			if victim == player:
-				punishment_hits += 1
-	)
-
 	# Escape roll is capped at 1 while the healthy opponent's grip is 5.
 	player.current_max_ap = 1
+	var stance_before := player.stance_points
 	if lanes.attempt_disengage(player, 6, 5):
 		_fail("Forced failed disengage unexpectedly succeeded.")
 		return
-	if punishment_hits != 1:
+	if player.stance_points != stance_before - 6:
 		_fail("Failed disengage did not trigger exactly one Fumble Strike.")
 		return
 

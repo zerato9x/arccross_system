@@ -379,7 +379,7 @@ func _build_legal_actions() -> Array:
 	if player_lane < 0 or enemy_lane < 0:
 		return actions
 	var slot := lane_manager.lane_slots[player_lane]
-	var locked := slot.is_melee_locked
+	var locked := lane_manager.is_entity_melee_locked(player_core)
 	var direction := _direction_toward_enemy(player_lane, enemy_lane)
 
 	if player_core.current_stance == GameEnums.StanceState.FELLED:
@@ -589,7 +589,7 @@ func _lane_snapshot() -> Array:
 			"object_asset": presentation.get("object_asset", ""),
 			"object_interactions": presentation.get("object_interactions", []),
 			"cover_durability": slot.object_durability,
-			"is_melee_locked": slot.is_melee_locked,
+			"is_melee_locked": lane_manager.is_lane_melee_locked(slot.lane_index),
 			"occupants": occupants,
 		})
 	return slots

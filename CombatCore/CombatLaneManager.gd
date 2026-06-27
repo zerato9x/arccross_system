@@ -62,6 +62,7 @@ func can_move_entity_to(
 	to_idx: int,
 	allow_break_from_melee_lock: bool = false
 ) -> bool:
+	refresh_lock_states()
 	if entity == null or from_idx < 0 or from_idx >= lane_slots.size():
 		return false
 	if to_idx < 0 or to_idx >= lane_slots.size() or from_idx == to_idx:
@@ -69,9 +70,8 @@ func can_move_entity_to(
 	if _find_entity_lane(entity) != from_idx:
 		return false
 
-	var origin_slot: CombatLaneSlot = lane_slots[from_idx]
 	var target_slot: CombatLaneSlot = lane_slots[to_idx]
-	if origin_slot.is_melee_locked and not allow_break_from_melee_lock:
+	if is_entity_melee_locked(entity) and not allow_break_from_melee_lock:
 		return false
 	if target_slot.occupants.size() >= 2:
 		return false
@@ -81,7 +81,7 @@ func can_move_entity_to(
 
 func move_entity(entity: HumanoidCore, from_idx: int, to_idx: int, is_charge: bool = false) -> bool:
 	if not can_move_entity_to(entity, from_idx, to_idx):
-		if from_idx >= 0 and from_idx < lane_slots.size() and lane_slots[from_idx].is_melee_locked:
+		if is_entity_melee_locked(entity):
 			print("Movement denied. You must explicitly 'Disengage' from the Melee Lock.")
 		elif _would_cross_an_opponent(entity, from_idx, to_idx):
 			print("Movement denied. Combatants cannot pass through one another.")
@@ -117,7 +117,52 @@ func _relocate_entity(
 	if not target_slot.enter_slot(entity):
 		return false
 	origin_slot.exit_slot(entity)
+	refresh_lock_states()
 	return true
+
+func refresh_lock_states() -> void:
+	for slot in lane_slots:
+		var locked := _slot_contains_hostile_pair(slot)
+		slot.is_melee_locked = locked
+		if not locked:
+			slot.grapple_stance_scale = 12
+
+func is_entity_melee_locked(entity: HumanoidCore) -> bool:
+	var lane_idx := _find_entity_lane(entity)
+	if lane_idx < 0:
+		return false
+	return _slot_contains_hostile_pair(lane_slots[lane_idx], entity)
+
+func is_lane_melee_locked(lane_idx: int) -> bool:
+	if lane_idx < 0 or lane_idx >= lane_slots.size():
+		return false
+	return _slot_contains_hostile_pair(lane_slots[lane_idx])
+
+func _slot_contains_hostile_pair(
+	slot: CombatLaneSlot,
+	focus_entity: HumanoidCore = null
+) -> bool:
+	if slot == null or slot.occupants.size() < 2:
+		return false
+	var has_focus := focus_entity == null
+	for occupant in slot.occupants:
+		if occupant == focus_entity:
+			has_focus = true
+			break
+	if not has_focus:
+		return false
+
+	for left_index in range(slot.occupants.size()):
+		var left: HumanoidCore = slot.occupants[left_index]
+		if left == null:
+			continue
+		for right_index in range(left_index + 1, slot.occupants.size()):
+			var right: HumanoidCore = slot.occupants[right_index]
+			if right == null:
+				continue
+			if left.definition.faction != right.definition.faction:
+				return true
+	return false
 
 func _would_cross_an_opponent(
 	entity: HumanoidCore,
@@ -250,7 +295,7 @@ func attempt_disengage(entity: HumanoidCore, current_idx: int, retreat_idx: int)
 
 	var slot: CombatLaneSlot = lane_slots[current_idx]
 	
-	if not slot.is_melee_locked:
+	if not is_entity_melee_locked(entity):
 		return move_entity(entity, current_idx, retreat_idx)
 		
 	# Find the opponent in the mud with you
@@ -292,6 +337,7 @@ func force_spawn_entity(entity: HumanoidCore, target_idx: int) -> void:
 		
 	var target_slot: CombatLaneSlot = lane_slots[target_idx]
 	if target_slot.enter_slot(entity):
+		refresh_lock_states()
 		print(entity.name, " materialized in Lane Slot ", target_idx)
 		lane_changed.emit()
 	else:

@@ -164,7 +164,7 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 	# 4. The Collateral Damage Check (Melee Lock)
 	var final_victim: HumanoidCore = target_slot.occupants[0]
 	
-	if target_slot.is_melee_locked:
+	if lane_manager.is_lane_melee_locked(target_slot.lane_index):
 		print("WARNING: Firing into a Melee Lock! Calculating trajectory risk...")
 		if randf() > 0.5:
 			final_victim = target_slot.occupants[1]

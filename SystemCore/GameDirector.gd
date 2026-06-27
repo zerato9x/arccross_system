@@ -8,6 +8,7 @@ class_name GameDirector
 
 var _active_arena: Node = null
 var _combat_coords: Vector2i = Vector2i.ZERO
+var _combat_approach_from: Vector2i = Vector2i.ZERO
 var _combat_enemy_id: String = ""
 var _combat_request: Dictionary = {}
 var _world_state: RuntimeStateStore
@@ -53,6 +54,10 @@ func _on_combat_requested(request: Dictionary) -> void:
 	if macro_map.world_hud:
 		macro_map.world_hud.visible = false
 	_combat_coords = coords
+	_combat_approach_from = request.get(
+		"approach_from",
+		macro_map.player_token.current_hex_coords
+	)
 	_combat_enemy_id = enemy_id
 	_combat_request = request.duplicate(true)
 	
@@ -98,6 +103,9 @@ func _on_duel_finished(
 	if dropped_items.size() > 0:
 		macro_map.add_ground_item_states(_combat_coords, dropped_items)
 
+	var should_retreat_player := false
+	var combat_approach_from := _combat_approach_from
+	var combat_initiator := str(_combat_request.get("initiator_id", "player"))
 	match outcome:
 		GameEnums.CombatOutcome.PLAYER_VICTORY:
 			_world_state.set_entity_life_state(
@@ -116,7 +124,9 @@ func _on_duel_finished(
 				defeat_panel.open_panel(_world_state.has_save_file())
 			print("[DIRECTOR] Player defeat preserved. Run-ended presentation opened.")
 			return
-		GameEnums.CombatOutcome.PLAYER_ESCAPED, GameEnums.CombatOutcome.ENEMY_ESCAPED:
+		GameEnums.CombatOutcome.PLAYER_ESCAPED:
+			should_retreat_player = true
+		GameEnums.CombatOutcome.ENEMY_ESCAPED:
 			pass
 		GameEnums.CombatOutcome.DRAW:
 			pass
@@ -125,6 +135,12 @@ func _on_duel_finished(
 	macro_map.show()
 	if macro_map.world_hud:
 		macro_map.world_hud.visible = true
+	if should_retreat_player:
+		macro_map.retreat_player_from_combat(
+			_combat_coords,
+			combat_approach_from,
+			combat_initiator
+		)
 	macro_map.set_process_unhandled_input(true)
 	set_process_unhandled_input(true)
 	# AudioConductor: Return to macro world audio
@@ -136,6 +152,7 @@ func _teardown_arena() -> void:
 		_active_arena.queue_free()
 		_active_arena = null
 	_combat_request.clear()
+	_combat_approach_from = Vector2i.ZERO
 
 func restart_new_run() -> void:
 	_world_state.begin_new_world("DEMO_WASTELAND_01")

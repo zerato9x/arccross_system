@@ -126,10 +126,14 @@ func update_entity_runtime(entity_id: String, runtime_state) -> void:
 	if not entity_records.has(entity_id):
 		return
 	var entity: EntityRecord = entity_records[entity_id]
+	var preserved_runtime := _preserved_runtime_keys(entity.runtime)
 	if runtime_state is HumanoidState:
 		entity.runtime = runtime_state.to_dict()
 	elif runtime_state is Dictionary:
 		entity.runtime = runtime_state.duplicate(true)
+	for key in preserved_runtime.keys():
+		if not entity.runtime.has(key):
+			entity.runtime[key] = preserved_runtime[key]
 
 func move_entity(entity_id: String, target_coords: Vector2i) -> bool:
 	if not entity_records.has(entity_id):
@@ -182,6 +186,13 @@ func patch_entity_record(entity_id: String, patch: Dictionary) -> void:
 			"coords", "definition", "runtime", "negotiation_attempts"
 		]:
 			entity.set(key, patch[key])
+
+func _preserved_runtime_keys(runtime_state: Dictionary) -> Dictionary:
+	var preserved: Dictionary = {}
+	for key in runtime_state.keys():
+		if str(key).begins_with("macro_"):
+			preserved[key] = runtime_state[key]
+	return preserved
 
 func is_entity_alive(entity_id: String) -> bool:
 	if not entity_records.has(entity_id):

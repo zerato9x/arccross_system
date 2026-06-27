@@ -237,8 +237,7 @@ func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
 	# ActionGroup enforcement: validate the action is legal for the entity's current spatial context
 	if lane_manager and CombatRules.ACTION_GROUPS.has(action):
 		var required_group: CombatRules.ActionGroup = CombatRules.ACTION_GROUPS[action]
-		var entity_lane_idx: int = _find_entity_lane(entity)
-		var is_locked: bool = entity_lane_idx >= 0 and lane_manager.lane_slots[entity_lane_idx].is_melee_locked
+		var is_locked: bool = lane_manager.is_entity_melee_locked(entity)
 		
 		# Prone Window commands are reserved for explicit prone mechanics.
 		if required_group == CombatRules.ActionGroup.PRONE_WINDOW:

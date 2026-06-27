@@ -48,6 +48,13 @@ func _run() -> void:
 	if not lanes.lane_slots[9].is_melee_locked:
 		_fail("Entering an opponent's lane did not form melee lock.")
 		return
+	lanes.lane_slots[9].is_melee_locked = false
+	if not lanes.is_entity_melee_locked(enemy):
+		_fail("Lane manager did not recover melee lock from hostile occupants.")
+		return
+	if lanes.can_move_entity_to(enemy, 9, 8):
+		_fail("Stale lock state allowed ordinary movement out of melee lock.")
+		return
 
 	# The AI must retain the pre-contact facing. Equal lane indices must not make
 	# it disengage through the player to the opposite side of the battlefield.

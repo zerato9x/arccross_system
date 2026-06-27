@@ -238,6 +238,7 @@ func _attempt_move_to_mouse() -> bool:
 func _execute_player_step(target_coords: Vector2i) -> void:
 	if not _pending_interaction.is_empty():
 		return
+	var origin_coords := player_token.current_hex_coords
 	var pixel_pos = map_visualizer.map_to_local(target_coords)
 	player_token.walk_to_hex(target_coords, pixel_pos)
 	_select_hex_for_hud(target_coords)
@@ -265,7 +266,11 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 		elif _world_state.is_entity_hostile(target_entity.entity_id):
 			_force_project_npc_token(target_entity)
 			advance_macro_world(1)
-			_begin_entity_collision(target_entity.entity_id, target_coords)
+			_begin_entity_collision(
+				target_entity.entity_id,
+				target_coords,
+				origin_coords
+			)
 			return
 		
 	if hex_data.is_poi:
@@ -466,17 +471,27 @@ func _present_poi_session(
 		"world_time": _world_state.get_world_time_snapshot(),
 	})
 
-func _begin_entity_collision(enemy_id: String, coords: Vector2i) -> void:
+func _begin_entity_collision(
+	enemy_id: String,
+	coords: Vector2i,
+	approach_from: Vector2i = Vector2i(2147483647, 2147483647)
+) -> void:
 	if not _pending_interaction.is_empty():
 		return
 	var enemy_record := _world_state.get_entity(enemy_id)
 	if enemy_record == null or not _world_state.is_entity_hostile(enemy_id):
 		return
 	var definition: Dictionary = enemy_record.definition
+	var resolved_approach := (
+		player_token.current_hex_coords
+		if approach_from == Vector2i(2147483647, 2147483647)
+		else approach_from
+	)
 	_pending_interaction = {
 		"type": GameEnums.MacroInteractionType.ENTITY_COLLISION,
 		"coords": coords,
 		"enemy_id": enemy_id,
+		"approach_from": resolved_approach,
 	}
 	player_token.play_interaction()
 	if active_enemies.has(coords):
@@ -1461,6 +1476,10 @@ func _request_pending_combat(
 	var request := {
 		"enemy_id": _pending_interaction.get("enemy_id", ""),
 		"coords": _pending_interaction.get("coords", Vector2i.ZERO),
+		"approach_from": _pending_interaction.get(
+			"approach_from",
+			_pending_interaction.get("coords", Vector2i.ZERO)
+		),
 		"context": context,
 		"initiator_id": initiator_id,
 		"ambush_position": ambush_position,
@@ -1749,6 +1768,78 @@ func load_enemy_token(entity_id: String) -> MacroEnemy:
 func add_ground_item_states(coords: Vector2i, item_states: Array) -> void:
 	_world_state.add_ground_items(coords, item_states)
 
+func retreat_player_from_combat(
+	collision_coords: Vector2i,
+	approach_from: Vector2i,
+	initiator_id: String = "player"
+) -> bool:
+	var collision_delta := collision_coords - approach_from
+	if not HEX_NEIGHBORS.has(collision_delta):
+		_last_macro_event = "Escape resolved, but no clean collision vector was found."
+		_refresh_world_hud()
+		return false
+
+	var retreat_coords := approach_from
+	if initiator_id != "player":
+		retreat_coords = collision_coords + collision_delta
+
+	var current_coords := player_token.current_hex_coords
+	if retreat_coords == current_coords:
+		_last_macro_event = "Escaped combat and held position at HEX %d,%d." % [
+			current_coords.x,
+			current_coords.y,
+		]
+		_refresh_world_hud()
+		return true
+	if _hex_distance(current_coords, retreat_coords) != 1:
+		_last_macro_event = "Escape route was invalid from HEX %d,%d." % [
+			current_coords.x,
+			current_coords.y,
+		]
+		_refresh_world_hud()
+		return false
+
+	var retreat_hex := world_generator.get_hex_at(retreat_coords)
+	if not retreat_hex.is_passable():
+		_last_macro_event = "Escape route blocked at HEX %d,%d." % [
+			retreat_coords.x,
+			retreat_coords.y,
+		]
+		_refresh_world_hud()
+		return false
+
+	var occupying_record := _world_state.get_entity_at(retreat_coords)
+	if (
+		occupying_record != null
+		and _world_state.is_entity_alive(occupying_record.entity_id)
+	):
+		_last_macro_event = "Escape route occupied at HEX %d,%d." % [
+			retreat_coords.x,
+			retreat_coords.y,
+		]
+		_refresh_world_hud()
+		return false
+
+	player_token.walk_to_hex(
+		retreat_coords,
+		map_visualizer.map_to_local(retreat_coords)
+	)
+	_select_hex_for_hud(retreat_coords)
+	_world_state.update_player_runtime(
+		player_token.get_humanoid_core().capture_runtime_state(),
+		retreat_coords
+	)
+	map_visualizer.render_radius(retreat_coords, 3)
+	_update_fog_of_war(retreat_coords)
+	_mark_hex_explored(retreat_coords, retreat_hex)
+	refresh_proximity(retreat_coords)
+	_last_macro_event = "Escaped combat; fell back to HEX %d,%d." % [
+		retreat_coords.x,
+		retreat_coords.y,
+	]
+	_refresh_world_hud()
+	return true
+
 func refresh_proximity(center_coords: Vector2i) -> void:
 	var tokens_before := active_enemies.size()
 	_ensure_encounter_records(center_coords)
@@ -1871,6 +1962,7 @@ func _advance_npc_macro_turn(allow_during_interaction: bool = false) -> bool:
 	var player_coords := player_token.current_hex_coords
 	var moved_count := 0
 	var collision_enemy_id := ""
+	var collision_approach_from := Vector2i.ZERO
 	_macro_log(
 		"NPC macro turn %d begins (player @%s, %d total records)."
 		% [
@@ -1907,13 +1999,18 @@ func _advance_npc_macro_turn(allow_during_interaction: bool = false) -> bool:
 			and record.world_status == GameEnums.EntityWorldStatus.HOSTILE
 		):
 			collision_enemy_id = record.entity_id
+			collision_approach_from = old_coords
 			break
 
 	refresh_proximity(player_coords)
 	if not collision_enemy_id.is_empty():
 		_last_macro_event = "A hostile closes on your hex."
 		_macro_log("NPC macro turn %d ended in a collision." % _macro_turn_index)
-		_begin_entity_collision(collision_enemy_id, player_coords)
+		_begin_entity_collision(
+			collision_enemy_id,
+			player_coords,
+			collision_approach_from
+		)
 		return true
 	elif moved_count > 0:
 		_last_macro_event = "NPC turn %d: %d token(s) repositioned." % [

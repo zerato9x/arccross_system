@@ -222,10 +222,14 @@ func _score_advance() -> float:
 	var my_idx = _get_lane_idx(ai_core)
 	var target_idx = _get_lane_idx(target_core)
 	var distance = abs(my_idx - target_idx)
-	if distance <= 0 or not lane_manager.can_move_entity_to(
-		ai_core,
-		my_idx,
-		my_idx + _direction_toward_target()
+	if (
+		distance <= 0
+		or _is_self_locked()
+		or not lane_manager.can_move_entity_to(
+			ai_core,
+			my_idx,
+			my_idx + _direction_toward_target()
+		)
 	):
 		return 0.0 
 	var weapon = ai_core.inventory.get_active_weapon(true) # Melee context
@@ -268,14 +272,14 @@ func _score_retreat() -> float:
 	if (
 		my_idx >= 0
 		and lane_manager.lane_slots[my_idx].object_name == "Escape Zone"
-		and not lane_manager.lane_slots[my_idx].is_melee_locked
+		and not _is_self_locked()
 	):
 		if not ai_core.is_fleeing:
 			return 0.0
 		if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.MOVE_BACKWARD):
 			return 0.0
 		return 10.0
-	if my_idx >= 0 and lane_manager.lane_slots[my_idx].is_melee_locked:
+	if my_idx >= 0 and _is_self_locked():
 		if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.DISENGAGE): return 0.0
 		if not lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - _direction_toward_target(), true): return 0.0
 	else:
@@ -289,7 +293,7 @@ func _score_retreat() -> float:
 func _score_disengage() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.DISENGAGE): return 0.0
 	var my_idx = _get_lane_idx(ai_core)
-	if my_idx < 0 or not lane_manager.lane_slots[my_idx].is_melee_locked: return 0.0
+	if my_idx < 0 or not _is_self_locked(): return 0.0
 	if not lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - _direction_toward_target(), true): return 0.0
 	var weapon = ai_core.inventory.get_active_weapon(false) # Ranged context implies they want to shoot
 	if weapon != null:
@@ -371,7 +375,11 @@ func _execute_action(action: int) -> void:
 			var my_idx = _get_lane_idx(ai_core)
 			var forward_dir = _direction_toward_target()
 			
-			if lane_manager.can_move_entity_to(ai_core, my_idx, my_idx + forward_dir) and turn_manager.request_action(ai_core, GameEnums.ActionType.MOVE_FORWARD):
+			if (
+				not _is_self_locked()
+				and lane_manager.can_move_entity_to(ai_core, my_idx, my_idx + forward_dir)
+				and turn_manager.request_action(ai_core, GameEnums.ActionType.MOVE_FORWARD)
+			):
 				if lane_manager.move_entity(ai_core, my_idx, my_idx + forward_dir):
 					resolution_engine.check_hazard_trip(ai_core, lane_manager.lane_slots[my_idx + forward_dir], false)
 
@@ -397,7 +405,7 @@ func _execute_action(action: int) -> void:
 					return
 			var forward_dir = _direction_toward_target()
 			
-			if current_slot.is_melee_locked:
+			if _is_self_locked():
 				if lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - forward_dir, true) and turn_manager.request_action(ai_core, GameEnums.ActionType.DISENGAGE):
 					lane_manager.attempt_disengage(ai_core, my_idx, my_idx - forward_dir)
 			else:
@@ -486,8 +494,7 @@ func _get_lane_idx(entity: HumanoidCore) -> int:
 ## True when the AI shares a Melee Locked slot, which forbids NON_DUEL actions
 ## (shooting, reloading, cycling, charging, taking cover) until it DISENGAGEs.
 func _is_self_locked() -> bool:
-	var my_idx = _get_lane_idx(ai_core)
-	return my_idx >= 0 and lane_manager.lane_slots[my_idx].is_melee_locked
+	return lane_manager != null and lane_manager.is_entity_melee_locked(ai_core)
 
 func _direction_toward_target() -> int:
 	if target_core:

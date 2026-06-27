@@ -31,6 +31,9 @@ const CAMERA_MIN_ZOOM := 0.65
 const CAMERA_MAX_ZOOM := 2.15
 const CAMERA_FOLLOW_SPEED := 8.0
 const CAMERA_ZOOM_SPEED := 10.0
+const RESOLVE_PRESENTATION_SECONDS := 1.8
+const RESOLVE_CAMERA_ZOOM := 1.9
+const RESOLVE_PANEL_SIZE := Vector2(430.0, 112.0)
 
 signal action_requested(action: int, target_limb: int, item_instance_id: String)
 signal pass_requested
@@ -47,6 +50,8 @@ var _camera_zoom_bias := 0.0
 var _camera_dragging := false
 var _camera_initialized := false
 var _targeted_limb := -1
+var _resolve_active := false
+var _resolve_focus_side := ""
 
 # Presentation timing is intentionally independent of the HUD frame.  Keep
 # combat events ordered so movement/impact animations finish before snapshots
@@ -74,6 +79,11 @@ var _player_status_rows: Array[Dictionary] = []
 var _enemy_status_rows: Array[Dictionary] = []
 var _player_status_label: Label
 var _enemy_status_label: Label
+var _resolve_screen_root: Node2D
+var _resolve_panel_box: Polygon2D
+var _resolve_panel_border: Line2D
+var _resolve_title_label: Label
+var _resolve_body_label: Label
 
 @onready var _lane_view: CombatLaneView = %CombatLaneView
 @onready var _combat_camera: Camera2D = %CombatCamera
@@ -111,6 +121,7 @@ func _ready() -> void:
 	_bind_legacy_labels()
 	_setup_duel_layout_shell()
 	_setup_portrait_tokens()
+	_setup_resolve_screen()
 	_lane_view.slot_hovered.connect(_on_lane_slot_hovered)
 	_lane_view.slot_unhovered.connect(_on_lane_slot_unhovered)
 	_grid_hover_card.hide_card()
@@ -147,6 +158,8 @@ func close_hud() -> void:
 	_grid_hover_card.hide_card()
 	_clear_action_buttons()
 	_feedback_label.visible = false
+	_resolve_active = false
+	_resolve_focus_side = ""
 
 func show_snapshot(snapshot: Dictionary) -> void:
 	_presentation_queue.append({ "type": "snapshot", "data": snapshot.duplicate(true) })
@@ -163,6 +176,24 @@ func show_feedback(message: String) -> void:
 func show_presentation_event(event: Dictionary) -> void:
 	_presentation_queue.append({ "type": "presentation", "data": event.duplicate(true) })
 	_try_process_queue()
+
+func show_resolve_screen(resolve: Dictionary) -> void:
+	visible = true
+	_resolve_active = true
+	_resolve_focus_side = str(resolve.get("focus_side", "enemy"))
+	_camera_manual_offset = Vector2.ZERO
+	_camera_zoom_bias = 0.0
+	_update_resolve_text(resolve)
+	if _lane_view:
+		_lane_view.show_presentation_event({
+			"side": str(resolve.get("dead_side", _resolve_focus_side)),
+			"type": "death",
+		})
+	_update_camera(0.0, get_viewport_rect().size)
+	await get_tree().create_timer(RESOLVE_PRESENTATION_SECONDS).timeout
+	_resolve_active = false
+	_resolve_focus_side = ""
+	_layout_screen_hud(get_viewport_rect().size)
 
 func _try_process_queue() -> void:
 	if _is_processing_queue or _presentation_queue.is_empty():
@@ -219,6 +250,7 @@ func _layout_screen_hud(viewport_size: Vector2) -> void:
 	var ui_scale := Vector2.ONE / _camera_zoom_value()
 	_calculate_duel_layout(viewport_size)
 	_layout_duel_shell(viewport_size, ui_scale)
+	_layout_resolve_screen(viewport_size, ui_scale)
 
 	var context_scale := minf(1.0, _top_info_rect.size.x / 430.0)
 	var context_position := _top_info_rect.position
@@ -545,6 +577,78 @@ func _setup_duel_layout_shell() -> void:
 	_player_status_rows = _build_limb_rows(_player_command_rail)
 	_enemy_status_rows = _build_limb_rows(_enemy_status_rail)
 
+func _setup_resolve_screen() -> void:
+	_resolve_screen_root = Node2D.new()
+	_resolve_screen_root.name = "ResolveScreen"
+	_resolve_screen_root.z_index = 220
+	add_child(_resolve_screen_root)
+
+	_resolve_panel_box = Polygon2D.new()
+	_resolve_panel_box.name = "ResolvePanelBox"
+	_resolve_panel_box.color = Color(0.045, 0.035, 0.025, 0.92)
+	_resolve_screen_root.add_child(_resolve_panel_box)
+
+	_resolve_panel_border = Line2D.new()
+	_resolve_panel_border.name = "ResolvePanelBorder"
+	_resolve_panel_border.default_color = Color(0.82, 0.67, 0.42, 0.92)
+	_resolve_panel_border.width = 2.0
+	_resolve_screen_root.add_child(_resolve_panel_border)
+
+	_resolve_title_label = Label.new()
+	_resolve_title_label.name = "ResolveTitleLabel"
+	_resolve_title_label.position = Vector2(18.0, 14.0)
+	_resolve_title_label.offset_right = RESOLVE_PANEL_SIZE.x - 36.0
+	_resolve_title_label.offset_bottom = 30.0
+	_resolve_title_label.add_theme_color_override(
+		"font_color",
+		Color(0.95, 0.74, 0.48, 1.0)
+	)
+	_resolve_title_label.add_theme_font_size_override("font_size", 20)
+	_resolve_screen_root.add_child(_resolve_title_label)
+
+	_resolve_body_label = Label.new()
+	_resolve_body_label.name = "ResolveBodyLabel"
+	_resolve_body_label.position = Vector2(18.0, 50.0)
+	_resolve_body_label.offset_right = RESOLVE_PANEL_SIZE.x - 36.0
+	_resolve_body_label.offset_bottom = 48.0
+	_resolve_body_label.add_theme_color_override(
+		"font_color",
+		Color(0.84, 0.79, 0.66, 1.0)
+	)
+	_resolve_body_label.add_theme_font_size_override("font_size", 12)
+	_resolve_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_resolve_screen_root.add_child(_resolve_body_label)
+	_set_box(_resolve_panel_box, RESOLVE_PANEL_SIZE)
+	_set_outline(_resolve_panel_border, RESOLVE_PANEL_SIZE)
+	_resolve_screen_root.visible = false
+
+func _layout_resolve_screen(viewport_size: Vector2, ui_scale: Vector2) -> void:
+	if _resolve_screen_root == null:
+		return
+	_resolve_screen_root.visible = _resolve_active
+	if not _resolve_active:
+		return
+	var panel_position := Vector2(
+		viewport_size.x * 0.5 - RESOLVE_PANEL_SIZE.x * 0.5,
+		maxf(22.0, viewport_size.y * 0.11)
+	)
+	_resolve_screen_root.global_position = _screen_to_world(
+		panel_position,
+		viewport_size
+	)
+	_resolve_screen_root.scale = ui_scale
+
+func _update_resolve_text(resolve: Dictionary) -> void:
+	if _resolve_title_label == null or _resolve_body_label == null:
+		return
+	_resolve_title_label.text = str(resolve.get("title", "COMBAT RESOLVED")).to_upper()
+	var dead_name := str(resolve.get("dead_name", "HOSTILE"))
+	var cause := str(resolve.get("cause", "unknown trauma"))
+	_resolve_body_label.text = "%s DOWN\nCAUSE // %s" % [
+		dead_name.to_upper(),
+		cause.to_upper(),
+	]
+
 func _setup_portrait_tokens() -> void:
 	_player_portrait_model = PAPERDOLL_SCENE.instantiate() as PaperDollModel
 	_player_portrait_model.name = "PlayerPortraitPaperDoll"
@@ -818,15 +922,20 @@ func _update_camera_input(delta: float) -> void:
 func _update_camera(delta: float, viewport_size: Vector2) -> void:
 	if _combat_camera == null or _lane_view == null:
 		return
-	var target_zoom := clampf(
-		_lane_view.get_focus_zoom() + _camera_zoom_bias,
-		CAMERA_MIN_ZOOM,
-		CAMERA_MAX_ZOOM
+	var target_zoom := RESOLVE_CAMERA_ZOOM
+	var target_position := _lane_view.get_actor_anchor_global(
+		_resolve_focus_side
 	)
-	var target_position := (
-		_lane_view.get_combat_focus_global()
-		+ _camera_manual_offset
-	)
+	if not _resolve_active:
+		target_zoom = clampf(
+			_lane_view.get_focus_zoom() + _camera_zoom_bias,
+			CAMERA_MIN_ZOOM,
+			CAMERA_MAX_ZOOM
+		)
+		target_position = (
+			_lane_view.get_combat_focus_global()
+			+ _camera_manual_offset
+		)
 	if not _camera_initialized or delta <= 0.0:
 		_combat_camera.global_position = target_position
 		_combat_camera.zoom = Vector2.ONE * target_zoom
@@ -870,6 +979,15 @@ func _camera_zoom_value() -> float:
 	if _combat_camera == null:
 		return 1.0
 	return maxf(0.01, _combat_camera.zoom.x)
+
+func get_camera_zoom_value() -> float:
+	return _camera_zoom_value()
+
+func is_resolve_screen_visible() -> bool:
+	return _resolve_active
+
+func get_resolve_focus_side() -> String:
+	return _resolve_focus_side
 
 func _sync_actor_huds(viewport_size: Vector2) -> void:
 	if _snapshot.is_empty():
