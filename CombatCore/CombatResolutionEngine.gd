@@ -840,7 +840,7 @@ func _resolve_damage(
 	var armor_value: float = victim.inventory.get_protection_for(damage_type)
 	
 	# 2. BULK provides bonus damage resistance (only positive BULK helps here)
-	var bulk_bonus: float = max(0.0, victim.get_bulk_modifier()) * 0.5
+	var bulk_bonus: float = max(0.0, victim.get_bulk_modifier()) * 0.15
 	var total_defense: float = armor_value + bulk_bonus
 	
 	# 3. Penetration is authored on 0-12 and becomes a ratio only for this formula.

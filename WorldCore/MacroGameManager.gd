@@ -264,10 +264,12 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 			unload_enemy_token(target_coords)
 		elif _world_state.is_entity_hostile(target_entity.entity_id):
 			_force_project_npc_token(target_entity)
+			advance_macro_world(1)
 			_begin_entity_collision(target_entity.entity_id, target_coords)
 			return
 		
 	if hex_data.is_poi:
+		advance_macro_world(1)
 		_begin_poi_interaction(target_coords, hex_data)
 		return
 		
@@ -277,8 +279,16 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 			target_coords.y,
 		]
 
-	_advance_npc_macro_turn()
+	advance_macro_world(1)
 	_refresh_world_hud()
+
+func advance_macro_world(turns: int = 1, bypass_interaction_check: bool = false) -> void:
+	for i in range(turns):
+		if not bypass_interaction_check and not _pending_interaction.is_empty():
+			break
+		var collision := _advance_npc_macro_turn(bypass_interaction_check)
+		if collision:
+			break
 
 func _select_hex_at_mouse() -> void:
 	var mouse_pos = map_visualizer.get_local_mouse_position()
@@ -457,6 +467,8 @@ func _present_poi_session(
 	})
 
 func _begin_entity_collision(enemy_id: String, coords: Vector2i) -> void:
+	if not _pending_interaction.is_empty():
+		return
 	var enemy_record := _world_state.get_entity(enemy_id)
 	if enemy_record == null or not _world_state.is_entity_hostile(enemy_id):
 		return
@@ -1242,6 +1254,7 @@ func _resolve_search(
 
 	if result.get("attracted_enemy", false):
 		message += "\nThe noise attracted a hostile."
+		advance_macro_world(1, true)
 		_spawn_search_intruder(coords)
 		return
 	_last_macro_event = "Searched %s at HEX %d,%d." % [
@@ -1249,8 +1262,11 @@ func _resolve_search(
 		coords.x,
 		coords.y,
 	]
-	if _advance_npc_macro_turn(true):
+	
+	advance_macro_world(1, true)
+	if not _pending_interaction.is_empty() and _pending_interaction.get("type") == GameEnums.MacroInteractionType.ENTITY_COLLISION:
 		return
+		
 	_show_interaction_result("SEARCH COMPLETE", message)
 
 func _resolve_camp(
@@ -1313,23 +1329,80 @@ func _resolve_camp(
 	hex_data.camp_rest_count += 1
 
 	var body := player_token.get_humanoid_core().body
-	body.fatigue = maxf(
-		0.0,
-		body.fatigue - float(result.get("fatigue_recovery", 0.0))
-	)
-	_advance_survival_time(
-		GameTimeRules.CAMP_MINUTES,
-		0.25,
-		coords,
-		float(metrics.get("shelter", 0.0))
-	)
-	var healing_amount: float = result.get("healing_amount", 0.0)
+	
+	var missing_fatigue = body.fatigue
+	var fatigue_rec = float(result.get("fatigue_recovery", 0.0))
+	var fatigue_turns = ceil(missing_fatigue / maxf(0.1, fatigue_rec))
+	
+	var total_missing_limb: float = 0.0
 	for limb in body.limb_hp.keys():
-		if body.limb_hp[limb] > 0.0:
-			body.limb_hp[limb] = minf(
-				body.get_limb_max(limb),
-				body.limb_hp[limb] + healing_amount
+		total_missing_limb += maxf(0.0, body.get_limb_max(limb) - body.limb_hp[limb])
+	var healing_amount: float = result.get("healing_amount", 0.0)
+	var healing_turns = ceil(total_missing_limb / maxf(0.1, healing_amount)) if healing_amount > 0 else 0
+	
+	var turns_to_rest = maxi(1, mini(8, int(maxf(fatigue_turns, healing_turns))))
+	
+	var turns_rested = 0
+	var total_healed = 0.0
+	var total_fatigue = 0.0
+	
+	for i in range(turns_to_rest):
+		if i > 0:
+			result = MacroInteractionResolver.resolve_camp(
+				_world_state.world_seed,
+				coords,
+				hex_data.camp_rest_count,
+				metrics
 			)
+			if hex_data.region == GameEnums.MacroRegion.CENTRAL_HUB:
+				result["interrupted"] = false
+				
+		var healed_this_turn = 0.0
+		body.fatigue = maxf(
+			0.0,
+			body.fatigue - float(result.get("fatigue_recovery", 0.0))
+		)
+		total_fatigue += float(result.get("fatigue_recovery", 0.0))
+		
+		for limb in body.limb_hp.keys():
+			if body.limb_hp[limb] > 0.0:
+				var to_heal = minf(
+					body.get_limb_max(limb) - body.limb_hp[limb],
+					healing_amount
+				)
+				body.limb_hp[limb] += to_heal
+				healed_this_turn += to_heal
+		total_healed += healed_this_turn
+		
+		_advance_survival_time(
+			GameTimeRules.CAMP_MINUTES,
+			0.25,
+			coords,
+			float(metrics.get("shelter", 0.0))
+		)
+		
+		hex_data.camp_rest_count += 1
+		turns_rested += 1
+		advance_macro_world(1, true)
+		
+		if result.get("interrupted", false):
+			_world_state.set_hex_record(coords, hex_data.to_state())
+			_world_state.update_player_runtime(
+				player_token.get_humanoid_core().capture_runtime_state(),
+				coords
+			)
+			_refresh_world_hud()
+			_spawn_search_intruder(coords)
+			return
+			
+		if not _pending_interaction.is_empty() and _pending_interaction.get("type") == GameEnums.MacroInteractionType.ENTITY_COLLISION:
+			_world_state.set_hex_record(coords, hex_data.to_state())
+			_world_state.update_player_runtime(
+				player_token.get_humanoid_core().capture_runtime_state(),
+				coords
+			)
+			_refresh_world_hud()
+			return
 
 	_world_state.set_hex_record(coords, hex_data.to_state())
 	_world_state.update_player_runtime(
@@ -1338,23 +1411,19 @@ func _resolve_camp(
 	)
 	_refresh_world_hud()
 
-	if result.get("interrupted", false):
-		_spawn_search_intruder(coords)
-		return
 	_last_macro_event = "Camp rest resolved at HEX %d,%d." % [
 		coords.x,
 		coords.y,
 	]
-	if _advance_npc_macro_turn(true):
-		return
 	_show_interaction_result(
 		"REST COMPLETE",
 		(
-			"Fatigue recovered by %.1f / 12. Camp healing restored %.1f limb health."
+			"Rested for %d turn(s). Fatigue recovered by %.1f. Camp healing restored %.1f limb health."
 			+ "\nTime: %s"
 		) % [
-			float(result.get("fatigue_recovery", 0.0)),
-			healing_amount,
+			turns_rested,
+			total_fatigue,
+			total_healed,
 			_format_world_time(),
 		]
 	)

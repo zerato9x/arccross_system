@@ -318,7 +318,7 @@ func _spawn_next_mob() -> void:
 func capture_enemy_runtime_state() -> Dictionary:
 	if not enemy_core:
 		return {}
-	return enemy_core.capture_runtime_state().to_dict()
+	return {}
 
 func _clear_encounter_transients() -> void:
 	if player_core:

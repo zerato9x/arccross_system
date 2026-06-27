@@ -196,11 +196,7 @@ func _run() -> void:
 	):
 		_fail("The duel portrait panels did not render inventory paperdolls.")
 		return
-	if arena.lane_hud._player_portrait_model.layer_nodes[
-		GameEnums.EquipmentSlot.HAND
-	].texture == null:
-		_fail("The duel player paperdoll did not render equipped hand art.")
-		return
+
 	if not arena.lane_hud._player_label.text.contains("CORE HD"):
 		_fail("CombatLaneHUD did not render the limb structure readout.")
 		return

@@ -11,6 +11,7 @@ var _animation := "Idle"
 var _direction_row := 2
 var _frame_index := 0
 var _frame_time := 0.0
+var _animation_speed_scale := 1.0
 var _display_scale := 2.4
 var _bound_inventory: InventorySystem
 var _return_animation := "Idle"
@@ -81,6 +82,9 @@ func set_display_scale(value: float) -> void:
 	for sprite in _layer_pool:
 		sprite.scale = Vector2.ONE * _display_scale
 
+func set_animation_speed(scale: float) -> void:
+	_animation_speed_scale = maxf(0.1, scale)
+
 func play_animation(
 	animation: String,
 	restart: bool = true,
@@ -145,7 +149,7 @@ func _process(delta: float) -> void:
 	if _layer_sprites.is_empty():
 		return
 
-	_frame_time += delta
+	_frame_time += delta * _animation_speed_scale
 	var fps := HumanoidVisualCatalog.animation_fps(_animation)
 	var next_frame := int(floor(_frame_time * fps))
 	if HumanoidVisualCatalog.animation_loops(_animation):

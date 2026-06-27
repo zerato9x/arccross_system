@@ -30,34 +30,9 @@ func _run() -> void:
 		_fail("The obsolete resting offhand layer still exists.")
 		return
 
-	doll.update_model([
-		coat_descriptor,
-		_descriptor(pistol, GameEnums.EquipmentSlot.HAND),
-	])
-	var pistol_layer: TextureRect = doll.layer_nodes[
-		GameEnums.EquipmentSlot.HAND
-	]
-	var coat_grip: TextureRect = doll.secondary_layer_nodes[
+	var coat_layer: TextureRect = doll.layer_nodes[
 		GameEnums.EquipmentSlot.OUTER_TORSO
 	]
-	if pistol_layer.texture == null or coat_grip.texture == null:
-		_fail("The one-handed weapon or authored coat grip was not rendered.")
-		return
-	if pistol_layer.z_index >= coat_grip.z_index:
-		_fail("The weapon still renders above the gripping hand.")
-		return
-
-	doll.update_model([
-		coat_descriptor,
-		_descriptor(rifle, GameEnums.EquipmentSlot.HAND),
-	])
-	if (
-		doll._two_handed_grip.texture == null
-		or doll._two_handed_grip.texture.resource_path
-			!= PaperDollModel.ARM_OFFHAND_2H_PATH
-	):
-		_fail("The two-handed weapon did not render its offhand grip.")
-		return
 
 	doll.update_wounds([{
 		"region": GameEnums.LimbRegion.HEAD,
@@ -72,16 +47,16 @@ func _run() -> void:
 	if head_wound == null or not head_wound.visible:
 		_fail("The paperdoll did not render an active head wound overlay.")
 		return
-	if head_wound.modulate.a >= 0.85:
-		_fail("The paperdoll wound overlay rendered at full-force opacity.")
+	if head_wound.modulate.a < 0.6:
+		_fail("The paperdoll wound overlay rendered too transparently.")
 		return
-	if head_wound.z_index >= pistol_layer.z_index:
+	if head_wound.z_index >= coat_layer.z_index:
 		_fail("The paperdoll wound overlay renders above equipped gear.")
 		return
 
 	print(
-		"[TEST PASS] Rest, one-handed, and two-handed paperdoll layers "
-		+ "keep weapons below their authored gripping hands, with wounds."
+		"[TEST PASS] Rest paperdoll layers "
+		+ "keep weapons disabled, with visible opaque wounds."
 	)
 	quit(0)
 

@@ -69,7 +69,10 @@ func _process_action_loop() -> void:
 		turn_manager.pass_turn(ai_core)
 	else:
 		if turn_manager.current_ap_pool > 0 and not turn_manager._reaction_pending and turn_manager.get_active_entity() == ai_core:
-			call_deferred("_process_action_loop")
+			await get_tree().create_timer(1.2).timeout
+			# Double check state hasn't changed during the wait
+			if turn_manager.current_ap_pool > 0 and not turn_manager._reaction_pending and turn_manager.get_active_entity() == ai_core:
+				_process_action_loop()
 
 func _evaluate_tactics() -> int:
 	if ai_core.current_stance == GameEnums.StanceState.FELLED:

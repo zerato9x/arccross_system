@@ -340,7 +340,7 @@ func _calculate_duel_layout(viewport_size: Vector2) -> void:
 	_top_info_rect = Rect2(
 		Vector2(
 			viewport_size.x * 0.5 - 215.0,
-			maxf(margin, grid_top - 150.0)
+			margin
 		),
 		Vector2(430.0, 132.0)
 	)

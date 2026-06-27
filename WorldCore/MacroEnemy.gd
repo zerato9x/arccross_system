@@ -1,7 +1,7 @@
 extends Node2D
 class_name MacroEnemy
 
-const WALK_DURATION_SECONDS := 0.85
+const WALK_DURATION_SECONDS := 2.0
 
 @onready var humanoid_token: HumanoidTokenView = $HumanoidTokenView
 
@@ -11,6 +11,7 @@ var _faction_color := Color(0.65, 0.68, 0.65)
 var _idle_animation := "Idle2"
 var _movement_tween: Tween
 var _movement_serial := 0
+var _movement_queue: Array[Vector2] = []
 
 func _ready() -> void:
 	var placeholder := get_node_or_null("Sprite2D") as Sprite2D
@@ -24,28 +25,40 @@ func _ready() -> void:
 
 func snap_to_hex(coords: Vector2i, pixel_position: Vector2) -> void:
 	current_hex_coords = coords
+	_movement_queue.clear()
+	if _movement_tween and _movement_tween.is_valid():
+		_movement_tween.kill()
 	position = pixel_position
 	if humanoid_token:
 		humanoid_token.play_animation(_idle_animation, false)
 
 func walk_to_hex(coords: Vector2i, pixel_position: Vector2) -> void:
 	current_hex_coords = coords
-	var movement_direction := pixel_position - position
-	_movement_serial += 1
-	var movement_id := _movement_serial
-	if _movement_tween and _movement_tween.is_valid():
-		_movement_tween.kill()
+	_movement_queue.append(pixel_position)
+	if _movement_tween == null or not _movement_tween.is_valid() or not _movement_tween.is_running():
+		_process_next_movement()
+
+func _process_next_movement() -> void:
+	if _movement_queue.is_empty():
+		if humanoid_token:
+			humanoid_token.play_animation(_idle_animation)
+		return
+		
+	var next_pos: Vector2 = _movement_queue.pop_front()
+	var movement_direction := next_pos - position
+	
 	if humanoid_token:
 		humanoid_token.face_direction(movement_direction)
 		humanoid_token.play_animation("Walk")
+		
 	_movement_tween = create_tween()
 	_movement_tween.tween_property(
 		self,
 		"position",
-		pixel_position,
+		next_pos,
 		WALK_DURATION_SECONDS
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_movement_tween.finished.connect(_finish_walk.bind(movement_id))
+	_movement_tween.finished.connect(_process_next_movement)
 
 ## Initialize presentation from a neutral persistent record.
 func setup_from_record(record) -> void:
@@ -100,9 +113,8 @@ func play_interaction() -> void:
 		humanoid_token.play_one_shot("Taunt", _idle_animation)
 
 func _finish_walk(movement_id: int) -> void:
-	if movement_id != _movement_serial or not humanoid_token:
-		return
-	humanoid_token.play_animation(_idle_animation)
+	# Retained for interface compatibility if needed, but no longer used internally
+	pass
 
 func _draw() -> void:
 	draw_circle(Vector2(0.0, -5.0), 24.0, Color(_faction_color, 0.12))

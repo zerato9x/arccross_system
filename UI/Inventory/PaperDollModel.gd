@@ -151,6 +151,8 @@ func update_model(equipment_data: Array) -> void:
 			"equipment_slot",
 			GameEnums.EquipmentSlot.NONE
 		))
+		if slot == GameEnums.EquipmentSlot.HAND or slot == GameEnums.EquipmentSlot.OFFHAND:
+			continue
 		if not layer_nodes.has(slot):
 			continue
 
@@ -297,7 +299,7 @@ func _apply_layer_order() -> void:
 	if _body_layer:
 		_body_layer.z_index = Z_BODY
 	if _head_layer:
-		_head_layer.z_index = Z_BODY + 1
+		_head_layer.z_index = Z_EQUIPMENT_BASE + 13
 	if _base_main_arm_under:
 		_base_main_arm_under.z_index = Z_REST_ARM
 	if _base_main_arm_over:
@@ -350,7 +352,7 @@ func _show_wound(region: String, ratio: float, trauma: String) -> void:
 		var decal := _decal_wound_nodes.get(region) as TextureRect
 		if decal:
 			decal.texture = _load_texture(decal_path)
-			decal.modulate = Color(1.0, 1.0, 1.0, minf(alpha + 0.12, 0.78))
+			decal.modulate = Color(1.0, 1.0, 1.0, minf(alpha + 0.12, 1.0))
 			_place_decal(decal, region, ratio, trauma)
 			decal.visible = true
 
@@ -403,7 +405,7 @@ func _place_decal(
 
 func _wound_alpha(ratio: float, trauma: String) -> float:
 	var severity := _wound_severity(ratio, trauma)
-	return clampf(0.18 + severity * 0.5, 0.18, 0.68)
+	return clampf(0.65 + severity * 0.35, 0.65, 1.0)
 
 func _wound_severity(ratio: float, trauma: String) -> float:
 	var severity := clampf(1.0 - ratio, 0.0, 1.0)
@@ -435,24 +437,6 @@ func _require_texture_rect(path: String) -> TextureRect:
 	return layer
 
 func _resolve_arm_pose(equipment_data: Array) -> ArmPose:
-	var descriptors_by_slot: Dictionary = {}
-	for raw_descriptor in equipment_data:
-		var descriptor: Dictionary = raw_descriptor
-		var slot := int(descriptor.get(
-			"equipment_slot",
-			GameEnums.EquipmentSlot.NONE
-		))
-		descriptors_by_slot[slot] = descriptor
-
-	for slot: int in WEAPON_SLOT_PRIORITY:
-		if not descriptors_by_slot.has(slot):
-			continue
-		var descriptor: Dictionary = descriptors_by_slot[slot]
-		if not _is_weapon_descriptor(descriptor):
-			continue
-		if descriptor.get("requires_two_hands", false):
-			return ArmPose.TWO_HANDED
-		return ArmPose.ONE_HANDED
 	return ArmPose.REST
 
 func _is_weapon_descriptor(descriptor: Dictionary) -> bool:

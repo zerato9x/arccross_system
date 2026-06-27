@@ -10,6 +10,8 @@ const WEAPONS := [
 	"" # Unarmed
 ]
 
+var _current_duel_outcome = null
+
 func _initialize() -> void:
 	call_deferred("_run_simulation")
 
@@ -27,7 +29,7 @@ func _run_simulation() -> void:
 		_fail("Could not load entity definitions.")
 		return
 		
-	var total_battles := 5
+	var total_battles := 50
 	var success_count := 0
 	
 	for i in range(total_battles):
@@ -152,49 +154,49 @@ func _run_simulation() -> void:
 		print("Duel starting: ", battle_player.name, " (", GameEnums.CombatTactic.keys()[battle_player.definition.combat_tactic], ") vs ", arena.enemy_core.name, " (", GameEnums.CombatTactic.keys()[arena.enemy_core.definition.combat_tactic], ")")
 		print("Context: ", GameEnums.EncounterContext.keys()[encounter_context], " | Ambush Pos: ", GameEnums.AmbushPosition.keys()[ambush_pos])
 		
-		var duel_outcome_wrapper := { "outcome": null }
+		_current_duel_outcome = null
 		var start_ticks = Time.get_ticks_msec()
 		var max_simulation_ms = 15000 # 15 seconds
 		
-		var handle_finished = func(outcome: int, _enemy_id: String, _enemy_runtime: Dictionary, _dropped_items: Array):
-			duel_outcome_wrapper.outcome = outcome
-			
-		arena.duel_finished.connect(handle_finished)
+		arena.duel_finished.connect(_on_duel_finished)
 		
 		# Kick off the turn loop
 		arena.turn_manager.resume_loop()
 		
-		while duel_outcome_wrapper.outcome == null:
+		while _current_duel_outcome == null:
 			await process_frame
 			if arena.turn_manager.current_round > 50:
 				print("[STALEMATE] Battle exceeded 50 rounds without casualties. Declaring a DRAW.")
 				arena.turn_manager.halt_loop()
-				duel_outcome_wrapper.outcome = GameEnums.CombatOutcome.DRAW
+				_current_duel_outcome = GameEnums.CombatOutcome.DRAW
 				break
 				
 			if Time.get_ticks_msec() - start_ticks > max_simulation_ms:
 				print("[TIMEOUT WARNING] Battle exceeded ", max_simulation_ms, " ms! Aborting duel to check for deadlock.")
 				arena.turn_manager.halt_loop()
-				duel_outcome_wrapper.outcome = -999
+				_current_duel_outcome = -999
 				break
 				
-		arena.duel_finished.disconnect(handle_finished)
+		arena.duel_finished.disconnect(_on_duel_finished)
 		
 		# Clean up nodes
 		arena.queue_free()
 		await process_frame
 		await process_frame
 		
-		if duel_outcome_wrapper.outcome == -999:
+		if _current_duel_outcome == -999:
 			_fail("Simulation deadlocked in battle " + str(i + 1))
 			return
 		else:
-			print("Battle ", i + 1, " finished with outcome: ", GameEnums.CombatOutcome.keys()[duel_outcome_wrapper.outcome])
+			print("Battle ", i + 1, " finished with outcome: ", GameEnums.CombatOutcome.keys()[_current_duel_outcome])
 			success_count += 1
 			
 	print("\n--- ALL SIMULATIONS COMPLETE ---")
 	print("Successful Battles: ", success_count, " / ", total_battles)
 	quit(0)
+
+func _on_duel_finished(outcome, _enemy_id, _enemy_runtime, _dropped_items) -> void:
+	_current_duel_outcome = outcome
 
 func _fail(message: String) -> void:
 	push_error("[SIMULATION FAILED] " + message)
