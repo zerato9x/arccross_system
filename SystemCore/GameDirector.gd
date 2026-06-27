@@ -50,6 +50,8 @@ func _on_combat_requested(request: Dictionary) -> void:
 	print("\n[DIRECTOR] Combat request accepted. Stopping macro world...")
 	set_process_unhandled_input(false)
 	macro_map.hide()
+	if macro_map.world_hud:
+		macro_map.world_hud.visible = false
 	_combat_coords = coords
 	_combat_enemy_id = enemy_id
 	_combat_request = request.duplicate(true)
@@ -121,6 +123,8 @@ func _on_duel_finished(
 
 	_teardown_arena()
 	macro_map.show()
+	if macro_map.world_hud:
+		macro_map.world_hud.visible = true
 	macro_map.set_process_unhandled_input(true)
 	set_process_unhandled_input(true)
 	# AudioConductor: Return to macro world audio

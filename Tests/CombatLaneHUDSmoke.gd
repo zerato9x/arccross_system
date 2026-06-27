@@ -172,6 +172,35 @@ func _run() -> void:
 	if hud_snapshot.get("player", {}).get("limbs", []).size() != 7:
 		_fail("CombatLaneHUD did not receive all seven Limb Regions.")
 		return
+	if (
+		arena.lane_hud._player_actor_hud.visible
+		or arena.lane_hud._enemy_actor_hud.visible
+	):
+		_fail("The retired floating actor panels are still visible in duel layout.")
+		return
+	if (
+		arena.lane_hud._player_status_rows.size() != 7
+		or arena.lane_hud._enemy_status_rows.size() != 7
+	):
+		_fail("The bottom duel body panels did not create seven limb bars.")
+		return
+	if not arena.lane_hud._player_status_label.text.contains("YOU"):
+		_fail("The player body panel did not render the player status title.")
+		return
+	if not arena.lane_hud._enemy_status_label.text.contains("HOSTILE"):
+		_fail("The enemy body panel did not render the hostile status title.")
+		return
+	if (
+		not arena.lane_hud._player_portrait_model.visible
+		or not arena.lane_hud._enemy_portrait_model.visible
+	):
+		_fail("The duel portrait panels did not render inventory paperdolls.")
+		return
+	if arena.lane_hud._player_portrait_model.layer_nodes[
+		GameEnums.EquipmentSlot.HAND
+	].texture == null:
+		_fail("The duel player paperdoll did not render equipped hand art.")
+		return
 	if not arena.lane_hud._player_label.text.contains("CORE HD"):
 		_fail("CombatLaneHUD did not render the limb structure readout.")
 		return
@@ -193,6 +222,23 @@ func _run() -> void:
 	player.body.limb_hp[GameEnums.LimbRegion.LEFT_LEG] = 0.0
 	player.body.limb_hp[GameEnums.LimbRegion.RIGHT_LEG] = 0.0
 	arena.command_adapter.refresh_snapshot()
+	await process_frame
+	var player_rows: Array = arena.lane_hud._player_status_rows
+	var left_leg_fill := player_rows[5].get("fill") as Polygon2D
+	var right_leg_fill := player_rows[6].get("fill") as Polygon2D
+	var leg_wound := arena.lane_hud._player_portrait_model._decal_wound_nodes[
+		"LEFT_LEG"
+	] as TextureRect
+	if (
+		left_leg_fill == null
+		or right_leg_fill == null
+		or leg_wound == null
+		or not leg_wound.visible
+		or left_leg_fill.polygon[1].x > 3.0
+		or right_leg_fill.polygon[1].x > 3.0
+	):
+		_fail("Disabled legs did not collapse bars and show paperdoll wounds.")
+		return
 	if (
 		not arena.command_adapter.get_snapshot().get(
 			"player",

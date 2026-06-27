@@ -36,6 +36,14 @@ func _run() -> void:
 			{ "name": "Backpack", "capacity": 12 },
 			{ "name": "Pockets", "capacity": 4 }
 		],
+		"limbs": [
+			{
+				"region": GameEnums.LimbRegion.HEAD,
+				"current": 1.0,
+				"maximum": 6.0,
+				"trauma": "BLEEDING",
+			}
+		],
 		"backpack": [
 			{
 				"instance_id": "item_medkit_01",
@@ -63,6 +71,14 @@ func _run() -> void:
 		print("[OK] Step 2b: PaperDollModel correctly loaded assigned texture path.")
 	else:
 		print("[FAIL] Step 2b: PaperDollModel failed to load texture.")
+
+	var head_wound := inventory_ui.paperdoll_model._full_wound_nodes[
+		"res://Asset/Innawoods_Asset/Humanoid/Wounds/head_disfigured.png"
+	] as TextureRect
+	if head_wound != null and head_wound.visible:
+		print("[OK] Step 2d: PaperDollModel rendered wound overlays from limb state.")
+	else:
+		print("[FAIL] Step 2d: PaperDollModel did not render wound overlays.")
 
 	if inventory_ui.backpack_slots_ui.size() == 24:
 		print("[OK] Step 2c: Backpack rendered all capacity cells.")

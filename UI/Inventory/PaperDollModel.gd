@@ -10,6 +10,41 @@ const ARM_OFFHAND_2H_PATH := (
 	"res://Asset/Innawoods_Asset/Humanoid/Body/arm_offhand_2hequip.png"
 )
 const GRIP_MASK_RECT := Rect2i(64, 62, 54, 56)
+const WOUND_ROOT := "res://Asset/Innawoods_Asset/Humanoid/Wounds"
+const FULL_WOUND_PATHS := [
+	WOUND_ROOT + "/arm_laceration.png",
+	WOUND_ROOT + "/face_craven_1.png",
+	WOUND_ROOT + "/face_craven_2.png",
+	WOUND_ROOT + "/face_craven_3.png",
+	WOUND_ROOT + "/head_disfigured.png",
+	WOUND_ROOT + "/head_disfigured_2.png",
+	WOUND_ROOT + "/head_headshot.png",
+	WOUND_ROOT + "/head_headshot_melee.png",
+	WOUND_ROOT + "/head_scratch.png",
+	WOUND_ROOT + "/head_wounded.png",
+	WOUND_ROOT + "/torso_lower_laceration.png",
+]
+const DECAL_WOUND_PATHS := {
+	"bullet": WOUND_ROOT + "/wound_bullet.png",
+	"laceration": WOUND_ROOT + "/wound_laceration.png",
+	"scratch": WOUND_ROOT + "/wound_scratch.png",
+}
+const DECAL_LAYOUT := {
+	"HEAD": {"anchor": Vector2(0.53, 0.16), "size": Vector2(10.0, 12.0)},
+	"UPPER_TORSO": {"anchor": Vector2(0.48, 0.41), "size": Vector2(12.0, 18.0)},
+	"LOWER_TORSO": {"anchor": Vector2(0.48, 0.58), "size": Vector2(13.0, 20.0)},
+	"LEFT_ARM": {"anchor": Vector2(0.35, 0.45), "size": Vector2(10.0, 18.0)},
+	"RIGHT_ARM": {"anchor": Vector2(0.64, 0.45), "size": Vector2(10.0, 18.0)},
+	"LEFT_LEG": {"anchor": Vector2(0.42, 0.76), "size": Vector2(10.0, 20.0)},
+	"RIGHT_LEG": {"anchor": Vector2(0.57, 0.76), "size": Vector2(10.0, 20.0)},
+}
+
+const Z_BODY := 0
+const Z_REST_ARM := 3
+const Z_WOUND := 6
+const Z_EQUIPMENT_BASE := 20
+const Z_WEAPON := 64
+const Z_GRIP := 86
 
 enum ArmPose {
 	REST,
@@ -67,10 +102,16 @@ const SECONDARY_SLOT_LAYERS := [
 var layer_nodes: Dictionary = {}
 var secondary_layer_nodes: Dictionary = {}
 
+var _background: TextureRect
+var _vignette: ColorRect
 var _model_frame: Control
+var _body_layer: TextureRect
+var _head_layer: TextureRect
 var _base_main_arm_under: TextureRect
 var _base_main_arm_over: TextureRect
 var _two_handed_grip: TextureRect
+var _full_wound_nodes: Dictionary = {}
+var _decal_wound_nodes: Dictionary = {}
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -138,14 +179,42 @@ func update_model(equipment_data: Array) -> void:
 				grip_mask_path
 			)
 
+func set_backdrop_visible(show_backdrop: bool) -> void:
+	if not is_node_ready():
+		await ready
+	if _background:
+		_background.visible = show_backdrop
+	if _vignette:
+		_vignette.visible = show_backdrop
+
+func update_wounds(limbs: Array) -> void:
+	if not is_node_ready():
+		await ready
+	_ensure_wound_layers()
+	_clear_wounds()
+	for raw_limb in limbs:
+		var limb: Dictionary = raw_limb
+		var region := _region_name(limb.get("region", ""))
+		if region.is_empty():
+			continue
+		var maximum := maxf(1.0, float(limb.get("maximum", 1.0)))
+		var current := clampf(float(limb.get("current", maximum)), 0.0, maximum)
+		var trauma := str(limb.get("trauma", "NONE"))
+		var ratio := current / maximum
+		if ratio >= 0.95 and trauma == "NONE":
+			continue
+		_show_wound(region, ratio, trauma)
+
 func _bind_authored_model() -> void:
 	layer_nodes.clear()
 	secondary_layer_nodes.clear()
 
 	var background := _require_texture_rect("Background")
+	_background = background
+	_vignette = get_node_or_null("Vignette") as ColorRect
 	_model_frame = get_node_or_null("ModelFrame") as Control
-	var body := _require_texture_rect("ModelFrame/Layer_Body")
-	var head := _require_texture_rect("ModelFrame/Layer_Head_Base")
+	_body_layer = _require_texture_rect("ModelFrame/Layer_Body")
+	_head_layer = _require_texture_rect("ModelFrame/Layer_Head_Base")
 	_base_main_arm_under = _require_texture_rect(
 		"ModelFrame/Layer_Arm_Main_Rest"
 	)
@@ -159,8 +228,8 @@ func _bind_authored_model() -> void:
 	if (
 		background == null
 		or _model_frame == null
-		or body == null
-		or head == null
+		or _body_layer == null
+		or _head_layer == null
 		or _base_main_arm_under == null
 		or _base_main_arm_over == null
 		or _two_handed_grip == null
@@ -169,9 +238,10 @@ func _bind_authored_model() -> void:
 		return
 
 	background.texture = _load_texture(BACKGROUND_PATH)
-	body.texture = _load_texture(BODY_PATH)
-	head.texture = _load_texture(HEAD_PATH)
+	_body_layer.texture = _load_texture(BODY_PATH)
+	_head_layer.texture = _load_texture(HEAD_PATH)
 	_base_main_arm_under.texture = _load_texture(ARM_REST_PATH)
+	_ensure_wound_layers()
 
 	for slot in BASE_SLOT_LAYERS:
 		var layer := _require_texture_rect("ModelFrame/Layer_%d" % slot)
@@ -184,6 +254,179 @@ func _bind_authored_model() -> void:
 		)
 		if layer != null:
 			secondary_layer_nodes[slot] = layer
+
+	_apply_layer_order()
+
+func _ensure_wound_layers() -> void:
+	if _model_frame == null:
+		return
+	if _full_wound_nodes.is_empty():
+		for path in FULL_WOUND_PATHS:
+			var wound := _make_full_wound_layer(str(path))
+			_full_wound_nodes[path] = wound
+	if _decal_wound_nodes.is_empty():
+		for region in DECAL_LAYOUT.keys():
+			var decal := _make_decal_wound_layer(str(region))
+			_decal_wound_nodes[region] = decal
+
+func _make_full_wound_layer(path: String) -> TextureRect:
+	var layer := TextureRect.new()
+	layer.name = "Wound_" + path.get_file().get_basename()
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.texture = _load_texture(path)
+	layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.z_index = Z_WOUND
+	layer.visible = false
+	_model_frame.add_child(layer)
+	return layer
+
+func _make_decal_wound_layer(region: String) -> TextureRect:
+	var layer := TextureRect.new()
+	layer.name = "Wound_Decal_" + region
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	layer.z_index = Z_WOUND + 1
+	layer.visible = false
+	_model_frame.add_child(layer)
+	return layer
+
+func _apply_layer_order() -> void:
+	if _body_layer:
+		_body_layer.z_index = Z_BODY
+	if _head_layer:
+		_head_layer.z_index = Z_BODY + 1
+	if _base_main_arm_under:
+		_base_main_arm_under.z_index = Z_REST_ARM
+	if _base_main_arm_over:
+		_base_main_arm_over.z_index = Z_GRIP
+	if _two_handed_grip:
+		_two_handed_grip.z_index = Z_GRIP + 1
+
+	for slot in layer_nodes.keys():
+		var layer := layer_nodes[slot] as TextureRect
+		if layer:
+			layer.z_index = _slot_z_index(int(slot), false)
+	for slot in secondary_layer_nodes.keys():
+		var layer := secondary_layer_nodes[slot] as TextureRect
+		if layer:
+			layer.z_index = _slot_z_index(int(slot), true)
+
+	for layer: TextureRect in _full_wound_nodes.values():
+		layer.z_index = Z_WOUND
+	for layer: TextureRect in _decal_wound_nodes.values():
+		layer.z_index = Z_WOUND + 1
+
+func _slot_z_index(slot: int, secondary: bool) -> int:
+	if slot == GameEnums.EquipmentSlot.HAND:
+		return Z_WEAPON if not secondary else Z_GRIP + 2
+	if slot == GameEnums.EquipmentSlot.OFFHAND:
+		return Z_WEAPON + 1 if not secondary else Z_GRIP + 3
+	if secondary and (slot in POSE_SLOTS or slot == GameEnums.EquipmentSlot.VEST):
+		return Z_GRIP + 4 + POSE_SLOTS.find(slot)
+	var slot_index := BASE_SLOT_LAYERS.find(slot)
+	if slot_index < 0:
+		slot_index = 0
+	return Z_EQUIPMENT_BASE + slot_index * 2 + (1 if secondary else 0)
+
+func _clear_wounds() -> void:
+	for layer: TextureRect in _full_wound_nodes.values():
+		layer.visible = false
+	for layer: TextureRect in _decal_wound_nodes.values():
+		layer.visible = false
+
+func _show_wound(region: String, ratio: float, trauma: String) -> void:
+	var alpha := _wound_alpha(ratio, trauma)
+	var full_path := _full_wound_path(region, ratio, trauma)
+	if not full_path.is_empty():
+		var full_layer := _full_wound_nodes.get(full_path) as TextureRect
+		if full_layer:
+			full_layer.modulate = Color(1.0, 1.0, 1.0, alpha)
+			full_layer.visible = true
+	var decal_path := _decal_wound_path(region, ratio, trauma)
+	if not decal_path.is_empty():
+		var decal := _decal_wound_nodes.get(region) as TextureRect
+		if decal:
+			decal.texture = _load_texture(decal_path)
+			decal.modulate = Color(1.0, 1.0, 1.0, minf(alpha + 0.12, 0.78))
+			_place_decal(decal, region, ratio, trauma)
+			decal.visible = true
+
+func _full_wound_path(region: String, ratio: float, trauma: String) -> String:
+	match region:
+		"HEAD":
+			if trauma == "SHATTERED_LIMB" or ratio <= 0.0:
+				return WOUND_ROOT + "/head_headshot.png"
+			if ratio <= 0.25:
+				return WOUND_ROOT + "/head_disfigured.png"
+			if trauma != "NONE" or ratio <= 0.55:
+				return WOUND_ROOT + "/head_wounded.png"
+			if ratio <= 0.85:
+				return WOUND_ROOT + "/head_scratch.png"
+			return ""
+		"UPPER_TORSO", "LOWER_TORSO":
+			if trauma != "NONE" or ratio <= 0.45:
+				return WOUND_ROOT + "/torso_lower_laceration.png"
+		"LEFT_ARM", "RIGHT_ARM":
+			if trauma != "NONE" or ratio <= 0.45:
+				return WOUND_ROOT + "/arm_laceration.png"
+	return ""
+
+func _decal_wound_path(region: String, ratio: float, trauma: String) -> String:
+	if region == "HEAD":
+		return ""
+	if trauma == "BLEEDING" or ratio <= 0.55:
+		return str(DECAL_WOUND_PATHS["laceration"])
+	if ratio <= 0.85:
+		return str(DECAL_WOUND_PATHS["scratch"])
+	return ""
+
+func _place_decal(
+	layer: TextureRect,
+	region: String,
+	ratio: float,
+	trauma: String
+) -> void:
+	var layout: Dictionary = DECAL_LAYOUT.get(region, {})
+	if layout.is_empty():
+		return
+	var anchor: Vector2 = layout.get("anchor", Vector2(0.5, 0.5))
+	var decal_size: Vector2 = layout.get("size", Vector2(18.0, 24.0))
+	decal_size *= lerpf(0.65, 1.0, _wound_severity(ratio, trauma))
+	var frame_size := _model_frame.size
+	if frame_size.x <= 0.0 or frame_size.y <= 0.0:
+		frame_size = Vector2(209.0, 241.0)
+	layer.size = decal_size
+	layer.position = frame_size * anchor - decal_size * 0.5
+
+func _wound_alpha(ratio: float, trauma: String) -> float:
+	var severity := _wound_severity(ratio, trauma)
+	return clampf(0.18 + severity * 0.5, 0.18, 0.68)
+
+func _wound_severity(ratio: float, trauma: String) -> float:
+	var severity := clampf(1.0 - ratio, 0.0, 1.0)
+	match trauma:
+		"BLEEDING":
+			severity = maxf(severity, 0.5)
+		"FRACTURED", "SHATTERED_LIMB":
+			severity = maxf(severity, 0.75)
+		_:
+			if trauma != "NONE":
+				severity = maxf(severity, 0.35)
+	return severity
+
+func _region_name(raw_region) -> String:
+	if raw_region is int:
+		var index := int(raw_region)
+		if index >= 0 and index < GameEnums.LimbRegion.keys().size():
+			return str(GameEnums.LimbRegion.keys()[index])
+		return ""
+	var region := str(raw_region)
+	if region.is_valid_int():
+		return _region_name(int(region))
+	return region
 
 func _require_texture_rect(path: String) -> TextureRect:
 	var layer := get_node_or_null(path) as TextureRect

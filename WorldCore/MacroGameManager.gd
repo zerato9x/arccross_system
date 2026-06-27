@@ -793,7 +793,8 @@ func _on_inventory_closed() -> void:
 	_present_poi_session(coords, hex_data)
 
 func _build_inventory_snapshot() -> Dictionary:
-	var inventory := player_token.get_humanoid_core().inventory
+	var player_core := player_token.get_humanoid_core()
+	var inventory := player_core.inventory
 	var equipment: Array = []
 	var seen_slots: Dictionary = {}
 	for slot in GameEnums.EquipmentSlot.values():
@@ -852,6 +853,7 @@ func _build_inventory_snapshot() -> Dictionary:
 		"capacity_breakdown": capacity_breakdown,
 		"containers": containers,
 		"equipment": equipment,
+		"limbs": _build_limb_snapshot(player_core.body),
 		"backpack": backpack,
 		"ground": ground,
 	}
@@ -864,25 +866,6 @@ func _build_world_hud_snapshot() -> Dictionary:
 		return {}
 	var body := player_core.body
 	var inventory := player_core.inventory
-	var limbs: Array = []
-	for region in [
-		GameEnums.LimbRegion.HEAD,
-		GameEnums.LimbRegion.UPPER_TORSO,
-		GameEnums.LimbRegion.LOWER_TORSO,
-		GameEnums.LimbRegion.LEFT_ARM,
-		GameEnums.LimbRegion.RIGHT_ARM,
-		GameEnums.LimbRegion.LEFT_LEG,
-		GameEnums.LimbRegion.RIGHT_LEG,
-	]:
-		var trauma_index := int(
-			body.limb_trauma.get(region, GameEnums.TraumaType.NONE)
-		)
-		limbs.append({
-			"region": GameEnums.LimbRegion.keys()[region],
-			"current": float(body.limb_hp.get(region, 0.0)),
-			"maximum": body.get_limb_max(region),
-			"trauma": GameEnums.TraumaType.keys()[trauma_index],
-		})
 	return {
 		"coords": player_token.current_hex_coords,
 		"current_hex": _build_hex_descriptor(player_token.current_hex_coords),
@@ -902,8 +885,32 @@ func _build_world_hud_snapshot() -> Dictionary:
 		"red_mist": player_core.red_mist_corruption,
 		"current_capacity": inventory.current_size,
 		"maximum_capacity": inventory.current_max_capacity,
-		"limbs": limbs,
+		"limbs": _build_limb_snapshot(body),
 	}
+
+func _build_limb_snapshot(body: HumanoidBody) -> Array:
+	var limbs: Array = []
+	if body == null:
+		return limbs
+	for region in [
+		GameEnums.LimbRegion.HEAD,
+		GameEnums.LimbRegion.UPPER_TORSO,
+		GameEnums.LimbRegion.LOWER_TORSO,
+		GameEnums.LimbRegion.LEFT_ARM,
+		GameEnums.LimbRegion.RIGHT_ARM,
+		GameEnums.LimbRegion.LEFT_LEG,
+		GameEnums.LimbRegion.RIGHT_LEG,
+	]:
+		var trauma_index := int(
+			body.limb_trauma.get(region, GameEnums.TraumaType.NONE)
+		)
+		limbs.append({
+			"region": GameEnums.LimbRegion.keys()[region],
+			"current": float(body.limb_hp.get(region, 0.0)),
+			"maximum": body.get_limb_max(region),
+			"trauma": GameEnums.TraumaType.keys()[trauma_index],
+		})
+	return limbs
 
 func _refresh_world_hud() -> void:
 	if world_hud:

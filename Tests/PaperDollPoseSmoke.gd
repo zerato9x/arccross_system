@@ -43,7 +43,7 @@ func _run() -> void:
 	if pistol_layer.texture == null or coat_grip.texture == null:
 		_fail("The one-handed weapon or authored coat grip was not rendered.")
 		return
-	if pistol_layer.get_index() >= coat_grip.get_index():
+	if pistol_layer.z_index >= coat_grip.z_index:
 		_fail("The weapon still renders above the gripping hand.")
 		return
 
@@ -59,9 +59,29 @@ func _run() -> void:
 		_fail("The two-handed weapon did not render its offhand grip.")
 		return
 
+	doll.update_wounds([{
+		"region": GameEnums.LimbRegion.HEAD,
+		"current": 1.0,
+		"maximum": 6.0,
+		"trauma": "BLEEDING",
+	}])
+	await process_frame
+	var head_wound := doll._full_wound_nodes[
+		"res://Asset/Innawoods_Asset/Humanoid/Wounds/head_disfigured.png"
+	] as TextureRect
+	if head_wound == null or not head_wound.visible:
+		_fail("The paperdoll did not render an active head wound overlay.")
+		return
+	if head_wound.modulate.a >= 0.85:
+		_fail("The paperdoll wound overlay rendered at full-force opacity.")
+		return
+	if head_wound.z_index >= pistol_layer.z_index:
+		_fail("The paperdoll wound overlay renders above equipped gear.")
+		return
+
 	print(
 		"[TEST PASS] Rest, one-handed, and two-handed paperdoll layers "
-		+ "keep weapons below their authored gripping hands."
+		+ "keep weapons below their authored gripping hands, with wounds."
 	)
 	quit(0)
 

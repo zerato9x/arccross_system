@@ -22,10 +22,14 @@ func show_snapshot(snapshot: Dictionary) -> void:
 	if snapshot.is_empty():
 		return
 	_title_label.text = "BATTLEFIELD // %s" % _battlefield_type(snapshot)
-	_state_label.text = "ROUND %02d | ACTIVE %s | AP %02d" % [
+	var player: Dictionary = snapshot.get("player", {})
+	var enemy: Dictionary = snapshot.get("enemy", {})
+	var distance := absi(int(player.get("lane", -1)) - int(enemy.get("lane", -1)))
+	_state_label.text = "ROUND %02d | ACTIVE %s | AP %02d | RANGE %02d" % [
 		int(snapshot.get("round", 0)),
 		str(snapshot.get("active_name", "UNKNOWN")).to_upper(),
 		int(snapshot.get("ap", 0)),
+		distance,
 	]
 	_detail_label.text = _detail_text(snapshot)
 
@@ -47,7 +51,6 @@ func _battlefield_type(snapshot: Dictionary) -> String:
 func _detail_text(snapshot: Dictionary) -> String:
 	var player: Dictionary = snapshot.get("player", {})
 	var enemy: Dictionary = snapshot.get("enemy", {})
-	var distance := absi(int(player.get("lane", -1)) - int(enemy.get("lane", -1)))
 	var actions: Array = snapshot.get("actions", [])
 	var flags := PackedStringArray()
 	if snapshot.get("busy", false):
@@ -58,12 +61,23 @@ func _detail_text(snapshot: Dictionary) -> String:
 		flags.append("PASS READY")
 	if flags.is_empty():
 		flags.append("NO FREE PASS")
+	var active_side := str(snapshot.get("active_side", ""))
+	var active_actor := player if active_side == "player" else enemy
+	var active_lane := int(active_actor.get("lane", -1))
+	var active_tile := _slot_at(snapshot, active_lane)
+	var tile_line := "TILE --"
+	if not active_tile.is_empty():
+		tile_line = "TILE %02d // %s // %s" % [
+			active_lane,
+			str(active_tile.get("background_label", active_tile.get("background", "OPEN"))),
+			_tile_tags(active_tile),
+		]
 	return (
-		"DISTANCE %02d | LEGAL ACTIONS %02d | %s\n"
-		+ "PLAYER %s%s\n"
-		+ "ENEMY %s%s"
+		"%s | LEGAL %02d | %s\n"
+		+ "YOU %s%s\n"
+		+ "HOSTILE %s%s"
 	) % [
-		distance,
+		tile_line,
 		actions.size(),
 		" / ".join(flags),
 		str(player.get("weapon", "UNARMED")).to_upper(),
@@ -71,6 +85,29 @@ func _detail_text(snapshot: Dictionary) -> String:
 		str(enemy.get("weapon", "UNARMED")).to_upper(),
 		str(enemy.get("weapon_detail", "")),
 	]
+
+func _slot_at(snapshot: Dictionary, lane_index: int) -> Dictionary:
+	for raw_slot in snapshot.get("lane_slots", []):
+		var slot: Dictionary = raw_slot
+		if int(slot.get("index", -1)) == lane_index:
+			return slot
+	return {}
+
+func _tile_tags(slot: Dictionary) -> String:
+	var tags := PackedStringArray()
+	var surface := str(slot.get("surface_label", ""))
+	if not surface.is_empty() and surface != str(slot.get("background_label", "")):
+		tags.append(surface)
+	var object_name := str(slot.get("object_name", ""))
+	if not object_name.is_empty() and object_name != "NONE":
+		tags.append(object_name)
+	for raw_modifier in slot.get("terrain_modifiers", []):
+		var modifier := str(raw_modifier)
+		if not modifier.is_empty() and modifier != "0 movement / 0 trip":
+			tags.append(modifier)
+	if tags.is_empty():
+		return "CLEAR"
+	return " / ".join(tags)
 
 func _dominant_key(counts: Dictionary, fallback: String) -> String:
 	var best_key := fallback

@@ -582,6 +582,7 @@ func _render() -> void:
 
 	var equipment: Array = _snapshot.get("equipment", [])
 	paperdoll_model.update_model(equipment)
+	paperdoll_model.update_wounds(_snapshot.get("limbs", []))
 	for slot_ui: InventorySlot in equipment_slots_ui.values():
 		slot_ui.set_item({})
 	for descriptor: Dictionary in equipment:
