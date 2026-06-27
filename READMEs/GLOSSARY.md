@@ -153,11 +153,21 @@ describes a tool; Damage Type describes a hit.
 - **Action Type:** A shared combat command name, independent of AP cost or
   current legality.
 - **Action Category:** A CombatCore-private AP cost class.
-- **Action Group:** A CombatCore-private action-legality context.
+- **Action Group:** A command grouping attached to owner-validated action
+  descriptors so the UI can present firearm, movement, melee, field, item, and
+  reaction choices without recalculating legality.
 - **Combat Command Adapter** *(prototype):* The CombatCore boundary that creates
   snapshots, validates player intent, spends AP, and routes accepted commands.
 - **Combat Interface** *(prototype):* A replaceable UI projection that displays
   legal actions and emits player intent.
+- **Bottom Command Deck** *(planned Phase 2):* The bottom-screen combat command
+  surface that combines action groups, weapon status, target choices, and
+  feedback.
+- **Weapon Card** *(planned Phase 2):* A combat HUD panel for the active weapon
+  sprite, rounds, capacity, range, and readiness state.
+- **Gun Animation Catalog** *(planned Phase 2):* A presentation-only resolver
+  that maps ranged weapon IDs to `Asset/Guns_Animation/` shoot, reload, empty,
+  cycle, casing, shell, and muzzle-flash textures.
 - **Reserved AP:** AP retained for eligible off-turn reactions.
 - **Reaction Window:** A bounded opportunity to answer an action with a legal
   reaction.

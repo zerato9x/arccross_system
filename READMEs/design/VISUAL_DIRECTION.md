@@ -25,6 +25,11 @@ HUDs display owner-produced snapshots and emit intent through stable command or
 item IDs. Visual replacement must not require gameplay rewiring. The full rule
 is defined in [System Architecture](../SYSTEM_ARCHITECTURE.md).
 
+Phase 2 combat HUD work should keep that contract while giving ranged weapons a
+stronger visual role. Static weapon cards should use ItemCore presentation
+sprites; short weapon action effects may use `Asset/Guns_Animation/` through a
+catalog rather than hardcoded filename guesses inside the HUD.
+
 ## Macro Map
 
 ![Macro map reference](mockups/macro_map.png)

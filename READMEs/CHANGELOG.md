@@ -1,6 +1,21 @@
 # ARCCROSS Changelog
 
-## June 19, 2026
+## June 28, 2026
+
+### Phase 2 Documentation And Combat HUD Plan
+
+- Marked ARCCROSS as Phase 2 in the canonical README set while preserving the
+  closed Phase 1 execution plan as historical verification.
+- Added `READMEs/phase_2_execution_plan.md` as the active planning document.
+- Recorded the Phase 2 combat HUD implementation plan: bottom command deck,
+  grouped action selection, visible aimed-shot target choices, weapon cards, and
+  a cataloged path into `Asset/Guns_Animation/` for ranged weapon feedback.
+- Updated the combat UI specification, architecture notes, glossary, and HUD
+  asset README so the new plan has one place to live instead of reproducing
+  itself like a bug report with ambition.
+- Corrected README links to the actual lowercase phase-plan filenames.
+
+## June 19, 2026 - Systems Refactor
 
 ### Combat Interface Revamp
 
@@ -31,7 +46,7 @@
 - Refined `GameEnums` definitions to clean up redundant configurations.
 - Cleaned up obsolete static test runners, replacing them with dynamic validation.
 
-## June 19, 2026
+## June 19, 2026 - Entity Projections
 
 ### Entity Projections
 

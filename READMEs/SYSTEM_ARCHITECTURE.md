@@ -1,7 +1,8 @@
 # ARCCROSS System Architecture
 
 Canonical terminology is defined in [GLOSSARY.md](GLOSSARY.md). Delivery status
-belongs in [PHASE_1_EXECUTION_PLAN.md](PHASE_1_EXECUTION_PLAN.md).
+belongs in [phase_2_execution_plan.md](phase_2_execution_plan.md). The closed
+Phase 1 record remains in [phase_1_execution_plan.md](phase_1_execution_plan.md).
 
 ## Core Invariants
 
@@ -150,13 +151,25 @@ ambush_position: GameEnums.AmbushPosition
 
 ## Combat Interaction Boundary
 
-- `CombatLaneHUD` and `CombatLaneView` utilize a modular architecture composed of `DuelUI` presentation elements, receiving neutral combat snapshots and legal-action descriptors.
+- `CombatLaneHUD` and `CombatLaneView` use a modular architecture composed of
+  `DuelUI` presentation elements, receiving neutral combat snapshots and
+  legal-action descriptors.
+- Phase 2 combat presentation should group legal-action descriptors into
+  player-facing command groups such as firearm, movement, melee, field, items,
+  and reaction. The groups organize owner-produced legality; they do not create
+  legality.
+- The bottom command deck owns visual selection state, current group focus,
+  weapon cards, and short-lived weapon presentation effects. CombatCore still
+  owns AP, target, readiness, and outcome validation.
 - Player commands contain an `ActionType` plus only the target or item IDs
   required by that action.
 - `CombatCommandAdapter` revalidates commands before routing them to turn, lane,
   inventory, biological, or resolution owners.
 - Combat snapshots expose weapon rounds, capacity, effective range, and cycle
-  state; presentation does not infer firearm readiness.
+  state; presentation does not infer firearm readiness. Static weapon sprites
+  come from ItemCore item presentation paths, while `Asset/Guns_Animation/`
+  may be resolved through a catalog for short-lived shoot, reload, empty, and
+  cycle effects.
 - GET UP is an explicit all-AP command for Felled combatants. TAKE COVER applies
   its owner-resolved Stance recovery through normal command routing.
 - Passing may preserve unused AP as Reserved AP. An unresolved Reaction Window
@@ -177,7 +190,7 @@ ambush_position: GameEnums.AmbushPosition
 - Normal game startup loads the default save when present. Scripted smoke tests
   opt into their own isolated save paths.
 - `GameDirector` synchronizes cached player and Hex state before saving. `F5`
-  saves and `F9` loads the current run during the Phase 1 prototype.
+  saves and `F9` loads the current run during the prototype.
 
 ## Dependency Direction
 

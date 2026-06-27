@@ -21,6 +21,9 @@ measurements retain meaningful units.
 
 ## Current Prototype
 
+- ARCCROSS has moved into **Phase 2** development. Phase 1's persistent
+  vertical slice is closed; current work expands the combat presentation and
+  interaction layer without relaxing the owner-validated rule boundaries.
 - Combat uses a twelve-slot lane, localized Limb Region damage, and
   encounter-local Stance.
 - Ordinary Stance pressure cannot directly Fell a combatant. Explicit
@@ -38,19 +41,26 @@ measurements retain meaningful units.
   macro world and combat lane.
 - Item definitions are shared Resources loaded once by `LootCatalog`; items do
   not require individual scripts or scene nodes.
-- The monolithic combat interface has been replaced with a fully modular `DuelUI` component architecture.
-- Macro world maps are now dynamically loaded and procedurally generated using `HexRecord` and `MacroTileCatalog`, replacing the static world scene.
-- An integrated Audio Conductor System handles synchronized dynamic playback of music and categorized sound effects.
-- Core biological and system states have been decoupled into explicit resource tracking classes (`BodyState`, `HumanoidState`, `InventoryState`, `EntityRecord`, `HexRecord`).
+- The monolithic combat interface has been replaced with a modular `DuelUI`
+  component architecture. The next combat HUD pass moves commands to a bottom
+  deck, groups legal actions by type, and makes ranged weapon sprites and state
+  the primary decision surface.
+- Macro world maps are dynamically loaded and procedurally generated using
+  `HexRecord` and `MacroTileCatalog`, replacing the static world scene.
+- Macro NPC projection is capped for readability and now surfaces purpose
+  signals through the world HUD instead of treating every visible entity as
+  generic hostile clutter.
+- An integrated Audio Conductor System handles synchronized dynamic playback of
+  music and categorized sound effects.
+- Core biological and system states are decoupled into explicit resource
+  tracking classes (`BodyState`, `HumanoidState`, `InventoryState`,
+  `EntityRecord`, `HexRecord`).
 
 ## Item Authoring
 
 Run `Tools/Build-StaticItemCatalog.ps1` after adding static Innawoods assets.
 The default mode creates only missing definitions and preserves Inspector
 edits. Use `-Rebuild` only when intentionally replacing the generated catalog.
-- The static Innawoods inventory set is mapped into a 163-definition Resource
-  catalog. Paper Doll layers are authored as data, while Duel Scene animation
-  remains intentionally excluded.
 - Item definitions are shared Resources loaded once by `LootCatalog`; items do
   not require individual scripts or scene nodes.
 
@@ -59,6 +69,7 @@ edits. Use `-Rebuild` only when intentionally replacing the generated catalog.
 - [Documentation index](READMEs/README.md)
 - [Project glossary](READMEs/GLOSSARY.md)
 - [System architecture](READMEs/SYSTEM_ARCHITECTURE.md)
-- [Phase 1 execution plan](READMEs/PHASE_1_EXECUTION_PLAN.md)
+- [Phase 1 execution plan](READMEs/phase_1_execution_plan.md)
+- [Phase 2 execution plan](READMEs/phase_2_execution_plan.md)
 - [Humanoid token pipeline](READMEs/HUMANOID_TOKEN_PIPELINE.md)
 - [Changelog](READMEs/CHANGELOG.md)

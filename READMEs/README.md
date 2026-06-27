@@ -10,14 +10,19 @@ of restating it.
   records, and presentation boundaries.
 - [Humanoid Token Pipeline](HUMANOID_TOKEN_PIPELINE.md): layered sprite
   contract, current visual coverage, and runtime asset preparation.
-- [Phase 1 Execution Plan](PHASE_1_EXECUTION_PLAN.md): scope, acceptance
-  criteria, current status, and remaining work.
+- [Phase 1 Execution Plan](phase_1_execution_plan.md): closed vertical-slice
+  scope, acceptance criteria, and historical verification.
+- [Phase 2 Execution Plan](phase_2_execution_plan.md): active game-dev phase,
+  current workstreams, and implementation plans.
 - [Changelog](CHANGELOG.md): dated implementation and verification notes.
 
 ## Current Implementation
 
-Status updated on **June 19, 2026**:
+Status updated on **June 28, 2026**:
 
+- The project is now in **Phase 2**. Phase 1 remains closed and verified; new
+  work should be tracked as phase expansion instead of quietly stuffing more
+  furniture into the vertical-slice closet.
 - Layered Humanoid Tokens now mirror supported equipped Innawoods visuals in
   the macro world and combat lane.
 - Token runtime animation is restricted to six gameplay-relevant sheets;
@@ -38,18 +43,27 @@ Status updated on **June 19, 2026**:
   tests use the new IDs instead of the removed prototype entries.
 - `LootCatalog` is the single runtime registry. The offline catalog builder
   adds missing definitions without overwriting later Inspector edits.
-- Duel Scene animation remains placeholder, and the existing BLOCK rules have
-  not yet been replaced by shield-specific coverage and mitigation.
-- The monolithic combat interface has been replaced with a fully modular `DuelUI` component architecture.
-- Macro world maps are now dynamically loaded and procedurally generated using `HexRecord` and `MacroTileCatalog`, replacing the static world scene.
-- An integrated Audio Conductor System handles synchronized dynamic playback of music and categorized sound effects.
-- Core biological and system states have been decoupled into explicit resource tracking classes (`BodyState`, `HumanoidState`, `InventoryState`, `EntityRecord`, `HexRecord`).
+- The monolithic combat interface has been replaced with a modular `DuelUI`
+  component architecture. The active Phase 2 combat HUD plan moves the action
+  interface to a bottom command deck, groups legal actions by type, and makes
+  weapon sprites, ammunition, range, reload, and cycle state central to ranged
+  play.
+- Macro world maps are dynamically loaded and procedurally generated using
+  `HexRecord` and `MacroTileCatalog`, replacing the static world scene.
+- Macro NPC projection is intentionally sparse and purpose-driven; the HUD now
+  surfaces nearby NPC intent instead of filling the map with mystery meat.
+- An integrated Audio Conductor System handles synchronized dynamic playback of
+  music and categorized sound effects.
+- Core biological and system states have been decoupled into explicit resource
+  tracking classes (`BodyState`, `HumanoidState`, `InventoryState`,
+  `EntityRecord`, `HexRecord`).
 - Token art coverage remains incomplete for rigs, face and eye equipment,
   several armor regions, and unsupported weapons. The existing BLOCK rules
   have not yet been replaced by shield-specific coverage and mitigation.
 
-See the [June 14 changelog](CHANGELOG.md#june-14-2026) for implementation and
-verification detail.
+See the [June 28 changelog](CHANGELOG.md#june-28-2026) and
+[Phase 2 Execution Plan](phase_2_execution_plan.md) for the current combat HUD
+workstream.
 
 ## Design Direction
 

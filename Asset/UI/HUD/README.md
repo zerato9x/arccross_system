@@ -7,6 +7,11 @@ The pack is intentionally small, flat, and replaceable. It is meant to unblock
 real UI assembly before final art direction, not to become sacred techno-noise
 with no owner.
 
+Phase 2 combat HUD work should use this pack for frames, bars, tabs, and
+generic command icons. Ranged weapon cards should use ItemCore weapon sprites,
+while short shoot, reload, empty, cycle, casing, shell, and muzzle-flash effects
+should be resolved from `Asset/Guns_Animation/` through a catalog.
+
 ## Folders
 
 - `frames/` - 9-slice panel and button state sprites.

@@ -1,5 +1,11 @@
 # ARCCROSS Phase 1 Execution Plan
 
+Phase 1 is closed. ARCCROSS is now tracked through
+[Phase 2 Execution Plan](phase_2_execution_plan.md). This file remains the
+historical vertical-slice acceptance record, because deleting old proof and then
+arguing with ourselves later would be a very traditional but very stupid
+software ritual.
+
 Phase 1 is one playable, persistent vertical slice. A feature is complete only
 when its acceptance criteria pass from the configured main scene against clean
 local user data. Standalone helpers and completion percentages are not proof.
