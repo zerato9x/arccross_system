@@ -25,6 +25,11 @@ const AIMED_LIMBS := [
 	GameEnums.LimbRegion.LEFT_LEG,
 	GameEnums.LimbRegion.RIGHT_LEG,
 ]
+const ACTION_GROUP_FIREARM := "firearm"
+const ACTION_GROUP_MOVEMENT := "movement"
+const ACTION_GROUP_MELEE := "melee"
+const ACTION_GROUP_FIELD := "field"
+const ACTION_GROUP_ITEMS := "items"
 
 func configure(
 	player: HumanoidCore,
@@ -467,7 +472,32 @@ func _add_action(
 		"cost": _display_action_cost(action),
 		"target_limbs": target_limbs.duplicate(),
 		"item_instance_id": item_instance_id,
+		"group": _action_group_for(action, item_instance_id),
 	})
+
+func _action_group_for(action: int, item_instance_id: String) -> String:
+	if action == GameEnums.ActionType.USE_ITEM or not item_instance_id.is_empty():
+		return ACTION_GROUP_ITEMS
+	match action:
+		GameEnums.ActionType.SHOOT, GameEnums.ActionType.AIMED_SHOT:
+			return ACTION_GROUP_FIREARM
+		GameEnums.ActionType.RELOAD, GameEnums.ActionType.CYCLE:
+			return ACTION_GROUP_FIREARM
+		GameEnums.ActionType.GET_UP, GameEnums.ActionType.MOVE_FORWARD:
+			return ACTION_GROUP_MOVEMENT
+		GameEnums.ActionType.MOVE_BACKWARD, GameEnums.ActionType.CHARGE:
+			return ACTION_GROUP_MOVEMENT
+		GameEnums.ActionType.DISENGAGE:
+			return ACTION_GROUP_MOVEMENT
+		GameEnums.ActionType.STRIKE, GameEnums.ActionType.GRAPPLE:
+			return ACTION_GROUP_MELEE
+		GameEnums.ActionType.BREAK, GameEnums.ActionType.PUSH_STAY:
+			return ACTION_GROUP_MELEE
+		GameEnums.ActionType.PUSH_FOLLOW, GameEnums.ActionType.PULL_FOLLOW:
+			return ACTION_GROUP_MELEE
+		GameEnums.ActionType.EXECUTE:
+			return ACTION_GROUP_MELEE
+	return ACTION_GROUP_FIELD
 
 func _has_legal_command(action: int, item_instance_id: String) -> bool:
 	for descriptor in _build_legal_actions():
@@ -481,11 +511,22 @@ func _has_legal_command(action: int, item_instance_id: String) -> bool:
 func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 	var weapon_name := "Unarmed"
 	var weapon_detail := ""
+	var weapon_descriptor := {}
+	var weapon_state := "UNARMED"
+	var weapon_sprite_path := ""
 	var weapon: ItemData = entity.inventory.get_active_weapon(false)
 	if weapon == null:
 		weapon = entity.inventory.get_active_weapon(true)
 	if weapon:
 		weapon_name = weapon.display_name
+		weapon_sprite_path = weapon.get_inventory_sprite_path()
+		weapon_state = _weapon_state_label(weapon)
+		weapon_descriptor = weapon.to_definition_state()
+		weapon_descriptor["instance_id"] = weapon.instance_id
+		weapon_descriptor["current_magazine"] = weapon.current_magazine
+		weapon_descriptor["loaded_rounds"] = weapon.loaded_rounds
+		weapon_descriptor["needs_cycling"] = weapon.needs_cycling
+		weapon_descriptor["sprite_path"] = weapon_sprite_path
 		if weapon.is_ranged():
 			weapon_detail = " %02d/%02d R%02d%s" % [
 				weapon.current_magazine,
@@ -507,6 +548,10 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"weapon": weapon_name,
 		"weapon_detail": weapon_detail,
 		"has_firearm": weapon != null and weapon.is_ranged(),
+		"weapon_id": weapon.id if weapon else "",
+		"weapon_sprite_path": weapon_sprite_path,
+		"weapon_state": weapon_state,
+		"active_weapon": weapon_descriptor,
 		"equipment": _equipment_snapshot(entity),
 		"both_legs_broken": entity.body.are_both_legs_disabled(),
 		"appearance": HumanoidVisualCatalog.appearance_from_inventory(
@@ -517,6 +562,17 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"reserved_ap": turn_manager.reserved_ap.get(entity, 0),
 		"is_active": turn_manager.get_active_entity() == entity,
 	}
+
+func _weapon_state_label(weapon: ItemData) -> String:
+	if weapon == null:
+		return "UNARMED"
+	if not weapon.is_ranged():
+		return "READY"
+	if weapon.current_magazine <= 0:
+		return "EMPTY"
+	if weapon.needs_cycling:
+		return "CYCLE"
+	return "READY"
 
 func _limb_snapshot(entity: HumanoidCore) -> Array:
 	var limbs: Array = []

@@ -1,5 +1,9 @@
 extends SceneTree
 
+const GUN_ANIMATION_CATALOG := preload(
+	"res://CombatCore/DuelUI/GunAnimationCatalog.gd"
+)
+
 func _initialize() -> void:
 	call_deferred("_run")
 
@@ -104,6 +108,121 @@ func _run() -> void:
 	if hud_snapshot.get("lane_slots", []).size() != 12:
 		_fail("CombatLaneHUD did not receive the twelve-slot snapshot.")
 		return
+	var hud_player: Dictionary = hud_snapshot.get("player", {})
+	if (
+		hud_player.get("weapon_id", "") != "service_pistol"
+		or str(hud_player.get("weapon_sprite_path", "")).is_empty()
+		or hud_player.get("weapon_state", "") != "READY"
+		or (hud_player.get("active_weapon", {}) as Dictionary).is_empty()
+	):
+		_fail("The combat snapshot did not expose the active weapon card data.")
+		return
+	for descriptor in hud_snapshot.get("actions", []):
+		if str((descriptor as Dictionary).get("group", "")).is_empty():
+			_fail("A legal combat action did not expose an action group.")
+			return
+	var movement_descriptor := _find_action(
+		hud_snapshot,
+		GameEnums.ActionType.MOVE_FORWARD
+	)
+	if movement_descriptor.get("group", "") != "movement":
+		_fail("MOVE_FORWARD was not grouped under the movement command type.")
+		return
+	var viewport_size: Vector2 = arena.lane_hud.get_viewport_rect().size
+	if arena.lane_hud._action_rect.position.y < viewport_size.y * 0.54:
+		_fail("The combat command deck was not anchored to the bottom screen.")
+		return
+	if arena.lane_hud._action_rect.size.y > 250.0:
+		_fail("The combat command deck is still too tall for the bottom strip.")
+		return
+	if (
+		arena.lane_hud._selected_action_group != "movement"
+		or arena.lane_hud._group_buttons.size() < 1
+	):
+		_fail("The out-of-range command deck did not default to movement.")
+		return
+	var enemy_opening_lane: int = arena.lane_manager._find_entity_lane(
+		arena.enemy_core
+	)
+	arena.lane_manager.lane_slots[enemy_opening_lane].exit_slot(arena.enemy_core)
+	arena.lane_manager.force_spawn_entity(arena.enemy_core, 8)
+	arena.command_adapter.refresh_snapshot()
+	await process_frame
+	hud_snapshot = arena.lane_hud.get_snapshot()
+	var shoot_descriptor := _find_action(
+		hud_snapshot,
+		GameEnums.ActionType.SHOOT
+	)
+	if shoot_descriptor.get("group", "") != "firearm":
+		_fail("SHOOT was not grouped under the firearm command type.")
+		return
+	var aimed_descriptor := _find_action(
+		hud_snapshot,
+		GameEnums.ActionType.AIMED_SHOT
+	)
+	if aimed_descriptor.get("target_limbs", []).size() != 7:
+		_fail("AIMED SHOT did not expose all visible Limb Region choices.")
+		return
+	if arena.lane_hud._selected_action_group != "firearm":
+		_fail("The in-range command deck did not default to firearm actions.")
+		return
+	if not GUN_ANIMATION_CATALOG.has_weapon("service_pistol"):
+		_fail("The gun animation catalog did not map the service pistol.")
+		return
+	if GUN_ANIMATION_CATALOG.texture("service_pistol", "shoot") == null:
+		_fail("The service pistol did not load its Guns_Animation shot sprite.")
+		return
+	var aimed_root_button: CombatActionButton = null
+	for button in arena.lane_hud._action_buttons:
+		var payload: Dictionary = button.get_payload()
+		var descriptor: Dictionary = payload.get("descriptor", {})
+		if descriptor.get("action", -1) == GameEnums.ActionType.AIMED_SHOT:
+			_fail("The firearm root still exposes per-limb AIMED SHOT spam.")
+			return
+		if (
+			payload.get("mode", "") == "submenu"
+			and payload.get("menu", "") == "aim"
+		):
+			aimed_root_button = button
+	if aimed_root_button == null:
+		_fail("The firearm group did not expose an AIM submenu.")
+		return
+	aimed_root_button.activate()
+	await process_frame
+	if arena.lane_hud._command_menu_path != ["aim"]:
+		_fail("The AIM submenu did not open from the firearm root.")
+		return
+	var aimed_choice_count := 0
+	for button in arena.lane_hud._action_buttons:
+		var payload: Dictionary = button.get_payload()
+		var descriptor: Dictionary = payload.get("descriptor", {})
+		if descriptor.get("action", -1) == GameEnums.ActionType.AIMED_SHOT:
+			aimed_choice_count += 1
+			if payload.get("target_limbs", []).size() != 1:
+				_fail("An AIM submenu choice was not bound to one limb.")
+				return
+	if aimed_choice_count != 7:
+		_fail("The AIM submenu did not expose seven limb choices.")
+		return
+	if (
+		arena.lane_hud._weapon_sprite.texture == null
+		or not arena.lane_hud._weapon_sprite.region_enabled
+		or arena.lane_hud._weapon_animation_frame_count <= 1
+		or arena.lane_hud._weapon_sprite.region_rect.size.x
+			>= arena.lane_hud._weapon_sprite.texture.get_width()
+		or not str(arena.lane_hud._weapon_sprite.texture.resource_path).contains(
+			"Asset/Guns_Animation"
+		)
+		or not arena.lane_hud._weapon_state_label.text.contains("READY")
+		or not arena.lane_hud._weapon_detail_label.text.contains("AMMO 08/08")
+	):
+		_fail("The bottom weapon card did not render firearm state.")
+		return
+	arena.lane_manager.lane_slots[8].exit_slot(arena.enemy_core)
+	arena.lane_manager.force_spawn_entity(arena.enemy_core, enemy_opening_lane)
+	arena.command_adapter.refresh_snapshot()
+	await process_frame
+	hud_snapshot = arena.lane_hud.get_snapshot()
 	if (
 		hud_snapshot.get("player", {}).get("appearance", {}).get(
 			"signature",
@@ -549,6 +668,32 @@ func _run() -> void:
 	if not _snapshot_has_action(snapshot, GameEnums.ActionType.PULL_FOLLOW):
 		_fail("PULL / FOLLOW was unavailable in a valid Melee Lock.")
 		return
+	arena.lane_hud._selected_action_group = "melee"
+	arena.lane_hud._action_group_locked_by_user = true
+	arena.lane_hud._command_menu_path.clear()
+	arena.lane_hud._render_actions()
+	var push_root_button := _find_menu_button(arena.lane_hud, "push")
+	if push_root_button == null:
+		_fail("The melee group did not expose a PUSH submenu.")
+		return
+	push_root_button.activate()
+	await process_frame
+	if arena.lane_hud._command_menu_path != ["push"]:
+		_fail("The PUSH submenu did not open from the melee root.")
+		return
+	var push_follow_count := 0
+	var push_stay_count := 0
+	for button in arena.lane_hud._action_buttons:
+		var payload: Dictionary = button.get_payload()
+		var descriptor: Dictionary = payload.get("descriptor", {})
+		match int(descriptor.get("action", -1)):
+			GameEnums.ActionType.PUSH_FOLLOW:
+				push_follow_count += 1
+			GameEnums.ActionType.PUSH_STAY:
+				push_stay_count += 1
+	if push_follow_count != 1 or push_stay_count != 1:
+		_fail("The PUSH submenu did not expose FOLLOW and STAY choices.")
+		return
 
 	for _sample in range(120):
 		var hit_region: GameEnums.LimbRegion = (
@@ -671,6 +816,16 @@ func _find_action(snapshot: Dictionary, action: int) -> Dictionary:
 		if descriptor.get("action", -1) == action:
 			return descriptor
 	return {}
+
+func _find_menu_button(hud: CombatLaneHUD, menu: String) -> CombatActionButton:
+	for button in hud._action_buttons:
+		var payload: Dictionary = button.get_payload()
+		if (
+			payload.get("mode", "") == "submenu"
+			and payload.get("menu", "") == menu
+		):
+			return button
+	return null
 
 func _fail(message: String) -> void:
 	push_error("[TEST FAIL] " + message)

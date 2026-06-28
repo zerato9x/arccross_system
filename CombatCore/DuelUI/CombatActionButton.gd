@@ -127,15 +127,20 @@ func _refresh_icon() -> void:
 	_icon_sprite.texture = texture
 	_icon_sprite.visible = texture != null
 	var label_left := 9.0
+	var icon_size := clampf(_button_size.y - 14.0, 22.0, 30.0)
 	if texture != null:
-		_icon_sprite.position = Vector2(10.0, 9.0)
+		_icon_sprite.position = Vector2(10.0, (_button_size.y - icon_size) * 0.5)
 		_icon_sprite.scale = Vector2(
-			22.0 / maxf(1.0, float(texture.get_width())),
-			22.0 / maxf(1.0, float(texture.get_height()))
+			icon_size / maxf(1.0, float(texture.get_width())),
+			icon_size / maxf(1.0, float(texture.get_height()))
 		)
-		label_left = 38.0
-	_label.position = Vector2(label_left, 5.0)
-	_label.size = _button_size - Vector2(label_left + 9.0, 10.0)
+		label_left = icon_size + 18.0
+	_label.add_theme_font_size_override(
+		"font_size",
+		12 if _button_size.y >= 38.0 else 10
+	)
+	_label.position = Vector2(label_left, 6.0)
+	_label.size = _button_size - Vector2(label_left + 10.0, 12.0)
 
 func _icon_texture_for_payload() -> Texture2D:
 	var mode := str(_payload.get("mode", ""))

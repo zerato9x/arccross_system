@@ -69,7 +69,7 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 	)
 	action_started.emit(attacker, action_type)
 	_emit_first_strike(action_type)
-	_emit_combat_action(attacker, action_type, weapon.weapon_type)
+	_emit_combat_action(attacker, action_type, weapon.weapon_type, weapon.id)
 	weapon.current_magazine -= 1
 	weapon.needs_cycling = weapon.requires_cycle_after_shot
 	var action_name := (
@@ -242,6 +242,12 @@ func execute_reload(entity: HumanoidCore) -> bool:
 			weapon.max_magazine
 		)
 		action_started.emit(entity, GameEnums.ActionType.RELOAD)
+		_emit_combat_action(
+			entity,
+			GameEnums.ActionType.RELOAD,
+			weapon.weapon_type,
+			weapon.id
+		)
 		return true
 	if (
 		weapon.magazine_id.is_empty()
@@ -273,6 +279,12 @@ func execute_reload(entity: HumanoidCore) -> bool:
 		weapon.max_magazine
 	)
 	action_started.emit(entity, GameEnums.ActionType.RELOAD)
+	_emit_combat_action(
+		entity,
+		GameEnums.ActionType.RELOAD,
+		weapon.weapon_type,
+		weapon.id
+	)
 	return true
 
 # ---------------------------------------------------------
@@ -289,6 +301,12 @@ func execute_cycle(entity: HumanoidCore) -> bool:
 		weapon.needs_cycling = false
 		print("[CYCLE] ", entity.name, " cycles ", weapon.display_name, ". Ready to fire.")
 		action_started.emit(entity, GameEnums.ActionType.CYCLE)
+		_emit_combat_action(
+			entity,
+			GameEnums.ActionType.CYCLE,
+			weapon.weapon_type,
+			weapon.id
+		)
 		return true
 
 	if not weapon.cycle_loads_one_round:
@@ -316,6 +334,12 @@ func execute_cycle(entity: HumanoidCore) -> bool:
 		weapon.max_magazine
 	)
 	action_started.emit(entity, GameEnums.ActionType.CYCLE)
+	_emit_combat_action(
+		entity,
+		GameEnums.ActionType.CYCLE,
+		weapon.weapon_type,
+		weapon.id
+	)
 	return true
 
 
@@ -356,8 +380,17 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 	
 	action_started.emit(attacker, GameEnums.ActionType.STRIKE)
 	_emit_first_strike(GameEnums.ActionType.STRIKE)
-	var w_type = weapon.weapon_type if weapon else GameEnums.WeaponClass.NONE
-	_emit_combat_action(attacker, GameEnums.ActionType.STRIKE, w_type)
+	var w_type := GameEnums.WeaponClass.NONE
+	var strike_weapon_id := ""
+	if weapon:
+		w_type = weapon.weapon_type
+		strike_weapon_id = weapon.id
+	_emit_combat_action(
+		attacker,
+		GameEnums.ActionType.STRIKE,
+		w_type,
+		strike_weapon_id
+	)
 
 	# GROUNDED STRIKE: A FELLED target cannot evade — aim for the skull.
 	var grounded_bonus: float = 1.0
@@ -640,8 +673,17 @@ func execute_fumble_strike(punisher: HumanoidCore, victim: HumanoidCore) -> void
 	var target_limb := roll_melee_target()
 	action_started.emit(punisher, GameEnums.ActionType.STRIKE)
 	_emit_first_strike(GameEnums.ActionType.STRIKE)
-	var weapon_type := weapon.weapon_type if weapon else GameEnums.WeaponClass.NONE
-	_emit_combat_action(punisher, GameEnums.ActionType.STRIKE, weapon_type)
+	var weapon_type := GameEnums.WeaponClass.NONE
+	var weapon_id := ""
+	if weapon:
+		weapon_type = weapon.weapon_type
+		weapon_id = weapon.id
+	_emit_combat_action(
+		punisher,
+		GameEnums.ActionType.STRIKE,
+		weapon_type,
+		weapon_id
+	)
 	print("\n--- FUMBLE STRIKE ---")
 	print(punisher.name, " punishes ", victim.name, "'s failed attempt!")
 
@@ -916,11 +958,12 @@ func _emit_first_strike(action_type: int) -> void:
 func _emit_combat_action(
 	attacker: HumanoidCore,
 	action_type: int,
-	weapon_type: int
+	weapon_type: int,
+	weapon_id: String = ""
 ) -> void:
 	var bus = get_node_or_null("/root/GameEventBus")
 	if bus:
-		bus.emit_combat_action(attacker, action_type, weapon_type)
+		bus.emit_combat_action(attacker, action_type, weapon_type, weapon_id)
 
 func reset_first_strike() -> void:
 	_first_strike_fired = false

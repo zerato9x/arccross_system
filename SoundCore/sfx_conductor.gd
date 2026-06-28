@@ -24,7 +24,65 @@ const SOUNDS_SHOTGUN := [
 	preload("res://SoundCore/Sound/sfx/guns/shotgun/20 Gauge Single Isolated.wav")
 ]
 
-# (Future placeholders for Rifle, Revolver, AK47, etc. - currently no mapping since we only map what's available)
+const SOUNDS_REVOLVER := [
+	preload("res://SoundCore/Sound/sfx/guns/revolver/308 Single Isolated.wav"),
+	preload("res://SoundCore/Sound/sfx/guns/revolver/308 Double Tap Isolated.wav")
+]
+
+const SOUNDS_RIFLE_CARBON := [
+	preload("res://SoundCore/Sound/sfx/guns/rifle_carbon/556 Single Isolated WAV.wav"),
+	preload("res://SoundCore/Sound/sfx/guns/rifle_carbon/556 Double Tap Isolated WAV.wav")
+]
+
+const SOUNDS_RIFLE_SERVICE := [
+	preload("res://SoundCore/Sound/sfx/guns/rifle_service/762x54r Single Isolated WAV.wav")
+]
+
+const SOUNDS_AK47 := [
+	preload("res://SoundCore/Sound/sfx/guns/ak47/762x39 Single Isolated WAV.wav"),
+	preload("res://SoundCore/Sound/sfx/guns/ak47/762x39 Burst Isolated WAV.wav")
+]
+
+const SOUNDS_GUN_RELOAD := {
+	"ak47": [
+		preload("res://SoundCore/Sound/sfx/guns/ak47/AK Reload Full WAV.wav"),
+	],
+	"carbon_rifle": [
+		preload("res://SoundCore/Sound/sfx/guns/rifle_carbon/AR Reload Full WAV.wav"),
+	],
+	"service_rifle": [
+		preload("res://SoundCore/Sound/sfx/guns/rifle_service/Mosin Top Load.wav"),
+	],
+	"shotgun": [
+		preload("res://SoundCore/Sound/sfx/Equipment/DesignedGunSoundReload1.wav"),
+		preload("res://SoundCore/Sound/sfx/Equipment/DesignedGunSoundReload2.wav"),
+	],
+	"default": [
+		preload("res://SoundCore/Sound/sfx/Equipment/DesignedGunSoundReload1.wav"),
+		preload("res://SoundCore/Sound/sfx/Equipment/DesignedGunSoundReload2.wav"),
+		preload("res://SoundCore/Sound/sfx/Equipment/DesignedGunSoundReload3.wav"),
+		preload("res://SoundCore/Sound/sfx/Equipment/DesignedGunSoundReload4.wav"),
+	],
+}
+
+const SOUNDS_GUN_CYCLE := {
+	"ak47": [
+		preload("res://SoundCore/Sound/sfx/guns/ak47/AK Rack WAV.wav"),
+	],
+	"carbon_rifle": [
+		preload("res://SoundCore/Sound/sfx/guns/rifle_carbon/AR Charging Handle WAV.wav"),
+		preload("res://SoundCore/Sound/sfx/guns/rifle_carbon/AR Bolt Release WAV.wav"),
+	],
+	"service_rifle": [
+		preload("res://SoundCore/Sound/sfx/guns/rifle_service/Lever Cycle WAV.wav"),
+	],
+	"default": [
+		preload("res://SoundCore/Sound/sfx/Equipment/DesignedGunSoundHandling1.wav"),
+		preload("res://SoundCore/Sound/sfx/Equipment/DesignedGunSoundHandling2.wav"),
+		preload("res://SoundCore/Sound/sfx/Equipment/DesignedGunSoundHandling3.wav"),
+		preload("res://SoundCore/Sound/sfx/Equipment/DesignedGunSoundHandling4.wav"),
+	],
+}
 
 # Injuries
 const SOUNDS_INJURED := [
@@ -122,17 +180,45 @@ func _play_sound(stream: AudioStream, pitch_variance: float = 0.05, volume_db: f
 # EVENT HANDLERS
 # ---------------------------------------------------------
 
-func _on_combat_action(_entity: Node, action: GameEnums.ActionType, weapon_class: GameEnums.WeaponClass) -> void:
+func _on_combat_action(
+	_entity: Node,
+	action: GameEnums.ActionType,
+	weapon_class: GameEnums.WeaponClass,
+	weapon_id: String
+) -> void:
 	if action == GameEnums.ActionType.SHOOT or action == GameEnums.ActionType.AIMED_SHOT:
 		match weapon_class:
 			GameEnums.WeaponClass.PISTOL:
-				_play_sound(SOUNDS_PISTOL.pick_random())
+				_play_sound(_gunshot_pool_for_id(weapon_id).pick_random())
+			GameEnums.WeaponClass.RIFLE:
+				_play_sound(_gunshot_pool_for_id(weapon_id).pick_random())
 			GameEnums.WeaponClass.SHOTGUN:
 				_play_sound(SOUNDS_SHOTGUN.pick_random())
 			_:
-				pass # Future hook for rifles, revolvers, etc.
+				pass
+	elif action == GameEnums.ActionType.RELOAD:
+		_play_sound(_mapped_pool(SOUNDS_GUN_RELOAD, weapon_id).pick_random(), 0.04, -2.0)
+	elif action == GameEnums.ActionType.CYCLE:
+		_play_sound(_mapped_pool(SOUNDS_GUN_CYCLE, weapon_id).pick_random(), 0.04, -3.0)
 	elif action == GameEnums.ActionType.STRIKE:
 		_play_sound(SOUNDS_PUNCH.pick_random())
+
+func _gunshot_pool_for_id(weapon_id: String) -> Array:
+	match weapon_id:
+		"revolver":
+			return SOUNDS_REVOLVER
+		"carbon_rifle":
+			return SOUNDS_RIFLE_CARBON
+		"service_rifle":
+			return SOUNDS_RIFLE_SERVICE
+		"ak47":
+			return SOUNDS_AK47
+	return SOUNDS_PISTOL
+
+func _mapped_pool(mapping: Dictionary, weapon_id: String) -> Array:
+	if mapping.has(weapon_id):
+		return mapping[weapon_id]
+	return mapping["default"]
 
 func _on_humanoid_injured(_entity: Node, _trauma: GameEnums.TraumaType) -> void:
 	# Right now all traumas play generic injury grunts. 
