@@ -89,8 +89,10 @@ func _evaluate_tactics() -> int:
 		GameEnums.ActionType.MOVE_FORWARD: _score_advance(),
 		GameEnums.ActionType.CHARGE: _score_charge(),
 		GameEnums.ActionType.MOVE_BACKWARD: _score_retreat(),
-		GameEnums.ActionType.DISENGAGE: _score_disengage(),
 		GameEnums.ActionType.GRAPPLE: _score_grapple(),
+		GameEnums.ActionType.BREAK: _score_break_stance(),
+		GameEnums.ActionType.PUSH_STAY: _score_push(),
+		GameEnums.ActionType.PULL_FOLLOW: _score_pull(),
 		GameEnums.ActionType.TAKE_COVER: _score_take_cover(),
 		-1: 0.1 # Baseline. If everything else scores worse than 0.1, just give up.
 	}
@@ -280,25 +282,12 @@ func _score_retreat() -> float:
 			return 0.0
 		return 10.0
 	if my_idx >= 0 and _is_self_locked():
-		if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.DISENGAGE): return 0.0
-		if not lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - _direction_toward_target(), true): return 0.0
-	else:
-		if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.MOVE_BACKWARD): return 0.0
-		if not lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - _direction_toward_target()): return 0.0
+		return 0.0
+	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.MOVE_BACKWARD): return 0.0
+	if not lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - _direction_toward_target()): return 0.0
 		
 	if ai_core.is_fleeing: return 10.0 
 	if ai_core.current_stance == GameEnums.StanceState.STUMBLING: return 0.7
-	return 0.1
-
-func _score_disengage() -> float:
-	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.DISENGAGE): return 0.0
-	var my_idx = _get_lane_idx(ai_core)
-	if my_idx < 0 or not _is_self_locked(): return 0.0
-	if not lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - _direction_toward_target(), true): return 0.0
-	var weapon = ai_core.inventory.get_active_weapon(false) # Ranged context implies they want to shoot
-	if weapon != null:
-		return 0.90
-	if ai_core.is_fleeing: return 10.0
 	return 0.1
 
 func _score_grapple() -> float:
@@ -316,6 +305,38 @@ func _score_grapple() -> float:
 		)
 	)
 	return clampf(0.45 + strength_edge * 0.05, 0.15, 0.75)
+
+func _score_break_stance() -> float:
+	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.BREAK): return 0.0
+	var my_idx = _get_lane_idx(ai_core)
+	var target_idx = _get_lane_idx(target_core)
+	if my_idx != target_idx: return 0.0
+	if target_core.current_stance == GameEnums.StanceState.FELLED: return 0.0
+	if target_core.current_stance == GameEnums.StanceState.STUMBLING:
+		return 1.05
+	return 0.72
+
+func _score_push() -> float:
+	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.PUSH_STAY): return 0.0
+	var my_idx = _get_lane_idx(ai_core)
+	if my_idx < 0 or not _is_self_locked(): return 0.0
+	var weapon = ai_core.inventory.get_active_weapon(false)
+	if ai_core.is_fleeing or weapon != null:
+		return 0.95
+	if ai_core.is_mindless_hive_thrall:
+		return 0.12
+	return 0.25
+
+func _score_pull() -> float:
+	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.PULL_FOLLOW): return 0.0
+	var my_idx = _get_lane_idx(ai_core)
+	if my_idx < 0 or not _is_self_locked(): return 0.0
+	if target_core.current_stance == GameEnums.StanceState.FELLED:
+		return 0.0
+	var weapon = ai_core.inventory.get_active_weapon(true)
+	if weapon != null and not ai_core.is_fleeing:
+		return 0.45
+	return 0.1
 
 func _score_take_cover() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.TAKE_COVER): return 0.0
@@ -406,22 +427,41 @@ func _execute_action(action: int) -> void:
 			var forward_dir = _direction_toward_target()
 			
 			if _is_self_locked():
-				if lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - forward_dir, true) and turn_manager.request_action(ai_core, GameEnums.ActionType.DISENGAGE):
-					lane_manager.attempt_disengage(ai_core, my_idx, my_idx - forward_dir)
+				return
 			else:
 				if lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - forward_dir) and turn_manager.request_action(ai_core, GameEnums.ActionType.MOVE_BACKWARD):
 					if lane_manager.move_entity(ai_core, my_idx, my_idx - forward_dir):
 						resolution_engine.check_hazard_trip(ai_core, lane_manager.lane_slots[my_idx - forward_dir], false)
 
-		GameEnums.ActionType.DISENGAGE:
-			var disengage_idx = _get_lane_idx(ai_core)
-			var disengage_direction = _direction_toward_target()
-			if lane_manager.can_move_entity_to(ai_core, disengage_idx, disengage_idx - disengage_direction, true) and turn_manager.request_action(ai_core, GameEnums.ActionType.DISENGAGE):
-				lane_manager.attempt_disengage(ai_core, disengage_idx, disengage_idx - disengage_direction)
-
 		GameEnums.ActionType.GRAPPLE:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.GRAPPLE):
 				resolution_engine.execute_grapple(ai_core, target_core)
+
+		GameEnums.ActionType.BREAK:
+			if turn_manager.request_action(ai_core, GameEnums.ActionType.BREAK):
+				resolution_engine.execute_break(ai_core, target_core)
+
+		GameEnums.ActionType.PUSH_STAY:
+			if turn_manager.request_action(ai_core, GameEnums.ActionType.PUSH_STAY):
+				if resolution_engine.execute_leverage_check(ai_core, target_core, true):
+					lane_manager.resolve_displacement(
+						ai_core,
+						target_core,
+						_direction_toward_target(),
+						false,
+						"PUSH"
+					)
+
+		GameEnums.ActionType.PULL_FOLLOW:
+			if turn_manager.request_action(ai_core, GameEnums.ActionType.PULL_FOLLOW):
+				if resolution_engine.execute_leverage_check(ai_core, target_core, false):
+					lane_manager.resolve_displacement(
+						ai_core,
+						target_core,
+						-_direction_toward_target(),
+						true,
+						"PULL"
+					)
 				
 		GameEnums.ActionType.TAKE_COVER:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.TAKE_COVER):
@@ -492,7 +532,7 @@ func _get_lane_idx(entity: HumanoidCore) -> int:
 	return -1
 
 ## True when the AI shares a Melee Locked slot, which forbids NON_DUEL actions
-## (shooting, reloading, cycling, charging, taking cover) until it DISENGAGEs.
+## (shooting, reloading, cycling, charging, taking cover) until it creates space.
 func _is_self_locked() -> bool:
 	return lane_manager != null and lane_manager.is_entity_melee_locked(ai_core)
 

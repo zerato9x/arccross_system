@@ -82,7 +82,7 @@ func can_move_entity_to(
 func move_entity(entity: HumanoidCore, from_idx: int, to_idx: int, is_charge: bool = false) -> bool:
 	if not can_move_entity_to(entity, from_idx, to_idx):
 		if is_entity_melee_locked(entity):
-			print("Movement denied. You must explicitly 'Disengage' from the Melee Lock.")
+			print("Movement denied. Use PUSH to create space from the Melee Lock.")
 		elif _would_cross_an_opponent(entity, from_idx, to_idx):
 			print("Movement denied. Combatants cannot pass through one another.")
 		return false
@@ -109,7 +109,7 @@ func _relocate_entity(
 		to_idx,
 		allow_break_from_melee_lock
 	):
-		print("Movement denied. You must explicitly 'Disengage' from the Melee Lock.")
+		print("Movement denied. Use PUSH to create space from the Melee Lock.")
 		return false
 
 	var origin_slot: CombatLaneSlot = lane_slots[from_idx]
@@ -175,7 +175,7 @@ func _would_cross_an_opponent(
 				continue
 			var opponent_idx := slot.lane_index
 			# Entering an opponent's lane starts a Melee Lock. Leaving a shared
-			# lane is controlled by DISENGAGE and displacement actions.
+			# lane is controlled by explicit displacement actions such as PUSH.
 			if opponent_idx == from_idx or opponent_idx == to_idx:
 				continue
 			if (
@@ -287,7 +287,7 @@ func _break_lock_and_reset_stance(initiator: HumanoidCore, target: HumanoidCore)
 	target.reset_stance()
 	print("[LOCK BROKEN] Spatial separation achieved. Stances restored to 12.")
 
-# --- THE MELEE HOTEL EXIT CLAUSE ---
+# --- LEGACY LOCK EXIT CLAUSE ---
 
 func attempt_disengage(entity: HumanoidCore, current_idx: int, retreat_idx: int) -> bool:
 	if not can_move_entity_to(entity, current_idx, retreat_idx, true):
@@ -316,14 +316,14 @@ func attempt_disengage(entity: HumanoidCore, current_idx: int, retreat_idx: int)
 	) * 5.0
 	
 	if escape_roll > enemy_grip:
-		print("Disengage successful! Kicked away from the grapple.")
+		print("Legacy disengage successful. Kicked away from the grapple.")
 		if not _relocate_entity(entity, current_idx, retreat_idx, true):
 			return false
 		_break_lock_and_reset_stance(entity, opponent)
 		lane_changed.emit()
 		return true
 	else:
-		print("Disengage failed! Slipped in the mud.")
+		print("Legacy disengage failed. Slipped in the mud.")
 		if opponent:
 			disengage_failed.emit(entity, opponent)
 		return false

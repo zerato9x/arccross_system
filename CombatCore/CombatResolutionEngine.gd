@@ -3,6 +3,7 @@ class_name CombatResolutionEngine
 
 signal action_started(entity: HumanoidCore, action: int)
 signal damage_applied(entity: HumanoidCore)
+signal damage_resolved(event: Dictionary)
 signal first_combat_action(action_type: int)
 
 @export var lane_manager: CombatLaneManager
@@ -149,7 +150,7 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 		turn_manager.reaction_resolved.disconnect(on_res)
 		
 	if chosen_reaction == GameEnums.ActionType.DODGE and reaction_success:
-		if resolve_dodge(victim, attacker):
+		if resolve_dodge(victim, attacker, distance):
 			print("[SHOOT ABORTED] Dodge succeeded!")
 			return
 	
@@ -187,13 +188,18 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 			final_victim,
 			weapon,
 			target_limb,
-			damage_multiplier
+			damage_multiplier,
+			attacker,
+			action_type,
+			"aimed_shot"
 		)
 	else:
 		_apply_ballistic_trauma(
 			final_victim,
 			weapon,
-			damage_multiplier
+			damage_multiplier,
+			attacker,
+			action_type
 		)
 
 # ---------------------------------------------------------
@@ -370,7 +376,7 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 		
 	if reaction_success:
 		if chosen_reaction == GameEnums.ActionType.DODGE:
-			if resolve_dodge(defender, attacker):
+			if resolve_dodge(defender, attacker, 0):
 				print("[STRIKE ABORTED] Dodge succeeded!")
 				return
 		elif chosen_reaction == GameEnums.ActionType.BLOCK:
@@ -394,24 +400,46 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 
 	# GROUNDED STRIKE: A FELLED target cannot evade — aim for the skull.
 	var grounded_bonus: float = 1.0
+	var damage_source := "melee"
 	var target_limb: GameEnums.LimbRegion
 	if defender.current_stance == GameEnums.StanceState.FELLED:
 		target_limb = GameEnums.LimbRegion.HEAD
-		grounded_bonus = 1.5
+		grounded_bonus = 2.0 if weapon else 1.5
+		damage_source = "grounded"
 		print("\n--- GROUNDED STRIKE ---")
 		print("[Combat] COMBO PAYOFF: grounded strike on FELLED ", defender.name, ".")
-		print(attacker.name, " strikes the helpless ", defender.name, " in the HEAD at 1.5\u00d7 damage!")
+		print(attacker.name, " strikes the helpless ", defender.name, " in the HEAD at ", grounded_bonus, "x damage!")
 	else:
 		target_limb = roll_melee_target()
 		print("\n--- MELEE STRIKE ---")
 		print(attacker.name, " swings at ", defender.name, "'s ", GameEnums.LimbRegion.keys()[target_limb])
 	
 	if weapon:
-		_resolve_damage(defender, weapon, target_limb, grounded_bonus)
+		_resolve_damage(
+			defender,
+			weapon,
+			target_limb,
+			grounded_bonus,
+			attacker,
+			GameEnums.ActionType.STRIKE,
+			damage_source
+		)
 	else:
 		# Unarmed strike — minimal damage
+		var stance_before := defender.stance_points
+		var state_before: GameEnums.StanceState = defender.current_stance
 		defender.body.apply_targeted_hit(target_limb, 0.5 * grounded_bonus, 0.0)
 		defender.apply_stance_damage(2.0)
+		_emit_damage_event(
+			attacker,
+			defender,
+			GameEnums.ActionType.STRIKE,
+			target_limb,
+			0.5 * grounded_bonus,
+			maxf(0.0, float(stance_before - defender.stance_points)),
+			"unarmed",
+			state_before
+		)
 		damage_applied.emit(defender)
 		print("[UNARMED] Fists connect for minor trauma.")
 
@@ -665,7 +693,7 @@ func _base12_roll(override_value: int) -> int:
 # ---------------------------------------------------------
 # FUMBLE STRIKE (Free Punishment Hit)
 # ---------------------------------------------------------
-# Triggered when an opponent fails a GRAPPLE or DISENGAGE.
+# Triggered when an opponent fails a risky close-quarters commitment.
 # No reaction window — this is a punishment, not an exchange.
 
 func execute_fumble_strike(punisher: HumanoidCore, victim: HumanoidCore) -> void:
@@ -688,10 +716,30 @@ func execute_fumble_strike(punisher: HumanoidCore, victim: HumanoidCore) -> void
 	print(punisher.name, " punishes ", victim.name, "'s failed attempt!")
 
 	if weapon:
-		_resolve_damage(victim, weapon, target_limb)
+		_resolve_damage(
+			victim,
+			weapon,
+			target_limb,
+			1.0,
+			punisher,
+			GameEnums.ActionType.STRIKE,
+			"fumble"
+		)
 	else:
+		var stance_before := victim.stance_points
+		var state_before: GameEnums.StanceState = victim.current_stance
 		victim.body.apply_targeted_hit(target_limb, 0.5, 0.0)
 		victim.apply_stance_damage(2.0)
+		_emit_damage_event(
+			punisher,
+			victim,
+			GameEnums.ActionType.STRIKE,
+			target_limb,
+			0.5,
+			maxf(0.0, float(stance_before - victim.stance_points)),
+			"fumble_unarmed",
+			state_before
+		)
 		damage_applied.emit(victim)
 		print("[UNARMED FUMBLE] A quick fist finds an opening.")
 
@@ -790,6 +838,8 @@ func resolve_block(defender: HumanoidCore, attacker: HumanoidCore, weapon: ItemD
 	if defender.body.limb_hp[GameEnums.LimbRegion.LEFT_ARM] <= 0:
 		block_arm = GameEnums.LimbRegion.RIGHT_ARM
 	
+	var stance_before := defender.stance_points
+	var state_before: GameEnums.StanceState = defender.current_stance
 	if final_flesh > 0.0:
 		defender.body.apply_targeted_hit(block_arm, final_flesh, 1.0)
 		print("[BLOCK] ", defender.name, " absorbed the strike. Arm took ", final_flesh, " bleed-through damage.")
@@ -799,6 +849,16 @@ func resolve_block(defender: HumanoidCore, attacker: HumanoidCore, weapon: ItemD
 		print("[BLOCK BLEED-THROUGH] Blunt impact rattled posture: -", final_stance, " stance → ", GameEnums.StanceState.keys()[resulting_state])
 		
 	if final_flesh > 0.0 or final_stance > 0.0:
+		_emit_damage_event(
+			attacker,
+			defender,
+			GameEnums.ActionType.BLOCK,
+			block_arm,
+			final_flesh,
+			maxf(0.0, float(stance_before - defender.stance_points)),
+			"block",
+			state_before
+		)
 		damage_applied.emit(defender)
 	return true
 
@@ -806,7 +866,11 @@ func resolve_block(defender: HumanoidCore, attacker: HumanoidCore, weapon: ItemD
 # DODGE RESOLUTION
 # ---------------------------------------------------------
 
-func resolve_dodge(defender: HumanoidCore, attacker: HumanoidCore) -> bool:
+func resolve_dodge(
+	defender: HumanoidCore,
+	attacker: HumanoidCore,
+	attack_distance: int = 0
+) -> bool:
 	# The Cripple Clause
 	if defender.body.limb_hp[GameEnums.LimbRegion.LEFT_LEG] <= 0 or defender.body.limb_hp[GameEnums.LimbRegion.RIGHT_LEG] <= 0:
 		print("[DODGE FAILED] ", defender.name, " cannot dodge — legs are crippled.")
@@ -823,8 +887,27 @@ func resolve_dodge(defender: HumanoidCore, attacker: HumanoidCore) -> bool:
 	var is_ranged_attack: bool = weapon != null and weapon.is_ranged()
 	var attacker_stat: float = float(attacker.definition.finesse) if is_ranged_attack else float(attacker.definition.brawn)
 	var hit_roll: float = randf() * attacker_stat
+	var penalty_multiplier := 1.0
+	if is_ranged_attack and attack_distance <= 1:
+		penalty_multiplier *= 0.35
+	if defender.current_stance == GameEnums.StanceState.STUMBLING:
+		penalty_multiplier *= 0.55
+	if _active_bleed_count(defender) > 0:
+		penalty_multiplier *= 0.75
+	if _leg_damage_ratio(defender) < 0.75:
+		penalty_multiplier *= 0.75
+	dodge_roll *= penalty_multiplier
 	
-	print("[DODGE] ", defender.name, " attempts to evade! Roll: ", dodge_roll, " vs ", hit_roll)
+	print(
+		"[DODGE] ",
+		defender.name,
+		" attempts to evade! Roll: ",
+		dodge_roll,
+		" vs ",
+		hit_roll,
+		" | penalty x",
+		penalty_multiplier
+	)
 	
 	if dodge_roll > hit_roll:
 		# Check the Hazard Clause — dodging in mud might trip you
@@ -841,6 +924,25 @@ func resolve_dodge(defender: HumanoidCore, attacker: HumanoidCore) -> bool:
 	print("[DODGE FAILED] ", defender.name, " couldn't clear the trajectory.")
 	return false
 
+func _active_bleed_count(entity: HumanoidCore) -> int:
+	var count := 0
+	for limb in entity.body.limb_trauma.keys():
+		if entity.body.limb_trauma[limb] == GameEnums.TraumaType.BLEEDING:
+			count += 1
+	return count
+
+func _leg_damage_ratio(entity: HumanoidCore) -> float:
+	var current := (
+		float(entity.body.limb_hp.get(GameEnums.LimbRegion.LEFT_LEG, 0.0))
+		+ float(entity.body.limb_hp.get(GameEnums.LimbRegion.RIGHT_LEG, 0.0))
+	)
+	var maximum := maxf(
+		1.0,
+		entity.body.get_limb_max(GameEnums.LimbRegion.LEFT_LEG)
+		+ entity.body.get_limb_max(GameEnums.LimbRegion.RIGHT_LEG)
+	)
+	return clampf(current / maximum, 0.0, 1.0)
+
 # ---------------------------------------------------------
 # TRAUMA ROUTER
 # ---------------------------------------------------------
@@ -848,7 +950,9 @@ func resolve_dodge(defender: HumanoidCore, attacker: HumanoidCore) -> bool:
 func _apply_ballistic_trauma(
 	victim: HumanoidCore,
 	weapon: ItemData,
-	damage_multiplier: float = 1.0
+	damage_multiplier: float = 1.0,
+	attacker: HumanoidCore = null,
+	action_type: int = GameEnums.ActionType.SHOOT
 ) -> void:
 	# Prototype: Randomize which limb gets hit. 
 	# A real system would let the player spend extra AP to "Aim" for the head.
@@ -858,7 +962,15 @@ func _apply_ballistic_trauma(
 	].pick_random()
 	
 	# Run the damage through the armor resolution pipeline
-	_resolve_damage(victim, weapon, hit_location, damage_multiplier)
+	_resolve_damage(
+		victim,
+		weapon,
+		hit_location,
+		damage_multiplier,
+		attacker,
+		action_type,
+		"shot"
+	)
 
 # ---------------------------------------------------------
 # ARMOR RESOLUTION PIPELINE
@@ -868,12 +980,17 @@ func _resolve_damage(
 	victim: HumanoidCore,
 	weapon: ItemData,
 	hit_location: GameEnums.LimbRegion,
-	damage_multiplier: float = 1.0
-) -> void:
+	damage_multiplier: float = 1.0,
+	attacker: HumanoidCore = null,
+	action_type: int = -1,
+	source: String = "weapon"
+) -> Dictionary:
 	var raw_flesh: float = weapon.flesh_damage * damage_multiplier
 	var raw_stance: float = weapon.stance_damage
 	var penetration: float = weapon.armor_penetration
 	var damage_type: GameEnums.DamageType = weapon.damage_type
+	if source == "grounded" and damage_type == GameEnums.DamageType.BLUNT:
+		raw_flesh += weapon.stance_damage * 0.5
 	
 	if damage_type == GameEnums.DamageType.BALLISTIC:
 		raw_stance = 0.0
@@ -909,8 +1026,10 @@ func _resolve_damage(
 	
 	if final_flesh <= 0.0 and final_stance <= 0.0:
 		print("DEFLECTED! The armor absorbed the entire impact.")
-		return
+		return {}
 	
+	var stance_before := victim.stance_points
+	var state_before: GameEnums.StanceState = victim.current_stance
 	# 6. Apply the surviving damage to the meat
 	if final_flesh > 0.0:
 		victim.body.apply_targeted_hit(hit_location, final_flesh, penetration)
@@ -920,7 +1039,54 @@ func _resolve_damage(
 		var resulting_state = victim.apply_stance_damage(final_stance)
 		print("STANCE IMPACT: -", final_stance, " equilibrium → ", GameEnums.StanceState.keys()[resulting_state], " (", victim.stance_points, "/12)")
 
+	var event := _emit_damage_event(
+		attacker,
+		victim,
+		action_type,
+		hit_location,
+		final_flesh,
+		maxf(0.0, float(stance_before - victim.stance_points)),
+		source,
+		state_before
+	)
 	damage_applied.emit(victim)
+	return event
+
+func _emit_damage_event(
+	attacker: HumanoidCore,
+	victim: HumanoidCore,
+	action_type: int,
+	hit_location: GameEnums.LimbRegion,
+	flesh_damage: float,
+	stance_damage: float,
+	source: String,
+	previous_state: GameEnums.StanceState,
+	blood_loss: float = 0.0
+) -> Dictionary:
+	var trauma := str(GameEnums.TraumaType.keys()[
+		int(victim.body.limb_trauma.get(hit_location, GameEnums.TraumaType.NONE))
+	])
+	var event := {
+		"attacker": attacker,
+		"victim": victim,
+		"attacker_name": attacker.name if attacker != null else "",
+		"victim_name": victim.name,
+		"action": action_type,
+		"limb": GameEnums.LimbRegion.keys()[hit_location],
+		"limb_index": hit_location,
+		"flesh_damage": flesh_damage,
+		"stance_damage": stance_damage,
+		"trauma": trauma,
+		"blood_loss": blood_loss,
+		"was_felled": (
+			previous_state != GameEnums.StanceState.FELLED
+			and victim.current_stance == GameEnums.StanceState.FELLED
+		),
+		"was_killed": victim.is_dead,
+		"source": source,
+	}
+	damage_resolved.emit(event)
+	return event
 
 # ---------------------------------------------------------
 # AMMO UTILITY

@@ -167,9 +167,9 @@ func generate_mob(
 			# "Craven" = cowardly. These are malnourished, frail thralls — the
 			# weakest melee bruiser in the bestiary, not a damage sponge. Stats
 			# sit at/below the Drifter baseline (6) and the Scavenger (B5/T4).
-			def.brawn = _roll_attribute(5 + difficulty_bias, 3, rng) # Feral but underfed
+			def.brawn = _roll_attribute(6 + difficulty_bias, 3, rng) # Feral rush threat
 			def.finesse = _roll_attribute(3, 3, rng) # Clumsy, feral
-			def.fortitude = _roll_attribute(5 + difficulty_bias, 3, rng) # Frail, easy to put down
+			def.fortitude = _roll_attribute(3 + difficulty_bias, 2, rng) # Frail, easy to put down
 			def.will = 1 # No willpower, pure instinct
 			def.red_mist_resistance = 0.0
 			def.loadout = _generate_craven_loadout()

@@ -2,6 +2,21 @@
 
 ## June 28, 2026
 
+### Combat Flow Refactor
+
+- Simplified Melee Lock into direct `PUSH`, `PULL`, `BREAK STANCE`, `GRAPPLE`,
+  and `STRIKE` choices. Deprecated `PUSH_FOLLOW`, `PULL_STAY`, and `DISENGAGE`
+  remain backend compatibility values only.
+- Replaced player-facing pass/reserve wording with `GUARD`, which ends the
+  active turn and banks remaining AP for eligible reactions.
+- Added combat-turn bleeding pressure, visible bleed log entries, immediate body
+  panel refreshes, and death checks through existing vital failure.
+- Tuned close-range firearm dodge penalties and Felled grounded strike payoff so
+  push-then-shoot and grapple-then-strike loops feel lethal without becoming
+  invisible dice soup.
+- Lowered craven thrall durability fixtures so their threat is rushing Melee
+  Lock, not surviving clean hits like budget mythology.
+
 ### Phase 2 Documentation And Combat HUD Plan
 
 - Marked ARCCROSS as Phase 2 in the canonical README set while preserving the
@@ -221,7 +236,8 @@
   a manual target.
 - Changed Grapple from guaranteed success to an opposed base-12 check.
 - Disabled Execute until the planned trait-unlock system exists.
-- Exposed Pull / Follow and preserved Disengage as a separate break-away action.
+- Exposed the earlier Pull / Follow and Disengage prototype, now superseded by
+  the June 28 `PUSH` / `PULL` / `GUARD` combat-flow refactor.
 - Added Recovery Guard after Felled recovery to prevent indefinite knockdown
   loops.
 - Clarified that Stumbling receives a normal active turn and added passive

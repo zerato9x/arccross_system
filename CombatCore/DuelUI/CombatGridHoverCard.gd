@@ -163,8 +163,7 @@ func _action_matches_slot(
 			return slot_index == player_lane and str(slot_data.get("cover", "NONE")) != "NONE"
 		GameEnums.ActionType.STRIKE, GameEnums.ActionType.GRAPPLE, \
 		GameEnums.ActionType.BREAK, GameEnums.ActionType.PUSH_STAY, \
-		GameEnums.ActionType.PUSH_FOLLOW, GameEnums.ActionType.PULL_FOLLOW, \
-		GameEnums.ActionType.DISENGAGE, GameEnums.ActionType.GET_UP:
+		GameEnums.ActionType.PULL_FOLLOW, GameEnums.ActionType.GET_UP:
 			return slot_index == player_lane or has_enemy
 		GameEnums.ActionType.RELOAD, GameEnums.ActionType.CYCLE, \
 		GameEnums.ActionType.USE_ITEM:

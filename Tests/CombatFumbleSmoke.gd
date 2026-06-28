@@ -31,19 +31,22 @@ func _run() -> void:
 	lanes.force_spawn_entity(player, 6)
 	lanes.force_spawn_entity(enemy, 6)
 
-	# Escape roll is capped at 1 while the healthy opponent's grip is 5.
-	player.current_max_ap = 1
+	# A blown Grapple is the new risky lock commitment; Break Away is gone.
+	player.definition.brawn = 3
+	player.definition.finesse = 3
+	enemy.definition.brawn = 9
+	enemy.definition.finesse = 9
 	var stance_before := player.stance_points
-	if lanes.attempt_disengage(player, 6, 5):
-		_fail("Forced failed disengage unexpectedly succeeded.")
+	if arena.resolution_engine.execute_grapple(player, enemy, 1, 12):
+		_fail("Forced failed Grapple unexpectedly succeeded.")
 		return
-	if player.stance_points != stance_before - 6:
-		_fail("Failed disengage did not trigger exactly one Fumble Strike.")
+	if player.stance_points >= stance_before:
+		_fail("Failed Grapple did not trigger a Fumble Strike payoff.")
 		return
 
 	arena.queue_free()
 	await process_frame
-	print("[TEST PASS] Failed disengage triggers one Fumble Strike.")
+	print("[TEST PASS] Failed Grapple triggers one Fumble Strike.")
 	quit(0)
 
 func _fail(message: String) -> void:

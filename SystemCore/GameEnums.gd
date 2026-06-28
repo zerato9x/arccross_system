@@ -190,12 +190,12 @@ enum ActionType {
 	# --- Duel-Locked Actions ---
 	STRIKE,         # Core melee attack. Resolution randomly selects a non-Head Limb Region.
 	GRAPPLE,        # Opposed takedown check. Success fells the defender.
-	PUSH_STAY,      # 4 AP: Leverage check → displace enemy 1 cell away, initiator stays. Lock breaks.
-	PUSH_FOLLOW,    # 4 AP: Leverage check → displace enemy 1 cell away, initiator follows. Lock holds.
-	PULL_FOLLOW,    # Leverage check: drag both combatants 1 cell toward the initiator's rear.
-	PULL_STAY,      # 4 AP: Leverage check → drag enemy 1 cell closer, initiator stays. Lock breaks.
+	PUSH_STAY,      # 4 AP: PUSH. Displace target away, initiator stays, lock breaks.
+	PUSH_FOLLOW,    # Deprecated compatibility value. Hidden from legal actions.
+	PULL_FOLLOW,    # 4 AP: PULL. Drag both combatants together, lock holds.
+	PULL_STAY,      # Deprecated compatibility value. Hidden from legal actions.
 	BREAK,          # 2 AP: Braced stance attack. Erodes stance points only, no flesh damage.
-	DISENGAGE,      # 6 AP: Desperate attempt to tear away from a melee lock
+	DISENGAGE,      # Deprecated compatibility value. PUSH creates separation instead.
 	
 	# --- Prone Window Actions ---
 	TRIP,           # ALL AP: Ground sweep. Dexterity check to pull standing opponent into FELLED.
@@ -211,8 +211,8 @@ enum ActionType {
 
 ## Specific tactical profiles defining how an entity behaves once inside the combat lane.
 enum CombatTactic {
-	MARKSMAN,     # Heavily weights SHOOT, DISENGAGE, and TAKE_COVER. Wants to maintain distance.
-	BRUTE,        # Heavily weights CHARGE, GRAPPLE, and PUSH_FOLLOW. Wants to force Melee Locks.
+	MARKSMAN,     # Heavily weights SHOOT and TAKE_COVER. Wants to maintain distance.
+	BRUTE,        # Heavily weights CHARGE, GRAPPLE, and PUSH. Wants to force Melee Locks.
 	OPPORTUNIST,  # Avoids direct strikes unless opponent is STUMBLING/FELLED. Uses TRIP often.
 	DEFENDER      # Heavily weights MOVE_BACKWARD to become a BRACED support. Uses BLOCK often.
 }

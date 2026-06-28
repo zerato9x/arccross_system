@@ -308,7 +308,13 @@ func _push_combat_log(message: String) -> void:
 func _presentation_log_line(event: Dictionary) -> String:
 	var event_type := str(event.get("type", "action"))
 	if event_type == "damage":
-		return "%s TAKES DAMAGE" % _side_log_label(str(event.get("side", "")))
+		return _damage_log_line(event)
+	if event_type == "bleed":
+		return "%s BLEEDS // -%s BLOOD (%s WOUNDS)" % [
+			_side_log_label(str(event.get("side", ""))),
+			_compact_number(float(event.get("blood_loss", 0.0))),
+			str(event.get("active_bleeds", 0)),
+		]
 	if event_type == "death":
 		return "%s DOWN" % _side_log_label(str(event.get("side", "")))
 	var action := int(event.get("action", -1))
@@ -316,6 +322,30 @@ func _presentation_log_line(event: Dictionary) -> String:
 		_side_log_label(str(event.get("side", ""))),
 		_action_log_label(action),
 	]
+
+func _damage_log_line(event: Dictionary) -> String:
+	var rows := PackedStringArray()
+	var limb := str(event.get("limb", "BODY")).replace("_", " ")
+	var flesh := float(event.get("flesh_damage", 0.0))
+	var stance := float(event.get("stance_damage", 0.0))
+	var trauma := str(event.get("trauma", "NONE"))
+	var prefix := "%s HIT // %s" % [
+		_side_log_label(str(event.get("side", ""))),
+		limb,
+	]
+	if flesh > 0.0:
+		rows.append("FLESH -" + _compact_number(flesh))
+	if stance > 0.0:
+		rows.append("STANCE -" + _compact_number(stance))
+	if trauma != "NONE":
+		rows.append(trauma.replace("_", " "))
+	if bool(event.get("was_felled", false)):
+		rows.append("FELLED")
+	if bool(event.get("was_killed", false)):
+		rows.append("KILLED")
+	if rows.is_empty():
+		rows.append("DEFLECTED")
+	return "%s %s" % [prefix, " / ".join(rows)]
 
 func _side_log_label(side: String) -> String:
 	match side:
@@ -326,6 +356,13 @@ func _side_log_label(side: String) -> String:
 	return "COMBAT"
 
 func _action_log_label(action: int) -> String:
+	match action:
+		GameEnums.ActionType.PUSH_STAY:
+			return "PUSH"
+		GameEnums.ActionType.PULL_FOLLOW:
+			return "PULL"
+		GameEnums.ActionType.BREAK:
+			return "BREAK STANCE"
 	var names := GameEnums.ActionType.keys()
 	if action >= 0 and action < names.size():
 		return str(names[action]).replace("_", " ")
@@ -673,6 +710,9 @@ func _layout_limb_row(row: Dictionary, limb: Dictionary, row_position: Vector2) 
 	var ratio := current / maximum
 	var trauma := str(limb.get("trauma", "NONE"))
 	var code := str(limb.get("code", row.get("code", "??")))
+	var trauma_text := ""
+	if trauma != "NONE":
+		trauma_text = " " + trauma.replace("_", " ")
 	_set_box(track, BODY_BAR_SIZE)
 	_set_box(fill, Vector2(maxf(2.0, BODY_BAR_SIZE.x * ratio), BODY_BAR_SIZE.y))
 	_set_outline(outline, BODY_BAR_SIZE)
@@ -688,7 +728,7 @@ func _layout_limb_row(row: Dictionary, limb: Dictionary, row_position: Vector2) 
 		code,
 		_compact_number(current),
 		_compact_number(maximum),
-		" !" if trauma != "NONE" else "",
+		trauma_text,
 	]
 
 func _body_status_title(data: Dictionary, heading: String) -> String:
@@ -1212,16 +1252,17 @@ func _render_melee_menu(descriptors: Array, index: int) -> int:
 		GameEnums.ActionType.BREAK,
 		index
 	)
-	if (
-		not _find_descriptor(descriptors, GameEnums.ActionType.PUSH_FOLLOW).is_empty()
-		or not _find_descriptor(descriptors, GameEnums.ActionType.PUSH_STAY).is_empty()
-	):
-		_add_submenu_button(MENU_PUSH, "PUSH", index)
-		index += 1
+	index = _add_action_if_available(
+		descriptors,
+		GameEnums.ActionType.PUSH_STAY,
+		index,
+		"PUSH"
+	)
 	index = _add_action_if_available(
 		descriptors,
 		GameEnums.ActionType.PULL_FOLLOW,
-		index
+		index,
+		"PULL"
 	)
 	index = _add_action_if_available(
 		descriptors,
@@ -1235,7 +1276,6 @@ func _render_melee_menu(descriptors: Array, index: int) -> int:
 			GameEnums.ActionType.STRIKE,
 			GameEnums.ActionType.GRAPPLE,
 			GameEnums.ActionType.BREAK,
-			GameEnums.ActionType.PUSH_FOLLOW,
 			GameEnums.ActionType.PUSH_STAY,
 			GameEnums.ActionType.PULL_FOLLOW,
 			GameEnums.ActionType.EXECUTE,
@@ -1261,15 +1301,9 @@ func _render_aim_menu(descriptors: Array, index: int) -> int:
 func _render_push_menu(descriptors: Array, index: int) -> int:
 	index = _add_action_if_available(
 		descriptors,
-		GameEnums.ActionType.PUSH_FOLLOW,
-		index,
-		"FOLLOW"
-	)
-	index = _add_action_if_available(
-		descriptors,
 		GameEnums.ActionType.PUSH_STAY,
 		index,
-		"STAY"
+		"PUSH"
 	)
 	return index
 
@@ -1352,7 +1386,11 @@ func _add_action_button(descriptor: Dictionary, index: int) -> void:
 
 func _add_pass_button(index: int) -> void:
 	var payload := {"mode": BUTTON_MODE_PASS}
-	_add_button(payload, "[0] PASS / RESERVE", index)
+	_add_button(
+		payload,
+		"[0] GUARD %02d AP" % int(_snapshot.get("ap", 0)),
+		index
+	)
 
 func _add_reaction_button(descriptor: Dictionary, index: int) -> void:
 	var payload := {
@@ -1964,8 +2002,8 @@ func _group_hint(group: String, audio_family: String = "") -> String:
 		ACTION_GROUP_ITEMS:
 			return "Use accessible combat items."
 		ACTION_GROUP_REACTION:
-			return "Spend reserved AP or pass."
-	return "Cover, reserve, and field options."
+			return "Spend guarded AP or decline."
+	return "Cover, guard, and field options."
 
 func _fallback_action_group(descriptor: Dictionary) -> String:
 	var action := int(descriptor.get("action", -1))
@@ -1980,13 +2018,11 @@ func _fallback_action_group(descriptor: Dictionary) -> String:
 			return ACTION_GROUP_MOVEMENT
 		GameEnums.ActionType.MOVE_BACKWARD, GameEnums.ActionType.CHARGE:
 			return ACTION_GROUP_MOVEMENT
-		GameEnums.ActionType.DISENGAGE:
-			return ACTION_GROUP_MOVEMENT
 		GameEnums.ActionType.STRIKE, GameEnums.ActionType.GRAPPLE:
 			return ACTION_GROUP_MELEE
 		GameEnums.ActionType.BREAK, GameEnums.ActionType.PUSH_STAY:
 			return ACTION_GROUP_MELEE
-		GameEnums.ActionType.PUSH_FOLLOW, GameEnums.ActionType.PULL_FOLLOW:
+		GameEnums.ActionType.PULL_FOLLOW:
 			return ACTION_GROUP_MELEE
 		GameEnums.ActionType.EXECUTE:
 			return ACTION_GROUP_MELEE

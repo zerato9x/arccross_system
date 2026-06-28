@@ -62,38 +62,33 @@ func _run() -> void:
 		_fail("Enemy lost its facing direction when melee lock began.")
 		return
 	if lanes.move_entity(enemy, 9, 8):
-		_fail("Ordinary movement escaped a melee lock without DISENGAGE.")
+		_fail("Ordinary movement escaped a melee lock without PUSH.")
 		return
 
-	seed(20260619)
-	var disengaged := false
-	for _attempt in range(24):
-		if lanes.attempt_disengage(enemy, 9, 10):
-			disengaged = true
-			break
-	if not disengaged:
-		_fail("Could not exercise a successful AI disengage for the position test.")
-		return
-	if lanes._find_entity_lane(enemy) != 10 or lanes._find_entity_lane(player) != 9:
-		_fail("Enemy disengaged onto the player's side instead of its own side.")
-		return
-	if lanes.move_entity(enemy, 10, 8):
-		_fail("A later movement crossed back through the player.")
-		return
-
-	# PUSH / FOLLOW and PULL / FOLLOW relocate the pair together; neither
+	# PUSH separates and breaks lock; PULL relocates the pair together. Neither
 	# action is allowed to leave one combatant on the far side of the other.
 	lanes.remove_entity(player)
 	lanes.remove_entity(enemy)
 	lanes.force_spawn_entity(player, 6)
 	lanes.force_spawn_entity(enemy, 6)
-	lanes.resolve_displacement(player, enemy, 1, true, "PUSH")
-	if lanes._find_entity_lane(player) != 7 or lanes._find_entity_lane(enemy) != 7:
-		_fail("PUSH / FOLLOW did not keep both combatants together.")
+	lanes.resolve_displacement(player, enemy, 1, false, "PUSH")
+	if lanes._find_entity_lane(player) != 6 or lanes._find_entity_lane(enemy) != 7:
+		_fail("PUSH did not separate combatants onto the expected lanes.")
 		return
+	if lanes.is_entity_melee_locked(player) or lanes.is_entity_melee_locked(enemy):
+		_fail("PUSH did not break Melee Lock.")
+		return
+
+	lanes.remove_entity(player)
+	lanes.remove_entity(enemy)
+	lanes.force_spawn_entity(player, 6)
+	lanes.force_spawn_entity(enemy, 6)
 	lanes.resolve_displacement(player, enemy, -1, true, "PULL")
-	if lanes._find_entity_lane(player) != 6 or lanes._find_entity_lane(enemy) != 6:
-		_fail("PULL / FOLLOW did not keep both combatants together.")
+	if lanes._find_entity_lane(player) != 5 or lanes._find_entity_lane(enemy) != 5:
+		_fail("PULL did not move both locked combatants rearward.")
+		return
+	if not lanes.is_entity_melee_locked(player) or not lanes.is_entity_melee_locked(enemy):
+		_fail("PULL did not preserve Melee Lock.")
 		return
 
 	arena.turn_manager.halt_loop()

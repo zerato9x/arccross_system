@@ -119,7 +119,16 @@ func _run() -> void:
 		_fail("The trait-gated EXECUTE action was exposed in the demo.")
 		return
 	if not _snapshot_has_action(snapshot, GameEnums.ActionType.PULL_FOLLOW):
-		_fail("The melee command snapshot did not expose PULL / FOLLOW.")
+		_fail("The melee command snapshot did not expose PULL.")
+		return
+	if not _snapshot_has_action(snapshot, GameEnums.ActionType.PUSH_STAY):
+		_fail("The melee command snapshot did not expose PUSH.")
+		return
+	if _snapshot_has_action(snapshot, GameEnums.ActionType.PUSH_FOLLOW):
+		_fail("Deprecated PUSH / FOLLOW appeared in the melee command snapshot.")
+		return
+	if _snapshot_has_action(snapshot, GameEnums.ActionType.DISENGAGE):
+		_fail("Deprecated BREAK AWAY appeared in the melee command snapshot.")
 		return
 	var strike_descriptor := _find_action(
 		snapshot,

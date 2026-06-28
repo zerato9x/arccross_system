@@ -50,6 +50,8 @@ func configure(
 		turn_manager.ap_spent.connect(_on_ap_spent)
 	if not turn_manager.turn_ended.is_connected(_on_combat_state_changed):
 		turn_manager.turn_ended.connect(_on_combat_state_changed)
+	if not turn_manager.combat_bleed_tick.is_connected(_on_combat_bleed_tick):
+		turn_manager.combat_bleed_tick.connect(_on_combat_bleed_tick)
 	if not turn_manager.reaction_window_opened.is_connected(
 		_on_reaction_window_opened
 	):
@@ -73,6 +75,12 @@ func configure(
 	):
 		resolution_engine.damage_applied.connect(
 			_on_resolution_damage_applied
+		)
+	if not resolution_engine.damage_resolved.is_connected(
+		_on_resolution_damage_resolved
+	):
+		resolution_engine.damage_resolved.connect(
+			_on_resolution_damage_resolved
 		)
 	for entity in [player_core, enemy_core]:
 		var death_callback := _on_entity_died.bind(entity)
@@ -109,7 +117,7 @@ func get_snapshot() -> Dictionary:
 		"round": turn_manager.current_round,
 		"ap": turn_manager.current_ap_pool,
 		"is_player_turn": active == player_core,
-		"active_name": active.name if active else "",
+		"active_name": active.name if active != null else "",
 		"active_side": _entity_side(active),
 		"busy": _action_in_progress,
 		"reaction_pending": turn_manager._reaction_pending,
@@ -309,7 +317,7 @@ func _execute_player_action(
 				return false
 			resolution_engine.execute_break(player_core, enemy_core)
 			return true
-		GameEnums.ActionType.PUSH_STAY, GameEnums.ActionType.PUSH_FOLLOW:
+		GameEnums.ActionType.PUSH_STAY:
 			if not turn_manager.request_action(player_core, action):
 				return false
 			_emit_presentation_action(player_core, action)
@@ -322,7 +330,7 @@ func _execute_player_action(
 					player_core,
 					enemy_core,
 					_player_forward_direction,
-					action == GameEnums.ActionType.PUSH_FOLLOW,
+					false,
 					"PUSH"
 				)
 			return true
@@ -343,22 +351,6 @@ func _execute_player_action(
 					"PULL"
 				)
 			return true
-		GameEnums.ActionType.DISENGAGE:
-			var disengage_destination := player_lane - _player_forward_direction
-			if not lane_manager.can_move_entity_to(
-				player_core,
-				player_lane,
-				disengage_destination,
-				true
-			):
-				return false
-			if not turn_manager.request_action(player_core, action):
-				return false
-			return lane_manager.attempt_disengage(
-				player_core,
-				player_lane,
-				disengage_destination
-			)
 		GameEnums.ActionType.EXECUTE:
 			if not turn_manager.request_action(player_core, action):
 				return false
@@ -432,11 +424,8 @@ func _build_legal_actions() -> Array:
 		_add_action(actions, GameEnums.ActionType.STRIKE, "STRIKE")
 		_add_action(actions, GameEnums.ActionType.GRAPPLE, "GRAPPLE")
 		_add_action(actions, GameEnums.ActionType.BREAK, "BREAK STANCE")
-		_add_action(actions, GameEnums.ActionType.PUSH_STAY, "PUSH / STAY")
-		_add_action(actions, GameEnums.ActionType.PUSH_FOLLOW, "PUSH / FOLLOW")
-		_add_action(actions, GameEnums.ActionType.PULL_FOLLOW, "PULL / FOLLOW")
-		if _can_move_to(player_lane - _player_forward_direction, true):
-			_add_action(actions, GameEnums.ActionType.DISENGAGE, "BREAK AWAY")
+		_add_action(actions, GameEnums.ActionType.PUSH_STAY, "PUSH")
+		_add_action(actions, GameEnums.ActionType.PULL_FOLLOW, "PULL")
 		if (
 			CombatRules.EXECUTE_ENABLED
 			and enemy_core.current_stance == GameEnums.StanceState.FELLED
@@ -487,13 +476,11 @@ func _action_group_for(action: int, item_instance_id: String) -> String:
 			return ACTION_GROUP_MOVEMENT
 		GameEnums.ActionType.MOVE_BACKWARD, GameEnums.ActionType.CHARGE:
 			return ACTION_GROUP_MOVEMENT
-		GameEnums.ActionType.DISENGAGE:
-			return ACTION_GROUP_MOVEMENT
 		GameEnums.ActionType.STRIKE, GameEnums.ActionType.GRAPPLE:
 			return ACTION_GROUP_MELEE
 		GameEnums.ActionType.BREAK, GameEnums.ActionType.PUSH_STAY:
 			return ACTION_GROUP_MELEE
-		GameEnums.ActionType.PUSH_FOLLOW, GameEnums.ActionType.PULL_FOLLOW:
+		GameEnums.ActionType.PULL_FOLLOW:
 			return ACTION_GROUP_MELEE
 		GameEnums.ActionType.EXECUTE:
 			return ACTION_GROUP_MELEE
@@ -772,18 +759,31 @@ func _on_equipment_changed(
 ) -> void:
 	refresh_snapshot()
 
+func _on_combat_bleed_tick(entity: HumanoidCore, event: Dictionary) -> void:
+	var presentation := event.duplicate(true)
+	presentation["side"] = _entity_side(entity)
+	presentation["victim_name"] = entity.name
+	presentation["type"] = "bleed"
+	presentation_event.emit(presentation)
+	call_deferred("refresh_snapshot")
+
 func _on_resolution_action_started(
 	entity: HumanoidCore,
 	action: int
 ) -> void:
 	_emit_presentation_action(entity, action)
 
-func _on_resolution_damage_applied(entity: HumanoidCore) -> void:
-	if not entity.is_dead:
-		presentation_event.emit({
-			"side": _entity_side(entity),
-			"type": "damage",
-		})
+func _on_resolution_damage_applied(_entity: HumanoidCore) -> void:
+	call_deferred("refresh_snapshot")
+
+func _on_resolution_damage_resolved(event: Dictionary) -> void:
+	var victim := event.get("victim") as HumanoidCore
+	var attacker := event.get("attacker") as HumanoidCore
+	var presentation := event.duplicate(true)
+	presentation["type"] = "damage"
+	presentation["side"] = _entity_side(victim)
+	presentation["attacker_side"] = _entity_side(attacker)
+	presentation_event.emit(presentation)
 	call_deferred("refresh_snapshot")
 
 func _on_entity_died(cause: String, entity: HumanoidCore) -> void:

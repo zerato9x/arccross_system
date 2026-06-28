@@ -172,8 +172,8 @@ ambush_position: GameEnums.AmbushPosition
   cycle effects.
 - GET UP is an explicit all-AP command for Felled combatants. TAKE COVER applies
   its owner-resolved Stance recovery through normal command routing.
-- Passing may preserve unused AP as Reserved AP. An unresolved Reaction Window
-  blocks turn advancement.
+- GUARD ends the active turn and preserves unused AP as Reserved AP for eligible
+  reactions. An unresolved Reaction Window blocks turn advancement.
 - CombatCore emits outcomes and runtime snapshots. SystemCore applies those
   results to persistent world records.
 - Combat presentation never changes macro tokens, entity life state, AP costs,

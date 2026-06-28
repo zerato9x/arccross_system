@@ -31,6 +31,8 @@ var thirst: float = GameEnums.SCALE_MAX      # 12 = Hydrated, 0 = Dehydrated
 var fatigue: float = 0.0                     # 0 = Rested, 12 = Passing out
 # The structural baseline. Everyone gets the same bones.
 
+const COMBAT_BLEED_LOSS_PER_WOUND: float = 0.75
+
 func _ready() -> void:
 	for limb in BASE_LIMB_MAX.keys():
 		limb_max[limb] = BASE_LIMB_MAX[limb]
@@ -89,6 +91,28 @@ func _handle_destroyed_limb(limb: GameEnums.LimbRegion) -> void:
 
 func process_biological_tick(environmental_temp: float, insulation_rating: float, exertion_level: float = 1.0) -> void:
 	process_elapsed_time(15, environmental_temp, insulation_rating, exertion_level)
+
+func process_combat_bleeding_tick() -> Dictionary:
+	var active_bleeds: int = 0
+	for limb in limb_trauma.keys():
+		if limb_trauma[limb] == GameEnums.TraumaType.BLEEDING:
+			active_bleeds += 1
+	if active_bleeds <= 0:
+		return {}
+	var previous_blood := blood_level
+	var blood_loss := minf(
+		previous_blood,
+		float(active_bleeds) * COMBAT_BLEED_LOSS_PER_WOUND
+	)
+	blood_level = max(0.0, blood_level - blood_loss)
+	blood_level_changed.emit(blood_level)
+	if blood_level <= 0.0:
+		vital_failure.emit("Exsanguination")
+	return {
+		"active_bleeds": active_bleeds,
+		"blood_loss": blood_loss,
+		"blood_level": blood_level,
+	}
 
 func process_elapsed_time(
 	elapsed_minutes: int,

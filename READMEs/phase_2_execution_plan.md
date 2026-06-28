@@ -106,8 +106,8 @@ Acceptance criteria:
 
    Update `_render_actions()` so it builds group tabs or group slots first, then
    renders only the active group's buttons. Default to `firearm` when the player
-   has legal ranged actions, `melee` while Melee Locked, and `movement`
-   otherwise. Preserve `0` for pass or decline.
+     has legal ranged actions, `melee` while Melee Locked, and `movement`
+     otherwise. Preserve `0` for GUARD or reaction decline.
 
 4. Make target selection visible.
 

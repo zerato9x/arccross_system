@@ -140,9 +140,9 @@ const MATCHUPS := [
 		"faction": GameEnums.Faction.CRAVEN_HIVE,
 		"agenda": GameEnums.Agenda.MINDLESS,
 		"tactic": GameEnums.CombatTactic.BRUTE,
-		"brawn": 9,
+		"brawn": 6,
 		"finesse": 3,
-		"fortitude": 10,
+		"fortitude": 4,
 		"will": 1,
 		"weapon": "",
 		"armor": [],
@@ -395,16 +395,22 @@ func _drive_player_turn(
 			if not _can_spend(
 				manager,
 				player,
-				GameEnums.ActionType.DISENGAGE,
+				GameEnums.ActionType.PUSH_STAY,
 				reserve_ap
 			):
 				break
-			if manager.request_action(player, GameEnums.ActionType.DISENGAGE):
-				lane.attempt_disengage(
-					player,
-					player_lane,
-					player_lane - sign(enemy_lane - player_lane)
-				)
+			if manager.request_action(player, GameEnums.ActionType.PUSH_STAY):
+				var direction: int = signi(enemy_lane - player_lane)
+				if direction == 0:
+					direction = 1
+				if resolver.execute_leverage_check(player, enemy, false):
+					lane.resolve_displacement(
+						player,
+						enemy,
+						direction,
+						false,
+						"PUSH"
+					)
 			continue
 
 		if strategy.policy == "melee":

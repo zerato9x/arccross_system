@@ -9,6 +9,7 @@ signal turn_started(active_entity: HumanoidCore)
 signal ap_spent(entity: HumanoidCore, remaining_ap: int)
 signal turn_ended(entity: HumanoidCore)
 signal entity_escaped(entity: HumanoidCore)
+signal combat_bleed_tick(entity: HumanoidCore, event: Dictionary)
 
 ## Reaction Window Signals — clean hooks for animation systems.
 ## Emitted when a reaction window opens. The UI/animation layer listens to present choices.
@@ -158,6 +159,24 @@ func _start_turn() -> void:
 	if combatants.size() == 0: return
 	
 	var active_entity: HumanoidCore = combatants[active_entity_index]
+	if not active_entity.is_dead and active_entity.body:
+		var bleed_event := active_entity.body.process_combat_bleeding_tick()
+		if not bleed_event.is_empty():
+			print(
+				"[BLEED] ",
+				active_entity.name,
+				" loses ",
+				bleed_event.get("blood_loss", 0.0),
+				" Blood from ",
+				bleed_event.get("active_bleeds", 0),
+				" active wound(s)."
+			)
+			combat_bleed_tick.emit(active_entity, bleed_event)
+			if active_entity.is_dead:
+				print(active_entity.name, " bled out before acting.")
+				current_ap_pool = 0
+				_trigger_end_turn()
+				return
 	
 	if active_entity.is_escaping:
 		var my_idx = _find_entity_lane(active_entity)
@@ -199,6 +218,14 @@ func _start_turn() -> void:
 func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
 	if _reaction_pending:
 		print("DENIED: A reaction window is active. Resolve it first.")
+		return false
+
+	if action in [
+		GameEnums.ActionType.PUSH_FOLLOW,
+		GameEnums.ActionType.PULL_STAY,
+		GameEnums.ActionType.DISENGAGE,
+	]:
+		print("DENIED: Deprecated lock action requested. Use PUSH or PULL.")
 		return false
 
 	if action == GameEnums.ActionType.EXECUTE and not CombatRules.EXECUTE_ENABLED:
@@ -253,10 +280,9 @@ func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
 			print("DENIED: [", action, "] requires a Melee Lock. ", entity.name, " is not engaged.")
 			return false
 		if required_group == CombatRules.ActionGroup.NON_DUEL and is_locked:
-			# Movement is blocked while locked; you must DISENGAGE first
-			# SHOOT and CYCLE are explicitly blocked in Duel Lock per spec
+			# Movement and firearms are blocked while locked. Create space with PUSH first.
 			if action != GameEnums.ActionType.USE_ITEM:
-				print("DENIED: [", action, "] is not available during a Melee Lock. Disengage first.")
+				print("DENIED: [", action, "] is not available during a Melee Lock. Push first.")
 				return false
 		
 	var ap_cost: int = get_action_cost(entity, action)
@@ -388,10 +414,10 @@ func request_grapple_intercept(defender: HumanoidCore, charger: HumanoidCore) ->
 # TURN LIFECYCLE
 # ---------------------------------------------------------
 
-## Can be manually triggered by a "Pass Turn" UI Button
+## Can be manually triggered by the GUARD command.
 func pass_turn(entity: HumanoidCore) -> void:
 	if entity == combatants[active_entity_index]:
-		print(entity.name, " intentionally passed their turn.")
+		print(entity.name, " guards and reserves their remaining AP.")
 		_trigger_end_turn()
 
 func _trigger_end_turn() -> void:

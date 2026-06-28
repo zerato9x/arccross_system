@@ -468,9 +468,19 @@ func _run() -> void:
 	turn_probe.combatants = [player]
 	turn_probe.active_entity_index = 0
 	var turn_events: Array = []
+	var bleed_events: Array = []
 	turn_probe.turn_started.connect(
 		func(entity: HumanoidCore) -> void:
 			turn_events.append(entity)
+	)
+	turn_probe.combat_bleed_tick.connect(
+		func(entity: HumanoidCore, event: Dictionary) -> void:
+			if entity == player:
+				bleed_events.append(event)
+	)
+	player.body.blood_level = GameEnums.SCALE_MAX
+	player.body.limb_trauma[GameEnums.LimbRegion.LEFT_ARM] = (
+		GameEnums.TraumaType.BLEEDING
 	)
 	turn_probe._start_turn()
 	if (
@@ -482,6 +492,17 @@ func _run() -> void:
 	):
 		_fail("STUMBLING did not receive a normal AP turn with passive recovery.")
 		return
+	if (
+		bleed_events.size() != 1
+		or bleed_events[0].get("active_bleeds", 0) != 1
+		or player.body.blood_level >= GameEnums.SCALE_MAX
+	):
+		_fail("Combat turn start did not process active bleeding.")
+		return
+	player.body.limb_trauma[GameEnums.LimbRegion.LEFT_ARM] = (
+		GameEnums.TraumaType.NONE
+	)
+	player.body.blood_level = GameEnums.SCALE_MAX
 	arena.command_adapter.refresh_snapshot()
 	snapshot = arena.command_adapter.get_snapshot()
 	if snapshot.get("actions", []).is_empty():
@@ -666,33 +687,53 @@ func _run() -> void:
 		_fail("STRIKE still exposed manual limb targeting.")
 		return
 	if not _snapshot_has_action(snapshot, GameEnums.ActionType.PULL_FOLLOW):
-		_fail("PULL / FOLLOW was unavailable in a valid Melee Lock.")
+		_fail("PULL was unavailable in a valid Melee Lock.")
 		return
+	if not _snapshot_has_action(snapshot, GameEnums.ActionType.PUSH_STAY):
+		_fail("PUSH was unavailable in a valid Melee Lock.")
+		return
+	if _snapshot_has_action(snapshot, GameEnums.ActionType.PUSH_FOLLOW):
+		_fail("Deprecated PUSH / FOLLOW appeared in legal Melee Lock actions.")
+		return
+	if _snapshot_has_action(snapshot, GameEnums.ActionType.PULL_STAY):
+		_fail("Deprecated PULL / STAY appeared in legal Melee Lock actions.")
+		return
+	if _snapshot_has_action(snapshot, GameEnums.ActionType.DISENGAGE):
+		_fail("Deprecated BREAK AWAY appeared in legal Melee Lock actions.")
+		return
+	var deprecated_ap_before: int = arena.turn_manager.current_ap_pool
+	for deprecated_action in [
+		GameEnums.ActionType.PUSH_FOLLOW,
+		GameEnums.ActionType.PULL_STAY,
+		GameEnums.ActionType.DISENGAGE,
+	]:
+		if arena.turn_manager.request_action(player, deprecated_action):
+			_fail("Deprecated lock action was accepted by the turn manager.")
+			return
+		if arena.turn_manager.current_ap_pool != deprecated_ap_before:
+			_fail("Rejected deprecated lock action still consumed AP.")
+			return
 	arena.lane_hud._selected_action_group = "melee"
 	arena.lane_hud._action_group_locked_by_user = true
 	arena.lane_hud._command_menu_path.clear()
 	arena.lane_hud._render_actions()
 	var push_root_button := _find_menu_button(arena.lane_hud, "push")
-	if push_root_button == null:
-		_fail("The melee group did not expose a PUSH submenu.")
+	if push_root_button != null:
+		_fail("The melee group still exposes the removed PUSH submenu.")
 		return
-	push_root_button.activate()
-	await process_frame
-	if arena.lane_hud._command_menu_path != ["push"]:
-		_fail("The PUSH submenu did not open from the melee root.")
+	var push_button := _find_action_button(
+		arena.lane_hud,
+		GameEnums.ActionType.PUSH_STAY
+	)
+	if push_button == null:
+		_fail("The melee group did not expose direct PUSH.")
 		return
-	var push_follow_count := 0
-	var push_stay_count := 0
-	for button in arena.lane_hud._action_buttons:
-		var payload: Dictionary = button.get_payload()
-		var descriptor: Dictionary = payload.get("descriptor", {})
-		match int(descriptor.get("action", -1)):
-			GameEnums.ActionType.PUSH_FOLLOW:
-				push_follow_count += 1
-			GameEnums.ActionType.PUSH_STAY:
-				push_stay_count += 1
-	if push_follow_count != 1 or push_stay_count != 1:
-		_fail("The PUSH submenu did not expose FOLLOW and STAY choices.")
+	var pull_button := _find_action_button(
+		arena.lane_hud,
+		GameEnums.ActionType.PULL_FOLLOW
+	)
+	if pull_button == null:
+		_fail("The melee group did not expose direct PULL.")
 		return
 
 	for _sample in range(120):
@@ -779,7 +820,7 @@ func _run() -> void:
 		or arena.lane_manager._find_entity_lane(arena.enemy_core)
 		!= enemy_lane - 1
 	):
-		_fail("PULL / FOLLOW did not move both locked combatants rearward.")
+		_fail("PULL did not move both locked combatants rearward.")
 		return
 
 	arena.turn_manager.halt_loop()
@@ -787,7 +828,7 @@ func _run() -> void:
 	await process_frame
 	print(
 		"[TEST PASS] Combat HUD, Stance recovery safeguards, melee targeting, "
-		+ "Grapple, Execute gating, and Pull / Follow obey the demo rules."
+		+ "Grapple, Execute gating, and Pull obey the demo rules."
 	)
 	quit(0)
 
@@ -824,6 +865,14 @@ func _find_menu_button(hud: CombatLaneHUD, menu: String) -> CombatActionButton:
 			payload.get("mode", "") == "submenu"
 			and payload.get("menu", "") == menu
 		):
+			return button
+	return null
+
+func _find_action_button(hud: CombatLaneHUD, action: int) -> CombatActionButton:
+	for button in hud._action_buttons:
+		var payload: Dictionary = button.get_payload()
+		var descriptor: Dictionary = payload.get("descriptor", {})
+		if int(descriptor.get("action", -1)) == action:
 			return button
 	return null
 

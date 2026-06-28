@@ -160,15 +160,17 @@ describes a tool; Damage Type describes a hit.
   snapshots, validates player intent, spends AP, and routes accepted commands.
 - **Combat Interface** *(prototype):* A replaceable UI projection that displays
   legal actions and emits player intent.
-- **Bottom Command Deck** *(planned Phase 2):* The bottom-screen combat command
+- **Bottom Command Deck:** The bottom-screen combat command
   surface that combines action groups, weapon status, target choices, and
   feedback.
-- **Weapon Card** *(planned Phase 2):* A combat HUD panel for the active weapon
+- **Weapon Card:** A combat HUD panel for the active weapon
   sprite, rounds, capacity, range, and readiness state.
-- **Gun Animation Catalog** *(planned Phase 2):* A presentation-only resolver
+- **Gun Animation Catalog:** A presentation-only resolver
   that maps ranged weapon IDs to `Asset/Guns_Animation/` shoot, reload, empty,
   cycle, casing, shell, and muzzle-flash textures.
 - **Reserved AP:** AP retained for eligible off-turn reactions.
+- **Guard:** The visible pass/reserve combat action. It ends the active turn and
+  banks remaining AP as Reserved AP for eligible reactions.
 - **Reaction Window:** A bounded opportunity to answer an action with a legal
   reaction.
 - **Combat Outcome:** The shared result emitted when combat ends.
@@ -181,7 +183,7 @@ describes a tool; Damage Type describes a hit.
   Limb Region and deals `0` Stance Damage.
 - **Strike:** A melee attack whose impact region is resolved randomly from all
   non-head Limb Regions.
-- **BREAK:** A braced melee Stance attack costing MINOR AP. It may Fell an
+- **BREAK STANCE:** A braced melee Stance attack costing MINOR AP. It may Fell an
   already-Stumbling target but ordinary use cannot knock a Planted target
   directly to `0`. Its low cost enables stance-erosion combos.
 - **Grapple:** An opposed base-12 takedown check. Success fells the defender;
@@ -193,16 +195,19 @@ describes a tool; Damage Type describes a hit.
 - **GET UP:** Spend HEAVY AP to rise from Felled with `6`
   Stance and Recovery Guard. The remaining AP allows defensive actions
   or an immediate counter.
-- **Pull / Follow:** While Melee Locked, drag the opponent one lane toward the
-  initiator's rear and follow into that lane, preserving the lock.
-- **Disengage:** Break away from a Melee Lock and retreat alone. It is distinct
-  from Pull / Follow.
+- **Push:** While Melee Locked, shove the opponent one lane away, stay in place,
+  and break the lock.
+- **Pull:** While Melee Locked, drag the opponent one lane toward the initiator's
+  rear and follow into that lane, preserving the lock.
+- **Deprecated Lock Actions:** `PUSH_FOLLOW`, `PULL_STAY`, and `DISENGAGE`
+  remain backend compatibility enum values only. They are not legal
+  player-facing actions.
 - **Execute** *(planned trait action):* A finishing command reserved for a future
   trait unlock. It is disabled in the current demo rules.
 - **Grounded Strike:** A Strike against a Felled target automatically targets
-  the HEAD at `1.5×` flesh damage. The target cannot Dodge.
+  the HEAD, prevents Dodge, and gives armed hits a severe damage multiplier.
 - **Fumble Strike:** A free punishment hit triggered when an opponent fails a
-  Grapple or Disengage attempt. No reaction window is opened.
+  Grapple attempt. No reaction window is opened.
 
 ## Macro World
 

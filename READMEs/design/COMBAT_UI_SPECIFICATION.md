@@ -33,14 +33,14 @@ when the lock ends.
 - Display only owner-validated legal actions and their exact AP costs.
 - Group legal actions into readable command types:
   - Firearm: SHOOT, AIMED SHOT, RELOAD, CYCLE.
-  - Movement: GET UP, ADVANCE, RETREAT, BEGIN ESCAPE, CHARGE, DISENGAGE.
-  - Melee: STRIKE, GRAPPLE, BREAK, PUSH, PULL, EXECUTE.
-  - Field: TAKE COVER and PASS / RESERVE.
+  - Movement: GET UP, ADVANCE, RETREAT, BEGIN ESCAPE, CHARGE.
+  - Melee: STRIKE, GRAPPLE, BREAK STANCE, PUSH, PULL, EXECUTE.
+  - Field: TAKE COVER and GUARD.
   - Items: legal combat consumables.
   - Reaction: legal off-turn responses.
 - Support both pointer input and visible keyboard shortcuts. Suggested Phase 2
   mapping is `Q` / `E` for group cycling, `1-6` for actions in the active
-  group, and `0` for pass or decline.
+  group, and `0` for GUARD or reaction decline.
 - Request target limbs or Runtime Item Instance IDs only after an action requires
   them.
 - Present AIMED SHOT limb selection as visible target choices. Right-click
@@ -70,6 +70,20 @@ The first implementation milestone is static: bottom deck, grouped actions,
 weapon sprite, ammo, range, and state. The second milestone adds the animated
 gun feedback layer.
 
+## Combat Flow
+
+- `PUSH` maps to backend `PUSH_STAY`: perform the leverage check, shove the
+  target away, keep the initiator in place, break Melee Lock, and restore normal
+  non-lock actions if AP and lane rules still allow them.
+- `PULL` maps to backend `PULL_FOLLOW`: perform the leverage check, drag both
+  combatants together, and preserve Melee Lock.
+- `BREAK STANCE` is low-cost stance pressure. Ordinary stance damage floors at
+  `1`; explicit takedowns such as `GRAPPLE` create Felled openings.
+- `GUARD` is the visible form of pass/reserve: end the active turn and bank the
+  remaining AP for eligible reactions.
+- Deprecated backend values `PUSH_FOLLOW`, `PULL_STAY`, and `DISENGAGE` remain
+  compatibility names only and must not appear in player-facing legal actions.
+
 ## Impact Feedback
 
 - Flash the struck anatomical region and update its value immediately.
@@ -77,6 +91,12 @@ gun feedback layer.
 - Distinguish Flesh Damage, Stance Damage, collapse, and death visually.
 - Do not present ballistic impact as Stance loss; firearm hits update the
   resolved Limb Region.
+- Surface combat bleeding as turn-flow pressure: active bleeding wounds drain
+  Blood during combat turns, emit visible log entries, update body panels, and
+  can kill through existing vital failure.
+- Grounded armed strikes against Felled targets should read as severe payoff:
+  priority target region, no dodge, stronger weapon damage, and clear trauma
+  feedback. Unarmed grounded strikes stay weaker.
 - Keep the combat log readable after effects finish.
 
 ## Reaction Window
@@ -85,10 +105,11 @@ When CombatCore exposes a reaction:
 
 ```text
 [!] REACTION WINDOW - INCOMING ATTACK [!]
-[ DODGE (AP) ]  [ BLOCK (AP) ]  [ PASS ]
+[ DODGE (AP) ]  [ BLOCK (AP) ]  [ DECLINE ]
 ```
 
 - Dim normal controls and pause turn advancement.
 - Show only legal reactions with authoritative costs.
+- Explain that reactions spend Guarded / Reserved AP.
 - Close the overlay only after the selected response resolves.
 - Never spend AP or infer reaction availability inside the UI.

@@ -85,7 +85,6 @@ const TACTIC_MULTIPLIERS := {
 		GameEnums.ActionType.RELOAD: 2.0,
 		GameEnums.ActionType.CYCLE: 2.0,
 		GameEnums.ActionType.TAKE_COVER: 1.5,
-		GameEnums.ActionType.DISENGAGE: 2.0,
 		GameEnums.ActionType.MOVE_BACKWARD: 1.5,
 		GameEnums.ActionType.CHARGE: 0.1,
 		GameEnums.ActionType.GRAPPLE: 0.0,
@@ -95,7 +94,7 @@ const TACTIC_MULTIPLIERS := {
 		GameEnums.ActionType.CHARGE: 2.5,
 		GameEnums.ActionType.GRAPPLE: 2.5,
 		GameEnums.ActionType.STRIKE: 1.5,
-		GameEnums.ActionType.PUSH_FOLLOW: 2.0,
+		GameEnums.ActionType.PUSH_STAY: 2.0,
 		GameEnums.ActionType.MOVE_FORWARD: 2.0,
 		GameEnums.ActionType.SHOOT: 0.5,
 		GameEnums.ActionType.TAKE_COVER: 0.0,
@@ -119,7 +118,7 @@ const TACTIC_MULTIPLIERS := {
 
 const SURVIVAL_MULTIPLIERS := {
 	GameEnums.ActionType.USE_ITEM: 3.0,
-	GameEnums.ActionType.DISENGAGE: 3.0,
+	GameEnums.ActionType.PUSH_STAY: 3.0,
 	GameEnums.ActionType.MOVE_BACKWARD: 2.5,
 	GameEnums.ActionType.TAKE_COVER: 2.5,
 	GameEnums.ActionType.GET_UP: 3.0,
