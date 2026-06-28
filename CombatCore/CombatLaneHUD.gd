@@ -14,6 +14,7 @@ const ACTION_BUTTON_GAP := Vector2(10.0, 8.0)
 const ACTION_BUTTON_COLUMNS := 4
 const GROUP_BUTTON_SIZE := Vector2(98.0, 30.0)
 const WEAPON_CARD_SIZE := Vector2(232.0, 168.0)
+const TOP_WEAPON_CARD_SIZE := Vector2(158.0, 70.0)
 const COMMAND_CONTEXT_SIZE := Vector2(360.0, 196.0)
 const BODY_BAR_SIZE := Vector2(150.0, 10.0)
 const BODY_BAR_GAP := 8.0
@@ -58,6 +59,8 @@ const CAMERA_ZOOM_SPEED := 10.0
 const RESOLVE_PRESENTATION_SECONDS := 1.8
 const RESOLVE_CAMERA_ZOOM := 1.9
 const RESOLVE_PANEL_SIZE := Vector2(430.0, 112.0)
+const CONDITION_FRAME_SIZE := Vector2i(32, 32)
+const CONDITION_ANIMATION_FPS := 2.0
 
 signal action_requested(action: int, target_limb: int, item_instance_id: String)
 signal pass_requested
@@ -89,6 +92,9 @@ var _weapon_animation_frame_size := Vector2i.ONE
 var _weapon_animation_frame_count := 1
 var _weapon_animation_fps := 12.0
 var _combat_log_rows: Array[String] = []
+var _condition_animation_time := 0.0
+var _player_condition_state: Dictionary = {}
+var _enemy_condition_state: Dictionary = {}
 
 # Presentation timing is intentionally independent of the HUD frame.  Keep
 # combat events ordered so movement/impact animations finish before snapshots
@@ -120,6 +126,14 @@ var _player_status_rows: Array[Dictionary] = []
 var _enemy_status_rows: Array[Dictionary] = []
 var _player_status_label: Label
 var _enemy_status_label: Label
+var _player_condition_sprite: Sprite2D
+var _enemy_condition_sprite: Sprite2D
+var _player_top_label: Label
+var _enemy_top_label: Label
+var _player_ranged_card: Dictionary = {}
+var _player_melee_card: Dictionary = {}
+var _enemy_ranged_card: Dictionary = {}
+var _enemy_melee_card: Dictionary = {}
 var _weapon_panel_root: Node2D
 var _weapon_panel_box: Polygon2D
 var _weapon_panel_border: Line2D
@@ -194,6 +208,7 @@ func _process(delta: float) -> void:
 	_update_camera_input(delta)
 	_update_camera(delta, viewport_size)
 	_update_weapon_animation(delta)
+	_update_condition_animations(delta)
 	if not _snapshot.is_empty():
 		_sync_actor_huds(viewport_size)
 
@@ -427,6 +442,9 @@ func _layout_screen_hud(viewport_size: Vector2) -> void:
 	)
 	_action_panel_border.global_position = _action_panel_box.global_position
 	_action_panel_frame.global_position = _action_panel_box.global_position
+	# The official B&W pack is an atlas of small pixel elements. Stretching a
+	# tiny region across the whole command deck turns it into white scanline soup.
+	_action_panel_frame.visible = false
 	_action_title_label.global_position = _screen_to_world(
 		action_panel_screen_position + Vector2(14.0, 10.0),
 		viewport_size
@@ -475,6 +493,21 @@ func _layout_screen_hud(viewport_size: Vector2) -> void:
 		viewport_size,
 		ui_scale
 	)
+	_layout_condition_token(
+		_player_condition_sprite,
+		_player_command_rect,
+		_snapshot.get("player", {}),
+		viewport_size,
+		ui_scale
+	)
+	_layout_condition_token(
+		_enemy_condition_sprite,
+		_enemy_status_rect,
+		_snapshot.get("enemy", {}),
+		viewport_size,
+		ui_scale
+	)
+	_layout_top_hud(viewport_size, ui_scale)
 	_sync_duel_portraits(viewport_size)
 
 func _calculate_duel_layout(viewport_size: Vector2) -> void:
@@ -483,6 +516,7 @@ func _calculate_duel_layout(viewport_size: Vector2) -> void:
 	var grid_height := clampf(viewport_size.y * 0.13, 82.0, 116.0)
 	var grid_top := grid_center_y - grid_height * 0.5
 	var side_width := minf(500.0, viewport_size.x * 0.25)
+	var top_width := minf(390.0, side_width)
 	var top_height := maxf(160.0, grid_top - margin * 2.0)
 	var bottom_height := clampf(viewport_size.y * 0.18, 190.0, 236.0)
 	var bottom_y := viewport_size.y - margin - bottom_height
@@ -492,10 +526,10 @@ func _calculate_duel_layout(viewport_size: Vector2) -> void:
 		viewport_size.x - margin * 2.0 - side_width * 2.0 - panel_gap * 2.0
 	)
 
-	_player_top_rect = Rect2(Vector2(margin, margin), Vector2(side_width, top_height))
+	_player_top_rect = Rect2(Vector2(margin, margin), Vector2(top_width, top_height))
 	_enemy_top_rect = Rect2(
-		Vector2(viewport_size.x - margin - side_width, margin),
-		Vector2(side_width, top_height)
+		Vector2(viewport_size.x - margin - top_width, margin),
+		Vector2(top_width, top_height)
 	)
 	_player_bottom_rect = Rect2(
 		Vector2(margin, bottom_y),
@@ -581,14 +615,30 @@ func _layout_duel_shell(viewport_size: Vector2, ui_scale: Vector2) -> void:
 	_duel_layout_shell.visible = not _snapshot.is_empty()
 	if not _duel_layout_shell.visible:
 		return
-	_player_top_panel_box.visible = false
-	_player_top_panel_border.visible = false
-	_enemy_top_panel_box.visible = false
-	_enemy_top_panel_border.visible = false
+	_player_top_panel_box.visible = true
+	_player_top_panel_border.visible = true
+	_enemy_top_panel_box.visible = true
+	_enemy_top_panel_border.visible = true
+	_place_panel(_player_top_panel_box, _player_top_panel_border, _player_top_rect, viewport_size, ui_scale)
+	_place_panel(_enemy_top_panel_box, _enemy_top_panel_border, _enemy_top_rect, viewport_size, ui_scale)
 	_place_panel(_player_bottom_panel_box, _player_bottom_panel_border, _player_bottom_rect, viewport_size, ui_scale)
 	_place_panel(_enemy_bottom_panel_box, _enemy_bottom_panel_border, _enemy_bottom_rect, viewport_size, ui_scale)
-	_place_panel(_player_portrait_plate, _player_portrait_border, _player_portrait_rect, viewport_size, ui_scale)
-	_place_panel(_enemy_portrait_plate, _enemy_portrait_border, _enemy_portrait_rect, viewport_size, ui_scale)
+	_place_blood_portrait_plate(
+		_player_portrait_plate,
+		_player_portrait_border,
+		_player_portrait_rect,
+		_snapshot.get("player", {}),
+		viewport_size,
+		ui_scale
+	)
+	_place_blood_portrait_plate(
+		_enemy_portrait_plate,
+		_enemy_portrait_border,
+		_enemy_portrait_rect,
+		_snapshot.get("enemy", {}),
+		viewport_size,
+		ui_scale
+	)
 	_player_command_rail.visible = true
 	_enemy_status_rail.visible = true
 
@@ -615,6 +665,104 @@ func _layout_weapon_card(viewport_size: Vector2, ui_scale: Vector2) -> void:
 	_weapon_state_label.size = Vector2(_weapon_card_rect.size.x - 20.0, 20.0)
 	_weapon_detail_label.position = Vector2(12.0, _weapon_card_rect.size.y - 22.0)
 	_weapon_detail_label.size = Vector2(_weapon_card_rect.size.x - 20.0, 20.0)
+
+func _layout_top_hud(viewport_size: Vector2, ui_scale: Vector2) -> void:
+	_layout_top_status_side(
+		_player_top_rect,
+		_player_top_label,
+		_player_ranged_card,
+		_player_melee_card,
+		_snapshot.get("player", {}),
+		"YOU",
+		viewport_size,
+		ui_scale
+	)
+	_layout_top_status_side(
+		_enemy_top_rect,
+		_enemy_top_label,
+		_enemy_ranged_card,
+		_enemy_melee_card,
+		_snapshot.get("enemy", {}),
+		"HOSTILE",
+		viewport_size,
+		ui_scale
+	)
+
+func _layout_top_status_side(
+	rect: Rect2,
+	status_label: Label,
+	ranged_card: Dictionary,
+	melee_card: Dictionary,
+	data: Dictionary,
+	_heading: String,
+	viewport_size: Vector2,
+	ui_scale: Vector2
+) -> void:
+	if status_label == null:
+		return
+	var visible_side := not _snapshot.is_empty() and not data.is_empty()
+	status_label.visible = visible_side
+	_set_weapon_card_visible(ranged_card, visible_side)
+	_set_weapon_card_visible(melee_card, visible_side)
+	if not visible_side:
+		return
+	status_label.global_position = _screen_to_world(
+		rect.position + Vector2(14.0, 10.0),
+		viewport_size
+	)
+	status_label.scale = ui_scale
+	status_label.size = Vector2(rect.size.x - 28.0, 56.0)
+	var card_gap := 8.0
+	var card_width := minf(
+		TOP_WEAPON_CARD_SIZE.x,
+		(rect.size.x - 28.0 - card_gap) * 0.5
+	)
+	var card_height := minf(TOP_WEAPON_CARD_SIZE.y, maxf(58.0, rect.size.y - 78.0))
+	var card_y := rect.position.y + 76.0
+	var left_rect := Rect2(
+		Vector2(rect.position.x + 14.0, card_y),
+		Vector2(card_width, card_height)
+	)
+	var right_rect := Rect2(
+		Vector2(left_rect.end.x + card_gap, card_y),
+		Vector2(card_width, card_height)
+	)
+	_layout_top_weapon_card(ranged_card, left_rect, viewport_size, ui_scale)
+	_layout_top_weapon_card(melee_card, right_rect, viewport_size, ui_scale)
+
+func _layout_top_weapon_card(
+	card: Dictionary,
+	rect: Rect2,
+	viewport_size: Vector2,
+	ui_scale: Vector2
+) -> void:
+	var root := card.get("root") as Node2D
+	if root == null:
+		return
+	root.global_position = _screen_to_world(rect.position, viewport_size)
+	root.scale = ui_scale
+	_set_box(card.get("box") as Polygon2D, rect.size)
+	_set_outline(card.get("border") as Line2D, rect.size)
+	var sprite := card.get("sprite") as Sprite2D
+	if sprite:
+		sprite.position = Vector2(34.0, rect.size.y * 0.55)
+	var title := card.get("title") as Label
+	if title:
+		title.position = Vector2(9.0, 6.0)
+		title.size = Vector2(rect.size.x - 18.0, 16.0)
+	var name_label := card.get("name") as Label
+	if name_label:
+		name_label.position = Vector2(66.0, 23.0)
+		name_label.size = Vector2(maxf(44.0, rect.size.x - 72.0), 18.0)
+	var detail := card.get("detail") as Label
+	if detail:
+		detail.position = Vector2(66.0, 42.0)
+		detail.size = Vector2(maxf(44.0, rect.size.x - 72.0), rect.size.y - 44.0)
+
+func _set_weapon_card_visible(card: Dictionary, visible_card: bool) -> void:
+	var root := card.get("root") as Node2D
+	if root:
+		root.visible = visible_card
 
 func _layout_group_tabs(viewport_size: Vector2, ui_scale: Vector2) -> void:
 	if _group_tab_root == null:
@@ -666,6 +814,40 @@ func _place_panel(
 	box.global_position = _screen_to_world(rect.position, viewport_size)
 	border.global_position = box.global_position
 	box.scale = ui_scale
+	border.scale = ui_scale
+
+func _place_blood_portrait_plate(
+	plate: Polygon2D,
+	border: Line2D,
+	rect: Rect2,
+	data: Dictionary,
+	viewport_size: Vector2,
+	ui_scale: Vector2
+) -> void:
+	var blood_ratio := clampf(
+		float(data.get("blood", GameEnums.SCALE_MAX)) / GameEnums.SCALE_MAX,
+		0.0,
+		1.0
+	)
+	var fill_height := maxf(4.0, rect.size.y * blood_ratio)
+	var fill_rect := Rect2(
+		Vector2(0.0, rect.size.y - fill_height),
+		Vector2(rect.size.x, fill_height)
+	)
+	_set_box(plate, fill_rect.size)
+	plate.position = fill_rect.position
+	_set_outline(border, rect.size)
+	var danger := 1.0 - blood_ratio
+	plate.color = Color(
+		lerpf(0.42, 0.86, danger),
+		lerpf(0.10, 0.04, danger),
+		lerpf(0.09, 0.06, danger),
+		lerpf(0.48, 0.86, danger)
+	)
+	var origin := _screen_to_world(rect.position, viewport_size)
+	plate.global_position = origin + fill_rect.position * ui_scale
+	border.global_position = origin
+	plate.scale = ui_scale
 	border.scale = ui_scale
 
 func _layout_body_status_panel(
@@ -731,6 +913,117 @@ func _layout_limb_row(row: Dictionary, limb: Dictionary, row_position: Vector2) 
 		trauma_text,
 	]
 
+func _layout_condition_token(
+	sprite: Sprite2D,
+	rect: Rect2,
+	data: Dictionary,
+	viewport_size: Vector2,
+	ui_scale: Vector2
+) -> void:
+	if sprite == null:
+		return
+	sprite.visible = not data.is_empty()
+	if not sprite.visible:
+		return
+	sprite.global_position = _screen_to_world(
+		rect.position + Vector2(rect.size.x - 22.0, 22.0),
+		viewport_size
+	)
+	sprite.scale = ui_scale * 1.85
+	sprite.z_index = 54
+	_apply_condition_frame(sprite, data)
+
+func _update_condition_animations(delta: float) -> void:
+	if _snapshot.is_empty():
+		return
+	_condition_animation_time = fmod(
+		_condition_animation_time + delta,
+		120.0
+	)
+	_apply_condition_frame(_player_condition_sprite, _snapshot.get("player", {}))
+	_apply_condition_frame(_enemy_condition_sprite, _snapshot.get("enemy", {}))
+
+func _apply_condition_frame(sprite: Sprite2D, data: Dictionary) -> void:
+	if sprite == null or data.is_empty():
+		if sprite != null:
+			sprite.visible = false
+		return
+	var condition := _condition_state_for(data)
+	var state := _condition_state_for_sprite(sprite)
+	var texture: Texture2D = state.get("texture", null) as Texture2D
+	var condition_changed := str(state.get("condition", "")) != condition
+	if condition_changed or texture == null:
+		texture = HUDAssetLibrary.condition_sheet(condition)
+		state = {
+			"condition": condition,
+			"texture": texture,
+			"frame": -1,
+			"frame_count": 1,
+		}
+		if texture != null:
+			state["frame_count"] = maxi(
+				1,
+				int(floor(float(texture.get_width()) / float(CONDITION_FRAME_SIZE.x)))
+			)
+		_set_condition_state_for_sprite(sprite, state)
+	if texture == null:
+		sprite.visible = false
+		return
+	if sprite.texture != texture:
+		sprite.texture = texture
+	sprite.visible = true
+	sprite.region_enabled = true
+	var frame_count := int(state.get("frame_count", 1))
+	var frame := int(floor(_condition_animation_time * CONDITION_ANIMATION_FPS)) % frame_count
+	if int(state.get("frame", -1)) == frame:
+		return
+	state["frame"] = frame
+	_set_condition_state_for_sprite(sprite, state)
+	sprite.region_rect = Rect2(
+		Vector2(float(frame * CONDITION_FRAME_SIZE.x), 0.0),
+		Vector2(float(CONDITION_FRAME_SIZE.x), float(CONDITION_FRAME_SIZE.y))
+	)
+
+func _condition_state_for_sprite(sprite: Sprite2D) -> Dictionary:
+	if sprite == _enemy_condition_sprite:
+		return _enemy_condition_state
+	return _player_condition_state
+
+func _set_condition_state_for_sprite(sprite: Sprite2D, state: Dictionary) -> void:
+	if sprite == _enemy_condition_sprite:
+		_enemy_condition_state = state
+	else:
+		_player_condition_state = state
+
+func _condition_state_for(data: Dictionary) -> String:
+	if bool(data.get("stance_recovery_guard", false)):
+		return "healing"
+	var blood_ratio := clampf(
+		float(data.get("blood", GameEnums.SCALE_MAX)) / GameEnums.SCALE_MAX,
+		0.0,
+		1.0
+	)
+	var has_bleeding := false
+	var has_serious_trauma := false
+	var worst_limb_ratio := 1.0
+	for limb in data.get("limbs", []):
+		var limb_data: Dictionary = limb
+		var maximum := maxf(1.0, float(limb_data.get("maximum", 1.0)))
+		var current := clampf(float(limb_data.get("current", maximum)), 0.0, maximum)
+		worst_limb_ratio = minf(worst_limb_ratio, current / maximum)
+		var trauma := str(limb_data.get("trauma", "NONE"))
+		if trauma == "BLEEDING":
+			has_bleeding = true
+		if trauma in ["SHATTERED_LIMB", "ORGAN_FAILURE", "BURNT"]:
+			has_serious_trauma = true
+	if blood_ratio <= 0.35 or worst_limb_ratio <= 0.25 or has_serious_trauma:
+		return "danger"
+	if has_bleeding:
+		return "precaution_o"
+	if blood_ratio <= 0.75 or worst_limb_ratio <= 0.70:
+		return "precaution_y"
+	return "fine"
+
 func _body_status_title(data: Dictionary, heading: String) -> String:
 	var active := " ACTIVE" if data.get("is_active", false) else ""
 	var guard := " GUARD" if data.get("stance_recovery_guard", false) else ""
@@ -783,6 +1076,7 @@ func _render() -> void:
 		_sync_duel_portraits(get_viewport_rect().size)
 		_grid_hover_card.hide_card()
 		_render_weapon_card()
+		_render_top_hud()
 		_render_actions()
 		_render_command_context()
 		_render_feedback()
@@ -791,6 +1085,7 @@ func _render() -> void:
 	_context_board.show_snapshot(_snapshot)
 	_sync_actor_huds(get_viewport_rect().size)
 	_render_weapon_card()
+	_render_top_hud()
 	_render_actions()
 	_render_command_context()
 	_render_feedback()
@@ -806,6 +1101,10 @@ func _setup_action_panel() -> void:
 		"neutral",
 		ACTION_PANEL_SIZE
 	)
+	_action_panel_frame.z_index = 33
+	_action_panel_border.z_index = 34
+	_action_title_label.z_index = 35
+	_action_button_root.z_index = 35
 	_action_title_label.text = "ACTIONS"
 	_setup_weapon_card()
 	_setup_group_tabs()
@@ -872,6 +1171,56 @@ func _make_deck_label(label_name: String, parent: Node, font_size: int) -> Label
 	parent.add_child(label)
 	return label
 
+func _make_top_weapon_card(card_name: String) -> Dictionary:
+	var root := Node2D.new()
+	root.name = card_name
+	root.z_index = 35
+	add_child(root)
+
+	var box := Polygon2D.new()
+	box.name = "Box"
+	box.color = Color(0.048, 0.044, 0.036, 0.92)
+	root.add_child(box)
+
+	var border := Line2D.new()
+	border.name = "Border"
+	border.default_color = Color(COLOR_ACTION_BORDER, 0.68)
+	border.width = 1.0
+	root.add_child(border)
+
+	var sprite := Sprite2D.new()
+	sprite.name = "Sprite"
+	sprite.centered = true
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.z_index = 1
+	root.add_child(sprite)
+
+	var title := _make_deck_label("Title", root, 9)
+	title.z_index = 2
+	var name_label := _make_deck_label("Name", root, 10)
+	name_label.z_index = 2
+	var detail := _make_deck_label("Detail", root, 9)
+	detail.z_index = 2
+
+	return {
+		"root": root,
+		"box": box,
+		"border": border,
+		"sprite": sprite,
+		"title": title,
+		"name": name_label,
+		"detail": detail,
+	}
+
+func _make_condition_sprite(sprite_name: String) -> Sprite2D:
+	var sprite := Sprite2D.new()
+	sprite.name = sprite_name
+	sprite.centered = true
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.region_enabled = true
+	sprite.visible = false
+	return sprite
+
 func _setup_duel_layout_shell() -> void:
 	for polygon in [
 		_player_top_panel_box,
@@ -903,6 +1252,18 @@ func _setup_duel_layout_shell() -> void:
 	)
 	_player_status_rows = _build_limb_rows(_player_command_rail)
 	_enemy_status_rows = _build_limb_rows(_enemy_status_rail)
+	_player_condition_sprite = _make_condition_sprite("PlayerConditionToken")
+	add_child(_player_condition_sprite)
+	_enemy_condition_sprite = _make_condition_sprite("EnemyConditionToken")
+	add_child(_enemy_condition_sprite)
+	_player_top_label = _make_deck_label("PlayerTopStatusLabel", self, 15)
+	_player_top_label.z_index = 35
+	_enemy_top_label = _make_deck_label("EnemyTopStatusLabel", self, 15)
+	_enemy_top_label.z_index = 35
+	_player_ranged_card = _make_top_weapon_card("PlayerRangedWeaponCard")
+	_player_melee_card = _make_top_weapon_card("PlayerMeleeWeaponCard")
+	_enemy_ranged_card = _make_top_weapon_card("EnemyRangedWeaponCard")
+	_enemy_melee_card = _make_top_weapon_card("EnemyMeleeWeaponCard")
 
 func _setup_resolve_screen() -> void:
 	_resolve_screen_root = Node2D.new()
@@ -1800,6 +2161,123 @@ func _render_weapon_card() -> void:
 		max_height / maxf(1.0, texture_size.y)
 	)
 	_weapon_sprite.scale = Vector2.ONE * scale_factor
+
+func _render_top_hud() -> void:
+	if _snapshot.is_empty():
+		if _player_top_label:
+			_player_top_label.visible = false
+		if _enemy_top_label:
+			_enemy_top_label.visible = false
+		for card in [
+			_player_ranged_card,
+			_player_melee_card,
+			_enemy_ranged_card,
+			_enemy_melee_card,
+		]:
+			_set_weapon_card_visible(card, false)
+		return
+	var player: Dictionary = _snapshot.get("player", {})
+	var enemy: Dictionary = _snapshot.get("enemy", {})
+	if _player_top_label:
+		_player_top_label.text = _top_status_text(player, "YOU")
+	if _enemy_top_label:
+		_enemy_top_label.text = _top_status_text(enemy, "HOSTILE")
+	_render_top_weapon_card(_player_ranged_card, player.get("ranged_weapon", {}), "RANGED")
+	_render_top_weapon_card(_player_melee_card, player.get("melee_weapon", {}), "MELEE")
+	_render_top_weapon_card(_enemy_ranged_card, enemy.get("ranged_weapon", {}), "RANGED")
+	_render_top_weapon_card(_enemy_melee_card, enemy.get("melee_weapon", {}), "MELEE")
+
+func _top_status_text(data: Dictionary, heading: String) -> String:
+	if data.is_empty():
+		return heading + " // NO SIGNAL"
+	var enemy: Dictionary = _snapshot.get("enemy", {})
+	var player: Dictionary = _snapshot.get("player", {})
+	var range_text := "--"
+	if not enemy.is_empty() and not player.is_empty():
+		range_text = "%02d" % absi(
+			int(player.get("lane", -1))
+			- int(enemy.get("lane", -1))
+		)
+	var active := " *" if data.get("is_active", false) else ""
+	var ap_text := (
+		"%02d" % int(_snapshot.get("ap", 0))
+		if data.get("is_active", false)
+		else "--"
+	)
+	return (
+		"%s%s   AP %s   RES %02d\n"
+		+ "BLOOD %04.1f   STANCE %02d\n"
+		+ "LANE %02d   RANGE %s"
+	) % [
+		heading,
+		active,
+		ap_text,
+		int(data.get("reserved_ap", 0)),
+		float(data.get("blood", 0.0)),
+		int(data.get("stance", 0)),
+		int(data.get("lane", -1)),
+		range_text,
+	]
+
+func _render_top_weapon_card(card: Dictionary, weapon: Dictionary, slot_label: String) -> void:
+	var root := card.get("root") as Node2D
+	if root == null:
+		return
+	var title := card.get("title") as Label
+	var name_label := card.get("name") as Label
+	var detail := card.get("detail") as Label
+	var sprite := card.get("sprite") as Sprite2D
+	if title:
+		title.text = slot_label
+	if weapon.is_empty():
+		if name_label:
+			name_label.text = "UNARMED" if slot_label == "MELEE" else "NONE"
+		if detail:
+			detail.text = "NO SLOT WEAPON"
+		if sprite:
+			sprite.texture = null
+			sprite.visible = false
+		return
+	if name_label:
+		name_label.text = str(weapon.get("display_name", "WEAPON")).to_upper()
+	if detail:
+		detail.text = _weapon_slot_detail(weapon, slot_label)
+	if sprite:
+		sprite.texture = _load_weapon_texture(str(weapon.get("sprite_path", "")))
+		sprite.visible = sprite.texture != null
+		if sprite.texture:
+			sprite.region_enabled = false
+			var texture_size := Vector2(
+				float(sprite.texture.get_width()),
+				float(sprite.texture.get_height())
+			)
+			var max_size := Vector2(48.0, 42.0)
+			var scale_factor := minf(
+				max_size.x / maxf(1.0, texture_size.x),
+				max_size.y / maxf(1.0, texture_size.y)
+			)
+			sprite.scale = Vector2.ONE * scale_factor
+
+func _weapon_slot_detail(weapon: Dictionary, slot_label: String) -> String:
+	if slot_label == "RANGED":
+		var state := str(weapon.get("state", "READY"))
+		return "AMMO %02d/%02d\nRANGE %02d-%02d%s" % [
+			int(weapon.get("current_magazine", 0)),
+			int(weapon.get("max_magazine", 0)),
+			int(weapon.get("optimal_range", 0)),
+			int(weapon.get("effective_range", 0)),
+			(" " + state) if state != "READY" else "",
+		]
+	var damage_type := "DMG"
+	var damage_index := int(weapon.get("damage_type", GameEnums.DamageType.BLUNT))
+	if damage_index >= 0 and damage_index < GameEnums.DamageType.keys().size():
+		damage_type = str(GameEnums.DamageType.keys()[damage_index])
+	return "%s\nDMG %02.0f STN %02.0f PEN %02.0f" % [
+		damage_type,
+		float(weapon.get("flesh_damage", 0.0)),
+		float(weapon.get("stance_damage", 0.0)),
+		float(weapon.get("armor_penetration", 0.0)),
+	]
 
 func _configure_weapon_sprite_sheet(
 	texture: Texture2D,

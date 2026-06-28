@@ -218,6 +218,89 @@ func _run() -> void:
 	):
 		_fail("The bottom weapon card did not render firearm state.")
 		return
+	if (
+		not hud_snapshot.get("player", {}).has("ranged_weapon")
+		or not hud_snapshot.get("player", {}).has("melee_weapon")
+		or not hud_snapshot.get("enemy", {}).has("ranged_weapon")
+		or not hud_snapshot.get("enemy", {}).has("melee_weapon")
+	):
+		_fail("Combat snapshots did not expose per-side ranged/melee weapons.")
+		return
+	if (
+		not arena.lane_hud._player_top_label.visible
+		or not arena.lane_hud._enemy_top_label.visible
+		or not arena.lane_hud._player_top_label.text.contains("YOU")
+		or not arena.lane_hud._enemy_top_label.text.contains("HOSTILE")
+		or not arena.lane_hud._player_top_label.text.contains("AP")
+		or not arena.lane_hud._player_top_label.text.contains("BLOOD")
+		or not arena.lane_hud._player_top_label.text.contains("STANCE")
+	):
+		_fail("The top combat HUD did not render essential side summaries.")
+		return
+	if (
+		(arena.lane_hud._player_ranged_card.get("name") as Label).text.is_empty()
+		or (arena.lane_hud._player_melee_card.get("name") as Label).text.is_empty()
+		or (arena.lane_hud._enemy_ranged_card.get("name") as Label).text.is_empty()
+		or (arena.lane_hud._enemy_melee_card.get("name") as Label).text.is_empty()
+	):
+		_fail("The top combat HUD did not render all weapon boxes.")
+		return
+	var full_blood_fill_height := arena.lane_hud._player_portrait_plate.polygon[2].y
+	if (
+		arena.lane_hud._player_condition_sprite.texture == null
+		or not arena.lane_hud._player_condition_sprite.region_enabled
+		or not str(
+			arena.lane_hud._player_condition_sprite.texture.resource_path
+		).contains("Asset/UI/revampedHUD/Condition")
+	):
+		_fail("The player health section did not render a Condition animation.")
+		return
+	if CombatLaneHUD.CONDITION_ANIMATION_FPS > 5.0:
+		_fail("The Condition token animation is too fast for readable HUD use.")
+		return
+	var player_condition_data: Dictionary = arena.lane_hud.get_snapshot().get("player", {})
+	arena.lane_hud._condition_animation_time = 0.01
+	arena.lane_hud._apply_condition_frame(
+		arena.lane_hud._player_condition_sprite,
+		player_condition_data
+	)
+	var steady_condition_texture := arena.lane_hud._player_condition_sprite.texture
+	var steady_condition_region := arena.lane_hud._player_condition_sprite.region_rect
+	arena.lane_hud._condition_animation_time = 0.10
+	arena.lane_hud._apply_condition_frame(
+		arena.lane_hud._player_condition_sprite,
+		player_condition_data
+	)
+	if (
+		arena.lane_hud._player_condition_sprite.texture != steady_condition_texture
+		or arena.lane_hud._player_condition_sprite.region_rect != steady_condition_region
+	):
+		_fail("The Condition token did not hold a readable frame between animation steps.")
+		return
+	if (
+		arena.lane_hud._enemy_condition_sprite.texture == null
+		or not arena.lane_hud._enemy_condition_sprite.region_enabled
+	):
+		_fail("The enemy health section did not render a Condition animation.")
+		return
+	player.body.blood_level = GameEnums.SCALE_MAX * 0.5
+	arena.command_adapter.refresh_snapshot()
+	await process_frame
+	var half_blood_fill_height := arena.lane_hud._player_portrait_plate.polygon[2].y
+	if half_blood_fill_height >= full_blood_fill_height:
+		_fail("The player portrait blood backdrop did not track Blood level.")
+		return
+	player.body.blood_level = 2.0
+	arena.command_adapter.refresh_snapshot()
+	await process_frame
+	if not str(
+		arena.lane_hud._player_condition_sprite.texture.resource_path
+	).contains("ConditionDanger"):
+		_fail("Critical Blood did not switch the Condition token to Danger.")
+		return
+	player.body.blood_level = GameEnums.SCALE_MAX
+	arena.command_adapter.refresh_snapshot()
+	await process_frame
 	arena.lane_manager.lane_slots[8].exit_slot(arena.enemy_core)
 	arena.lane_manager.force_spawn_entity(arena.enemy_core, enemy_opening_lane)
 	arena.command_adapter.refresh_snapshot()

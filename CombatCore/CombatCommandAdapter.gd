@@ -501,6 +501,8 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 	var weapon_descriptor := {}
 	var weapon_state := "UNARMED"
 	var weapon_sprite_path := ""
+	var ranged_weapon := _weapon_slot_snapshot(entity, false)
+	var melee_weapon := _weapon_slot_snapshot(entity, true)
 	var weapon: ItemData = entity.inventory.get_active_weapon(false)
 	if weapon == null:
 		weapon = entity.inventory.get_active_weapon(true)
@@ -539,6 +541,8 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"weapon_sprite_path": weapon_sprite_path,
 		"weapon_state": weapon_state,
 		"active_weapon": weapon_descriptor,
+		"ranged_weapon": ranged_weapon,
+		"melee_weapon": melee_weapon,
 		"equipment": _equipment_snapshot(entity),
 		"both_legs_broken": entity.body.are_both_legs_disabled(),
 		"appearance": HumanoidVisualCatalog.appearance_from_inventory(
@@ -549,6 +553,20 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"reserved_ap": turn_manager.reserved_ap.get(entity, 0),
 		"is_active": turn_manager.get_active_entity() == entity,
 	}
+
+func _weapon_slot_snapshot(entity: HumanoidCore, melee: bool) -> Dictionary:
+	var weapon: ItemData = entity.inventory.get_active_weapon(melee)
+	if weapon == null:
+		return {}
+	var descriptor := weapon.to_definition_state()
+	descriptor["instance_id"] = weapon.instance_id
+	descriptor["current_magazine"] = weapon.current_magazine
+	descriptor["loaded_rounds"] = weapon.loaded_rounds
+	descriptor["needs_cycling"] = weapon.needs_cycling
+	descriptor["sprite_path"] = weapon.get_inventory_sprite_path()
+	descriptor["state"] = _weapon_state_label(weapon)
+	descriptor["slot_label"] = "MELEE" if melee else "RANGED"
+	return descriptor
 
 func _weapon_state_label(weapon: ItemData) -> String:
 	if weapon == null:

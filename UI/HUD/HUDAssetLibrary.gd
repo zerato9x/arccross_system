@@ -25,6 +25,22 @@ const BUTTON_ACTIVE := ROOT + "frames/button_active_64x24.png"
 const BUTTON_DISABLED := ROOT + "frames/button_disabled_64x24.png"
 const BAR_FRAME := ROOT + "bars/bar_frame_96x12.png"
 const USE_HUD_TEXTURES := false
+const REVAMPED_ROOT := "res://Asset/UI/revampedHUD/"
+const BW_ROOT := REVAMPED_ROOT + "B&W_UI_ByAndrox_FREE/HUD/"
+const BW_MENU := BW_ROOT + "menu_transparent.png"
+const BW_COUNTERS := BW_ROOT + "counters_transparent.png"
+const BW_CHARGE_BARS := BW_ROOT + "charge_bars_transparent.png"
+const BW_INVENTORY := BW_ROOT + "inventory_transparent.png"
+const CONDITION_ROOT := REVAMPED_ROOT + "Condition/"
+const CONDITION_FINE := CONDITION_ROOT + "ConditionFine.png"
+const CONDITION_PRECAUTION_Y := CONDITION_ROOT + "ConditionPrecautionY.png"
+const CONDITION_PRECAUTION_O := CONDITION_ROOT + "ConditionPrecautionO.png"
+const CONDITION_DANGER := CONDITION_ROOT + "ConditionDanger.png"
+const CONDITION_HEALING := CONDITION_ROOT + "ConditionHealing.png"
+const CONDITION_INFECTED := CONDITION_ROOT + "ConditionInfected.png"
+const BW_BUTTON_IDLE_REGION := Rect2(226.0, 13.0, 74.0, 17.0)
+const BW_BUTTON_HOVER_REGION := Rect2(226.0, 39.0, 74.0, 17.0)
+const BW_PANEL_REGION := Rect2(226.0, 13.0, 74.0, 43.0)
 
 static func texture(path: String) -> Texture2D:
 	if not USE_HUD_TEXTURES:
@@ -32,6 +48,34 @@ static func texture(path: String) -> Texture2D:
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return null
 	return load(path) as Texture2D
+
+static func official_texture(path: String) -> Texture2D:
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return null
+	return load(path) as Texture2D
+
+static func official_region(path: String, region: Rect2) -> Texture2D:
+	var source := official_texture(path)
+	if source == null:
+		return null
+	var atlas := AtlasTexture.new()
+	atlas.atlas = source
+	atlas.region = region
+	return atlas
+
+static func condition_sheet(condition: String) -> Texture2D:
+	match condition:
+		"danger":
+			return official_texture(CONDITION_DANGER)
+		"healing":
+			return official_texture(CONDITION_HEALING)
+		"infected":
+			return official_texture(CONDITION_INFECTED)
+		"precaution_o":
+			return official_texture(CONDITION_PRECAUTION_O)
+		"precaution_y":
+			return official_texture(CONDITION_PRECAUTION_Y)
+	return official_texture(CONDITION_FINE)
 
 static func status_icon(name: String) -> Texture2D:
 	return texture(ROOT + "icons/status/%s_32.png" % name)
@@ -154,11 +198,15 @@ static func apply_label(label: Label, role: String = "body") -> void:
 static func texture_panel_sprite(sprite: Sprite2D, _kind: String, _size: Vector2) -> void:
 	if sprite == null:
 		return
-	sprite.texture = null
-	sprite.visible = false
+	sprite.texture = official_region(BW_MENU, BW_PANEL_REGION)
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.visible = sprite.texture != null
 
-static func button_texture(_state: String) -> Texture2D:
-	return null
+static func button_texture(state: String) -> Texture2D:
+	var region := BW_BUTTON_IDLE_REGION
+	if state == "hover" or state == "pressed":
+		region = BW_BUTTON_HOVER_REGION
+	return official_region(BW_MENU, region)
 
 static func pocket_slot_style(active: bool = false) -> StyleBox:
 	var background := Color("#171a14") if active else COLOR_SLOT
