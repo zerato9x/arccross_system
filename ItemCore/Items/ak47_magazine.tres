@@ -14,5 +14,3 @@ size_cost = 0
 target_slot = 9
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Rifle/ak47_magazine.png"
 weight = 0.2
-accepted_ammunition_id = "rifle_round"
-magazine_capacity = 31

@@ -34,8 +34,7 @@ var _last_persistence_error: String = ""
 func _ready() -> void:
 	if Engine.is_editor_hint() or OS.get_cmdline_args().has("--script"):
 		return
-	if has_save_file():
-		load_from_disk()
+	# Start waiting for MainMenu to load/start instead of autoloading.
 
 func begin_new_world(seed: String) -> void:
 	world_seed = seed
@@ -238,6 +237,36 @@ func take_ground_item(coords: Vector2i, instance_id: String) -> Dictionary:
 
 func has_ground_items(coords: Vector2i) -> bool:
 	return ground_item_records.has(coords) and ground_item_records[coords].size() > 0
+
+func get_slot_path(slot: int) -> String:
+	return "user://arccross_save_%d.json" % slot
+
+func get_save_metadata(slot: int) -> Dictionary:
+	var path := get_slot_path(slot)
+	if not FileAccess.file_exists(path):
+		return {}
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var json := JSON.new()
+	var error := json.parse(file.get_as_text())
+	file.close()
+	if error != OK or not json.data is Dictionary:
+		return {}
+	var data: Dictionary = json.data
+	return {
+		"slot": slot,
+		"timestamp": Time.get_datetime_string_from_unix_time(FileAccess.get_modified_time(path)),
+		"world_time_minutes": int(data.get("world_time_minutes", 0)),
+		"world_seed": str(data.get("world_seed", "")),
+		"version": int(data.get("version", -1))
+	}
+
+func save_to_slot(slot: int) -> bool:
+	return save_to_disk(get_slot_path(slot))
+
+func load_from_slot(slot: int) -> bool:
+	return load_from_disk(get_slot_path(slot))
 
 func save_to_disk(path: String = DEFAULT_SAVE_PATH) -> bool:
 	_last_persistence_error = ""

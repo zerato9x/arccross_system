@@ -14,5 +14,5 @@ size_cost = 1
 target_slot = 9
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/Chest/webbing_service.png"
 weight = 0.5
-capacity_bonus = 4
+capacity_bonus = 2
 equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Chest/equip_webbing_service.png", "res://Asset/Innawoods_Asset/Equipments/Chest/equip_webbing_service_2.png"])

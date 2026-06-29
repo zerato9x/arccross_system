@@ -151,15 +151,16 @@ func _process(delta: float) -> void:
 
 	_frame_time += delta * _animation_speed_scale
 	var fps := HumanoidVisualCatalog.animation_fps(_animation)
+	var max_frames := HumanoidVisualCatalog.animation_frames(_animation)
 	var next_frame := int(floor(_frame_time * fps))
 	if HumanoidVisualCatalog.animation_loops(_animation):
 		next_frame = posmod(
 			next_frame,
-			HumanoidVisualCatalog.FRAME_COLUMNS
+			max_frames
 		)
-	elif next_frame >= HumanoidVisualCatalog.FRAME_COLUMNS:
+	elif next_frame >= max_frames:
 		if _animation == "Die":
-			next_frame = HumanoidVisualCatalog.FRAME_COLUMNS - 1
+			next_frame = max_frames - 1
 		else:
 			play_animation(_return_animation)
 			return

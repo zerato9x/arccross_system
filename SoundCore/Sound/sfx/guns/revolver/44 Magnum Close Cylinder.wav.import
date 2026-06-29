@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://cod7vtmkhbixh"
+path="res://.godot/imported/44 Magnum Close Cylinder.wav-eeb562fd320ec3a4f00117f2e0aece62.sample"
+
+[deps]
+
+source_file="res://SoundCore/Sound/sfx/guns/revolver/44 Magnum Close Cylinder.wav"
+dest_files=["res://.godot/imported/44 Magnum Close Cylinder.wav-eeb562fd320ec3a4f00117f2e0aece62.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

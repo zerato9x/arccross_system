@@ -14,4 +14,3 @@ size_cost = 0
 target_slot = 9
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Ammo/shell.png"
 weight = 0.05
-max_stack_size = 12

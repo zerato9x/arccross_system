@@ -30,8 +30,8 @@ const _PATHS := {
 		EFFECT_EMPTY: "res://Asset/Guns_Animation/pistol_revolver/[EMPTY NO CASINGS] Revolver - Colt 45.png",
 	},
 	"carbon_rifle": {
-		EFFECT_SHOOT: "res://Asset/Guns_Animation/rifle_carbon/[SINGLE_SHOT] Assault_rifle_V1.00.png",
-		EFFECT_AIM: "res://Asset/Guns_Animation/rifle_carbon/[FULL_MUZZLE_FLASH] Assault_rifle_V1.00.png",
+		EFFECT_SHOOT: "res://Asset/Guns_Animation/rifle_carbon/[FULL_MUZZLE_FLASH] Assault_rifle_V1.00.png",
+		EFFECT_AIM: "res://Asset/Guns_Animation/rifle_carbon/[SINGLE_SHOT] Assault_rifle_V1.00.png",
 		EFFECT_RELOAD: "res://Asset/Guns_Animation/rifle_carbon/[RELOAD] Assault_rifle_V1.00 - Reload.png",
 		EFFECT_CYCLE: "res://Asset/Guns_Animation/rifle_carbon/[CASING_SINGLE_SHOT] Assault_rifle_V1.00.png",
 		EFFECT_EMPTY: "res://Asset/Guns_Animation/rifle_carbon/[EMPTYING] Assault_rifle_V1.00.png",
@@ -44,8 +44,8 @@ const _PATHS := {
 		EFFECT_EMPTY: "res://Asset/Guns_Animation/ak47/[EMPTY] AK 47.png",
 	},
 	"service_rifle": {
-		EFFECT_SHOOT: "res://Asset/Guns_Animation/rifle_service/[SNIPER_SHOOTING]_Sniper_rifle_[KAR98]_V1.00.png",
-		EFFECT_AIM: "res://Asset/Guns_Animation/rifle_service/[SNIPER_MUZZLE_FLASH]_Sniper_rifle_[KAR98]_V1.00.png",
+		EFFECT_SHOOT: "res://Asset/Guns_Animation/rifle_service/[SNIPER_MUZZLE_FLASH]_Sniper_rifle_[KAR98]_V1.00.png",
+		EFFECT_AIM: "res://Asset/Guns_Animation/rifle_service/[SNIPER_SHOOTING]_Sniper_rifle_[KAR98]_V1.00.png",
 		EFFECT_RELOAD: "res://Asset/Guns_Animation/rifle_service/[SINGLE_RELOADING]_Sniper_rifle_[KAR98]_V1.00.png",
 		EFFECT_CYCLE: "res://Asset/Guns_Animation/rifle_service/[RELOADING_CASING_ONLY]_Sniper_rifle_[KAR98]_V1.00.png",
 		EFFECT_EMPTY: "res://Asset/Guns_Animation/rifle_service/[SNIPER_EMPTYING]_Sniper_rifle_[KAR98]_V1.00.png",

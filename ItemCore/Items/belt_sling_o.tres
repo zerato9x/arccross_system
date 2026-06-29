@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "belt_sling_o"
+display_name = "Belt Sling O"
+lore_description = "Field catalog entry for Belt Sling O."
+item_type = 2
+catalog_category = 0
+tags = Array[String](["equipment"])
+size_cost = 1
+target_slot = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/belt_sling_o.png"
+weight = 0.5

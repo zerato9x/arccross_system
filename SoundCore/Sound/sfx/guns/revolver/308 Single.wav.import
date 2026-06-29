@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://bl8xjrmhdk8ff"
+path="res://.godot/imported/308 Single.wav-935a714c55b7f9dece67fc0fa0db6538.sample"
+
+[deps]
+
+source_file="res://SoundCore/Sound/sfx/guns/revolver/308 Single.wav"
+dest_files=["res://.godot/imported/308 Single.wav-935a714c55b7f9dece67fc0fa0db6538.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

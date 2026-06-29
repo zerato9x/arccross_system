@@ -47,6 +47,11 @@ const NON_LOOPING_ANIMATIONS := [
 	"Die",
 ]
 
+const ANIMATION_FRAMES := {
+	"Attack1": 5,
+}
+
+
 # Item IDs are presentation aliases, not unique looks. Multiple definitions
 # intentionally resolve to the same directory when their Innawoods art matches.
 const ITEM_VISUAL_DIRECTORIES := {
@@ -223,6 +228,9 @@ static func texture_path(directory: String, animation: String) -> String:
 
 static func supports_animation(animation: String) -> bool:
 	return ANIMATION_FPS.has(animation)
+
+static func animation_frames(animation: String) -> int:
+	return int(ANIMATION_FRAMES.get(animation, FRAME_COLUMNS))
 
 static func animation_fps(animation: String) -> float:
 	return float(ANIMATION_FPS.get(animation, ANIMATION_FPS["Idle"]))

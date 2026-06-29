@@ -98,8 +98,8 @@ func _apply_geometry() -> void:
 
 func _refresh() -> void:
 	var state := "disabled" if not _enabled else ("hover" if _hovered else "normal")
-	_frame_sprite.texture = HUDAssetLibrary.button_texture(state)
-	_frame_sprite.visible = _frame_sprite.texture != null
+	_frame_sprite.texture = null
+	_frame_sprite.visible = false
 	_scale_frame_sprite()
 	_refresh_icon()
 	_box.visible = true

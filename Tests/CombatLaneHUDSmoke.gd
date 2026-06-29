@@ -8,6 +8,7 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	root.size = Vector2i(1280, 720)
 	var holder := Node.new()
 	root.add_child(holder)
 
@@ -129,6 +130,7 @@ func _run() -> void:
 		_fail("MOVE_FORWARD was not grouped under the movement command type.")
 		return
 	var viewport_size: Vector2 = arena.lane_hud.get_viewport_rect().size
+	print("DEBUG: viewport_size=", viewport_size, " action_rect=", arena.lane_hud._action_rect)
 	if arena.lane_hud._action_rect.position.y < viewport_size.y * 0.54:
 		_fail("The combat command deck was not anchored to the bottom screen.")
 		return
@@ -251,6 +253,7 @@ func _run() -> void:
 	):
 		_fail("The top combat HUD did not render all weapon boxes.")
 		return
+<<<<<<< Updated upstream
 	if arena.lane_hud._player_ranged_card.has("frame"):
 		_fail("The top weapon boxes still render retired holder frame sprites.")
 		return
@@ -284,6 +287,9 @@ func _run() -> void:
 		player_condition_atlas_path = (
 			arena.lane_hud._player_condition_sprite.texture as AtlasTexture
 		).atlas.resource_path
+=======
+	var full_blood_fill_height = arena.lane_hud._player_portrait_plate.polygon[2].y
+>>>>>>> Stashed changes
 	if (
 		arena.lane_hud._player_condition_sprite.texture == null
 		or arena.lane_hud._player_condition_sprite.region_enabled
@@ -321,8 +327,8 @@ func _run() -> void:
 		arena.lane_hud._player_condition_sprite,
 		player_condition_data
 	)
-	var steady_condition_texture := arena.lane_hud._player_condition_sprite.texture
-	var steady_condition_region := arena.lane_hud._player_condition_sprite.region_rect
+	var steady_condition_texture = arena.lane_hud._player_condition_sprite.texture
+	var steady_condition_region = arena.lane_hud._player_condition_sprite.region_rect
 	arena.lane_hud._condition_animation_time = 0.10
 	arena.lane_hud._apply_condition_frame(
 		arena.lane_hud._player_condition_sprite,
@@ -343,7 +349,7 @@ func _run() -> void:
 	player.body.blood_level = GameEnums.SCALE_MAX * 0.5
 	arena.command_adapter.refresh_snapshot()
 	await process_frame
-	var half_blood_fill_height := arena.lane_hud._player_portrait_plate.polygon[2].y
+	var half_blood_fill_height = arena.lane_hud._player_portrait_plate.polygon[2].y
 	if half_blood_fill_height >= full_blood_fill_height:
 		_fail("The player portrait blood backdrop did not track Blood level.")
 		return

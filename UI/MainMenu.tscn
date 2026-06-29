@@ -1,0 +1,70 @@
+[gd_scene format=3 uid="uid://mainmenu"]
+
+[ext_resource type="Script" path="res://UI/MainMenu.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://Asset/UI/revampedHUD/B&W_UI_ByAndrox_FREE/HUD/menu_transparent.png" id="2_bg"]
+[ext_resource type="PackedScene" path="res://UI/SaveLoadMenu.tscn" id="3_saveload"]
+[ext_resource type="AudioStream" path="res://SoundCore/Sound/soundtrack_1/Survivor - ending - lonely - sad - strings.wav" id="4_audio"]
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_bg")
+stretch_mode = 1
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Title" type="Label" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
+text = "ARCCROSS"
+horizontal_alignment = 1
+
+[node name="BtnNewGame" type="Button" parent="CenterContainer/VBoxContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 50)
+layout_mode = 2
+text = "NEW GAME"
+
+[node name="BtnContinue" type="Button" parent="CenterContainer/VBoxContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 50)
+layout_mode = 2
+text = "CONTINUE"
+
+[node name="BtnQuit" type="Button" parent="CenterContainer/VBoxContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 50)
+layout_mode = 2
+text = "QUIT"
+
+[node name="SaveLoadMenu" parent="." instance=ExtResource("3_saveload")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+
+[node name="BGM" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("4_audio")
+autoplay = true

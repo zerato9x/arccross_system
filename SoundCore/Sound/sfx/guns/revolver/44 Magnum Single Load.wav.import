@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://bpk7te84fbdo0"
+path="res://.godot/imported/44 Magnum Single Load.wav-9095eff33935fe0fb7e334f0b43f39f8.sample"
+
+[deps]
+
+source_file="res://SoundCore/Sound/sfx/guns/revolver/44 Magnum Single Load.wav"
+dest_files=["res://.godot/imported/44 Magnum Single Load.wav-9095eff33935fe0fb7e334f0b43f39f8.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

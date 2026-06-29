@@ -14,5 +14,3 @@ size_cost = 0
 target_slot = 9
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Rifle/service_rifle_clip.png"
 weight = 0.2
-accepted_ammunition_id = "rifle_round"
-magazine_capacity = 5

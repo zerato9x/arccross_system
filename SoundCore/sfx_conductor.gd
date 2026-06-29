@@ -16,8 +16,7 @@ var _next_player_idx: int = 0
 
 # Guns (using only sfx/guns)
 const SOUNDS_PISTOL := [
-	preload("res://SoundCore/Sound/sfx/guns/pistols/9mm Single Isolated.wav"),
-	preload("res://SoundCore/Sound/sfx/guns/pistols/9mm Double Tap Isolated.wav")
+	preload("res://SoundCore/Sound/sfx/guns/pistols/9mm Single Isolated.wav")
 ]
 
 const SOUNDS_SHOTGUN := [
@@ -25,13 +24,11 @@ const SOUNDS_SHOTGUN := [
 ]
 
 const SOUNDS_REVOLVER := [
-	preload("res://SoundCore/Sound/sfx/guns/revolver/308 Single Isolated.wav"),
-	preload("res://SoundCore/Sound/sfx/guns/revolver/308 Double Tap Isolated.wav")
+	preload("res://SoundCore/Sound/sfx/guns/revolver/308 Single Isolated.wav")
 ]
 
 const SOUNDS_RIFLE_CARBON := [
-	preload("res://SoundCore/Sound/sfx/guns/rifle_carbon/556 Single Isolated WAV.wav"),
-	preload("res://SoundCore/Sound/sfx/guns/rifle_carbon/556 Double Tap Isolated WAV.wav")
+	preload("res://SoundCore/Sound/sfx/guns/rifle_carbon/556 Single Isolated WAV.wav")
 ]
 
 const SOUNDS_RIFLE_SERVICE := [
@@ -39,8 +36,7 @@ const SOUNDS_RIFLE_SERVICE := [
 ]
 
 const SOUNDS_AK47 := [
-	preload("res://SoundCore/Sound/sfx/guns/ak47/762x39 Single Isolated WAV.wav"),
-	preload("res://SoundCore/Sound/sfx/guns/ak47/762x39 Burst Isolated WAV.wav")
+	preload("res://SoundCore/Sound/sfx/guns/ak47/762x39 Single Isolated WAV.wav")
 ]
 
 const SOUNDS_GUN_RELOAD := {

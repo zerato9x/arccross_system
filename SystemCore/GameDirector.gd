@@ -165,11 +165,27 @@ func save_game(path: String = RuntimeStateStore.DEFAULT_SAVE_PATH) -> bool:
 		print("[DIRECTOR] Saved runtime world to ", path)
 	return saved
 
+func save_game_to_slot(slot: int) -> bool:
+	macro_map.synchronize_runtime_state()
+	var saved := _world_state.save_to_slot(slot)
+	if saved:
+		print("[DIRECTOR] Saved runtime world to slot ", slot)
+	return saved
+
 func load_saved_run(path: String = RuntimeStateStore.DEFAULT_SAVE_PATH) -> bool:
 	if not _world_state.load_from_disk(path):
 		return false
 	get_tree().reload_current_scene()
 	return true
+
+func load_saved_run_from_slot(slot: int) -> bool:
+	if not _world_state.load_from_slot(slot):
+		return false
+	get_tree().reload_current_scene()
+	return true
+
+func exit_to_main_menu() -> void:
+	get_tree().change_scene_to_file("res://UI/MainMenu.tscn")
 
 # ---------------------------------------------------------
 # AUDIO CONDUCTOR INTEGRATION

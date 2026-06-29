@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://UI/HUD/WorldHUD.gd" id="1_world_hud"]
 [ext_resource type="PackedScene" path="res://UI/HUD/MedicalMonitor.tscn" id="2_medical_monitor"]
+[ext_resource type="PackedScene" path="res://UI/SaveLoadMenu.tscn" id="3_saveload"]
 
 [node name="WorldHUD" type="CanvasLayer"]
 script = ExtResource("1_world_hud")
@@ -417,6 +418,12 @@ custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 text = "SETTINGS"
 
+[node name="MenuExitMainButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+text = "MAIN MENU"
+
 [node name="MenuCloseButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 34)
@@ -491,3 +498,9 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 text = "CLOSE"
+
+[node name="SaveLoadMenu" parent="Root" instance=ExtResource("3_saveload")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+

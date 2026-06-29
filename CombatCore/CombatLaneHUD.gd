@@ -620,10 +620,10 @@ func _layout_duel_shell(viewport_size: Vector2, ui_scale: Vector2) -> void:
 	_duel_layout_shell.visible = not _snapshot.is_empty()
 	if not _duel_layout_shell.visible:
 		return
-	_player_top_panel_box.visible = true
-	_player_top_panel_border.visible = true
-	_enemy_top_panel_box.visible = true
-	_enemy_top_panel_border.visible = true
+	_player_top_panel_box.visible = false
+	_player_top_panel_border.visible = false
+	_enemy_top_panel_box.visible = false
+	_enemy_top_panel_border.visible = false
 	_place_panel(_player_top_panel_box, _player_top_panel_border, _player_top_rect, viewport_size, ui_scale)
 	_place_panel(_enemy_top_panel_box, _enemy_top_panel_border, _enemy_top_rect, viewport_size, ui_scale)
 	_place_panel(_player_bottom_panel_box, _player_bottom_panel_border, _player_bottom_rect, viewport_size, ui_scale)
@@ -746,8 +746,12 @@ func _layout_top_weapon_card(
 		return
 	root.global_position = _screen_to_world(rect.position, viewport_size)
 	root.scale = ui_scale
-	_set_box(card.get("box") as Polygon2D, rect.size)
-	_set_outline(card.get("border") as Line2D, rect.size)
+	var box := card.get("box") as Polygon2D
+	if box:
+		box.visible = false
+	var border := card.get("border") as Line2D
+	if border:
+		border.visible = false
 	var sprite := card.get("sprite") as Sprite2D
 	if sprite:
 		sprite.position = Vector2(24.0, rect.size.y * 0.5)

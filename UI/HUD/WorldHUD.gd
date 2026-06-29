@@ -38,8 +38,10 @@ var _vital_rows: Dictionary = {}
 @onready var _menu_save_button: Button = %MenuSaveButton
 @onready var _menu_load_button: Button = %MenuLoadButton
 @onready var _menu_settings_button: Button = %MenuSettingsButton
+@onready var _menu_exit_main_button: Button = %MenuExitMainButton
 @onready var _menu_close_button: Button = %MenuCloseButton
 @onready var _settings_close_button: Button = %SettingsCloseButton
+@onready var _save_load_menu: SaveLoadMenu = %SaveLoadMenu
 @onready var _screen_noise_toggle: CheckButton = %ScreenNoiseToggle
 @onready var _hud_scale_slider: HSlider = %HudScaleSlider
 @onready var _hud_scale_label: Label = %HudScaleLabel
@@ -115,6 +117,7 @@ func _apply_assets() -> void:
 	HUDAssetLibrary.apply_button(_menu_save_button, "save")
 	HUDAssetLibrary.apply_button(_menu_load_button, "load")
 	HUDAssetLibrary.apply_button(_menu_settings_button, "settings")
+	HUDAssetLibrary.apply_button(_menu_exit_main_button, "door")
 	HUDAssetLibrary.apply_button(_menu_close_button)
 	HUDAssetLibrary.apply_button(_settings_close_button)
 	HUDAssetLibrary.apply_button(_screen_noise_toggle)
@@ -150,11 +153,16 @@ func _connect_buttons() -> void:
 	_travel_button.pressed.connect(func(): hex_action_requested.emit("travel"))
 	_act_button.pressed.connect(func(): hex_action_requested.emit("act"))
 	_menu_inventory_button.pressed.connect(inventory_requested.emit)
-	_menu_save_button.pressed.connect(save_requested.emit)
-	_menu_load_button.pressed.connect(load_requested.emit)
+	_menu_save_button.pressed.connect(func(): _open_save_load("save"))
+	_menu_load_button.pressed.connect(func(): _open_save_load("load"))
 	_menu_settings_button.pressed.connect(_open_settings)
+	_menu_exit_main_button.pressed.connect(func(): get_tree().change_scene_to_file("res://UI/MainMenu.tscn"))
 	_menu_close_button.pressed.connect(_close_menu)
 	_settings_close_button.pressed.connect(_close_settings)
+	
+	if _save_load_menu:
+		_save_load_menu.menu_closed.connect(func(): _save_load_menu.visible = false)
+		_save_load_menu.slot_selected.connect(_on_save_load_slot_selected)
 	_screen_noise_toggle.toggled.connect(_set_screen_noise)
 	_hud_scale_slider.value_changed.connect(_set_hud_scale)
 
@@ -326,6 +334,23 @@ func _toggle_settings() -> void:
 func _open_settings() -> void:
 	_settings_panel.visible = true
 	_menu_panel.visible = false
+
+func _open_save_load(mode: String) -> void:
+	if _save_load_menu:
+		_save_load_menu.visible = true
+		_save_load_menu.setup_mode(mode)
+	_menu_panel.visible = false
+
+func _on_save_load_slot_selected(slot: int) -> void:
+	if _save_load_menu._mode == "save":
+		var dir = get_node_or_null("/root/GameDirector")
+		if dir and dir.has_method("save_game_to_slot"):
+			dir.save_game_to_slot(slot)
+		_save_load_menu.refresh_slots()
+	elif _save_load_menu._mode == "load":
+		var dir = get_node_or_null("/root/GameDirector")
+		if dir and dir.has_method("load_saved_run_from_slot"):
+			dir.load_saved_run_from_slot(slot)
 
 func _close_settings() -> void:
 	_settings_panel.visible = false
