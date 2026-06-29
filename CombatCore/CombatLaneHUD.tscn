@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" uid="uid://bsvkh1klmeaa3" path="res://CombatCore/CombatLaneHUD.gd" id="1_lane_hud"]
 [ext_resource type="PackedScene" uid="uid://dfu8ub0f7hfkl" path="res://CombatCore/CombatLaneView.tscn" id="2_lane_view"]
 [ext_resource type="PackedScene" path="res://CombatCore/DuelUI/CombatContextBoard.tscn" id="3_context"]
 [ext_resource type="PackedScene" path="res://CombatCore/DuelUI/CombatGridHoverCard.tscn" id="4_hover"]
 [ext_resource type="PackedScene" path="res://CombatCore/DuelUI/CombatActorFloatHUD.tscn" id="5_actor_hud"]
+[ext_resource type="Script" path="res://addons/cinematic_camera_2d/scripts/cinematic_camera_2d.gd" id="6_cinematic_camera"]
 
 [node name="CombatLaneHUD" type="Node2D"]
 script = ExtResource("1_lane_hud")
@@ -16,6 +17,7 @@ unique_name_in_owner = true
 unique_name_in_owner = true
 position = Vector2(640, 360)
 enabled = true
+script = ExtResource("6_cinematic_camera")
 
 [node name="DuelLayoutShell" type="Node2D" parent="."]
 unique_name_in_owner = true

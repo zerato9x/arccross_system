@@ -128,8 +128,28 @@ func _verify_enemy_death_resolve_zoom() -> bool:
 		return _fail("Resolve screen did not focus the enemy token.")
 	if arena.lane_hud.get_camera_zoom_value() < 1.25:
 		return _fail("Resolve screen did not zoom the combat camera.")
+	var enemy_token: HumanoidTokenView = arena.lane_hud._lane_view._enemy_token
+	if enemy_token.get_animation() != "Die":
+		return _fail("Final blow did not drive the enemy death animation.")
+	if enemy_token.get("_animation_speed_scale") >= 0.75:
+		return _fail("Final blow did not slow the enemy death animation.")
+	if not arena.lane_hud._fatal_thud_player.playing:
+		return _fail("Final blow did not play the fatal body-fall thud.")
 
-	await create_timer(CombatLaneHUD.RESOLVE_PRESENTATION_SECONDS + 0.25).timeout
+	await create_timer(
+		CombatLaneHUD.FINAL_BLOW_HOLD_SECONDS
+		+ CombatLaneHUD.RESOLVE_PRESENTATION_SECONDS
+		+ 0.35
+	).timeout
+	if not arena.lane_hud.is_result_overlay_waiting():
+		return _fail("Enemy death did not settle into the result overlay.")
+	if not outcomes.is_empty():
+		return _fail("Combat finished before the result overlay was acknowledged.")
+	arena.lane_hud.request_resolve_continue()
+	for _frame in range(12):
+		if not outcomes.is_empty():
+			break
+		await process_frame
 	if outcomes.size() != 1 or outcomes[0] != GameEnums.CombatOutcome.PLAYER_VICTORY:
 		return _fail("Enemy death did not finish as a player victory.")
 

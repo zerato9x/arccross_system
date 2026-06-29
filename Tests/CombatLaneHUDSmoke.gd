@@ -130,7 +130,108 @@ func _run() -> void:
 		_fail("MOVE_FORWARD was not grouped under the movement command type.")
 		return
 	var viewport_size: Vector2 = arena.lane_hud.get_viewport_rect().size
-	print("DEBUG: viewport_size=", viewport_size, " action_rect=", arena.lane_hud._action_rect)
+	var camera_zoom_before: float = arena.lane_hud.get_camera_zoom_value()
+	var wheel_event := InputEventMouseButton.new()
+	wheel_event.button_index = MOUSE_BUTTON_WHEEL_UP
+	wheel_event.pressed = true
+	arena.lane_hud._unhandled_input(wheel_event)
+	await process_frame
+	if not is_equal_approx(arena.lane_hud.get_camera_zoom_value(), camera_zoom_before):
+		_fail("Combat camera wheel zoom was not ignored.")
+		return
+	var camera := arena.lane_hud._combat_camera as Camera2D
+	var stage_bounds: Rect2 = arena.lane_hud._lane_view.get_stage_bounds_global()
+	var half_view: Vector2 = viewport_size / arena.lane_hud.get_camera_zoom_value() * 0.5
+	var camera_rect := Rect2(camera.global_position - half_view, half_view * 2.0)
+	if not stage_bounds.grow(1.0).encloses(camera_rect):
+		_fail("Combat camera exposed area outside the combat stage.")
+		return
+	arena.lane_hud.show_presentation_event({
+		"type": "shot",
+		"side": "player",
+		"attacker_side": "player",
+		"target_side": "enemy",
+		"origin_lane": 2,
+		"target_lane": 9,
+		"result": "clean_miss",
+	})
+	await create_timer(0.12).timeout
+	if not arena.lane_hud.has_projectile_vfx():
+		_fail("Miss shot did not create a projectile trail.")
+		return
+	var bullet: Sprite2D = (
+		arena.lane_hud._projectile_root.get_node_or_null("BulletSprite")
+		as Sprite2D
+	)
+	if bullet == null or bullet.scale.x > 3.0 or bullet.scale.y > 2.0:
+		_fail("The bullet sprite is still scaled like heavy artillery.")
+		return
+	var trail: Line2D = (
+		arena.lane_hud._projectile_root.get_node_or_null("BulletTrail")
+		as Line2D
+	)
+	if trail == null or trail.width > 2.0:
+		_fail("The projectile trace is still too thick.")
+		return
+	if (
+		trail.points.size() >= 2
+		and trail.points[0].distance_to(trail.points[1])
+			> CombatLaneHUD.PROJECTILE_TRACE_LENGTH + 18.0
+	):
+		_fail("The projectile trace still spans too much of the lane.")
+		return
+	await create_timer(0.85).timeout
+	if arena.lane_hud.get_last_shot_event().get("result", "") != "clean_miss":
+		_fail("Miss shot did not preserve its presentation result.")
+		return
+	var enemy_token: HumanoidTokenView = arena.lane_hud._lane_view._enemy_token
+	enemy_token.play_animation("Idle2")
+	arena.lane_hud.show_presentation_event({
+		"type": "shot",
+		"side": "player",
+		"attacker_side": "player",
+		"target_side": "enemy",
+		"origin_lane": 2,
+		"target_lane": 9,
+		"result": "hit",
+		"limb_index": GameEnums.LimbRegion.UPPER_TORSO,
+	})
+	await create_timer(CombatLaneHUD.PROJECTILE_DURATION_SECONDS * 0.5).timeout
+	if enemy_token.get_animation() == "TakeDamage":
+		_fail("The target damage animation started before bullet impact.")
+		return
+	if not await _wait_for_animation(enemy_token, "TakeDamage", 45):
+		_fail("The target damage animation did not wait for bullet impact.")
+		return
+	await create_timer(0.65).timeout
+	if not arena.lane_hud.has_blood_vfx():
+		_fail("Hit shot did not create blood VFX.")
+		return
+	await create_timer(2.0).timeout
+	enemy_token.play_animation("Idle2")
+	arena.lane_hud.show_presentation_event({
+		"type": "shot",
+		"side": "player",
+		"attacker_side": "player",
+		"target_side": "enemy",
+		"origin_lane": 2,
+		"target_lane": 9,
+		"result": "hit",
+		"limb_index": GameEnums.LimbRegion.HEAD,
+		"was_killed": true,
+	})
+	if not await _wait_for_animation(enemy_token, "Die", 45):
+		_fail("Final shot did not drive the victim death animation.")
+		return
+	if enemy_token.get("_animation_speed_scale") >= 0.75:
+		_fail("Final blow death animation was not slowed down.")
+		return
+	if not arena.lane_hud._fatal_thud_player.playing:
+		_fail("Final blow did not trigger the fatal body-fall thud.")
+		return
+	if not await _wait_for_hud_queue(arena.lane_hud):
+		_fail("Final blow presentation did not finish before the next HUD probe.")
+		return
 	if arena.lane_hud._action_rect.position.y < viewport_size.y * 0.54:
 		_fail("The combat command deck was not anchored to the bottom screen.")
 		return
@@ -253,14 +354,13 @@ func _run() -> void:
 	):
 		_fail("The top combat HUD did not render all weapon boxes.")
 		return
-<<<<<<< Updated upstream
 	if arena.lane_hud._player_ranged_card.has("frame"):
 		_fail("The top weapon boxes still render retired holder frame sprites.")
 		return
 	if arena.lane_hud._equipment_hover_box == null:
 		_fail("The health section did not prepare an equipment hover card.")
 		return
-	var equipment_hover_text := arena.lane_hud._equipment_hover_text(
+	var equipment_hover_text: String = arena.lane_hud._equipment_hover_text(
 		hud_snapshot.get("player", {}),
 		"YOU"
 	)
@@ -278,7 +378,7 @@ func _run() -> void:
 	):
 		_fail("The combat log did not render an official B&W divider element.")
 		return
-	var full_blood_fill_height := arena.lane_hud._player_portrait_plate.polygon[2].y
+	var full_blood_fill_height: float = arena.lane_hud._player_portrait_plate.polygon[2].y
 	var player_condition_atlas_path := ""
 	if (
 		arena.lane_hud._player_condition_sprite.texture != null
@@ -287,9 +387,6 @@ func _run() -> void:
 		player_condition_atlas_path = (
 			arena.lane_hud._player_condition_sprite.texture as AtlasTexture
 		).atlas.resource_path
-=======
-	var full_blood_fill_height = arena.lane_hud._player_portrait_plate.polygon[2].y
->>>>>>> Stashed changes
 	if (
 		arena.lane_hud._player_condition_sprite.texture == null
 		or arena.lane_hud._player_condition_sprite.region_enabled
@@ -1009,6 +1106,13 @@ func _wait_for_animation(
 			return true
 		await process_frame
 	return token.get_animation() == animation
+
+func _wait_for_hud_queue(hud: CombatLaneHUD, frame_limit: int = 240) -> bool:
+	for _frame in range(frame_limit):
+		if not hud._is_processing_queue and hud._presentation_queue.is_empty():
+			return true
+		await process_frame
+	return not hud._is_processing_queue and hud._presentation_queue.is_empty()
 
 func _snapshot_has_action(snapshot: Dictionary, action: int) -> bool:
 	return not _find_action(snapshot, action).is_empty()

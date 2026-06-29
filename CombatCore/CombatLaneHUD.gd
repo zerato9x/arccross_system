@@ -8,6 +8,13 @@ const GUN_ANIMATION_CATALOG := preload(
 	"res://CombatCore/DuelUI/GunAnimationCatalog.gd"
 )
 const PAPERDOLL_SCENE := preload("res://UI/Inventory/PaperDollModel.tscn")
+const VIRTUAL_CAMERA_SCRIPT := preload(
+	"res://addons/cinematic_camera_2d/scripts/virtual_camera_2d.gd"
+)
+const BULLET_TEXTURE := preload("res://Asset/Guns_Animation/Bullet.png")
+const FATAL_THUD_SOUND := preload(
+	"res://SoundCore/Sound/sfx/universfield-fatal-body-fall-thud-352716.mp3"
+)
 const ACTION_PANEL_SIZE := Vector2(760.0, 224.0)
 const ACTION_BUTTON_SIZE := Vector2(174.0, 42.0)
 const ACTION_BUTTON_GAP := Vector2(10.0, 8.0)
@@ -50,15 +57,24 @@ const BUTTON_MODE_SUBMENU := "submenu"
 const BUTTON_MODE_BACK := "back"
 const MENU_AIM := "aim"
 const MENU_PUSH := "push"
-const CAMERA_PAN_SPEED := 760.0
-const CAMERA_ZOOM_STEP := 0.12
-const CAMERA_MIN_ZOOM := 0.65
+const CAMERA_MIN_ZOOM := 1.0
 const CAMERA_MAX_ZOOM := 2.15
-const CAMERA_FOLLOW_SPEED := 8.0
-const CAMERA_ZOOM_SPEED := 10.0
-const RESOLVE_PRESENTATION_SECONDS := 1.8
+const CAMERA_TRANSITION_SPEED := 5.8
+const RESOLVE_PRESENTATION_SECONDS := 1.15
 const RESOLVE_CAMERA_ZOOM := 1.9
-const RESOLVE_PANEL_SIZE := Vector2(430.0, 112.0)
+const RESULT_PANEL_SIZE := Vector2(620.0, 360.0)
+const PROJECTILE_DURATION_SECONDS := 0.28
+const PROJECTILE_HIT_PAUSE_SECONDS := 0.08
+const PROJECTILE_FADE_SECONDS := 0.12
+const PROJECTILE_TRACE_LENGTH := 92.0
+const FINAL_BLOW_ANIMATION_SPEED := 0.38
+const FINAL_BLOW_HOLD_SECONDS := 0.72
+const BLOOD_FRAME_COUNT := 60
+const BLOOD_FPS := 30.0
+const CAMERA_MODE_NEUTRAL := "neutral"
+const CAMERA_MODE_BULLET := "bullet"
+const CAMERA_MODE_FINAL := "final"
+const CAMERA_MODE_RESULTS := "results"
 const CONDITION_ANIMATION_FPS := 0.0
 
 signal action_requested(action: int, target_limb: int, item_instance_id: String)
@@ -76,13 +92,15 @@ var _selected_action_group := ACTION_GROUP_FIREARM
 var _action_group_locked_by_user := false
 var _visible_action_groups: Array[String] = []
 var _command_menu_path: Array[String] = []
-var _camera_manual_offset := Vector2.ZERO
-var _camera_zoom_bias := 0.0
-var _camera_dragging := false
 var _camera_initialized := false
+var _camera_mode := CAMERA_MODE_NEUTRAL
+var _camera_focus_override := Vector2.ZERO
+var _has_camera_focus_override := false
 var _targeted_limb := -1
 var _resolve_active := false
 var _resolve_focus_side := ""
+var _resolve_data: Dictionary = {}
+var _resolve_continue_requested := false
 var _weapon_preview_effect := ""
 var _weapon_animation_key := ""
 var _weapon_animation_time := 0.0
@@ -100,6 +118,9 @@ var _enemy_condition_state: Dictionary = {}
 # replace the actors underneath them.
 var _presentation_queue: Array[Dictionary] = []
 var _is_processing_queue: bool = false
+var _active_projectile_nodes: Array[Node] = []
+var _last_shot_event: Dictionary = {}
+var _final_blow_sides: Dictionary = {}
 
 var _round_label: Label
 var _active_label: Label
@@ -153,6 +174,11 @@ var _resolve_panel_box: Polygon2D
 var _resolve_panel_border: Line2D
 var _resolve_title_label: Label
 var _resolve_body_label: Label
+var _camera_focus_anchor: Node2D
+var _camera_profiles: Dictionary = {}
+var _projectile_root: Node2D
+var _blood_vfx_root: Node2D
+var _fatal_thud_player: AudioStreamPlayer
 
 @onready var _lane_view: CombatLaneView = %CombatLaneView
 @onready var _combat_camera: Camera2D = %CombatCamera
@@ -190,6 +216,8 @@ func _ready() -> void:
 	_bind_legacy_labels()
 	_setup_duel_layout_shell()
 	_setup_portrait_tokens()
+	_setup_camera_rig()
+	_setup_presentation_layers()
 	_setup_resolve_screen()
 	_lane_view.slot_hovered.connect(_on_lane_slot_hovered)
 	_lane_view.slot_unhovered.connect(_on_lane_slot_unhovered)
@@ -208,7 +236,6 @@ func _process(delta: float) -> void:
 	if viewport_size != _last_viewport_size:
 		_last_viewport_size = viewport_size
 		_layout_for_viewport(viewport_size)
-	_update_camera_input(delta)
 	_update_camera(delta, viewport_size)
 	_update_weapon_animation(delta)
 	_update_condition_animations(delta)
@@ -234,6 +261,12 @@ func close_hud() -> void:
 	_feedback_label.visible = false
 	_resolve_active = false
 	_resolve_focus_side = ""
+	_resolve_data.clear()
+	_resolve_continue_requested = false
+	_camera_mode = CAMERA_MODE_NEUTRAL
+	_clear_projectile_nodes()
+	_last_shot_event.clear()
+	_final_blow_sides.clear()
 	_set_equipment_hover_visible(false)
 
 func show_snapshot(snapshot: Dictionary) -> void:
@@ -256,19 +289,39 @@ func show_resolve_screen(resolve: Dictionary) -> void:
 	visible = true
 	_resolve_active = true
 	_resolve_focus_side = str(resolve.get("focus_side", "enemy"))
-	_camera_manual_offset = Vector2.ZERO
-	_camera_zoom_bias = 0.0
-	_update_resolve_text(resolve)
-	if _lane_view:
-		_lane_view.show_presentation_event({
-			"side": str(resolve.get("dead_side", _resolve_focus_side)),
-			"type": "death",
-		})
+	_resolve_data = resolve.duplicate(true)
+	_resolve_continue_requested = false
+	_camera_mode = CAMERA_MODE_FINAL
+	_update_resolve_text(_resolve_data, false)
 	_update_camera(0.0, get_viewport_rect().size)
+	var dead_side := str(resolve.get("dead_side", _resolve_focus_side))
+	await get_tree().process_frame
+	var final_wait_frames := 180
+	while (
+		not _final_blow_sides.has(dead_side)
+		and (_is_processing_queue or not _presentation_queue.is_empty())
+		and final_wait_frames > 0
+	):
+		final_wait_frames -= 1
+		await get_tree().process_frame
+	if not _final_blow_sides.has(dead_side):
+		await _play_final_blow(dead_side)
 	await get_tree().create_timer(RESOLVE_PRESENTATION_SECONDS).timeout
+	_camera_mode = CAMERA_MODE_RESULTS
+	_update_resolve_text(_resolve_data, true)
+	_layout_screen_hud(get_viewport_rect().size)
+	while _resolve_active and not _resolve_continue_requested:
+		await get_tree().process_frame
 	_resolve_active = false
 	_resolve_focus_side = ""
+	_resolve_data.clear()
+	_resolve_continue_requested = false
+	_camera_mode = CAMERA_MODE_NEUTRAL
 	_layout_screen_hud(get_viewport_rect().size)
+
+func request_resolve_continue() -> void:
+	if _resolve_active:
+		_resolve_continue_requested = true
 
 func _try_process_queue() -> void:
 	if _is_processing_queue or _presentation_queue.is_empty():
@@ -287,8 +340,8 @@ func _process_queue() -> void:
 			"feedback":
 				_apply_feedback(item.get("data", ""))
 			"presentation":
-				_apply_presentation_event(item.get("data", {}))
-				await get_tree().create_timer(0.6).timeout
+				await _apply_presentation_event(item.get("data", {}))
+				await get_tree().create_timer(_presentation_delay(item.get("data", {}))).timeout
 	_is_processing_queue = false
 
 func _apply_snapshot(snapshot: Dictionary) -> void:
@@ -315,8 +368,25 @@ func _apply_feedback(message: String) -> void:
 func _apply_presentation_event(event: Dictionary) -> void:
 	_push_combat_log(_presentation_log_line(event))
 	_preview_weapon_event(event)
+	var event_type := str(event.get("type", ""))
+	if event_type == "shot":
+		await _play_shot_event(event)
+		return
+	if event.get("skip_lane_presentation", false):
+		return
+	if event_type == "damage" and event.get("was_killed", false):
+		await _play_final_blow(str(event.get("side", "")))
+		return
+	if event_type == "death":
+		await _play_final_blow(str(event.get("side", "")))
+		return
 	if _lane_view:
 		_lane_view.show_presentation_event(event)
+
+func _presentation_delay(event: Dictionary) -> float:
+	if str(event.get("type", "")) == "shot":
+		return 0.05
+	return 0.6
 
 func _push_combat_log(message: String) -> void:
 	if message.strip_edges().is_empty():
@@ -327,6 +397,8 @@ func _push_combat_log(message: String) -> void:
 
 func _presentation_log_line(event: Dictionary) -> String:
 	var event_type := str(event.get("type", "action"))
+	if event_type == "shot":
+		return _shot_log_line(event)
 	if event_type == "damage":
 		return _damage_log_line(event)
 	if event_type == "bleed":
@@ -342,6 +414,11 @@ func _presentation_log_line(event: Dictionary) -> String:
 		_side_log_label(str(event.get("side", ""))),
 		_action_log_label(action),
 	]
+
+func _shot_log_line(event: Dictionary) -> String:
+	var attacker := _side_log_label(str(event.get("attacker_side", event.get("side", ""))))
+	var result := str(event.get("result", "shot")).replace("_", " ").to_upper()
+	return "%s SHOT // %s" % [attacker, result]
 
 func _damage_log_line(event: Dictionary) -> String:
 	var rows := PackedStringArray()
@@ -1330,6 +1407,62 @@ func _setup_equipment_hover_card() -> void:
 	_equipment_hover_label.visible = false
 	_equipment_hover_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
+func _setup_camera_rig() -> void:
+	_camera_focus_anchor = Node2D.new()
+	_camera_focus_anchor.name = "CombatCameraFocus"
+	add_child(_camera_focus_anchor)
+
+	_camera_profiles.clear()
+	_camera_profiles[CAMERA_MODE_NEUTRAL] = _make_camera_profile(
+		"NeutralVirtualCamera",
+		1.0
+	)
+	_camera_profiles[CAMERA_MODE_BULLET] = _make_camera_profile(
+		"BulletVirtualCamera",
+		1.55
+	)
+	_camera_profiles[CAMERA_MODE_FINAL] = _make_camera_profile(
+		"FinalBlowVirtualCamera",
+		RESOLVE_CAMERA_ZOOM
+	)
+	_camera_profiles[CAMERA_MODE_RESULTS] = _make_camera_profile(
+		"ResultsVirtualCamera",
+		1.18
+	)
+
+	if _combat_camera is CinematicCamera2D:
+		var cinematic := _combat_camera as CinematicCamera2D
+		cinematic.follow_node = _camera_focus_anchor
+		cinematic.virtual_camera = _camera_profiles[CAMERA_MODE_NEUTRAL]
+		cinematic.transition_speed = CAMERA_TRANSITION_SPEED
+
+func _make_camera_profile(profile_name: String, zoom_value: float) -> VirtualCamera2D:
+	var node := Node2D.new()
+	node.name = profile_name
+	node.set_script(VIRTUAL_CAMERA_SCRIPT)
+	add_child(node)
+	var profile := node as VirtualCamera2D
+	profile.zoom = Vector2.ONE * zoom_value
+	profile.offset = Vector2.ZERO
+	return profile
+
+func _setup_presentation_layers() -> void:
+	_projectile_root = Node2D.new()
+	_projectile_root.name = "ProjectileVFX"
+	_projectile_root.z_index = 120
+	add_child(_projectile_root)
+
+	_blood_vfx_root = Node2D.new()
+	_blood_vfx_root.name = "BloodVFX"
+	_blood_vfx_root.z_index = 118
+	add_child(_blood_vfx_root)
+
+	_fatal_thud_player = AudioStreamPlayer.new()
+	_fatal_thud_player.name = "FatalThudPlayer"
+	_fatal_thud_player.stream = FATAL_THUD_SOUND
+	_fatal_thud_player.volume_db = -2.5
+	add_child(_fatal_thud_player)
+
 func _setup_resolve_screen() -> void:
 	_resolve_screen_root = Node2D.new()
 	_resolve_screen_root.name = "ResolveScreen"
@@ -1350,7 +1483,7 @@ func _setup_resolve_screen() -> void:
 	_resolve_title_label = Label.new()
 	_resolve_title_label.name = "ResolveTitleLabel"
 	_resolve_title_label.position = Vector2(18.0, 14.0)
-	_resolve_title_label.offset_right = RESOLVE_PANEL_SIZE.x - 36.0
+	_resolve_title_label.offset_right = RESULT_PANEL_SIZE.x - 36.0
 	_resolve_title_label.offset_bottom = 30.0
 	_resolve_title_label.add_theme_color_override(
 		"font_color",
@@ -1362,8 +1495,8 @@ func _setup_resolve_screen() -> void:
 	_resolve_body_label = Label.new()
 	_resolve_body_label.name = "ResolveBodyLabel"
 	_resolve_body_label.position = Vector2(18.0, 50.0)
-	_resolve_body_label.offset_right = RESOLVE_PANEL_SIZE.x - 36.0
-	_resolve_body_label.offset_bottom = 48.0
+	_resolve_body_label.offset_right = RESULT_PANEL_SIZE.x - 36.0
+	_resolve_body_label.offset_bottom = RESULT_PANEL_SIZE.y - 62.0
 	_resolve_body_label.add_theme_color_override(
 		"font_color",
 		Color(0.84, 0.79, 0.66, 1.0)
@@ -1371,8 +1504,8 @@ func _setup_resolve_screen() -> void:
 	_resolve_body_label.add_theme_font_size_override("font_size", 12)
 	_resolve_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_resolve_screen_root.add_child(_resolve_body_label)
-	_set_box(_resolve_panel_box, RESOLVE_PANEL_SIZE)
-	_set_outline(_resolve_panel_border, RESOLVE_PANEL_SIZE)
+	_set_box(_resolve_panel_box, RESULT_PANEL_SIZE)
+	_set_outline(_resolve_panel_border, RESULT_PANEL_SIZE)
 	_resolve_screen_root.visible = false
 
 func _layout_resolve_screen(viewport_size: Vector2, ui_scale: Vector2) -> void:
@@ -1382,8 +1515,8 @@ func _layout_resolve_screen(viewport_size: Vector2, ui_scale: Vector2) -> void:
 	if not _resolve_active:
 		return
 	var panel_position := Vector2(
-		viewport_size.x * 0.5 - RESOLVE_PANEL_SIZE.x * 0.5,
-		maxf(22.0, viewport_size.y * 0.11)
+		viewport_size.x * 0.5 - RESULT_PANEL_SIZE.x * 0.5,
+		maxf(22.0, viewport_size.y * 0.10)
 	)
 	_resolve_screen_root.global_position = _screen_to_world(
 		panel_position,
@@ -1391,16 +1524,39 @@ func _layout_resolve_screen(viewport_size: Vector2, ui_scale: Vector2) -> void:
 	)
 	_resolve_screen_root.scale = ui_scale
 
-func _update_resolve_text(resolve: Dictionary) -> void:
+func _update_resolve_text(resolve: Dictionary, show_results: bool) -> void:
 	if _resolve_title_label == null or _resolve_body_label == null:
 		return
-	_resolve_title_label.text = str(resolve.get("title", "COMBAT RESOLVED")).to_upper()
+	_resolve_title_label.text = str(
+		resolve.get("title", "COMBAT RESOLVED")
+	).to_upper()
 	var dead_name := str(resolve.get("dead_name", "HOSTILE"))
 	var cause := str(resolve.get("cause", "unknown trauma"))
-	_resolve_body_label.text = "%s DOWN\nCAUSE // %s" % [
-		dead_name.to_upper(),
-		cause.to_upper(),
-	]
+	if not show_results:
+		_resolve_body_label.text = "%s DOWN\nCAUSE // %s" % [
+			dead_name.to_upper(),
+			cause.to_upper(),
+		]
+		return
+
+	var rows := PackedStringArray()
+	rows.append("%s DOWN" % dead_name.to_upper())
+	rows.append("CAUSE // %s" % cause.to_upper())
+	rows.append("")
+	rows.append("COMBAT LOG")
+	for log_line in _combat_log_rows:
+		rows.append("  " + log_line)
+	rows.append("")
+	rows.append("LOOT")
+	var loot_names: Array = resolve.get("loot_names", [])
+	if loot_names.is_empty():
+		rows.append("  NONE")
+	else:
+		for raw_name in loot_names:
+			rows.append("  " + str(raw_name).to_upper())
+	rows.append("")
+	rows.append("PRESS ENTER / SPACE / CLICK TO CONTINUE")
+	_resolve_body_label.text = "\n".join(rows)
 
 func _setup_portrait_tokens() -> void:
 	_player_portrait_model = PAPERDOLL_SCENE.instantiate() as PaperDollModel
@@ -1940,16 +2096,13 @@ func _on_action_button_pressed(payload: Dictionary) -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not visible or not event.is_pressed() or event.is_echo():
 		return
+	if _resolve_active:
+		if event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_ESCAPE]:
+			request_resolve_continue()
+			get_viewport().set_input_as_handled()
+		return
 	if event.keycode == KEY_HOME or event.keycode == KEY_F:
 		_reset_camera()
-		get_viewport().set_input_as_handled()
-		return
-	if event.keycode == KEY_EQUAL or event.keycode == KEY_PLUS:
-		_adjust_camera_zoom(CAMERA_ZOOM_STEP)
-		get_viewport().set_input_as_handled()
-		return
-	if event.keycode == KEY_MINUS:
-		_adjust_camera_zoom(-CAMERA_ZOOM_STEP)
 		get_viewport().set_input_as_handled()
 		return
 	if event.keycode == KEY_Q:
@@ -2001,63 +2154,37 @@ func _cycle_action_group(direction: int) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
-	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_MIDDLE:
-			_camera_dragging = event.pressed
-			get_viewport().set_input_as_handled()
-		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_adjust_camera_zoom(CAMERA_ZOOM_STEP)
-			get_viewport().set_input_as_handled()
-		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_adjust_camera_zoom(-CAMERA_ZOOM_STEP)
-			get_viewport().set_input_as_handled()
-	elif event is InputEventMouseMotion and _camera_dragging:
-		_camera_manual_offset -= event.relative / _camera_zoom_value()
+	if (
+		_resolve_active
+		and event is InputEventMouseButton
+		and event.pressed
+		and event.button_index == MOUSE_BUTTON_LEFT
+	):
+		request_resolve_continue()
 		get_viewport().set_input_as_handled()
-
-func _update_camera_input(delta: float) -> void:
-	var axis := Vector2.ZERO
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
-		axis.x -= 1.0
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
-		axis.x += 1.0
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
-		axis.y -= 1.0
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
-		axis.y += 1.0
-	if axis.length_squared() <= 0.0:
-		return
-	_camera_manual_offset += (
-		axis.normalized()
-		* CAMERA_PAN_SPEED
-		* delta
-		/ _camera_zoom_value()
-	)
 
 func _update_camera(delta: float, viewport_size: Vector2) -> void:
 	if _combat_camera == null or _lane_view == null:
 		return
-	var target_zoom := RESOLVE_CAMERA_ZOOM
-	var target_position := _lane_view.get_actor_anchor_global(
-		_resolve_focus_side
+	var target_zoom := _target_camera_zoom(viewport_size)
+	var target_position := _target_camera_position()
+	_apply_camera_profile(_camera_mode, target_zoom, viewport_size)
+	if _has_camera_focus_override:
+		target_position = _camera_focus_override
+	target_position = _clamp_camera_position(
+		target_position,
+		target_zoom,
+		viewport_size
 	)
-	if not _resolve_active:
-		target_zoom = clampf(
-			_lane_view.get_focus_zoom() + _camera_zoom_bias,
-			CAMERA_MIN_ZOOM,
-			CAMERA_MAX_ZOOM
-		)
-		target_position = (
-			_lane_view.get_combat_focus_global()
-			+ _camera_manual_offset
-		)
+	if _camera_focus_anchor:
+		_camera_focus_anchor.global_position = target_position
 	if not _camera_initialized or delta <= 0.0:
 		_combat_camera.global_position = target_position
 		_combat_camera.zoom = Vector2.ONE * target_zoom
 		_camera_initialized = true
-	else:
-		var follow_t := clampf(delta * CAMERA_FOLLOW_SPEED, 0.0, 1.0)
-		var zoom_t := clampf(delta * CAMERA_ZOOM_SPEED, 0.0, 1.0)
+	elif not (_combat_camera is CinematicCamera2D):
+		var follow_t := clampf(delta * CAMERA_TRANSITION_SPEED, 0.0, 1.0)
+		var zoom_t := clampf(delta * CAMERA_TRANSITION_SPEED, 0.0, 1.0)
 		_combat_camera.global_position = _combat_camera.global_position.lerp(
 			target_position,
 			follow_t
@@ -2069,18 +2196,278 @@ func _update_camera(delta: float, viewport_size: Vector2) -> void:
 	_layout_screen_hud(viewport_size)
 
 func _reset_camera() -> void:
-	_camera_manual_offset = Vector2.ZERO
-	_camera_zoom_bias = 0.0
+	_camera_mode = CAMERA_MODE_NEUTRAL
+	_has_camera_focus_override = false
 	_update_camera(0.0, get_viewport_rect().size)
 
-func _adjust_camera_zoom(delta: float) -> void:
-	var auto_zoom := _lane_view.get_focus_zoom() if _lane_view else 1.0
-	_camera_zoom_bias = clampf(
-		_camera_zoom_bias + delta,
-		CAMERA_MIN_ZOOM - auto_zoom,
-		CAMERA_MAX_ZOOM - auto_zoom
+func _target_camera_zoom(viewport_size: Vector2) -> float:
+	var min_zoom := CAMERA_MIN_ZOOM
+	if _lane_view:
+		min_zoom = maxf(min_zoom, _lane_view.get_camera_min_zoom(viewport_size))
+	var desired := _lane_view.get_focus_zoom() if _lane_view else 1.0
+	match _camera_mode:
+		CAMERA_MODE_BULLET:
+			desired = 1.55
+		CAMERA_MODE_FINAL:
+			desired = RESOLVE_CAMERA_ZOOM
+		CAMERA_MODE_RESULTS:
+			desired = 1.18
+	return clampf(maxf(desired, min_zoom), min_zoom, CAMERA_MAX_ZOOM)
+
+func _target_camera_position() -> Vector2:
+	if _lane_view == null:
+		return global_position
+	match _camera_mode:
+		CAMERA_MODE_FINAL:
+			return _lane_view.get_actor_anchor_global(_resolve_focus_side)
+		CAMERA_MODE_RESULTS:
+			return _lane_view.get_combat_focus_global()
+	return _lane_view.get_combat_focus_global()
+
+func _apply_camera_profile(
+	mode: String,
+	zoom_value: float,
+	viewport_size: Vector2
+) -> void:
+	var profile := _camera_profiles.get(mode) as VirtualCamera2D
+	if profile == null:
+		profile = _camera_profiles.get(CAMERA_MODE_NEUTRAL) as VirtualCamera2D
+	if profile == null:
+		return
+	profile.zoom = Vector2.ONE * zoom_value
+	_update_profile_limits(profile, viewport_size)
+	if _combat_camera is CinematicCamera2D:
+		var cinematic := _combat_camera as CinematicCamera2D
+		cinematic.virtual_camera = profile
+		cinematic.follow_node = _camera_focus_anchor
+
+func _update_profile_limits(profile: VirtualCamera2D, viewport_size: Vector2) -> void:
+	if _lane_view == null:
+		return
+	var bounds := _lane_view.get_stage_bounds_global()
+	profile.global_position = Vector2.ZERO
+	profile.limit_left = roundi(bounds.position.x)
+	profile.limit_top = roundi(bounds.position.y)
+	profile.limit_right = roundi(bounds.end.x)
+	profile.limit_bottom = roundi(bounds.end.y)
+
+func _clamp_camera_position(
+	position: Vector2,
+	zoom_value: float,
+	viewport_size: Vector2
+) -> Vector2:
+	if _lane_view == null:
+		return position
+	var bounds := _lane_view.get_stage_bounds_global()
+	var half_view := viewport_size / maxf(0.01, zoom_value) * 0.5
+	var min_pos := bounds.position + half_view
+	var max_pos := bounds.end - half_view
+	if min_pos.x > max_pos.x:
+		position.x = bounds.get_center().x
+	else:
+		position.x = clampf(position.x, min_pos.x, max_pos.x)
+	if min_pos.y > max_pos.y:
+		position.y = bounds.get_center().y
+	else:
+		position.y = clampf(position.y, min_pos.y, max_pos.y)
+	return position
+
+func _play_shot_event(event: Dictionary) -> void:
+	if _lane_view == null or _projectile_root == null:
+		return
+	_last_shot_event = event.duplicate(true)
+	_clear_projectile_nodes()
+	var attacker_side := str(event.get("attacker_side", event.get("side", "player")))
+	var target_side := str(event.get("target_side", _opposite_side(attacker_side)))
+	var origin_lane := int(event.get("origin_lane", -1))
+	var target_lane := int(event.get("target_lane", -1))
+	var result := str(event.get("result", "miss"))
+	var start := _lane_view.get_projectile_anchor_global(attacker_side, origin_lane)
+	var end := _shot_end_position(result, attacker_side, target_side, target_lane)
+
+	var trail := Line2D.new()
+	trail.name = "BulletTrail"
+	trail.width = 1.6
+	trail.default_color = Color(1.0, 0.78, 0.38, 0.58)
+	trail.texture_mode = Line2D.LINE_TEXTURE_NONE
+	trail.points = PackedVector2Array([start, start])
+	_projectile_root.add_child(trail)
+	_active_projectile_nodes.append(trail)
+
+	var bullet := Sprite2D.new()
+	bullet.name = "BulletSprite"
+	bullet.texture = BULLET_TEXTURE
+	bullet.centered = true
+	bullet.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	bullet.global_position = start
+	bullet.rotation = (end - start).angle()
+	bullet.scale = Vector2(2.2, 1.15)
+	bullet.modulate = Color(1.0, 0.92, 0.62, 0.92)
+	_projectile_root.add_child(bullet)
+	_active_projectile_nodes.append(bullet)
+
+	_camera_mode = CAMERA_MODE_BULLET
+	_has_camera_focus_override = true
+	_camera_focus_override = start
+	var travel_direction := (end - start).normalized()
+	var tween := create_tween()
+	tween.tween_property(
+		bullet,
+		"global_position",
+		end,
+		PROJECTILE_DURATION_SECONDS
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	while tween.is_valid() and tween.is_running():
+		_camera_focus_override = bullet.global_position
+		trail.points = _projectile_trace_points(
+			start,
+			bullet.global_position,
+			travel_direction
+		)
+		await get_tree().process_frame
+	_camera_focus_override = end
+	trail.points = _projectile_trace_points(start, end, travel_direction)
+	bullet.visible = false
+
+	if _shot_result_has_blood(result):
+		if event.get("was_killed", false):
+			await _play_final_blow(target_side)
+		elif _lane_view:
+			_lane_view.show_presentation_event(
+				_shot_impact_damage_event(event, target_side)
+			)
+		_play_blood_vfx(end, event)
+		await get_tree().create_timer(PROJECTILE_HIT_PAUSE_SECONDS).timeout
+	else:
+		await get_tree().create_timer(PROJECTILE_HIT_PAUSE_SECONDS).timeout
+
+	var fade := create_tween()
+	fade.tween_property(
+		trail,
+		"modulate:a",
+		0.0,
+		PROJECTILE_FADE_SECONDS
 	)
+	await fade.finished
+	_has_camera_focus_override = false
+	if not event.get("was_killed", false):
+		_camera_mode = CAMERA_MODE_NEUTRAL
+
+func _shot_end_position(
+	result: String,
+	attacker_side: String,
+	target_side: String,
+	target_lane: int
+) -> Vector2:
+	if result in ["hit", "collateral_hit"]:
+		return _lane_view.get_projectile_anchor_global(target_side, target_lane)
+	if result == "cover_impact":
+		return _lane_view.get_slot_center_global(target_lane) + Vector2(0.0, -20.0)
+	return _lane_view.get_projectile_miss_anchor_global(attacker_side, target_lane)
+
+func _shot_result_has_blood(result: String) -> bool:
+	return result in ["hit", "collateral_hit"]
+
+func _projectile_trace_points(
+	start: Vector2,
+	current: Vector2,
+	direction: Vector2
+) -> PackedVector2Array:
+	var travelled := start.distance_to(current)
+	if travelled <= 0.1 or direction.length_squared() <= 0.001:
+		return PackedVector2Array([start, current])
+	var tail_distance := minf(PROJECTILE_TRACE_LENGTH, travelled)
+	return PackedVector2Array([
+		current - direction * tail_distance,
+		current,
+	])
+
+func _shot_impact_damage_event(event: Dictionary, target_side: String) -> Dictionary:
+	var impact := event.duplicate(true)
+	impact["type"] = "damage"
+	impact["side"] = target_side
+	impact["skip_lane_presentation"] = false
+	return impact
+
+func _play_final_blow(side: String) -> void:
+	if side.is_empty():
+		return
+	if _final_blow_sides.has(side):
+		_camera_mode = CAMERA_MODE_FINAL
+		return
+	_final_blow_sides[side] = true
+	_resolve_focus_side = side
+	_camera_mode = CAMERA_MODE_FINAL
+	_has_camera_focus_override = false
+	if _lane_view:
+		_lane_view.show_presentation_event({
+			"side": side,
+			"type": "final_blow",
+			"animation_speed": FINAL_BLOW_ANIMATION_SPEED,
+		})
+	_play_fatal_thud()
 	_update_camera(0.0, get_viewport_rect().size)
+	await get_tree().create_timer(FINAL_BLOW_HOLD_SECONDS).timeout
+
+func _play_fatal_thud() -> void:
+	if _fatal_thud_player == null or FATAL_THUD_SOUND == null:
+		return
+	_fatal_thud_player.stop()
+	_fatal_thud_player.play()
+
+func _play_blood_vfx(position: Vector2, event: Dictionary) -> void:
+	if _blood_vfx_root == null:
+		return
+	var variant := _blood_variant(event)
+	var sprite := Sprite2D.new()
+	sprite.name = "BloodImpact"
+	sprite.centered = true
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.global_position = position
+	sprite.scale = Vector2.ONE * 2.2
+	_blood_vfx_root.add_child(sprite)
+	_active_projectile_nodes.append(sprite)
+
+	for frame_index in range(BLOOD_FRAME_COUNT):
+		if not is_instance_valid(sprite):
+			return
+		var path := "res://Asset/VFX/BLOOD VFX/%d/1_%03d.png" % [
+			variant,
+			frame_index,
+		]
+		var texture := load(path) as Texture2D
+		if texture:
+			sprite.texture = texture
+		await get_tree().create_timer(1.0 / BLOOD_FPS).timeout
+
+func _blood_variant(event: Dictionary) -> int:
+	var seed := (
+		int(event.get("limb_index", 0))
+		+ int(event.get("origin_lane", 0))
+		+ int(event.get("target_lane", 0))
+	)
+	return posmod(seed, 9) + 1
+
+func _clear_projectile_nodes() -> void:
+	for node in _active_projectile_nodes:
+		if is_instance_valid(node):
+			node.queue_free()
+	_active_projectile_nodes.clear()
+
+func _opposite_side(side: String) -> String:
+	return "enemy" if side == "player" else "player"
+
+func has_projectile_vfx() -> bool:
+	for node in _active_projectile_nodes:
+		if is_instance_valid(node) and node.name == "BulletTrail":
+			return true
+	return false
+
+func has_blood_vfx() -> bool:
+	for node in _active_projectile_nodes:
+		if is_instance_valid(node) and node.name == "BloodImpact":
+			return true
+	return false
 
 func _screen_to_world(screen_position: Vector2, viewport_size: Vector2) -> Vector2:
 	if _combat_camera == null:
@@ -2101,8 +2488,14 @@ func get_camera_zoom_value() -> float:
 func is_resolve_screen_visible() -> bool:
 	return _resolve_active
 
+func is_result_overlay_waiting() -> bool:
+	return _resolve_active and _camera_mode == CAMERA_MODE_RESULTS
+
 func get_resolve_focus_side() -> String:
 	return _resolve_focus_side
+
+func get_last_shot_event() -> Dictionary:
+	return _last_shot_event.duplicate(true)
 
 func _sync_actor_huds(viewport_size: Vector2) -> void:
 	if _snapshot.is_empty():

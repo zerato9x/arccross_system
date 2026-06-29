@@ -6,6 +6,9 @@ signal slot_unhovered
 
 const LANE_MOVE_DURATION_SECONDS := 2.0
 const STAGE_GROUND_ASSET := "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png"
+const STAGE_WIDTH_FACTOR := 1.55
+const STAGE_HEIGHT_FACTOR := 1.24
+const STAGE_MIN_SIZE := Vector2(1680.0, 920.0)
 
 var _snapshot: Dictionary = {}
 var _showing_melee_lock := false
@@ -65,9 +68,16 @@ func show_presentation_event(event: Dictionary) -> void:
 		return
 
 	match str(event.get("type", "")):
+		"final_blow":
+			token.set_animation_speed(float(event.get("animation_speed", 0.42)))
+			token.play_animation("Die", true)
 		"death":
+			if event.get("skip_lane_presentation", false):
+				return
 			token.play_animation("Die")
 		"damage":
+			if event.get("skip_lane_presentation", false):
+				return
 			if not data.get("is_dead", false):
 				token.play_one_shot("TakeDamage", _token_pose(data))
 		"action":
@@ -79,12 +89,15 @@ func show_presentation_event(event: Dictionary) -> void:
 				token.play_one_shot(animation, _token_pose(data))
 
 func layout_for_viewport(viewport_size: Vector2) -> void:
-	_stage_size = viewport_size
-	_resize_stage_backdrop(viewport_size)
-	var lane_y := viewport_size.y * 0.49
-	var usable_width := maxf(720.0, viewport_size.x - 64.0)
+	_stage_size = Vector2(
+		maxf(STAGE_MIN_SIZE.x, viewport_size.x * STAGE_WIDTH_FACTOR),
+		maxf(STAGE_MIN_SIZE.y, viewport_size.y * STAGE_HEIGHT_FACTOR)
+	)
+	_resize_stage_backdrop(_stage_size)
+	var lane_y := _stage_size.y * 0.49
+	var usable_width := maxf(720.0, _stage_size.x - 180.0)
 	var cell_step := usable_width / 12.0
-	var start_x := viewport_size.x * 0.5 - usable_width * 0.5 + cell_step * 0.5
+	var start_x := _stage_size.x * 0.5 - usable_width * 0.5 + cell_step * 0.5
 	var slot_size := Vector2(cell_step - 10.0, clampf(viewport_size.y * 0.13, 82.0, 116.0))
 	for index in range(_slot_nodes.size()):
 		var slot = _slot_nodes[index]
@@ -108,6 +121,47 @@ func get_slot_center_global(slot_index: int) -> Vector2:
 	if slot_index >= 0 and slot_index < _slot_nodes.size():
 		return _slot_nodes[slot_index].global_position
 	return global_position + _stage_size * 0.5
+
+func get_stage_bounds_global() -> Rect2:
+	return Rect2(global_position, _stage_size)
+
+func get_camera_min_zoom(viewport_size: Vector2) -> float:
+	if _stage_size.x <= 0.0 or _stage_size.y <= 0.0:
+		return 1.0
+	return maxf(
+		viewport_size.x / _stage_size.x,
+		viewport_size.y / _stage_size.y
+	)
+
+func get_projectile_anchor_global(side: String, lane_index: int = -1) -> Vector2:
+	var anchor := get_actor_anchor_global(side)
+	if lane_index >= 0 and lane_index < _slot_nodes.size():
+		var shared_lane := (
+			int(_snapshot.get("player", {}).get("lane", -1))
+			== int(_snapshot.get("enemy", {}).get("lane", -2))
+		)
+		anchor = _slot_nodes[lane_index].get_actor_anchor(side, shared_lane)
+	return anchor + Vector2(0.0, -18.0)
+
+func get_projectile_miss_anchor_global(
+	attacker_side: String,
+	target_lane: int,
+	overshoot_lanes: float = 1.35
+) -> Vector2:
+	var origin_lane := int(_snapshot.get(attacker_side, {}).get("lane", target_lane))
+	var direction := signi(target_lane - origin_lane)
+	if direction == 0:
+		direction = 1 if attacker_side == "player" else -1
+	if _slot_nodes.size() < 2:
+		return get_slot_center_global(target_lane) + Vector2(160.0 * direction, -18.0)
+	var cell_step: float = (
+		_slot_nodes[1].global_position.x
+		- _slot_nodes[0].global_position.x
+	)
+	return (
+		get_slot_center_global(target_lane)
+		+ Vector2(cell_step * overshoot_lanes * float(direction), -18.0)
+	)
 
 func get_combat_focus_global() -> Vector2:
 	if _showing_melee_lock:
@@ -233,6 +287,8 @@ func _sync_token(
 		if is_player
 		else HumanoidVisualCatalog.DIRECTION_LEFT
 	)
+	if not data.get("is_dead", false):
+		token.set_animation_speed(1.0)
 	var pose := _token_pose(data)
 	if data.get("is_dead", false):
 		token.play_animation("Die", false)

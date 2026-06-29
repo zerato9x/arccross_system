@@ -15,6 +15,8 @@ var resolution_engine: CombatResolutionEngine
 var _action_in_progress: bool = false
 var _available_reactions: Array = []
 var _player_forward_direction: int = 1
+var _pending_projectile_damage_events: Array[Dictionary] = []
+var _pending_projectile_death_events: Array[Dictionary] = []
 
 const AIMED_LIMBS := [
 	GameEnums.LimbRegion.HEAD,
@@ -81,6 +83,12 @@ func configure(
 	):
 		resolution_engine.damage_resolved.connect(
 			_on_resolution_damage_resolved
+		)
+	if not resolution_engine.shot_resolved.is_connected(
+		_on_resolution_shot_resolved
+	):
+		resolution_engine.shot_resolved.connect(
+			_on_resolution_shot_resolved
 		)
 	for entity in [player_core, enemy_core]:
 		var death_callback := _on_entity_died.bind(entity)
@@ -794,6 +802,26 @@ func _on_resolution_action_started(
 func _on_resolution_damage_applied(_entity: HumanoidCore) -> void:
 	call_deferred("refresh_snapshot")
 
+func _on_resolution_shot_resolved(event: Dictionary) -> void:
+	var victim := event.get("victim") as HumanoidCore
+	var attacker := event.get("attacker") as HumanoidCore
+	var presentation := event.duplicate(true)
+	var attacker_side := _entity_side(attacker)
+	var target_side := _entity_side(victim)
+	if target_side.is_empty() or target_side == "other":
+		target_side = "enemy" if attacker_side == "player" else "player"
+	presentation["type"] = "shot"
+	presentation["side"] = attacker_side
+	presentation["attacker_side"] = attacker_side
+	presentation["target_side"] = target_side
+	presentation_event.emit(presentation)
+	var damage_event := _take_pending_projectile_damage(attacker, victim)
+	if not damage_event.is_empty():
+		presentation_event.emit(damage_event)
+	var death_event := _take_pending_projectile_death(victim)
+	if not death_event.is_empty():
+		presentation_event.emit(death_event)
+
 func _on_resolution_damage_resolved(event: Dictionary) -> void:
 	var victim := event.get("victim") as HumanoidCore
 	var attacker := event.get("attacker") as HumanoidCore
@@ -801,15 +829,29 @@ func _on_resolution_damage_resolved(event: Dictionary) -> void:
 	presentation["type"] = "damage"
 	presentation["side"] = _entity_side(victim)
 	presentation["attacker_side"] = _entity_side(attacker)
+	if _is_projectile_damage_event(event):
+		presentation["skip_lane_presentation"] = true
+		_pending_projectile_damage_events.append(presentation)
+		call_deferred("refresh_snapshot")
+		return
 	presentation_event.emit(presentation)
 	call_deferred("refresh_snapshot")
 
 func _on_entity_died(cause: String, entity: HumanoidCore) -> void:
-	presentation_event.emit({
+	var presentation := {
 		"side": _entity_side(entity),
 		"type": "death",
 		"cause": cause,
-	})
+		"victim": entity,
+	}
+	if (
+		resolution_engine != null
+		and resolution_engine.is_resolving_projectile_damage(entity)
+	):
+		presentation["skip_lane_presentation"] = true
+		_pending_projectile_death_events.append(presentation)
+	else:
+		presentation_event.emit(presentation)
 	call_deferred("refresh_snapshot")
 
 func _emit_presentation_action(
@@ -821,3 +863,35 @@ func _emit_presentation_action(
 		"type": "action",
 		"action": action,
 	})
+
+func _is_projectile_damage_event(event: Dictionary) -> bool:
+	var source := str(event.get("source", ""))
+	if source not in ["shot", "aimed_shot"]:
+		return false
+	var victim := event.get("victim") as HumanoidCore
+	return (
+		resolution_engine != null
+		and resolution_engine.is_resolving_projectile_damage(victim)
+	)
+
+func _take_pending_projectile_damage(
+	attacker: HumanoidCore,
+	victim: HumanoidCore
+) -> Dictionary:
+	for index in range(_pending_projectile_damage_events.size()):
+		var event: Dictionary = _pending_projectile_damage_events[index]
+		if (
+			event.get("attacker") == attacker
+			and event.get("victim") == victim
+		):
+			_pending_projectile_damage_events.remove_at(index)
+			return event
+	return {}
+
+func _take_pending_projectile_death(victim: HumanoidCore) -> Dictionary:
+	for index in range(_pending_projectile_death_events.size()):
+		var event: Dictionary = _pending_projectile_death_events[index]
+		if event.get("victim") == victim:
+			_pending_projectile_death_events.remove_at(index)
+			return event
+	return {}

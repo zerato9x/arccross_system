@@ -283,6 +283,7 @@ func _on_combatant_died(cause: String, dead_entity: HumanoidCore) -> void:
 			"dead_side": "enemy",
 			"dead_name": dead_entity.name,
 			"cause": cause,
+			"loot_names": _dropped_item_names(),
 		})
 	lane_hud.close_hud()
 	_clear_encounter_transients()
@@ -366,6 +367,18 @@ func _capture_dropped_item_states() -> Array:
 	for item in dropped_combat_loot:
 		states.append(item.to_runtime_state())
 	return states
+
+func _dropped_item_names() -> Array[String]:
+	var names: Array[String] = []
+	for item in dropped_combat_loot:
+		if item == null:
+			continue
+		var label := item.display_name
+		if label.is_empty():
+			label = item.id
+		if not label.is_empty():
+			names.append(label)
+	return names
 
 func _append_dropped_items(items: Array[ItemData]) -> void:
 	var known_ids: Dictionary = {}

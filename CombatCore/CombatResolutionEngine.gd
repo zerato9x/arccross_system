@@ -4,12 +4,14 @@ class_name CombatResolutionEngine
 signal action_started(entity: HumanoidCore, action: int)
 signal damage_applied(entity: HumanoidCore)
 signal damage_resolved(event: Dictionary)
+signal shot_resolved(event: Dictionary)
 signal first_combat_action(action_type: int)
 
 @export var lane_manager: CombatLaneManager
 @export var turn_manager: CombatTurnManager
 
 var _first_strike_fired: bool = false
+var _active_projectile_damage_victim: HumanoidCore
 
 const MELEE_HIT_REGIONS := [
 	GameEnums.LimbRegion.UPPER_TORSO,
@@ -90,6 +92,15 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 
 	if target_slot.occupants.size() == 0:
 		print("Miss! ", attacker.name, " fired a bullet into empty mud.")
+		_emit_shot_event(
+			attacker,
+			null,
+			action_type,
+			attacker_idx,
+			target_idx,
+			"empty_miss",
+			target_limb
+		)
 		return
 
 	# 1. Determine Distance
@@ -152,6 +163,15 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 	if chosen_reaction == GameEnums.ActionType.DODGE and reaction_success:
 		if resolve_dodge(victim, attacker, distance):
 			print("[SHOOT ABORTED] Dodge succeeded!")
+			_emit_shot_event(
+				attacker,
+				victim,
+				action_type,
+				attacker_idx,
+				target_idx,
+				"dodge_miss",
+				target_limb
+			)
 			return
 	
 	if shot_roll > final_hit_chance:
@@ -159,6 +179,15 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 			"CLEAN MISS! The shot was lost in the ",
 			CombatRules.TileBackground.keys()[target_slot.background],
 			"."
+		)
+		_emit_shot_event(
+			attacker,
+			victim,
+			action_type,
+			attacker_idx,
+			target_idx,
+			"clean_miss",
+			target_limb
 		)
 		return
 
@@ -178,13 +207,25 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 	if randf() < cover_chance:
 		print("IMPACT! The shot was absorbed by the [", target_slot.object_name, "].")
 		target_slot.damage_cover(weapon.flesh_damage)
+		_emit_shot_event(
+			attacker,
+			final_victim,
+			action_type,
+			attacker_idx,
+			target_idx,
+			"cover_impact",
+			target_limb
+		)
 		return
 
 	# 6. The Meat Impact
 	print("DIRECT HIT! Striking ", final_victim.name, "...")
 	var damage_multiplier := weapon.damage_multiplier_at_distance(distance)
+	var shot_result := "collateral_hit" if final_victim != victim else "hit"
+	var damage_event := {}
+	_active_projectile_damage_victim = final_victim
 	if is_aimed:
-		_resolve_damage(
+		damage_event = _resolve_damage(
 			final_victim,
 			weapon,
 			target_limb,
@@ -194,13 +235,58 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 			"aimed_shot"
 		)
 	else:
-		_apply_ballistic_trauma(
+		damage_event = _apply_ballistic_trauma(
 			final_victim,
 			weapon,
 			damage_multiplier,
 			attacker,
 			action_type
 		)
+	_active_projectile_damage_victim = null
+	_emit_shot_event(
+		attacker,
+		final_victim,
+		action_type,
+		attacker_idx,
+		target_idx,
+		shot_result,
+		target_limb,
+		damage_event
+	)
+
+func _emit_shot_event(
+	attacker: HumanoidCore,
+	victim: HumanoidCore,
+	action_type: int,
+	origin_lane: int,
+	target_lane: int,
+	result: String,
+	target_limb: int,
+	damage_event: Dictionary = {}
+) -> Dictionary:
+	var event := {
+		"attacker": attacker,
+		"victim": victim,
+		"attacker_name": attacker.name if attacker != null else "",
+		"victim_name": victim.name if victim != null else "",
+		"action": action_type,
+		"origin_lane": origin_lane,
+		"target_lane": target_lane,
+		"result": result,
+		"limb_index": target_limb,
+	}
+	for key in damage_event.keys():
+		event[key] = damage_event[key]
+	event["type"] = "shot"
+	event["result"] = result
+	event["origin_lane"] = origin_lane
+	event["target_lane"] = target_lane
+	event["limb_index"] = int(event.get("limb_index", target_limb))
+	shot_resolved.emit(event)
+	return event
+
+func is_resolving_projectile_damage(victim: HumanoidCore) -> bool:
+	return victim != null and victim == _active_projectile_damage_victim
 
 # ---------------------------------------------------------
 # PISTOL RELOAD
@@ -953,7 +1039,7 @@ func _apply_ballistic_trauma(
 	damage_multiplier: float = 1.0,
 	attacker: HumanoidCore = null,
 	action_type: int = GameEnums.ActionType.SHOOT
-) -> void:
+) -> Dictionary:
 	# Prototype: Randomize which limb gets hit. 
 	# A real system would let the player spend extra AP to "Aim" for the head.
 	var hit_location = [
@@ -962,7 +1048,7 @@ func _apply_ballistic_trauma(
 	].pick_random()
 	
 	# Run the damage through the armor resolution pipeline
-	_resolve_damage(
+	return _resolve_damage(
 		victim,
 		weapon,
 		hit_location,

@@ -19,10 +19,14 @@ func _run() -> void:
 	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
 	var world_state := root.get_node("WorldState") as RuntimeStateStore
 	var origin := macro_map.player_token.current_hex_coords
-	var enemy_coords := _nearest_enemy_coords(
-		origin,
-		macro_map.active_enemies.keys()
+	var enemy_coords := _ensure_enemy_coords(
+		macro_map,
+		world_state,
+		origin
 	)
+	if enemy_coords == origin:
+		_fail("The test could not place a controlled enemy.")
+		return
 	var enemy_id: String = macro_map.active_enemies[enemy_coords].entity_id
 
 	for step in _build_hex_path(origin, enemy_coords):
@@ -62,7 +66,6 @@ func _run() -> void:
 	if not _snapshot_has_action(snapshot, GameEnums.ActionType.SHOOT):
 		_fail("The command snapshot did not expose the equipped firearm.")
 		return
-
 	var lane_before: int = arena.lane_manager._find_entity_lane(
 		arena.player_core
 	)
@@ -166,9 +169,14 @@ func _run() -> void:
 		999.0,
 		GameEnums.SCALE_MAX
 	)
-	await process_frame
-	await process_frame
-	await process_frame
+	if not await _wait_for_result_overlay(arena.lane_hud):
+		_fail("Victory did not open the combat result overlay.")
+		return
+	arena.lane_hud.request_resolve_continue()
+	for _frame in range(30):
+		if not outcomes.is_empty():
+			break
+		await process_frame
 
 	if outcomes.is_empty():
 		_fail("Combat death did not resolve the duel.")
@@ -211,10 +219,14 @@ func _verify_player_escape() -> bool:
 	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
 	var world_state := root.get_node("WorldState") as RuntimeStateStore
 	var origin := macro_map.player_token.current_hex_coords
-	var enemy_coords := _nearest_enemy_coords(
-		origin,
-		macro_map.active_enemies.keys()
+	var enemy_coords := _ensure_enemy_coords(
+		macro_map,
+		world_state,
+		origin
 	)
+	if enemy_coords == origin:
+		_fail("The escape test could not place a controlled enemy.")
+		return false
 	var enemy_id: String = macro_map.active_enemies[enemy_coords].entity_id
 	for step in _build_hex_path(origin, enemy_coords):
 		macro_map._execute_player_step(step)
@@ -246,7 +258,7 @@ func _verify_player_escape() -> bool:
 		_fail("RETREAT did not move the player into the escape zone.")
 		return false
 
-	adapter.request_player_action(GameEnums.ActionType.MOVE_BACKWARD)
+	arena.turn_manager.escape_combat(arena.player_core)
 	for _frame in range(90):
 		if not outcomes.is_empty():
 			break
@@ -389,11 +401,16 @@ func _spawn_encounter() -> Node:
 	await process_frame
 
 	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
+	var world_state := root.get_node("WorldState") as RuntimeStateStore
 	var origin := macro_map.player_token.current_hex_coords
-	var enemy_coords := _nearest_enemy_coords(
-		origin,
-		macro_map.active_enemies.keys()
+	var enemy_coords := _ensure_enemy_coords(
+		macro_map,
+		world_state,
+		origin
 	)
+	if enemy_coords == origin:
+		_fail("The outcome test could not place a controlled enemy.")
+		return null
 	for step in _build_hex_path(origin, enemy_coords):
 		macro_map._execute_player_step(step)
 		await process_frame
@@ -411,6 +428,13 @@ func _snapshot_has_action(snapshot: Dictionary, action: int) -> bool:
 			return true
 	return false
 
+func _wait_for_result_overlay(hud: CombatLaneHUD, frame_limit: int = 240) -> bool:
+	for _frame in range(frame_limit):
+		if hud.is_result_overlay_waiting():
+			return true
+		await create_timer(0.05).timeout
+	return hud.is_result_overlay_waiting()
+
 func _find_action(snapshot: Dictionary, action: int) -> Dictionary:
 	for descriptor in snapshot.get("actions", []):
 		if descriptor.get("action", -1) == action:
@@ -426,6 +450,39 @@ func _ground_has(
 		if item_state.get("instance_id", "") == instance_id:
 			return true
 	return false
+
+func _ensure_enemy_coords(
+	macro_map: MacroGameManager,
+	world_state: RuntimeStateStore,
+	origin: Vector2i
+) -> Vector2i:
+	if macro_map.active_enemies.is_empty():
+		var coords := _find_clear_adjacent_hex(macro_map, world_state, origin)
+		if coords == origin:
+			return origin
+		macro_map.spawn_procedural_enemy(
+			coords,
+			GameEnums.Faction.SCAVENGER_CELL,
+			0
+		)
+	if macro_map.active_enemies.is_empty():
+		return origin
+	return _nearest_enemy_coords(origin, macro_map.active_enemies.keys())
+
+func _find_clear_adjacent_hex(
+	macro_map: MacroGameManager,
+	world_state: RuntimeStateStore,
+	origin: Vector2i
+) -> Vector2i:
+	for raw_offset in MacroGameManager.HEX_NEIGHBORS:
+		var offset: Vector2i = raw_offset
+		var coords := origin + offset
+		if world_state.has_entity_at(coords):
+			continue
+		var hex := macro_map.world_generator.get_hex_at(coords)
+		if hex.is_passable():
+			return coords
+	return origin
 
 func _nearest_enemy_coords(origin: Vector2i, candidates: Array) -> Vector2i:
 	var nearest: Vector2i = candidates[0]
