@@ -1,9 +1,15 @@
 [gd_scene format=3 uid="uid://mainmenu"]
 
 [ext_resource type="Script" path="res://UI/MainMenu.gd" id="1_script"]
-[ext_resource type="Texture2D" path="res://Asset/UI/revampedHUD/B&W_UI_ByAndrox_FREE/HUD/menu_transparent.png" id="2_bg"]
 [ext_resource type="PackedScene" path="res://UI/SaveLoadMenu.tscn" id="3_saveload"]
 [ext_resource type="AudioStream" path="res://SoundCore/Sound/soundtrack_1/Survivor - ending - lonely - sad - strings.wav" id="4_audio"]
+[ext_resource type="Texture2D" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sky.png" id="bg_sky"]
+[ext_resource type="Texture2D" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/moon.png" id="bg_moon"]
+[ext_resource type="Texture2D" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sand_back.png" id="bg_sand_back"]
+[ext_resource type="Texture2D" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sand.png" id="bg_sand"]
+[ext_resource type="Texture2D" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sand&objects3.png" id="bg_sand_obj3"]
+[ext_resource type="Texture2D" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sand&objects2.png" id="bg_sand_obj2"]
+[ext_resource type="Texture2D" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sand&objects1.png" id="bg_sand_obj1"]
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -14,15 +20,64 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_script")
 
-[node name="Background" type="TextureRect" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-texture = ExtResource("2_bg")
-stretch_mode = 1
+[node name="ParallaxBackground" type="ParallaxBackground" parent="."]
+unique_name_in_owner = true
+
+[node name="SkyLayer" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_scale = Vector2(0.01, 1)
+motion_mirroring = Vector2(1920, 0)
+
+[node name="Sky" type="Sprite2D" parent="ParallaxBackground/SkyLayer"]
+texture = ExtResource("bg_sky")
+centered = false
+
+[node name="MoonLayer" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_scale = Vector2(0.02, 1)
+motion_mirroring = Vector2(1920, 0)
+
+[node name="Moon" type="Sprite2D" parent="ParallaxBackground/MoonLayer"]
+texture = ExtResource("bg_moon")
+centered = false
+
+[node name="SandBackLayer" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_scale = Vector2(0.1, 1)
+motion_mirroring = Vector2(1920, 0)
+
+[node name="SandBack" type="Sprite2D" parent="ParallaxBackground/SandBackLayer"]
+texture = ExtResource("bg_sand_back")
+centered = false
+
+[node name="SandLayer" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_scale = Vector2(0.2, 1)
+motion_mirroring = Vector2(1920, 0)
+
+[node name="Sand" type="Sprite2D" parent="ParallaxBackground/SandLayer"]
+texture = ExtResource("bg_sand")
+centered = false
+
+[node name="SandObj3Layer" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_scale = Vector2(0.4, 1)
+motion_mirroring = Vector2(1920, 0)
+
+[node name="SandObj3" type="Sprite2D" parent="ParallaxBackground/SandObj3Layer"]
+texture = ExtResource("bg_sand_obj3")
+centered = false
+
+[node name="SandObj2Layer" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_scale = Vector2(0.7, 1)
+motion_mirroring = Vector2(1920, 0)
+
+[node name="SandObj2" type="Sprite2D" parent="ParallaxBackground/SandObj2Layer"]
+texture = ExtResource("bg_sand_obj2")
+centered = false
+
+[node name="SandObj1Layer" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_scale = Vector2(1.0, 1)
+motion_mirroring = Vector2(1920, 0)
+
+[node name="SandObj1" type="Sprite2D" parent="ParallaxBackground/SandObj1Layer"]
+texture = ExtResource("bg_sand_obj1")
+centered = false
 
 [node name="CenterContainer" type="CenterContainer" parent="."]
 layout_mode = 1

@@ -42,9 +42,11 @@ measurements retain meaningful units.
 - Item definitions are shared Resources loaded once by `LootCatalog`; items do
   not require individual scripts or scene nodes.
 - The monolithic combat interface has been replaced with a modular `DuelUI`
-  component architecture. The next combat HUD pass moves commands to a bottom
-  deck, groups legal actions by type, and makes ranged weapon sprites and state
-  the primary decision surface.
+  component architecture. The combat HUD features a bottom command deck,
+  groups legal actions by type, and makes ranged weapon sprites and state
+  the primary decision surface with dynamic weapon feedback via `GunAnimationCatalog`.
+- The Main Menu now features a parallax environment and an integrated Save/Load
+  menu with persistent slot tracking.
 - Macro world maps are dynamically loaded and procedurally generated using
   `HexRecord` and `MacroTileCatalog`, replacing the static world scene.
 - Macro NPC projection is capped for readability and now surfaces purpose

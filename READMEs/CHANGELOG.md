@@ -1,5 +1,26 @@
 # ARCCROSS Changelog
 
+## June 29, 2026
+
+### Combat HUD Refactor Completed
+
+- Completed the Phase 2 combat HUD redesign. Actions are now grouped (firearm, movement, melee, item) in a bottom-screen command deck.
+- Integrated `GunAnimationCatalog` for dynamic weapon feedback (shoot, reload, cycle, empty) based on equipped weapon IDs.
+- Removed legacy HUD frames and monolithic layout components.
+- AIMED SHOT now exposes visible Limb Region choices directly in the command deck.
+
+### Visual and Audio Polish
+
+- Added a scrolling parallax background to the Main Menu using new apocalyptic environment assets.
+- Updated Blood VFX for combat impacts.
+- Added comprehensive new firearm sound effects (9mm, revolver, shotgun handling and firing) tied into the `AudioConductor`.
+- Updated the Combat Camera to improve action framing in the tactical lane.
+
+### Interface and Persistence
+
+- Implemented `SaveLoadMenu` UI, allowing players to view and load from three persistent save slots with Day and Timestamp tracking.
+- Refined `PaperDollModel` for the inventory UI to accurately reflect multi-layered token visuals.
+
 ## June 28, 2026
 
 ### Combat Flow Refactor

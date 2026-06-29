@@ -25,6 +25,10 @@ func _ready() -> void:
 	if conductor and conductor.has_method("stop_all"):
 		conductor.stop_all()
 
+func _process(delta: float) -> void:
+	if %ParallaxBackground:
+		%ParallaxBackground.scroll_offset.x -= 20.0 * delta
+
 func _on_new_game() -> void:
 	var world_state = get_node("/root/WorldState") as RuntimeStateStore
 	world_state.begin_new_world("DEMO_WASTELAND_01")
