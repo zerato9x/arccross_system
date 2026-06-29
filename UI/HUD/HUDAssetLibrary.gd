@@ -31,16 +31,15 @@ const BW_MENU := BW_ROOT + "menu_transparent.png"
 const BW_COUNTERS := BW_ROOT + "counters_transparent.png"
 const BW_CHARGE_BARS := BW_ROOT + "charge_bars_transparent.png"
 const BW_INVENTORY := BW_ROOT + "inventory_transparent.png"
-const CONDITION_ROOT := REVAMPED_ROOT + "Condition/"
-const CONDITION_FINE := CONDITION_ROOT + "ConditionFine.png"
-const CONDITION_PRECAUTION_Y := CONDITION_ROOT + "ConditionPrecautionY.png"
-const CONDITION_PRECAUTION_O := CONDITION_ROOT + "ConditionPrecautionO.png"
-const CONDITION_DANGER := CONDITION_ROOT + "ConditionDanger.png"
-const CONDITION_HEALING := CONDITION_ROOT + "ConditionHealing.png"
-const CONDITION_INFECTED := CONDITION_ROOT + "ConditionInfected.png"
 const BW_BUTTON_IDLE_REGION := Rect2(226.0, 13.0, 74.0, 17.0)
 const BW_BUTTON_HOVER_REGION := Rect2(226.0, 39.0, 74.0, 17.0)
-const BW_PANEL_REGION := Rect2(226.0, 13.0, 74.0, 43.0)
+const BW_SEGMENTED_METER_REGION := Rect2(176.0, 55.0, 48.0, 9.0)
+const BW_COMPACT_METER_REGION := Rect2(416.0, 24.0, 32.0, 8.0)
+const BW_ICON_HEART_REGION := Rect2(146.0, 18.0, 12.0, 12.0)
+const BW_ICON_SHIELD_REGION := Rect2(146.0, 67.0, 12.0, 14.0)
+const BW_ICON_DROPLET_REGION := Rect2(18.0, 145.0, 14.0, 15.0)
+const BW_ICON_SKULL_REGION := Rect2(17.0, 193.0, 14.0, 15.0)
+const BW_ICON_LIGHTNING_REGION := Rect2(68.0, 193.0, 52.0, 15.0)
 
 static func texture(path: String) -> Texture2D:
 	if not USE_HUD_TEXTURES:
@@ -63,19 +62,19 @@ static func official_region(path: String, region: Rect2) -> Texture2D:
 	atlas.region = region
 	return atlas
 
-static func condition_sheet(condition: String) -> Texture2D:
+static func condition_icon(condition: String) -> Texture2D:
 	match condition:
 		"danger":
-			return official_texture(CONDITION_DANGER)
+			return official_region(BW_COUNTERS, BW_ICON_SKULL_REGION)
 		"healing":
-			return official_texture(CONDITION_HEALING)
+			return official_region(BW_COUNTERS, BW_ICON_LIGHTNING_REGION)
 		"infected":
-			return official_texture(CONDITION_INFECTED)
+			return official_region(BW_COUNTERS, BW_ICON_SKULL_REGION)
 		"precaution_o":
-			return official_texture(CONDITION_PRECAUTION_O)
+			return official_region(BW_COUNTERS, BW_ICON_DROPLET_REGION)
 		"precaution_y":
-			return official_texture(CONDITION_PRECAUTION_Y)
-	return official_texture(CONDITION_FINE)
+			return official_region(BW_COUNTERS, BW_ICON_SHIELD_REGION)
+	return official_region(BW_COUNTERS, BW_ICON_HEART_REGION)
 
 static func status_icon(name: String) -> Texture2D:
 	return texture(ROOT + "icons/status/%s_32.png" % name)
@@ -198,15 +197,21 @@ static func apply_label(label: Label, role: String = "body") -> void:
 static func texture_panel_sprite(sprite: Sprite2D, _kind: String, _size: Vector2) -> void:
 	if sprite == null:
 		return
-	sprite.texture = official_region(BW_MENU, BW_PANEL_REGION)
+	sprite.texture = null
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.visible = sprite.texture != null
+	sprite.visible = false
 
 static func button_texture(state: String) -> Texture2D:
 	var region := BW_BUTTON_IDLE_REGION
 	if state == "hover" or state == "pressed":
 		region = BW_BUTTON_HOVER_REGION
 	return official_region(BW_MENU, region)
+
+static func meter_frame_texture(kind: String = "segmented") -> Texture2D:
+	var region := BW_SEGMENTED_METER_REGION
+	if kind == "compact":
+		region = BW_COMPACT_METER_REGION
+	return official_region(BW_CHARGE_BARS, region)
 
 static func pocket_slot_style(active: bool = false) -> StyleBox:
 	var background := Color("#171a14") if active else COLOR_SLOT

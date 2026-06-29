@@ -238,6 +238,12 @@ func _run() -> void:
 		_fail("The top combat HUD did not render essential side summaries.")
 		return
 	if (
+		arena.lane_hud._player_top_rect.size.y > 160.0
+		or arena.lane_hud._enemy_top_rect.size.y > 160.0
+	):
+		_fail("The top combat HUD panels are too tall and can overlap the lane view.")
+		return
+	if (
 		(arena.lane_hud._player_ranged_card.get("name") as Label).text.is_empty()
 		or (arena.lane_hud._player_melee_card.get("name") as Label).text.is_empty()
 		or (arena.lane_hud._enemy_ranged_card.get("name") as Label).text.is_empty()
@@ -245,18 +251,69 @@ func _run() -> void:
 	):
 		_fail("The top combat HUD did not render all weapon boxes.")
 		return
+	if arena.lane_hud._player_ranged_card.has("frame"):
+		_fail("The top weapon boxes still render retired holder frame sprites.")
+		return
+	if arena.lane_hud._equipment_hover_box == null:
+		_fail("The health section did not prepare an equipment hover card.")
+		return
+	var equipment_hover_text := arena.lane_hud._equipment_hover_text(
+		hud_snapshot.get("player", {}),
+		"YOU"
+	)
+	if (
+		not equipment_hover_text.contains("YOU EQUIPMENT")
+		or not equipment_hover_text.contains("RANGED")
+		or not equipment_hover_text.contains("MELEE")
+	):
+		_fail("The health equipment hover card did not expose weapon sections.")
+		return
+	if (
+		arena.lane_hud._command_context_rule == null
+		or arena.lane_hud._command_context_rule.texture == null
+		or not (arena.lane_hud._command_context_rule.texture is AtlasTexture)
+	):
+		_fail("The combat log did not render an official B&W divider element.")
+		return
 	var full_blood_fill_height := arena.lane_hud._player_portrait_plate.polygon[2].y
+	var player_condition_atlas_path := ""
+	if (
+		arena.lane_hud._player_condition_sprite.texture != null
+		and arena.lane_hud._player_condition_sprite.texture is AtlasTexture
+	):
+		player_condition_atlas_path = (
+			arena.lane_hud._player_condition_sprite.texture as AtlasTexture
+		).atlas.resource_path
 	if (
 		arena.lane_hud._player_condition_sprite.texture == null
-		or not arena.lane_hud._player_condition_sprite.region_enabled
-		or not str(
-			arena.lane_hud._player_condition_sprite.texture.resource_path
-		).contains("Asset/UI/revampedHUD/Condition")
+		or arena.lane_hud._player_condition_sprite.region_enabled
+		or not player_condition_atlas_path.contains(
+			"B&W_UI_ByAndrox_FREE/HUD/counters_transparent.png"
+		)
 	):
-		_fail("The player health section did not render a Condition animation.")
+		_fail("The player health section did not render a B&W condition icon.")
+		return
+	var player_body_row: Dictionary = arena.lane_hud._player_status_rows[0]
+	var player_meter_frame := player_body_row.get("meter_frame") as Sprite2D
+	var player_meter_atlas_path := ""
+	if (
+		player_meter_frame != null
+		and player_meter_frame.texture != null
+		and player_meter_frame.texture is AtlasTexture
+	):
+		player_meter_atlas_path = (player_meter_frame.texture as AtlasTexture).atlas.resource_path
+	if (
+		player_meter_frame == null
+		or player_meter_frame.texture == null
+		or not player_meter_atlas_path.contains("charge_bars")
+	):
+		_fail("The body health rows did not use the official segmented meter frame.")
 		return
 	if CombatLaneHUD.CONDITION_ANIMATION_FPS > 5.0:
 		_fail("The Condition token animation is too fast for readable HUD use.")
+		return
+	if CombatLaneHUD.CONDITION_ANIMATION_FPS != 0.0:
+		_fail("The Condition monitor should hold a stable frame during combat HUD display.")
 		return
 	var player_condition_data: Dictionary = arena.lane_hud.get_snapshot().get("player", {})
 	arena.lane_hud._condition_animation_time = 0.01
@@ -279,9 +336,9 @@ func _run() -> void:
 		return
 	if (
 		arena.lane_hud._enemy_condition_sprite.texture == null
-		or not arena.lane_hud._enemy_condition_sprite.region_enabled
+		or arena.lane_hud._enemy_condition_sprite.region_enabled
 	):
-		_fail("The enemy health section did not render a Condition animation.")
+		_fail("The enemy health section did not render a stable condition icon.")
 		return
 	player.body.blood_level = GameEnums.SCALE_MAX * 0.5
 	arena.command_adapter.refresh_snapshot()
@@ -293,9 +350,7 @@ func _run() -> void:
 	player.body.blood_level = 2.0
 	arena.command_adapter.refresh_snapshot()
 	await process_frame
-	if not str(
-		arena.lane_hud._player_condition_sprite.texture.resource_path
-	).contains("ConditionDanger"):
+	if arena.lane_hud._player_condition_state.get("condition", "") != "danger":
 		_fail("Critical Blood did not switch the Condition token to Danger.")
 		return
 	player.body.blood_level = GameEnums.SCALE_MAX
@@ -756,6 +811,23 @@ func _run() -> void:
 		or lock_slot.get("occupants", []).size() != 2
 	):
 		_fail("The melee-lock projection did not preserve shared occupancy.")
+		return
+	var lock_player: Dictionary = lock_snapshot.get("player", {})
+	var lock_melee_weapon: Dictionary = lock_player.get("melee_weapon", {})
+	var expected_lock_weapon_name := (
+		str(lock_melee_weapon.get("display_name", "MELEE")).to_upper()
+		if not lock_melee_weapon.is_empty()
+		else "UNARMED"
+	)
+	if arena.lane_hud._weapon_name_label.text != expected_lock_weapon_name:
+		_fail("Melee Lock did not switch the active weapon card to the melee slot.")
+		return
+	if (
+		not lock_melee_weapon.is_empty()
+		and arena.lane_hud._weapon_sprite.visible
+		and arena.lane_hud._weapon_sprite.region_enabled
+	):
+		_fail("Melee Lock rendered the melee weapon as an animated sprite sheet.")
 		return
 
 	snapshot = arena.command_adapter.get_snapshot()

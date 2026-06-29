@@ -14,7 +14,7 @@ const ACTION_BUTTON_GAP := Vector2(10.0, 8.0)
 const ACTION_BUTTON_COLUMNS := 4
 const GROUP_BUTTON_SIZE := Vector2(98.0, 30.0)
 const WEAPON_CARD_SIZE := Vector2(232.0, 168.0)
-const TOP_WEAPON_CARD_SIZE := Vector2(158.0, 70.0)
+const TOP_WEAPON_CARD_SIZE := Vector2(158.0, 52.0)
 const COMMAND_CONTEXT_SIZE := Vector2(360.0, 196.0)
 const BODY_BAR_SIZE := Vector2(150.0, 10.0)
 const BODY_BAR_GAP := 8.0
@@ -59,8 +59,7 @@ const CAMERA_ZOOM_SPEED := 10.0
 const RESOLVE_PRESENTATION_SECONDS := 1.8
 const RESOLVE_CAMERA_ZOOM := 1.9
 const RESOLVE_PANEL_SIZE := Vector2(430.0, 112.0)
-const CONDITION_FRAME_SIZE := Vector2i(32, 32)
-const CONDITION_ANIMATION_FPS := 2.0
+const CONDITION_ANIMATION_FPS := 0.0
 
 signal action_requested(action: int, target_limb: int, item_instance_id: String)
 signal pass_requested
@@ -144,7 +143,11 @@ var _weapon_detail_label: Label
 var _group_tab_root: Node2D
 var _command_context_box: Polygon2D
 var _command_context_border: Line2D
+var _command_context_rule: Sprite2D
 var _command_context_label: Label
+var _equipment_hover_box: Polygon2D
+var _equipment_hover_border: Line2D
+var _equipment_hover_label: Label
 var _resolve_screen_root: Node2D
 var _resolve_panel_box: Polygon2D
 var _resolve_panel_border: Line2D
@@ -209,6 +212,7 @@ func _process(delta: float) -> void:
 	_update_camera(delta, viewport_size)
 	_update_weapon_animation(delta)
 	_update_condition_animations(delta)
+	_update_health_equipment_hover()
 	if not _snapshot.is_empty():
 		_sync_actor_huds(viewport_size)
 
@@ -230,6 +234,7 @@ func close_hud() -> void:
 	_feedback_label.visible = false
 	_resolve_active = false
 	_resolve_focus_side = ""
+	_set_equipment_hover_visible(false)
 
 func show_snapshot(snapshot: Dictionary) -> void:
 	_presentation_queue.append({ "type": "snapshot", "data": snapshot.duplicate(true) })
@@ -495,14 +500,14 @@ func _layout_screen_hud(viewport_size: Vector2) -> void:
 	)
 	_layout_condition_token(
 		_player_condition_sprite,
-		_player_command_rect,
+		_player_portrait_rect,
 		_snapshot.get("player", {}),
 		viewport_size,
 		ui_scale
 	)
 	_layout_condition_token(
 		_enemy_condition_sprite,
-		_enemy_status_rect,
+		_enemy_portrait_rect,
 		_snapshot.get("enemy", {}),
 		viewport_size,
 		ui_scale
@@ -517,7 +522,7 @@ func _calculate_duel_layout(viewport_size: Vector2) -> void:
 	var grid_top := grid_center_y - grid_height * 0.5
 	var side_width := minf(500.0, viewport_size.x * 0.25)
 	var top_width := minf(390.0, side_width)
-	var top_height := maxf(160.0, grid_top - margin * 2.0)
+	var top_height := clampf(viewport_size.y * 0.09, 126.0, 152.0)
 	var bottom_height := clampf(viewport_size.y * 0.18, 190.0, 236.0)
 	var bottom_y := viewport_size.y - margin - bottom_height
 	var panel_gap := maxf(12.0, viewport_size.x * 0.008)
@@ -717,7 +722,7 @@ func _layout_top_status_side(
 		TOP_WEAPON_CARD_SIZE.x,
 		(rect.size.x - 28.0 - card_gap) * 0.5
 	)
-	var card_height := minf(TOP_WEAPON_CARD_SIZE.y, maxf(58.0, rect.size.y - 78.0))
+	var card_height := minf(TOP_WEAPON_CARD_SIZE.y, maxf(48.0, rect.size.y - 88.0))
 	var card_y := rect.position.y + 76.0
 	var left_rect := Rect2(
 		Vector2(rect.position.x + 14.0, card_y),
@@ -745,19 +750,19 @@ func _layout_top_weapon_card(
 	_set_outline(card.get("border") as Line2D, rect.size)
 	var sprite := card.get("sprite") as Sprite2D
 	if sprite:
-		sprite.position = Vector2(34.0, rect.size.y * 0.55)
+		sprite.position = Vector2(24.0, rect.size.y * 0.5)
 	var title := card.get("title") as Label
 	if title:
 		title.position = Vector2(9.0, 6.0)
 		title.size = Vector2(rect.size.x - 18.0, 16.0)
 	var name_label := card.get("name") as Label
 	if name_label:
-		name_label.position = Vector2(66.0, 23.0)
-		name_label.size = Vector2(maxf(44.0, rect.size.x - 72.0), 18.0)
+		name_label.position = Vector2(52.0, 20.0)
+		name_label.size = Vector2(maxf(44.0, rect.size.x - 58.0), 16.0)
 	var detail := card.get("detail") as Label
 	if detail:
-		detail.position = Vector2(66.0, 42.0)
-		detail.size = Vector2(maxf(44.0, rect.size.x - 72.0), rect.size.y - 44.0)
+		detail.position = Vector2(52.0, 36.0)
+		detail.size = Vector2(maxf(44.0, rect.size.x - 58.0), rect.size.y - 36.0)
 
 func _set_weapon_card_visible(card: Dictionary, visible_card: bool) -> void:
 	var root := card.get("root") as Node2D
@@ -780,6 +785,7 @@ func _layout_command_context(viewport_size: Vector2, ui_scale: Vector2) -> void:
 	var visible_context := not _snapshot.is_empty()
 	_command_context_box.visible = visible_context
 	_command_context_border.visible = visible_context
+	_command_context_rule.visible = visible_context
 	_command_context_label.visible = visible_context
 	if not visible_context:
 		return
@@ -792,6 +798,16 @@ func _layout_command_context(viewport_size: Vector2, ui_scale: Vector2) -> void:
 	_command_context_border.global_position = _command_context_box.global_position
 	_command_context_box.scale = ui_scale
 	_command_context_border.scale = ui_scale
+	_layout_meter_frame(
+		_command_context_rule,
+		Vector2(_command_context_rect.size.x - 24.0, 8.0),
+		Color(0.86, 0.82, 0.72, 0.42)
+	)
+	_command_context_rule.global_position = _screen_to_world(
+		_command_context_rect.position + Vector2(12.0, 36.0),
+		viewport_size
+	)
+	_command_context_rule.scale *= ui_scale
 	_command_context_label.global_position = _screen_to_world(
 		_command_context_rect.position + Vector2(12.0, 10.0),
 		viewport_size
@@ -882,6 +898,7 @@ func _layout_limb_row(row: Dictionary, limb: Dictionary, row_position: Vector2) 
 	var root := row.get("root") as Node2D
 	var track := row.get("track") as Polygon2D
 	var fill := row.get("fill") as Polygon2D
+	var meter_frame := row.get("meter_frame") as Sprite2D
 	var outline := row.get("outline") as Line2D
 	var label := row.get("label") as Label
 	if root == null or track == null or fill == null or outline == null or label == null:
@@ -900,6 +917,11 @@ func _layout_limb_row(row: Dictionary, limb: Dictionary, row_position: Vector2) 
 	_set_outline(outline, BODY_BAR_SIZE)
 	fill.color = _limb_bar_color(ratio, trauma)
 	var is_targeted: bool = _targeted_limb >= 0 and code == _limb_code(_targeted_limb)
+	_layout_meter_frame(
+		meter_frame,
+		BODY_BAR_SIZE,
+		HUDAssetLibrary.COLOR_CAUTION if is_targeted else Color(0.86, 0.82, 0.72, 0.68)
+	)
 	outline.default_color = (
 		HUDAssetLibrary.COLOR_CAUTION
 		if is_targeted
@@ -912,6 +934,25 @@ func _layout_limb_row(row: Dictionary, limb: Dictionary, row_position: Vector2) 
 		_compact_number(maximum),
 		trauma_text,
 	]
+
+func _layout_meter_frame(sprite: Sprite2D, size: Vector2, tint: Color) -> void:
+	if sprite == null:
+		return
+	if sprite.texture == null:
+		sprite.texture = HUDAssetLibrary.meter_frame_texture("segmented")
+	sprite.visible = sprite.texture != null
+	if not sprite.visible:
+		return
+	var texture_size := Vector2(
+		float(sprite.texture.get_width()),
+		float(sprite.texture.get_height())
+	)
+	sprite.position = Vector2.ZERO
+	sprite.scale = Vector2(
+		size.x / maxf(1.0, texture_size.x),
+		size.y / maxf(1.0, texture_size.y)
+	)
+	sprite.modulate = tint
 
 func _layout_condition_token(
 	sprite: Sprite2D,
@@ -926,15 +967,17 @@ func _layout_condition_token(
 	if not sprite.visible:
 		return
 	sprite.global_position = _screen_to_world(
-		rect.position + Vector2(rect.size.x - 22.0, 22.0),
+		rect.position + Vector2(rect.size.x - 20.0, 20.0),
 		viewport_size
 	)
-	sprite.scale = ui_scale * 1.85
+	sprite.scale = ui_scale * 1.55
 	sprite.z_index = 54
 	_apply_condition_frame(sprite, data)
 
 func _update_condition_animations(delta: float) -> void:
 	if _snapshot.is_empty():
+		return
+	if CONDITION_ANIMATION_FPS <= 0.0:
 		return
 	_condition_animation_time = fmod(
 		_condition_animation_time + delta,
@@ -953,18 +996,11 @@ func _apply_condition_frame(sprite: Sprite2D, data: Dictionary) -> void:
 	var texture: Texture2D = state.get("texture", null) as Texture2D
 	var condition_changed := str(state.get("condition", "")) != condition
 	if condition_changed or texture == null:
-		texture = HUDAssetLibrary.condition_sheet(condition)
+		texture = HUDAssetLibrary.condition_icon(condition)
 		state = {
 			"condition": condition,
 			"texture": texture,
-			"frame": -1,
-			"frame_count": 1,
 		}
-		if texture != null:
-			state["frame_count"] = maxi(
-				1,
-				int(floor(float(texture.get_width()) / float(CONDITION_FRAME_SIZE.x)))
-			)
 		_set_condition_state_for_sprite(sprite, state)
 	if texture == null:
 		sprite.visible = false
@@ -972,17 +1008,7 @@ func _apply_condition_frame(sprite: Sprite2D, data: Dictionary) -> void:
 	if sprite.texture != texture:
 		sprite.texture = texture
 	sprite.visible = true
-	sprite.region_enabled = true
-	var frame_count := int(state.get("frame_count", 1))
-	var frame := int(floor(_condition_animation_time * CONDITION_ANIMATION_FPS)) % frame_count
-	if int(state.get("frame", -1)) == frame:
-		return
-	state["frame"] = frame
-	_set_condition_state_for_sprite(sprite, state)
-	sprite.region_rect = Rect2(
-		Vector2(float(frame * CONDITION_FRAME_SIZE.x), 0.0),
-		Vector2(float(CONDITION_FRAME_SIZE.x), float(CONDITION_FRAME_SIZE.y))
-	)
+	sprite.region_enabled = false
 
 func _condition_state_for_sprite(sprite: Sprite2D) -> Dictionary:
 	if sprite == _enemy_condition_sprite:
@@ -1125,18 +1151,22 @@ func _setup_weapon_card() -> void:
 	_weapon_panel_border.name = "WeaponCardBorder"
 	_weapon_panel_border.default_color = Color(COLOR_ACTION_BORDER, 0.78)
 	_weapon_panel_border.width = 1.0
+	_weapon_panel_border.z_index = 2
 	_weapon_panel_root.add_child(_weapon_panel_border)
 
 	_weapon_sprite = Sprite2D.new()
 	_weapon_sprite.name = "WeaponSprite"
 	_weapon_sprite.centered = true
 	_weapon_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_weapon_sprite.z_index = 1
+	_weapon_sprite.z_index = 3
 	_weapon_panel_root.add_child(_weapon_sprite)
 
 	_weapon_name_label = _make_deck_label("WeaponNameLabel", _weapon_panel_root, 11)
 	_weapon_state_label = _make_deck_label("WeaponStateLabel", _weapon_panel_root, 13)
 	_weapon_detail_label = _make_deck_label("WeaponDetailLabel", _weapon_panel_root, 10)
+	_weapon_name_label.z_index = 4
+	_weapon_state_label.z_index = 4
+	_weapon_detail_label.z_index = 4
 
 func _setup_group_tabs() -> void:
 	_group_tab_root = Node2D.new()
@@ -1158,8 +1188,16 @@ func _setup_command_context() -> void:
 	_command_context_border.width = 1.0
 	add_child(_command_context_border)
 
+	_command_context_rule = Sprite2D.new()
+	_command_context_rule.name = "OfficialCombatLogRule"
+	_command_context_rule.centered = false
+	_command_context_rule.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_command_context_rule.texture = HUDAssetLibrary.meter_frame_texture("compact")
+	_command_context_rule.z_index = 37
+	add_child(_command_context_rule)
+
 	_command_context_label = _make_deck_label("CommandContextLabel", self, 10)
-	_command_context_label.z_index = 37
+	_command_context_label.z_index = 38
 	_command_context_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 func _make_deck_label(label_name: String, parent: Node, font_size: int) -> Label:
@@ -1186,21 +1224,22 @@ func _make_top_weapon_card(card_name: String) -> Dictionary:
 	border.name = "Border"
 	border.default_color = Color(COLOR_ACTION_BORDER, 0.68)
 	border.width = 1.0
+	border.z_index = 2
 	root.add_child(border)
 
 	var sprite := Sprite2D.new()
 	sprite.name = "Sprite"
 	sprite.centered = true
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.z_index = 1
+	sprite.z_index = 3
 	root.add_child(sprite)
 
 	var title := _make_deck_label("Title", root, 9)
-	title.z_index = 2
+	title.z_index = 4
 	var name_label := _make_deck_label("Name", root, 10)
-	name_label.z_index = 2
+	name_label.z_index = 4
 	var detail := _make_deck_label("Detail", root, 9)
-	detail.z_index = 2
+	detail.z_index = 4
 
 	return {
 		"root": root,
@@ -1217,7 +1256,7 @@ func _make_condition_sprite(sprite_name: String) -> Sprite2D:
 	sprite.name = sprite_name
 	sprite.centered = true
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.region_enabled = true
+	sprite.region_enabled = false
 	sprite.visible = false
 	return sprite
 
@@ -1264,6 +1303,28 @@ func _setup_duel_layout_shell() -> void:
 	_player_melee_card = _make_top_weapon_card("PlayerMeleeWeaponCard")
 	_enemy_ranged_card = _make_top_weapon_card("EnemyRangedWeaponCard")
 	_enemy_melee_card = _make_top_weapon_card("EnemyMeleeWeaponCard")
+	_setup_equipment_hover_card()
+
+func _setup_equipment_hover_card() -> void:
+	_equipment_hover_box = Polygon2D.new()
+	_equipment_hover_box.name = "HealthEquipmentHoverBox"
+	_equipment_hover_box.color = Color(0.045, 0.04, 0.032, 0.96)
+	_equipment_hover_box.z_index = 90
+	_equipment_hover_box.visible = false
+	add_child(_equipment_hover_box)
+
+	_equipment_hover_border = Line2D.new()
+	_equipment_hover_border.name = "HealthEquipmentHoverBorder"
+	_equipment_hover_border.default_color = Color(COLOR_ACTION_BORDER, 0.82)
+	_equipment_hover_border.width = 1.0
+	_equipment_hover_border.z_index = 91
+	_equipment_hover_border.visible = false
+	add_child(_equipment_hover_border)
+
+	_equipment_hover_label = _make_deck_label("HealthEquipmentHoverLabel", self, 10)
+	_equipment_hover_label.z_index = 92
+	_equipment_hover_label.visible = false
+	_equipment_hover_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 func _setup_resolve_screen() -> void:
 	_resolve_screen_root = Node2D.new()
@@ -1379,11 +1440,19 @@ func _build_limb_rows(parent: Node) -> Array[Dictionary]:
 		fill.z_index = 1
 		row_root.add_child(fill)
 
+		var meter_frame := Sprite2D.new()
+		meter_frame.name = "OfficialMeterFrame"
+		meter_frame.centered = false
+		meter_frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		meter_frame.texture = HUDAssetLibrary.meter_frame_texture("segmented")
+		meter_frame.z_index = 2
+		row_root.add_child(meter_frame)
+
 		var outline := Line2D.new()
 		outline.name = "Outline"
 		outline.default_color = Color(COLOR_ACTION_BORDER, 0.52)
 		outline.width = 1.0
-		outline.z_index = 2
+		outline.z_index = 3
 		row_root.add_child(outline)
 
 		var label := Label.new()
@@ -1396,7 +1465,7 @@ func _build_limb_rows(parent: Node) -> Array[Dictionary]:
 			Color(0.87, 0.82, 0.72, 1.0)
 		)
 		label.add_theme_font_size_override("font_size", 10)
-		label.z_index = 3
+		label.z_index = 4
 		row_root.add_child(label)
 
 		rows.append({
@@ -1404,6 +1473,7 @@ func _build_limb_rows(parent: Node) -> Array[Dictionary]:
 			"root": row_root,
 			"track": track,
 			"fill": fill,
+			"meter_frame": meter_frame,
 			"outline": outline,
 			"label": label,
 		})
@@ -2097,6 +2167,122 @@ func _sync_portrait_model(
 	model.update_model(data.get("equipment", []))
 	model.update_wounds(data.get("limbs", []))
 
+func _update_health_equipment_hover() -> void:
+	if (
+		_snapshot.is_empty()
+		or _equipment_hover_box == null
+		or _equipment_hover_border == null
+		or _equipment_hover_label == null
+	):
+		_set_equipment_hover_visible(false)
+		return
+	var mouse_position := get_viewport().get_mouse_position()
+	var heading := ""
+	var data := {}
+	if (
+		_player_bottom_rect.has_point(mouse_position)
+		or _player_command_rect.has_point(mouse_position)
+		or _player_portrait_rect.has_point(mouse_position)
+	):
+		heading = "YOU"
+		data = _snapshot.get("player", {})
+	elif (
+		_enemy_bottom_rect.has_point(mouse_position)
+		or _enemy_status_rect.has_point(mouse_position)
+		or _enemy_portrait_rect.has_point(mouse_position)
+	):
+		heading = "HOSTILE"
+		data = _snapshot.get("enemy", {})
+	else:
+		_set_equipment_hover_visible(false)
+		return
+	if data.is_empty():
+		_set_equipment_hover_visible(false)
+		return
+	var equipment: Array = data.get("equipment", [])
+	var box_size := Vector2(
+		320.0,
+		clampf(106.0 + float(equipment.size()) * 16.0, 132.0, 260.0)
+	)
+	var viewport_size := get_viewport_rect().size
+	var screen_position := mouse_position + Vector2(18.0, 18.0)
+	screen_position.x = clampf(
+		screen_position.x,
+		12.0,
+		maxf(12.0, viewport_size.x - box_size.x - 12.0)
+	)
+	screen_position.y = clampf(
+		screen_position.y,
+		12.0,
+		maxf(12.0, viewport_size.y - box_size.y - 12.0)
+	)
+	var ui_scale := Vector2.ONE / _camera_zoom_value()
+	_set_box(_equipment_hover_box, box_size)
+	_set_outline(_equipment_hover_border, box_size)
+	_equipment_hover_box.global_position = _screen_to_world(
+		screen_position,
+		viewport_size
+	)
+	_equipment_hover_border.global_position = _equipment_hover_box.global_position
+	_equipment_hover_label.global_position = _screen_to_world(
+		screen_position + Vector2(12.0, 10.0),
+		viewport_size
+	)
+	_equipment_hover_box.scale = ui_scale
+	_equipment_hover_border.scale = ui_scale
+	_equipment_hover_label.scale = ui_scale
+	_equipment_hover_label.size = Vector2(box_size.x - 24.0, box_size.y - 20.0)
+	_equipment_hover_label.text = _equipment_hover_text(data, heading)
+	_set_equipment_hover_visible(true)
+
+func _set_equipment_hover_visible(show_hover: bool) -> void:
+	if _equipment_hover_box:
+		_equipment_hover_box.visible = show_hover
+	if _equipment_hover_border:
+		_equipment_hover_border.visible = show_hover
+	if _equipment_hover_label:
+		_equipment_hover_label.visible = show_hover
+
+func _equipment_hover_text(data: Dictionary, heading: String) -> String:
+	var rows := PackedStringArray()
+	rows.append("%s EQUIPMENT" % heading)
+	rows.append("RANGED  %s" % _equipment_weapon_line(data.get("ranged_weapon", {})))
+	rows.append("MELEE   %s" % _equipment_weapon_line(data.get("melee_weapon", {})))
+	rows.append("GEAR")
+	var equipment: Array = data.get("equipment", [])
+	if equipment.is_empty():
+		rows.append("  NONE")
+	else:
+		var count := 0
+		for raw_descriptor in equipment:
+			var descriptor: Dictionary = raw_descriptor
+			rows.append("  %s  %s" % [
+				_equipment_slot_label(int(descriptor.get("equipment_slot", -1))),
+				str(
+					descriptor.get(
+						"display_name",
+						descriptor.get("name", "ITEM")
+					)
+				).to_upper(),
+			])
+			count += 1
+			if count >= 8:
+				if equipment.size() > count:
+					rows.append("  +%d MORE" % (equipment.size() - count))
+				break
+	return "\n".join(rows)
+
+func _equipment_weapon_line(weapon: Dictionary) -> String:
+	if weapon.is_empty():
+		return "NONE"
+	return str(weapon.get("display_name", weapon.get("name", "WEAPON"))).to_upper()
+
+func _equipment_slot_label(slot: int) -> String:
+	var names := GameEnums.EquipmentSlot.keys()
+	if slot >= 0 and slot < names.size():
+		return str(names[slot]).replace("_", " ")
+	return "SLOT"
+
 func _on_lane_slot_hovered(
 	slot_data: Dictionary,
 	global_position: Vector2
@@ -2118,24 +2304,47 @@ func _render_weapon_card() -> void:
 	if _weapon_panel_root == null:
 		return
 	var player: Dictionary = _snapshot.get("player", {})
-	var weapon: Dictionary = player.get("active_weapon", {})
 	_weapon_panel_root.visible = not _snapshot.is_empty()
 	if _snapshot.is_empty():
 		return
-	var weapon_name := str(player.get("weapon", "UNARMED")).to_upper()
-	var weapon_state := str(player.get("weapon_state", "UNARMED")).to_upper()
-	var weapon_id := str(player.get("weapon_id", ""))
-	var sprite_path := str(player.get("weapon_sprite_path", ""))
+	var locked_in_melee := is_showing_melee_lock()
+	var weapon: Dictionary = (
+		player.get("melee_weapon", {})
+		if locked_in_melee
+		else player.get("active_weapon", {})
+	)
+	var weapon_name := "UNARMED"
+	var weapon_state := "READY"
+	var weapon_id := ""
+	var sprite_path := ""
+	if locked_in_melee:
+		if not weapon.is_empty():
+			weapon_name = str(weapon.get("display_name", "MELEE")).to_upper()
+			weapon_state = str(weapon.get("state", "READY")).to_upper()
+			weapon_id = str(weapon.get("id", ""))
+			sprite_path = str(weapon.get("sprite_path", ""))
+	else:
+		weapon_name = str(player.get("weapon", "UNARMED")).to_upper()
+		weapon_state = str(player.get("weapon_state", "UNARMED")).to_upper()
+		weapon_id = str(player.get("weapon_id", ""))
+		sprite_path = str(player.get("weapon_sprite_path", ""))
 	_weapon_name_label.text = weapon_name
 	_weapon_state_label.text = _weapon_state_text(weapon_state)
-	_weapon_detail_label.text = _weapon_detail_text(player, weapon)
+	var detail_text := _weapon_detail_text(player, weapon)
+	if locked_in_melee:
+		detail_text = (
+			_weapon_slot_detail(weapon, "MELEE")
+			if not weapon.is_empty()
+			else "MELEE // UNARMED"
+		)
+	_weapon_detail_label.text = detail_text
 	var effect := (
 		_weapon_preview_effect
 		if not _weapon_preview_effect.is_empty()
 		else _weapon_effect_for_state(weapon_state)
 	)
 	var animation_texture: Texture2D = null
-	if bool(player.get("has_firearm", false)):
+	if bool(player.get("has_firearm", false)) and not locked_in_melee:
 		animation_texture = GUN_ANIMATION_CATALOG.texture(weapon_id, effect)
 	_weapon_sprite.texture = (
 		animation_texture
@@ -2144,12 +2353,26 @@ func _render_weapon_card() -> void:
 	)
 	_weapon_sprite.visible = _weapon_sprite.texture != null
 	if _weapon_sprite.texture == null:
+		_weapon_sprite.region_enabled = false
+		_weapon_animation_key = ""
+		_weapon_animation_playing = false
+		_weapon_animation_frame_count = 1
 		return
-	var frame_size := _configure_weapon_sprite_sheet(
-		_weapon_sprite.texture,
-		weapon_id,
-		effect
+	var frame_size := Vector2i(
+		_weapon_sprite.texture.get_width(),
+		_weapon_sprite.texture.get_height()
 	)
+	if animation_texture != null:
+		frame_size = _configure_weapon_sprite_sheet(
+			_weapon_sprite.texture,
+			weapon_id,
+			effect
+		)
+	else:
+		_weapon_sprite.region_enabled = false
+		_weapon_animation_key = ""
+		_weapon_animation_playing = false
+		_weapon_animation_frame_count = 1
 	var max_width := maxf(24.0, _weapon_card_rect.size.x - 24.0)
 	var max_height := maxf(24.0, _weapon_card_rect.size.y * 0.52)
 	var texture_size := Vector2(
