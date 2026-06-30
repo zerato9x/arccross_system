@@ -112,8 +112,9 @@ Status recorded on **June 12, 2026**:
 
 - **Verified:** The acceptance behavior passed from the configured main scene
   under automated clean-state or isolated-save conditions.
-- The replacement 163-item static catalog also passes path, ID, inventory,
-  loadout, loot, persistence, combat, and full vertical-slice checks.
+- The replacement static catalog (163 items at verification time; **167** as
+  of June 2026) also passes path, ID, inventory, loadout, loot, persistence,
+  combat, and full vertical-slice checks.
 
 | Item | Status | Recorded evidence |
 | --- | --- | --- |
@@ -127,7 +128,7 @@ Status recorded on **June 12, 2026**:
 | P1-08 SEARCH | Verified | Data-driven loot, depletion, ground state, and collection pass. |
 | P1-09 CAMP | Verified | Safety, time, biology, installed gear, and inventory access pass. |
 | P1-10 Save/load | Verified | Versioned JSON round trip restores all required meaningful state. |
-| P1-11 Regression | Verified | Eleven automated smoke scripts pass together. |
+| P1-11 Regression | Verified | Eleven automated smoke scripts passed at closure; the set has since grown to **23** scripts without reopening Phase 1 acceptance. |
 
 All eleven smoke scripts passed on **June 10, 2026** using Godot `4.6.3`.
 Automated coverage includes:
@@ -169,6 +170,10 @@ Incremental architecture verification recorded on **June 19, 2026**:
 No known Phase 1 acceptance item remains open. Future work should preserve the
 full regression set, including the weapon-data checks, and treat any new
 gameplay feature as a separate phase rather than silently expanding this slice.
+
+Subsequent phases added features that were originally out of scope here — such
+as the three-slot `SaveLoadMenu`, main-menu parallax, and the Phase 2 combat
+HUD — without reopening Phase 1 acceptance.
 
 ## Required Demonstration
 

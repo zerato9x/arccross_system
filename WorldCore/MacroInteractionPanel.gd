@@ -17,7 +17,6 @@ signal inventory_requested
 signal interaction_closed
 
 const MAX_TOOL_SLOTS := 3
-const HUDAssetLibrary := preload("res://UI/HUD/HUDAssetLibrary.gd")
 
 var _panel: PanelContainer
 var _content: VBoxContainer

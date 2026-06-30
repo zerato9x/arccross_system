@@ -4,7 +4,6 @@
 
 # Godot-specific ignores
 .import/
-.png
 export.cfg
 export_credentials.cfg
 
@@ -15,3 +14,6 @@ export_credentials.cfg
 .mono/
 data_*/
 mono_crash.*.json
+
+Tools/Godot_v4.6.3-stable_win64_console.exe
+Tools/Godot_v4.6.3-stable_win64.exe

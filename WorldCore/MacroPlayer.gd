@@ -73,7 +73,7 @@ func restore_runtime_record(record) -> void:
 	humanoid_core.restore_runtime_state(runtime_state)
 	current_hex_coords = coords_state
 	if humanoid_token:
-		humanoid_token.refresh_from_inventory()
+		humanoid_token.refresh_from_record(capture_runtime_record())
 		refresh_token_pose()
 
 func snap_to_hex(coords: Vector2i, pixel_position: Vector2) -> void:
@@ -122,7 +122,13 @@ func _configure_humanoid_token() -> void:
 		push_error("MacroPlayer requires an authored HumanoidTokenView child.")
 		return
 	humanoid_token.set_display_scale(2.4)
-	humanoid_token.bind_inventory(humanoid_core.inventory)
+	humanoid_token.bind_appearance_record(capture_runtime_record())
+	if not humanoid_core.inventory.equipment_changed.is_connected(
+		_on_inventory_appearance_changed
+	):
+		humanoid_core.inventory.equipment_changed.connect(
+			_on_inventory_appearance_changed
+		)
 	if not humanoid_core.stance_changed.is_connected(_on_stance_changed):
 		humanoid_core.stance_changed.connect(_on_stance_changed)
 	if not humanoid_core.body.limb_destroyed.is_connected(
@@ -136,6 +142,14 @@ func _configure_humanoid_token() -> void:
 		humanoid_token.footstep_taken.connect(_on_token_footstep)
 		
 	refresh_token_pose()
+
+func _on_inventory_appearance_changed(
+	_slot: GameEnums.EquipmentSlot,
+	_item: ItemData
+) -> void:
+	if humanoid_token:
+		humanoid_token.refresh_from_record(capture_runtime_record())
+
 
 func _on_token_footstep() -> void:
 	var world_state := get_node_or_null("/root/WorldState") as RuntimeStateStore

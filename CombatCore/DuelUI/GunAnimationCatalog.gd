@@ -6,6 +6,9 @@ const EFFECT_AIM := "aim"
 const EFFECT_RELOAD := "reload"
 const EFFECT_CYCLE := "cycle"
 const EFFECT_EMPTY := "empty"
+const FATAL_BODY_THUD := (
+	"res://SoundCore/Sound/sfx/universfield-fatal-body-fall-thud-352716.mp3"
+)
 
 const _PATHS := {
 	"service_pistol": {
@@ -123,3 +126,9 @@ static func has_weapon(weapon_id: String) -> bool:
 static func frame_spec(weapon_id: String, effect: String) -> Dictionary:
 	var path := animation_path(weapon_id, effect)
 	return (_FRAME_SPECS.get(path, {}) as Dictionary).duplicate(true)
+
+
+static func fatal_body_thud_stream() -> AudioStream:
+	if not ResourceLoader.exists(FATAL_BODY_THUD):
+		return null
+	return load(FATAL_BODY_THUD) as AudioStream

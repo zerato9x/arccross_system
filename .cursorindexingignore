@@ -1,8 +1,6 @@
-# Keep Cursor's codebase index focused on source/code, not Godot asset metadata.
-# Files here are excluded from indexing & semantic search, but the agent can
-# still read them on demand (via @file or file reads).
+# Exclude Godot import/cache metadata from indexing (not useful for search).
+# Media assets are included via negation patterns in .cursorignore.
 
-# Godot import/cache metadata (auto-generated, noise for search)
 *.import
 *.uid
 *.md5
@@ -10,23 +8,6 @@
 *.cache
 .godot/
 .import/
-
-# Binary / media assets (also ignored by default, listed for clarity)
-*.png
-*.png~
-*.jpg
-*.JPG
-*.jpeg
-*.svg
-*.wav
-*.mp3
-*.mp3str
-*.ogg
-*.aseprite
-*.fontdata
-*.otf
-*.ttf
-*.res
 
 # Generated translations
 *.translation

@@ -13,11 +13,16 @@ func _run() -> void:
 	root.add_child(game_director)
 	await process_frame
 	await process_frame
+	await process_frame
 
 	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
 	if not macro_map:
 		_fail("MainWorld did not initialize.")
 		return
+
+	macro_map.refresh_proximity(macro_map.player_token.current_hex_coords)
+	await process_frame
+	await process_frame
 
 	if macro_map.active_enemies.is_empty():
 		_fail("Deterministic proximity generation created no nearby enemies.")
@@ -31,7 +36,8 @@ func _run() -> void:
 	if player_token == null:
 		_fail("Macro player did not create the layered Humanoid Token.")
 		return
-	if macro_map.player_token.get_node("Sprite2D").visible:
+	var legacy_sprite := macro_map.player_token.get_node_or_null("Sprite2D") as Sprite2D
+	if legacy_sprite != null and legacy_sprite.visible:
 		_fail("The legacy macro placeholder remained visible behind the token.")
 		return
 	if not HumanoidVisualCatalog.supports_animation("StrafeLeft"):
@@ -109,9 +115,10 @@ func _run() -> void:
 		return
 
 	var first_enemy := macro_map.active_enemies.values()[0] as MacroEnemy
+	var enemy_legacy := first_enemy.get_node_or_null("Sprite2D") as Sprite2D
 	if (
 		first_enemy.humanoid_token == null
-		or first_enemy.get_node("Sprite2D").visible
+		or (enemy_legacy != null and enemy_legacy.visible)
 	):
 		_fail("A macro enemy did not replace its legacy sprite with a token.")
 		return
@@ -147,35 +154,56 @@ func _run() -> void:
 		macro_map.player_token.current_hex_coords,
 		macro_map.active_enemies.keys()
 	)
-	var path := _build_hex_path(
-		macro_map.player_token.current_hex_coords,
+	var enemy_token := macro_map.active_enemies[enemy_coords] as MacroEnemy
+	var enemy_id := enemy_token.entity_id
+	var origin := macro_map.player_token.current_hex_coords
+
+	var movement_target := _adjacent_passable_hex(
+		macro_map,
+		origin,
 		enemy_coords
 	)
+	if movement_target == origin:
+		_fail("Could not find a passable hex for the movement smoke step.")
+		return
 
-	for step_index in range(path.size()):
-		macro_map._execute_player_step(path[step_index])
-		await process_frame
+	macro_map.debug_step_player_to(movement_target)
+	await create_timer(0.22).timeout
+	if player_token.get_animation() != "Walk":
+		_fail("Macro movement did not drive the token Walk animation.")
+		return
+	if player_token.get_frame_index() < 1:
+		_fail("Macro movement ended before the Walk sheet advanced.")
+		return
+	await create_timer(MacroPlayer.WALK_DURATION_SECONDS - 0.22 + 0.05).timeout
+	if player_core.body.hunger >= hunger_before_move:
+		_fail("Macro movement did not tick the persistent player's biology.")
+		return
 
-		if step_index == 0 and player_core.body.hunger >= hunger_before_move:
-			_fail("Macro movement did not tick the persistent player's biology.")
-			return
-		if (
-			step_index == 0
-			and player_token.get_animation() != "Walk"
-		):
-			_fail("Macro movement did not drive the token Walk animation.")
-			return
-		if step_index == 0:
-			await create_timer(0.22).timeout
-			if (
-				player_token.get_animation() != "Walk"
-				or player_token.get_frame_index() < 1
-			):
-				_fail("Macro movement ended before the Walk sheet advanced.")
-				return
+	var enemy_record := macro_map.get_runtime_state_store().get_entity(enemy_id)
+	if enemy_record == null:
+		_fail("Proximity enemy record disappeared before collision.")
+		return
+	enemy_coords = enemy_record.coords
+	macro_map.debug_project_npc_token(enemy_record)
+
+	var approach_from := macro_map.player_token.current_hex_coords
+	macro_map.player_token.snap_to_hex(
+		enemy_coords,
+		macro_map.map_visualizer.map_to_local(enemy_coords)
+	)
+	macro_map.get_runtime_state_store().update_player_runtime(
+		player_core.capture_runtime_state().to_dict(),
+		enemy_coords
+	)
+	macro_map.close_macro_interaction()
+	if not macro_map.queue_entity_collision(enemy_id, enemy_coords, approach_from):
+		_fail("Could not queue entity collision for combat handoff.")
+		return
+	await process_frame
 
 	if (
-		macro_map._pending_interaction.get("type")
+		macro_map.get_pending_interaction_type()
 		!= GameEnums.MacroInteractionType.ENTITY_COLLISION
 	):
 		_fail("Entity collision did not open the interaction decision.")
@@ -185,13 +213,13 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 
-	var arena = game_director.get("_active_arena")
+	var arena = game_director.get_active_arena()
 	if not arena:
 		_fail("Entering an occupied hex did not create a duel.")
 		return
 
-	if arena.player_core != player_core:
-		_fail("Combat replaced the authoritative macro player core.")
+	if arena.player_core == player_core:
+		_fail("Combat incorrectly reused the live macro player node.")
 		return
 
 	if arena.player_core.body.limb_hp[GameEnums.LimbRegion.LEFT_ARM] != injured_arm_hp:
@@ -222,6 +250,22 @@ func _nearest_enemy_coords(origin: Vector2i, candidates: Array) -> Vector2i:
 			nearest = coords
 			nearest_distance = distance
 	return nearest
+
+func _adjacent_passable_hex(
+	macro_map: MacroGameManager,
+	origin: Vector2i,
+	avoid: Vector2i
+) -> Vector2i:
+	for direction in MacroGameManager.HEX_NEIGHBORS:
+		var candidate: Vector2i = origin + direction
+		if candidate == avoid:
+			continue
+		if macro_map._world_state.has_entity_at(candidate):
+			continue
+		var hex := macro_map.world_generator.get_hex_at(candidate)
+		if hex.is_passable():
+			return candidate
+	return origin
 
 func _build_hex_path(origin: Vector2i, destination: Vector2i) -> Array[Vector2i]:
 	var path: Array[Vector2i] = []

@@ -149,9 +149,15 @@ func _connect_buttons() -> void:
 	_medical_button.pressed.connect(_toggle_medical_monitor)
 	_menu_button.pressed.connect(_toggle_menu)
 	_settings_button.pressed.connect(_toggle_settings)
-	_scan_button.pressed.connect(func(): hex_action_requested.emit("scan"))
-	_travel_button.pressed.connect(func(): hex_action_requested.emit("travel"))
-	_act_button.pressed.connect(func(): hex_action_requested.emit("act"))
+	_scan_button.pressed.connect(
+		func(): hex_action_requested.emit(GameEnums.MACRO_HEX_SCAN)
+	)
+	_travel_button.pressed.connect(
+		func(): hex_action_requested.emit(GameEnums.MACRO_HEX_TRAVEL)
+	)
+	_act_button.pressed.connect(
+		func(): hex_action_requested.emit(GameEnums.MACRO_HEX_ACT)
+	)
 	_menu_inventory_button.pressed.connect(inventory_requested.emit)
 	_menu_save_button.pressed.connect(func(): _open_save_load("save"))
 	_menu_load_button.pressed.connect(func(): _open_save_load("load"))

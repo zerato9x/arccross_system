@@ -459,3 +459,44 @@ static func resolve_negotiation(
 			return GameEnums.NegotiationOutcome.ROB_SUCCESS
 		_:
 			return GameEnums.NegotiationOutcome.CEASEFIRE
+
+
+static func resolve_rob_transfer(
+	enemy_definition: Dictionary,
+	loot_catalog: Node,
+	player_core: HumanoidCore,
+	player_coords: Vector2i
+) -> Dictionary:
+	if loot_catalog == null or not loot_catalog.has_method(
+		"pick_loadout_surrender_runtime_item"
+	):
+		return {
+			"message": "The target withdraws, but carries nothing worth taking.",
+			"player_runtime": {},
+			"ground_items": [],
+		}
+
+	var loadout: Dictionary = enemy_definition.get("loadout", {})
+	var item_state: Dictionary = loot_catalog.pick_loadout_surrender_runtime_item(
+		loadout
+	)
+	if item_state.is_empty():
+		return {
+			"message": "The target withdraws before any usable property changes hands.",
+			"player_runtime": {},
+			"ground_items": [],
+		}
+
+	var runtime_item := ItemData.from_runtime_state(item_state)
+	if player_core.inventory.add_to_backpack(runtime_item):
+		return {
+			"message": "The target surrenders %s and withdraws." % runtime_item.display_name,
+			"player_runtime": player_core.capture_runtime_state().to_dict(),
+			"ground_items": [],
+		}
+
+	return {
+		"message": "%s was surrendered and left on the ground." % runtime_item.display_name,
+		"player_runtime": player_core.capture_runtime_state().to_dict(),
+		"ground_items": [item_state],
+	}

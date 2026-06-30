@@ -27,8 +27,47 @@ func create_runtime_item_state(item_id: String) -> Dictionary:
 func has_item(item_id: String) -> bool:
 	return _items_by_id.has(item_id)
 
+
+func get_item_descriptor(item_id: String) -> Dictionary:
+	var definition := _items_by_id.get(item_id) as ItemData
+	if not definition:
+		return {}
+	return {
+		"id": definition.id,
+		"display_name": definition.display_name,
+		"item_type": definition.item_type,
+		"target_slot": definition.target_slot,
+		"requires_two_hands": definition.requires_two_hands,
+		"item_size": definition.get_effective_item_size(),
+		"tags": definition.tags.duplicate(),
+	}
+
+
+## SystemCore-internal factory access. External domains should use descriptors
+## and runtime item dicts instead.
 func get_item_definition(item_id: String) -> ItemData:
 	return _items_by_id.get(item_id) as ItemData
+
+
+func pick_loadout_surrender_runtime_item(loadout: Dictionary) -> Dictionary:
+	var candidate_paths: Array = loadout.get("starting_items", []).duplicate()
+	var weapon_path: String = str(loadout.get("weapon", ""))
+	if not weapon_path.is_empty():
+		candidate_paths.append(weapon_path)
+	for path_value in candidate_paths:
+		var runtime_state := create_runtime_item_from_template_path(str(path_value))
+		if not runtime_state.is_empty():
+			return runtime_state
+	return {}
+
+
+func create_runtime_item_from_template_path(template_path: String) -> Dictionary:
+	if template_path.is_empty():
+		return {}
+	var item := load(template_path) as ItemData
+	if not item:
+		return {}
+	return item.create_runtime_instance().to_runtime_state()
 
 func _load_items() -> void:
 	_items_by_id.clear()

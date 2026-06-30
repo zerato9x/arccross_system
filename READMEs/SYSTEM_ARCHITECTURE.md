@@ -1,7 +1,8 @@
 # ARCCROSS System Architecture
 
 Canonical terminology is defined in [GLOSSARY.md](GLOSSARY.md). Delivery status
-belongs in [phase_2_execution_plan.md](phase_2_execution_plan.md). The closed
+belongs in [phase_2_execution_plan.md](phase_2_execution_plan.md) (Phase 2
+combat HUD complete; token coverage and shield rules remain open). The closed
 Phase 1 record remains in [phase_1_execution_plan.md](phase_1_execution_plan.md).
 
 ## Core Invariants
@@ -154,13 +155,13 @@ ambush_position: GameEnums.AmbushPosition
 - `CombatLaneHUD` and `CombatLaneView` use a modular architecture composed of
   `DuelUI` presentation elements, receiving neutral combat snapshots and
   legal-action descriptors.
-- Phase 2 combat presentation should group legal-action descriptors into
-  player-facing command groups such as firearm, movement, melee, field, items,
-  and reaction. The groups organize owner-produced legality; they do not create
-  legality.
+- Combat presentation groups legal-action descriptors into player-facing command
+  groups: firearm, movement, melee, field, items, and reaction. The groups
+  organize owner-produced legality; they do not create legality.
 - The bottom command deck owns visual selection state, current group focus,
-  weapon cards, and short-lived weapon presentation effects. CombatCore still
-  owns AP, target, readiness, and outcome validation.
+  weapon cards, and short-lived weapon presentation effects resolved through
+  `GunAnimationCatalog`. CombatCore still owns AP, target, readiness, and
+  outcome validation.
 - Player commands contain an `ActionType` plus only the target or item IDs
   required by that action.
 - `CombatCommandAdapter` revalidates commands before routing them to turn, lane,
@@ -190,7 +191,8 @@ ambush_position: GameEnums.AmbushPosition
 - Normal game startup loads the default save when present. Scripted smoke tests
   opt into their own isolated save paths.
 - `GameDirector` synchronizes cached player and Hex state before saving. `F5`
-  saves and `F9` loads the current run during the prototype.
+  saves and `F9` loads the current run. `SaveLoadMenu` exposes three named slots
+  with day and timestamp metadata from the main menu and defeat flow.
 
 ## Dependency Direction
 
@@ -208,6 +210,69 @@ SystemCore coordinates domains through neutral records and signals.
 Dependencies remain one-directional. Lower-level domains do not import
 higher-level domains to inspect their state. Owner-specific policy is injected
 through callbacks or coordinated by SystemCore.
+
+## Allowed Dependency Matrix
+
+| From | To | Allowed |
+|---|---|---|
+| Any domain | `GameEnums` | Yes — shared closed vocabulary |
+| `BiologicalCore` | `ItemCore` | Yes — biology composes inventory |
+| `WorldCore` | `BiologicalCore` | Yes — macro tokens project runtime actors |
+| `CombatCore` | `BiologicalCore` | Yes — combat resolves on hydrated actors |
+| `WorldCore` / `CombatCore` | `SystemCore` factories | Yes — via neutral dicts and `EntityRecord` |
+| `WorldCore` | `CombatCore` | **No** — use `GameDirector` + signals |
+| `CombatCore` | `WorldCore` | **No** — return outcome dicts to `GameDirector` |
+| `ItemCore` | Any higher domain | **No** |
+| Presentation (`UI/`) | Domain runtime types | **No** — snapshots and intent IDs only |
+| `PresentationCore` | Shared HUD catalogs and scene path registry | Yes — presentation data only |
+| `HumanoidVisualCatalog` | Appearance dicts from records/equipment snapshots | Yes — no live `InventorySystem` |
+| Any domain | `CombatRules` / `WorldRules` | **No** — owner-private policy |
+
+Cross-domain payloads must be `GameEnums` values, stable IDs, engine primitives,
+neutral dictionaries or arrays, and signals. Live `HumanoidCore` nodes may exist
+only inside the domain that hydrated them from a record.
+
+## Modding Contract
+
+Stable surfaces for content mods (no orchestration code changes required):
+
+- **Entity records** — `EntityRecord` JSON fields (`entity_id`, `kind`,
+  `life_state`, `world_status`, `coords`, `definition`, `runtime`).
+- **Hex records** — `HexRecord` fields documented above.
+- **Item runtime dict** — `instance_id`, `template_path`, `current_magazine`,
+  `needs_cycling`, `definition` (neutral descriptor subset).
+- **`GameEnums` macro inventory command IDs** — `MACRO_INV_TAKE`, `MACRO_INV_DROP`,
+  `MACRO_INV_EQUIP`, `MACRO_INV_UNEQUIP`, `MACRO_INV_CONSUME`, `MACRO_INV_MOVE`,
+  `MACRO_INV_LOAD_MAGAZINE`, `MACRO_INV_INTERACT`.
+- **`GameEnums` macro hex command IDs** — `MACRO_HEX_SCAN`, `MACRO_HEX_TRAVEL`,
+  `MACRO_HEX_ACT`.
+- **`GameEnums` NPC macro purpose strings** — `NPC_PURPOSE_SCAVENGE`, `PATROL`,
+  `HUNT`, `ROAM`.
+- **`MacroSnapshotBuilder`** — `build_inventory_snapshot()`, `build_limb_snapshot()`,
+  `build_world_hud_snapshot()`, `build_hex_descriptor()`, `build_macro_activity_snapshot()`,
+  `item_inventory_descriptor()` for neutral UI snapshots.
+- **`MacroPoiController`** — `build_session_snapshot()`, `preview_metrics()`,
+  `resolve_search_outcome()`, `apply_camp_gear_selection()`, `get_camp_access()` for
+  POI session data and neutral search/camp outcomes (applied by `MacroGameManager`).
+- **`MacroNpcSimulator`** — `hex_distance()`, `ensure_npc_purpose()`,
+  `initialize_npc_runtime()`, `evaluate_npc_step()`, `plan_macro_turn()`,
+  `projection_candidates()`, `plan_encounter_refresh()` for neutral NPC macro AI
+  and encounter roll planning (token projection stays in `MacroGameManager`).
+- **`LootCatalog`** — `create_runtime_item_state(item_id)`,
+  `get_profile_descriptor(profile_id)`, `get_item_descriptor(item_id)`,
+  `has_item(item_id)`, `pick_loadout_surrender_runtime_item(loadout)`.
+- **`MobSpawner`** — `generate_mob_record(coords, faction, difficulty_bias,
+  deterministic_key)` returns `EntityRecord`.
+- **`EntityFactory`** — `record_to_humanoid_core(record, parent, unit_name)`,
+  `humanoid_core_to_record(core)` for record hydration at domain boundaries.
+- **Combat boundary** — neutral snapshots and command payloads from
+  `CombatCommandAdapter`; outcomes as `GameEnums.CombatOutcome` plus runtime
+  dicts.
+- **Content assets** — `ItemCore/Items/*.tres`, `ItemCore/LootProfiles/*.tres`,
+  `BiologicalCore/*_def.tres`, `ItemCore/Loadouts/*.tres`.
+
+Mods must not require edits to `WorldCore` or `CombatCore` for new items,
+loot profiles, or entity definitions.
 
 ## Enum And Data Policy
 

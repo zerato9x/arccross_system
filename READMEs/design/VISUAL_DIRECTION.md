@@ -25,10 +25,9 @@ HUDs display owner-produced snapshots and emit intent through stable command or
 item IDs. Visual replacement must not require gameplay rewiring. The full rule
 is defined in [System Architecture](../SYSTEM_ARCHITECTURE.md).
 
-Phase 2 combat HUD work should keep that contract while giving ranged weapons a
-stronger visual role. Static weapon cards should use ItemCore presentation
-sprites; short weapon action effects may use `Asset/Guns_Animation/` through a
-catalog rather than hardcoded filename guesses inside the HUD.
+The combat HUD uses ItemCore presentation sprites for static weapon cards and
+`GunAnimationCatalog` for short weapon action effects. That contract shipped
+with the Phase 2 bottom command deck on June 29, 2026.
 
 ## Macro Map
 

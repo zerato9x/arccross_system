@@ -21,50 +21,73 @@ measurements retain meaningful units.
 
 ## Current Prototype
 
-- ARCCROSS has moved into **Phase 2** development. Phase 1's persistent
-  vertical slice is closed; current work expands the combat presentation and
-  interaction layer without relaxing the owner-validated rule boundaries.
+Status updated on **June 30, 2026**.
+
+### Playable Today
+
+Launch from `UI/MainMenu.tscn` into a persistent macro run:
+
+1. Start a new world or continue from one of three save slots.
+2. Explore a procedurally generated hex map with fog of war, POIs, and
+   purpose-driven NPC activity.
+3. Fight persistent enemies in 1v1 lane combat when colliding on the macro map.
+4. Manage inventory, equipment, firearm loading, SEARCH, and CAMP.
+5. Save and reload with `F5` / `F9` or the main-menu and in-game slot UI.
+
+### Phase Status
+
+- **Phase 1** is closed and verified. The persistent vertical slice — macro
+  movement, combat, inventory, SEARCH/CAMP, and JSON persistence — remains the
+  regression baseline.
+- **Phase 2** combat HUD work (P2-01 through P2-04) is **complete**. The bottom
+  command deck, grouped actions, weapon cards, visible AIMED SHOT targets, and
+  `GunAnimationCatalog` feedback are live in `CombatLaneHUD`.
+- Active Phase 2 follow-up work now targets content coverage, presentation
+  polish, and deferred non-goals such as macro SNIPE and shield-specific BLOCK
+  rules. See [Phase 2 Execution Plan](READMEs/phase_2_execution_plan.md).
+
+### Core Systems
+
 - Combat uses a twelve-slot lane, localized Limb Region damage, and
-  encounter-local Stance.
-- Ordinary Stance pressure cannot directly Fell a combatant. Explicit
-  takedowns and BREAK against an already-Stumbling target can; GET UP then
-  consumes the active turn and restores protected footing.
+  encounter-local Stance. Ordinary Stance pressure cannot directly Fell a
+  combatant; explicit takedowns and BREAK against an already-Stumbling target
+  can. GET UP consumes the active turn and restores protected footing.
 - Ballistic hits deal no Stance Damage. A successful shot applies the weapon's
   authored Flesh Damage directly to one Limb Region.
 - Firearms enforce authored range, accuracy, ammunition, magazine or loading
   aid, capacity, and cycling rules. The current roster includes pistols,
   revolvers, rifles, and a distance-sensitive shotgun.
-- The service-rifle scope carries compatibility and future macro-SNIPE
-  metadata. The SNIPE world action is not implemented yet.
-- The static Innawoods inventory set is mapped into a 163-definition Resource
-  catalog. Supported equipped visuals now drive layered Humanoid Tokens in the
+- The static Innawoods inventory set maps into **167** categorized item
+  Resources. Supported equipped visuals drive layered Humanoid Tokens in the
   macro world and combat lane.
 - Item definitions are shared Resources loaded once by `LootCatalog`; items do
   not require individual scripts or scene nodes.
-- The monolithic combat interface has been replaced with a modular `DuelUI`
-  component architecture. The combat HUD features a bottom command deck,
-  groups legal actions by type, and makes ranged weapon sprites and state
-  the primary decision surface with dynamic weapon feedback via `GunAnimationCatalog`.
-- The Main Menu now features a parallax environment and an integrated Save/Load
-  menu with persistent slot tracking.
-- Macro world maps are dynamically loaded and procedurally generated using
-  `HexRecord` and `MacroTileCatalog`, replacing the static world scene.
-- Macro NPC projection is capped for readability and now surfaces purpose
-  signals through the world HUD instead of treating every visible entity as
-  generic hostile clutter.
-- An integrated Audio Conductor System handles synchronized dynamic playback of
-  music and categorized sound effects.
-- Core biological and system states are decoupled into explicit resource
-  tracking classes (`BodyState`, `HumanoidState`, `InventoryState`,
-  `EntityRecord`, `HexRecord`).
+- Macro world maps are procedurally generated from seeded `HexRecord` data and
+  rendered through `HexMapVisualizer` and `MacroTileCatalog`.
+- Macro NPC projection is capped for readability and surfaces purpose signals
+  through the world HUD.
+- An integrated Audio Conductor handles synchronized music and categorized SFX.
+- Core biological and system states live in explicit resource classes
+  (`BodyState`, `HumanoidState`, `InventoryState`, `EntityRecord`,
+  `HexRecord`).
+- **23** automated smoke scripts cover the vertical slice, combat HUD, weapon
+  data, inventory, save/load, and macro interactions.
+
+### Known Gaps
+
+- Macro **SNIPE** remains unimplemented; service-rifle scope data is metadata
+  only.
+- **EXECUTE** is gated off (`CombatRules.EXECUTE_ENABLED = false`).
+- Shield items exist, but shield-specific BLOCK mitigation is not implemented.
+- Humanoid token art coverage remains incomplete for several rigs, face/eye
+  equipment, and unsupported weapons.
+- Gameplay remains 1v1; squad combat infrastructure is not player-facing.
 
 ## Item Authoring
 
 Run `Tools/Build-StaticItemCatalog.ps1` after adding static Innawoods assets.
 The default mode creates only missing definitions and preserves Inspector
 edits. Use `-Rebuild` only when intentionally replacing the generated catalog.
-- Item definitions are shared Resources loaded once by `LootCatalog`; items do
-  not require individual scripts or scene nodes.
 
 ## Documentation
 

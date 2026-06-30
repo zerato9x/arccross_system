@@ -1,5 +1,19 @@
 # ARCCROSS Changelog
 
+## June 30, 2026
+
+### Documentation Sync
+
+- Updated all project READMEs to the June 30, 2026 implementation state.
+- Recorded Phase 2 combat HUD workstreams P2-01 through P2-04 as complete.
+- Corrected item catalog count to **167** definitions and smoke coverage to **23**
+  scripts.
+- Documented the current playable loop: main menu, three save slots, procedural
+  macro world, 1v1 combat, and known remaining gaps (SNIPE, EXECUTE, shields,
+  token art).
+- Added remaining Phase 2 workstreams P2-05 through P2-07 for token coverage,
+  shield BLOCK rules, and presentation polish.
+
 ## June 29, 2026
 
 ### Combat HUD Refactor Completed
@@ -169,7 +183,8 @@
 ### Static Item Catalog
 
 - Replaced the prototype item set with 163 categorized Resource definitions
-  generated from the static Innawoods Items, Equipment, and Weapons assets.
+  (expanded to **167** by June 2026) generated from the static Innawoods Items,
+  Equipment, and Weapons assets.
 - Migrated player and enemy loadouts, loot profiles, spawners, combat fixtures,
   and persistence tests to the new stable item IDs.
 - Added multi-layer Paper Doll paths while retaining singular equipped-sprite

@@ -301,6 +301,7 @@ func _execute_player_action(
 			var used: bool = player_core.use_consumable_item(item, true)
 			if used:
 				_emit_presentation_action(player_core, action)
+				_emit_item_used(player_core, item.catalog_category)
 			return used
 		GameEnums.ActionType.TAKE_COVER:
 			if not turn_manager.request_action(player_core, action):
@@ -531,6 +532,7 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 				weapon.effective_range,
 				" CYCLE" if weapon.needs_cycling else "",
 			]
+	var equipment := _equipment_snapshot(entity)
 	return {
 		"name": entity.name,
 		"archetype": entity.definition.archetype_name,
@@ -551,10 +553,10 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"active_weapon": weapon_descriptor,
 		"ranged_weapon": ranged_weapon,
 		"melee_weapon": melee_weapon,
-		"equipment": _equipment_snapshot(entity),
+		"equipment": equipment,
 		"both_legs_broken": entity.body.are_both_legs_disabled(),
-		"appearance": HumanoidVisualCatalog.appearance_from_inventory(
-			entity.inventory
+		"appearance": HumanoidVisualCatalog.appearance_from_equipment_snapshot(
+			equipment
 		),
 		"is_dead": entity.is_dead,
 		"is_escaping": entity.is_escaping,
@@ -863,6 +865,12 @@ func _emit_presentation_action(
 		"type": "action",
 		"action": action,
 	})
+
+
+func _emit_item_used(entity: HumanoidCore, category: int) -> void:
+	var bus := get_node_or_null("/root/GameEventBus")
+	if bus and bus.has_method("emit_item_used"):
+		bus.emit_item_used(entity, category)
 
 func _is_projectile_damage_event(event: Dictionary) -> bool:
 	var source := str(event.get("source", ""))

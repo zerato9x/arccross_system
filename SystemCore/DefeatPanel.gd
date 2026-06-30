@@ -4,8 +4,6 @@ class_name DefeatPanel
 signal restart_requested
 signal load_requested
 
-const HUDAssetLibrary := preload("res://UI/HUD/HUDAssetLibrary.gd")
-
 var _overlay: ColorRect
 var _panel: PanelContainer
 var _title_label: Label

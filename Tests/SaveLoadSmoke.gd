@@ -45,7 +45,7 @@ func _prepare_and_save(game_director: GameDirector) -> bool:
 	var macro_map: MacroGameManager = game_director.macro_map
 	var player_core: HumanoidCore = macro_map.player_token.get_humanoid_core()
 	var save_coords := Vector2i(1, 0)
-	macro_map._execute_player_step(save_coords)
+	macro_map.debug_step_player_to(save_coords)
 	await process_frame
 
 	player_core.body.apply_targeted_hit(

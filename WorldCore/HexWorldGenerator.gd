@@ -35,8 +35,13 @@ var handcrafted_sectors: Dictionary = {}
 
 var _world_state: RuntimeStateStore
 
+func configure_services(world_state: RuntimeStateStore) -> void:
+	_world_state = world_state
+
+
 func _ready() -> void:
-	_world_state = get_node("/root/WorldState") as RuntimeStateStore
+	if _world_state == null:
+		_world_state = get_node("/root/WorldState") as RuntimeStateStore
 	_initialize_noise()
 
 func _initialize_noise() -> void:

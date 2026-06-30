@@ -74,8 +74,8 @@ func _run() -> void:
 	)
 	await process_frame
 	var first_arena_signature := str(
-		HumanoidVisualCatalog.appearance_from_inventory(
-			first_arena.enemy_core.inventory
+		HumanoidVisualCatalog.appearance_from_record(
+			original_record.to_dict()
 		).get("signature", "")
 	)
 	if first_arena_signature != record_signature:
@@ -144,8 +144,8 @@ func _run() -> void:
 			return
 
 	var second_arena_signature := str(
-		HumanoidVisualCatalog.appearance_from_inventory(
-			second_arena.enemy_core.inventory
+		HumanoidVisualCatalog.appearance_from_record(
+			world_state.get_entity(enemy_id).to_dict()
 		).get("signature", "")
 	)
 	if second_arena_signature != stored_signature:

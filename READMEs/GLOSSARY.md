@@ -156,10 +156,10 @@ describes a tool; Damage Type describes a hit.
 - **Action Group:** A command grouping attached to owner-validated action
   descriptors so the UI can present firearm, movement, melee, field, item, and
   reaction choices without recalculating legality.
-- **Combat Command Adapter** *(prototype):* The CombatCore boundary that creates
-  snapshots, validates player intent, spends AP, and routes accepted commands.
-- **Combat Interface** *(prototype):* A replaceable UI projection that displays
-  legal actions and emits player intent.
+- **Combat Command Adapter:** The CombatCore boundary that creates snapshots,
+  validates player intent, spends AP, and routes accepted commands.
+- **Combat Interface:** The replaceable UI projection — currently
+  `CombatLaneHUD` — that displays legal actions and emits player intent.
 - **Bottom Command Deck:** The bottom-screen combat command
   surface that combines action groups, weapon status, target choices, and
   feedback.
@@ -267,6 +267,9 @@ describes a tool; Damage Type describes a hit.
   stable IDs, shared enum values, dictionaries, and arrays.
 - **RuntimeStateStore:** The authoritative owner of player, entity, hex,
   world-time, and ground-item records, including their versioned disk save.
+- **SaveLoadMenu:** The three-slot save/load UI showing day and timestamp
+  metadata. Accessible from the main menu and defeat flow; complements in-game
+  `F5` / `F9` quick save and load.
 - **GameTimeRules:** Shared action-duration rules and clock-snapshot conversion.
 - **Loot Profile:** ItemCore-authored weighted item content and depletion limits.
 - **Loot Catalog:** The translation service that exposes neutral item and loot

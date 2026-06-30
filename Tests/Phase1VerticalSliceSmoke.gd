@@ -75,7 +75,7 @@ func _walk_five_hexes(macro_map: MacroGameManager) -> bool:
 			return _fail("The demonstration path contains a non-adjacent step.")
 		if world_state.has_entity_at(coords):
 			return _fail("The five-Hex demonstration path is not collision-free.")
-		macro_map._execute_player_step(coords)
+		macro_map.debug_step_player_to(coords)
 		await process_frame
 		previous = coords
 
@@ -91,10 +91,10 @@ func _defeat_and_loot_enemy(director: GameDirector) -> bool:
 		return _fail("The demonstration enemy is not adjacent after the five-Hex walk.")
 	var enemy_id: String = macro_map.active_enemies[enemy_coords].entity_id
 
-	macro_map._execute_player_step(enemy_coords)
+	macro_map.debug_step_player_to(enemy_coords)
 	await process_frame
 	if (
-		macro_map._pending_interaction.get("type")
+		macro_map.get_pending_interaction_type()
 		!= GameEnums.MacroInteractionType.ENTITY_COLLISION
 	):
 		return _fail("The demonstration did not enter an entity collision.")
@@ -102,7 +102,7 @@ func _defeat_and_loot_enemy(director: GameDirector) -> bool:
 	macro_map.resolve_entity_ambush(GameEnums.AmbushPosition.CLOSE)
 	await process_frame
 	await process_frame
-	var arena = director.get("_active_arena")
+	var arena = director.get_active_arena()
 	if arena == null:
 		return _fail("The demonstration collision did not create combat.")
 
@@ -127,10 +127,10 @@ func _defeat_and_loot_enemy(director: GameDirector) -> bool:
 	)
 
 	for _frame in range(30):
-		if director.get("_active_arena") == null:
+		if director.get_active_arena() == null:
 			break
 		await process_frame
-	if director.get("_active_arena") != null:
+	if director.get_active_arena() != null:
 		return _fail("The player-issued aimed shot did not resolve combat.")
 	if world_state.is_entity_alive(enemy_id):
 		return _fail("The player-issued victory did not persist enemy death.")
@@ -164,11 +164,11 @@ func _search_and_camp(macro_map: MacroGameManager) -> bool:
 	var poi_coords := Vector2i(1, 0)
 	var origin := macro_map.player_token.current_hex_coords
 	for step in _build_hex_path(origin, poi_coords):
-		macro_map._execute_player_step(step)
+		macro_map.debug_step_player_to(step)
 		await process_frame
 
 	if (
-		macro_map._pending_interaction.get("type")
+		macro_map.get_pending_interaction_type()
 		!= GameEnums.MacroInteractionType.POI
 	):
 		return _fail("The demonstration POI did not open.")

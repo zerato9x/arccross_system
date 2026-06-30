@@ -1,13 +1,16 @@
 # Combat HUD Asset Map
 
-Phase 2 combat HUD work should use the official UI assets as reusable primitives, not as stretched decoration. This map records the inspected sheets and the safe regions currently wired into the Godot HUD.
+Phase 2 combat HUD work completed June 29, 2026. Ranged weapons use ItemCore
+presentation sprites for static weapon cards and `GunAnimationCatalog` for
+short weapon action effects. This map records the inspected sheets and the safe
+regions wired into the Godot HUD.
 
 ## Current Runtime Surface
 
 - Main HUD owner: `CombatCore/CombatLaneHUD.gd`
 - Reusable asset facade: `UI/HUD/HUDAssetLibrary.gd`
 - Runtime validation route: Godot MCP `filesystem_manage.reimport`, `script_manage.find_symbols`, `project_run`, and `editor_manage.game_eval`
-- Headless fallback: `Godot --headless --editor --quit --path C:\Stuffs\arccross_system`
+- Headless fallback: `Godot --headless --editor --quit --path <project_root>`
 - Known limitation: focused standalone combat HUD smoke can hit Godot 4.6 `signal 11`; use MCP live probes for visual/runtime confirmation when available.
 
 ## Official B&W HUD Pack

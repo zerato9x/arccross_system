@@ -13,57 +13,83 @@ of restating it.
 - [Phase 1 Execution Plan](phase_1_execution_plan.md): closed vertical-slice
   scope, acceptance criteria, and historical verification.
 - [Phase 2 Execution Plan](phase_2_execution_plan.md): active game-dev phase,
-  current workstreams, and implementation plans.
+  completed workstreams, and remaining goals.
 - [Changelog](CHANGELOG.md): dated implementation and verification notes.
 
 ## Current Implementation
 
-Status updated on **June 28, 2026**:
+Status updated on **June 30, 2026**:
 
-- The project is now in **Phase 2**. Phase 1 remains closed and verified; new
-  work should be tracked as phase expansion instead of quietly stuffing more
-  furniture into the vertical-slice closet.
-- Layered Humanoid Tokens now mirror supported equipped Innawoods visuals in
-  the macro world and combat lane.
-- Token runtime animation is restricted to six gameplay-relevant sheets;
-  strafe and other unreachable variants are excluded from runtime loading.
-- The revised Stance loop prevents routine pressure from causing immediate
-  knockdowns and gives Felled combatants an explicit all-AP GET UP turn.
-- Weapon definitions now author handling, accuracy, range, distance falloff,
-  exact ammunition feeds, cycling, loading aids, inventory and equipment
-  sprites, and attachment compatibility.
+### Playable Loop
+
+- Entry scene: `UI/MainMenu.tscn` → `SystemCore/game_director.tscn` →
+  `WorldCore/main_world.tscn`.
+- New Game seeds `DEMO_WASTELAND_01` and restores the player from persistent
+  records. Continue loads one of three JSON save slots with day and timestamp
+  metadata.
+- Macro play covers hex movement, fog of war, proximity loading, SEARCH/CAMP,
+  TALK/AMBUSH, inventory, and world-time biology.
+- Hostile entity collision suspends macro input and opens `CombatCore/MainDuelScene`.
+- Combat outcomes return to the macro map with persistent injury, ammunition,
+  loot, and entity life state intact.
+- Defeat shows `DefeatPanel` with new-run and load-save actions.
+
+### Phase Status
+
+- **Phase 1** remains closed and verified. Do not expand the vertical-slice
+  acceptance set silently; track new gameplay as phase work.
+- **Phase 2 combat HUD** (P2-01 through P2-04) is **complete** as of June 29,
+  2026. The bottom command deck, grouped legal actions, weapon cards, visible
+  AIMED SHOT limb choices, and `GunAnimationCatalog` effects are implemented
+  and covered by `CombatLaneHUDSmoke.gd`.
+- Remaining Phase 2 focus: token art coverage, shield-specific BLOCK rules,
+  presentation polish, and authored content expansion — not combat HUD layout.
+
+### Systems Snapshot
+
+- Layered Humanoid Tokens mirror supported equipped Innawoods visuals in the
+  macro world, combat lane, and inventory Paper Doll.
+- Token runtime animation uses seventeen gameplay-relevant sheets; moving-attack
+  variants remain source-only.
+- The revised Stance loop prevents routine pressure knockdowns and gives Felled
+  combatants an explicit all-AP GET UP turn.
+- Weapon definitions author handling, accuracy, range, distance falloff, exact
+  ammunition feeds, cycling, loading aids, inventory and equipment sprites, and
+  attachment compatibility.
 - Ballistic attacks deal localized Flesh Damage with zero Stance Damage.
 - Exact pistol magazines, revolver speedloading and hand-loading, rifle feeds,
   manual cycling, and shell-by-shell shotgun behavior are covered by automated
   checks.
-- Service-rifle scope data is present, but the macro SNIPE action remains
-  planned.
-- The static Innawoods inventory set now supplies 163 categorized item
-  Resources. Loadouts, loot, enemy generation, persistence, and inventory
-  tests use the new IDs instead of the removed prototype entries.
+- The static Innawoods inventory set supplies **167** categorized item Resources.
+  Loadouts, loot, enemy generation, persistence, and inventory tests use those
+  IDs.
 - `LootCatalog` is the single runtime registry. The offline catalog builder
   adds missing definitions without overwriting later Inspector edits.
-- The monolithic combat interface has been replaced with a modular `DuelUI`
-  component architecture. The active Phase 2 combat HUD plan moves the action
-  interface to a bottom command deck, groups legal actions by type, and makes
-  weapon sprites, ammunition, range, reload, and cycle state central to ranged
-  play.
-- Macro world maps are dynamically loaded and procedurally generated using
-  `HexRecord` and `MacroTileCatalog`, replacing the static world scene.
-- Macro NPC projection is intentionally sparse and purpose-driven; the HUD now
-  surfaces nearby NPC intent instead of filling the map with mystery meat.
-- An integrated Audio Conductor System handles synchronized dynamic playback of
-  music and categorized sound effects.
-- Core biological and system states have been decoupled into explicit resource
-  tracking classes (`BodyState`, `HumanoidState`, `InventoryState`,
-  `EntityRecord`, `HexRecord`).
-- Token art coverage remains incomplete for rigs, face and eye equipment,
-  several armor regions, and unsupported weapons. The existing BLOCK rules
-  have not yet been replaced by shield-specific coverage and mitigation.
+- Macro world maps are procedurally generated using `HexRecord` and
+  `MacroTileCatalog`, with multiple biomes and region staging from
+  `HexWorldGenerator`.
+- Macro NPC projection is sparse and purpose-driven; the HUD surfaces nearby NPC
+  intent.
+- `AudioConductor` handles macro day/night music, combat, and game-over scenes
+  plus categorized SFX through `GameEventBus`.
+- Core state is decoupled into `BodyState`, `HumanoidState`, `InventoryState`,
+  `EntityRecord`, and `HexRecord`.
+- **23** automated smoke scripts pass on Godot 4.6.
 
-See the [June 28 changelog](CHANGELOG.md#june-28-2026) and
-[Phase 2 Execution Plan](phase_2_execution_plan.md) for the current combat HUD
-workstream.
+### Known Gaps
+
+- Service-rifle scope data is present, but macro **SNIPE** remains unimplemented.
+- **EXECUTE** is disabled pending a trait-unlock system.
+- Shield items exist; generic BLOCK rules have not been replaced by
+  shield-specific coverage and mitigation.
+- Token art coverage remains incomplete for rigs, face and eye equipment, several
+  armor regions, and unsupported weapons.
+- Squad combat, full narrative dialogue, and balance tuning beyond deadlock
+  prevention remain out of scope.
+
+See the [June 29 changelog](CHANGELOG.md#june-29-2026) for the combat HUD
+completion record and [Phase 2 Execution Plan](phase_2_execution_plan.md) for
+remaining workstreams.
 
 ## Design Direction
 
@@ -71,6 +97,7 @@ workstream.
   and screen-level goals.
 - [Combat UI Specification](design/COMBAT_UI_SPECIFICATION.md): combat-specific
   layout and feedback.
+- [Combat HUD Asset Map](design/COMBAT_HUD_ASSET_MAP.md): wired HUD atlas regions.
 - [Mockup Images](design/mockups/): visual references, not implementation
   contracts.
 

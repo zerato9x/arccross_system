@@ -34,7 +34,7 @@ func _run() -> void:
 		_fail("Adjacent passable selected hex was not travel-enabled.")
 		return
 
-	macro_map._begin_poi_interaction(origin, origin_hex)
+	macro_map.begin_poi_interaction(origin, origin_hex)
 	await process_frame
 	var session: Dictionary = macro_map.interaction_panel.get("_session")
 	if session.get("search_options", []).size() < 3:
@@ -43,7 +43,7 @@ func _run() -> void:
 	if session.get("camp_interactions", []).size() < 4:
 		_fail("CAMP did not expose hex interaction rows.")
 		return
-	if macro_map._requirements_met({"any_item_ids": ["not_a_real_key"]}):
+	if macro_map.debug_requirements_met({"any_item_ids": ["not_a_real_key"]}):
 		_fail("Missing item requirements incorrectly unlocked a target.")
 		return
 	macro_map.interaction_panel.close_panel()
@@ -55,7 +55,7 @@ func _run() -> void:
 		macro_map.map_visualizer.map_to_local(movement_origin)
 	)
 	world_state.update_player_runtime(
-		macro_map.player_token.get_humanoid_core().capture_runtime_state(),
+		macro_map.player_token.get_humanoid_core().capture_runtime_state().to_dict(),
 		movement_origin
 	)
 	macro_map.refresh_proximity(movement_origin)
@@ -76,7 +76,7 @@ func _run() -> void:
 		return
 
 	var before_coords := npc_record.coords
-	var before_distance := macro_map._hex_distance(before_coords, movement_origin)
+	var before_distance := macro_map.hex_distance(before_coords, movement_origin)
 	macro_map.load_enemy_token(npc_record.entity_id)
 	if not macro_map.active_enemies.has(before_coords):
 		_fail("NPC movement probe did not project a token.")
@@ -85,11 +85,11 @@ func _run() -> void:
 		_fail("Forced NPC projection exceeded the visible token cap.")
 		return
 
-	macro_map._advance_npc_macro_turn()
+	macro_map.debug_advance_npc_macro_turn()
 	await process_frame
 	var moved_record := world_state.get_entity(npc_record.entity_id)
 	var after_coords := moved_record.coords
-	var after_distance := macro_map._hex_distance(after_coords, movement_origin)
+	var after_distance := macro_map.hex_distance(after_coords, movement_origin)
 	if after_coords == before_coords:
 		_fail("NPC evaluation did not move the pursuit probe.")
 		return
@@ -128,7 +128,7 @@ func _create_clear_pursuer(
 		origin + Vector2i(3, 0),
 	]
 	for start in starts:
-		if macro_map._hex_distance(origin, start) > macro_map.active_radius:
+		if macro_map.hex_distance(origin, start) > macro_map.active_radius:
 			continue
 		if world_state.has_entity_at(start):
 			continue
@@ -141,8 +141,8 @@ func _create_clear_pursuer(
 			0,
 			"macro_world_exploration_probe:" + str(start)
 		)
-		macro_map._initialize_npc_runtime(record)
-		var target := macro_map._evaluate_npc_step(record, origin)
+		macro_map.debug_initialize_npc_runtime(record)
+		var target := macro_map.debug_evaluate_npc_step(record, origin)
 		if target == start or world_state.has_entity_at(target):
 			continue
 		if not macro_map.world_generator.get_hex_at(target).is_passable():

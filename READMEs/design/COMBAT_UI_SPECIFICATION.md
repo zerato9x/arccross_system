@@ -38,9 +38,9 @@ when the lock ends.
   - Field: TAKE COVER and GUARD.
   - Items: legal combat consumables.
   - Reaction: legal off-turn responses.
-- Support both pointer input and visible keyboard shortcuts. Suggested Phase 2
-  mapping is `Q` / `E` for group cycling, `1-6` for actions in the active
-  group, and `0` for GUARD or reaction decline.
+- Support both pointer input and visible keyboard shortcuts: `Q` / `E` for group
+  cycling, `1-6` for actions in the active group, and `0` for GUARD or reaction
+  decline.
 - Request target limbs or Runtime Item Instance IDs only after an action requires
   them.
 - Present AIMED SHOT limb selection as visible target choices. Right-click
@@ -50,8 +50,8 @@ when the lock ends.
 
 ## Phase 2 Bottom Command Deck
 
-The next combat HUD pass replaces the narrow flat action list with a bottom
-command deck. The deck has three responsibilities:
+Implemented June 29, 2026. The bottom command deck replaces the narrow flat
+action list. It has three responsibilities:
 
 - Current weapon card: weapon sprite, name, rounds, capacity, optimal and
   effective range, READY, EMPTY, RELOAD, and CYCLE state.
@@ -60,15 +60,14 @@ command deck. The deck has three responsibilities:
 - Context strip: target limb choices, reaction prompts, feedback, or short
   explanation of why the current weapon state matters.
 
-The weapon card should use ItemCore's `inventory_sprite_path` and
-`unloaded_sprite_path` for stable static presentation. Ranged weapon actions may
-use `Asset/Guns_Animation/` through a small catalog for shoot, reload, empty,
-cycle, casing, shell, and muzzle-flash effects. File-name parsing does not
-belong in `CombatLaneHUD`; the HUD consumes a resolved presentation descriptor.
+The weapon card uses ItemCore's `inventory_sprite_path` and
+`unloaded_sprite_path` for stable static presentation. Ranged weapon actions
+use `Asset/Guns_Animation/` through `GunAnimationCatalog` for shoot, reload,
+empty, cycle, casing, shell, and muzzle-flash effects. `CombatLaneHUD`
+consumes resolved presentation descriptors; it does not parse raw filenames.
 
-The first implementation milestone is static: bottom deck, grouped actions,
-weapon sprite, ammo, range, and state. The second milestone adds the animated
-gun feedback layer.
+Keyboard mapping: `Q` / `E` for group cycling, `1-6` for actions in the active
+group, and `0` for GUARD or reaction decline.
 
 ## Combat Flow
 

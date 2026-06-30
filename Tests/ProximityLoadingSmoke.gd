@@ -54,7 +54,7 @@ func _run() -> void:
 	var deterministic_copy := macro_map.mob_spawner.generate_mob_record(
 		tracked_coords,
 		tracked_definition.get("faction", GameEnums.Faction.UNALIGNED),
-		floori(float(macro_map._hex_distance(Vector2i.ZERO, tracked_coords)) / 8.0),
+		floori(float(macro_map.hex_distance(Vector2i.ZERO, tracked_coords)) / 8.0),
 		macro_map._encounter_key(tracked_coords)
 	)
 	if deterministic_copy.definition != tracked_definition:
@@ -188,7 +188,7 @@ func _tokens_within_unload_radius(
 	center: Vector2i
 ) -> bool:
 	for coords in macro_map.active_enemies.keys():
-		if macro_map._hex_distance(center, coords) > macro_map.unload_radius:
+		if macro_map.hex_distance(center, coords) > macro_map.unload_radius:
 			return false
 	return true
 

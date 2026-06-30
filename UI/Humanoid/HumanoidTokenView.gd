@@ -1,6 +1,9 @@
 extends Node2D
 class_name HumanoidTokenView
 
+## Record-driven humanoid token presentation. Appearance comes from neutral
+## entity records or pre-built appearance dictionaries only.
+
 signal footstep_taken
 
 var _appearance: Dictionary = {}
@@ -13,7 +16,7 @@ var _frame_index := 0
 var _frame_time := 0.0
 var _animation_speed_scale := 1.0
 var _display_scale := 2.4
-var _bound_inventory: InventorySystem
+var _appearance_record: Dictionary = {}
 var _return_animation := "Idle"
 
 func _ready() -> void:
@@ -37,34 +40,24 @@ func _ready() -> void:
 	else:
 		_rebuild_layers()
 
-func bind_inventory(inventory: InventorySystem) -> void:
-	if (
-		_bound_inventory != null
-		and _bound_inventory.equipment_changed.is_connected(
-			_on_equipment_changed
-		)
-	):
-		_bound_inventory.equipment_changed.disconnect(
-			_on_equipment_changed
-		)
+func bind_appearance_record(record: Dictionary) -> void:
+	_appearance_record = record.duplicate(true)
+	refresh_from_record()
 
-	_bound_inventory = inventory
-	if (
-		_bound_inventory != null
-		and not _bound_inventory.equipment_changed.is_connected(
-			_on_equipment_changed
-		)
-	):
-		_bound_inventory.equipment_changed.connect(
-			_on_equipment_changed
-		)
-	refresh_from_inventory()
 
-func refresh_from_inventory() -> void:
-	if _bound_inventory == null:
+func refresh_from_record(record: Dictionary = {}) -> void:
+	if not record.is_empty():
+		_appearance_record = record.duplicate(true)
+	if _appearance_record.is_empty():
 		return
 	set_appearance(
-		HumanoidVisualCatalog.appearance_from_inventory(_bound_inventory)
+		HumanoidVisualCatalog.appearance_from_record(_appearance_record)
+	)
+
+
+func set_slot_item_ids(slot_item_ids: Dictionary) -> void:
+	set_appearance(
+		HumanoidVisualCatalog.appearance_from_slot_item_ids(slot_item_ids)
 	)
 
 func set_appearance(appearance: Dictionary) -> void:
@@ -140,7 +133,6 @@ func set_direction_row(row: int) -> void:
 func face_direction(direction: Vector2) -> void:
 	if direction.length_squared() <= 0.001:
 		return
-	# Sheet rows follow screen-space clockwise order starting at right.
 	set_direction_row(
 		HumanoidVisualCatalog.direction_row_for_vector(direction)
 	)
@@ -217,9 +209,3 @@ func _apply_layer_depth() -> void:
 			_layer_directories[index],
 			_direction_row
 		)
-
-func _on_equipment_changed(
-	_slot: GameEnums.EquipmentSlot,
-	_item: ItemData
-) -> void:
-	refresh_from_inventory()

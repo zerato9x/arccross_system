@@ -75,7 +75,57 @@ func _ready() -> void:
 	_setup_overlay_bus()
 	_setup_players()
 	_setup_sfx_conductor()
+	_setup_event_bus_listeners()
 	set_process(true)
+
+
+func _setup_event_bus_listeners() -> void:
+	var bus = get_node_or_null("/root/GameEventBus")
+	if bus == null:
+		return
+	if not bus.scene_audio_requested.is_connected(_on_scene_audio_requested):
+		bus.scene_audio_requested.connect(_on_scene_audio_requested)
+	if not bus.player_vitals_changed.is_connected(_on_player_vitals_changed):
+		bus.player_vitals_changed.connect(_on_player_vitals_changed)
+
+
+func _on_scene_audio_requested(scene_id: String, context: Dictionary) -> void:
+	match scene_id:
+		"macro_day":
+			enter_scene(AudioScene.MACRO_DAY)
+		"macro_night":
+			enter_scene(AudioScene.MACRO_NIGHT)
+		"combat_standard":
+			enter_scene(AudioScene.COMBAT_STANDARD)
+		"combat_special":
+			enter_scene(AudioScene.COMBAT_SPECIAL)
+		"game_over":
+			enter_scene(AudioScene.GAME_OVER)
+		"silent":
+			enter_scene(AudioScene.SILENT)
+		"world_time_changed":
+			on_world_time_changed(int(context.get("hour", 8)))
+		"first_strike":
+			on_first_strike(int(context.get("action_type", 0)))
+
+
+func _on_player_vitals_changed(context: Dictionary) -> void:
+	var event_type := str(context.get("type", ""))
+	match event_type:
+		"kinetic_tier":
+			on_kinetic_tier_changed(
+				context.get("tier", GameEnums.KineticTier.FLUID),
+				int(context.get("burden", 0))
+			)
+		"stance":
+			on_stance_changed(
+				context.get("stance", GameEnums.StanceState.PLANTED),
+				int(context.get("points", 12))
+			)
+		"morale_broken":
+			on_morale_broken()
+		"player_died":
+			on_player_died(str(context.get("cause", "")))
 
 func _setup_sfx_conductor() -> void:
 	var sfx = SfxConductor.new()

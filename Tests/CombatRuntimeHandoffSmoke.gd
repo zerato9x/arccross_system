@@ -39,18 +39,18 @@ func _run() -> void:
 		_fail("Macro token appearance does not match its record.")
 		return
 
-	macro_map._begin_entity_collision(enemy_id, enemy_record.coords)
+	macro_map.begin_entity_collision(enemy_id, enemy_record.coords)
 	macro_map.resolve_entity_ambush(GameEnums.AmbushPosition.FAR)
 	await process_frame
 	await process_frame
 
-	var arena = game_director.get("_active_arena")
+	var arena = game_director.get_active_arena()
 	if arena == null:
 		_fail("Combat handoff did not create a duel arena.")
 		return
 	var duel_signature := str(
-		HumanoidVisualCatalog.appearance_from_inventory(
-			arena.enemy_core.inventory
+		HumanoidVisualCatalog.appearance_from_record(
+			enemy_record.to_dict()
 		).get("signature", "")
 	)
 	if duel_signature != token_signature:

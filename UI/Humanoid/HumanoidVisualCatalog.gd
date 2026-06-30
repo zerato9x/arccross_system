@@ -132,17 +132,18 @@ const LOADOUT_SLOT_KEYS := {
 
 static var _path_exists_cache: Dictionary = {}
 
-static func appearance_from_inventory(inventory: InventorySystem) -> Dictionary:
+static func appearance_from_equipment_snapshot(equipment: Array) -> Dictionary:
 	var slot_item_ids: Dictionary = {}
-	if inventory == null:
-		return appearance_from_slot_item_ids(slot_item_ids)
-
-	for raw_slot in inventory.paper_doll.keys():
-		var slot := int(raw_slot)
-		var item: ItemData = inventory.paper_doll.get(slot)
-		if item != null:
-			slot_item_ids[slot] = item.id
+	for raw_entry in equipment:
+		if not raw_entry is Dictionary:
+			continue
+		var entry: Dictionary = raw_entry
+		var item_id := str(entry.get("id", ""))
+		if item_id.is_empty():
+			continue
+		slot_item_ids[int(entry.get("equipment_slot", 0))] = item_id
 	return appearance_from_slot_item_ids(slot_item_ids)
+
 
 static func appearance_from_record(record: Dictionary) -> Dictionary:
 	var slot_item_ids: Dictionary = {}

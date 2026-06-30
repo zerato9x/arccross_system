@@ -44,10 +44,10 @@ func _verify_player_escape_retreat() -> bool:
 		macro_map.map_visualizer.map_to_local(collision_coords)
 	)
 	world_state.update_player_runtime(
-		macro_map.player_token.get_humanoid_core().capture_runtime_state(),
+		macro_map.player_token.get_humanoid_core().capture_runtime_state().to_dict(),
 		collision_coords
 	)
-	macro_map._begin_entity_collision(
+	macro_map.queue_entity_collision(
 		enemy_record.entity_id,
 		collision_coords,
 		origin
@@ -56,7 +56,7 @@ func _verify_player_escape_retreat() -> bool:
 	await process_frame
 	await process_frame
 
-	var arena = game_director.get("_active_arena")
+	var arena = game_director.get_active_arena()
 	if arena == null:
 		return _fail("Combat handoff did not create an arena for escape.")
 	arena.turn_manager.escape_combat(arena.player_core)
@@ -112,6 +112,7 @@ func _verify_enemy_death_resolve_zoom() -> bool:
 			outcome: GameEnums.CombatOutcome,
 			_enemy_id: String,
 			_enemy_runtime: Dictionary,
+			_player_runtime: Dictionary,
 			_dropped_items: Array
 		) -> void:
 			outcomes.append(outcome)
@@ -175,7 +176,7 @@ func _find_clear_adjacent_hex(
 func _wait_for_director_teardown(game_director: Node) -> bool:
 	for _index in range(90):
 		await process_frame
-		if game_director.get("_active_arena") == null:
+		if game_director.get_active_arena() == null:
 			return true
 	return false
 

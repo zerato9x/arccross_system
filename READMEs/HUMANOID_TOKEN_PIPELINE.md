@@ -69,10 +69,10 @@ textures, and generated grip-mask textures so opening inventory or swapping
 equipment does not recreate the same resources. The token renderer uses nearest
 filtering and synchronizes one frame index across all active layers.
 
-`Asset/Guns_Animation/` is not part of the humanoid token layer contract. Phase
-2 combat HUD weapon feedback should resolve those textures through a separate
-presentation catalog so token animation, item sprites, and HUD gun effects do
-not collapse into one glorious bucket of future regret.
+`Asset/Guns_Animation/` is not part of the humanoid token layer contract.
+Combat HUD weapon feedback resolves those textures through
+`CombatCore/DuelUI/GunAnimationCatalog.gd`, separate from token animation and
+ItemCore inventory sprites.
 
 ## Current Coverage
 

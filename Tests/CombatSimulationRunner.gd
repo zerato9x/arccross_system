@@ -195,7 +195,13 @@ func _run_simulation() -> void:
 	print("Successful Battles: ", success_count, " / ", total_battles)
 	quit(0)
 
-func _on_duel_finished(outcome, _enemy_id, _enemy_runtime, _dropped_items) -> void:
+func _on_duel_finished(
+	outcome,
+	_enemy_id,
+	_enemy_runtime,
+	_player_runtime,
+	_dropped_items
+) -> void:
 	_current_duel_outcome = outcome
 
 func _fail(message: String) -> void:

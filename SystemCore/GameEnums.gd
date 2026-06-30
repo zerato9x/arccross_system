@@ -57,6 +57,34 @@ enum EquipmentSlot {
 
 enum ItemSize { SMALL, AVERAGE, BIG }
 
+## Neutral macro inventory command IDs (UI intent ↔ WorldCore validation).
+const MACRO_INV_TAKE := "take"
+const MACRO_INV_DROP := "drop"
+const MACRO_INV_EQUIP := "equip"
+const MACRO_INV_UNEQUIP := "unequip"
+const MACRO_INV_CONSUME := "consume"
+const MACRO_INV_MOVE := "move"
+const MACRO_INV_LOAD_MAGAZINE := "load_magazine"
+const MACRO_INV_INTERACT := "interact"
+
+## Presentation scene paths referenced by orchestration code.
+const PRESENTATION_PAPER_DOLL_SCENE := "res://UI/Inventory/PaperDollModel.tscn"
+const PRESENTATION_MAIN_MENU_SCENE := "res://UI/MainMenu.tscn"
+const PRESENTATION_HUMANOID_TOKEN_SCENE := "res://UI/Humanoid/HumanoidToken.tscn"
+const PRESENTATION_INVENTORY_UI_SCENE := "res://UI/Inventory/InventoryUI.tscn"
+const PRESENTATION_WORLD_HUD_SCENE := "res://UI/HUD/WorldHUD.tscn"
+
+## World HUD hex command IDs (intent from presentation).
+const MACRO_HEX_SCAN := "scan"
+const MACRO_HEX_TRAVEL := "travel"
+const MACRO_HEX_ACT := "act"
+
+## NPC macro-brain purpose strings stored on entity runtime records.
+const NPC_PURPOSE_SCAVENGE := "scavenge"
+const NPC_PURPOSE_PATROL := "patrol"
+const NPC_PURPOSE_HUNT := "hunt"
+const NPC_PURPOSE_ROAM := "roam"
+
 # Weapon Classifications
 enum WeaponClass { NONE, BLUNT, BLADE, PISTOL, RIFLE, SHOTGUN }
 

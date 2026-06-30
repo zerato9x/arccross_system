@@ -129,6 +129,7 @@ func _generate_craven_loadout() -> SpawnLoadout:
 # ---------------------------------------------------------
 
 ## Spawn a fully procedural EntityDefinition with randomized genetics and gear.
+## Internal factory helper — external callers should use generate_mob_record().
 func generate_mob(
 	faction: GameEnums.Faction,
 	difficulty_bias: int = 0,

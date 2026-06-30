@@ -30,11 +30,11 @@ func _run() -> void:
 	var enemy_id: String = macro_map.active_enemies[enemy_coords].entity_id
 
 	for step in _build_hex_path(origin, enemy_coords):
-		macro_map._execute_player_step(step)
+		macro_map.debug_step_player_to(step)
 		await process_frame
 
 	if (
-		macro_map._pending_interaction.get("type")
+		macro_map.get_pending_interaction_type()
 		!= GameEnums.MacroInteractionType.ENTITY_COLLISION
 	):
 		_fail("The test could not enter an entity collision.")
@@ -44,7 +44,7 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 
-	var arena = game_director.get("_active_arena")
+	var arena = game_director.get_active_arena()
 	if arena == null:
 		_fail("The collision did not create a combat arena.")
 		return
@@ -147,6 +147,7 @@ func _run() -> void:
 			outcome: GameEnums.CombatOutcome,
 			_enemy_id: String,
 			_enemy_runtime: Dictionary,
+			_player_runtime: Dictionary,
 			_dropped_items: Array
 		) -> void:
 			outcomes.append(outcome)
@@ -229,13 +230,13 @@ func _verify_player_escape() -> bool:
 		return false
 	var enemy_id: String = macro_map.active_enemies[enemy_coords].entity_id
 	for step in _build_hex_path(origin, enemy_coords):
-		macro_map._execute_player_step(step)
+		macro_map.debug_step_player_to(step)
 		await process_frame
 
 	macro_map.resolve_entity_ambush(GameEnums.AmbushPosition.FAR)
 	await process_frame
 	await process_frame
-	var arena = game_director.get("_active_arena")
+	var arena = game_director.get_active_arena()
 	if arena == null:
 		_fail("The escape test could not create combat.")
 		return false
@@ -246,6 +247,7 @@ func _verify_player_escape() -> bool:
 			outcome: GameEnums.CombatOutcome,
 			_enemy_id: String,
 			_enemy_runtime: Dictionary,
+			_player_runtime: Dictionary,
 			_dropped_items: Array
 		) -> void:
 			outcomes.append(outcome)
@@ -285,7 +287,7 @@ func _verify_enemy_escape() -> bool:
 
 	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
 	var world_state := root.get_node("WorldState") as RuntimeStateStore
-	var arena = game_director.get("_active_arena")
+	var arena = game_director.get_active_arena()
 	var enemy_id: String = arena.enemy_entity_id
 	var outcomes: Array = []
 	arena.duel_finished.connect(
@@ -293,6 +295,7 @@ func _verify_enemy_escape() -> bool:
 			outcome: GameEnums.CombatOutcome,
 			_enemy_id: String,
 			_enemy_runtime: Dictionary,
+			_player_runtime: Dictionary,
 			_dropped_items: Array
 		) -> void:
 			outcomes.append(outcome)
@@ -344,13 +347,14 @@ func _verify_player_defeat() -> bool:
 
 	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
 	var world_state := root.get_node("WorldState") as RuntimeStateStore
-	var arena = game_director.get("_active_arena")
+	var arena = game_director.get_active_arena()
 	var outcomes: Array = []
 	arena.duel_finished.connect(
 		func(
 			outcome: GameEnums.CombatOutcome,
 			_enemy_id: String,
 			_enemy_runtime: Dictionary,
+			_player_runtime: Dictionary,
 			_dropped_items: Array
 		) -> void:
 			outcomes.append(outcome)
@@ -412,12 +416,12 @@ func _spawn_encounter() -> Node:
 		_fail("The outcome test could not place a controlled enemy.")
 		return null
 	for step in _build_hex_path(origin, enemy_coords):
-		macro_map._execute_player_step(step)
+		macro_map.debug_step_player_to(step)
 		await process_frame
 	macro_map.resolve_entity_ambush(GameEnums.AmbushPosition.FAR)
 	await process_frame
 	await process_frame
-	if game_director.get("_active_arena") == null:
+	if game_director.get_active_arena() == null:
 		_fail("The outcome test could not create combat.")
 		return null
 	return game_director

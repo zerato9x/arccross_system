@@ -28,11 +28,13 @@ func refresh_slots() -> void:
 	for child in slots_container.get_children():
 		child.queue_free()
 		
-	var world_state = get_node("/root/WorldState") as RuntimeStateStore
+	var save_service = get_node_or_null("/root/SaveLoadService")
+	if save_service == null:
+		return
 	
 	for i in range(3):
 		var btn = Button.new()
-		var meta = world_state.get_save_metadata(i)
+		var meta = save_service.get_save_metadata(i)
 		var text = "Slot " + str(i + 1)
 		
 		if meta.is_empty():

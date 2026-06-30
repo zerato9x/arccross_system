@@ -164,12 +164,12 @@ func _run() -> void:
 
 	var poi_coords := Vector2i(1, 0)
 	var poi_hex := macro_map.world_generator.get_hex_at(poi_coords)
-	var camp_access := macro_map._get_camp_access(poi_coords, poi_hex)
+	var camp_access := macro_map.get_camp_access(poi_coords, poi_hex)
 	if not camp_access.get("allowed", false):
 		_fail("The demo POI did not satisfy the CAMP safety rule.")
 		return
 	poi_hex.hazard_level = WorldRules.CAMP_HAZARD_LIMIT + 1.0
-	if macro_map._get_camp_access(poi_coords, poi_hex).get("allowed", true):
+	if macro_map.get_camp_access(poi_coords, poi_hex).get("allowed", true):
 		_fail("A hazardous location incorrectly allowed CAMP.")
 		return
 

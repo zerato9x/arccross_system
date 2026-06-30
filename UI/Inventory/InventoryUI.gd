@@ -8,14 +8,14 @@ signal inventory_action_requested(
 )
 signal inventory_closed
 
-const ACTION_TAKE := "take"
-const ACTION_DROP := "drop"
-const ACTION_EQUIP := "equip"
-const ACTION_UNEQUIP := "unequip"
-const ACTION_CONSUME := "consume"
-const ACTION_MOVE := "move"
-const ACTION_LOAD_MAGAZINE := "load_magazine"
-const ACTION_INTERACT := "interact"
+const ACTION_TAKE := GameEnums.MACRO_INV_TAKE
+const ACTION_DROP := GameEnums.MACRO_INV_DROP
+const ACTION_EQUIP := GameEnums.MACRO_INV_EQUIP
+const ACTION_UNEQUIP := GameEnums.MACRO_INV_UNEQUIP
+const ACTION_CONSUME := GameEnums.MACRO_INV_CONSUME
+const ACTION_MOVE := GameEnums.MACRO_INV_MOVE
+const ACTION_LOAD_MAGAZINE := GameEnums.MACRO_INV_LOAD_MAGAZINE
+const ACTION_INTERACT := GameEnums.MACRO_INV_INTERACT
 
 const SLOT_SCENE := preload("res://UI/Inventory/InventorySlot.tscn")
 const PAPERDOLL_SCENE := preload("res://UI/Inventory/PaperDollModel.tscn")

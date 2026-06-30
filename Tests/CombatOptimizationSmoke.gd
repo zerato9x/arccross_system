@@ -299,6 +299,7 @@ func _run_battle(
 			outcome: GameEnums.CombatOutcome,
 			_enemy_id: String,
 			_enemy_runtime: Dictionary,
+			_player_runtime: Dictionary,
 			_dropped_items: Array
 		) -> void:
 			battle_state.finished = true

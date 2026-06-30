@@ -7,146 +7,116 @@ domain cores validate and mutate authoritative state.
 
 ## Current Phase 2 Focus
 
-Status recorded on **June 28, 2026**:
+Status updated on **June 30, 2026**:
 
 - Phase 1 remains closed and verified in
   [phase_1_execution_plan.md](phase_1_execution_plan.md).
-- The active Phase 2 planning target is the new combat HUD.
-- The combat HUD should move the action interface to the bottom of the screen,
-  group legal actions by type, and make active weapon sprites and firearm state
-  central to ranged play.
-- The implementation should preserve the current `CombatLaneHUD` /
-  `CombatLaneView` / `CombatCommandAdapter` boundary instead of resurrecting
-  the old monolithic `CombatPanel` path.
+- Combat HUD workstreams **P2-01 through P2-04 are complete**. See
+  [June 29 changelog](CHANGELOG.md#june-29-2026).
+- Remaining Phase 2 goals:
+  - Expand humanoid token visual coverage per
+    [HUMANOID_TOKEN_PIPELINE.md](HUMANOID_TOKEN_PIPELINE.md).
+  - Replace generic BLOCK with shield-specific coverage and mitigation.
+  - Polish macro and combat presentation using the HUD asset packs.
+  - Expand authored content, loadouts, and loot profiles without breaking the
+    owner-validated rule boundaries.
 
-## Phase 2 Workstreams
+## Completed Workstreams
 
-### P2-01: Combat HUD Command Deck
+### P2-01: Combat HUD Command Deck — Verified June 29, 2026
 
-Goal: replace the narrow flat action list with a bottom-screen command deck.
+- Bottom-screen command deck replaces the old narrow floating action list.
+- Legal actions remain owner-produced descriptors from `CombatCommandAdapter`
+  with `group` metadata.
+- Groups: firearm, movement, melee, field, items, and reaction.
+- Group selection supports pointer input and keyboard shortcuts.
+- Verified by `CombatLaneHUDSmoke.gd`.
 
-Acceptance criteria:
+### P2-02: Weapon-First Ranged HUD — Verified June 29, 2026
 
-- The action HUD is anchored at the bottom of the combat screen and no longer
-  floats above the tactical lane.
-- Legal actions remain owner-produced descriptors from `CombatCommandAdapter`.
-- The HUD groups actions into firearm, movement, melee, field, item, and
-  reaction command types.
-- The selected group can be changed by pointer input and visible keyboard
-  shortcuts.
-- The lane remains readable while the command deck is open.
-- `CombatLaneHUDSmoke.gd` verifies the bottom placement, grouped action data,
-  and active firearm group.
+- Active weapon card shows loaded/unloaded sprite from ItemCore presentation
+  paths.
+- Card shows name, rounds, capacity, optimal/effective range, and READY, EMPTY,
+  RELOAD, or CYCLE state.
+- Firearm actions appear in the firearm group when legal.
+- AIMED SHOT exposes visible Limb Region choices in the command deck.
+- Verified by `CombatLaneHUDSmoke.gd`.
 
-### P2-02: Weapon-First Ranged HUD
+### P2-03: Gun Animation Feedback — Verified June 29, 2026
 
-Goal: make ranged weapon state the main decision surface during combat.
-
-Acceptance criteria:
-
-- The active weapon card shows a loaded or unloaded weapon sprite from
-  ItemCore presentation paths.
-- The weapon card shows weapon name, current rounds, capacity, optimal range,
-  effective range, and READY, EMPTY, RELOAD, or CYCLE state.
-- Firearm actions such as SHOOT, AIMED SHOT, RELOAD, and CYCLE appear in the
-  firearm group when legal.
-- AIMED SHOT exposes visible Limb Region choices instead of relying on hidden
-  right-click cycling.
-- The HUD does not infer legality from sprite state; CombatCore remains the
-  authority.
-
-### P2-03: Gun Animation Feedback
-
-Goal: use `Asset/Guns_Animation/` for readable ranged weapon feedback after the
-static weapon card works.
-
-Acceptance criteria:
-
-- A small catalog maps weapon IDs such as `service_pistol`, `carbon_pistol`,
-  `revolver`, `ak47`, `carbon_rifle`, `service_rifle`, and `shotgun` to
-  available shoot, reload, empty, cycle, casing, shell, and muzzle-flash
-  textures.
-- `CombatLaneHUD` receives resolved presentation descriptors instead of
-  parsing raw filenames.
-- SHOOT, RELOAD, and CYCLE can show short-lived weapon effects without changing
+- `CombatCore/DuelUI/GunAnimationCatalog.gd` maps weapon IDs to shoot, reload,
+  empty, cycle, casing, shell, and muzzle-flash textures under
+  `Asset/Guns_Animation/`.
+- `CombatLaneHUD` consumes resolved presentation descriptors.
+- SHOOT, RELOAD, and CYCLE show short-lived weapon effects without changing
   CombatCore rules.
 - Missing animation assets degrade to the static weapon card.
+- Verified by `CombatLaneHUDSmoke.gd`.
 
-### P2-04: Combat HUD Regression Coverage
+### P2-04: Combat HUD Regression Coverage — Verified June 29, 2026
 
-Goal: keep the UI redesign from breaking the working combat loop.
+- `CombatLaneHUDSmoke.gd` covers bottom deck layout, grouped actions, weapon
+  card sprites, ammo/range/state text, and aimed-shot target choices.
+- `CombatInterfaceSmoke.gd` still covers command execution, reactions, outcomes,
+  loot spill, defeat, and escape paths.
+- `WeaponDataSmoke.gd` remains the firearm rules source of truth.
+
+## Remaining Phase 2 Workstreams
+
+### P2-05: Token Visual Coverage
+
+Goal: close the largest gaps in humanoid Entity Projection artwork.
 
 Acceptance criteria:
 
-- `CombatLaneHUDSmoke.gd` covers bottom command deck layout, grouped actions,
-  weapon card sprite loading, ammo/range/state text, and aimed-shot target
-  choices.
-- `CombatInterfaceSmoke.gd` still covers command execution, reactions, outcome
-  resolution, loot spill, defeat, and escape paths.
-- `WeaponDataSmoke.gd` remains the firearm rules source of truth.
-- `git diff --check` is clean.
+- Add priority layers listed in
+  [HUMANOID_TOKEN_PIPELINE.md](HUMANOID_TOKEN_PIPELINE.md): vests/chest rigs,
+  face/eye equipment, arm/leg armor, and remaining player-facing weapons.
+- Every new visual maps through `HumanoidVisualCatalog` and passes
+  `PersistentPlayerSmoke.gd` and `CombatLaneHUDSmoke.gd`.
 
-## Implementation Plan: New Combat HUD
+### P2-06: Shield-Specific BLOCK Rules
 
-1. Move action layout ownership inside `CombatLaneHUD.gd`.
+Goal: make ballistic shields mechanically distinct from generic BLOCK.
 
-   Rework `_calculate_duel_layout()` so `_action_rect` belongs to the bottom
-   screen region. Replace the old narrow `ACTION_PANEL_SIZE` with a wide command
-   deck sized from the viewport. Keep the tactical lane and Melee Lock visuals
-   clear.
+Acceptance criteria:
 
-2. Enrich action descriptors in `CombatCommandAdapter.gd`.
+- Shield items such as `shield_ballistic` and `makeshift_shield` apply authored
+  coverage and mitigation during BLOCK reactions.
+- Rules remain in CombatCore; presentation only reflects owner-produced outcomes.
+- Regression coverage extends `CombatInterfaceSmoke.gd` or a focused shield smoke.
 
-   Add an action `group` field when actions are appended. Suggested group values
-   are `firearm`, `movement`, `melee`, `field`, `items`, and `reaction`.
-   Continue to build legal actions from current combat state only; the group is
-   presentation metadata, not a rules shortcut.
+### P2-07: Presentation Polish
 
-3. Replace flat action rendering.
+Goal: align macro and combat HUDs with the authored asset packs.
 
-   Update `_render_actions()` so it builds group tabs or group slots first, then
-   renders only the active group's buttons. Default to `firearm` when the player
-     has legal ranged actions, `melee` while Melee Locked, and `movement`
-     otherwise. Preserve `0` for GUARD or reaction decline.
+Acceptance criteria:
 
-4. Make target selection visible.
+- Wire remaining regions from `Asset/UI/HUD/` and
+  `design/COMBAT_HUD_ASSET_MAP.md` where they improve readability.
+- Preserve presentation boundaries: no gameplay legality in UI scripts.
 
-   Keep the existing target-limb payload route, but present AIMED SHOT Limb
-   Region choices in the command deck. Right-click cycling may remain as a
-   fallback. It should not be the only way to choose a limb, because secret UI
-   controls are just bugs wearing sunglasses.
+## Implementation Record: Combat HUD (Completed)
 
-5. Add a weapon card component.
+The following plan shipped on **June 29, 2026**:
 
-   Create a small `CombatWeaponPanel` component or an equivalent authored
-   subtree under `CombatLaneHUD.tscn`. It should consume the player combatant
-   snapshot and show active weapon sprite, name, rounds, capacity, optimal
-   range, effective range, and readiness state.
-
-6. Resolve weapon sprites from item data first.
-
-   Use `inventory_sprite_path` and `unloaded_sprite_path` already stored on
-   `ItemData`. Extend the combatant snapshot only if the HUD cannot reliably
-   derive those paths from the existing equipment descriptors.
-
-7. Add a gun animation catalog second.
-
-   Create a presentation-only catalog for `Asset/Guns_Animation/` after the
-   static weapon card is working. Map weapon IDs to named effects instead of
-   string-searching filenames inside the HUD.
-
-8. Validate with focused smokes.
-
-   Update `CombatLaneHUDSmoke.gd` for layout and presentation contracts, keep
-   `CombatInterfaceSmoke.gd` for command behavior, and run `git diff --check`.
-   If standalone Godot smoke hits the known headless crash path, use the editor
-   import/load check and live evaluation fallback.
+1. Moved action layout ownership inside `CombatLaneHUD.gd` with a bottom
+   `_action_rect` command deck.
+2. Enriched action descriptors in `CombatCommandAdapter.gd` with `group`
+   metadata.
+3. Replaced flat action rendering with group tabs and active-group buttons.
+4. Made AIMED SHOT limb selection visible in the command deck.
+5. Added weapon card presentation for sprite, ammo, range, and readiness.
+6. Resolved static weapon sprites from ItemCore paths first.
+7. Added `GunAnimationCatalog` for short-lived ranged weapon effects.
+8. Validated with `CombatLaneHUDSmoke.gd`, `CombatInterfaceSmoke.gd`, and
+   `WeaponDataSmoke.gd`.
 
 ## Current Non-Goals
 
 - Rewriting combat legality.
 - Reintroducing `CombatPanel`.
 - Implementing macro SNIPE.
-- Solving shield-specific BLOCK rules.
 - Making every `Asset/Guns_Animation/` filename a permanent API.
 - Replacing humanoid token animation with HUD gun effects.
+- Squad combat beyond the current 1v1 slice.

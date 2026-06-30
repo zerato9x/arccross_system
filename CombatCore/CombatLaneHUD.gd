@@ -1,20 +1,18 @@
 extends Node2D
 class_name CombatLaneHUD
 
+@export var paper_doll_scene: PackedScene
+
 const ACTION_BUTTON_SCENE := preload(
 	"res://CombatCore/DuelUI/CombatActionButton.tscn"
 )
 const GUN_ANIMATION_CATALOG := preload(
 	"res://CombatCore/DuelUI/GunAnimationCatalog.gd"
 )
-const PAPERDOLL_SCENE := preload("res://UI/Inventory/PaperDollModel.tscn")
 const VIRTUAL_CAMERA_SCRIPT := preload(
 	"res://addons/cinematic_camera_2d/scripts/virtual_camera_2d.gd"
 )
 const BULLET_TEXTURE := preload("res://Asset/Guns_Animation/Bullet.png")
-const FATAL_THUD_SOUND := preload(
-	"res://SoundCore/Sound/sfx/universfield-fatal-body-fall-thud-352716.mp3"
-)
 const ACTION_PANEL_SIZE := Vector2(760.0, 224.0)
 const ACTION_BUTTON_SIZE := Vector2(174.0, 42.0)
 const ACTION_BUTTON_GAP := Vector2(10.0, 8.0)
@@ -1459,7 +1457,7 @@ func _setup_presentation_layers() -> void:
 
 	_fatal_thud_player = AudioStreamPlayer.new()
 	_fatal_thud_player.name = "FatalThudPlayer"
-	_fatal_thud_player.stream = FATAL_THUD_SOUND
+	_fatal_thud_player.stream = GUN_ANIMATION_CATALOG.fatal_body_thud_stream()
 	_fatal_thud_player.volume_db = -2.5
 	add_child(_fatal_thud_player)
 
@@ -1559,17 +1557,27 @@ func _update_resolve_text(resolve: Dictionary, show_results: bool) -> void:
 	_resolve_body_label.text = "\n".join(rows)
 
 func _setup_portrait_tokens() -> void:
-	_player_portrait_model = PAPERDOLL_SCENE.instantiate() as PaperDollModel
+	_player_portrait_model = _instantiate_paper_doll()
 	_player_portrait_model.name = "PlayerPortraitPaperDoll"
 	_portrait_root.add_child(_player_portrait_model)
 	_player_portrait_model.visible = false
 	_player_portrait_model.set_backdrop_visible(false)
 
-	_enemy_portrait_model = PAPERDOLL_SCENE.instantiate() as PaperDollModel
+	_enemy_portrait_model = _instantiate_paper_doll()
 	_enemy_portrait_model.name = "EnemyPortraitPaperDoll"
 	_portrait_root.add_child(_enemy_portrait_model)
 	_enemy_portrait_model.visible = false
 	_enemy_portrait_model.set_backdrop_visible(false)
+
+
+func _instantiate_paper_doll() -> PaperDollModel:
+	var scene := paper_doll_scene
+	if scene == null and ResourceLoader.exists(GameEnums.PRESENTATION_PAPER_DOLL_SCENE):
+		scene = load(GameEnums.PRESENTATION_PAPER_DOLL_SCENE) as PackedScene
+	if scene == null:
+		push_error("CombatLaneHUD missing paper_doll_scene.")
+		return null
+	return scene.instantiate() as PaperDollModel
 
 func _make_status_label(label_name: String, parent: Node) -> Label:
 	var label := Label.new()
@@ -2410,7 +2418,7 @@ func _play_final_blow(side: String) -> void:
 	await get_tree().create_timer(FINAL_BLOW_HOLD_SECONDS).timeout
 
 func _play_fatal_thud() -> void:
-	if _fatal_thud_player == null or FATAL_THUD_SOUND == null:
+	if _fatal_thud_player == null or GUN_ANIMATION_CATALOG.fatal_body_thud_stream() == null:
 		return
 	_fatal_thud_player.stop()
 	_fatal_thud_player.play()

@@ -61,7 +61,7 @@ func set_player_record(record: Dictionary, coords: Vector2i) -> void:
 	player_record = EntityRecord.from_dict(record)
 	player_coords = coords
 
-func update_player_runtime(runtime_state, coords: Vector2i) -> void:
+func update_player_runtime(runtime_state: Dictionary, coords: Vector2i) -> void:
 	player_coords = coords
 	if player_record == null:
 		player_record = EntityRecord.new()
@@ -69,22 +69,12 @@ func update_player_runtime(runtime_state, coords: Vector2i) -> void:
 		player_record.kind = GameEnums.RuntimeEntityKind.PLAYER
 		player_record.life_state = GameEnums.EntityLifeState.ALIVE
 	player_record.coords = coords
-
-	# Accept both HumanoidState and Dictionary
-	if runtime_state is HumanoidState:
-		player_record.runtime = runtime_state.to_dict()
-		player_record.life_state = (
-			GameEnums.EntityLifeState.DEAD
-			if runtime_state.is_dead
-			else GameEnums.EntityLifeState.ALIVE
-		)
-	elif runtime_state is Dictionary:
-		player_record.runtime = runtime_state.duplicate(true)
-		player_record.life_state = (
-			GameEnums.EntityLifeState.DEAD
-			if runtime_state.get("is_dead", false)
-			else GameEnums.EntityLifeState.ALIVE
-		)
+	player_record.runtime = runtime_state.duplicate(true)
+	player_record.life_state = (
+		GameEnums.EntityLifeState.DEAD
+		if runtime_state.get("is_dead", false)
+		else GameEnums.EntityLifeState.ALIVE
+	)
 
 func register_entity(record) -> String:
 	var entity: EntityRecord
@@ -121,15 +111,12 @@ func get_all_entity_records() -> Array:
 		records.append(record)
 	return records
 
-func update_entity_runtime(entity_id: String, runtime_state) -> void:
+func update_entity_runtime(entity_id: String, runtime_state: Dictionary) -> void:
 	if not entity_records.has(entity_id):
 		return
 	var entity: EntityRecord = entity_records[entity_id]
 	var preserved_runtime := _preserved_runtime_keys(entity.runtime)
-	if runtime_state is HumanoidState:
-		entity.runtime = runtime_state.to_dict()
-	elif runtime_state is Dictionary:
-		entity.runtime = runtime_state.duplicate(true)
+	entity.runtime = runtime_state.duplicate(true)
 	for key in preserved_runtime.keys():
 		if not entity.runtime.has(key):
 			entity.runtime[key] = preserved_runtime[key]

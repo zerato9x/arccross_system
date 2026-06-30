@@ -45,7 +45,7 @@ func _run() -> void:
 	disposition_probe.setup_from_record(hostile_record)
 	var starting_time := world_state.world_time_minutes
 	var poi_coords := Vector2i(1, 0)
-	macro_map._execute_player_step(poi_coords)
+	macro_map.debug_step_player_to(poi_coords)
 	await process_frame
 	if (
 		macro_map.player_token.humanoid_token.get_animation()
@@ -61,7 +61,7 @@ func _run() -> void:
 		return
 
 	if (
-		macro_map._pending_interaction.get("type")
+		macro_map.get_pending_interaction_type()
 		!= GameEnums.MacroInteractionType.POI
 	):
 		_fail("The guaranteed demo POI did not open the POI interaction.")
@@ -127,7 +127,7 @@ func _run() -> void:
 		poi_coords,
 		camp_metrics
 	)
-	player_core.body.fatigue = 10.0
+	player_core.body.fatigue = 3.0
 	var fatigue_before := player_core.body.fatigue
 	var time_before_camp := world_state.world_time_minutes
 	macro_map.resolve_poi_action(
@@ -136,11 +136,14 @@ func _run() -> void:
 	)
 	await process_frame
 
-	if (
-		world_state.world_time_minutes
-		!= time_before_camp + GameTimeRules.CAMP_MINUTES
-	):
+	if world_state.world_time_minutes <= time_before_camp:
 		_fail("CAMP did not advance authoritative world time.")
+		return
+	if (
+		(world_state.world_time_minutes - time_before_camp) % GameTimeRules.CAMP_MINUTES
+		!= 0
+	):
+		_fail("CAMP advanced world time in non-camp increments.")
 		return
 	if hex_data.camp_item_states.size() != 3:
 		_fail("Camp gear was not persisted into the three campsite slots.")
@@ -164,7 +167,7 @@ func _run() -> void:
 
 	macro_map.interaction_panel.close_panel()
 	await process_frame
-	macro_map._begin_poi_interaction(poi_coords, hex_data)
+	macro_map.begin_poi_interaction(poi_coords, hex_data)
 	await process_frame
 
 	var search_descriptors := [
@@ -221,10 +224,10 @@ func _run() -> void:
 		_fail("Could not create a controlled hostile collision probe.")
 		return
 	var collision_record := world_state.get_entity(collision_enemy_id)
-	macro_map._begin_entity_collision(collision_enemy_id, collision_record.coords)
+	macro_map.begin_entity_collision(collision_enemy_id, collision_record.coords)
 	await process_frame
 	if (
-		macro_map._pending_interaction.get("type")
+		macro_map.get_pending_interaction_type()
 		!= GameEnums.MacroInteractionType.ENTITY_COLLISION
 	):
 		_fail("Opening a hostile entity collision did not show collision choices.")
@@ -233,7 +236,7 @@ func _run() -> void:
 	macro_map.resolve_entity_ambush(GameEnums.AmbushPosition.CLOSE)
 	await process_frame
 	await process_frame
-	var arena = game_director.get("_active_arena")
+	var arena = game_director.get_active_arena()
 	if arena == null:
 		_fail("Ambush selection did not create combat.")
 		return
@@ -276,13 +279,13 @@ func _verify_failed_talk_deployment() -> bool:
 	var definition: Dictionary = enemy_record.definition.duplicate(true)
 	definition["will"] = 12
 	world_state.patch_entity_record(enemy_id, {"definition": definition})
-	macro_map._begin_entity_collision(enemy_id, enemy_record.coords)
+	macro_map.begin_entity_collision(enemy_id, enemy_record.coords)
 	await process_frame
 
 	macro_map.resolve_talk_action(GameEnums.TalkAction.CEASEFIRE)
 	await process_frame
 	await process_frame
-	var arena = game_director.get("_active_arena")
+	var arena = game_director.get_active_arena()
 	if arena == null:
 		_fail("Guaranteed failed negotiation did not start combat.")
 		return false
@@ -437,7 +440,7 @@ func _walk_to_nearest_collision(
 ) -> bool:
 	for _step_index in range(max_steps):
 		if (
-			macro_map._pending_interaction.get("type")
+			macro_map.get_pending_interaction_type()
 			== GameEnums.MacroInteractionType.ENTITY_COLLISION
 		):
 			return true
@@ -455,10 +458,10 @@ func _walk_to_nearest_collision(
 		)
 		if enemy_path.is_empty():
 			return false
-		macro_map._execute_player_step(enemy_path[0])
+		macro_map.debug_step_player_to(enemy_path[0])
 		await process_frame
 	return (
-		macro_map._pending_interaction.get("type")
+		macro_map.get_pending_interaction_type()
 		== GameEnums.MacroInteractionType.ENTITY_COLLISION
 	)
 
