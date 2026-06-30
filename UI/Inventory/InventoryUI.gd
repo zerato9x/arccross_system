@@ -17,6 +17,11 @@ const ACTION_MOVE := GameEnums.MACRO_INV_MOVE
 const ACTION_LOAD_MAGAZINE := GameEnums.MACRO_INV_LOAD_MAGAZINE
 const ACTION_INTERACT := GameEnums.MACRO_INV_INTERACT
 
+enum PresentationMode {
+	FULLSCREEN,
+	SIDE_PANEL,
+}
+
 const SLOT_SCENE := preload("res://UI/Inventory/InventorySlot.tscn")
 const PAPERDOLL_SCENE := preload("res://UI/Inventory/PaperDollModel.tscn")
 
@@ -119,6 +124,11 @@ var paperdoll_model: PaperDollModel
 var _snapshot: Dictionary = {}
 var _feedback: String = ""
 var _selected_slot: InventorySlot
+var _presentation_mode := PresentationMode.FULLSCREEN
+
+var _backdrop: ColorRect
+var _shell: PanelContainer
+var _ground_panel: PanelContainer
 
 var _location_label: Label
 var _capacity_label: Label
@@ -171,17 +181,32 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func open_inventory(snapshot: Dictionary, feedback: String = "") -> void:
+	_presentation_mode = PresentationMode.FULLSCREEN
 	_snapshot = snapshot.duplicate(true)
 	_feedback = feedback
 	visible = true
+	_apply_presentation_layout()
 	_render()
+
+func open_side_panel(snapshot: Dictionary, feedback: String = "") -> void:
+	_presentation_mode = PresentationMode.SIDE_PANEL
+	_snapshot = snapshot.duplicate(true)
+	_feedback = feedback
+	visible = true
+	_apply_presentation_layout()
+	_render()
+
+func is_side_panel() -> bool:
+	return visible and _presentation_mode == PresentationMode.SIDE_PANEL
 
 func close_panel(notify: bool = true) -> void:
 	visible = false
+	_presentation_mode = PresentationMode.FULLSCREEN
 	_hover_card.visible = false
 	_snapshot.clear()
 	_feedback = ""
 	_selected_slot = null
+	_apply_presentation_layout()
 	if notify:
 		inventory_closed.emit()
 
@@ -223,28 +248,28 @@ func hide_item_details() -> void:
 	_hover_card.visible = false
 
 func _build_interface() -> void:
-	var backdrop := ColorRect.new()
-	backdrop.name = "Backdrop"
-	backdrop.color = Color(COLOR_BACKDROP, 0.97)
-	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(backdrop)
+	_backdrop = ColorRect.new()
+	_backdrop.name = "Backdrop"
+	_backdrop.color = Color(COLOR_BACKDROP, 0.97)
+	_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_backdrop)
 
-	var shell := PanelContainer.new()
-	shell.name = "InventoryShell"
-	shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shell.offset_left = 10.0
-	shell.offset_top = 10.0
-	shell.offset_right = -10.0
-	shell.offset_bottom = -10.0
-	HUDAssetLibrary.apply_panel(shell, "neutral")
-	add_child(shell)
+	_shell = PanelContainer.new()
+	_shell.name = "InventoryShell"
+	_shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_shell.offset_left = 10.0
+	_shell.offset_top = 10.0
+	_shell.offset_right = -10.0
+	_shell.offset_bottom = -10.0
+	HUDAssetLibrary.apply_panel(_shell, "neutral")
+	add_child(_shell)
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 14)
 	margin.add_theme_constant_override("margin_top", 12)
 	margin.add_theme_constant_override("margin_right", 14)
 	margin.add_theme_constant_override("margin_bottom", 10)
-	shell.add_child(margin)
+	_shell.add_child(margin)
 
 	var root_vbox := VBoxContainer.new()
 	root_vbox.add_theme_constant_override("separation", 9)
@@ -261,11 +286,40 @@ func _build_interface() -> void:
 	root_vbox.add_child(content)
 	content.add_child(_build_paperdoll_column())
 	content.add_child(_build_backpack_column())
-	content.add_child(_build_ground_column())
+	_ground_panel = _build_ground_column()
+	content.add_child(_ground_panel)
 
 	root_vbox.add_child(_build_action_bar())
 	root_vbox.add_child(_build_footer())
 	_build_hover_card()
+	_apply_presentation_layout()
+
+func _apply_presentation_layout() -> void:
+	if _backdrop == null or _shell == null:
+		return
+	var canvas_layer := get_parent() as CanvasLayer
+	if _presentation_mode == PresentationMode.SIDE_PANEL:
+		_backdrop.visible = false
+		_shell.set_anchors_preset(Control.PRESET_CENTER_LEFT)
+		_shell.offset_left = 20.0
+		_shell.offset_top = -320.0
+		_shell.offset_right = 460.0
+		_shell.offset_bottom = 320.0
+		if _ground_panel:
+			_ground_panel.visible = false
+		if canvas_layer:
+			canvas_layer.layer = 21
+	else:
+		_backdrop.visible = true
+		_shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_shell.offset_left = 10.0
+		_shell.offset_top = 10.0
+		_shell.offset_right = -10.0
+		_shell.offset_bottom = -10.0
+		if _ground_panel:
+			_ground_panel.visible = true
+		if canvas_layer:
+			canvas_layer.layer = 1
 
 func _build_header() -> Control:
 	var header := HBoxContainer.new()
@@ -555,10 +609,11 @@ func _render() -> void:
 	var maximum := int(_snapshot.get("maximum_capacity", 0))
 	var coords: Vector2i = _snapshot.get("coords", Vector2i.ZERO)
 
-	_location_label.text = "HEX %d, %d  |  EQUIPMENT AND LOCAL GROUND" % [
-		coords.x,
-		coords.y,
-	]
+	_location_label.text = (
+		"HEX %d, %d  |  FIELD LOADOUT" % [coords.x, coords.y]
+		if _presentation_mode == PresentationMode.SIDE_PANEL
+		else "HEX %d, %d  |  EQUIPMENT AND LOCAL GROUND" % [coords.x, coords.y]
+	)
 	_capacity_label.text = "CAPACITY %d / %d" % [current, maximum]
 	_capacity_bar.max_value = maxf(1.0, float(maximum))
 	_capacity_bar.value = float(current)
@@ -582,6 +637,7 @@ func _render() -> void:
 
 	var equipment: Array = _snapshot.get("equipment", [])
 	paperdoll_model.update_model(equipment)
+	paperdoll_model.set_backdrop_visible(false)
 	paperdoll_model.update_wounds(_snapshot.get("limbs", []))
 	for slot_ui: InventorySlot in equipment_slots_ui.values():
 		slot_ui.set_item({})
@@ -598,7 +654,10 @@ func _render() -> void:
 		_snapshot.get("backpack", []),
 		maximum
 	)
-	_render_ground(_snapshot.get("ground", []))
+	if _presentation_mode == PresentationMode.FULLSCREEN:
+		_render_ground(_snapshot.get("ground", []))
+	else:
+		_render_ground([])
 	_clear_selection()
 
 func _render_backpack(
@@ -742,6 +801,7 @@ func _make_slot(
 	var slot := SLOT_SCENE.instantiate() as InventorySlot
 	parent.add_child(slot)
 	slot.configure(source_kind, index, label, null, container_slot)
+	slot.set_text_only_mode(_presentation_mode == PresentationMode.SIDE_PANEL)
 	slot.slot_clicked.connect(_on_slot_clicked)
 	slot.item_dropped.connect(_on_item_dropped)
 	slot.item_hovered.connect(_on_slot_hovered)

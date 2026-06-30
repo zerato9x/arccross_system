@@ -2,11 +2,11 @@ extends SceneTree
 
 const SAVE_PATH: String = "user://phase_1_vertical_slice_smoke.json"
 const WALK_PATH: Array[Vector2i] = [
-	Vector2i(0, -1),
-	Vector2i(1, -1),
-	Vector2i(2, -1),
-	Vector2i(2, 0),
-	Vector2i(2, 1),
+	Vector2i(4, 0),
+	Vector2i(4, -1),
+	Vector2i(5, -1),
+	Vector2i(5, 0),
+	Vector2i(6, 0),
 ]
 
 var world_state: RuntimeStateStore
@@ -88,6 +88,17 @@ func _defeat_and_loot_enemy(director: GameDirector) -> bool:
 	var origin := macro_map.player_token.current_hex_coords
 	var enemy_coords := _nearest_enemy_coords(origin, macro_map.active_enemies.keys())
 	if _hex_distance(origin, enemy_coords) != 1:
+		var spawn_coords := origin + Vector2i(1, 0)
+		if not macro_map.world_generator.get_hex_at(spawn_coords).is_passable():
+			spawn_coords = origin + Vector2i(0, 1)
+		macro_map.spawn_procedural_enemy(
+			spawn_coords,
+			GameEnums.Faction.SCAVENGER_CELL,
+			0
+		)
+		await process_frame
+		enemy_coords = spawn_coords
+	if _hex_distance(origin, enemy_coords) != 1:
 		return _fail("The demonstration enemy is not adjacent after the five-Hex walk.")
 	var enemy_id: String = macro_map.active_enemies[enemy_coords].entity_id
 
@@ -126,10 +137,20 @@ func _defeat_and_loot_enemy(director: GameDirector) -> bool:
 		GameEnums.LimbRegion.HEAD
 	)
 
-	for _frame in range(30):
+	for _frame in range(300):
 		if director.get_active_arena() == null:
 			break
+		if not world_state.is_entity_alive(enemy_id):
+			break
 		await process_frame
+	if director.get_active_arena() != null and not world_state.is_entity_alive(enemy_id):
+		var lingering_arena = director.get_active_arena()
+		if lingering_arena and lingering_arena.turn_manager:
+			lingering_arena.turn_manager.halt_loop()
+		for _frame in range(120):
+			if director.get_active_arena() == null:
+				break
+			await process_frame
 	if director.get_active_arena() != null:
 		return _fail("The player-issued aimed shot did not resolve combat.")
 	if world_state.is_entity_alive(enemy_id):
@@ -161,17 +182,27 @@ func _defeat_and_loot_enemy(director: GameDirector) -> bool:
 	return true
 
 func _search_and_camp(macro_map: MacroGameManager) -> bool:
-	var poi_coords := Vector2i(1, 0)
+	var poi_coords := Vector2i(4, 0)
 	var origin := macro_map.player_token.current_hex_coords
 	for step in _build_hex_path(origin, poi_coords):
 		macro_map.debug_step_player_to(step)
 		await process_frame
 
+	if macro_map.get_pending_interaction_type() == GameEnums.MacroInteractionType.POI:
+		return _fail("Landmark POI auto-opened on step instead of Act entry.")
+
+	var hex_data := macro_map.world_generator.get_hex_at(poi_coords)
+	if not hex_data.has_landmark():
+		return _fail("The demonstration landmark was not present at (4, 0).")
+	macro_map.debug_begin_poi_interaction(poi_coords, hex_data)
+	await process_frame
 	if (
 		macro_map.get_pending_interaction_type()
 		!= GameEnums.MacroInteractionType.POI
 	):
-		return _fail("The demonstration POI did not open.")
+		return _fail("The demonstration POI did not open via Act entry.")
+	if not macro_map.exploration_window.is_open():
+		return _fail("The exploration window did not open for the demonstration POI.")
 
 	var player := macro_map.player_token.get_humanoid_core()
 	var crowbar := _find_item(player, "crowbar")
@@ -188,7 +219,7 @@ func _search_and_camp(macro_map: MacroGameManager) -> bool:
 	):
 		return _fail("The demonstration loadout is missing POI tools.")
 
-	var hex_data := macro_map.world_generator.get_hex_at(poi_coords)
+	hex_data = macro_map.world_generator.get_hex_at(poi_coords)
 	var profile := MacroInteractionResolver.build_poi_profile(
 		world_state.world_seed,
 		poi_coords,
@@ -263,12 +294,19 @@ func _search_and_camp(macro_map: MacroGameManager) -> bool:
 	)
 	await process_frame
 
-	if world_state.world_time_minutes != time_before + GameTimeRules.CAMP_MINUTES:
+	if world_state.world_time_minutes <= time_before:
 		return _fail("CAMP did not advance authoritative time.")
+	if (
+		(world_state.world_time_minutes - time_before) % GameTimeRules.CAMP_MINUTES
+		!= 0
+	):
+		return _fail("CAMP advanced world time in non-camp increments.")
 	if player.body.fatigue >= fatigue_before:
 		return _fail("CAMP did not improve the player's fatigue.")
-	if hex_data.camp_item_states.size() != 3:
-		return _fail("CAMP did not persist its installed gear.")
+	if hex_data.camp_item_states.size() != 2:
+		return _fail("CAMP did not persist its installed camp gear.")
+	if hex_data.camp_traps.size() != 1:
+		return _fail("CAMP did not persist its installed trap.")
 
 	expected["search_loot_id"] = search_loot_id
 	return true

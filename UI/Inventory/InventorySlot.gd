@@ -20,6 +20,7 @@ var container_slot: GameEnums.EquipmentSlot = GameEnums.EquipmentSlot.NONE
 var is_reservation: bool = false
 var is_selected: bool = false
 var _configured_label: String = ""
+var _text_only_mode: bool = false
 
 @onready var empty_background: TextureRect = %EmptyBackground
 @onready var icon_rect: TextureRect = %IconRect
@@ -75,6 +76,11 @@ func set_selected(selected: bool) -> void:
 	is_selected = selected
 	_apply_style()
 
+func set_text_only_mode(enabled: bool) -> void:
+	_text_only_mode = enabled
+	if is_node_ready():
+		_update_visuals()
+
 func has_item() -> bool:
 	return not item_descriptor.is_empty() and not is_reservation
 
@@ -119,6 +125,10 @@ func _slot_style(
 	return style
 
 func _apply_style(hovered: bool = false) -> void:
+	if _text_only_mode:
+		var transparent := StyleBoxEmpty.new()
+		add_theme_stylebox_override("panel", transparent)
+		return
 	if is_selected:
 		add_theme_stylebox_override("panel", _selected_style)
 	elif hovered:
@@ -131,7 +141,11 @@ func _update_visuals() -> void:
 		return
 
 	empty_background.texture = empty_texture
-	empty_background.visible = item_descriptor.is_empty() and not is_reservation
+	empty_background.visible = (
+		not _text_only_mode
+		and item_descriptor.is_empty()
+		and not is_reservation
+	)
 	empty_background.modulate = Color(1, 1, 1, 0.33)
 	icon_rect.texture = null
 	icon_rect.visible = false
@@ -139,7 +153,7 @@ func _update_visuals() -> void:
 	reservation_label.visible = false
 
 	if is_reservation:
-		empty_background.visible = true
+		empty_background.visible = not _text_only_mode
 		empty_background.modulate = Color(0.35, 0.42, 0.45, 0.28)
 		reservation_label.visible = true
 		reservation_label.text = "+"

@@ -8,6 +8,11 @@ class_name MacroHexData
 @export var structure_layer: GameEnums.MacroStructureLayer = GameEnums.MacroStructureLayer.NONE
 @export var region: GameEnums.MacroRegion = GameEnums.MacroRegion.WASTELAND
 @export var arm_direction: GameEnums.MacroArmDirection = GameEnums.MacroArmDirection.NONE
+@export var zone_id: String = ""
+@export var biome_pack: String = GameEnums.BIOME_PACK_PLAINS
+@export var landmark_id: String = ""
+@export var impassable: bool = false
+@export var structure_sprite_path: String = ""
 
 # POI Variables
 @export var is_poi: bool = false
@@ -23,6 +28,10 @@ var encounter_entity_id: String = ""
 var search_count: int = 0
 var camp_item_states: Array = []
 var camp_rest_count: int = 0
+var camp_traps: Array = []
+var sleep_anchor: String = "ground"
+var sleep_gear_instance_id: String = ""
+var rest_in_progress: bool = false
 
 func to_state() -> HexRecord:
 	var record := HexRecord.new()
@@ -33,6 +42,11 @@ func to_state() -> HexRecord:
 	record.structure_layer = structure_layer
 	record.region = region
 	record.arm_direction = arm_direction
+	record.zone_id = zone_id
+	record.biome_pack = biome_pack
+	record.landmark_id = landmark_id
+	record.impassable = impassable
+	record.structure_sprite_path = structure_sprite_path
 	record.is_poi = is_poi
 	record.poi_id = poi_id
 	record.poi_name = poi_name
@@ -44,6 +58,10 @@ func to_state() -> HexRecord:
 	record.search_count = search_count
 	record.camp_item_states = camp_item_states.duplicate(true)
 	record.camp_rest_count = camp_rest_count
+	record.camp_traps = camp_traps.duplicate(true)
+	record.sleep_anchor = sleep_anchor
+	record.sleep_gear_instance_id = sleep_gear_instance_id
+	record.rest_in_progress = rest_in_progress
 	return record
 
 static func from_state(state) -> MacroHexData:
@@ -62,6 +80,11 @@ static func from_state(state) -> MacroHexData:
 	hex.structure_layer = source.structure_layer
 	hex.region = source.region
 	hex.arm_direction = source.arm_direction
+	hex.zone_id = source.zone_id
+	hex.biome_pack = source.biome_pack
+	hex.landmark_id = source.landmark_id
+	hex.impassable = source.impassable
+	hex.structure_sprite_path = source.structure_sprite_path
 	hex.is_poi = source.is_poi
 	hex.poi_id = source.poi_id
 	hex.poi_name = source.poi_name
@@ -73,10 +96,24 @@ static func from_state(state) -> MacroHexData:
 	hex.search_count = source.search_count
 	hex.camp_item_states = source.camp_item_states.duplicate(true)
 	hex.camp_rest_count = source.camp_rest_count
+	hex.camp_traps = source.camp_traps.duplicate(true)
+	hex.sleep_anchor = source.sleep_anchor
+	hex.sleep_gear_instance_id = source.sleep_gear_instance_id
+	hex.rest_in_progress = source.rest_in_progress
 	return hex
 
 func is_passable() -> bool:
+	if impassable:
+		return false
 	return rock_layer != GameEnums.MacroRockLayer.ROCKS
+
+func has_landmark() -> bool:
+	return not landmark_id.is_empty() or (
+		is_poi and coords_is_service_hub()
+	)
+
+func coords_is_service_hub() -> bool:
+	return poi_id == "alpha_central_hub"
 
 func travel_exertion() -> float:
 	if rock_layer == GameEnums.MacroRockLayer.HILLS:

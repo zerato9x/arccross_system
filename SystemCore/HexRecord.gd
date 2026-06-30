@@ -11,6 +11,13 @@ class_name HexRecord
 @export var structure_layer: GameEnums.MacroStructureLayer = GameEnums.MacroStructureLayer.NONE
 @export var region: GameEnums.MacroRegion = GameEnums.MacroRegion.WASTELAND
 @export var arm_direction: GameEnums.MacroArmDirection = GameEnums.MacroArmDirection.NONE
+@export var zone_id: String = ""
+@export var biome_pack: String = GameEnums.BIOME_PACK_PLAINS
+@export var landmark_id: String = ""
+@export var impassable: bool = false
+@export var structure_sprite_path: String = ""
+@export var sleep_anchor: String = "ground"
+@export var sleep_gear_instance_id: String = ""
 @export var is_poi: bool = false
 @export var poi_id: String = ""
 @export var poi_name: String = ""
@@ -22,6 +29,8 @@ var encounter_entity_id: String = ""
 var search_count: int = 0
 var camp_item_states: Array = []
 var camp_rest_count: int = 0
+var camp_traps: Array = []
+var rest_in_progress: bool = false
 
 func to_dict() -> Dictionary:
 	return {
@@ -32,6 +41,13 @@ func to_dict() -> Dictionary:
 		"structure_layer": structure_layer,
 		"region": region,
 		"arm_direction": arm_direction,
+		"zone_id": zone_id,
+		"biome_pack": biome_pack,
+		"landmark_id": landmark_id,
+		"impassable": impassable,
+		"structure_sprite_path": structure_sprite_path,
+		"sleep_anchor": sleep_anchor,
+		"sleep_gear_instance_id": sleep_gear_instance_id,
 		"is_poi": is_poi,
 		"poi_id": poi_id,
 		"poi_name": poi_name,
@@ -43,6 +59,8 @@ func to_dict() -> Dictionary:
 		"search_count": search_count,
 		"camp_item_states": camp_item_states.duplicate(true),
 		"camp_rest_count": camp_rest_count,
+		"camp_traps": camp_traps.duplicate(true),
+		"rest_in_progress": rest_in_progress,
 	}
 
 static func from_dict(data: Dictionary) -> HexRecord:
@@ -72,6 +90,13 @@ static func from_dict(data: Dictionary) -> HexRecord:
 		"arm_direction",
 		GameEnums.MacroArmDirection.NONE
 	)
+	record.zone_id = data.get("zone_id", "")
+	record.biome_pack = data.get("biome_pack", GameEnums.BIOME_PACK_PLAINS)
+	record.landmark_id = data.get("landmark_id", "")
+	record.impassable = data.get("impassable", false)
+	record.structure_sprite_path = data.get("structure_sprite_path", "")
+	record.sleep_anchor = data.get("sleep_anchor", "ground")
+	record.sleep_gear_instance_id = data.get("sleep_gear_instance_id", "")
 	record.is_poi = data.get("is_poi", false)
 	record.poi_id = data.get("poi_id", "")
 	record.poi_name = data.get("poi_name", "")
@@ -89,6 +114,8 @@ static func from_dict(data: Dictionary) -> HexRecord:
 	record.search_count = data.get("search_count", 0)
 	record.camp_item_states = data.get("camp_item_states", []).duplicate(true)
 	record.camp_rest_count = data.get("camp_rest_count", 0)
+	record.camp_traps = data.get("camp_traps", []).duplicate(true)
+	record.rest_in_progress = data.get("rest_in_progress", false)
 	return record
 
 static func _legacy_terrain_for_biome(

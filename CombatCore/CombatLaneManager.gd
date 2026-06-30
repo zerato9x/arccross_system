@@ -4,6 +4,7 @@ class_name CombatLaneManager
 signal disengage_failed(entity: HumanoidCore, opponent: HumanoidCore)
 
 signal lane_changed
+signal trap_triggered(entity: HumanoidCore, slot: CombatLaneSlot)
 
 var lane_slots: Array[CombatLaneSlot] = []
 
@@ -116,6 +117,7 @@ func _relocate_entity(
 	var target_slot: CombatLaneSlot = lane_slots[to_idx]
 	if not target_slot.enter_slot(entity):
 		return false
+	_try_trigger_trap(target_slot, entity)
 	origin_slot.exit_slot(entity)
 	refresh_lock_states()
 	return true
@@ -337,6 +339,7 @@ func force_spawn_entity(entity: HumanoidCore, target_idx: int) -> void:
 		
 	var target_slot: CombatLaneSlot = lane_slots[target_idx]
 	if target_slot.enter_slot(entity):
+		_try_trigger_trap(target_slot, entity)
 		refresh_lock_states()
 		print(entity.name, " materialized in Lane Slot ", target_idx)
 		lane_changed.emit()
@@ -354,3 +357,45 @@ func _find_entity_lane(entity: HumanoidCore) -> int:
 	for i in range(lane_slots.size()):
 		if lane_slots[i].occupants.has(entity): return i
 	return -1
+
+func _try_trigger_trap(slot: CombatLaneSlot, entity: HumanoidCore) -> void:
+	if (
+		slot == null
+		or entity == null
+		or not slot.trap_armed
+		or slot.current_cover != CombatRules.TileObject.TRAP
+	):
+		return
+	slot.trap_armed = false
+	slot.current_cover = CombatRules.TileObject.NONE
+	slot.object_name = "None"
+	entity.body.apply_targeted_hit(
+		GameEnums.LimbRegion.LEFT_LEG,
+		slot.trap_damage,
+		0.0
+	)
+	print(
+		"[TRAP] ",
+		entity.name,
+		" triggered ",
+		slot.trap_item_id,
+		" in lane ",
+		slot.lane_index,
+		"."
+	)
+	trap_triggered.emit(entity, slot)
+
+func place_trap(
+	lane_index: int,
+	trap_item_id: String,
+	trap_damage: float = 2.5
+) -> void:
+	if lane_index < 0 or lane_index >= lane_slots.size():
+		return
+	var slot: CombatLaneSlot = lane_slots[lane_index]
+	slot.current_cover = CombatRules.TileObject.TRAP
+	slot.trap_armed = true
+	slot.trap_item_id = trap_item_id
+	slot.trap_damage = trap_damage
+	slot.object_name = "Set Trap"
+	slot.object_durability = 1.0

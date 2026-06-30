@@ -20,6 +20,9 @@ var surface_name: String = ""
 var surface_asset_path: String = ""
 var surface_note: String = ""
 var is_spawnable: bool = true # Grids 5 and 6 will turn this off
+var trap_armed: bool = false
+var trap_item_id: String = ""
+var trap_damage: float = 2.5
 
 # The claustrophobic box
 var occupants: Array[HumanoidCore] = []

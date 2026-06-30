@@ -257,6 +257,7 @@ enum MacroTerrainTile {
 	FOREST_SPARSE,
 	MUD_YELLOW,
 	SNOW_TRANSITION,
+	HUB_CONCRETE,
 }
 
 enum MacroFloraLayer {
@@ -298,9 +299,12 @@ enum MacroArmDirection {
 	WEST,
 }
 
+const BIOME_PACK_PLAINS := "plains"
+const BIOME_PACK_CENTRALCORE := "centralcore"
+
 enum MacroInteractionType { NONE, POI, ENTITY_COLLISION }
-enum PoiAction { SEARCH, CAMP }
-enum InteractionItemRole { NONE, SEARCH_TOOL, CAMP_GEAR }
+enum PoiAction { SEARCH, CAMP, REST, STOP_REST }
+enum InteractionItemRole { NONE, SEARCH_TOOL, CAMP_GEAR, TRAP_GEAR, LIGHT_SOURCE }
 enum TalkAction { THREAT, ROB, CEASEFIRE }
 enum NegotiationOutcome { INTIMIDATED, ROB_SUCCESS, CEASEFIRE, COMBAT }
 enum AmbushPosition { FAR, STANDARD, CLOSE }

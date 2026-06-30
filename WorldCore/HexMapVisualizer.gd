@@ -118,14 +118,15 @@ func _paint_single_hex(coords: Vector2i) -> void:
 			
 	rendered_cells[coords] = true
 
-	if hex_data.is_poi:
-		_mark_poi_visually(coords, hex_data.poi_name)
+	if hex_data.is_poi or not hex_data.landmark_id.is_empty():
+		_mark_poi_visually(coords, hex_data.poi_name if hex_data.is_poi else hex_data.landmark_id)
 
 func _resolve_bg_source_id(hex_data: MacroHexData) -> int:
 	if tile_catalog != null:
 		var catalog_source := tile_catalog.resolve_terrain_id(
 			hex_data.terrain_tile,
-			hex_data.visual_variant_hash
+			hex_data.visual_variant_hash,
+			hex_data.biome_pack
 		)
 		if catalog_source >= 0:
 			return catalog_source
@@ -135,7 +136,8 @@ func _resolve_flora_source_id(hex_data: MacroHexData) -> int:
 	if tile_catalog != null:
 		return tile_catalog.resolve_flora_id(
 			hex_data.flora_layer,
-			hex_data.visual_variant_hash
+			hex_data.visual_variant_hash,
+			hex_data.biome_pack
 		)
 	return -1
 
@@ -143,29 +145,31 @@ func _resolve_rock_source_id(hex_data: MacroHexData) -> int:
 	if tile_catalog != null:
 		return tile_catalog.resolve_rock_id(
 			hex_data.rock_layer,
-			hex_data.visual_variant_hash
+			hex_data.visual_variant_hash,
+			hex_data.biome_pack
 		)
 	return -1
 
 func _resolve_structure_source_id(hex_data: MacroHexData) -> int:
 	if tile_catalog != null:
-		if hex_data.is_poi:
-			# Use specific POI ID if it exists in catalog.
-			var id := tile_catalog.resolve_poi_id(
-				hex_data.poi_id,
+		if not hex_data.structure_sprite_path.is_empty():
+			var asset_id := tile_catalog.resolve_asset_path(
+				hex_data.structure_sprite_path,
 				hex_data.visual_variant_hash
 			)
-			if id >= 0:
-				return id
+			if asset_id >= 0:
+				return asset_id
 		var id := tile_catalog.resolve_poi_id(
 			_structure_layer_key(hex_data.structure_layer),
-			hex_data.visual_variant_hash
+			hex_data.visual_variant_hash,
+			hex_data.biome_pack
 		)
 		if id >= 0:
 			return id
 		return tile_catalog.resolve_structure_id(
 			hex_data.structure_layer,
-			hex_data.visual_variant_hash
+			hex_data.visual_variant_hash,
+			hex_data.biome_pack
 		)
 	return -1
 

@@ -161,7 +161,10 @@ static func resolve_search_outcome(
 		loot_profile,
 		selected_search_option_id
 	)
-	if hex_data.region == GameEnums.MacroRegion.CENTRAL_HUB:
+	if hex_data.region in [
+		GameEnums.MacroRegion.CENTRAL_HUB,
+		GameEnums.MacroRegion.HUB_BORDER,
+	]:
 		result["injured"] = false
 		result["attracted_enemy"] = false
 	hex_data.search_count += 1
@@ -208,6 +211,9 @@ static func apply_camp_gear_selection(
 			or not item.has_interaction_role(
 				GameEnums.InteractionItemRole.CAMP_GEAR
 			)
+			or item.has_interaction_role(
+				GameEnums.InteractionItemRole.TRAP_GEAR
+			)
 		):
 			continue
 		var removed: ItemData = remove_item_callback.call(instance_id)
@@ -238,7 +244,7 @@ static func get_camp_access(
 	has_hostile_entity: bool
 ) -> Dictionary:
 	return WorldRules.get_camp_access(
-		hex_data.is_poi,
+		hex_data.has_landmark(),
 		hex_data.hazard_level,
 		has_hostile_entity
 	)
@@ -283,8 +289,9 @@ static func camp_states_for_preview(
 		if states_by_id.has(instance_id):
 			continue
 		var item: ItemData = find_item_callback.call(instance_id)
-		if item and item.has_interaction_role(
-			GameEnums.InteractionItemRole.CAMP_GEAR
+		if item and (
+			item.has_interaction_role(GameEnums.InteractionItemRole.CAMP_GEAR)
+			or item.has_interaction_role(GameEnums.InteractionItemRole.TRAP_GEAR)
 		):
 			states_by_id[instance_id] = item.to_runtime_state()
 	var selected_states: Array = []
@@ -292,6 +299,256 @@ static func camp_states_for_preview(
 		if states_by_id.has(instance_id):
 			selected_states.append(states_by_id[instance_id])
 	return selected_states
+
+
+static func build_landmark_search_options(
+	hex_data: MacroHexData,
+	world_seed: String,
+	coords: Vector2i
+) -> Array:
+	const PoiVisualCatalog := preload("res://PresentationCore/PoiVisualCatalog.gd")
+	var props := PoiVisualCatalog.build_prop_descriptors(
+		hex_data,
+		world_seed,
+		coords
+	)
+	if props.is_empty():
+		return [{
+			"id": "primary_search",
+			"label": (
+				hex_data.poi_name
+				if not hex_data.poi_name.is_empty()
+				else "Scavenge Area"
+			),
+			"description": "Search the landmark for usable supplies.",
+			"requirements": {},
+			"metric_modifiers": {"loot": 1.0, "safety": 0.0, "sneak": 0.0},
+			"priority": 0,
+			"locked": false,
+			"lock_reason": "",
+		}]
+
+	var options: Array = []
+	for index in range(props.size()):
+		if not props[index] is Dictionary:
+			continue
+		var prop: Dictionary = props[index]
+		options.append({
+			"id": str(prop.get("search_option_id", "structure_%d" % index)),
+			"label": str(prop.get("label", "Search Target")),
+			"description": "Search this structure for salvage.",
+			"requirements": {},
+			"metric_modifiers": {
+				"loot": 1.0 + float(index) * 0.35,
+				"safety": -0.25 * float(index),
+				"sneak": -0.15 * float(index),
+			},
+			"priority": index,
+			"locked": false,
+			"lock_reason": "",
+		})
+	return options
+
+
+static func build_search_drop_targets(
+	_hex_data: MacroHexData,
+	search_options: Array
+) -> Array:
+	var targets: Array = []
+	for option in search_options:
+		if not option is Dictionary:
+			continue
+		targets.append({
+			"id": str(option.get("id", "search_target")),
+			"label": str(option.get("label", "Scavenge")),
+			"accepted_roles": [GameEnums.InteractionItemRole.SEARCH_TOOL],
+			"assigned_instance_id": "",
+			"assigned_name": "",
+		})
+	if targets.is_empty():
+		targets.append({
+			"id": "search_primary",
+			"label": "Scavenge",
+			"accepted_roles": [GameEnums.InteractionItemRole.SEARCH_TOOL],
+			"assigned_instance_id": "",
+			"assigned_name": "",
+		})
+	return targets
+
+
+static func build_camp_drop_targets(hex_data: MacroHexData) -> Array:
+	const PoiVisualCatalog := preload("res://PresentationCore/PoiVisualCatalog.gd")
+	var targets: Array = [{
+		"id": "sleep_spot",
+		"label": "Sleep: " + PoiVisualCatalog.sleep_anchor_label(hex_data.sleep_anchor),
+		"accepted_roles": [GameEnums.InteractionItemRole.CAMP_GEAR],
+		"assigned_instance_id": hex_data.sleep_gear_instance_id,
+		"assigned_name": "",
+	}]
+	for trap_index in range(2):
+		var trap_state: Dictionary = (
+			hex_data.camp_traps[trap_index]
+			if trap_index < hex_data.camp_traps.size()
+			else {}
+		)
+		targets.append({
+			"id": "trap_%d" % trap_index,
+			"label": "Trap Slot %d" % (trap_index + 1),
+			"accepted_roles": [GameEnums.InteractionItemRole.TRAP_GEAR],
+			"assigned_instance_id": str(trap_state.get("instance_id", "")),
+			"assigned_name": "",
+			"anchor_id": str(trap_state.get("anchor_id", "door_frame")),
+			"lane_index": int(trap_state.get("lane_index", 8 + trap_index)),
+		})
+	return targets
+
+
+static func build_landmark_session_snapshot(
+	coords: Vector2i,
+	hex_data: MacroHexData,
+	world_seed: String,
+	world_time: Dictionary,
+	hex_label: String,
+	camp_access: Dictionary,
+	available_items: Array,
+	ground_items: Array,
+	inventory_has_item_id: Callable,
+	inventory_has_tag: Callable,
+	inventory_has_role: Callable
+) -> Dictionary:
+	const EventBgCatalog := preload("res://PresentationCore/EventBgCatalog.gd")
+	const PoiVisualCatalog := preload("res://PresentationCore/PoiVisualCatalog.gd")
+	var search_options := evaluated_search_options(
+		world_seed,
+		coords,
+		hex_data,
+		inventory_has_item_id,
+		inventory_has_tag,
+		inventory_has_role
+	)
+	return {
+		"poi_name": hex_data.poi_name,
+		"hex_label": hex_label,
+		"scene_descriptor": EventBgCatalog.build_scene_descriptor(
+			hex_data,
+			world_seed,
+			coords
+		),
+		"search_drop_targets": build_search_drop_targets(hex_data, search_options),
+		"camp_drop_targets": build_camp_drop_targets(hex_data),
+		"ground_items": ground_items,
+		"search_options": search_options,
+		"camp_allowed": camp_access.get("allowed", false),
+		"camp_block_reason": camp_access.get("reason", ""),
+		"rest_in_progress": hex_data.rest_in_progress,
+		"sleep_anchor_label": PoiVisualCatalog.sleep_anchor_label(hex_data.sleep_anchor),
+		"world_time": world_time,
+		"selected_search_option_id": (
+			str(search_options[0].get("id", "primary_search"))
+			if not search_options.is_empty()
+			else "primary_search"
+		),
+	}
+
+
+static func apply_sleep_gear_selection(
+	hex_data: MacroHexData,
+	selected_item_ids: Array,
+	find_item_callback: Callable
+) -> void:
+	for instance_id in selected_item_ids:
+		var item: ItemData = find_item_callback.call(instance_id)
+		if (
+			item != null
+			and item.has_interaction_role(GameEnums.InteractionItemRole.CAMP_GEAR)
+			and item.camp_sleep_bonus > 0.0
+		):
+			hex_data.sleep_gear_instance_id = instance_id
+			return
+
+
+static func apply_trap_install(
+	hex_data: MacroHexData,
+	selected_item_ids: Array,
+	find_item_callback: Callable,
+	remove_item_callback: Callable
+) -> Dictionary:
+	var existing_by_id: Dictionary = {}
+	for trap_state in hex_data.camp_traps:
+		if trap_state is Dictionary:
+			existing_by_id[str(trap_state.get("instance_id", ""))] = trap_state
+
+	var new_traps: Array = []
+	for instance_id in selected_item_ids:
+		if new_traps.size() >= 2:
+			break
+		var item: ItemData = find_item_callback.call(instance_id)
+		if item == null or not item.has_interaction_role(
+			GameEnums.InteractionItemRole.TRAP_GEAR
+		):
+			continue
+		if existing_by_id.has(instance_id):
+			new_traps.append(existing_by_id[instance_id])
+			continue
+		var removed: ItemData = remove_item_callback.call(instance_id)
+		if removed == null:
+			continue
+		new_traps.append({
+			"instance_id": instance_id,
+			"item_id": removed.id,
+			"anchor_id": "door_frame" if new_traps.is_empty() else "brush_line",
+			"lane_index": 8 if new_traps.is_empty() else 9,
+			"trap_damage": maxf(removed.flesh_damage, 2.5),
+		})
+
+	hex_data.camp_traps = new_traps
+	return {
+		"hex_state": hex_data.to_state(),
+		"camp_traps": new_traps,
+	}
+
+
+static func camp_states_for_session_preview(
+	hex_data: MacroHexData,
+	selected_item_ids: Array,
+	find_item_callback: Callable
+) -> Array:
+	var states := camp_states_for_preview(
+		hex_data.camp_item_states,
+		selected_item_ids,
+		find_item_callback
+	)
+	if not hex_data.sleep_gear_instance_id.is_empty():
+		var sleep_item: ItemData = find_item_callback.call(
+			hex_data.sleep_gear_instance_id
+		)
+		if sleep_item != null:
+			var sleep_state := sleep_item.to_runtime_state()
+			var already_present := false
+			for item_state in states:
+				if item_state.get("instance_id", "") == hex_data.sleep_gear_instance_id:
+					already_present = true
+					break
+			if not already_present:
+				states.append(sleep_state)
+	for instance_id in selected_item_ids:
+		if instance_id == hex_data.sleep_gear_instance_id:
+			continue
+		var item: ItemData = find_item_callback.call(instance_id)
+		if (
+			item != null
+			and item.has_interaction_role(GameEnums.InteractionItemRole.CAMP_GEAR)
+			and item.camp_sleep_bonus > 0.0
+		):
+			var sleep_state := item.to_runtime_state()
+			var duplicate := false
+			for item_state in states:
+				if item_state.get("instance_id", "") == instance_id:
+					duplicate = true
+					break
+			if not duplicate:
+				states.append(sleep_state)
+	return states
 
 
 static func evaluated_search_options(
@@ -302,6 +559,8 @@ static func evaluated_search_options(
 	inventory_has_tag: Callable,
 	inventory_has_role: Callable
 ) -> Array:
+	if hex_data.has_landmark():
+		return build_landmark_search_options(hex_data, world_seed, coords)
 	var evaluated_options: Array = []
 	for option in MacroInteractionResolver.build_search_options(
 		world_seed,

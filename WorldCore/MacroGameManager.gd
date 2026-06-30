@@ -16,6 +16,8 @@ signal load_requested
 @export var inventory_panel: InventoryUI
 @export var world_hud: WorldHUD
 
+var exploration_window: MacroExplorationWindow
+
 @export_group("Proximity Loading")
 @export_range(1, 12) var active_radius: int = 3
 @export_range(2, 16) var unload_radius: int = 6
@@ -144,6 +146,14 @@ func _ready() -> void:
 		interaction_panel.inventory_requested.connect(open_inventory)
 		interaction_panel.interaction_closed.connect(close_macro_interaction)
 
+	exploration_window = MacroExplorationWindow.new()
+	exploration_window.name = "MacroExplorationWindow"
+	add_child(exploration_window)
+	exploration_window.poi_action_submitted.connect(resolve_poi_action)
+	exploration_window.poi_preview_requested.connect(preview_poi_action)
+	exploration_window.inventory_action_requested.connect(resolve_inventory_action)
+	exploration_window.interaction_closed.connect(close_macro_interaction)
+
 	if inventory_panel:
 		inventory_panel.inventory_action_requested.connect(
 			resolve_inventory_action
@@ -178,10 +188,16 @@ func _initialize_demo() -> void:
 	var seed := "DEMO_WASTELAND_01"
 	_world_state.begin_new_world(seed)
 	world_generator.configure_seed(seed)
-	
-	# Alpha starts in the safe city. Random starts can replace this later
-	# without changing the hub's region or POI contract.
-	var start_coords = Vector2i(0, 0)
+	world_generator.manual_poi_overrides[Vector2i(4, 0)] = {
+		"id": "plains_homestead",
+		"name": "Ruined Homestead",
+		"biome": GameEnums.GridBiome.PLAINS,
+		"landmark_id": "homestead_b",
+		"sleep_anchor": "bench",
+	}
+
+	# Demo starts on the hub border; the guaranteed landmark sits one hex east.
+	var start_coords = Vector2i(3, 0)
 	var start_pixel_pos = map_visualizer.map_to_local(start_coords)
 	player_token.snap_to_hex(start_coords, start_pixel_pos)
 	_world_state.set_player_record(player_token.capture_runtime_record(), start_coords)
@@ -270,11 +286,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		if inventory_panel:
 			if inventory_panel.is_open():
 				inventory_panel.close_panel()
+			elif exploration_window and exploration_window.is_open():
+				open_inventory()
 			elif _pending_interaction.is_empty():
 				open_inventory()
 		get_viewport().set_input_as_handled()
 		return
-	if inventory_panel and inventory_panel.is_open():
+	if inventory_panel and inventory_panel.is_open() and not inventory_panel.is_side_panel():
 		return
 	if not _pending_interaction.is_empty():
 		return
@@ -343,11 +361,6 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 			)
 			return
 		
-	if hex_data.is_poi:
-		advance_macro_world(1)
-		begin_poi_interaction(target_coords, hex_data)
-		return
-		
 	if _world_state.has_ground_items(target_coords):
 		_last_macro_event = "Ground items detected at HEX %d,%d." % [
 			target_coords.x,
@@ -409,7 +422,7 @@ func _resolve_current_hex_action() -> void:
 		var enemy: MacroEnemy = active_enemies[coords]
 		begin_entity_collision(enemy.entity_id, coords)
 		return
-	if hex_data.is_poi:
+	if hex_data.has_landmark():
 		begin_poi_interaction(coords, hex_data)
 		return
 	if _world_state.has_ground_items(coords):
@@ -498,13 +511,20 @@ func begin_poi_interaction(
 	coords: Vector2i,
 	hex_data: MacroHexData
 ) -> void:
+	if not hex_data.has_landmark():
+		_last_macro_event = "No landmark interaction at HEX %d,%d." % [
+			coords.x,
+			coords.y,
+		]
+		_refresh_world_hud()
+		return
 	_pending_interaction = {
 		"type": GameEnums.MacroInteractionType.POI,
 		"coords": coords,
 	}
 	player_token.play_interaction()
 	set_process_unhandled_input(false)
-	if not interaction_panel:
+	if exploration_window == null:
 		push_error("POI interaction opened without a presentation subscriber.")
 		close_macro_interaction()
 		return
@@ -539,8 +559,9 @@ func _present_poi_session(
 	hex_data: MacroHexData
 ) -> void:
 	var camp_access := _get_camp_access(coords, hex_data)
-	interaction_panel.open_poi(
-		_PoiController.build_session_snapshot(
+	var inventory_snapshot := _build_inventory_snapshot()
+	exploration_window.open_landmark(
+		_PoiController.build_landmark_session_snapshot(
 			coords,
 			hex_data,
 			_world_state.world_seed,
@@ -550,11 +571,14 @@ func _present_poi_session(
 			_PoiController.available_interaction_options(
 				player_token.get_humanoid_core().inventory.get_all_items()
 			),
+			inventory_snapshot.get("ground", []),
 			Callable(self, "_inventory_has_any_item_id"),
 			Callable(self, "_inventory_has_any_tag"),
 			Callable(self, "_inventory_has_any_role")
 		)
 	)
+	if inventory_panel:
+		inventory_panel.open_side_panel(inventory_snapshot)
 
 func begin_entity_collision(
 	enemy_id: String,
@@ -586,7 +610,7 @@ func preview_poi_action(
 	if (
 		_pending_interaction.get("type")
 		!= GameEnums.MacroInteractionType.POI
-		or not interaction_panel
+		or exploration_window == null
 	):
 		return
 	var coords: Vector2i = _pending_interaction.get("coords", Vector2i.ZERO)
@@ -597,8 +621,8 @@ func preview_poi_action(
 		GameEnums.InteractionItemRole.SEARCH_TOOL,
 		Callable(self, "_find_inventory_item_by_instance_id")
 	)
-	var camp_preview_states := _PoiController.camp_states_for_preview(
-		hex_data.camp_item_states,
+	var camp_preview_states := _PoiController.camp_states_for_session_preview(
+		hex_data,
 		selected_item_ids,
 		Callable(self, "_find_inventory_item_by_instance_id")
 	)
@@ -616,7 +640,7 @@ func preview_poi_action(
 		Callable(self, "_inventory_has_any_tag"),
 		Callable(self, "_inventory_has_any_role")
 	)
-	interaction_panel.show_poi_preview(action, metrics)
+	exploration_window.show_poi_preview(action, metrics)
 
 func resolve_poi_action(
 	action: GameEnums.PoiAction,
@@ -642,7 +666,11 @@ func resolve_poi_action(
 			selected_item_ids,
 			selected_search_option_id
 		)
-	else:
+	elif action == GameEnums.PoiAction.STOP_REST:
+		hex_data.rest_in_progress = false
+		_world_state.set_hex_record(coords, hex_data.to_state())
+		_present_poi_session(coords, hex_data)
+	elif action == GameEnums.PoiAction.REST or action == GameEnums.PoiAction.CAMP:
 		var camp_access := _get_camp_access(coords, hex_data)
 		if not camp_access.get("allowed", false):
 			_show_interaction_result(
@@ -650,7 +678,13 @@ func resolve_poi_action(
 				camp_access.get("reason", "This location is unsafe.")
 			)
 			return
+		_apply_poi_session_selections(coords, hex_data, selected_item_ids)
+		hex_data.rest_in_progress = true
+		_world_state.set_hex_record(coords, hex_data.to_state())
 		_resolve_camp(coords, hex_data, profile["camp"], selected_item_ids)
+		hex_data = world_generator.get_hex_at(coords)
+		hex_data.rest_in_progress = false
+		_world_state.set_hex_record(coords, hex_data.to_state())
 
 func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 	if (
@@ -750,6 +784,12 @@ func resolve_entity_ambush(position: GameEnums.AmbushPosition) -> void:
 func close_macro_interaction() -> void:
 	_pending_interaction.clear()
 	set_process_unhandled_input(true)
+	if inventory_panel and inventory_panel.is_side_panel():
+		inventory_panel.close_panel(false)
+	if exploration_window and exploration_window.is_open():
+		exploration_window.close_window(false)
+	if interaction_panel and interaction_panel.is_open():
+		interaction_panel.close_panel(false)
 	_refresh_world_hud()
 
 
@@ -786,14 +826,22 @@ func open_inventory() -> void:
 		return
 	if world_hud:
 		world_hud.set_inventory_open(true)
-	inventory_panel.open_inventory(_build_inventory_snapshot())
+	var snapshot := _build_inventory_snapshot()
+	if exploration_window and exploration_window.is_open():
+		inventory_panel.open_side_panel(snapshot)
+		_refresh_exploration_ground()
+	else:
+		inventory_panel.open_inventory(snapshot)
 
 func resolve_inventory_action(
 	action_id: String,
 	instance_id: String,
 	equipment_slot: int
 ) -> void:
-	if not inventory_panel or not inventory_panel.is_open():
+	var exploration_open := exploration_window != null and exploration_window.is_open()
+	if not inventory_panel or (
+		not inventory_panel.is_open() and not exploration_open
+	):
 		return
 
 	_last_inventory_error = ""
@@ -824,11 +872,26 @@ func resolve_inventory_action(
 		coords
 	)
 	_emit_inventory_item_used(result)
-	inventory_panel.open_inventory(
-		_build_inventory_snapshot(),
-		str(result.get("message", ""))
-	)
+	var snapshot := _build_inventory_snapshot()
+	if exploration_open:
+		inventory_panel.open_side_panel(
+			snapshot,
+			str(result.get("message", ""))
+		)
+		_refresh_exploration_ground()
+	else:
+		inventory_panel.open_inventory(
+			snapshot,
+			str(result.get("message", ""))
+		)
 	_refresh_world_hud()
+
+func _refresh_exploration_ground() -> void:
+	if exploration_window == null or not exploration_window.is_open():
+		return
+	exploration_window.refresh_ground_items(
+		_build_inventory_snapshot().get("ground", [])
+	)
 
 func _on_inventory_closed() -> void:
 	if world_hud:
@@ -837,7 +900,8 @@ func _on_inventory_closed() -> void:
 	if (
 		_pending_interaction.get("type")
 		!= GameEnums.MacroInteractionType.POI
-		or not interaction_panel
+		or exploration_window == null
+		or not exploration_window.is_open()
 	):
 		return
 	var coords: Vector2i = _pending_interaction.get(
@@ -1046,27 +1110,28 @@ func _resolve_search(
 	):
 		return
 
+	if exploration_window and exploration_window.is_open():
+		_refresh_exploration_ground()
+		if inventory_panel and inventory_panel.is_side_panel():
+			inventory_panel.open_side_panel(_build_inventory_snapshot())
+
 	_show_interaction_result("SEARCH COMPLETE", message)
 
 func _resolve_camp(
 	coords: Vector2i,
 	hex_data: MacroHexData,
 	base_metrics: Dictionary,
-	selected_item_ids: Array
+	_selected_item_ids: Array
 ) -> void:
-	var inventory := player_token.get_humanoid_core().inventory
-	var gear_outcome := _PoiController.apply_camp_gear_selection(
-		hex_data,
-		coords,
-		selected_item_ids,
-		Callable(self, "_find_inventory_item_by_instance_id"),
-		Callable(inventory, "remove_item_by_instance_id"),
-		Callable(inventory, "add_to_backpack")
+	var descriptors: Array = _PoiController.camp_item_descriptors(
+		hex_data.camp_item_states
 	)
-	for item_state in gear_outcome.get("ground_restore", []):
-		_world_state.add_ground_items(coords, [item_state])
-
-	var descriptors: Array = gear_outcome.get("camp_descriptors", [])
+	if not hex_data.sleep_gear_instance_id.is_empty():
+		var sleep_item := _find_inventory_item_by_instance_id(
+			hex_data.sleep_gear_instance_id
+		)
+		if sleep_item != null:
+			descriptors.append(sleep_item.to_interaction_descriptor())
 	var metrics := MacroInteractionResolver.calculate_camp_metrics(
 		base_metrics,
 		descriptors
@@ -1077,7 +1142,10 @@ func _resolve_camp(
 		hex_data.camp_rest_count,
 		metrics
 	)
-	if hex_data.region == GameEnums.MacroRegion.CENTRAL_HUB:
+	if hex_data.region in [
+		GameEnums.MacroRegion.CENTRAL_HUB,
+		GameEnums.MacroRegion.HUB_BORDER,
+	]:
 		result["interrupted"] = false
 	hex_data.camp_rest_count += 1
 
@@ -1107,7 +1175,10 @@ func _resolve_camp(
 				hex_data.camp_rest_count,
 				metrics
 			)
-			if hex_data.region == GameEnums.MacroRegion.CENTRAL_HUB:
+			if hex_data.region in [
+				GameEnums.MacroRegion.CENTRAL_HUB,
+				GameEnums.MacroRegion.HUB_BORDER,
+			]:
 				result["interrupted"] = false
 				
 		var healed_this_turn = 0.0
@@ -1222,7 +1293,15 @@ func _request_pending_combat(
 		"initiator_id": initiator_id,
 		"ambush_position": ambush_position,
 	}
+	var combat_coords: Vector2i = request.get("coords", Vector2i.ZERO)
+	var trap_context := _consume_hex_trap_for_combat(
+		player_token.current_hex_coords
+	)
+	if not trap_context.is_empty():
+		request["trap_context"] = trap_context
 	_pending_interaction.clear()
+	if exploration_window and exploration_window.is_open():
+		exploration_window.close_window(false)
 	if interaction_panel:
 		interaction_panel.close_panel(false)
 	combat_requested.emit(request)
@@ -1286,10 +1365,69 @@ func _hex_label(coords: Vector2i, hex_data: MacroHexData) -> String:
 	return "HEX %d,%d // %s" % [coords.x, coords.y, region]
 
 func _show_interaction_result(title: String, message: String) -> void:
-	if interaction_panel:
+	if exploration_window and exploration_window.is_open():
+		exploration_window.show_result(title, message)
+	elif interaction_panel and interaction_panel.is_open():
 		interaction_panel.show_result(title, message)
 	else:
 		close_macro_interaction()
+
+func _apply_poi_session_selections(
+	coords: Vector2i,
+	hex_data: MacroHexData,
+	selected_item_ids: Array
+) -> void:
+	var inventory := player_token.get_humanoid_core().inventory
+	_PoiController.apply_sleep_gear_selection(
+		hex_data,
+		selected_item_ids,
+		Callable(self, "_find_inventory_item_by_instance_id")
+	)
+	var trap_outcome := _PoiController.apply_trap_install(
+		hex_data,
+		selected_item_ids,
+		Callable(self, "_find_inventory_item_by_instance_id"),
+		Callable(inventory, "remove_item_by_instance_id")
+	)
+	var gear_outcome := _PoiController.apply_camp_gear_selection(
+		hex_data,
+		coords,
+		selected_item_ids,
+		Callable(self, "_find_inventory_item_by_instance_id"),
+		Callable(inventory, "remove_item_by_instance_id"),
+		Callable(inventory, "add_to_backpack")
+	)
+	for item_state in gear_outcome.get("ground_restore", []):
+		_world_state.add_ground_items(coords, [item_state])
+	for item_state in trap_outcome.get("ground_restore", []):
+		_world_state.add_ground_items(coords, [item_state])
+	_world_state.set_hex_record(coords, hex_data.to_state())
+	_world_state.update_player_runtime(
+		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
+		coords
+	)
+
+func _build_trap_context_from_hex(hex_data: MacroHexData) -> Dictionary:
+	if hex_data.camp_traps.is_empty():
+		return {}
+	var trap_state: Dictionary = hex_data.camp_traps[0]
+	return {
+		"lane_index": int(trap_state.get("lane_index", 8)),
+		"trap_item_id": str(trap_state.get("item_id", "trap_makeshift")),
+		"trap_instance_id": str(trap_state.get("instance_id", "")),
+		"trigger_on_entry": true,
+		"trap_damage": float(trap_state.get("trap_damage", 2.5)),
+	}
+
+func _consume_hex_trap_for_combat(coords: Vector2i) -> Dictionary:
+	var hex_data := world_generator.get_hex_at(coords)
+	var trap_context := _build_trap_context_from_hex(hex_data)
+	if trap_context.is_empty():
+		return {}
+	hex_data.camp_traps.clear()
+	hex_data.rest_in_progress = false
+	_world_state.set_hex_record(coords, hex_data.to_state())
+	return trap_context
 
 func _format_world_time() -> String:
 	var snapshot := _world_state.get_world_time_snapshot()

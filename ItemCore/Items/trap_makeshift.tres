@@ -15,5 +15,5 @@ target_slot = 0
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Items/Traps/trap_makeshift.png"
 weight = 0.2
 camp_alertness_bonus = 5.0
-interaction_roles = Array[int]([2])
+interaction_roles = Array[int]([3])
 camp_concealment_bonus = 1.0

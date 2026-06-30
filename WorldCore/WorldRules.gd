@@ -28,14 +28,14 @@ static func get_loot_profile_id(
 	return DEFAULT_LOOT_PROFILE_BY_BIOME.get(biome, "loot_plains")
 
 static func get_camp_access(
-	is_poi: bool,
+	has_landmark: bool,
 	hazard_level: float,
 	has_hostile_entity: bool
 ) -> Dictionary:
-	if not is_poi:
+	if not has_landmark:
 		return {
 			"allowed": false,
-			"reason": "A defensible point of interest is required to establish camp.",
+			"reason": "A landmark location is required to establish camp.",
 		}
 	if has_hostile_entity:
 		return {

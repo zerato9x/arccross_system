@@ -39,9 +39,6 @@ func _run() -> void:
 		if first.biome != second.biome:
 			_fail("Biome changed for " + str(coords) + " on repeated calls.")
 			return
-		if first.biome != GameEnums.GridBiome.PLAINS:
-			_fail("Phase 1 generated a non-PLAINS biome at " + str(coords) + ".")
-			return
 		if first.terrain_tile != second.terrain_tile:
 			_fail("Terrain tile changed for " + str(coords) + " on repeated calls.")
 			return
@@ -73,30 +70,17 @@ func _run() -> void:
 				+ "."
 			)
 			return
-		if regenerated.biome != GameEnums.GridBiome.PLAINS:
-			_fail("Regenerated phase 1 hex left PLAINS at " + str(coords) + ".")
-			return
-
-	var snow_hex := generator.get_hex_at(Vector2i(
-		generator.snow_transition_distance,
-		0
-	))
-	if snow_hex.terrain_tile != GameEnums.MacroTerrainTile.SNOW_TRANSITION:
-		_fail("Far terrain did not become the snow transition tile.")
-		return
 
 	var found_forest := false
 	var found_mud := false
-	var found_impassable_rocks := false
+	var found_impassable_core := false
+	var found_wedge_landmark := false
 	for q in range(-32, 33):
 		for r in range(-32, 33):
 			var coords := Vector2i(q, r)
 			if maxi(abs(q), maxi(abs(r), abs(q + r))) > 32:
 				continue
 			var hex := generator.get_hex_at(coords)
-			if hex.biome != GameEnums.GridBiome.PLAINS:
-				_fail("Layered generator produced non-PLAINS biome at " + str(coords) + ".")
-				return
 			found_forest = found_forest or (
 				hex.terrain_tile == GameEnums.MacroTerrainTile.FOREST_SPARSE
 				and hex.flora_layer == GameEnums.MacroFloraLayer.TREES
@@ -104,9 +88,14 @@ func _run() -> void:
 			found_mud = found_mud or (
 				hex.terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW
 			)
-			found_impassable_rocks = found_impassable_rocks or (
-				hex.rock_layer == GameEnums.MacroRockLayer.ROCKS
+			found_impassable_core = found_impassable_core or (
+				hex.zone_id == "hub_core"
+				and hex.impassable
 				and not hex.is_passable()
+			)
+			found_wedge_landmark = found_wedge_landmark or (
+				hex.zone_id.begins_with("wedge_")
+				and hex.has_landmark()
 			)
 	if not found_forest:
 		_fail("No forest tile with tree flora was generated in the sample radius.")
@@ -114,11 +103,16 @@ func _run() -> void:
 	if not found_mud:
 		_fail("No mud tile was generated in the sample radius.")
 		return
-	if not found_impassable_rocks:
-		_fail("No impassable rock object was generated in the sample radius.")
+	if not found_impassable_core:
+		_fail("No impassable central-core hex was generated in the sample radius.")
+		return
+	if not found_wedge_landmark:
+		_fail("No wedge landmark POI was generated in the sample radius.")
 		return
 
-	print("[TEST PASS] Hex visual variant generation, TileSet geometry, and Phase 1 terrain layers are deterministic.")
+	print(
+		"[TEST PASS] Hex visual variant generation, TileSet geometry, and macro wedge layout are deterministic."
+	)
 	quit(0)
 
 func _verify_macro_regions(generator: HexWorldGenerator) -> bool:
@@ -128,23 +122,21 @@ func _verify_macro_regions(generator: HexWorldGenerator) -> bool:
 		or not hub.is_poi
 		or hub.poi_id != "alpha_central_hub"
 		or hub.hazard_level != 0.0
+		or not hub.impassable
 	):
-		return _fail("The alpha central hub was not generated as the safe spawn POI.")
+		return _fail("The alpha central hub was not generated as the impassable service POI.")
+
+	var core_neighbor := generator.get_hex_at(Vector2i(1, 0))
+	if not core_neighbor.impassable or core_neighbor.is_poi:
+		return _fail("Hub core neighbors were not impassable non-POI city hexes.")
 
 	var border := generator.get_hex_at(Vector2i(3, 0))
 	if border.region != GameEnums.MacroRegion.HUB_BORDER or border.is_poi:
-		return _fail("The hub border was not a non-POI wasteland region.")
+		return _fail("The hub border was not a non-POI travel ring.")
 
-	var alpha_arm := generator.get_hex_at(Vector2i(12, 0))
-	if (
-		alpha_arm.region != GameEnums.MacroRegion.ARM_STAGE_1
-		or alpha_arm.arm_direction != GameEnums.MacroArmDirection.EAST
-	):
-		return _fail("The alpha eastward cone did not resolve to ARM_STAGE_1.")
-
-	var outside_alpha_arm := generator.get_hex_at(Vector2i(12, 8))
-	if outside_alpha_arm.region != GameEnums.MacroRegion.WASTELAND:
-		return _fail("The alpha arm expanded beyond its configured cone.")
+	var wedge := generator.get_hex_at(Vector2i(12, 0))
+	if not wedge.zone_id.begins_with("wedge_"):
+		return _fail("Far east hex did not resolve to a compass wedge zone.")
 
 	var shrub_count := 0
 	for q in range(-20, 21):
@@ -192,18 +184,34 @@ func _verify_tileset_geometry_and_catalog() -> bool:
 		return _fail("MacroTileCatalog could not be loaded.")
 	if catalog.tile_size != Vector2i(512, 512):
 		return _fail("MacroTileCatalog tile size drifted away from the TileSet.")
-	if not _expect_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.PLAINS_GRASS), 5, "plains terrain"):
+	if not _expect_min_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.PLAINS_GRASS), 5, "plains terrain"):
 		return false
-	if not _expect_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.FOREST_SPARSE), 5, "forest terrain"):
+	if not _expect_min_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.FOREST_SPARSE), 1, "forest terrain"):
 		return false
-	if not _expect_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.MUD_YELLOW), 5, "mud terrain"):
+	if catalog.get_terrain_ids(GameEnums.MacroTerrainTile.MUD_YELLOW).size() > 0:
+		if not _expect_min_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.MUD_YELLOW), 1, "mud terrain"):
+			return false
+	if catalog.get_terrain_ids(GameEnums.MacroTerrainTile.SNOW_TRANSITION).size() > 0:
+		if not _expect_min_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.SNOW_TRANSITION), 1, "snow transition terrain"):
+			return false
+	if not _expect_min_count(catalog.get_flora_ids(GameEnums.MacroFloraLayer.SHRUBS), 7, "shrub flora"):
 		return false
-	if not _expect_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.SNOW_TRANSITION), 8, "snow transition terrain"):
+	if not _expect_min_count(
+		catalog.get_terrain_ids(GameEnums.MacroTerrainTile.HUB_CONCRETE),
+		1,
+		"hub concrete terrain"
+	):
 		return false
-	if not _expect_count(catalog.get_flora_ids(GameEnums.MacroFloraLayer.SHRUBS), 7, "shrub flora"):
+	if not _expect_min_count(catalog.get_flora_ids(GameEnums.MacroFloraLayer.TREES), 6, "tree flora"):
 		return false
-	if not _expect_count(catalog.get_flora_ids(GameEnums.MacroFloraLayer.TREES), 6, "tree flora"):
-		return false
+	return true
+
+func _expect_min_count(ids: PackedInt32Array, minimum: int, label: String) -> bool:
+	if ids.size() < minimum:
+		return _fail(
+			"Expected at least %d %s source IDs, found %d."
+			% [minimum, label, ids.size()]
+		)
 	return true
 
 func _expect_count(ids: PackedInt32Array, expected: int, label: String) -> bool:

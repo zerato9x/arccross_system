@@ -56,6 +56,22 @@ func build_encounter(
 			enemy_spawn_idx = 9
 			print("Context: Negotiations failed. Ordinary deployment.")
 
+	var trap_context: Dictionary = setup.get("trap_context", {})
+	if not trap_context.is_empty() and lane_manager:
+		var lane_index := int(trap_context.get("lane_index", 2))
+		lane_manager.place_trap(
+			lane_index,
+			str(trap_context.get("trap_item_id", "trap_makeshift")),
+			float(trap_context.get("trap_damage", 2.5))
+		)
+		print(
+			"Context: Macro trap armed on lane ",
+			lane_index,
+			" (",
+			trap_context.get("trap_item_id", ""),
+			")."
+		)
+
 	# 1. Place the bodies in the mud
 	lane_manager.force_spawn_entity(player, player_spawn_idx)
 	lane_manager.force_spawn_entity(enemy, enemy_spawn_idx)

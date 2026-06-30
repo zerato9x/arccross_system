@@ -49,11 +49,21 @@ static func build_macro_tile_assets() -> Dictionary:
 		catalog.overlay_source_ids[biome_key] = PackedInt32Array()
 	catalog.poi_source_ids["structures"] = PackedInt32Array()
 	catalog.poi_source_ids["remnants"] = PackedInt32Array()
+	catalog.pack_layer_ids = {
+		GameEnums.BIOME_PACK_PLAINS: {},
+		GameEnums.BIOME_PACK_CENTRALCORE: {},
+	}
+	catalog.path_to_source_id = {}
 
 	var source_id := 0
 	for image_path in image_paths:
 		var texture := load(image_path) as Texture2D
 		if texture == null:
+			continue
+		if not _is_valid_tile_texture(texture, image_path):
+			push_warning(
+				"[Build-HexTileSet] Skipping non-tile image: " + image_path
+			)
 			continue
 
 		var atlas := TileSetAtlasSource.new()
@@ -63,79 +73,108 @@ static func build_macro_tile_assets() -> Dictionary:
 		tile_set.add_source(atlas, source_id)
 
 		_categorize_tile(image_path, source_id, catalog)
+		catalog.path_to_source_id[image_path] = source_id
 		source_id += 1
 
 	ResourceSaver.save(tile_set, TILESET_OUTPUT)
 	ResourceSaver.save(catalog, CATALOG_OUTPUT)
 	return {"ok": true, "source_count": source_id}
 
+static func _biome_pack_from_path(path: String) -> String:
+	var lowered := path.to_lower()
+	if "biome_centralcore" in lowered:
+		return GameEnums.BIOME_PACK_CENTRALCORE
+	return GameEnums.BIOME_PACK_PLAINS
+
 static func _categorize_tile(path: String, source_id: int, catalog: MacroTileCatalog) -> void:
 	var lowered := path.to_lower()
+	var biome_pack := _biome_pack_from_path(path)
 	
-	# Backgrounds
 	if "water_default" in lowered:
-		# Water becomes its own impassable terrain later. Do not let it masquerade
-		# as Phase 1 plains just because it happens to live under the biome folder.
+		return
+	if lowered.ends_with("/bg_plains.png") or lowered.ends_with("/mud.png"):
+		return
+	if "colony infrastructure" in lowered and "concrete_tiles" not in lowered:
+		return
+
+	if "concrete_tiles" in lowered:
+		_add_to_catalog_array(
+			catalog.terrain_source_ids,
+			GameEnums.MacroTerrainTile.HUB_CONCRETE,
+			source_id
+		)
+		_add_to_pack(
+			catalog,
+			biome_pack,
+			"terrain",
+			GameEnums.MacroTerrainTile.HUB_CONCRETE,
+			source_id
+		)
 		return
 
 	if "grass_tiles" in lowered:
-		# SWAMP
 		if "v2 red" in lowered or "redmist" in lowered:
 			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.SWAMP, source_id)
-		# MUD (Yellow grass) - PUT ON HOLD
 		elif "yellow" in lowered or "t crossroad" in lowered:
 			pass
-		# HILLS / MOUNTAIN (Snowy/high altitude)
 		elif "snowy" in lowered:
 			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.SNOW_TRANSITION, source_id)
-			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.HILLS, source_id)
-			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.MOUNTAIN, source_id)
-		# FOREST (Sparse green grass) - CURRENTLY USED FOR ALL GRASS
-		elif "sparse green" in lowered:
+			_add_to_pack(catalog, biome_pack, "terrain", GameEnums.MacroTerrainTile.SNOW_TRANSITION, source_id)
+		elif "sparse green" in lowered or "green_hex" in lowered or "painted - green" in lowered:
 			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.FOREST_SPARSE, source_id)
-			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.FOREST, source_id)
-
 			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.PLAINS_GRASS, source_id)
-			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.PLAINS, source_id)
-
-			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.MUD_YELLOW, source_id)
-			_add_to_catalog_array(catalog.biome_source_ids, GameEnums.GridBiome.MUD, source_id)
-		# PLAINS (Dense green grass) - PUT ON HOLD
+			_add_to_pack(catalog, biome_pack, "terrain", GameEnums.MacroTerrainTile.PLAINS_GRASS, source_id)
+			_add_to_pack(catalog, biome_pack, "terrain", GameEnums.MacroTerrainTile.FOREST_SPARSE, source_id)
 		else:
-			pass
-
-	# Overlays
-	elif "trees" in lowered:
-		if not "temperate trees v2" in lowered:
-			return
-		_add_to_catalog_array(catalog.flora_source_ids, GameEnums.MacroFloraLayer.TREES, source_id)
-		_add_to_catalog_array(catalog.overlay_source_ids, GameEnums.GridBiome.FOREST, source_id)
+			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.PLAINS_GRASS, source_id)
+			_add_to_pack(catalog, biome_pack, "terrain", GameEnums.MacroTerrainTile.PLAINS_GRASS, source_id)
+	elif "trees" in lowered or "temperate trees" in lowered:
+		if "temperate trees v2" in lowered or "trees 2x2" in lowered:
+			_add_to_catalog_array(catalog.flora_source_ids, GameEnums.MacroFloraLayer.TREES, source_id)
+			_add_to_pack(catalog, biome_pack, "flora", GameEnums.MacroFloraLayer.TREES, source_id)
 	elif "shrub" in lowered:
 		if "shrub a" in lowered:
 			return
 		_add_to_catalog_array(catalog.flora_source_ids, GameEnums.MacroFloraLayer.SHRUBS, source_id)
-		_add_to_catalog_array(catalog.overlay_source_ids, GameEnums.GridBiome.PLAINS, source_id)
-	elif "rocks" in lowered:
+		_add_to_pack(catalog, biome_pack, "flora", GameEnums.MacroFloraLayer.SHRUBS, source_id)
+	elif "rocks" in lowered or "/rock" in lowered:
 		if "rocky hill" in lowered:
 			_add_to_catalog_array(catalog.rock_source_ids, GameEnums.MacroRockLayer.HILLS, source_id)
-			_add_to_catalog_array(catalog.overlay_source_ids, GameEnums.GridBiome.HILLS, source_id)
-		elif "sz3" in lowered or "boulder" in lowered:
-			_add_to_catalog_array(catalog.rock_source_ids, GameEnums.MacroRockLayer.ROCKS, source_id)
-			_add_to_catalog_array(catalog.overlay_source_ids, GameEnums.GridBiome.MOUNTAIN, source_id)
+			_add_to_pack(catalog, biome_pack, "rock", GameEnums.MacroRockLayer.HILLS, source_id)
 		else:
 			_add_to_catalog_array(catalog.rock_source_ids, GameEnums.MacroRockLayer.ROCKS, source_id)
-			_add_to_catalog_array(catalog.overlay_source_ids, GameEnums.GridBiome.MOUNTAIN, source_id)
-	elif "remnants" in lowered:
-		# Remnants generated in PLAINS
+			_add_to_pack(catalog, biome_pack, "rock", GameEnums.MacroRockLayer.ROCKS, source_id)
+	elif "remnants" in lowered or "crater" in lowered:
 		_add_to_catalog_array(catalog.structure_source_ids, GameEnums.MacroStructureLayer.REMNANTS, source_id)
-		_add_to_catalog_array(catalog.overlay_source_ids, GameEnums.GridBiome.PLAINS, source_id)
 		_add_to_catalog_array(catalog.poi_source_ids, "remnants", source_id)
-	elif "structures" in lowered:
+		_add_to_pack(catalog, biome_pack, "structure", GameEnums.MacroStructureLayer.REMNANTS, source_id)
+		_add_to_pack(catalog, biome_pack, "poi", "remnants", source_id)
+	elif "structures" in lowered or "warehouse" in lowered or "prefab building" in lowered or "homestead" in lowered or "silo" in lowered or "lumber building" in lowered:
 		_add_to_catalog_array(catalog.structure_source_ids, GameEnums.MacroStructureLayer.STRUCTURES, source_id)
 		_add_to_catalog_array(catalog.poi_source_ids, "structures", source_id)
-	elif "infrastructure" in lowered:
-		# Reserved for future sector/infrastructure routing, not random Phase 1 POIs.
+		_add_to_pack(catalog, biome_pack, "structure", GameEnums.MacroStructureLayer.STRUCTURES, source_id)
+		_add_to_pack(catalog, biome_pack, "poi", "structures", source_id)
+	elif "infrastructure" in lowered or "colony infrastructure" in lowered:
 		return
+	elif "bg_plains" in lowered:
+		return
+
+static func _add_to_pack(
+	catalog: MacroTileCatalog,
+	biome_pack: String,
+	layer_kind: String,
+	layer_key,
+	source_id: int
+) -> void:
+	if not catalog.pack_layer_ids.has(biome_pack):
+		catalog.pack_layer_ids[biome_pack] = {}
+	var pack_dict: Dictionary = catalog.pack_layer_ids[biome_pack]
+	if not pack_dict.has(layer_kind):
+		pack_dict[layer_kind] = {}
+	var layer_dict: Dictionary = pack_dict[layer_kind]
+	_add_to_catalog_array(layer_dict, layer_key, source_id)
+	pack_dict[layer_kind] = layer_dict
+	catalog.pack_layer_ids[biome_pack] = pack_dict
 
 static func _add_to_catalog_array(dict: Dictionary, key, source_id: int) -> void:
 	var packed: PackedInt32Array = dict.get(key, PackedInt32Array())
@@ -160,8 +199,24 @@ static func _collect_all_tile_paths() -> PackedStringArray:
 			if dir.current_is_dir():
 				pending.append(full_path)
 			elif full_path.ends_with(".png"):
-				paths.append(full_path)
+				if _should_collect_tile_path(full_path):
+					paths.append(full_path)
 			entry_name = dir.get_next()
 		dir.list_dir_end()
 	paths.sort()
 	return paths
+
+static func _should_collect_tile_path(path: String) -> bool:
+	var lowered := path.to_lower()
+	if lowered.ends_with("/bg_plains.png") or lowered.ends_with("/mud.png"):
+		return false
+	if "colony infrastructure" in lowered and "concrete_tiles" not in lowered:
+		return false
+	return true
+
+static func _is_valid_tile_texture(texture: Texture2D, image_path: String) -> bool:
+	var lowered := image_path.to_lower()
+	if "grass_tiles" in lowered or "concrete_tiles" in lowered:
+		var size := texture.get_size()
+		return int(size.x) == DEFAULT_TILE_SIZE.x and int(size.y) == DEFAULT_TILE_SIZE.y
+	return true

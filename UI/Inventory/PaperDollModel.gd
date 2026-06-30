@@ -1,7 +1,7 @@
 extends Control
 class_name PaperDollModel
 
-const BACKGROUND_PATH := "res://Asset/UI/paperdoll.png"
+const BACKGROUND_PATH := ""
 const BODY_PATH := "res://Asset/Innawoods_Asset/Humanoid/Body/Body_Nude.png"
 const HEAD_PATH := "res://Asset/Innawoods_Asset/Humanoid/Head/Male_1.png"
 const ARM_REST_PATH := "res://Asset/Innawoods_Asset/Humanoid/Body/arm_rest.png"
@@ -239,7 +239,8 @@ func _bind_authored_model() -> void:
 		push_error("PaperDollModel requires its authored layer tree.")
 		return
 
-	background.texture = _load_texture(BACKGROUND_PATH)
+	background.texture = _load_texture(BACKGROUND_PATH) if not BACKGROUND_PATH.is_empty() else null
+	background.visible = not BACKGROUND_PATH.is_empty()
 	_body_layer.texture = _load_texture(BODY_PATH)
 	_head_layer.texture = _load_texture(HEAD_PATH)
 	_base_main_arm_under.texture = _load_texture(ARM_REST_PATH)

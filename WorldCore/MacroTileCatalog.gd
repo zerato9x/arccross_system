@@ -14,19 +14,20 @@ class_name MacroTileCatalog
 @export var biome_source_ids: Dictionary = {}
 @export var overlay_source_ids: Dictionary = {}
 @export var poi_source_ids: Dictionary = {}
+## pack -> layer_kind -> enum_key -> PackedInt32Array
+@export var pack_layer_ids: Dictionary = {}
+## res:// path -> source id
+@export var path_to_source_id: Dictionary = {}
 
-func get_terrain_ids(
-	terrain: GameEnums.MacroTerrainTile
-) -> PackedInt32Array:
-	var ids := _get_packed_ids(terrain_source_ids, terrain)
-	if not ids.is_empty():
-		return ids
-	return _legacy_terrain_ids(terrain)
 
 func resolve_terrain_id(
 	terrain: GameEnums.MacroTerrainTile,
-	visual_variant_hash: int
+	visual_variant_hash: int,
+	biome_pack: String = GameEnums.BIOME_PACK_PLAINS
 ) -> int:
+	var packed := _resolve_pack_layer(biome_pack, "terrain", terrain, visual_variant_hash)
+	if packed >= 0:
+		return packed
 	return _resolve_from_ids(get_terrain_ids(terrain), visual_variant_hash)
 
 func get_flora_ids(
@@ -43,10 +44,25 @@ func get_flora_ids(
 		return get_overlay_ids(GameEnums.GridBiome.PLAINS)
 	return PackedInt32Array()
 
+func get_terrain_ids(
+	terrain: GameEnums.MacroTerrainTile
+) -> PackedInt32Array:
+	var ids := _get_packed_ids(terrain_source_ids, terrain)
+	if not ids.is_empty():
+		return ids
+	return _legacy_terrain_ids(terrain)
+
+
 func resolve_flora_id(
 	flora: GameEnums.MacroFloraLayer,
-	visual_variant_hash: int
+	visual_variant_hash: int,
+	biome_pack: String = GameEnums.BIOME_PACK_PLAINS
 ) -> int:
+	if flora == GameEnums.MacroFloraLayer.NONE:
+		return -1
+	var packed := _resolve_pack_layer(biome_pack, "flora", flora, visual_variant_hash)
+	if packed >= 0:
+		return packed
 	return _resolve_from_ids(get_flora_ids(flora), visual_variant_hash)
 
 func get_rock_ids(
@@ -65,8 +81,14 @@ func get_rock_ids(
 
 func resolve_rock_id(
 	rock: GameEnums.MacroRockLayer,
-	visual_variant_hash: int
+	visual_variant_hash: int,
+	biome_pack: String = GameEnums.BIOME_PACK_PLAINS
 ) -> int:
+	if rock == GameEnums.MacroRockLayer.NONE:
+		return -1
+	var packed := _resolve_pack_layer(biome_pack, "rock", rock, visual_variant_hash)
+	if packed >= 0:
+		return packed
 	return _resolve_from_ids(get_rock_ids(rock), visual_variant_hash)
 
 func get_structure_ids(
@@ -85,9 +107,32 @@ func get_structure_ids(
 
 func resolve_structure_id(
 	structure: GameEnums.MacroStructureLayer,
+	visual_variant_hash: int,
+	biome_pack: String = GameEnums.BIOME_PACK_PLAINS
+) -> int:
+	if structure == GameEnums.MacroStructureLayer.NONE:
+		return -1
+	var packed := _resolve_pack_layer(
+		biome_pack,
+		"structure",
+		structure,
+		visual_variant_hash
+	)
+	if packed >= 0:
+		return packed
+	return _resolve_from_ids(get_structure_ids(structure), visual_variant_hash)
+
+
+func resolve_asset_path(
+	asset_path: String,
 	visual_variant_hash: int
 ) -> int:
-	return _resolve_from_ids(get_structure_ids(structure), visual_variant_hash)
+	if asset_path.is_empty():
+		return -1
+	var source_id: Variant = path_to_source_id.get(asset_path, -1)
+	if source_id is int and int(source_id) >= 0:
+		return int(source_id)
+	return -1
 
 func get_source_ids(biome: GameEnums.GridBiome) -> PackedInt32Array:
 	return _get_packed_ids(biome_source_ids, biome)
@@ -107,8 +152,36 @@ func resolve_overlay_id(biome: GameEnums.GridBiome, visual_variant_hash: int) ->
 func get_poi_ids(poi_type: String) -> PackedInt32Array:
 	return _get_packed_ids(poi_source_ids, poi_type)
 
-func resolve_poi_id(poi_type: String, visual_variant_hash: int) -> int:
+func resolve_poi_id(
+	poi_type: String,
+	visual_variant_hash: int,
+	biome_pack: String = GameEnums.BIOME_PACK_PLAINS
+) -> int:
+	var packed := _resolve_pack_layer(
+		biome_pack,
+		"poi",
+		poi_type,
+		visual_variant_hash
+	)
+	if packed >= 0:
+		return packed
 	return _resolve_from_ids(get_poi_ids(poi_type), visual_variant_hash)
+
+
+func _resolve_pack_layer(
+	biome_pack: String,
+	layer_kind: String,
+	layer_key,
+	visual_variant_hash: int
+) -> int:
+	var pack_dict: Dictionary = pack_layer_ids.get(biome_pack, {})
+	if pack_dict.is_empty():
+		return -1
+	var layer_dict: Dictionary = pack_dict.get(layer_kind, {})
+	var ids := _get_packed_ids(layer_dict, layer_key)
+	if ids.is_empty() and layer_key is String:
+		ids = _get_packed_ids(layer_dict, str(layer_key))
+	return _resolve_from_ids(ids, visual_variant_hash)
 
 func _get_packed_ids(source_dict: Dictionary, key) -> PackedInt32Array:
 	var value = source_dict.get(key, PackedInt32Array())
@@ -143,5 +216,11 @@ func _legacy_terrain_ids(
 			if ids.is_empty():
 				return get_source_ids(GameEnums.GridBiome.MOUNTAIN)
 			return ids
+		GameEnums.MacroTerrainTile.HUB_CONCRETE:
+			return _get_packed_ids(
+				pack_layer_ids.get(GameEnums.BIOME_PACK_CENTRALCORE, {})
+					.get("terrain", {}),
+				GameEnums.MacroTerrainTile.HUB_CONCRETE
+			)
 		_:
 			return get_source_ids(GameEnums.GridBiome.PLAINS)

@@ -141,6 +141,8 @@ static func item_inventory_descriptor(
 		"item_type": item.item_type,
 		"catalog_category": item.catalog_category,
 		"tags": item.tags.duplicate(),
+		"interaction_roles": item.interaction_roles.duplicate(),
+		"roles": item.interaction_roles.duplicate(),
 		"size_cost": item.get_inventory_cost(),
 		"item_size": item.get_effective_item_size(),
 		"stack_count": item.stack_count,
@@ -280,7 +282,7 @@ static func build_hex_descriptor(
 		"can_interact": (
 			coords == player_coords
 			and (
-				hex_data.is_poi
+				hex_data.has_landmark()
 				or not ground_items.is_empty()
 				or hostile
 			)

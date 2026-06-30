@@ -44,9 +44,15 @@ func _run() -> void:
 		return
 	disposition_probe.setup_from_record(hostile_record)
 	var starting_time := world_state.world_time_minutes
-	var poi_coords := Vector2i(1, 0)
+	var poi_coords := Vector2i(4, 0)
 	macro_map.debug_step_player_to(poi_coords)
 	await process_frame
+	if (
+		macro_map.get_pending_interaction_type()
+		== GameEnums.MacroInteractionType.POI
+	):
+		_fail("Landmark POI auto-opened on step instead of Act entry.")
+		return
 	if (
 		macro_map.player_token.humanoid_token.get_animation()
 		!= "Walk"
@@ -60,14 +66,20 @@ func _run() -> void:
 		_fail("Macro movement did not advance authoritative world time.")
 		return
 
+	var hex_data := macro_map.world_generator.get_hex_at(poi_coords)
+	if not hex_data.has_landmark():
+		_fail("The guaranteed demo landmark was not present at (4, 0).")
+		return
+	macro_map.debug_begin_poi_interaction(poi_coords, hex_data)
+	await process_frame
 	if (
 		macro_map.get_pending_interaction_type()
 		!= GameEnums.MacroInteractionType.POI
 	):
-		_fail("The guaranteed demo POI did not open the POI interaction.")
+		_fail("Act entry did not open the landmark POI interaction.")
 		return
-	if not macro_map.interaction_panel.is_open():
-		_fail("The macro interaction panel did not become visible.")
+	if not macro_map.exploration_window.is_open():
+		_fail("The macro exploration window did not become visible.")
 		return
 	await create_timer(MacroPlayer.WALK_DURATION_SECONDS + 0.05).timeout
 	if (
@@ -92,7 +104,7 @@ func _run() -> void:
 		_fail("The demo loadout is missing interaction equipment.")
 		return
 
-	var hex_data := macro_map.world_generator.get_hex_at(poi_coords)
+	hex_data = macro_map.world_generator.get_hex_at(poi_coords)
 	var loot_catalog := root.get_node("LootCatalog")
 	var loot_profile: Dictionary = loot_catalog.call(
 		"get_profile_descriptor",
@@ -145,14 +157,20 @@ func _run() -> void:
 	):
 		_fail("CAMP advanced world time in non-camp increments.")
 		return
-	if hex_data.camp_item_states.size() != 3:
-		_fail("Camp gear was not persisted into the three campsite slots.")
+	if hex_data.camp_item_states.size() != 2:
+		_fail("Camp gear was not persisted into the two campsite slots.")
+		return
+	if hex_data.camp_traps.size() != 1:
+		_fail("Trap gear was not persisted on the landmark hex.")
 		return
 	if player_core.body.fatigue >= fatigue_before:
 		_fail("Resting at camp did not recover fatigue.")
 		return
 	if player_core.inventory.find_item_by_instance_id(sleeping_bag.instance_id) != null:
 		_fail("Installed camp gear remained duplicated in the player inventory.")
+		return
+	if player_core.inventory.find_item_by_instance_id(noise_trap.instance_id) != null:
+		_fail("Installed trap gear remained duplicated in the player inventory.")
 		return
 	macro_map.open_inventory()
 	await process_frame
@@ -161,13 +179,13 @@ func _run() -> void:
 		return
 	macro_map.inventory_panel.close_panel()
 	await process_frame
-	if not macro_map.interaction_panel.is_open():
+	if not macro_map.exploration_window.is_open():
 		_fail("Closing CAMP inventory did not restore the POI session.")
 		return
 
-	macro_map.interaction_panel.close_panel()
+	macro_map.exploration_window.close_window()
 	await process_frame
-	macro_map.begin_poi_interaction(poi_coords, hex_data)
+	macro_map.debug_begin_poi_interaction(poi_coords, hex_data)
 	await process_frame
 
 	var search_descriptors := [
@@ -213,7 +231,7 @@ func _run() -> void:
 		_fail("SEARCH loot was not placed in persistent ground inventory.")
 		return
 
-	macro_map.interaction_panel.close_panel()
+	macro_map.exploration_window.close_window()
 	await process_frame
 	var collision_enemy_id := _ensure_collision_probe(
 		macro_map,

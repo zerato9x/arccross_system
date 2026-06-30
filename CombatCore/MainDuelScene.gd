@@ -294,14 +294,15 @@ func _on_combatant_died(cause: String, dead_entity: HumanoidCore) -> void:
 
 	print("\n[DUEL RESOLVED] ", winner.name, " stands victorious. Cause of death: ", cause)
 	if lane_hud and dead_entity == enemy_core:
-		await lane_hud.show_resolve_screen({
-			"title": "Combat Resolved",
-			"focus_side": "enemy",
-			"dead_side": "enemy",
-			"dead_name": dead_entity.name,
-			"cause": cause,
-			"loot_names": _dropped_item_names(),
-		})
+		if DisplayServer.get_name() != "headless":
+			await lane_hud.show_resolve_screen({
+				"title": "Combat Resolved",
+				"focus_side": "enemy",
+				"dead_side": "enemy",
+				"dead_name": dead_entity.name,
+				"cause": cause,
+				"loot_names": _dropped_item_names(),
+			})
 	lane_hud.close_hud()
 	_clear_encounter_transients()
 	duel_finished.emit(
