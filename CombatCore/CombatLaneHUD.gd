@@ -62,11 +62,14 @@ const RESOLVE_PRESENTATION_SECONDS := 1.15
 const RESOLVE_CAMERA_ZOOM := 1.9
 const RESULT_PANEL_SIZE := Vector2(620.0, 360.0)
 const PROJECTILE_DURATION_SECONDS := 0.28
+const FINAL_HEADSHOT_PROJECTILE_DURATION_SECONDS := 0.68
 const PROJECTILE_HIT_PAUSE_SECONDS := 0.08
 const PROJECTILE_FADE_SECONDS := 0.12
 const PROJECTILE_TRACE_LENGTH := 92.0
 const FINAL_BLOW_ANIMATION_SPEED := 0.38
 const FINAL_BLOW_HOLD_SECONDS := 0.72
+const FINAL_BLOW_CORPSE_HOLD_SECONDS := 1.15
+const FINAL_HEADSHOT_CAMERA_SPEED := 1.8
 const BLOOD_FRAME_COUNT := 60
 const BLOOD_FPS := 30.0
 const CAMERA_MODE_NEUTRAL := "neutral"
@@ -94,6 +97,7 @@ var _camera_initialized := false
 var _camera_mode := CAMERA_MODE_NEUTRAL
 var _camera_focus_override := Vector2.ZERO
 var _has_camera_focus_override := false
+var _camera_transition_speed_override := -1.0
 var _targeted_limb := -1
 var _resolve_active := false
 var _resolve_focus_side := ""
@@ -119,6 +123,7 @@ var _is_processing_queue: bool = false
 var _active_projectile_nodes: Array[Node] = []
 var _last_shot_event: Dictionary = {}
 var _final_blow_sides: Dictionary = {}
+var _final_blow_complete_sides: Dictionary = {}
 
 var _round_label: Label
 var _active_label: Label
@@ -265,6 +270,7 @@ func close_hud() -> void:
 	_clear_projectile_nodes()
 	_last_shot_event.clear()
 	_final_blow_sides.clear()
+	_final_blow_complete_sides.clear()
 	_set_equipment_hover_visible(false)
 
 func show_snapshot(snapshot: Dictionary) -> void:
@@ -296,13 +302,13 @@ func show_resolve_screen(resolve: Dictionary) -> void:
 	await get_tree().process_frame
 	var final_wait_frames := 180
 	while (
-		not _final_blow_sides.has(dead_side)
+		not _final_blow_complete_sides.has(dead_side)
 		and (_is_processing_queue or not _presentation_queue.is_empty())
 		and final_wait_frames > 0
 	):
 		final_wait_frames -= 1
 		await get_tree().process_frame
-	if not _final_blow_sides.has(dead_side):
+	if not _final_blow_complete_sides.has(dead_side):
 		await _play_final_blow(dead_side)
 	await get_tree().create_timer(RESOLVE_PRESENTATION_SECONDS).timeout
 	_camera_mode = CAMERA_MODE_RESULTS
@@ -332,7 +338,7 @@ func _process_queue() -> void:
 		var item: Dictionary = _presentation_queue.pop_front()
 		match str(item.get("type", "")):
 			"snapshot":
-				_apply_snapshot(item.get("data", {}))
+				await _apply_snapshot(item.get("data", {}))
 			"reaction":
 				_apply_reaction(item.get("data", {}))
 			"feedback":
@@ -349,6 +355,8 @@ func _apply_snapshot(snapshot: Dictionary) -> void:
 		_reaction_prompt.clear()
 	visible = true
 	_render()
+	if _lane_view and _lane_view.has_active_motion():
+		await _lane_view.wait_for_motion_complete()
 
 func _apply_reaction(prompt: Dictionary) -> void:
 	_reaction_prompt = prompt
@@ -379,12 +387,57 @@ func _apply_presentation_event(event: Dictionary) -> void:
 		await _play_final_blow(str(event.get("side", "")))
 		return
 	if _lane_view:
-		_lane_view.show_presentation_event(event)
+		if event_type == "action":
+			_emit_action_sfx_at_animation_start(event)
+		elif event_type == "damage":
+			_emit_damage_sfx_at_impact(event)
+		await _lane_view.play_presentation_event(event)
 
 func _presentation_delay(event: Dictionary) -> float:
 	if str(event.get("type", "")) == "shot":
 		return 0.05
-	return 0.6
+	return 0.08
+
+func _emit_action_sfx_at_animation_start(event: Dictionary) -> void:
+	var action := int(event.get("action", -1))
+	if action in [GameEnums.ActionType.SHOOT, GameEnums.ActionType.AIMED_SHOT]:
+		return
+	match action:
+		GameEnums.ActionType.STRIKE, GameEnums.ActionType.GRAPPLE, \
+		GameEnums.ActionType.BREAK, GameEnums.ActionType.PUSH_STAY, \
+		GameEnums.ActionType.PULL_FOLLOW, GameEnums.ActionType.BLOCK, \
+		GameEnums.ActionType.RELOAD, GameEnums.ActionType.CYCLE:
+			_emit_presentation_sfx("combat_action_sfx", event)
+
+func _emit_shot_sfx_at_projectile_start(event: Dictionary) -> void:
+	_emit_presentation_sfx("combat_action_sfx", event)
+
+func _emit_damage_sfx_at_impact(event: Dictionary) -> void:
+	if (
+		float(event.get("flesh_damage", 0.0)) <= 0.0
+		and str(event.get("result", "")) not in ["hit", "collateral_hit"]
+		and str(event.get("trauma", "NONE")) == "NONE"
+	):
+		return
+	_emit_presentation_sfx("combat_damage_sfx", event)
+
+func _emit_presentation_sfx(scene_id: String, event: Dictionary) -> void:
+	var bus = get_node_or_null("/root/GameEventBus")
+	if bus == null or not bus.has_method("emit_scene_audio"):
+		return
+	bus.emit_scene_audio(scene_id, {
+		"action": int(event.get("action", -1)),
+		"weapon_class": int(event.get(
+			"weapon_class",
+			GameEnums.WeaponClass.NONE
+		)),
+		"weapon_id": str(event.get("weapon_id", "")),
+		"side": str(event.get("side", "")),
+		"result": str(event.get("result", "")),
+		"limb_index": int(event.get("limb_index", -1)),
+		"damage_type": str(event.get("damage_type", "")),
+		"trauma": str(event.get("trauma", "NONE")),
+	})
 
 func _push_combat_log(message: String) -> void:
 	if message.strip_edges().is_empty():
@@ -2174,6 +2227,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func _update_camera(delta: float, viewport_size: Vector2) -> void:
 	if _combat_camera == null or _lane_view == null:
 		return
+	if _combat_camera is CinematicCamera2D:
+		var cinematic := _combat_camera as CinematicCamera2D
+		cinematic.transition_speed = _target_camera_transition_speed()
 	var target_zoom := _target_camera_zoom(viewport_size)
 	var target_position := _target_camera_position()
 	_apply_camera_profile(_camera_mode, target_zoom, viewport_size)
@@ -2206,7 +2262,15 @@ func _update_camera(delta: float, viewport_size: Vector2) -> void:
 func _reset_camera() -> void:
 	_camera_mode = CAMERA_MODE_NEUTRAL
 	_has_camera_focus_override = false
+	_camera_transition_speed_override = -1.0
 	_update_camera(0.0, get_viewport_rect().size)
+
+func _target_camera_transition_speed() -> float:
+	return (
+		_camera_transition_speed_override
+		if _camera_transition_speed_override > 0.0
+		else CAMERA_TRANSITION_SPEED
+	)
 
 func _target_camera_zoom(viewport_size: Vector2) -> float:
 	var min_zoom := CAMERA_MIN_ZOOM
@@ -2290,6 +2354,7 @@ func _play_shot_event(event: Dictionary) -> void:
 	var origin_lane := int(event.get("origin_lane", -1))
 	var target_lane := int(event.get("target_lane", -1))
 	var result := str(event.get("result", "miss"))
+	var is_final_headshot := _is_final_headshot_event(event)
 	var start := _lane_view.get_projectile_anchor_global(attacker_side, origin_lane)
 	var end := _shot_end_position(result, attacker_side, target_side, target_lane)
 
@@ -2317,13 +2382,23 @@ func _play_shot_event(event: Dictionary) -> void:
 	_camera_mode = CAMERA_MODE_BULLET
 	_has_camera_focus_override = true
 	_camera_focus_override = start
+	_camera_transition_speed_override = (
+		FINAL_HEADSHOT_CAMERA_SPEED
+		if is_final_headshot
+		else -1.0
+	)
+	_emit_shot_sfx_at_projectile_start(event)
 	var travel_direction := (end - start).normalized()
 	var tween := create_tween()
 	tween.tween_property(
 		bullet,
 		"global_position",
 		end,
-		PROJECTILE_DURATION_SECONDS
+		(
+			FINAL_HEADSHOT_PROJECTILE_DURATION_SECONDS
+			if is_final_headshot
+			else PROJECTILE_DURATION_SECONDS
+		)
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	while tween.is_valid() and tween.is_running():
 		_camera_focus_override = bullet.global_position
@@ -2338,26 +2413,30 @@ func _play_shot_event(event: Dictionary) -> void:
 	bullet.visible = false
 
 	if _shot_result_has_blood(result):
+		_drop_projectile_node(trail)
+		_play_blood_vfx(end, event)
+		_emit_damage_sfx_at_impact(event)
 		if event.get("was_killed", false):
 			await _play_final_blow(target_side)
 		elif _lane_view:
-			_lane_view.show_presentation_event(
+			await _lane_view.play_presentation_event(
 				_shot_impact_damage_event(event, target_side)
 			)
-		_play_blood_vfx(end, event)
 		await get_tree().create_timer(PROJECTILE_HIT_PAUSE_SECONDS).timeout
 	else:
 		await get_tree().create_timer(PROJECTILE_HIT_PAUSE_SECONDS).timeout
 
-	var fade := create_tween()
-	fade.tween_property(
-		trail,
-		"modulate:a",
-		0.0,
-		PROJECTILE_FADE_SECONDS
-	)
-	await fade.finished
+	if is_instance_valid(trail):
+		var fade := create_tween()
+		fade.tween_property(
+			trail,
+			"modulate:a",
+			0.0,
+			PROJECTILE_FADE_SECONDS
+		)
+		await fade.finished
 	_has_camera_focus_override = false
+	_camera_transition_speed_override = -1.0
 	if not event.get("was_killed", false):
 		_camera_mode = CAMERA_MODE_NEUTRAL
 
@@ -2375,6 +2454,12 @@ func _shot_end_position(
 
 func _shot_result_has_blood(result: String) -> bool:
 	return result in ["hit", "collateral_hit"]
+
+func _is_final_headshot_event(event: Dictionary) -> bool:
+	return (
+		event.get("was_killed", false)
+		and int(event.get("limb_index", -1)) == GameEnums.LimbRegion.HEAD
+	)
 
 func _projectile_trace_points(
 	start: Vector2,
@@ -2400,22 +2485,35 @@ func _shot_impact_damage_event(event: Dictionary, target_side: String) -> Dictio
 func _play_final_blow(side: String) -> void:
 	if side.is_empty():
 		return
-	if _final_blow_sides.has(side):
+	if _final_blow_complete_sides.has(side):
 		_camera_mode = CAMERA_MODE_FINAL
+		return
+	if _final_blow_sides.has(side):
+		var wait_frames := 240
+		while (
+			not _final_blow_complete_sides.has(side)
+			and wait_frames > 0
+		):
+			wait_frames -= 1
+			await get_tree().process_frame
 		return
 	_final_blow_sides[side] = true
 	_resolve_focus_side = side
 	_camera_mode = CAMERA_MODE_FINAL
 	_has_camera_focus_override = false
+	_update_camera(0.0, get_viewport_rect().size)
 	if _lane_view:
-		_lane_view.show_presentation_event({
+		await _lane_view.play_presentation_event({
 			"side": side,
 			"type": "final_blow",
 			"animation_speed": FINAL_BLOW_ANIMATION_SPEED,
 		})
-	_play_fatal_thud()
-	_update_camera(0.0, get_viewport_rect().size)
-	await get_tree().create_timer(FINAL_BLOW_HOLD_SECONDS).timeout
+		_play_fatal_thud()
+		await get_tree().create_timer(FINAL_BLOW_CORPSE_HOLD_SECONDS).timeout
+	else:
+		await get_tree().create_timer(FINAL_BLOW_HOLD_SECONDS).timeout
+		_play_fatal_thud()
+	_final_blow_complete_sides[side] = true
 
 func _play_fatal_thud() -> void:
 	if _fatal_thud_player == null or GUN_ANIMATION_CATALOG.fatal_body_thud_stream() == null:
@@ -2461,6 +2559,13 @@ func _clear_projectile_nodes() -> void:
 		if is_instance_valid(node):
 			node.queue_free()
 	_active_projectile_nodes.clear()
+
+func _drop_projectile_node(node: Node) -> void:
+	if node == null:
+		return
+	_active_projectile_nodes.erase(node)
+	if is_instance_valid(node):
+		node.queue_free()
 
 func _opposite_side(side: String) -> String:
 	return "enemy" if side == "player" else "player"

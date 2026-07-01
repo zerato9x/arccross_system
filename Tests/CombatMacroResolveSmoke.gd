@@ -137,12 +137,7 @@ func _verify_enemy_death_resolve_zoom() -> bool:
 	if not arena.lane_hud._fatal_thud_player.playing:
 		return _fail("Final blow did not play the fatal body-fall thud.")
 
-	await create_timer(
-		CombatLaneHUD.FINAL_BLOW_HOLD_SECONDS
-		+ CombatLaneHUD.RESOLVE_PRESENTATION_SECONDS
-		+ 0.35
-	).timeout
-	if not arena.lane_hud.is_result_overlay_waiting():
+	if not await _wait_for_result_overlay(arena.lane_hud):
 		return _fail("Enemy death did not settle into the result overlay.")
 	if not outcomes.is_empty():
 		return _fail("Combat finished before the result overlay was acknowledged.")
@@ -179,6 +174,16 @@ func _wait_for_director_teardown(game_director: Node) -> bool:
 		if game_director.get_active_arena() == null:
 			return true
 	return false
+
+func _wait_for_result_overlay(
+	hud: CombatLaneHUD,
+	frame_limit: int = 360
+) -> bool:
+	for _frame in range(frame_limit):
+		if hud.is_result_overlay_waiting():
+			return true
+		await process_frame
+	return hud.is_result_overlay_waiting()
 
 func _fail(message: String) -> bool:
 	push_error("[TEST FAIL] " + message)

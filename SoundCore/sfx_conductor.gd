@@ -155,8 +155,8 @@ func _init_pool() -> void:
 func _connect_to_bus() -> void:
 	var bus = get_node_or_null("/root/GameEventBus")
 	if bus:
-		bus.combat_action_executed.connect(_on_combat_action)
-		bus.humanoid_injured.connect(_on_humanoid_injured)
+		if not bus.scene_audio_requested.is_connected(_on_scene_audio_requested):
+			bus.scene_audio_requested.connect(_on_scene_audio_requested)
 		bus.humanoid_exhausted.connect(_on_humanoid_exhausted)
 		bus.item_used.connect(_on_item_used)
 		bus.humanoid_footstep_taken.connect(_on_humanoid_footstep)
@@ -176,10 +176,25 @@ func _play_sound(stream: AudioStream, pitch_variance: float = 0.05, volume_db: f
 # EVENT HANDLERS
 # ---------------------------------------------------------
 
+func _on_scene_audio_requested(scene_id: String, context: Dictionary) -> void:
+	match scene_id:
+		"combat_action_sfx":
+			_on_combat_action(
+				null,
+				int(context.get("action", -1)),
+				int(context.get(
+					"weapon_class",
+					GameEnums.WeaponClass.NONE
+				)),
+				str(context.get("weapon_id", ""))
+			)
+		"combat_damage_sfx":
+			_play_combat_injury(context)
+
 func _on_combat_action(
 	_entity: Node,
-	action: GameEnums.ActionType,
-	weapon_class: GameEnums.WeaponClass,
+	action: int,
+	weapon_class: int,
 	weapon_id: String
 ) -> void:
 	if action == GameEnums.ActionType.SHOOT or action == GameEnums.ActionType.AIMED_SHOT:
@@ -196,7 +211,14 @@ func _on_combat_action(
 		_play_sound(_mapped_pool(SOUNDS_GUN_RELOAD, weapon_id).pick_random(), 0.04, -2.0)
 	elif action == GameEnums.ActionType.CYCLE:
 		_play_sound(_mapped_pool(SOUNDS_GUN_CYCLE, weapon_id).pick_random(), 0.04, -3.0)
-	elif action == GameEnums.ActionType.STRIKE:
+	elif action in [
+		GameEnums.ActionType.STRIKE,
+		GameEnums.ActionType.GRAPPLE,
+		GameEnums.ActionType.BREAK,
+		GameEnums.ActionType.PUSH_STAY,
+		GameEnums.ActionType.PULL_FOLLOW,
+		GameEnums.ActionType.BLOCK,
+	]:
 		_play_sound(SOUNDS_PUNCH.pick_random())
 
 func _gunshot_pool_for_id(weapon_id: String) -> Array:
@@ -217,8 +239,9 @@ func _mapped_pool(mapping: Dictionary, weapon_id: String) -> Array:
 	return mapping["default"]
 
 func _on_humanoid_injured(_entity: Node, _trauma: GameEnums.TraumaType) -> void:
-	# Right now all traumas play generic injury grunts. 
-	# Can expand this later to differentiate burns, breaks, bleeding.
+	_play_combat_injury({})
+
+func _play_combat_injury(_context: Dictionary) -> void:
 	_play_sound(SOUNDS_INJURED.pick_random())
 
 func _on_humanoid_exhausted(_entity: Node) -> void:

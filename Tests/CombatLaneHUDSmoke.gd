@@ -185,6 +185,14 @@ func _run() -> void:
 		_fail("Miss shot did not preserve its presentation result.")
 		return
 	var enemy_token: HumanoidTokenView = arena.lane_hud._lane_view._enemy_token
+	var combat_sfx_events: Array[String] = []
+	var bus = root.get_node_or_null("GameEventBus")
+	if bus and bus.has_signal("scene_audio_requested"):
+		bus.scene_audio_requested.connect(
+			func(scene_id: String, _context: Dictionary) -> void:
+				if scene_id.begins_with("combat_"):
+					combat_sfx_events.append(scene_id)
+		)
 	enemy_token.play_animation("Idle2")
 	arena.lane_hud.show_presentation_event({
 		"type": "shot",
@@ -200,12 +208,21 @@ func _run() -> void:
 	if enemy_token.get_animation() == "TakeDamage":
 		_fail("The target damage animation started before bullet impact.")
 		return
+	if combat_sfx_events.has("combat_damage_sfx"):
+		_fail("The target hurt sound fired before projectile impact.")
+		return
 	if not await _wait_for_animation(enemy_token, "TakeDamage", 45):
 		_fail("The target damage animation did not wait for bullet impact.")
+		return
+	if not combat_sfx_events.has("combat_damage_sfx"):
+		_fail("The target hurt sound did not fire at projectile impact.")
 		return
 	await create_timer(0.65).timeout
 	if not arena.lane_hud.has_blood_vfx():
 		_fail("Hit shot did not create blood VFX.")
+		return
+	if arena.lane_hud.has_projectile_vfx():
+		_fail("Projectile trail lingered after blood VFX started.")
 		return
 	await create_timer(2.0).timeout
 	enemy_token.play_animation("Idle2")
@@ -231,6 +248,9 @@ func _run() -> void:
 		return
 	if not await _wait_for_hud_queue(arena.lane_hud):
 		_fail("Final blow presentation did not finish before the next HUD probe.")
+		return
+	if not arena.lane_hud._final_blow_complete_sides.has("enemy"):
+		_fail("Final blow was not marked complete after the corpse fall.")
 		return
 	if arena.lane_hud._action_rect.position.y < viewport_size.y * 0.54:
 		_fail("The combat command deck was not anchored to the bottom screen.")

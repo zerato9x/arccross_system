@@ -514,7 +514,12 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 		# Unarmed strike — minimal damage
 		var stance_before := defender.stance_points
 		var state_before: GameEnums.StanceState = defender.current_stance
-		defender.body.apply_targeted_hit(target_limb, 0.5 * grounded_bonus, 0.0)
+		defender.body.apply_targeted_hit(
+			target_limb,
+			0.5 * grounded_bonus,
+			0.0,
+			GameEnums.DamageType.BLUNT
+		)
 		defender.apply_stance_damage(2.0)
 		_emit_damage_event(
 			attacker,
@@ -524,7 +529,9 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 			0.5 * grounded_bonus,
 			maxf(0.0, float(stance_before - defender.stance_points)),
 			"unarmed",
-			state_before
+			state_before,
+			0.0,
+			GameEnums.DamageType.BLUNT
 		)
 		damage_applied.emit(defender)
 		print("[UNARMED] Fists connect for minor trauma.")
@@ -814,7 +821,12 @@ func execute_fumble_strike(punisher: HumanoidCore, victim: HumanoidCore) -> void
 	else:
 		var stance_before := victim.stance_points
 		var state_before: GameEnums.StanceState = victim.current_stance
-		victim.body.apply_targeted_hit(target_limb, 0.5, 0.0)
+		victim.body.apply_targeted_hit(
+			target_limb,
+			0.5,
+			0.0,
+			GameEnums.DamageType.BLUNT
+		)
 		victim.apply_stance_damage(2.0)
 		_emit_damage_event(
 			punisher,
@@ -824,7 +836,9 @@ func execute_fumble_strike(punisher: HumanoidCore, victim: HumanoidCore) -> void
 			0.5,
 			maxf(0.0, float(stance_before - victim.stance_points)),
 			"fumble_unarmed",
-			state_before
+			state_before,
+			0.0,
+			GameEnums.DamageType.BLUNT
 		)
 		damage_applied.emit(victim)
 		print("[UNARMED FUMBLE] A quick fist finds an opening.")
@@ -927,7 +941,12 @@ func resolve_block(defender: HumanoidCore, attacker: HumanoidCore, weapon: ItemD
 	var stance_before := defender.stance_points
 	var state_before: GameEnums.StanceState = defender.current_stance
 	if final_flesh > 0.0:
-		defender.body.apply_targeted_hit(block_arm, final_flesh, 1.0)
+		defender.body.apply_targeted_hit(
+			block_arm,
+			final_flesh,
+			1.0,
+			weapon.damage_type
+		)
 		print("[BLOCK] ", defender.name, " absorbed the strike. Arm took ", final_flesh, " bleed-through damage.")
 		
 	if final_stance > 0.0:
@@ -943,7 +962,9 @@ func resolve_block(defender: HumanoidCore, attacker: HumanoidCore, weapon: ItemD
 			final_flesh,
 			maxf(0.0, float(stance_before - defender.stance_points)),
 			"block",
-			state_before
+			state_before,
+			0.0,
+			weapon.damage_type
 		)
 		damage_applied.emit(defender)
 	return true
@@ -1118,7 +1139,12 @@ func _resolve_damage(
 	var state_before: GameEnums.StanceState = victim.current_stance
 	# 6. Apply the surviving damage to the meat
 	if final_flesh > 0.0:
-		victim.body.apply_targeted_hit(hit_location, final_flesh, penetration)
+		victim.body.apply_targeted_hit(
+			hit_location,
+			final_flesh,
+			penetration,
+			damage_type
+		)
 	
 	# 7. Apply stance damage (equilibrium erosion)
 	if final_stance > 0.0:
@@ -1133,7 +1159,9 @@ func _resolve_damage(
 		final_flesh,
 		maxf(0.0, float(stance_before - victim.stance_points)),
 		source,
-		state_before
+		state_before,
+		0.0,
+		damage_type
 	)
 	damage_applied.emit(victim)
 	return event
@@ -1147,11 +1175,15 @@ func _emit_damage_event(
 	stance_damage: float,
 	source: String,
 	previous_state: GameEnums.StanceState,
-	blood_loss: float = 0.0
+	blood_loss: float = 0.0,
+	damage_type: int = -1
 ) -> Dictionary:
 	var trauma := str(GameEnums.TraumaType.keys()[
 		int(victim.body.limb_trauma.get(hit_location, GameEnums.TraumaType.NONE))
 	])
+	var damage_type_name := ""
+	if damage_type >= 0 and damage_type < GameEnums.DamageType.keys().size():
+		damage_type_name = str(GameEnums.DamageType.keys()[damage_type])
 	var event := {
 		"attacker": attacker,
 		"victim": victim,
@@ -1163,6 +1195,8 @@ func _emit_damage_event(
 		"flesh_damage": flesh_damage,
 		"stance_damage": stance_damage,
 		"trauma": trauma,
+		"damage_type": damage_type_name,
+		"damage_type_index": damage_type,
 		"blood_loss": blood_loss,
 		"was_felled": (
 			previous_state != GameEnums.StanceState.FELLED

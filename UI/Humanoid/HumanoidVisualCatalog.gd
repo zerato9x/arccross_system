@@ -220,12 +220,12 @@ static func texture_path(directory: String, animation: String) -> String:
 	var requested_animation := (
 		animation if supports_animation(animation) else "Idle"
 	)
-	var requested_path := "%s/%s.png" % [directory, requested_animation]
-	if _resource_exists(requested_path):
-		return requested_path
+	for candidate_animation in _animation_texture_fallbacks(requested_animation):
+		var candidate_path := "%s/%s.png" % [directory, candidate_animation]
+		if _resource_exists(candidate_path):
+			return candidate_path
 
-	var idle_path := "%s/Idle.png" % directory
-	return idle_path if _resource_exists(idle_path) else ""
+	return ""
 
 static func supports_animation(animation: String) -> bool:
 	return ANIMATION_FPS.has(animation)
@@ -270,6 +270,14 @@ static func visual_directory_for_item_id(item_id: String) -> String:
 		if not relative_directory.is_empty()
 		else ""
 	)
+
+static func _animation_texture_fallbacks(animation: String) -> Array[String]:
+	match animation:
+		"Die":
+			return ["Die", "TakeDamage", "Idle2", "Idle"]
+		"TakeDamage":
+			return ["TakeDamage", "Idle2", "Idle"]
+	return [animation, "Idle2", "Idle"]
 
 static func _item_id_from_runtime_state(item_state: Dictionary) -> String:
 	var definition_state: Dictionary = item_state.get("definition", {})

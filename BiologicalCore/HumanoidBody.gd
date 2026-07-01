@@ -22,6 +22,7 @@ const BASE_LIMB_MAX = {
 var limb_hp: Dictionary = {}
 var limb_max: Dictionary = {}
 var limb_trauma: Dictionary = {} # Tracks bleeding rates per limb
+var limb_damage_types: Dictionary = {}
 
 @export_group("Systemic Vitals")
 var core_temperature: float = 37.0
@@ -38,12 +39,14 @@ func _ready() -> void:
 		limb_max[limb] = BASE_LIMB_MAX[limb]
 		limb_hp[limb] = BASE_LIMB_MAX[limb]
 		limb_trauma[limb] = GameEnums.TraumaType.NONE
+		limb_damage_types.erase(limb)
 
 func configure_structure(fortitude: int) -> void:
 	var hp_multiplier := float(fortitude) / GameEnums.SCALE_MIDPOINT
 	for limb in BASE_LIMB_MAX.keys():
 		limb_max[limb] = BASE_LIMB_MAX[limb] * hp_multiplier
 		limb_hp[limb] = limb_max[limb]
+		limb_damage_types.erase(limb)
 
 func get_limb_max(limb: GameEnums.LimbRegion) -> float:
 	return float(limb_max.get(limb, BASE_LIMB_MAX.get(limb, 0.0)))
@@ -52,10 +55,18 @@ func get_limb_max(limb: GameEnums.LimbRegion) -> float:
 # TRAUMA APPLICATION
 # ---------------------------------------------------------
 
-func apply_targeted_hit(limb: GameEnums.LimbRegion, raw_damage: float, penetration: float) -> void:
+func apply_targeted_hit(
+	limb: GameEnums.LimbRegion,
+	raw_damage: float,
+	penetration: float,
+	damage_type: int = -1
+) -> void:
 	# You can't kill a limb that's already gone
 	if limb_hp[limb] <= 0:
 		return 
+
+	if damage_type >= 0:
+		limb_damage_types[limb] = damage_type
 		
 	# High penetration causes bleeding trauma
 	if (
@@ -253,6 +264,7 @@ func capture_runtime_state() -> BodyState:
 	var state := BodyState.new()
 	state.limb_hp = limb_hp.duplicate()
 	state.limb_trauma = limb_trauma.duplicate()
+	state.limb_damage_types = limb_damage_types.duplicate()
 	state.core_temperature = core_temperature
 	state.blood_level = blood_level
 	state.hunger = hunger
@@ -273,6 +285,9 @@ func restore_runtime_state(state) -> void:
 		limb_hp[limb] = body_state.limb_hp[limb]
 	for limb in body_state.limb_trauma.keys():
 		limb_trauma[limb] = body_state.limb_trauma[limb]
+	limb_damage_types.clear()
+	for limb in body_state.limb_damage_types.keys():
+		limb_damage_types[limb] = body_state.limb_damage_types[limb]
 
 	core_temperature = body_state.core_temperature
 	blood_level = clampf(body_state.blood_level, 0.0, GameEnums.SCALE_MAX)

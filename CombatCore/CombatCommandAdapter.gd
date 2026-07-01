@@ -603,6 +603,10 @@ func _limb_snapshot(entity: HumanoidCore) -> Array:
 	var codes := ["HD", "UT", "LT", "LA", "RA", "LL", "RL"]
 	for index in range(ordered_regions.size()):
 		var region: GameEnums.LimbRegion = ordered_regions[index]
+		var damage_type := int(entity.body.limb_damage_types.get(region, -1))
+		var damage_type_name := ""
+		if damage_type >= 0 and damage_type < GameEnums.DamageType.keys().size():
+			damage_type_name = str(GameEnums.DamageType.keys()[damage_type])
 		limbs.append({
 			"region": region,
 			"code": codes[index],
@@ -611,6 +615,8 @@ func _limb_snapshot(entity: HumanoidCore) -> Array:
 			"trauma": GameEnums.TraumaType.keys()[
 				int(entity.body.limb_trauma.get(region, GameEnums.TraumaType.NONE))
 			],
+			"damage_type": damage_type_name,
+			"damage_type_index": damage_type,
 		})
 	return limbs
 
@@ -816,6 +822,11 @@ func _on_resolution_shot_resolved(event: Dictionary) -> void:
 	presentation["side"] = attacker_side
 	presentation["attacker_side"] = attacker_side
 	presentation["target_side"] = target_side
+	_add_weapon_audio_fields(
+		presentation,
+		attacker,
+		int(event.get("action", GameEnums.ActionType.SHOOT))
+	)
 	presentation_event.emit(presentation)
 	var damage_event := _take_pending_projectile_damage(attacker, victim)
 	if not damage_event.is_empty():
@@ -860,11 +871,41 @@ func _emit_presentation_action(
 	entity: HumanoidCore,
 	action: int
 ) -> void:
-	presentation_event.emit({
+	var presentation := {
 		"side": _entity_side(entity),
 		"type": "action",
 		"action": action,
-	})
+	}
+	_add_weapon_audio_fields(presentation, entity, action)
+	presentation_event.emit(presentation)
+
+func _add_weapon_audio_fields(
+	presentation: Dictionary,
+	entity: HumanoidCore,
+	action: int
+) -> void:
+	var weapon := _audio_weapon_for_action(entity, action)
+	if weapon == null:
+		presentation["weapon_id"] = ""
+		presentation["weapon_class"] = GameEnums.WeaponClass.NONE
+		return
+	presentation["weapon_id"] = weapon.id
+	presentation["weapon_class"] = int(weapon.weapon_type)
+
+func _audio_weapon_for_action(
+	entity: HumanoidCore,
+	action: int
+) -> ItemData:
+	if entity == null or entity.inventory == null:
+		return null
+	match action:
+		GameEnums.ActionType.SHOOT, GameEnums.ActionType.AIMED_SHOT:
+			return entity.inventory.get_active_weapon(false)
+		GameEnums.ActionType.RELOAD, GameEnums.ActionType.CYCLE:
+			return entity.inventory.get_active_weapon(false)
+		GameEnums.ActionType.STRIKE, GameEnums.ActionType.BLOCK:
+			return entity.inventory.get_active_weapon(true)
+	return null
 
 
 func _emit_item_used(entity: HumanoidCore, category: int) -> void:

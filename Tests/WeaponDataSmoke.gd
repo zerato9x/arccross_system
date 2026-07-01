@@ -146,6 +146,11 @@ func _verify_ballistic_limb_damage(
 		return _fail("A ballistic hit changed Stance.")
 	if not is_equal_approx(hp_lost, pistol.flesh_damage):
 		return _fail("A pistol round did not apply its authored limb damage.")
+	if (
+		int(target.body.limb_damage_types.get(limb, -1))
+		!= GameEnums.DamageType.BALLISTIC
+	):
+		return _fail("A pistol round did not tag the limb as ballistic damage.")
 	return true
 
 func _verify_service_pistol_reload(

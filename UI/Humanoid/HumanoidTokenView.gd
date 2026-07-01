@@ -5,6 +5,7 @@ class_name HumanoidTokenView
 ## entity records or pre-built appearance dictionaries only.
 
 signal footstep_taken
+signal animation_finished(animation: String)
 
 var _appearance: Dictionary = {}
 var _layer_directories: Array[String] = []
@@ -18,6 +19,7 @@ var _animation_speed_scale := 1.0
 var _display_scale := 2.4
 var _appearance_record: Dictionary = {}
 var _return_animation := "Idle"
+var _animation_completion_emitted := false
 
 func _ready() -> void:
 	for child in $Layers.get_children():
@@ -91,6 +93,7 @@ func play_animation(
 		return true
 
 	_animation = animation
+	_animation_completion_emitted = false
 	if not return_animation.is_empty():
 		set_return_animation(return_animation)
 	elif HumanoidVisualCatalog.animation_loops(animation):
@@ -115,6 +118,10 @@ func is_playing_one_shot() -> bool:
 
 func get_animation() -> String:
 	return _animation
+
+func has_animation_finished(animation: String = "") -> bool:
+	var requested := animation if not animation.is_empty() else _animation
+	return _animation == requested and _animation_completion_emitted
 
 func get_direction_row() -> int:
 	return _direction_row
@@ -153,7 +160,10 @@ func _process(delta: float) -> void:
 	elif next_frame >= max_frames:
 		if _animation == "Die":
 			next_frame = max_frames - 1
+			_emit_animation_finished(_animation)
 		else:
+			var finished_animation := _animation
+			_emit_animation_finished(finished_animation)
 			play_animation(_return_animation)
 			return
 
@@ -163,6 +173,12 @@ func _process(delta: float) -> void:
 			if _frame_index == 1 or _frame_index == 7:
 				footstep_taken.emit()
 		_apply_frame()
+
+func _emit_animation_finished(animation: String) -> void:
+	if _animation_completion_emitted:
+		return
+	_animation_completion_emitted = true
+	animation_finished.emit(animation)
 
 func _rebuild_layers() -> void:
 	_layer_sprites.clear()

@@ -5,6 +5,9 @@ signal slot_hovered(slot_data: Dictionary, global_position: Vector2)
 signal slot_unhovered
 
 const LANE_MOVE_DURATION_SECONDS := 2.0
+const MOTION_WAIT_FRAME_LIMIT := 210
+const TOKEN_PRESENTATION_FRAME_LIMIT := 240
+const FINAL_BLOW_SETTLE_FRACTION := 0.58
 const STAGE_GROUND_ASSET := "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png"
 const STAGE_WIDTH_FACTOR := 1.55
 const STAGE_HEIGHT_FACTOR := 1.24
@@ -20,6 +23,8 @@ var _player_uses_right_swing := true
 var _enemy_uses_right_swing := true
 var _player_uses_right_strafe := true
 var _enemy_uses_right_strafe := true
+var _last_player_appearance: Dictionary = {}
+var _last_enemy_appearance: Dictionary = {}
 var _slot_nodes: Array = []
 var _slot_data_by_index: Dictionary = {}
 var _hovered_slot_index := -1
@@ -61,6 +66,9 @@ func show_snapshot(snapshot: Dictionary) -> void:
 	_melee_lock_banner.visible = _showing_melee_lock
 
 func show_presentation_event(event: Dictionary) -> void:
+	play_presentation_event(event)
+
+func play_presentation_event(event: Dictionary) -> void:
 	var side := str(event.get("side", ""))
 	var token := _token_for_side(side)
 	var data: Dictionary = _snapshot.get(side, {})
@@ -70,23 +78,35 @@ func show_presentation_event(event: Dictionary) -> void:
 	match str(event.get("type", "")):
 		"final_blow":
 			token.set_animation_speed(float(event.get("animation_speed", 0.42)))
-			token.play_animation("Die", true)
+			if token.play_animation("Die", true):
+				await _wait_for_token_animation_cue(
+					token,
+					"Die",
+					FINAL_BLOW_SETTLE_FRACTION
+				)
 		"death":
 			if event.get("skip_lane_presentation", false):
 				return
-			token.play_animation("Die")
+			if token.play_animation("Die"):
+				await _wait_for_token_animation_cue(
+					token,
+					"Die",
+					FINAL_BLOW_SETTLE_FRACTION
+				)
 		"damage":
 			if event.get("skip_lane_presentation", false):
 				return
 			if not data.get("is_dead", false):
-				token.play_one_shot("TakeDamage", _token_pose(data))
+				if token.play_one_shot("TakeDamage", _token_pose(data)):
+					await _wait_for_token_animation_finished(token, "TakeDamage")
 		"action":
 			var animation := _animation_for_action(
 				side,
 				int(event.get("action", -1))
 			)
 			if not animation.is_empty():
-				token.play_one_shot(animation, _token_pose(data))
+				if token.play_one_shot(animation, _token_pose(data)):
+					await _wait_for_token_animation_finished(token, animation)
 
 func layout_for_viewport(viewport_size: Vector2) -> void:
 	_stage_size = Vector2(
@@ -164,6 +184,12 @@ func get_projectile_miss_anchor_global(
 	)
 
 func get_combat_focus_global() -> Vector2:
+	if (
+		_player_token.visible
+		and _enemy_token.visible
+		and (_token_is_moving(true) or _token_is_moving(false))
+	):
+		return (_player_token.global_position + _enemy_token.global_position) * 0.5
 	if _showing_melee_lock:
 		var lock_slot := _find_lock_slot()
 		if lock_slot >= 0 and lock_slot < _slot_nodes.size():
@@ -184,6 +210,16 @@ func get_combat_focus_global() -> Vector2:
 
 func get_focus_zoom() -> float:
 	return 1.55 if _showing_melee_lock else 1.0
+
+func has_active_motion() -> bool:
+	return _token_is_moving(true) or _token_is_moving(false)
+
+func wait_for_motion_complete(frame_limit: int = MOTION_WAIT_FRAME_LIMIT) -> bool:
+	for _frame in range(frame_limit):
+		if not has_active_motion():
+			return true
+		await get_tree().process_frame
+	return not has_active_motion()
 
 func _collect_slots() -> void:
 	_slot_nodes.clear()
@@ -278,10 +314,7 @@ func _sync_token(
 	if not token.visible:
 		return
 
-	token.set_appearance(data.get(
-		"appearance",
-		HumanoidVisualCatalog.appearance_from_slot_item_ids({})
-	))
+	token.set_appearance(_presentation_appearance(data, is_player))
 	token.set_direction_row(
 		HumanoidVisualCatalog.DIRECTION_RIGHT
 		if is_player
@@ -356,6 +389,36 @@ func _layout_tokens() -> void:
 		)
 	_store_current_lanes()
 
+func _presentation_appearance(
+	data: Dictionary,
+	is_player: bool
+) -> Dictionary:
+	var fallback := HumanoidVisualCatalog.appearance_from_slot_item_ids({})
+	var appearance: Dictionary = data.get("appearance", fallback)
+	var has_outfit := _appearance_has_outfit_layers(appearance)
+	var cached: Dictionary = (
+		_last_player_appearance
+		if is_player
+		else _last_enemy_appearance
+	)
+	if data.get("is_dead", false) and not has_outfit and not cached.is_empty():
+		return cached
+	if has_outfit:
+		if is_player:
+			_last_player_appearance = appearance.duplicate(true)
+		else:
+			_last_enemy_appearance = appearance.duplicate(true)
+	return appearance
+
+func _appearance_has_outfit_layers(appearance: Dictionary) -> bool:
+	for raw_layer in appearance.get("layers", []):
+		if not raw_layer is Dictionary:
+			continue
+		var layer: Dictionary = raw_layer
+		if not str(layer.get("directory", "")).is_empty():
+			return true
+	return false
+
 func _move_or_place_token(
 	token: HumanoidTokenView,
 	target: Vector2,
@@ -409,6 +472,45 @@ func _finish_token_move(is_player: bool) -> void:
 func _token_is_moving(is_player: bool) -> bool:
 	var tween := _player_move_tween if is_player else _enemy_move_tween
 	return tween != null and tween.is_valid() and tween.is_running()
+
+func _wait_for_token_animation_finished(
+	token: HumanoidTokenView,
+	animation: String,
+	frame_limit: int = TOKEN_PRESENTATION_FRAME_LIMIT
+) -> bool:
+	for _frame in range(frame_limit):
+		if token.get_animation() != animation:
+			return true
+		if token.has_animation_finished(animation):
+			return true
+		await get_tree().process_frame
+	return token.get_animation() != animation or token.has_animation_finished(animation)
+
+func _wait_for_token_animation_cue(
+	token: HumanoidTokenView,
+	animation: String,
+	fraction: float,
+	frame_limit: int = TOKEN_PRESENTATION_FRAME_LIMIT
+) -> bool:
+	var max_frames: int = maxi(1, HumanoidVisualCatalog.animation_frames(animation))
+	var target_frame := clampi(
+		int(round(float(max_frames - 1) * clampf(fraction, 0.0, 1.0))),
+		0,
+		max_frames - 1
+	)
+	for _frame in range(frame_limit):
+		if token.get_animation() != animation:
+			return true
+		if token.get_frame_index() >= target_frame:
+			return true
+		if token.has_animation_finished(animation):
+			return true
+		await get_tree().process_frame
+	return (
+		token.get_animation() != animation
+		or token.get_frame_index() >= target_frame
+		or token.has_animation_finished(animation)
+	)
 
 func _token_pose(data: Dictionary) -> String:
 	if data.get("is_dead", false):
