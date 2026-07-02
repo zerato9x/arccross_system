@@ -5,6 +5,8 @@ class_name HexMapMarker
 ## Editor-only metadata marker for a painted hex. The baker merges these with
 ## TileMap layers when writing AuthoredWorldMap resources.
 
+@export_group("Editor Helpers")
+@export var coord_layer: TileMapLayer
 @export var hex_coords: Vector2i = Vector2i.ZERO
 @export var is_poi: bool = false
 @export var poi_id: String = ""
@@ -19,6 +21,38 @@ class_name HexMapMarker
 @export_range(1, 3) var arm_stage: int = 1
 @export var zone_id: String = ""
 @export_range(0.0, 12.0) var hazard_level: float = 0.0
+
+
+func _ready() -> void:
+	if not Engine.is_editor_hint():
+		return
+	if coord_layer == null:
+		coord_layer = _guess_coord_layer()
+
+
+func _guess_coord_layer() -> TileMapLayer:
+	var root := get_tree().edited_scene_root
+	if root == null:
+		root = get_parent()
+	while root != null:
+		var candidate := root.get_node_or_null("TerrainLayer")
+		if candidate is TileMapLayer:
+			return candidate as TileMapLayer
+		root = root.get_parent()
+	return null
+
+
+func sync_coords_from_position(layer: TileMapLayer = null, snap_to_center: bool = false) -> void:
+	var resolved := layer if layer != null else coord_layer
+	if resolved == null:
+		resolved = _guess_coord_layer()
+	if resolved == null:
+		push_warning("[HexMapMarker] No coord layer set; cannot sync coords.")
+		return
+	var local_pos := resolved.to_local(global_position)
+	hex_coords = resolved.local_to_map(local_pos)
+	if snap_to_center:
+		global_position = resolved.to_global(resolved.map_to_local(hex_coords))
 
 
 func to_entry() -> Dictionary:

@@ -16,6 +16,7 @@ var _icon_rect: TextureRect
 var _highlight: ColorRect
 var _column: VBoxContainer
 var _assigned_instance_id := ""
+var _target_label := ""
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(120, 84)
@@ -23,13 +24,14 @@ func _ready() -> void:
 	_build_shell()
 	_apply_box_style()
 
-func configure(target_label: String, roles: Array) -> void:
-	target_id = target_label
+func configure(new_target_id: String, new_target_label: String, roles: Array) -> void:
+	target_id = new_target_id
+	_target_label = new_target_label
 	accepted_roles.clear()
 	for role in roles:
 		accepted_roles.append(int(role))
 	if _label:
-		_label.text = target_label
+		_label.text = _target_label
 
 func set_assigned_instance(
 	instance_id: String,
@@ -38,7 +40,7 @@ func set_assigned_instance(
 ) -> void:
 	_assigned_instance_id = instance_id
 	if _label:
-		_label.text = item_name if not item_name.is_empty() else target_id
+		_label.text = item_name if not item_name.is_empty() else _target_label
 	_set_icon(sprite_path)
 	_apply_box_style()
 
@@ -48,7 +50,7 @@ func get_assigned_instance() -> String:
 func clear_assignment() -> void:
 	_assigned_instance_id = ""
 	if _label:
-		_label.text = target_id
+		_label.text = _target_label
 	_set_icon("")
 	_apply_box_style()
 

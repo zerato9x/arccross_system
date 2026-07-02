@@ -33,6 +33,48 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 12
 
+[node name="InteractionInventoryPanel" type="PanelContainer" parent="ExplorationPanel/Margin/Content" unique_id=2093550136]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 560)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="InteractionInventoryMargin" type="MarginContainer" parent="ExplorationPanel/Margin/Content/InteractionInventoryPanel" unique_id=800565941]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="InteractionInventoryColumn" type="VBoxContainer" parent="ExplorationPanel/Margin/Content/InteractionInventoryPanel/InteractionInventoryMargin" unique_id=552541013]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="InteractionInventoryHeader" type="Label" parent="ExplorationPanel/Margin/Content/InteractionInventoryPanel/InteractionInventoryMargin/InteractionInventoryColumn" unique_id=422988410]
+unique_name_in_owner = true
+layout_mode = 2
+text = "GEAR"
+
+[node name="InteractionInventoryHint" type="Label" parent="ExplorationPanel/Margin/Content/InteractionInventoryPanel/InteractionInventoryMargin/InteractionInventoryColumn" unique_id=1661537500]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+text = "Drag tools/gear onto a target."
+
+[node name="InteractionItemsScroll" type="ScrollContainer" parent="ExplorationPanel/Margin/Content/InteractionInventoryPanel/InteractionInventoryMargin/InteractionInventoryColumn" unique_id=1166628107]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="InteractionItemsGrid" type="GridContainer" parent="ExplorationPanel/Margin/Content/InteractionInventoryPanel/InteractionInventoryMargin/InteractionInventoryColumn/InteractionItemsScroll" unique_id=444822566]
+unique_name_in_owner = true
+layout_mode = 2
+columns = 3
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+
 [node name="SceneRoot" type="Control" parent="ExplorationPanel/Margin/Content" unique_id=182167097]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(420, 560)

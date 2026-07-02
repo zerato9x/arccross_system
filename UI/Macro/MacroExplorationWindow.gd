@@ -22,6 +22,10 @@ const _InventorySlotScene := preload("res://UI/Inventory/InventorySlot.tscn")
 
 @onready var _panel: PanelContainer = %ExplorationPanel
 @onready var _content: HBoxContainer = %Content
+@onready var _inventory_panel: PanelContainer = %InteractionInventoryPanel
+@onready var _inventory_header: Label = %InteractionInventoryHeader
+@onready var _inventory_hint: Label = %InteractionInventoryHint
+@onready var _inventory_grid: GridContainer = %InteractionItemsGrid
 @onready var _scene_root: Control = %SceneRoot
 @onready var _background: TextureRect = %Background
 @onready var _props_layer: Control = %PropsLayer
@@ -47,14 +51,18 @@ var _active_mode := GameEnums.PoiAction.SEARCH
 var _selected_search_option_id := "primary_search"
 var _drop_targets: Dictionary = {}
 var _ground_slots: Array[InventorySlot] = []
+var _inventory_slots: Array[InventorySlot] = []
 var _search_option_buttons: Dictionary = {}
 
 func _ready() -> void:
 	_panel.visible = false
 	HUDAssetLibrary.apply_panel(_panel, "warning")
+	HUDAssetLibrary.apply_panel(_inventory_panel, "neutral")
 	HUDAssetLibrary.apply_panel(%InteractionBox as PanelContainer, "neutral")
 	HUDAssetLibrary.apply_panel(%GroundBox as PanelContainer, "neutral")
 	HUDAssetLibrary.apply_panel(%PoiNamePlate as PanelContainer, "neutral")
+	HUDAssetLibrary.apply_label(_inventory_header, "muted")
+	HUDAssetLibrary.apply_label(_inventory_hint, "muted")
 	HUDAssetLibrary.apply_label(_poi_name_label, "title")
 	HUDAssetLibrary.apply_label(_title_label, "title")
 	HUDAssetLibrary.apply_label(_body_label, "body")
@@ -102,6 +110,7 @@ func close_window(notify: bool = true) -> void:
 		_panel.visible = false
 	_session.clear()
 	_clear_ground_slots()
+	_clear_inventory_slots()
 	if notify:
 		interaction_closed.emit()
 
@@ -135,11 +144,56 @@ func _render_session() -> void:
 	_title_label.text = "EXPLORATION"
 	_body_label.text = str(_session.get("scene_descriptor", {}).get("zone_name", ""))
 	_render_scene(_session.get("scene_descriptor", {}))
+	_render_inventory_items()
 	_render_search_options()
 	_render_drop_targets()
 	_render_ground_items()
 	_update_mode_buttons()
 	_update_rest_buttons()
+
+func _render_inventory_items() -> void:
+	_clear_inventory_slots()
+	var source: Array = _session.get("available_items", [])
+	if source.is_empty():
+		_inventory_hint.text = "No usable tools or camp gear."
+		return
+
+	var role_filter: Array[int] = []
+	if _active_mode == GameEnums.PoiAction.SEARCH:
+		role_filter = [GameEnums.InteractionItemRole.SEARCH_TOOL]
+	else:
+		role_filter = [
+			GameEnums.InteractionItemRole.CAMP_GEAR,
+			GameEnums.InteractionItemRole.TRAP_GEAR,
+		]
+
+	var rendered := 0
+	for descriptor in source:
+		if not descriptor is Dictionary:
+			continue
+		if not _descriptor_has_any_role(descriptor, role_filter):
+			continue
+		var slot := _InventorySlotScene.instantiate() as InventorySlot
+		slot.configure(InventorySlot.SOURCE_BACKPACK, rendered, "", null)
+		slot.set_item(descriptor)
+		_inventory_grid.add_child(slot)
+		_inventory_slots.append(slot)
+		rendered += 1
+
+	_inventory_hint.text = (
+		"Drag tools/gear onto a target."
+		if rendered > 0
+		else "No usable tools or camp gear."
+	)
+
+func _descriptor_has_any_role(descriptor: Dictionary, roles: Array[int]) -> bool:
+	if roles.is_empty():
+		return true
+	var descriptor_roles: Array = descriptor.get("interaction_roles", descriptor.get("roles", []))
+	for role in roles:
+		if descriptor_roles.has(role):
+			return true
+	return false
 
 func _render_scene(descriptor: Dictionary) -> void:
 	for child in _props_layer.get_children():
@@ -225,6 +279,7 @@ func _render_drop_targets() -> void:
 			continue
 		var drop := InteractionDropTarget.new()
 		drop.configure(
+			str(target.get("id", "")),
 			str(target.get("label", "Target")),
 			target.get("accepted_roles", [])
 		)
@@ -257,6 +312,12 @@ func _clear_ground_slots() -> void:
 			slot.queue_free()
 	_ground_slots.clear()
 
+func _clear_inventory_slots() -> void:
+	for slot in _inventory_slots:
+		if is_instance_valid(slot):
+			slot.queue_free()
+	_inventory_slots.clear()
+
 func _clear_right_panel() -> void:
 	for child in _metric_box.get_children():
 		child.queue_free()
@@ -275,6 +336,7 @@ func _set_mode(mode: GameEnums.PoiAction) -> void:
 		)
 		return
 	_active_mode = mode
+	_render_inventory_items()
 	_render_search_options()
 	_render_drop_targets()
 	_update_mode_buttons()

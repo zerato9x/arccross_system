@@ -590,7 +590,7 @@ func _present_poi_session(
 		inventory_snapshot
 	)
 	if inventory_panel and inventory_panel.is_open():
-		inventory_panel.open_side_panel(inventory_snapshot)
+		inventory_panel.open_side_panel(inventory_snapshot, "", false)
 
 func begin_entity_collision(
 	enemy_id: String,
@@ -840,7 +840,8 @@ func open_inventory() -> void:
 		inventory_panel.close_panel()
 		return
 	var snapshot := _build_inventory_snapshot()
-	inventory_panel.open_side_panel(snapshot)
+	var hide_ground := exploration_window != null and exploration_window.is_open()
+	inventory_panel.open_side_panel(snapshot, "", not hide_ground)
 
 func _on_inventory_closed() -> void:
 	pass
@@ -880,7 +881,8 @@ func resolve_inventory_action(
 	_emit_inventory_item_used(result)
 	var snapshot := _build_inventory_snapshot()
 	if inventory_panel and inventory_panel.is_open():
-		inventory_panel.open_side_panel(snapshot)
+		var hide_ground := exploration_window != null and exploration_window.is_open()
+		inventory_panel.open_side_panel(snapshot, "", not hide_ground)
 	_refresh_exploration_ground()
 	_refresh_world_hud()
 

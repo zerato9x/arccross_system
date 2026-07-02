@@ -258,6 +258,7 @@ static func available_interaction_options(inventory_items: Array) -> Array:
 				"instance_id": item.instance_id,
 				"item_id": item.id,
 				"name": item.display_name,
+				"sprite_path": item.get_inventory_sprite_path(),
 				"tags": item.tags.duplicate(),
 				"roles": item.interaction_roles.duplicate(),
 			})
@@ -434,6 +435,7 @@ static func build_landmark_session_snapshot(
 			world_seed,
 			coords
 		),
+		"available_items": available_items,
 		"search_drop_targets": build_search_drop_targets(hex_data, search_options),
 		"camp_drop_targets": build_camp_drop_targets(hex_data),
 		"ground_items": ground_items,

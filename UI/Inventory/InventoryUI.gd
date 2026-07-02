@@ -125,6 +125,7 @@ var _snapshot: Dictionary = {}
 var _feedback: String = ""
 var _selected_slot: InventorySlot
 var _presentation_mode := PresentationMode.FULLSCREEN
+var _show_ground_in_side_panel := true
 
 var _backdrop: ColorRect
 var _shell: PanelContainer
@@ -180,16 +181,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		close_panel()
 		get_viewport().set_input_as_handled()
 
-func open_inventory(snapshot: Dictionary, feedback: String = "") -> void:
+func open_inventory(snapshot: Dictionary, feedback: String = "", show_ground: bool = true) -> void:
 	_presentation_mode = PresentationMode.FULLSCREEN
+	_show_ground_in_side_panel = show_ground
 	_snapshot = snapshot.duplicate(true)
 	_feedback = feedback
 	visible = true
 	_apply_presentation_layout()
 	_render()
 
-func open_side_panel(snapshot: Dictionary, feedback: String = "") -> void:
+func open_side_panel(snapshot: Dictionary, feedback: String = "", show_ground: bool = true) -> void:
 	_presentation_mode = PresentationMode.SIDE_PANEL
+	_show_ground_in_side_panel = show_ground
 	_snapshot = snapshot.duplicate(true)
 	_feedback = feedback
 	visible = true
@@ -202,6 +205,7 @@ func is_side_panel() -> bool:
 func close_panel(notify: bool = true) -> void:
 	visible = false
 	_presentation_mode = PresentationMode.FULLSCREEN
+	_show_ground_in_side_panel = true
 	_hover_card.visible = false
 	_snapshot.clear()
 	_feedback = ""
@@ -306,7 +310,7 @@ func _apply_presentation_layout() -> void:
 		_shell.offset_right = 970.0
 		_shell.offset_bottom = 320.0
 		if _ground_panel:
-			_ground_panel.visible = true
+			_ground_panel.visible = _show_ground_in_side_panel
 		if canvas_layer:
 			canvas_layer.layer = 21
 	else:
@@ -657,7 +661,7 @@ func _render() -> void:
 	if _presentation_mode == PresentationMode.FULLSCREEN:
 		_render_ground(_snapshot.get("ground", []))
 	else:
-		_render_ground([])
+		_render_ground(_snapshot.get("ground", []) if _show_ground_in_side_panel else [])
 	_clear_selection()
 
 func _render_backpack(

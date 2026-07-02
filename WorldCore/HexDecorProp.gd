@@ -6,6 +6,8 @@ class_name HexDecorProp
 ## sprite_path, drag to position, and resize with Godot's scale handles (or the
 ## Scale property). Does NOT use TileMap tile_size — each prop has its own scale.
 
+@export_group("Editor Helpers")
+@export var coord_layer: TileMapLayer
 @export_file("*.png") var sprite_path: String = "":
 	set(value):
 		sprite_path = value
@@ -24,12 +26,39 @@ var _sprite: Sprite2D
 func _ready() -> void:
 	if scale.is_equal_approx(Vector2.ONE):
 		scale = Vector2.ONE * uniform_scale
+	if Engine.is_editor_hint() and coord_layer == null:
+		coord_layer = _guess_coord_layer()
 	_refresh_preview()
 
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_TRANSFORM_CHANGED and Engine.is_editor_hint():
 		uniform_scale = (absf(scale.x) + absf(scale.y)) * 0.5
+
+
+func _guess_coord_layer() -> TileMapLayer:
+	var root := get_tree().edited_scene_root
+	if root == null:
+		root = get_parent()
+	while root != null:
+		var candidate := root.get_node_or_null("TerrainLayer")
+		if candidate is TileMapLayer:
+			return candidate as TileMapLayer
+		root = root.get_parent()
+	return null
+
+
+func sync_coords_from_position(layer: TileMapLayer = null, snap_to_center: bool = false) -> void:
+	var resolved := layer if layer != null else coord_layer
+	if resolved == null:
+		resolved = _guess_coord_layer()
+	if resolved == null:
+		push_warning("[HexDecorProp] No coord layer set; cannot sync coords.")
+		return
+	var local_pos := resolved.to_local(global_position)
+	hex_coords = resolved.local_to_map(local_pos)
+	if snap_to_center:
+		global_position = resolved.to_global(resolved.map_to_local(hex_coords))
 
 
 func to_record() -> Dictionary:
