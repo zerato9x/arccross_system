@@ -20,27 +20,27 @@ signal interaction_closed
 
 const _InventorySlotScene := preload("res://UI/Inventory/InventorySlot.tscn")
 
-var _panel: PanelContainer
-var _content: HBoxContainer
-var _scene_root: Control
-var _background: TextureRect
-var _props_layer: Control
-var _poi_name_label: Label
-var _right_panel: VBoxContainer
-var _title_label: Label
-var _body_label: Label
-var _mode_tabs: HBoxContainer
-var _search_button: Button
-var _camp_button: Button
-var _search_options_row: HBoxContainer
-var _metric_box: VBoxContainer
-var _drop_row: HBoxContainer
-var _ground_row: HBoxContainer
-var _action_row: HBoxContainer
-var _submit_button: Button
-var _rest_button: Button
-var _stop_rest_button: Button
-var _close_button: Button
+@onready var _panel: PanelContainer = %ExplorationPanel
+@onready var _content: HBoxContainer = %Content
+@onready var _scene_root: Control = %SceneRoot
+@onready var _background: TextureRect = %Background
+@onready var _props_layer: Control = %PropsLayer
+@onready var _poi_name_label: Label = %PoiNameLabel
+@onready var _right_panel: VBoxContainer = %RightPanel
+@onready var _title_label: Label = %TitleLabel
+@onready var _body_label: Label = %BodyLabel
+@onready var _mode_tabs: HBoxContainer = %ModeTabs
+@onready var _search_button: Button = %SearchButton
+@onready var _camp_button: Button = %CampButton
+@onready var _search_options_row: HBoxContainer = %SearchOptionsRow
+@onready var _metric_box: VBoxContainer = %MetricBox
+@onready var _drop_row: HBoxContainer = %DropRow
+@onready var _ground_row: HBoxContainer = %GroundRow
+@onready var _action_row: HBoxContainer = %ActionRow
+@onready var _submit_button: Button = %SubmitButton
+@onready var _rest_button: Button = %RestButton
+@onready var _stop_rest_button: Button = %StopRestButton
+@onready var _close_button: Button = %CloseButton
 
 var _session: Dictionary = {}
 var _active_mode := GameEnums.PoiAction.SEARCH
@@ -50,12 +50,35 @@ var _ground_slots: Array[InventorySlot] = []
 var _search_option_buttons: Dictionary = {}
 
 func _ready() -> void:
-	layer = 22
-	_build_shell()
+	_panel.visible = false
+	HUDAssetLibrary.apply_panel(_panel, "warning")
+	HUDAssetLibrary.apply_panel(%InteractionBox as PanelContainer, "neutral")
+	HUDAssetLibrary.apply_panel(%GroundBox as PanelContainer, "neutral")
+	HUDAssetLibrary.apply_panel(%PoiNamePlate as PanelContainer, "neutral")
+	HUDAssetLibrary.apply_label(_poi_name_label, "title")
+	HUDAssetLibrary.apply_label(_title_label, "title")
+	HUDAssetLibrary.apply_label(_body_label, "body")
+	HUDAssetLibrary.apply_label(%InteractionHeader as Label, "muted")
+	HUDAssetLibrary.apply_label(%DropHint as Label, "muted")
+	HUDAssetLibrary.apply_label(%GroundHeader as Label, "muted")
+	HUDAssetLibrary.apply_button(_search_button)
+	HUDAssetLibrary.apply_button(_camp_button)
+	HUDAssetLibrary.apply_button(_submit_button)
+	HUDAssetLibrary.apply_button(_rest_button)
+	HUDAssetLibrary.apply_button(_stop_rest_button)
+	HUDAssetLibrary.apply_button(_close_button)
+	_search_button.pressed.connect(func(): _set_mode(GameEnums.PoiAction.SEARCH))
+	_camp_button.pressed.connect(func(): _set_mode(GameEnums.PoiAction.CAMP))
+	_submit_button.pressed.connect(_submit_action)
+	_rest_button.pressed.connect(func(): _submit_action_for(GameEnums.PoiAction.REST))
+	_stop_rest_button.pressed.connect(func(): _submit_action_for(GameEnums.PoiAction.STOP_REST))
+	_close_button.pressed.connect(close_window)
 	close_window(false)
 
-func open_landmark(session: Dictionary) -> void:
+func open_landmark(session: Dictionary, inventory_snapshot: Dictionary = {}) -> void:
 	_session = session.duplicate(true)
+	if not inventory_snapshot.is_empty():
+		_session["inventory_snapshot"] = inventory_snapshot.duplicate(true)
 	_selected_search_option_id = str(
 		_session.get("selected_search_option_id", "primary_search")
 	)
@@ -106,169 +129,6 @@ func show_poi_preview(action: GameEnums.PoiAction, metrics: Dictionary) -> void:
 		row.add_child(label)
 		row.add_child(bar)
 		_metric_box.add_child(row)
-
-func _build_shell() -> void:
-	_panel = PanelContainer.new()
-	_panel.name = "ExplorationPanel"
-	_panel.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-	_panel.offset_left = -920.0
-	_panel.offset_top = -320.0
-	_panel.offset_right = -20.0
-	_panel.offset_bottom = 320.0
-	add_child(_panel)
-	HUDAssetLibrary.apply_panel(_panel, "warning")
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 12)
-	margin.add_theme_constant_override("margin_right", 12)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_bottom", 12)
-	_panel.add_child(margin)
-
-	_content = HBoxContainer.new()
-	_content.add_theme_constant_override("separation", 12)
-	margin.add_child(_content)
-
-	_scene_root = Control.new()
-	_scene_root.custom_minimum_size = Vector2(420, 560)
-	_content.add_child(_scene_root)
-
-	_background = TextureRect.new()
-	_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_background.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_scene_root.add_child(_background)
-
-	_props_layer = Control.new()
-	_props_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_props_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_scene_root.add_child(_props_layer)
-
-	# POI nameplate sits beneath the structures, centered along the bottom.
-	var nameplate := PanelContainer.new()
-	nameplate.name = "PoiNamePlate"
-	nameplate.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	nameplate.offset_top = -56.0
-	nameplate.offset_bottom = -16.0
-	nameplate.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	nameplate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	HUDAssetLibrary.apply_panel(nameplate, "neutral")
-	_scene_root.add_child(nameplate)
-
-	var nameplate_margin := MarginContainer.new()
-	nameplate_margin.add_theme_constant_override("margin_left", 16)
-	nameplate_margin.add_theme_constant_override("margin_right", 16)
-	nameplate_margin.add_theme_constant_override("margin_top", 4)
-	nameplate_margin.add_theme_constant_override("margin_bottom", 4)
-	nameplate.add_child(nameplate_margin)
-
-	_poi_name_label = Label.new()
-	_poi_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_poi_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_poi_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	HUDAssetLibrary.apply_label(_poi_name_label, "title")
-	nameplate_margin.add_child(_poi_name_label)
-
-	_right_panel = VBoxContainer.new()
-	_right_panel.custom_minimum_size = Vector2(420, 560)
-	_right_panel.add_theme_constant_override("separation", 8)
-	_content.add_child(_right_panel)
-
-	_title_label = Label.new()
-	HUDAssetLibrary.apply_label(_title_label, "title")
-	_right_panel.add_child(_title_label)
-
-	_body_label = Label.new()
-	_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	HUDAssetLibrary.apply_label(_body_label, "body")
-	_right_panel.add_child(_body_label)
-
-	_mode_tabs = HBoxContainer.new()
-	_search_button = _make_tab_button("SEARCH", func(): _set_mode(GameEnums.PoiAction.SEARCH))
-	_camp_button = _make_tab_button("CAMP", func(): _set_mode(GameEnums.PoiAction.CAMP))
-	_mode_tabs.add_child(_search_button)
-	_mode_tabs.add_child(_camp_button)
-	_right_panel.add_child(_mode_tabs)
-
-	var interaction_box := _make_section_box("INTERACTION")
-	interaction_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-
-	_search_options_row = HBoxContainer.new()
-	_search_options_row.add_theme_constant_override("separation", 6)
-	interaction_box.add_child(_search_options_row)
-
-	_metric_box = VBoxContainer.new()
-	_metric_box.add_theme_constant_override("separation", 4)
-	interaction_box.add_child(_metric_box)
-
-	var drop_hint := Label.new()
-	drop_hint.text = "DRAG GEAR FROM INVENTORY ONTO A TARGET"
-	HUDAssetLibrary.apply_label(drop_hint, "muted")
-	interaction_box.add_child(drop_hint)
-
-	_drop_row = HBoxContainer.new()
-	_drop_row.add_theme_constant_override("separation", 8)
-	interaction_box.add_child(_drop_row)
-
-	var ground_box := _make_section_box("GROUND LOOT")
-	_ground_row = HBoxContainer.new()
-	_ground_row.add_theme_constant_override("separation", 6)
-	ground_box.add_child(_ground_row)
-
-	_action_row = HBoxContainer.new()
-	_action_row.add_theme_constant_override("separation", 8)
-	_submit_button = _make_action_button("SCAVENGE", _submit_action)
-	_rest_button = _make_action_button("REST", func(): _submit_action_for(GameEnums.PoiAction.REST))
-	_stop_rest_button = _make_action_button(
-		"STOP REST",
-		func(): _submit_action_for(GameEnums.PoiAction.STOP_REST)
-	)
-	_close_button = _make_action_button("LEAVE", close_window)
-	_action_row.add_child(_submit_button)
-	_action_row.add_child(_rest_button)
-	_action_row.add_child(_stop_rest_button)
-	_action_row.add_child(_close_button)
-	_right_panel.add_child(_action_row)
-
-	_panel.visible = false
-
-func _make_section_box(title: String) -> VBoxContainer:
-	var box := PanelContainer.new()
-	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	HUDAssetLibrary.apply_panel(box, "neutral")
-	_right_panel.add_child(box)
-
-	var inner_margin := MarginContainer.new()
-	inner_margin.add_theme_constant_override("margin_left", 10)
-	inner_margin.add_theme_constant_override("margin_right", 10)
-	inner_margin.add_theme_constant_override("margin_top", 8)
-	inner_margin.add_theme_constant_override("margin_bottom", 8)
-	box.add_child(inner_margin)
-
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 6)
-	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	inner_margin.add_child(column)
-
-	var header := Label.new()
-	header.text = title
-	HUDAssetLibrary.apply_label(header, "muted")
-	column.add_child(header)
-	return column
-
-func _make_tab_button(text: String, callback: Callable) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.pressed.connect(callback)
-	HUDAssetLibrary.apply_button(button)
-	return button
-
-func _make_action_button(text: String, callback: Callable) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.pressed.connect(callback)
-	HUDAssetLibrary.apply_button(button)
-	return button
 
 func _render_session() -> void:
 	_clear_right_panel()
@@ -385,7 +245,6 @@ func _render_ground_items() -> void:
 			continue
 		var slot := _InventorySlotScene.instantiate() as InventorySlot
 		slot.configure(InventorySlot.SOURCE_GROUND, index, "", null)
-		slot.set_text_only_mode(true)
 		slot.set_item(descriptor)
 		slot.slot_clicked.connect(_on_ground_slot_clicked)
 		_ground_row.add_child(slot)

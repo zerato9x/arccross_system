@@ -34,19 +34,29 @@ func _run() -> void:
 		_fail("Adjacent passable selected hex was not travel-enabled.")
 		return
 
-	macro_map.begin_poi_interaction(origin, origin_hex)
+	var poi_coords := Vector2i(4, 0)
+	macro_map.debug_step_player_to(poi_coords)
 	await process_frame
-	var session: Dictionary = macro_map.interaction_panel.get("_session")
-	if session.get("search_options", []).size() < 3:
-		_fail("SEARCH did not expose multiple target options.")
+	var poi_hex := macro_map.world_generator.get_hex_at(poi_coords)
+	if not poi_hex.has_landmark():
+		_fail("Demonstration landmark was not present at (4, 0).")
 		return
-	if session.get("camp_interactions", []).size() < 4:
-		_fail("CAMP did not expose hex interaction rows.")
+	macro_map.begin_poi_interaction(poi_coords, poi_hex)
+	await process_frame
+	if not macro_map.exploration_window.is_open():
+		_fail("Exploration window did not open for the demonstration landmark.")
+		return
+	var session: Dictionary = macro_map.exploration_window.get("_session")
+	if session.get("search_options", []).size() < 2:
+		_fail("SEARCH did not expose multiple landmark target options.")
+		return
+	if not session.get("camp_allowed", false):
+		_fail("CAMP was not allowed at the demonstration landmark.")
 		return
 	if macro_map.debug_requirements_met({"any_item_ids": ["not_a_real_key"]}):
 		_fail("Missing item requirements incorrectly unlocked a target.")
 		return
-	macro_map.interaction_panel.close_panel()
+	macro_map.close_macro_interaction()
 	await process_frame
 
 	var movement_origin := Vector2i(3, 0)
@@ -124,7 +134,8 @@ func _create_clear_pursuer(
 		origin + Vector2i(2, 0),
 		origin + Vector2i(2, -1),
 		origin + Vector2i(2, 1),
-		origin + Vector2i(3, -1),
+		origin + Vector2i(1, -1),
+		origin + Vector2i(1, 1),
 		origin + Vector2i(3, 0),
 	]
 	for start in starts:

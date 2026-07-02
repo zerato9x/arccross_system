@@ -303,10 +303,10 @@ func _apply_presentation_layout() -> void:
 		_shell.set_anchors_preset(Control.PRESET_CENTER_LEFT)
 		_shell.offset_left = 20.0
 		_shell.offset_top = -320.0
-		_shell.offset_right = 460.0
+		_shell.offset_right = 970.0
 		_shell.offset_bottom = 320.0
 		if _ground_panel:
-			_ground_panel.visible = false
+			_ground_panel.visible = true
 		if canvas_layer:
 			canvas_layer.layer = 21
 	else:

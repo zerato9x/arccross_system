@@ -10,6 +10,7 @@ var _title_label: Label
 var _body_label: Label
 var _load_button: Button
 var _restart_button: Button
+var _victory_mode := false
 
 func _ready() -> void:
 	layer = 100
@@ -17,8 +18,30 @@ func _ready() -> void:
 	close_panel()
 
 func open_panel(can_load: bool) -> void:
+	_victory_mode = false
+	if _title_label:
+		_title_label.text = "RUN ENDED"
+	if _body_label:
+		_body_label.text = (
+			"Your body failed before the wasteland did. Begin a new run or load a save."
+		)
+	if _restart_button:
+		_restart_button.text = "Begin New Run"
 	_overlay.visible = true
 	_load_button.disabled = not can_load
+
+func open_victory_panel() -> void:
+	_victory_mode = true
+	if _title_label:
+		_title_label.text = "CORE ACTIVATED"
+	if _body_label:
+		_body_label.text = (
+			"The Alpha Core is online. Your changes to the wasteland persist for the next run."
+		)
+	if _restart_button:
+		_restart_button.text = "Begin Next Run"
+	_overlay.visible = true
+	_load_button.disabled = true
 
 func close_panel() -> void:
 	if _overlay:

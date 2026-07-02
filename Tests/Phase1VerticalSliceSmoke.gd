@@ -160,6 +160,8 @@ func _defeat_and_loot_enemy(director: GameDirector) -> bool:
 
 	macro_map.open_inventory()
 	await process_frame
+	if not macro_map.inventory_panel.is_open():
+		return _fail("Combat loot did not open the detached inventory panel.")
 	macro_map.resolve_inventory_action(
 		InventoryPanel.ACTION_TAKE,
 		taken_loot.instance_id,
@@ -265,8 +267,6 @@ func _search_and_camp(macro_map: MacroGameManager) -> bool:
 	await process_frame
 	if player.inventory.find_item_by_instance_id(search_loot_id) == null:
 		return _fail("The player could not collect the SEARCH result.")
-	macro_map.inventory_panel.close_panel()
-	await process_frame
 
 	var camp_descriptors := [
 		sleeping_bag.to_interaction_descriptor(),

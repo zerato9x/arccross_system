@@ -1,13 +1,13 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://ca60e326dswru"]
 
-[ext_resource type="Script" path="res://UI/HUD/WorldHUD.gd" id="1_world_hud"]
+[ext_resource type="Script" uid="uid://dcly5338qk2cl" path="res://UI/HUD/WorldHUD.gd" id="1_world_hud"]
 [ext_resource type="PackedScene" path="res://UI/HUD/MedicalMonitor.tscn" id="2_medical_monitor"]
-[ext_resource type="PackedScene" path="res://UI/SaveLoadMenu.tscn" id="3_saveload"]
+[ext_resource type="PackedScene" uid="uid://saveloadmenu" path="res://UI/SaveLoadMenu.tscn" id="3_saveload"]
 
-[node name="WorldHUD" type="CanvasLayer"]
+[node name="WorldHUD" type="CanvasLayer" unique_id=1876507874]
 script = ExtResource("1_world_hud")
 
-[node name="Root" type="Control" parent="."]
+[node name="Root" type="Control" parent="." unique_id=194119647]
 unique_name_in_owner = true
 layout_mode = 3
 anchors_preset = 15
@@ -17,7 +17,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="ScreenOverlay" type="TextureRect" parent="Root"]
+[node name="ScreenOverlay" type="TextureRect" parent="Root" unique_id=1281275777]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -29,34 +29,34 @@ grow_vertical = 2
 mouse_filter = 2
 stretch_mode = 1
 
-[node name="MedicalMonitor" parent="Root" instance=ExtResource("2_medical_monitor")]
-unique_name_in_owner = true
-
-[node name="StatusPanel" type="PanelContainer" parent="Root"]
+[node name="MedicalMonitor" parent="Root" unique_id=529718819 instance=ExtResource("2_medical_monitor")]
 unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 0
+
+[node name="StatusPanel" type="PanelContainer" parent="Root" unique_id=1352062772]
+unique_name_in_owner = true
+layout_mode = 1
 offset_left = 14.0
 offset_top = 14.0
 offset_right = 412.0
 offset_bottom = 186.0
 
-[node name="StatusMargin" type="MarginContainer" parent="Root/StatusPanel"]
+[node name="StatusMargin" type="MarginContainer" parent="Root/StatusPanel" unique_id=1878557698]
 layout_mode = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 12
 
-[node name="StatusContent" type="VBoxContainer" parent="Root/StatusPanel/StatusMargin"]
+[node name="StatusContent" type="VBoxContainer" parent="Root/StatusPanel/StatusMargin" unique_id=1858170998]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Header" type="HBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent"]
+[node name="Header" type="HBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent" unique_id=1194477381]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="LocationIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/Header"]
+[node name="LocationIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/Header" unique_id=1715684457]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(24, 24)
 layout_mode = 2
@@ -64,14 +64,14 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="LocationLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/Header"]
+[node name="LocationLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/Header" unique_id=1018505787]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(106, 24)
 layout_mode = 2
 text = "HEX --, --"
 vertical_alignment = 1
 
-[node name="TimeIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/Header"]
+[node name="TimeIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/Header" unique_id=931578465]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(24, 24)
 layout_mode = 2
@@ -79,24 +79,24 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="TimeLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/Header"]
+[node name="TimeLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/Header" unique_id=76018674]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 text = "DAY -- // --:--"
 vertical_alignment = 1
 
-[node name="VitalGrid" type="GridContainer" parent="Root/StatusPanel/StatusMargin/StatusContent"]
+[node name="VitalGrid" type="GridContainer" parent="Root/StatusPanel/StatusMargin/StatusContent" unique_id=1581500286]
 layout_mode = 2
-columns = 2
 theme_override_constants/h_separation = 10
 theme_override_constants/v_separation = 6
+columns = 2
 
-[node name="BloodRow" type="HBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid"]
+[node name="BloodRow" type="HBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid" unique_id=1036209823]
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="BloodIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/BloodRow"]
+[node name="BloodIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/BloodRow" unique_id=1841167195]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
@@ -104,25 +104,25 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="BloodColumn" type="VBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/BloodRow"]
-layout_mode = 2
+[node name="BloodColumn" type="VBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/BloodRow" unique_id=1131395485]
 custom_minimum_size = Vector2(152, 0)
+layout_mode = 2
 
-[node name="BloodLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/BloodRow/BloodColumn"]
+[node name="BloodLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/BloodRow/BloodColumn" unique_id=1978557290]
 unique_name_in_owner = true
 layout_mode = 2
 text = "BLOOD  --/12"
 
-[node name="BloodBar" type="ProgressBar" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/BloodRow/BloodColumn"]
+[node name="BloodBar" type="ProgressBar" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/BloodRow/BloodColumn" unique_id=2011617894]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(132, 12)
 layout_mode = 2
 
-[node name="StanceRow" type="HBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid"]
+[node name="StanceRow" type="HBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid" unique_id=368300630]
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="StanceIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/StanceRow"]
+[node name="StanceIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/StanceRow" unique_id=364125487]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
@@ -130,25 +130,25 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="StanceColumn" type="VBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/StanceRow"]
-layout_mode = 2
+[node name="StanceColumn" type="VBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/StanceRow" unique_id=109350663]
 custom_minimum_size = Vector2(152, 0)
+layout_mode = 2
 
-[node name="StanceLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/StanceRow/StanceColumn"]
+[node name="StanceLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/StanceRow/StanceColumn" unique_id=3922172]
 unique_name_in_owner = true
 layout_mode = 2
 text = "STANCE  --/12"
 
-[node name="StanceBar" type="ProgressBar" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/StanceRow/StanceColumn"]
+[node name="StanceBar" type="ProgressBar" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/StanceRow/StanceColumn" unique_id=1276397633]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(132, 12)
 layout_mode = 2
 
-[node name="HungerRow" type="HBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid"]
+[node name="HungerRow" type="HBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid" unique_id=933616489]
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="HungerIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/HungerRow"]
+[node name="HungerIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/HungerRow" unique_id=1415562003]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
@@ -156,25 +156,25 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="HungerColumn" type="VBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/HungerRow"]
-layout_mode = 2
+[node name="HungerColumn" type="VBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/HungerRow" unique_id=1571635685]
 custom_minimum_size = Vector2(152, 0)
+layout_mode = 2
 
-[node name="HungerLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/HungerRow/HungerColumn"]
+[node name="HungerLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/HungerRow/HungerColumn" unique_id=1964265590]
 unique_name_in_owner = true
 layout_mode = 2
 text = "HUNGER  --/12"
 
-[node name="HungerBar" type="ProgressBar" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/HungerRow/HungerColumn"]
+[node name="HungerBar" type="ProgressBar" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/HungerRow/HungerColumn" unique_id=973420365]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(132, 12)
 layout_mode = 2
 
-[node name="ThirstRow" type="HBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid"]
+[node name="ThirstRow" type="HBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid" unique_id=854122559]
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="ThirstIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/ThirstRow"]
+[node name="ThirstIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/ThirstRow" unique_id=128468088]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
@@ -182,25 +182,25 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="ThirstColumn" type="VBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/ThirstRow"]
-layout_mode = 2
+[node name="ThirstColumn" type="VBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/ThirstRow" unique_id=1821915116]
 custom_minimum_size = Vector2(152, 0)
+layout_mode = 2
 
-[node name="ThirstLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/ThirstRow/ThirstColumn"]
+[node name="ThirstLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/ThirstRow/ThirstColumn" unique_id=1575076745]
 unique_name_in_owner = true
 layout_mode = 2
 text = "THIRST  --/12"
 
-[node name="ThirstBar" type="ProgressBar" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/ThirstRow/ThirstColumn"]
+[node name="ThirstBar" type="ProgressBar" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/ThirstRow/ThirstColumn" unique_id=1720467315]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(132, 12)
 layout_mode = 2
 
-[node name="FatigueRow" type="HBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid"]
+[node name="FatigueRow" type="HBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid" unique_id=2146388288]
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="FatigueIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/FatigueRow"]
+[node name="FatigueIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/FatigueRow" unique_id=99450925]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
@@ -208,25 +208,25 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="FatigueColumn" type="VBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/FatigueRow"]
-layout_mode = 2
+[node name="FatigueColumn" type="VBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/FatigueRow" unique_id=351893770]
 custom_minimum_size = Vector2(152, 0)
+layout_mode = 2
 
-[node name="FatigueLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/FatigueRow/FatigueColumn"]
+[node name="FatigueLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/FatigueRow/FatigueColumn" unique_id=971287932]
 unique_name_in_owner = true
 layout_mode = 2
 text = "FATIGUE  --/12"
 
-[node name="FatigueBar" type="ProgressBar" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/FatigueRow/FatigueColumn"]
+[node name="FatigueBar" type="ProgressBar" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/FatigueRow/FatigueColumn" unique_id=1791835608]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(132, 12)
 layout_mode = 2
 
-[node name="TemperatureRow" type="HBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid"]
+[node name="TemperatureRow" type="HBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid" unique_id=1999576819]
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="TemperatureIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/TemperatureRow"]
+[node name="TemperatureIcon" type="TextureRect" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/TemperatureRow" unique_id=184183034]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
@@ -234,90 +234,93 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="TemperatureColumn" type="VBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/TemperatureRow"]
-layout_mode = 2
+[node name="TemperatureColumn" type="VBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/TemperatureRow" unique_id=276823194]
 custom_minimum_size = Vector2(152, 0)
+layout_mode = 2
 
-[node name="TemperatureLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/TemperatureRow/TemperatureColumn"]
+[node name="TemperatureLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/TemperatureRow/TemperatureColumn" unique_id=1579044622]
 unique_name_in_owner = true
 layout_mode = 2
 text = "TEMP --"
 
-[node name="TemperatureBar" type="ProgressBar" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/TemperatureRow/TemperatureColumn"]
+[node name="TemperatureBar" type="ProgressBar" parent="Root/StatusPanel/StatusMargin/StatusContent/VitalGrid/TemperatureRow/TemperatureColumn" unique_id=214542976]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(132, 12)
 layout_mode = 2
 
-[node name="WarningLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent"]
+[node name="WarningLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent" unique_id=164224348]
 unique_name_in_owner = true
 layout_mode = 2
 text = "BODY SIGNAL STABLE"
 
-[node name="HexPanel" type="PanelContainer" parent="Root"]
+[node name="HexPanel" type="PanelContainer" parent="Root" unique_id=1741974042]
 unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 0
-offset_left = 14.0
-offset_top = 198.0
-offset_right = 412.0
-offset_bottom = 410.0
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -452.0
+offset_top = 78.0
+offset_right = -14.0
+offset_bottom = 330.0
+grow_horizontal = 0
 
-[node name="HexMargin" type="MarginContainer" parent="Root/HexPanel"]
+[node name="HexMargin" type="MarginContainer" parent="Root/HexPanel" unique_id=893445191]
 layout_mode = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 12
 
-[node name="HexContent" type="VBoxContainer" parent="Root/HexPanel/HexMargin"]
+[node name="HexContent" type="VBoxContainer" parent="Root/HexPanel/HexMargin" unique_id=1617203506]
 layout_mode = 2
 theme_override_constants/separation = 7
 
-[node name="CurrentHexLabel" type="Label" parent="Root/HexPanel/HexMargin/HexContent"]
+[node name="CurrentHexLabel" type="Label" parent="Root/HexPanel/HexMargin/HexContent" unique_id=1255170923]
 unique_name_in_owner = true
 layout_mode = 2
 text = "CURRENT HEX --"
 
-[node name="SelectedHexLabel" type="Label" parent="Root/HexPanel/HexMargin/HexContent"]
+[node name="SelectedHexLabel" type="Label" parent="Root/HexPanel/HexMargin/HexContent" unique_id=1553973784]
 unique_name_in_owner = true
 layout_mode = 2
 text = "TARGET HEX --"
 
-[node name="HexDetailsLabel" type="Label" parent="Root/HexPanel/HexMargin/HexContent"]
+[node name="HexDetailsLabel" type="Label" parent="Root/HexPanel/HexMargin/HexContent" unique_id=1440859509]
 unique_name_in_owner = true
 layout_mode = 2
 text = "NO HEX SIGNAL"
 autowrap_mode = 3
 
-[node name="MacroActivityLabel" type="Label" parent="Root/HexPanel/HexMargin/HexContent"]
+[node name="MacroActivityLabel" type="Label" parent="Root/HexPanel/HexMargin/HexContent" unique_id=1707794231]
 unique_name_in_owner = true
 layout_mode = 2
 text = "TOKENS --"
 autowrap_mode = 3
 
-[node name="HexButtons" type="HBoxContainer" parent="Root/HexPanel/HexMargin/HexContent"]
+[node name="HexButtons" type="HBoxContainer" parent="Root/HexPanel/HexMargin/HexContent" unique_id=408566069]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="ScanButton" type="Button" parent="Root/HexPanel/HexMargin/HexContent/HexButtons"]
+[node name="ScanButton" type="Button" parent="Root/HexPanel/HexMargin/HexContent/HexButtons" unique_id=474773857]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(92, 32)
 layout_mode = 2
 text = "SCAN"
 
-[node name="TravelButton" type="Button" parent="Root/HexPanel/HexMargin/HexContent/HexButtons"]
+[node name="TravelButton" type="Button" parent="Root/HexPanel/HexMargin/HexContent/HexButtons" unique_id=39934238]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(104, 32)
 layout_mode = 2
 text = "TRAVEL"
 
-[node name="ActButton" type="Button" parent="Root/HexPanel/HexMargin/HexContent/HexButtons"]
+[node name="ActButton" type="Button" parent="Root/HexPanel/HexMargin/HexContent/HexButtons" unique_id=693015882]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(84, 32)
 layout_mode = 2
 text = "ACT"
 
-[node name="CommandPanel" type="PanelContainer" parent="Root"]
+[node name="CommandPanel" type="PanelContainer" parent="Root" unique_id=536828318]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 1
@@ -329,42 +332,42 @@ offset_right = -14.0
 offset_bottom = 70.0
 grow_horizontal = 0
 
-[node name="CommandMargin" type="MarginContainer" parent="Root/CommandPanel"]
+[node name="CommandMargin" type="MarginContainer" parent="Root/CommandPanel" unique_id=2120704730]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 8
 
-[node name="CommandButtons" type="HBoxContainer" parent="Root/CommandPanel/CommandMargin"]
+[node name="CommandButtons" type="HBoxContainer" parent="Root/CommandPanel/CommandMargin" unique_id=277428351]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="InventoryButton" type="Button" parent="Root/CommandPanel/CommandMargin/CommandButtons"]
+[node name="InventoryButton" type="Button" parent="Root/CommandPanel/CommandMargin/CommandButtons" unique_id=1807451963]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(118, 36)
 layout_mode = 2
 text = "INV"
 
-[node name="MedicalButton" type="Button" parent="Root/CommandPanel/CommandMargin/CommandButtons"]
+[node name="MedicalButton" type="Button" parent="Root/CommandPanel/CommandMargin/CommandButtons" unique_id=36361620]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(92, 36)
 layout_mode = 2
 text = "MED"
 
-[node name="MenuButton" type="Button" parent="Root/CommandPanel/CommandMargin/CommandButtons"]
+[node name="MenuButton" type="Button" parent="Root/CommandPanel/CommandMargin/CommandButtons" unique_id=102146093]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(86, 36)
 layout_mode = 2
 text = "MENU"
 
-[node name="SettingsButton" type="Button" parent="Root/CommandPanel/CommandMargin/CommandButtons"]
+[node name="SettingsButton" type="Button" parent="Root/CommandPanel/CommandMargin/CommandButtons" unique_id=1989940461]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(96, 36)
 layout_mode = 2
 text = "SET"
 
-[node name="MenuPanel" type="PanelContainer" parent="Root"]
+[node name="MenuPanel" type="PanelContainer" parent="Root" unique_id=633575676]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -372,65 +375,65 @@ anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -268.0
-offset_top = 78.0
+offset_top = 338.0
 offset_right = -14.0
-offset_bottom = 290.0
+offset_bottom = 550.0
 grow_horizontal = 0
 
-[node name="MenuMargin" type="MarginContainer" parent="Root/MenuPanel"]
+[node name="MenuMargin" type="MarginContainer" parent="Root/MenuPanel" unique_id=734052159]
 layout_mode = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 12
 
-[node name="MenuContent" type="VBoxContainer" parent="Root/MenuPanel/MenuMargin"]
+[node name="MenuContent" type="VBoxContainer" parent="Root/MenuPanel/MenuMargin" unique_id=1999908876]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="MenuTitle" type="Label" parent="Root/MenuPanel/MenuMargin/MenuContent"]
+[node name="MenuTitle" type="Label" parent="Root/MenuPanel/MenuMargin/MenuContent" unique_id=2137282420]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8392157, 0.6039216, 0.2627451, 1)
 theme_override_font_sizes/font_size = 16
 text = "FIELD MENU"
 
-[node name="MenuInventoryButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent"]
+[node name="MenuInventoryButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent" unique_id=513632605]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 text = "INVENTORY"
 
-[node name="MenuSaveButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent"]
+[node name="MenuSaveButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent" unique_id=754206019]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 text = "SAVE"
 
-[node name="MenuLoadButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent"]
+[node name="MenuLoadButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent" unique_id=129609169]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 text = "LOAD"
 
-[node name="MenuSettingsButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent"]
+[node name="MenuSettingsButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent" unique_id=1282621573]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 text = "SETTINGS"
 
-[node name="MenuExitMainButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent"]
+[node name="MenuExitMainButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent" unique_id=1141460387]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 text = "MAIN MENU"
 
-[node name="MenuCloseButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent"]
+[node name="MenuCloseButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent" unique_id=1139744028]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 text = "CLOSE"
 
-[node name="SettingsPanel" type="PanelContainer" parent="Root"]
+[node name="SettingsPanel" type="PanelContainer" parent="Root" unique_id=1410823937]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -446,39 +449,39 @@ offset_bottom = 132.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="SettingsMargin" type="MarginContainer" parent="Root/SettingsPanel"]
+[node name="SettingsMargin" type="MarginContainer" parent="Root/SettingsPanel" unique_id=1105849636]
 layout_mode = 2
 theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 16
 
-[node name="SettingsContent" type="VBoxContainer" parent="Root/SettingsPanel/SettingsMargin"]
+[node name="SettingsContent" type="VBoxContainer" parent="Root/SettingsPanel/SettingsMargin" unique_id=550792256]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="SettingsTitle" type="Label" parent="Root/SettingsPanel/SettingsMargin/SettingsContent"]
+[node name="SettingsTitle" type="Label" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=867436410]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8392157, 0.6039216, 0.2627451, 1)
 theme_override_font_sizes/font_size = 18
 text = "HUD SETTINGS"
 horizontal_alignment = 1
 
-[node name="ScreenNoiseToggle" type="CheckButton" parent="Root/SettingsPanel/SettingsMargin/SettingsContent"]
+[node name="ScreenNoiseToggle" type="CheckButton" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=1294952833]
 unique_name_in_owner = true
 layout_mode = 2
 text = "SCANLINE OVERLAY"
 
-[node name="ScaleRow" type="VBoxContainer" parent="Root/SettingsPanel/SettingsMargin/SettingsContent"]
+[node name="ScaleRow" type="VBoxContainer" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=804118260]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="HudScaleLabel" type="Label" parent="Root/SettingsPanel/SettingsMargin/SettingsContent/ScaleRow"]
+[node name="HudScaleLabel" type="Label" parent="Root/SettingsPanel/SettingsMargin/SettingsContent/ScaleRow" unique_id=238488035]
 unique_name_in_owner = true
 layout_mode = 2
 text = "HUD SCALE 100%"
 
-[node name="HudScaleSlider" type="HSlider" parent="Root/SettingsPanel/SettingsMargin/SettingsContent/ScaleRow"]
+[node name="HudScaleSlider" type="HSlider" parent="Root/SettingsPanel/SettingsMargin/SettingsContent/ScaleRow" unique_id=919902031]
 unique_name_in_owner = true
 layout_mode = 2
 min_value = 0.85
@@ -486,21 +489,20 @@ max_value = 1.25
 step = 0.05
 value = 1.0
 
-[node name="SettingsHint" type="Label" parent="Root/SettingsPanel/SettingsMargin/SettingsContent"]
+[node name="SettingsHint" type="Label" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=8215227]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.5568628, 0.54509807, 0.47058824, 1)
 theme_override_font_sizes/font_size = 11
 text = "More audio and control settings belong here once those systems stop pretending UI is optional."
 autowrap_mode = 2
 
-[node name="SettingsCloseButton" type="Button" parent="Root/SettingsPanel/SettingsMargin/SettingsContent"]
+[node name="SettingsCloseButton" type="Button" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=502320385]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 text = "CLOSE"
 
-[node name="SaveLoadMenu" parent="Root" instance=ExtResource("3_saveload")]
+[node name="SaveLoadMenu" parent="Root" unique_id=911697615 instance=ExtResource("3_saveload")]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
-

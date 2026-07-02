@@ -9,9 +9,6 @@ const ACTION_BUTTON_SCENE := preload(
 const GUN_ANIMATION_CATALOG := preload(
 	"res://CombatCore/DuelUI/GunAnimationCatalog.gd"
 )
-const VIRTUAL_CAMERA_SCRIPT := preload(
-	"res://addons/cinematic_camera_2d/scripts/virtual_camera_2d.gd"
-)
 const BULLET_TEXTURE := preload("res://Asset/Guns_Animation/Bullet.png")
 const ACTION_PANEL_SIZE := Vector2(760.0, 224.0)
 const ACTION_BUTTON_SIZE := Vector2(174.0, 42.0)
@@ -129,8 +126,8 @@ var _round_label: Label
 var _active_label: Label
 var _player_label: Label
 var _enemy_label: Label
-var _player_portrait_model: PaperDollModel
-var _enemy_portrait_model: PaperDollModel
+@onready var _player_portrait_model: PaperDollModel = %PlayerPortraitPaperDoll
+@onready var _enemy_portrait_model: PaperDollModel = %EnemyPortraitPaperDoll
 var _player_top_rect := Rect2()
 var _enemy_top_rect := Rect2()
 var _player_bottom_rect := Rect2()
@@ -147,41 +144,41 @@ var _command_context_rect := Rect2()
 var _top_info_rect := Rect2()
 var _player_status_rows: Array[Dictionary] = []
 var _enemy_status_rows: Array[Dictionary] = []
-var _player_status_label: Label
-var _enemy_status_label: Label
-var _player_condition_sprite: Sprite2D
-var _enemy_condition_sprite: Sprite2D
-var _player_top_label: Label
-var _enemy_top_label: Label
+@onready var _player_status_label: Label = %PlayerBodyStatusLabel
+@onready var _enemy_status_label: Label = %EnemyBodyStatusLabel
+@onready var _player_condition_sprite: Sprite2D = %PlayerConditionToken
+@onready var _enemy_condition_sprite: Sprite2D = %EnemyConditionToken
+@onready var _player_top_label: Label = %PlayerTopStatusLabel
+@onready var _enemy_top_label: Label = %EnemyTopStatusLabel
 var _player_ranged_card: Dictionary = {}
 var _player_melee_card: Dictionary = {}
 var _enemy_ranged_card: Dictionary = {}
 var _enemy_melee_card: Dictionary = {}
-var _weapon_panel_root: Node2D
-var _weapon_panel_box: Polygon2D
-var _weapon_panel_border: Line2D
-var _weapon_sprite: Sprite2D
-var _weapon_name_label: Label
-var _weapon_state_label: Label
-var _weapon_detail_label: Label
-var _group_tab_root: Node2D
-var _command_context_box: Polygon2D
-var _command_context_border: Line2D
-var _command_context_rule: Sprite2D
-var _command_context_label: Label
-var _equipment_hover_box: Polygon2D
-var _equipment_hover_border: Line2D
-var _equipment_hover_label: Label
-var _resolve_screen_root: Node2D
-var _resolve_panel_box: Polygon2D
-var _resolve_panel_border: Line2D
-var _resolve_title_label: Label
-var _resolve_body_label: Label
-var _camera_focus_anchor: Node2D
+@onready var _weapon_panel_root: Node2D = %WeaponCard
+@onready var _weapon_panel_box: Polygon2D = $WeaponCard/WeaponCardBox
+@onready var _weapon_panel_border: Line2D = $WeaponCard/WeaponCardBorder
+@onready var _weapon_sprite: Sprite2D = $WeaponCard/WeaponSprite
+@onready var _weapon_name_label: Label = $WeaponCard/WeaponNameLabel
+@onready var _weapon_state_label: Label = $WeaponCard/WeaponStateLabel
+@onready var _weapon_detail_label: Label = $WeaponCard/WeaponDetailLabel
+@onready var _group_tab_root: Node2D = %ActionGroupTabs
+@onready var _command_context_box: Polygon2D = %CommandContextBox
+@onready var _command_context_border: Line2D = %CommandContextBorder
+@onready var _command_context_rule: Sprite2D = %OfficialCombatLogRule
+@onready var _command_context_label: Label = %CommandContextLabel
+@onready var _equipment_hover_box: Polygon2D = %HealthEquipmentHoverBox
+@onready var _equipment_hover_border: Line2D = %HealthEquipmentHoverBorder
+@onready var _equipment_hover_label: Label = %HealthEquipmentHoverLabel
+@onready var _resolve_screen_root: Node2D = %ResolveScreen
+@onready var _resolve_panel_box: Polygon2D = $ResolveScreen/ResolvePanelBox
+@onready var _resolve_panel_border: Line2D = $ResolveScreen/ResolvePanelBorder
+@onready var _resolve_title_label: Label = $ResolveScreen/ResolveTitleLabel
+@onready var _resolve_body_label: Label = $ResolveScreen/ResolveBodyLabel
+@onready var _camera_focus_anchor: Node2D = %CombatCameraFocus
 var _camera_profiles: Dictionary = {}
-var _projectile_root: Node2D
-var _blood_vfx_root: Node2D
-var _fatal_thud_player: AudioStreamPlayer
+@onready var _projectile_root: Node2D = %ProjectileVFX
+@onready var _blood_vfx_root: Node2D = %BloodVFX
+@onready var _fatal_thud_player: AudioStreamPlayer = %FatalThudPlayer
 
 @onready var _lane_view: CombatLaneView = %CombatLaneView
 @onready var _combat_camera: Camera2D = %CombatCamera
@@ -1269,68 +1266,18 @@ func _setup_action_panel() -> void:
 	_setup_command_context()
 
 func _setup_weapon_card() -> void:
-	_weapon_panel_root = Node2D.new()
-	_weapon_panel_root.name = "WeaponCard"
-	_weapon_panel_root.z_index = 35
-	add_child(_weapon_panel_root)
-
-	_weapon_panel_box = Polygon2D.new()
-	_weapon_panel_box.name = "WeaponCardBox"
 	_weapon_panel_box.color = Color(0.055, 0.05, 0.04, 0.94)
-	_weapon_panel_root.add_child(_weapon_panel_box)
-
-	_weapon_panel_border = Line2D.new()
-	_weapon_panel_border.name = "WeaponCardBorder"
 	_weapon_panel_border.default_color = Color(COLOR_ACTION_BORDER, 0.78)
 	_weapon_panel_border.width = 1.0
-	_weapon_panel_border.z_index = 2
-	_weapon_panel_root.add_child(_weapon_panel_border)
-
-	_weapon_sprite = Sprite2D.new()
-	_weapon_sprite.name = "WeaponSprite"
-	_weapon_sprite.centered = true
-	_weapon_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_weapon_sprite.z_index = 3
-	_weapon_panel_root.add_child(_weapon_sprite)
-
-	_weapon_name_label = _make_deck_label("WeaponNameLabel", _weapon_panel_root, 11)
-	_weapon_state_label = _make_deck_label("WeaponStateLabel", _weapon_panel_root, 13)
-	_weapon_detail_label = _make_deck_label("WeaponDetailLabel", _weapon_panel_root, 10)
-	_weapon_name_label.z_index = 4
-	_weapon_state_label.z_index = 4
-	_weapon_detail_label.z_index = 4
 
 func _setup_group_tabs() -> void:
-	_group_tab_root = Node2D.new()
-	_group_tab_root.name = "ActionGroupTabs"
-	_group_tab_root.z_index = 35
-	add_child(_group_tab_root)
+	pass
 
 func _setup_command_context() -> void:
-	_command_context_box = Polygon2D.new()
-	_command_context_box.name = "CommandContextBox"
-	_command_context_box.z_index = 35
 	_command_context_box.color = Color(0.055, 0.05, 0.04, 0.86)
-	add_child(_command_context_box)
-
-	_command_context_border = Line2D.new()
-	_command_context_border.name = "CommandContextBorder"
-	_command_context_border.z_index = 36
 	_command_context_border.default_color = Color(COLOR_ACTION_BORDER, 0.58)
 	_command_context_border.width = 1.0
-	add_child(_command_context_border)
-
-	_command_context_rule = Sprite2D.new()
-	_command_context_rule.name = "OfficialCombatLogRule"
-	_command_context_rule.centered = false
-	_command_context_rule.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_command_context_rule.texture = HUDAssetLibrary.meter_frame_texture("compact")
-	_command_context_rule.z_index = 37
-	add_child(_command_context_rule)
-
-	_command_context_label = _make_deck_label("CommandContextLabel", self, 10)
-	_command_context_label.z_index = 38
-	_command_context_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 func _make_deck_label(label_name: String, parent: Node, font_size: int) -> Label:
 	var label := Label.new()
@@ -1342,55 +1289,18 @@ func _make_deck_label(label_name: String, parent: Node, font_size: int) -> Label
 	return label
 
 func _make_top_weapon_card(card_name: String) -> Dictionary:
-	var root := Node2D.new()
-	root.name = card_name
-	root.z_index = 35
-	add_child(root)
+	return _bind_top_weapon_card(get_node(card_name) as Node2D)
 
-	var box := Polygon2D.new()
-	box.name = "Box"
-	box.color = Color(0.048, 0.044, 0.036, 0.92)
-	root.add_child(box)
-
-	var border := Line2D.new()
-	border.name = "Border"
-	border.default_color = Color(COLOR_ACTION_BORDER, 0.68)
-	border.width = 1.0
-	border.z_index = 2
-	root.add_child(border)
-
-	var sprite := Sprite2D.new()
-	sprite.name = "Sprite"
-	sprite.centered = true
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.z_index = 3
-	root.add_child(sprite)
-
-	var title := _make_deck_label("Title", root, 9)
-	title.z_index = 4
-	var name_label := _make_deck_label("Name", root, 10)
-	name_label.z_index = 4
-	var detail := _make_deck_label("Detail", root, 9)
-	detail.z_index = 4
-
+func _bind_top_weapon_card(root: Node2D) -> Dictionary:
 	return {
 		"root": root,
-		"box": box,
-		"border": border,
-		"sprite": sprite,
-		"title": title,
-		"name": name_label,
-		"detail": detail,
+		"box": root.get_node("Box") as Polygon2D,
+		"border": root.get_node("Border") as Line2D,
+		"sprite": root.get_node("Sprite") as Sprite2D,
+		"title": root.get_node("Title") as Label,
+		"name": root.get_node("Name") as Label,
+		"detail": root.get_node("Detail") as Label,
 	}
-
-func _make_condition_sprite(sprite_name: String) -> Sprite2D:
-	var sprite := Sprite2D.new()
-	sprite.name = sprite_name
-	sprite.centered = true
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.region_enabled = false
-	sprite.visible = false
-	return sprite
 
 func _setup_duel_layout_shell() -> void:
 	for polygon in [
@@ -1413,71 +1323,47 @@ func _setup_duel_layout_shell() -> void:
 	for border in [_player_portrait_border, _enemy_portrait_border]:
 		border.default_color = Color(COLOR_ACTION_BORDER, 0.72)
 		border.width = 1.25
-	_player_status_label = _make_status_label(
-		"PlayerBodyStatusLabel",
-		_player_command_rail
-	)
-	_enemy_status_label = _make_status_label(
-		"EnemyBodyStatusLabel",
-		_enemy_status_rail
-	)
-	_player_status_rows = _build_limb_rows(_player_command_rail)
-	_enemy_status_rows = _build_limb_rows(_enemy_status_rail)
-	_player_condition_sprite = _make_condition_sprite("PlayerConditionToken")
-	add_child(_player_condition_sprite)
-	_enemy_condition_sprite = _make_condition_sprite("EnemyConditionToken")
-	add_child(_enemy_condition_sprite)
-	_player_top_label = _make_deck_label("PlayerTopStatusLabel", self, 15)
-	_player_top_label.z_index = 35
-	_enemy_top_label = _make_deck_label("EnemyTopStatusLabel", self, 15)
-	_enemy_top_label.z_index = 35
-	_player_ranged_card = _make_top_weapon_card("PlayerRangedWeaponCard")
-	_player_melee_card = _make_top_weapon_card("PlayerMeleeWeaponCard")
-	_enemy_ranged_card = _make_top_weapon_card("EnemyRangedWeaponCard")
-	_enemy_melee_card = _make_top_weapon_card("EnemyMeleeWeaponCard")
+	_player_status_rows = _collect_limb_rows(_player_command_rail)
+	_enemy_status_rows = _collect_limb_rows(_enemy_status_rail)
+	_player_ranged_card = _bind_top_weapon_card(%PlayerRangedWeaponCard)
+	_player_melee_card = _bind_top_weapon_card(%PlayerMeleeWeaponCard)
+	_enemy_ranged_card = _bind_top_weapon_card(%EnemyRangedWeaponCard)
+	_enemy_melee_card = _bind_top_weapon_card(%EnemyMeleeWeaponCard)
+	_configure_top_weapon_cards()
 	_setup_equipment_hover_card()
 
-func _setup_equipment_hover_card() -> void:
-	_equipment_hover_box = Polygon2D.new()
-	_equipment_hover_box.name = "HealthEquipmentHoverBox"
-	_equipment_hover_box.color = Color(0.045, 0.04, 0.032, 0.96)
-	_equipment_hover_box.z_index = 90
-	_equipment_hover_box.visible = false
-	add_child(_equipment_hover_box)
+func _configure_top_weapon_cards() -> void:
+	for card in [
+		_player_ranged_card,
+		_player_melee_card,
+		_enemy_ranged_card,
+		_enemy_melee_card,
+	]:
+		(card.get("box") as Polygon2D).color = Color(0.048, 0.044, 0.036, 0.92)
+		(card.get("border") as Line2D).default_color = Color(COLOR_ACTION_BORDER, 0.68)
+		(card.get("border") as Line2D).width = 1.0
 
-	_equipment_hover_border = Line2D.new()
-	_equipment_hover_border.name = "HealthEquipmentHoverBorder"
+func _setup_equipment_hover_card() -> void:
+	_equipment_hover_box.color = Color(0.045, 0.04, 0.032, 0.96)
 	_equipment_hover_border.default_color = Color(COLOR_ACTION_BORDER, 0.82)
 	_equipment_hover_border.width = 1.0
-	_equipment_hover_border.z_index = 91
-	_equipment_hover_border.visible = false
-	add_child(_equipment_hover_border)
-
-	_equipment_hover_label = _make_deck_label("HealthEquipmentHoverLabel", self, 10)
-	_equipment_hover_label.z_index = 92
-	_equipment_hover_label.visible = false
-	_equipment_hover_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 func _setup_camera_rig() -> void:
-	_camera_focus_anchor = Node2D.new()
-	_camera_focus_anchor.name = "CombatCameraFocus"
-	add_child(_camera_focus_anchor)
-
 	_camera_profiles.clear()
-	_camera_profiles[CAMERA_MODE_NEUTRAL] = _make_camera_profile(
-		"NeutralVirtualCamera",
+	_camera_profiles[CAMERA_MODE_NEUTRAL] = _configure_camera_profile(
+		$NeutralVirtualCamera as VirtualCamera2D,
 		1.0
 	)
-	_camera_profiles[CAMERA_MODE_BULLET] = _make_camera_profile(
-		"BulletVirtualCamera",
+	_camera_profiles[CAMERA_MODE_BULLET] = _configure_camera_profile(
+		$BulletVirtualCamera as VirtualCamera2D,
 		1.55
 	)
-	_camera_profiles[CAMERA_MODE_FINAL] = _make_camera_profile(
-		"FinalBlowVirtualCamera",
+	_camera_profiles[CAMERA_MODE_FINAL] = _configure_camera_profile(
+		$FinalBlowVirtualCamera as VirtualCamera2D,
 		RESOLVE_CAMERA_ZOOM
 	)
-	_camera_profiles[CAMERA_MODE_RESULTS] = _make_camera_profile(
-		"ResultsVirtualCamera",
+	_camera_profiles[CAMERA_MODE_RESULTS] = _configure_camera_profile(
+		$ResultsVirtualCamera as VirtualCamera2D,
 		1.18
 	)
 
@@ -1487,74 +1373,22 @@ func _setup_camera_rig() -> void:
 		cinematic.virtual_camera = _camera_profiles[CAMERA_MODE_NEUTRAL]
 		cinematic.transition_speed = CAMERA_TRANSITION_SPEED
 
-func _make_camera_profile(profile_name: String, zoom_value: float) -> VirtualCamera2D:
-	var node := Node2D.new()
-	node.name = profile_name
-	node.set_script(VIRTUAL_CAMERA_SCRIPT)
-	add_child(node)
-	var profile := node as VirtualCamera2D
+func _configure_camera_profile(
+	profile: VirtualCamera2D,
+	zoom_value: float
+) -> VirtualCamera2D:
 	profile.zoom = Vector2.ONE * zoom_value
 	profile.offset = Vector2.ZERO
 	return profile
 
 func _setup_presentation_layers() -> void:
-	_projectile_root = Node2D.new()
-	_projectile_root.name = "ProjectileVFX"
-	_projectile_root.z_index = 120
-	add_child(_projectile_root)
-
-	_blood_vfx_root = Node2D.new()
-	_blood_vfx_root.name = "BloodVFX"
-	_blood_vfx_root.z_index = 118
-	add_child(_blood_vfx_root)
-
-	_fatal_thud_player = AudioStreamPlayer.new()
-	_fatal_thud_player.name = "FatalThudPlayer"
-	_fatal_thud_player.stream = GUN_ANIMATION_CATALOG.fatal_body_thud_stream()
-	_fatal_thud_player.volume_db = -2.5
-	add_child(_fatal_thud_player)
+	if _fatal_thud_player.stream == null:
+		_fatal_thud_player.stream = GUN_ANIMATION_CATALOG.fatal_body_thud_stream()
 
 func _setup_resolve_screen() -> void:
-	_resolve_screen_root = Node2D.new()
-	_resolve_screen_root.name = "ResolveScreen"
-	_resolve_screen_root.z_index = 220
-	add_child(_resolve_screen_root)
-
-	_resolve_panel_box = Polygon2D.new()
-	_resolve_panel_box.name = "ResolvePanelBox"
 	_resolve_panel_box.color = Color(0.045, 0.035, 0.025, 0.92)
-	_resolve_screen_root.add_child(_resolve_panel_box)
-
-	_resolve_panel_border = Line2D.new()
-	_resolve_panel_border.name = "ResolvePanelBorder"
 	_resolve_panel_border.default_color = Color(0.82, 0.67, 0.42, 0.92)
 	_resolve_panel_border.width = 2.0
-	_resolve_screen_root.add_child(_resolve_panel_border)
-
-	_resolve_title_label = Label.new()
-	_resolve_title_label.name = "ResolveTitleLabel"
-	_resolve_title_label.position = Vector2(18.0, 14.0)
-	_resolve_title_label.offset_right = RESULT_PANEL_SIZE.x - 36.0
-	_resolve_title_label.offset_bottom = 30.0
-	_resolve_title_label.add_theme_color_override(
-		"font_color",
-		Color(0.95, 0.74, 0.48, 1.0)
-	)
-	_resolve_title_label.add_theme_font_size_override("font_size", 20)
-	_resolve_screen_root.add_child(_resolve_title_label)
-
-	_resolve_body_label = Label.new()
-	_resolve_body_label.name = "ResolveBodyLabel"
-	_resolve_body_label.position = Vector2(18.0, 50.0)
-	_resolve_body_label.offset_right = RESULT_PANEL_SIZE.x - 36.0
-	_resolve_body_label.offset_bottom = RESULT_PANEL_SIZE.y - 62.0
-	_resolve_body_label.add_theme_color_override(
-		"font_color",
-		Color(0.84, 0.79, 0.66, 1.0)
-	)
-	_resolve_body_label.add_theme_font_size_override("font_size", 12)
-	_resolve_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_resolve_screen_root.add_child(_resolve_body_label)
 	_set_box(_resolve_panel_box, RESULT_PANEL_SIZE)
 	_set_outline(_resolve_panel_border, RESULT_PANEL_SIZE)
 	_resolve_screen_root.visible = false
@@ -1610,85 +1444,27 @@ func _update_resolve_text(resolve: Dictionary, show_results: bool) -> void:
 	_resolve_body_label.text = "\n".join(rows)
 
 func _setup_portrait_tokens() -> void:
-	_player_portrait_model = _instantiate_paper_doll()
-	_player_portrait_model.name = "PlayerPortraitPaperDoll"
-	_portrait_root.add_child(_player_portrait_model)
-	_player_portrait_model.visible = false
 	_player_portrait_model.set_backdrop_visible(false)
-
-	_enemy_portrait_model = _instantiate_paper_doll()
-	_enemy_portrait_model.name = "EnemyPortraitPaperDoll"
-	_portrait_root.add_child(_enemy_portrait_model)
-	_enemy_portrait_model.visible = false
 	_enemy_portrait_model.set_backdrop_visible(false)
 
 
-func _instantiate_paper_doll() -> PaperDollModel:
-	var scene := paper_doll_scene
-	if scene == null and ResourceLoader.exists(GameEnums.PRESENTATION_PAPER_DOLL_SCENE):
-		scene = load(GameEnums.PRESENTATION_PAPER_DOLL_SCENE) as PackedScene
-	if scene == null:
-		push_error("CombatLaneHUD missing paper_doll_scene.")
-		return null
-	return scene.instantiate() as PaperDollModel
-
-func _make_status_label(label_name: String, parent: Node) -> Label:
-	var label := Label.new()
-	label.name = label_name
-	label.offset_right = 220.0
-	label.offset_bottom = 34.0
-	label.add_theme_color_override("font_color", Color(0.86, 0.78, 0.62, 1.0))
-	label.add_theme_font_size_override("font_size", 11)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	parent.add_child(label)
-	return label
-
-func _build_limb_rows(parent: Node) -> Array[Dictionary]:
+func _collect_limb_rows(parent: Node) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	for code in BODY_LIMB_ORDER:
-		var row_root := Node2D.new()
-		row_root.name = "%sRow" % code
-		parent.add_child(row_root)
-
-		var track := Polygon2D.new()
-		track.name = "Track"
+		var row_root := parent.get_node_or_null("%sRow" % code) as Node2D
+		if row_root == null:
+			push_warning("CombatLaneHUD missing limb row %s under %s." % [code, parent.name])
+			continue
+		var track := row_root.get_node("Track") as Polygon2D
+		var fill := row_root.get_node("Fill") as Polygon2D
+		var meter_frame := row_root.get_node("OfficialMeterFrame") as Sprite2D
+		var outline := row_root.get_node("Outline") as Line2D
+		var label := row_root.get_node("Label") as Label
 		track.color = COLOR_BODY_BAR_BACK
-		row_root.add_child(track)
-
-		var fill := Polygon2D.new()
-		fill.name = "Fill"
 		fill.color = COLOR_BODY_BAR_HEALTH
-		fill.z_index = 1
-		row_root.add_child(fill)
-
-		var meter_frame := Sprite2D.new()
-		meter_frame.name = "OfficialMeterFrame"
-		meter_frame.centered = false
-		meter_frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		meter_frame.texture = HUDAssetLibrary.meter_frame_texture("segmented")
-		meter_frame.z_index = 2
-		row_root.add_child(meter_frame)
-
-		var outline := Line2D.new()
-		outline.name = "Outline"
 		outline.default_color = Color(COLOR_ACTION_BORDER, 0.52)
 		outline.width = 1.0
-		outline.z_index = 3
-		row_root.add_child(outline)
-
-		var label := Label.new()
-		label.name = "Label"
-		label.position = Vector2(BODY_BAR_SIZE.x + 9.0, -4.0)
-		label.offset_right = 82.0
-		label.offset_bottom = 18.0
-		label.add_theme_color_override(
-			"font_color",
-			Color(0.87, 0.82, 0.72, 1.0)
-		)
-		label.add_theme_font_size_override("font_size", 10)
-		label.z_index = 4
-		row_root.add_child(label)
-
 		rows.append({
 			"code": code,
 			"root": row_root,

@@ -15,6 +15,9 @@ class_name HexRecord
 @export var biome_pack: String = GameEnums.BIOME_PACK_PLAINS
 @export var landmark_id: String = ""
 @export var impassable: bool = false
+@export var terrain_sprite_path: String = ""
+@export var flora_sprite_path: String = ""
+@export var rock_sprite_path: String = ""
 @export var structure_sprite_path: String = ""
 @export var sleep_anchor: String = "ground"
 @export var sleep_gear_instance_id: String = ""
@@ -45,6 +48,9 @@ func to_dict() -> Dictionary:
 		"biome_pack": biome_pack,
 		"landmark_id": landmark_id,
 		"impassable": impassable,
+		"terrain_sprite_path": terrain_sprite_path,
+		"flora_sprite_path": flora_sprite_path,
+		"rock_sprite_path": rock_sprite_path,
 		"structure_sprite_path": structure_sprite_path,
 		"sleep_anchor": sleep_anchor,
 		"sleep_gear_instance_id": sleep_gear_instance_id,
@@ -94,6 +100,9 @@ static func from_dict(data: Dictionary) -> HexRecord:
 	record.biome_pack = data.get("biome_pack", GameEnums.BIOME_PACK_PLAINS)
 	record.landmark_id = data.get("landmark_id", "")
 	record.impassable = data.get("impassable", false)
+	record.terrain_sprite_path = data.get("terrain_sprite_path", "")
+	record.flora_sprite_path = data.get("flora_sprite_path", "")
+	record.rock_sprite_path = data.get("rock_sprite_path", "")
 	record.structure_sprite_path = data.get("structure_sprite_path", "")
 	record.sleep_anchor = data.get("sleep_anchor", "ground")
 	record.sleep_gear_instance_id = data.get("sleep_gear_instance_id", "")

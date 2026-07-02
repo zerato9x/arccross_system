@@ -29,6 +29,7 @@ func _ready() -> void:
 	macro_map.combat_requested.connect(_on_combat_requested)
 	macro_map.save_requested.connect(save_game)
 	macro_map.load_requested.connect(load_saved_run)
+	macro_map.core_activated.connect(_on_core_activated)
 	if defeat_panel:
 		defeat_panel.restart_requested.connect(restart_new_run)
 		defeat_panel.load_requested.connect(load_saved_run)
@@ -124,6 +125,7 @@ func _on_duel_finished(
 			)
 			macro_map.unload_enemy_token(_combat_coords)
 		GameEnums.CombatOutcome.PLAYER_DEFEAT:
+			_on_player_defeat_preserve_mutations()
 			_teardown_arena()
 			macro_map.set_process_unhandled_input(false)
 			_emit_scene_audio("game_over")
@@ -161,8 +163,21 @@ func _teardown_arena() -> void:
 	_combat_approach_from = Vector2i.ZERO
 
 func restart_new_run() -> void:
+	macro_map.flush_world_mutations()
 	_world_state.begin_new_world("DEMO_WASTELAND_01")
 	get_tree().reload_current_scene()
+
+func _on_core_activated() -> void:
+	print("\n[DIRECTOR] Alpha Core activated. Endgame reached.")
+	macro_map.set_process_unhandled_input(false)
+	set_process_unhandled_input(false)
+	_emit_scene_audio("game_over")
+	if defeat_panel:
+		defeat_panel.open_victory_panel()
+
+func _on_player_defeat_preserve_mutations() -> void:
+	if macro_map:
+		macro_map.flush_world_mutations()
 
 func save_game(path: String = RuntimeStateStore.DEFAULT_SAVE_PATH) -> bool:
 	macro_map.synchronize_runtime_state()

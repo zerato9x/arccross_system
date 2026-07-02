@@ -6,6 +6,10 @@ class_name HexWorldGenerator
 @export_range(0.0, 1.0) var random_remnant_chance: float = 0.022
 @export_range(0.0, 1.0) var shrub_spawn_chance: float = 0.14
 
+@export_group("Authored Map")
+@export var authored_map: Resource
+@export var require_authored_map: bool = false
+
 @export_group("Macro Regions")
 @export_range(1, 6) var central_hub_radius: int = 2
 @export_range(3, 12) var hub_border_radius: int = 4
@@ -15,10 +19,8 @@ var moisture_noise: FastNoiseLite
 var world_hex_cache: Dictionary = {}
 var manual_poi_overrides: Dictionary = {}
 
-@export var sector_size: int = 10
-var handcrafted_sectors: Dictionary = {}
-
 var _world_state: RuntimeStateStore
+var _mutation_store: Node
 const _SectorCatalog := preload("res://WorldCore/WorldSectorCatalog.gd")
 const _PoiVisualCatalog := preload("res://PresentationCore/PoiVisualCatalog.gd")
 
@@ -28,7 +30,10 @@ func configure_services(world_state: RuntimeStateStore) -> void:
 func _ready() -> void:
 	if _world_state == null:
 		_world_state = get_node("/root/WorldState") as RuntimeStateStore
+	_mutation_store = get_node_or_null("/root/WorldMutationStore")
 	_initialize_noise()
+	if authored_map != null:
+		authored_map.rebuild_index()
 
 func _initialize_noise() -> void:
 	elevation_noise = FastNoiseLite.new()
@@ -43,6 +48,14 @@ func _initialize_noise() -> void:
 
 static func compute_visual_variant_hash(coords: Vector2i, seed_value: String) -> int:
 	return absi((seed_value + ":variant:" + str(coords.x) + ":" + str(coords.y)).hash())
+
+static func build_void_hex(coords: Vector2i) -> MacroHexData:
+	var hex := MacroHexData.new()
+	hex.zone_id = "void"
+	hex.region = GameEnums.MacroRegion.WASTELAND
+	hex.impassable = true
+	hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
+	return hex
 
 func configure_seed(seed_value: String) -> void:
 	master_seed = seed_value
@@ -81,25 +94,58 @@ func get_hex_at(coords: Vector2i) -> MacroHexData:
 		world_hex_cache[coords] = persistent_hex
 		return persistent_hex
 
-	var new_hex := MacroHexData.new()
-	_assign_zone_identity(coords, new_hex)
-
-	if manual_poi_overrides.has(coords):
-		_apply_manual_override(coords, new_hex)
-	elif _is_in_handcrafted_sector(coords):
-		_load_from_handcrafted_sector(coords, new_hex)
-	elif new_hex.zone_id == "hub_core":
-		_apply_hub_core(coords, new_hex)
-	elif new_hex.zone_id == "hub_border":
-		_apply_hub_border(coords, new_hex)
-	else:
-		_generate_wedge_hex(coords, new_hex)
-
+	var new_hex := _build_fresh_hex(coords)
 	_apply_region_hazard(coords, new_hex)
-	new_hex.visual_variant_hash = compute_visual_variant_hash(coords, master_seed)
+	if new_hex.visual_variant_hash == 0:
+		new_hex.visual_variant_hash = compute_visual_variant_hash(coords, master_seed)
 	world_hex_cache[coords] = new_hex
 	_world_state.set_hex_record(coords, new_hex.to_state())
 	return new_hex
+
+func _build_fresh_hex(coords: Vector2i) -> MacroHexData:
+	if manual_poi_overrides.has(coords):
+		var hex := MacroHexData.new()
+		_assign_zone_identity(coords, hex)
+		_apply_manual_override(coords, hex)
+		_apply_world_mutations(coords, hex)
+		return hex
+
+	if authored_map != null:
+		if _authored_map_has_hex(coords):
+			var authored_hex: MacroHexData = authored_map.build_hex_data(
+				coords,
+				master_seed
+			)
+			_finalize_authored_hex(coords, authored_hex)
+			_apply_world_mutations(coords, authored_hex)
+			return authored_hex
+		if require_authored_map:
+			return build_void_hex(coords)
+
+	var procedural_hex := MacroHexData.new()
+	_assign_zone_identity(coords, procedural_hex)
+	if procedural_hex.zone_id == "hub_core":
+		_apply_hub_core(coords, procedural_hex)
+	elif procedural_hex.zone_id == "hub_border":
+		_apply_hub_border(coords, procedural_hex)
+	else:
+		_generate_wedge_hex(coords, procedural_hex)
+	_apply_world_mutations(coords, procedural_hex)
+	return procedural_hex
+
+func _finalize_authored_hex(coords: Vector2i, hex: MacroHexData) -> void:
+	if hex.zone_id.is_empty():
+		_assign_zone_identity(coords, hex)
+	if hex.structure_sprite_path.is_empty() and not hex.landmark_id.is_empty():
+		hex.structure_sprite_path = _PoiVisualCatalog.pick_structure_path(
+			hex.landmark_id,
+			master_seed,
+			coords
+		)
+
+func _apply_world_mutations(coords: Vector2i, hex: MacroHexData) -> void:
+	if _mutation_store != null and _mutation_store.has_method("apply_patch"):
+		_mutation_store.apply_patch(coords, hex)
 
 func _assign_zone_identity(coords: Vector2i, hex: MacroHexData) -> void:
 	var distance := _hex_distance(Vector2i.ZERO, coords)
@@ -122,7 +168,6 @@ func _apply_hub_core(coords: Vector2i, hex: MacroHexData) -> void:
 	hex.flora_layer = GameEnums.MacroFloraLayer.NONE
 	hex.rock_layer = GameEnums.MacroRockLayer.NONE
 	hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
-	hex.impassable = true
 	hex.hazard_level = 0.0
 	hex.structure_sprite_path = _PoiVisualCatalog.pick_structure_path(
 		"centralcore_city",
@@ -130,12 +175,14 @@ func _apply_hub_core(coords: Vector2i, hex: MacroHexData) -> void:
 		coords
 	)
 	if coords == Vector2i.ZERO:
+		hex.impassable = false
 		hex.is_poi = true
 		hex.poi_id = "alpha_central_hub"
 		hex.poi_name = "Alpha Hub"
 		hex.landmark_id = "alpha_hub"
 		hex.sleep_anchor = "bed"
 	else:
+		hex.impassable = true
 		hex.is_poi = false
 		hex.landmark_id = ""
 
@@ -217,41 +264,6 @@ func _apply_manual_override(coords: Vector2i, hex: MacroHexData) -> void:
 		coords
 	)
 
-func _get_sector_for_coords(coords: Vector2i) -> Vector2i:
-	var sx = int(floor(float(coords.x) / float(sector_size)))
-	var sy = int(floor(float(coords.y) / float(sector_size)))
-	return Vector2i(sx, sy)
-
-func _is_in_handcrafted_sector(coords: Vector2i) -> bool:
-	return handcrafted_sectors.has(_get_sector_for_coords(coords))
-
-func _load_from_handcrafted_sector(coords: Vector2i, hex: MacroHexData) -> void:
-	var sector_data: Dictionary = handcrafted_sectors[_get_sector_for_coords(coords)]
-	var local_coords := Vector2i(posmod(coords.x, sector_size), posmod(coords.y, sector_size))
-	if sector_data.has(local_coords):
-		var data: Dictionary = sector_data[local_coords]
-		hex.biome = data.get("biome", GameEnums.GridBiome.PLAINS)
-		hex.terrain_tile = data.get(
-			"terrain_tile",
-			HexRecord._legacy_terrain_for_biome(hex.biome)
-		)
-		hex.flora_layer = data.get(
-			"flora_layer",
-			HexRecord._legacy_flora_for_biome(hex.biome)
-		)
-		hex.rock_layer = data.get("rock_layer", GameEnums.MacroRockLayer.NONE)
-		hex.structure_layer = data.get(
-			"structure_layer",
-			GameEnums.MacroStructureLayer.NONE
-		)
-		if data.get("is_poi", false):
-			hex.is_poi = true
-			hex.poi_id = data.get("poi_id", "")
-			hex.poi_name = data.get("poi_name", "Unknown POI")
-			hex.landmark_id = data.get("landmark_id", hex.poi_id)
-	else:
-		hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
-
 func _apply_shrub_variation(
 	coords: Vector2i,
 	hex: MacroHexData,
@@ -269,6 +281,11 @@ func _apply_shrub_variation(
 		hex.flora_layer = GameEnums.MacroFloraLayer.SHRUBS
 
 func _apply_region_hazard(coords: Vector2i, hex: MacroHexData) -> void:
+	if hex.zone_id == "void":
+		hex.hazard_level = GameEnums.SCALE_MAX
+		return
+	if hex.hazard_level > 0.0 and authored_map != null and _authored_map_has_hex(coords):
+		return
 	var distance := _hex_distance(Vector2i.ZERO, coords)
 	match hex.zone_id:
 		"hub_core":
@@ -286,3 +303,7 @@ func _apply_region_hazard(coords: Vector2i, hex: MacroHexData) -> void:
 func _hex_distance(from_coords: Vector2i, to_coords: Vector2i) -> int:
 	var delta := to_coords - from_coords
 	return maxi(abs(delta.x), maxi(abs(delta.y), abs(delta.x + delta.y)))
+
+
+func _authored_map_has_hex(coords: Vector2i) -> bool:
+	return authored_map != null and authored_map.has_method("has_hex") and authored_map.has_hex(coords)

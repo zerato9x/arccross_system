@@ -5,6 +5,7 @@ class_name MacroGameManager
 signal combat_requested(request: Dictionary)
 signal save_requested
 signal load_requested
+signal core_activated
 
 @export_group("The Strings")
 @export var world_generator: HexWorldGenerator
@@ -61,11 +62,13 @@ var _last_inventory_error: String = ""
 var _selected_hex_coords: Vector2i = Vector2i.ZERO
 var _macro_turn_index := 0
 var _last_macro_event := "Macro systems nominal."
+var _mutation_store: Node
 
 const HEX_NEIGHBORS = [
 	Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1), 
 	Vector2i(-1, 0), Vector2i(-1, 1), Vector2i(0, 1)
 ]
+const _ExplorationWindowScene := preload("res://UI/Macro/MacroExplorationWindow.tscn")
 const _SnapshotBuilder := preload("res://WorldCore/MacroSnapshotBuilder.gd")
 const _PoiController := preload("res://WorldCore/MacroPoiController.gd")
 const _NpcSimulator := preload("res://WorldCore/MacroNpcSimulator.gd")
@@ -127,6 +130,7 @@ func _npc_get_occupying_entity_id(coords: Vector2i) -> String:
 func _ready() -> void:
 	if _world_state == null:
 		_world_state = get_node("/root/WorldState") as RuntimeStateStore
+	_mutation_store = get_node_or_null("/root/WorldMutationStore")
 	if _loot_catalog == null:
 		_loot_catalog = get_node("/root/LootCatalog")
 	if not mob_spawner:
@@ -146,7 +150,7 @@ func _ready() -> void:
 		interaction_panel.inventory_requested.connect(open_inventory)
 		interaction_panel.interaction_closed.connect(close_macro_interaction)
 
-	exploration_window = MacroExplorationWindow.new()
+	exploration_window = _ExplorationWindowScene.instantiate() as MacroExplorationWindow
 	exploration_window.name = "MacroExplorationWindow"
 	add_child(exploration_window)
 	exploration_window.poi_action_submitted.connect(resolve_poi_action)
@@ -155,9 +159,7 @@ func _ready() -> void:
 	exploration_window.interaction_closed.connect(close_macro_interaction)
 
 	if inventory_panel:
-		inventory_panel.inventory_action_requested.connect(
-			resolve_inventory_action
-		)
+		inventory_panel.inventory_action_requested.connect(resolve_inventory_action)
 		inventory_panel.inventory_closed.connect(_on_inventory_closed)
 
 	if world_hud:
@@ -188,16 +190,15 @@ func _initialize_demo() -> void:
 	var seed := "DEMO_WASTELAND_01"
 	_world_state.begin_new_world(seed)
 	world_generator.configure_seed(seed)
-	world_generator.manual_poi_overrides[Vector2i(4, 0)] = {
-		"id": "plains_homestead",
-		"name": "Ruined Homestead",
-		"biome": GameEnums.GridBiome.PLAINS,
-		"landmark_id": "homestead_b",
-		"sleep_anchor": "bench",
-	}
+	_bind_authored_map_profile()
 
-	# Demo starts on the hub border; the guaranteed landmark sits one hex east.
-	var start_coords = Vector2i(3, 0)
+	var start_coords := Vector2i(3, 0)
+	if (
+		world_generator.authored_map != null
+		and world_generator.authored_map.get("start_coords") != null
+	):
+		start_coords = world_generator.authored_map.start_coords
+
 	var start_pixel_pos = map_visualizer.map_to_local(start_coords)
 	player_token.snap_to_hex(start_coords, start_pixel_pos)
 	_world_state.set_player_record(player_token.capture_runtime_record(), start_coords)
@@ -215,6 +216,7 @@ func _initialize_loaded_world() -> void:
 		return
 
 	world_generator.configure_seed(_world_state.world_seed)
+	_bind_authored_map_profile()
 	player_token.restore_runtime_record(_world_state.player_record)
 	var loaded_coords := _world_state.player_coords
 	player_token.snap_to_hex(
@@ -236,6 +238,27 @@ func synchronize_runtime_state() -> void:
 	for coords in world_generator.world_hex_cache.keys():
 		var hex_data: MacroHexData = world_generator.world_hex_cache[coords]
 		_world_state.set_hex_record(coords, hex_data.to_state())
+	flush_world_mutations()
+
+
+func flush_world_mutations() -> void:
+	if _mutation_store == null or world_generator.authored_map == null:
+		return
+	if not _mutation_store.has_method("capture_run_mutations"):
+		return
+	_mutation_store.capture_run_mutations(
+		world_generator.authored_map,
+		_world_state.hex_records,
+		_world_state.world_seed
+	)
+
+
+func _bind_authored_map_profile() -> void:
+	if _mutation_store == null or world_generator.authored_map == null:
+		return
+	if _mutation_store.map_id.is_empty():
+		_mutation_store.map_id = world_generator.authored_map.map_id
+	world_generator.world_hex_cache.clear()
 
 ## Spawn a procedurally generated enemy at the given hex coordinates.
 func spawn_procedural_enemy(coords: Vector2i, faction: GameEnums.Faction, difficulty: int = 0) -> void:
@@ -268,10 +291,6 @@ func spawn_procedural_enemy(coords: Vector2i, faction: GameEnums.Faction, diffic
 	)
 	_spawn_enemy_token_from_record(record)
 
-## Legacy: spawn from a pre-built definition .tres (still works).
-func spawn_macro_enemy(coords: Vector2i) -> void:
-	push_warning("spawn_macro_enemy requires a persistent entity record and is deprecated.")
-
 # ---------------------------------------------------------
 # INPUT & MOVEMENT LOGIC
 # ---------------------------------------------------------
@@ -283,16 +302,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		and not event.echo
 		and (event.keycode == KEY_I or event.keycode == KEY_TAB)
 	):
-		if inventory_panel:
-			if inventory_panel.is_open():
-				inventory_panel.close_panel()
-			elif exploration_window and exploration_window.is_open():
-				open_inventory()
-			elif _pending_interaction.is_empty():
-				open_inventory()
+		open_inventory()
 		get_viewport().set_input_as_handled()
-		return
-	if inventory_panel and inventory_panel.is_open() and not inventory_panel.is_side_panel():
 		return
 	if not _pending_interaction.is_empty():
 		return
@@ -575,9 +586,10 @@ func _present_poi_session(
 			Callable(self, "_inventory_has_any_item_id"),
 			Callable(self, "_inventory_has_any_tag"),
 			Callable(self, "_inventory_has_any_role")
-		)
+		),
+		inventory_snapshot
 	)
-	if inventory_panel:
+	if inventory_panel and inventory_panel.is_open():
 		inventory_panel.open_side_panel(inventory_snapshot)
 
 func begin_entity_collision(
@@ -659,6 +671,9 @@ func resolve_poi_action(
 		hex_data.poi_id
 	)
 	if action == GameEnums.PoiAction.SEARCH:
+		if selected_search_option_id == "activate_core":
+			_resolve_core_activation(coords, hex_data)
+			return
 		_resolve_search(
 			coords,
 			hex_data,
@@ -784,8 +799,6 @@ func resolve_entity_ambush(position: GameEnums.AmbushPosition) -> void:
 func close_macro_interaction() -> void:
 	_pending_interaction.clear()
 	set_process_unhandled_input(true)
-	if inventory_panel and inventory_panel.is_side_panel():
-		inventory_panel.close_panel(false)
 	if exploration_window and exploration_window.is_open():
 		exploration_window.close_window(false)
 	if interaction_panel and interaction_panel.is_open():
@@ -821,29 +834,22 @@ func queue_entity_collision(
 	return true
 
 func open_inventory() -> void:
-	if not inventory_panel:
-		push_error("Inventory requested without a presentation subscriber.")
+	if inventory_panel == null:
 		return
-	if world_hud:
-		world_hud.set_inventory_open(true)
+	if inventory_panel.is_open():
+		inventory_panel.close_panel()
+		return
 	var snapshot := _build_inventory_snapshot()
-	if exploration_window and exploration_window.is_open():
-		inventory_panel.open_side_panel(snapshot)
-		_refresh_exploration_ground()
-	else:
-		inventory_panel.open_inventory(snapshot)
+	inventory_panel.open_side_panel(snapshot)
+
+func _on_inventory_closed() -> void:
+	pass
 
 func resolve_inventory_action(
 	action_id: String,
 	instance_id: String,
 	equipment_slot: int
 ) -> void:
-	var exploration_open := exploration_window != null and exploration_window.is_open()
-	if not inventory_panel or (
-		not inventory_panel.is_open() and not exploration_open
-	):
-		return
-
 	_last_inventory_error = ""
 	var player_core := player_token.get_humanoid_core()
 	var coords := player_token.current_hex_coords
@@ -873,43 +879,16 @@ func resolve_inventory_action(
 	)
 	_emit_inventory_item_used(result)
 	var snapshot := _build_inventory_snapshot()
-	if exploration_open:
-		inventory_panel.open_side_panel(
-			snapshot,
-			str(result.get("message", ""))
-		)
-		_refresh_exploration_ground()
-	else:
-		inventory_panel.open_inventory(
-			snapshot,
-			str(result.get("message", ""))
-		)
+	if inventory_panel and inventory_panel.is_open():
+		inventory_panel.open_side_panel(snapshot)
+	_refresh_exploration_ground()
 	_refresh_world_hud()
 
 func _refresh_exploration_ground() -> void:
 	if exploration_window == null or not exploration_window.is_open():
 		return
-	exploration_window.refresh_ground_items(
-		_build_inventory_snapshot().get("ground", [])
-	)
-
-func _on_inventory_closed() -> void:
-	if world_hud:
-		world_hud.set_inventory_open(false)
-	_refresh_world_hud()
-	if (
-		_pending_interaction.get("type")
-		!= GameEnums.MacroInteractionType.POI
-		or exploration_window == null
-		or not exploration_window.is_open()
-	):
-		return
-	var coords: Vector2i = _pending_interaction.get(
-		"coords",
-		player_token.current_hex_coords
-	)
-	var hex_data := world_generator.get_hex_at(coords)
-	_present_poi_session(coords, hex_data)
+	var snapshot := _build_inventory_snapshot()
+	exploration_window.refresh_ground_items(snapshot.get("ground", []))
 
 func _build_inventory_snapshot() -> Dictionary:
 	return _SnapshotBuilder.build_inventory_snapshot(
@@ -1013,6 +992,29 @@ func _on_player_items_spilled(spilled_items: Array[ItemData]) -> void:
 		item_states.append(item.to_runtime_state())
 	_world_state.add_ground_items(player_token.current_hex_coords, item_states)
 
+func _resolve_core_activation(coords: Vector2i, hex_data: MacroHexData) -> void:
+	if hex_data.poi_id != "alpha_central_hub":
+		_show_interaction_result(
+			"ACTIVATION BLOCKED",
+			"This location cannot bring the Alpha Core online."
+		)
+		return
+	if _mutation_store != null and bool(_mutation_store.core_activated):
+		_show_interaction_result(
+			"CORE ONLINE",
+			"The Alpha Core is already active. The wasteland remembers."
+		)
+		return
+
+	_advance_survival_time(GameTimeRules.SEARCH_MINUTES, 1.5, coords)
+	if _mutation_store != null and _mutation_store.has_method("mark_core_activated"):
+		_mutation_store.mark_core_activated(true)
+	flush_world_mutations()
+	close_macro_interaction()
+	_last_macro_event = "Alpha Core activated at %s." % str(coords)
+	_refresh_world_hud()
+	core_activated.emit()
+
 func _resolve_search(
 	coords: Vector2i,
 	hex_data: MacroHexData,
@@ -1112,8 +1114,6 @@ func _resolve_search(
 
 	if exploration_window and exploration_window.is_open():
 		_refresh_exploration_ground()
-		if inventory_panel and inventory_panel.is_side_panel():
-			inventory_panel.open_side_panel(_build_inventory_snapshot())
 
 	_show_interaction_result("SEARCH COMPLETE", message)
 

@@ -1,0 +1,210 @@
+[gd_scene format=3 uid="uid://cpfc2cyt5tmx7"]
+
+[ext_resource type="Script" uid="uid://u6xgly272bsa" path="res://UI/Macro/MacroExplorationWindow.gd" id="1_dofyy"]
+
+[node name="MacroExplorationWindow" type="CanvasLayer" unique_id=1252351330]
+layer = 22
+script = ExtResource("1_dofyy")
+
+[node name="ExplorationPanel" type="PanelContainer" parent="." unique_id=69741201]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -940.0
+offset_top = -320.0
+offset_right = -20.0
+offset_bottom = 320.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="ExplorationPanel" unique_id=305251010]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="Content" type="HBoxContainer" parent="ExplorationPanel/Margin" unique_id=1451585082]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SceneRoot" type="Control" parent="ExplorationPanel/Margin/Content" unique_id=182167097]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(420, 560)
+layout_mode = 2
+
+[node name="Background" type="TextureRect" parent="ExplorationPanel/Margin/Content/SceneRoot" unique_id=69290868]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PropsLayer" type="Control" parent="ExplorationPanel/Margin/Content/SceneRoot" unique_id=1024499801]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PoiNamePlate" type="PanelContainer" parent="ExplorationPanel/Margin/Content/SceneRoot" unique_id=46616848]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -170.0
+offset_top = -56.0
+offset_right = 170.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="NameplateMargin" type="MarginContainer" parent="ExplorationPanel/Margin/Content/SceneRoot/PoiNamePlate" unique_id=1951023991]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 4
+
+[node name="PoiNameLabel" type="Label" parent="ExplorationPanel/Margin/Content/SceneRoot/PoiNamePlate/NameplateMargin" unique_id=527252785]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="RightPanel" type="VBoxContainer" parent="ExplorationPanel/Margin/Content" unique_id=271532382]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(420, 560)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TitleLabel" type="Label" parent="ExplorationPanel/Margin/Content/RightPanel" unique_id=913150538]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="BodyLabel" type="Label" parent="ExplorationPanel/Margin/Content/RightPanel" unique_id=1410659130]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="ModeTabs" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel" unique_id=2082949035]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="SearchButton" type="Button" parent="ExplorationPanel/Margin/Content/RightPanel/ModeTabs" unique_id=1146930131]
+unique_name_in_owner = true
+layout_mode = 2
+text = "SEARCH"
+
+[node name="CampButton" type="Button" parent="ExplorationPanel/Margin/Content/RightPanel/ModeTabs" unique_id=1029220909]
+unique_name_in_owner = true
+layout_mode = 2
+text = "CAMP"
+
+[node name="InteractionBox" type="PanelContainer" parent="ExplorationPanel/Margin/Content/RightPanel" unique_id=1705059346]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="InteractionMargin" type="MarginContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox" unique_id=2095106568]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="InteractionColumn" type="VBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin" unique_id=606521017]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="InteractionHeader" type="Label" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=1237717785]
+unique_name_in_owner = true
+layout_mode = 2
+text = "INTERACTION"
+
+[node name="SearchOptionsRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=1503754614]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="MetricBox" type="VBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=1516723785]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="DropHint" type="Label" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=2075014353]
+unique_name_in_owner = true
+layout_mode = 2
+text = "DRAG GEAR FROM THE LEFT INVENTORY ONTO A TARGET"
+
+[node name="DropRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=644379012]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="GroundBox" type="PanelContainer" parent="ExplorationPanel/Margin/Content/RightPanel" unique_id=1215564905]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="GroundMargin" type="MarginContainer" parent="ExplorationPanel/Margin/Content/RightPanel/GroundBox" unique_id=905757903]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="GroundColumn" type="VBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/GroundBox/GroundMargin" unique_id=249232622]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="GroundHeader" type="Label" parent="ExplorationPanel/Margin/Content/RightPanel/GroundBox/GroundMargin/GroundColumn" unique_id=914937216]
+unique_name_in_owner = true
+layout_mode = 2
+text = "GROUND LOOT"
+
+[node name="GroundRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/GroundBox/GroundMargin/GroundColumn" unique_id=1345151362]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ActionRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel" unique_id=2027987295]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SubmitButton" type="Button" parent="ExplorationPanel/Margin/Content/RightPanel/ActionRow" unique_id=426720117]
+unique_name_in_owner = true
+layout_mode = 2
+text = "SCAVENGE"
+
+[node name="RestButton" type="Button" parent="ExplorationPanel/Margin/Content/RightPanel/ActionRow" unique_id=1191298930]
+unique_name_in_owner = true
+layout_mode = 2
+text = "REST"
+
+[node name="StopRestButton" type="Button" parent="ExplorationPanel/Margin/Content/RightPanel/ActionRow" unique_id=1325904351]
+unique_name_in_owner = true
+layout_mode = 2
+text = "STOP REST"
+
+[node name="CloseButton" type="Button" parent="ExplorationPanel/Margin/Content/RightPanel/ActionRow" unique_id=60721237]
+unique_name_in_owner = true
+layout_mode = 2
+text = "LEAVE"

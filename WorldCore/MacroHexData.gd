@@ -12,6 +12,9 @@ class_name MacroHexData
 @export var biome_pack: String = GameEnums.BIOME_PACK_PLAINS
 @export var landmark_id: String = ""
 @export var impassable: bool = false
+@export var terrain_sprite_path: String = ""
+@export var flora_sprite_path: String = ""
+@export var rock_sprite_path: String = ""
 @export var structure_sprite_path: String = ""
 
 # POI Variables
@@ -46,6 +49,9 @@ func to_state() -> HexRecord:
 	record.biome_pack = biome_pack
 	record.landmark_id = landmark_id
 	record.impassable = impassable
+	record.terrain_sprite_path = terrain_sprite_path
+	record.flora_sprite_path = flora_sprite_path
+	record.rock_sprite_path = rock_sprite_path
 	record.structure_sprite_path = structure_sprite_path
 	record.is_poi = is_poi
 	record.poi_id = poi_id
@@ -84,6 +90,9 @@ static func from_state(state) -> MacroHexData:
 	hex.biome_pack = source.biome_pack
 	hex.landmark_id = source.landmark_id
 	hex.impassable = source.impassable
+	hex.terrain_sprite_path = source.terrain_sprite_path
+	hex.flora_sprite_path = source.flora_sprite_path
+	hex.rock_sprite_path = source.rock_sprite_path
 	hex.structure_sprite_path = source.structure_sprite_path
 	hex.is_poi = source.is_poi
 	hex.poi_id = source.poi_id
@@ -122,6 +131,6 @@ func travel_exertion() -> float:
 		return 2.0
 	if terrain_tile == GameEnums.MacroTerrainTile.SNOW_TRANSITION:
 		return 2.0
-	if flora_layer == GameEnums.MacroFloraLayer.TREES:
+	if flora_layer == GameEnums.MacroFloraLayer.TREES and flora_sprite_path.is_empty():
 		return 1.25
 	return 1.0

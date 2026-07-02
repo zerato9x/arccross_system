@@ -11,9 +11,10 @@
 [ext_resource type="Script" uid="uid://cyby11uaje4em" path="res://BiologicalCore/HumanoidBody.gd" id="27_humanoid_body"]
 [ext_resource type="Script" uid="uid://cfggpum5ci84n" path="res://ItemCore/InventorySystem.gd" id="28_inventory"]
 [ext_resource type="Script" uid="uid://b3cich77l6nye" path="res://WorldCore/MacroInteractionPanel.gd" id="29_interaction"]
-[ext_resource type="PackedScene" uid="uid://b72xqqy5yyt02" path="res://UI/Inventory/InventoryUI.tscn" id="30_inventory_panel"]
 [ext_resource type="PackedScene" uid="uid://bidwe2cg476w8" path="res://UI/Humanoid/HumanoidToken.tscn" id="31_bnpb6"]
 [ext_resource type="PackedScene" path="res://UI/HUD/WorldHUD.tscn" id="32_world_hud"]
+[ext_resource type="Resource" path="res://WorldCore/Maps/phase2_east_arm.tres" id="33_authored_map"]
+[ext_resource type="PackedScene" uid="uid://b72xqqy5yyt02" path="res://UI/Inventory/InventoryUI.tscn" id="34_inventory_panel"]
 
 [node name="MainWorld" type="Node2D" unique_id=1029321409 node_paths=PackedStringArray("world_generator", "map_visualizer", "player_token", "interaction_panel", "inventory_panel", "world_hud")]
 script = ExtResource("1_tu7u5")
@@ -27,6 +28,8 @@ world_hud = NodePath("WorldHUD")
 
 [node name="HexWorldGenerator" type="Node" parent="." unique_id=1630662270]
 script = ExtResource("2_3etub")
+authored_map = ExtResource("33_authored_map")
+require_authored_map = true
 
 [node name="HexMapVisualizer" type="TileMapLayer" parent="." unique_id=1261522321 node_paths=PackedStringArray("world_generator", "flora_layer", "rock_layer", "structure_layer", "shrub_layer")]
 script = ExtResource("3_whfra")
@@ -91,8 +94,8 @@ theme_override_constants/margin_bottom = 20
 layout_mode = 2
 theme_override_constants/separation = 12
 
+[node name="WorldHUD" parent="." instance=ExtResource("32_world_hud")]
+
 [node name="InventoryPanel" type="CanvasLayer" parent="." unique_id=661175097]
 
-[node name="InventoryUI" parent="InventoryPanel" unique_id=515846596 instance=ExtResource("30_inventory_panel")]
-
-[node name="WorldHUD" parent="." instance=ExtResource("32_world_hud")]
+[node name="InventoryUI" parent="InventoryPanel" unique_id=515846596 instance=ExtResource("34_inventory_panel")]

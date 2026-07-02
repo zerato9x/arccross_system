@@ -18,12 +18,22 @@ func _run() -> void:
 
 	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
 	var world_state := root.get_node("WorldState") as RuntimeStateStore
-	if not macro_map or not world_state or not macro_map.inventory_panel:
+	if not macro_map or not world_state:
 		_fail("Inventory presentation or world systems did not initialize.")
 		return
 
+	var poi_coords := Vector2i(0, 0)
+	macro_map.debug_step_player_to(poi_coords)
+	await process_frame
+	var poi_hex := macro_map.world_generator.get_hex_at(poi_coords)
+	macro_map.debug_begin_poi_interaction(poi_coords, poi_hex)
+	await process_frame
+	if not macro_map.exploration_window.is_open():
+		_fail("Exploration window did not open for inventory actions.")
+		return
+
 	var player_core := macro_map.player_token.get_humanoid_core()
-	var coords := macro_map.player_token.current_hex_coords
+	var coords := poi_coords
 	var water_state := _runtime_item_state("water_bottle")
 	var shirt_state := _runtime_item_state("shirt_thermo")
 	if water_state.is_empty() or shirt_state.is_empty():
@@ -31,10 +41,11 @@ func _run() -> void:
 		return
 
 	world_state.add_ground_items(coords, [water_state, shirt_state])
+	macro_map.exploration_window.refresh_ground_items([water_state, shirt_state])
 	macro_map.open_inventory()
 	await process_frame
 	if not macro_map.inventory_panel.is_open():
-		_fail("The inventory panel did not open.")
+		_fail("The detached inventory panel did not open for ground loot.")
 		return
 
 	var snapshot := macro_map._build_inventory_snapshot()
@@ -162,14 +173,13 @@ func _run() -> void:
 		_fail("Capacity overflow did not create persistent ground remnants.")
 		return
 
-	var poi_coords := Vector2i(1, 0)
-	var poi_hex := macro_map.world_generator.get_hex_at(poi_coords)
-	var camp_access := macro_map.get_camp_access(poi_coords, poi_hex)
+	var camp_hex := macro_map.world_generator.get_hex_at(coords)
+	var camp_access := macro_map.get_camp_access(coords, camp_hex)
 	if not camp_access.get("allowed", false):
 		_fail("The demo POI did not satisfy the CAMP safety rule.")
 		return
-	poi_hex.hazard_level = WorldRules.CAMP_HAZARD_LIMIT + 1.0
-	if macro_map.get_camp_access(poi_coords, poi_hex).get("allowed", true):
+	camp_hex.hazard_level = WorldRules.CAMP_HAZARD_LIMIT + 1.0
+	if macro_map.get_camp_access(coords, camp_hex).get("allowed", true):
 		_fail("A hazardous location incorrectly allowed CAMP.")
 		return
 

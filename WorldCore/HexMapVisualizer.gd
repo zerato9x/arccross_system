@@ -24,7 +24,15 @@ const TILESET_PATH := "res://Asset/MacroTileSet.tres"
 var rendered_cells: Dictionary = {}
 var poi_markers: Dictionary = {}
 var shrub_sprites: Dictionary = {}
+var decor_sprites: Dictionary = {} # String key -> Sprite2D
 var selection_marker: Polygon2D
+
+const DECOR_LAYER_Z := {
+	0: 1,
+	1: 2,
+	2: 3,
+	3: 4,
+}
 
 func _ready() -> void:
 	if not world_generator:
@@ -95,33 +103,28 @@ func _paint_single_hex(coords: Vector2i) -> void:
 	var target_structure_layer := (
 		structure_layer if structure_layer != null else overlay_layer
 	)
-	if hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS:
+	if hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS and hex_data.flora_sprite_path.is_empty():
 		_paint_optional_layer(target_flora_layer, coords, -1)
 		_paint_shrub(coords, hex_data)
 	else:
 		_clear_shrub(coords)
-		_paint_optional_layer(
-			target_flora_layer,
-			coords,
-			_resolve_flora_source_id(hex_data)
-		)
-	_paint_optional_layer(
-		target_rock_layer,
-		coords,
-		_resolve_rock_source_id(hex_data)
-	)
-	_paint_optional_layer(
-		target_structure_layer,
-		coords,
-		_resolve_structure_source_id(hex_data)
-	)
+		var flora_source := _resolve_flora_source_id(hex_data)
+		_paint_optional_layer(target_flora_layer, coords, flora_source)
+	var rock_source := _resolve_rock_source_id(hex_data)
+	_paint_optional_layer(target_rock_layer, coords, rock_source)
+	var structure_source := _resolve_structure_source_id(hex_data)
+	_paint_optional_layer(target_structure_layer, coords, structure_source)
 			
+	_paint_decorations(coords)
 	rendered_cells[coords] = true
 
 	if hex_data.is_poi or not hex_data.landmark_id.is_empty():
 		_mark_poi_visually(coords, hex_data.poi_name if hex_data.is_poi else hex_data.landmark_id)
 
 func _resolve_bg_source_id(hex_data: MacroHexData) -> int:
+	var authored := _resolve_authored_path(hex_data.terrain_sprite_path, hex_data)
+	if authored >= 0:
+		return authored
 	if tile_catalog != null:
 		var catalog_source := tile_catalog.resolve_terrain_id(
 			hex_data.terrain_tile,
@@ -133,6 +136,9 @@ func _resolve_bg_source_id(hex_data: MacroHexData) -> int:
 	return LEGACY_BIOME_TO_SOURCE_ID.get(hex_data.biome, 0)
 
 func _resolve_flora_source_id(hex_data: MacroHexData) -> int:
+	var authored := _resolve_authored_path(hex_data.flora_sprite_path, hex_data)
+	if authored >= 0:
+		return authored
 	if tile_catalog != null:
 		return tile_catalog.resolve_flora_id(
 			hex_data.flora_layer,
@@ -142,6 +148,9 @@ func _resolve_flora_source_id(hex_data: MacroHexData) -> int:
 	return -1
 
 func _resolve_rock_source_id(hex_data: MacroHexData) -> int:
+	var authored := _resolve_authored_path(hex_data.rock_sprite_path, hex_data)
+	if authored >= 0:
+		return authored
 	if tile_catalog != null:
 		return tile_catalog.resolve_rock_id(
 			hex_data.rock_layer,
@@ -172,6 +181,11 @@ func _resolve_structure_source_id(hex_data: MacroHexData) -> int:
 			hex_data.biome_pack
 		)
 	return -1
+
+func _resolve_authored_path(asset_path: String, hex_data: MacroHexData) -> int:
+	if asset_path.is_empty() or tile_catalog == null:
+		return -1
+	return tile_catalog.resolve_asset_path(asset_path, hex_data.visual_variant_hash)
 
 func _paint_optional_layer(
 	layer: TileMapLayer,
@@ -209,6 +223,60 @@ func _paint_shrub(coords: Vector2i, hex_data: MacroHexData) -> void:
 	shrub.z_index = 0
 	shrub_layer.add_child(shrub)
 	shrub_sprites[coords] = shrub
+
+func _paint_decorations(coords: Vector2i) -> void:
+	_clear_decorations(coords)
+	var authored_map = world_generator.authored_map if world_generator != null else null
+	if authored_map == null or not authored_map.has_method("get_decorations_at"):
+		return
+	var props: Array = authored_map.get_decorations_at(coords)
+	if props.is_empty():
+		return
+	if shrub_layer == null:
+		return
+	var hex_center := map_to_local(coords)
+	for index in range(props.size()):
+		var prop: Dictionary = props[index]
+		var path := str(prop.get("sprite_path", ""))
+		if path.is_empty():
+			continue
+		var texture := load(path) as Texture2D
+		if texture == null:
+			continue
+		var sprite := Sprite2D.new()
+		sprite.texture = texture
+		sprite.centered = true
+		var prop_scale: Variant = prop.get("scale", Vector2.ONE)
+		if prop_scale is Vector2:
+			sprite.scale = prop_scale
+		else:
+			var uniform := float(prop.get("uniform_scale", 0.18))
+			sprite.scale = Vector2.ONE * uniform
+		var offset: Variant = prop.get("offset", Vector2.ZERO)
+		if offset is Vector2:
+			sprite.position = hex_center + offset
+		else:
+			sprite.position = hex_center
+		var layer_index := int(prop.get("layer", 3))
+		sprite.z_index = DECOR_LAYER_Z.get(layer_index, 3)
+		shrub_layer.add_child(sprite)
+		decor_sprites[_decor_key(coords, index)] = sprite
+
+
+func _decor_key(coords: Vector2i, index: int) -> String:
+	return "%d,%d#%d" % [coords.x, coords.y, index]
+
+
+func _clear_decorations(coords: Vector2i) -> void:
+	var prefix := "%d,%d#" % [coords.x, coords.y]
+	for key in decor_sprites.keys().duplicate():
+		if not str(key).begins_with(prefix):
+			continue
+		var sprite := decor_sprites[key] as Sprite2D
+		if is_instance_valid(sprite):
+			sprite.queue_free()
+		decor_sprites.erase(key)
+
 
 func _clear_shrub(coords: Vector2i) -> void:
 	if not shrub_sprites.has(coords):
@@ -254,6 +322,7 @@ func _prune_outside_radius(center_coords: Vector2i, radius: int) -> void:
 		if structure_layer != null:
 			structure_layer.erase_cell(coords)
 		_clear_shrub(coords)
+		_clear_decorations(coords)
 		rendered_cells.erase(coords)
 		if poi_markers.has(coords):
 			poi_markers[coords].queue_free()

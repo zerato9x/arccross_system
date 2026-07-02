@@ -164,6 +164,9 @@ func _ensure_collision_probe(
 		origin + Vector2i(1, 0),
 		origin + Vector2i(1, -1),
 		origin + Vector2i(0, 1),
+		origin + Vector2i(0, -1),
+		origin + Vector2i(-1, 0),
+		origin + Vector2i(-1, 1),
 	]
 	for coords in candidates:
 		var hex := macro_map.world_generator.get_hex_at(coords)

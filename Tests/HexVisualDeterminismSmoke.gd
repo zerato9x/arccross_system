@@ -122,9 +122,9 @@ func _verify_macro_regions(generator: HexWorldGenerator) -> bool:
 		or not hub.is_poi
 		or hub.poi_id != "alpha_central_hub"
 		or hub.hazard_level != 0.0
-		or not hub.impassable
+		or hub.impassable
 	):
-		return _fail("The alpha central hub was not generated as the impassable service POI.")
+		return _fail("The alpha central hub was not generated as the enterable service POI.")
 
 	var core_neighbor := generator.get_hex_at(Vector2i(1, 0))
 	if not core_neighbor.impassable or core_neighbor.is_poi:

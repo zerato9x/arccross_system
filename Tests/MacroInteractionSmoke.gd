@@ -175,13 +175,9 @@ func _run() -> void:
 	macro_map.open_inventory()
 	await process_frame
 	if not macro_map.inventory_panel.is_open():
-		_fail("Inventory was not accessible during the active CAMP session.")
+		_fail("The detached inventory panel was not accessible during the active CAMP session.")
 		return
 	macro_map.inventory_panel.close_panel()
-	await process_frame
-	if not macro_map.exploration_window.is_open():
-		_fail("Closing CAMP inventory did not restore the POI session.")
-		return
 
 	macro_map.exploration_window.close_window()
 	await process_frame

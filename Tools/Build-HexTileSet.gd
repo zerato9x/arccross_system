@@ -94,8 +94,6 @@ static func _categorize_tile(path: String, source_id: int, catalog: MacroTileCat
 		return
 	if lowered.ends_with("/bg_plains.png") or lowered.ends_with("/mud.png"):
 		return
-	if "colony infrastructure" in lowered and "concrete_tiles" not in lowered:
-		return
 
 	if "concrete_tiles" in lowered:
 		_add_to_catalog_array(
@@ -155,6 +153,8 @@ static func _categorize_tile(path: String, source_id: int, catalog: MacroTileCat
 		_add_to_pack(catalog, biome_pack, "structure", GameEnums.MacroStructureLayer.STRUCTURES, source_id)
 		_add_to_pack(catalog, biome_pack, "poi", "structures", source_id)
 	elif "infrastructure" in lowered or "colony infrastructure" in lowered:
+		# Decorative props only: available in TileSet for hand-painting,
+		# but not rolled into procedural enum pools.
 		return
 	elif "bg_plains" in lowered:
 		return
@@ -209,8 +209,6 @@ static func _collect_all_tile_paths() -> PackedStringArray:
 static func _should_collect_tile_path(path: String) -> bool:
 	var lowered := path.to_lower()
 	if lowered.ends_with("/bg_plains.png") or lowered.ends_with("/mud.png"):
-		return false
-	if "colony infrastructure" in lowered and "concrete_tiles" not in lowered:
 		return false
 	return true
 
