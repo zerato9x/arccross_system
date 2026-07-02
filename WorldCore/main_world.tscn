@@ -15,6 +15,7 @@
 [ext_resource type="PackedScene" path="res://UI/HUD/WorldHUD.tscn" id="32_world_hud"]
 [ext_resource type="Resource" path="res://WorldCore/Maps/phase2_east_arm.tres" id="33_authored_map"]
 [ext_resource type="PackedScene" uid="uid://b72xqqy5yyt02" path="res://UI/Inventory/InventoryUI.tscn" id="34_inventory_panel"]
+[ext_resource type="PackedScene" path="res://UI/Macro/MacroExplorationWindow.tscn" id="35_exploration_window"]
 
 [node name="MainWorld" type="Node2D" unique_id=1029321409 node_paths=PackedStringArray("world_generator", "map_visualizer", "player_token", "interaction_panel", "inventory_panel", "world_hud")]
 script = ExtResource("1_tu7u5")
@@ -25,6 +26,7 @@ enemy_token_scene = ExtResource("2_uks48")
 interaction_panel = NodePath("MacroInteractionPanel")
 inventory_panel = NodePath("InventoryPanel/InventoryUI")
 world_hud = NodePath("WorldHUD")
+exploration_window_scene = ExtResource("35_exploration_window")
 
 [node name="HexWorldGenerator" type="Node" parent="." unique_id=1630662270]
 script = ExtResource("2_3etub")

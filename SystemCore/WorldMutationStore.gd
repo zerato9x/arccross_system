@@ -10,7 +10,6 @@ const SAVE_PATH := "user://arccross_world_profile.json"
 const SAVE_VERSION: int = 1
 const VARIANT_TYPE_KEY: String = "__arccross_type"
 const _WorldMutationRules := preload("res://SystemCore/WorldMutationRules.gd")
-const _AuthoredWorldMap := preload("res://WorldCore/AuthoredWorldMap.gd")
 
 var map_id: String = ""
 var core_activated: bool = false
@@ -25,8 +24,8 @@ func _ready() -> void:
 	load_profile()
 
 
-func apply_patch(coords: Vector2i, hex: MacroHexData) -> void:
-	_WorldMutationRules.apply_patch(hex, hex_patches.get(coords, {}))
+func apply_patch_to_record(coords: Vector2i, record: HexRecord) -> void:
+	_WorldMutationRules.apply_patch(record, hex_patches.get(coords, {}))
 
 
 func set_patch(coords: Vector2i, patch: Dictionary) -> void:
@@ -52,18 +51,18 @@ func mark_core_activated(activated: bool = true) -> void:
 
 
 func capture_run_mutations(
-	authored_map: Resource,
-	hex_records: Dictionary,
-	world_seed: String
+	map_identifier: String,
+	baseline_records: Dictionary,
+	hex_records: Dictionary
 ) -> void:
-	if authored_map == null or not authored_map.has_method("has_hex"):
+	if map_identifier.is_empty():
 		return
 	if map_id.is_empty():
-		map_id = authored_map.map_id
-	elif map_id != authored_map.map_id:
+		map_id = map_identifier
+	elif map_id != map_identifier:
 		push_warning(
 			"[WorldMutationStore] Run map '%s' does not match profile '%s'."
-			% [authored_map.map_id, map_id]
+			% [map_identifier, map_id]
 		)
 
 	for coords in hex_records.keys():
@@ -72,7 +71,9 @@ func capture_run_mutations(
 		var record: HexRecord = hex_records[coords]
 		if record == null:
 			continue
-		var baseline := _baseline_hex(authored_map, coords, world_seed)
+		var baseline: HexRecord = baseline_records.get(coords)
+		if baseline == null:
+			baseline = HexRecord.new()
 		var patch: Dictionary = _WorldMutationRules.diff_from_baseline(baseline, record)
 		if patch.is_empty():
 			continue
@@ -167,16 +168,6 @@ func load_profile(path: String = SAVE_PATH) -> bool:
 
 func get_last_save_error() -> String:
 	return _last_save_error
-
-
-func _baseline_hex(
-	authored_map: Resource,
-	coords: Vector2i,
-	world_seed: String
-) -> MacroHexData:
-	if authored_map.has_hex(coords):
-		return authored_map.build_hex_data(coords, world_seed)
-	return HexWorldGenerator.build_void_hex(coords)
 
 
 func _encode_variant(value):

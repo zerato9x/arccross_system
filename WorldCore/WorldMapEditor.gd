@@ -35,7 +35,7 @@ func _ready() -> void:
 func _configure_layer_stack() -> void:
 	var layers := _all_layers()
 	for index in range(layers.size()):
-		var layer := layers[index]
+		var layer: TileMapLayer = layers[index]
 		if layer == null:
 			continue
 		layer.z_index = LAYER_Z[index]
@@ -45,7 +45,7 @@ func _configure_layer_stack() -> void:
 func _apply_layer_focus() -> void:
 	var layers := _all_layers()
 	for index in range(layers.size()):
-		var layer := layers[index]
+		var layer: TileMapLayer = layers[index]
 		if layer == null:
 			continue
 		layer.modulate = Color(1, 1, 1, 1.0 if index == focused_layer else 0.45)
@@ -63,11 +63,10 @@ func _layer_for_focus() -> TileMapLayer:
 	return layers[focused_layer]
 
 
-@export_tool_button("Focus Active Layer")
 func _editor_focus_active_layer() -> void:
 	if not Engine.is_editor_hint():
 		return
-	var layer := _layer_for_focus()
+	var layer: TileMapLayer = _layer_for_focus()
 	if layer == null:
 		push_warning("[WorldMapEditor] No layer assigned for focus index %d." % focused_layer)
 		return
@@ -88,17 +87,15 @@ func _editor_focus_active_layer() -> void:
 				baker.set("props_layer", layer)
 
 
-@export_tool_button("Show All Layers")
 func _editor_show_all_layers() -> void:
 	if not Engine.is_editor_hint():
 		return
-	for layer in _all_layers():
+	for layer: TileMapLayer in _all_layers():
 		if layer != null:
 			layer.modulate = Color.WHITE
 			layer.visible = true
 
 
-@export_tool_button("Sync Selected Marker Coords")
 func _editor_sync_selected_markers() -> void:
 	if not Engine.is_editor_hint():
 		return
@@ -111,7 +108,6 @@ func _editor_sync_selected_markers() -> void:
 			(node as HexMapMarker).sync_coords_from_position(terrain_layer, false)
 
 
-@export_tool_button("Snap Selected Markers To Hex")
 func _editor_snap_selected_markers() -> void:
 	if not Engine.is_editor_hint():
 		return
@@ -124,7 +120,6 @@ func _editor_snap_selected_markers() -> void:
 			(node as HexMapMarker).sync_coords_from_position(terrain_layer, true)
 
 
-@export_tool_button("Sync Selected Decor Coords")
 func _editor_sync_selected_decor() -> void:
 	if not Engine.is_editor_hint():
 		return
@@ -137,7 +132,6 @@ func _editor_sync_selected_decor() -> void:
 			(node as HexDecorProp).sync_coords_from_position(terrain_layer, false)
 
 
-@export_tool_button("Create Marker (at origin)")
 func _editor_create_marker() -> void:
 	if not Engine.is_editor_hint():
 		return
@@ -154,7 +148,6 @@ func _editor_create_marker() -> void:
 	marker.sync_coords_from_position(terrain_layer, false)
 
 
-@export_tool_button("Create Decor Prop (at origin)")
 func _editor_create_decor_prop() -> void:
 	if not Engine.is_editor_hint():
 		return

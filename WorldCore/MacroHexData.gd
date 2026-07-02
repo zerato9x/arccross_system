@@ -70,45 +70,49 @@ func to_state() -> HexRecord:
 	record.rest_in_progress = rest_in_progress
 	return record
 
-static func from_state(state) -> MacroHexData:
-	var hex := MacroHexData.new()
+func apply_state(state) -> void:
 	var source: HexRecord
 	if state is HexRecord:
 		source = state
 	elif state is Dictionary:
 		source = HexRecord.from_dict(state)
 	else:
-		return hex
-	hex.biome = source.biome
-	hex.terrain_tile = source.terrain_tile
-	hex.flora_layer = source.flora_layer
-	hex.rock_layer = source.rock_layer
-	hex.structure_layer = source.structure_layer
-	hex.region = source.region
-	hex.arm_direction = source.arm_direction
-	hex.zone_id = source.zone_id
-	hex.biome_pack = source.biome_pack
-	hex.landmark_id = source.landmark_id
-	hex.impassable = source.impassable
-	hex.terrain_sprite_path = source.terrain_sprite_path
-	hex.flora_sprite_path = source.flora_sprite_path
-	hex.rock_sprite_path = source.rock_sprite_path
-	hex.structure_sprite_path = source.structure_sprite_path
-	hex.is_poi = source.is_poi
-	hex.poi_id = source.poi_id
-	hex.poi_name = source.poi_name
-	hex.is_explored = source.is_explored
-	hex.hazard_level = source.hazard_level
-	hex.visual_variant_hash = source.visual_variant_hash
-	hex.encounter_evaluated = source.encounter_evaluated
-	hex.encounter_entity_id = source.encounter_entity_id
-	hex.search_count = source.search_count
-	hex.camp_item_states = source.camp_item_states.duplicate(true)
-	hex.camp_rest_count = source.camp_rest_count
-	hex.camp_traps = source.camp_traps.duplicate(true)
-	hex.sleep_anchor = source.sleep_anchor
-	hex.sleep_gear_instance_id = source.sleep_gear_instance_id
-	hex.rest_in_progress = source.rest_in_progress
+		return
+	biome = source.biome
+	terrain_tile = source.terrain_tile
+	flora_layer = source.flora_layer
+	rock_layer = source.rock_layer
+	structure_layer = source.structure_layer
+	region = source.region
+	arm_direction = source.arm_direction
+	zone_id = source.zone_id
+	biome_pack = source.biome_pack
+	landmark_id = source.landmark_id
+	impassable = source.impassable
+	terrain_sprite_path = source.terrain_sprite_path
+	flora_sprite_path = source.flora_sprite_path
+	rock_sprite_path = source.rock_sprite_path
+	structure_sprite_path = source.structure_sprite_path
+	is_poi = source.is_poi
+	poi_id = source.poi_id
+	poi_name = source.poi_name
+	is_explored = source.is_explored
+	hazard_level = source.hazard_level
+	visual_variant_hash = source.visual_variant_hash
+	encounter_evaluated = source.encounter_evaluated
+	encounter_entity_id = source.encounter_entity_id
+	search_count = source.search_count
+	camp_item_states = source.camp_item_states.duplicate(true)
+	camp_rest_count = source.camp_rest_count
+	camp_traps = source.camp_traps.duplicate(true)
+	sleep_anchor = source.sleep_anchor
+	sleep_gear_instance_id = source.sleep_gear_instance_id
+	rest_in_progress = source.rest_in_progress
+
+
+static func from_state(state) -> MacroHexData:
+	var hex := MacroHexData.new()
+	hex.apply_state(state)
 	return hex
 
 func is_passable() -> bool:

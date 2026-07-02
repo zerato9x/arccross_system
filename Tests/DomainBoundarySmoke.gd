@@ -1,8 +1,10 @@
 extends SceneTree
 
 const FORBIDDEN_DOMAIN_IMPORTS := {
+	"SystemCore": ["WorldCore/", "CombatCore/", "res://UI/"],
 	"WorldCore": ["CombatCore/", "res://UI/"],
 	"CombatCore": ["WorldCore/", "res://UI/"],
+	"UI": ["res://SystemCore/"],
 	"ItemCore": [
 		"WorldCore/",
 		"CombatCore/",

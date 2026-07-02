@@ -1,6 +1,8 @@
 extends Control
 class_name MainMenu
 
+@export_file("*.tscn") var game_scene_path: String
+
 @onready var btn_new_game = %BtnNewGame
 @onready var btn_continue = %BtnContinue
 @onready var btn_quit = %BtnQuit
@@ -33,7 +35,7 @@ func _on_new_game() -> void:
 	var save_service = get_node_or_null("/root/SaveLoadService")
 	if save_service:
 		save_service.begin_new_world("DEMO_WASTELAND_01")
-	get_tree().change_scene_to_file("res://SystemCore/game_director.tscn")
+	_change_to_game_scene()
 
 func _on_continue() -> void:
 	save_load_menu.visible = true
@@ -42,7 +44,14 @@ func _on_continue() -> void:
 func _on_slot_selected(slot_index: int) -> void:
 	var save_service = get_node_or_null("/root/SaveLoadService")
 	if save_service and save_service.load_from_slot(slot_index):
-		get_tree().change_scene_to_file("res://SystemCore/game_director.tscn")
+		_change_to_game_scene()
+
+
+func _change_to_game_scene() -> void:
+	if game_scene_path.is_empty():
+		push_error("[MainMenu] Missing game_scene_path.")
+		return
+	get_tree().change_scene_to_file(game_scene_path)
 
 func _on_save_load_closed() -> void:
 	save_load_menu.visible = false

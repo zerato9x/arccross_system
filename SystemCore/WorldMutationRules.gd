@@ -33,17 +33,17 @@ const PERSISTENT_FIELDS := [
 ]
 
 
-static func apply_patch(hex: MacroHexData, patch: Dictionary) -> void:
+static func apply_patch(record: HexRecord, patch: Dictionary) -> void:
 	if patch.is_empty():
 		return
 	for field_name in PERSISTENT_FIELDS:
 		if not patch.has(field_name):
 			continue
-		hex.set(field_name, patch[field_name])
+		record.set(field_name, patch[field_name])
 
 
 static func diff_from_baseline(
-	baseline: MacroHexData,
+	baseline: HexRecord,
 	current: HexRecord
 ) -> Dictionary:
 	var patch: Dictionary = {}

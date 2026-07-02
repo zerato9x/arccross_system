@@ -213,7 +213,7 @@ func get_active_arena() -> Node:
 
 
 func exit_to_main_menu() -> void:
-	get_tree().change_scene_to_file(GameEnums.PRESENTATION_MAIN_MENU_SCENE)
+	get_tree().change_scene_to_file(PresentationSceneRegistry.MAIN_MENU_SCENE)
 
 func _start_macro_audio() -> void:
 	var snapshot: Dictionary = _world_state.get_world_time_snapshot()

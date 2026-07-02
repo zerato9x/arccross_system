@@ -144,8 +144,13 @@ func _finalize_authored_hex(coords: Vector2i, hex: MacroHexData) -> void:
 		)
 
 func _apply_world_mutations(coords: Vector2i, hex: MacroHexData) -> void:
-	if _mutation_store != null and _mutation_store.has_method("apply_patch"):
-		_mutation_store.apply_patch(coords, hex)
+	if _mutation_store == null:
+		return
+	if not _mutation_store.has_method("apply_patch_to_record"):
+		return
+	var record := hex.to_state()
+	_mutation_store.apply_patch_to_record(coords, record)
+	hex.apply_state(record)
 
 func _assign_zone_identity(coords: Vector2i, hex: MacroHexData) -> void:
 	var distance := _hex_distance(Vector2i.ZERO, coords)

@@ -35,7 +35,6 @@ func _ready() -> void:
 		tile_catalog = load(CATALOG_PATH) as MacroTileCatalog
 
 
-@export_tool_button("Bake Authored Map")
 func _editor_bake_authored_map() -> void:
 	if Engine.is_editor_hint():
 		bake_to_resource(true)

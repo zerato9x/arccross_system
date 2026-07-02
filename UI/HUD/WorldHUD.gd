@@ -162,7 +162,11 @@ func _connect_buttons() -> void:
 	_menu_save_button.pressed.connect(func(): _open_save_load("save"))
 	_menu_load_button.pressed.connect(func(): _open_save_load("load"))
 	_menu_settings_button.pressed.connect(_open_settings)
-	_menu_exit_main_button.pressed.connect(func(): get_tree().change_scene_to_file("res://UI/MainMenu.tscn"))
+	_menu_exit_main_button.pressed.connect(
+		func(): get_tree().change_scene_to_file(
+			PresentationSceneRegistry.MAIN_MENU_SCENE
+		)
+	)
 	_menu_close_button.pressed.connect(_close_menu)
 	_settings_close_button.pressed.connect(_close_settings)
 	

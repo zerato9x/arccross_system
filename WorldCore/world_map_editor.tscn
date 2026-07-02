@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3 uid="uid://iyfucuw2e3ei"]
+[gd_scene format=3 uid="uid://iyfucuw2e3ei"]
 
 [ext_resource type="Script" path="res://WorldCore/WorldMapEditor.gd" id="1_editor"]
 [ext_resource type="Script" path="res://WorldCore/AuthoredWorldMapBaker.gd" id="2_baker"]

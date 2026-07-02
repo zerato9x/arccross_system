@@ -1,17 +1,17 @@
 [gd_scene format=3 uid="uid://mainmenu"]
 
-[ext_resource type="Script" path="res://UI/MainMenu.gd" id="1_script"]
-[ext_resource type="PackedScene" path="res://UI/SaveLoadMenu.tscn" id="3_saveload"]
-[ext_resource type="AudioStream" path="res://SoundCore/Sound/soundtrack_1/Survivor - ending - lonely - sad - strings.wav" id="4_audio"]
-[ext_resource type="Texture2D" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sky.png" id="bg_sky"]
-[ext_resource type="Texture2D" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/moon.png" id="bg_moon"]
-[ext_resource type="Texture2D" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sand_back.png" id="bg_sand_back"]
-[ext_resource type="Texture2D" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sand.png" id="bg_sand"]
-[ext_resource type="Texture2D" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sand&objects3.png" id="bg_sand_obj3"]
-[ext_resource type="Texture2D" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sand&objects2.png" id="bg_sand_obj2"]
-[ext_resource type="Texture2D" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sand&objects1.png" id="bg_sand_obj1"]
+[ext_resource type="Script" uid="uid://cxxgo3weab0re" path="res://UI/MainMenu.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://saveloadmenu" path="res://UI/SaveLoadMenu.tscn" id="3_saveload"]
+[ext_resource type="AudioStream" uid="uid://br1f1fdq7ga0" path="res://SoundCore/Sound/soundtrack_1/Survivor - ending - lonely - sad - strings.wav" id="4_audio"]
+[ext_resource type="Texture2D" uid="uid://4obpvtgbx5a6" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/moon.png" id="bg_moon"]
+[ext_resource type="Texture2D" uid="uid://dsj48gesp1ssf" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sand.png" id="bg_sand"]
+[ext_resource type="Texture2D" uid="uid://b47m7gr3b1ivh" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sand_back.png" id="bg_sand_back"]
+[ext_resource type="Texture2D" uid="uid://duoqkbw17r4dg" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sand&objects1.png" id="bg_sand_obj1"]
+[ext_resource type="Texture2D" uid="uid://brsjm3nhbl2td" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sand&objects2.png" id="bg_sand_obj2"]
+[ext_resource type="Texture2D" uid="uid://bi1qvvkp5gekr" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sand&objects3.png" id="bg_sand_obj3"]
+[ext_resource type="Texture2D" uid="uid://csugpp0lpd5mt" path="res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce3/Bright/sky.png" id="bg_sky"]
 
-[node name="MainMenu" type="Control"]
+[node name="MainMenu" type="Control" unique_id=1968204024]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,67 +19,67 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_script")
+game_scene_path = "res://SystemCore/game_director.tscn"
 
-[node name="ParallaxBackground" type="ParallaxBackground" parent="."]
+[node name="ParallaxBackground" type="ParallaxBackground" parent="." unique_id=44226532]
 unique_name_in_owner = true
 
-[node name="SkyLayer" type="ParallaxLayer" parent="ParallaxBackground"]
+[node name="SkyLayer" type="ParallaxLayer" parent="ParallaxBackground" unique_id=1190067016]
 motion_scale = Vector2(0.01, 1)
 motion_mirroring = Vector2(1920, 0)
 
-[node name="Sky" type="Sprite2D" parent="ParallaxBackground/SkyLayer"]
+[node name="Sky" type="Sprite2D" parent="ParallaxBackground/SkyLayer" unique_id=1985406006]
 texture = ExtResource("bg_sky")
 centered = false
 
-[node name="MoonLayer" type="ParallaxLayer" parent="ParallaxBackground"]
+[node name="MoonLayer" type="ParallaxLayer" parent="ParallaxBackground" unique_id=1590853182]
 motion_scale = Vector2(0.02, 1)
 motion_mirroring = Vector2(1920, 0)
 
-[node name="Moon" type="Sprite2D" parent="ParallaxBackground/MoonLayer"]
+[node name="Moon" type="Sprite2D" parent="ParallaxBackground/MoonLayer" unique_id=1325939447]
 texture = ExtResource("bg_moon")
 centered = false
 
-[node name="SandBackLayer" type="ParallaxLayer" parent="ParallaxBackground"]
+[node name="SandBackLayer" type="ParallaxLayer" parent="ParallaxBackground" unique_id=529874131]
 motion_scale = Vector2(0.1, 1)
 motion_mirroring = Vector2(1920, 0)
 
-[node name="SandBack" type="Sprite2D" parent="ParallaxBackground/SandBackLayer"]
+[node name="SandBack" type="Sprite2D" parent="ParallaxBackground/SandBackLayer" unique_id=1822083388]
 texture = ExtResource("bg_sand_back")
 centered = false
 
-[node name="SandLayer" type="ParallaxLayer" parent="ParallaxBackground"]
+[node name="SandLayer" type="ParallaxLayer" parent="ParallaxBackground" unique_id=1087523641]
 motion_scale = Vector2(0.2, 1)
 motion_mirroring = Vector2(1920, 0)
 
-[node name="Sand" type="Sprite2D" parent="ParallaxBackground/SandLayer"]
+[node name="Sand" type="Sprite2D" parent="ParallaxBackground/SandLayer" unique_id=74152704]
 texture = ExtResource("bg_sand")
 centered = false
 
-[node name="SandObj3Layer" type="ParallaxLayer" parent="ParallaxBackground"]
+[node name="SandObj3Layer" type="ParallaxLayer" parent="ParallaxBackground" unique_id=824854147]
 motion_scale = Vector2(0.4, 1)
 motion_mirroring = Vector2(1920, 0)
 
-[node name="SandObj3" type="Sprite2D" parent="ParallaxBackground/SandObj3Layer"]
+[node name="SandObj3" type="Sprite2D" parent="ParallaxBackground/SandObj3Layer" unique_id=1140314177]
 texture = ExtResource("bg_sand_obj3")
 centered = false
 
-[node name="SandObj2Layer" type="ParallaxLayer" parent="ParallaxBackground"]
+[node name="SandObj2Layer" type="ParallaxLayer" parent="ParallaxBackground" unique_id=1188730573]
 motion_scale = Vector2(0.7, 1)
 motion_mirroring = Vector2(1920, 0)
 
-[node name="SandObj2" type="Sprite2D" parent="ParallaxBackground/SandObj2Layer"]
+[node name="SandObj2" type="Sprite2D" parent="ParallaxBackground/SandObj2Layer" unique_id=281020428]
 texture = ExtResource("bg_sand_obj2")
 centered = false
 
-[node name="SandObj1Layer" type="ParallaxLayer" parent="ParallaxBackground"]
-motion_scale = Vector2(1.0, 1)
+[node name="SandObj1Layer" type="ParallaxLayer" parent="ParallaxBackground" unique_id=863772910]
 motion_mirroring = Vector2(1920, 0)
 
-[node name="SandObj1" type="Sprite2D" parent="ParallaxBackground/SandObj1Layer"]
+[node name="SandObj1" type="Sprite2D" parent="ParallaxBackground/SandObj1Layer" unique_id=1695252272]
 texture = ExtResource("bg_sand_obj1")
 centered = false
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=2097686253]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -87,39 +87,39 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer" unique_id=431406069]
 layout_mode = 2
 theme_override_constants/separation = 20
 
-[node name="Title" type="Label" parent="CenterContainer/VBoxContainer"]
+[node name="Title" type="Label" parent="CenterContainer/VBoxContainer" unique_id=3164978]
 layout_mode = 2
 theme_override_font_sizes/font_size = 48
 text = "ARCCROSS"
 horizontal_alignment = 1
 
-[node name="BtnNewGame" type="Button" parent="CenterContainer/VBoxContainer"]
+[node name="BtnNewGame" type="Button" parent="CenterContainer/VBoxContainer" unique_id=1821042727]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(200, 50)
 layout_mode = 2
 text = "NEW GAME"
 
-[node name="BtnContinue" type="Button" parent="CenterContainer/VBoxContainer"]
+[node name="BtnContinue" type="Button" parent="CenterContainer/VBoxContainer" unique_id=1122660615]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(200, 50)
 layout_mode = 2
 text = "CONTINUE"
 
-[node name="BtnQuit" type="Button" parent="CenterContainer/VBoxContainer"]
+[node name="BtnQuit" type="Button" parent="CenterContainer/VBoxContainer" unique_id=1189387435]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(200, 50)
 layout_mode = 2
 text = "QUIT"
 
-[node name="SaveLoadMenu" parent="." instance=ExtResource("3_saveload")]
+[node name="SaveLoadMenu" parent="." unique_id=77627652 instance=ExtResource("3_saveload")]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
 
-[node name="BGM" type="AudioStreamPlayer" parent="."]
+[node name="BGM" type="AudioStreamPlayer" parent="." unique_id=366169804]
 stream = ExtResource("4_audio")
 autoplay = true

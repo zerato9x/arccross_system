@@ -16,6 +16,7 @@ signal core_activated
 @export var interaction_panel: MacroInteractionPanel
 @export var inventory_panel: InventoryUI
 @export var world_hud: WorldHUD
+@export var exploration_window_scene: PackedScene
 
 var exploration_window: MacroExplorationWindow
 
@@ -68,7 +69,6 @@ const HEX_NEIGHBORS = [
 	Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1), 
 	Vector2i(-1, 0), Vector2i(-1, 1), Vector2i(0, 1)
 ]
-const _ExplorationWindowScene := preload("res://UI/Macro/MacroExplorationWindow.tscn")
 const _SnapshotBuilder := preload("res://WorldCore/MacroSnapshotBuilder.gd")
 const _PoiController := preload("res://WorldCore/MacroPoiController.gd")
 const _NpcSimulator := preload("res://WorldCore/MacroNpcSimulator.gd")
@@ -150,13 +150,18 @@ func _ready() -> void:
 		interaction_panel.inventory_requested.connect(open_inventory)
 		interaction_panel.interaction_closed.connect(close_macro_interaction)
 
-	exploration_window = _ExplorationWindowScene.instantiate() as MacroExplorationWindow
-	exploration_window.name = "MacroExplorationWindow"
-	add_child(exploration_window)
-	exploration_window.poi_action_submitted.connect(resolve_poi_action)
-	exploration_window.poi_preview_requested.connect(preview_poi_action)
-	exploration_window.inventory_action_requested.connect(resolve_inventory_action)
-	exploration_window.interaction_closed.connect(close_macro_interaction)
+	if exploration_window_scene:
+		exploration_window = (
+			exploration_window_scene.instantiate() as MacroExplorationWindow
+		)
+		exploration_window.name = "MacroExplorationWindow"
+		add_child(exploration_window)
+		exploration_window.poi_action_submitted.connect(resolve_poi_action)
+		exploration_window.poi_preview_requested.connect(preview_poi_action)
+		exploration_window.inventory_action_requested.connect(resolve_inventory_action)
+		exploration_window.interaction_closed.connect(close_macro_interaction)
+	else:
+		push_error("[MacroGameManager] Missing exploration_window_scene.")
 
 	if inventory_panel:
 		inventory_panel.inventory_action_requested.connect(resolve_inventory_action)
@@ -247,10 +252,27 @@ func flush_world_mutations() -> void:
 	if not _mutation_store.has_method("capture_run_mutations"):
 		return
 	_mutation_store.capture_run_mutations(
-		world_generator.authored_map,
-		_world_state.hex_records,
-		_world_state.world_seed
+		world_generator.authored_map.map_id,
+		_build_mutation_baseline_records(_world_state.hex_records.keys()),
+		_world_state.hex_records
 	)
+
+
+func _build_mutation_baseline_records(coords_list: Array) -> Dictionary:
+	var baseline_records: Dictionary = {}
+	for coords in coords_list:
+		if not coords is Vector2i:
+			continue
+		var baseline_hex: MacroHexData
+		if world_generator.authored_map.has_hex(coords):
+			baseline_hex = world_generator.authored_map.build_hex_data(
+				coords,
+				_world_state.world_seed
+			)
+		else:
+			baseline_hex = HexWorldGenerator.build_void_hex(coords)
+		baseline_records[coords] = baseline_hex.to_state()
+	return baseline_records
 
 
 func _bind_authored_map_profile() -> void:

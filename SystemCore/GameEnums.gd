@@ -67,13 +67,6 @@ const MACRO_INV_MOVE := "move"
 const MACRO_INV_LOAD_MAGAZINE := "load_magazine"
 const MACRO_INV_INTERACT := "interact"
 
-## Presentation scene paths referenced by orchestration code.
-const PRESENTATION_PAPER_DOLL_SCENE := "res://UI/Inventory/PaperDollModel.tscn"
-const PRESENTATION_MAIN_MENU_SCENE := "res://UI/MainMenu.tscn"
-const PRESENTATION_HUMANOID_TOKEN_SCENE := "res://UI/Humanoid/HumanoidToken.tscn"
-const PRESENTATION_INVENTORY_UI_SCENE := "res://UI/Inventory/InventoryUI.tscn"
-const PRESENTATION_WORLD_HUD_SCENE := "res://UI/HUD/WorldHUD.tscn"
-
 ## World HUD hex command IDs (intent from presentation).
 const MACRO_HEX_SCAN := "scan"
 const MACRO_HEX_TRAVEL := "travel"
