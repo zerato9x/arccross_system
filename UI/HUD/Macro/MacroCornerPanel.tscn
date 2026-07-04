@@ -2,51 +2,49 @@
 
 [ext_resource type="Script" path="res://UI/HUD/Macro/MacroCornerPanel.gd" id="1_base"]
 
-[node name="MacroCornerPanel" type="PanelContainer"]
+[node name="MacroCornerPanel" type="Control"]
 layout_mode = 0
 script = ExtResource("1_base")
+
+[node name="PreviewRoot" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ExpandedRoot" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
 [node name="EmergencyOverlay" type="ColorRect" parent="."]
 unique_name_in_owner = true
 visible = false
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 color = Color(1, 0.2, 0.15, 0.35)
-
-[node name="RootMargin" type="MarginContainer" parent="."]
-layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 8
-
-[node name="Stack" type="Control" parent="RootMargin"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-
-[node name="PreviewRoot" type="Control" parent="RootMargin/Stack"]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="ExpandedRoot" type="Control" parent="RootMargin/Stack"]
-unique_name_in_owner = true
-visible = false
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
 
 [node name="CloseButton" type="Button" parent="."]
 unique_name_in_owner = true
 visible = false
-layout_mode = 2
-size_flags_horizontal = 8
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -28.0
+offset_bottom = 28.0
+grow_horizontal = 0
 text = "X"

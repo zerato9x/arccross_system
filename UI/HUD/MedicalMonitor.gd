@@ -75,11 +75,41 @@ var _structure_status: Label
 @onready var _content: VBoxContainer = %Content
 
 var _panel_scale := 1.0
+var _embedded_fit := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_interface()
 	visible = false
+	_apply_embedded_fit()
+
+func set_embedded_fit(enabled: bool) -> void:
+	_embedded_fit = enabled
+	_apply_embedded_fit()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		_apply_embedded_fit()
+
+func _apply_embedded_fit() -> void:
+	if _monitor_panel == null:
+		return
+	if not _embedded_fit:
+		_monitor_panel.scale = Vector2.ONE
+		_monitor_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		return
+	var host_size := size
+	if host_size.x <= 0.0 or host_size.y <= 0.0:
+		return
+	var panel_size := _monitor_panel.get_combined_minimum_size()
+	if panel_size.x <= 0.0 or panel_size.y <= 0.0:
+		return
+	var fit_scale := minf(host_size.x / panel_size.x, host_size.y / panel_size.y)
+	fit_scale = clampf(fit_scale, 0.25, 1.0)
+	_monitor_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_monitor_panel.position = Vector2.ZERO
+	_monitor_panel.size = panel_size
+	_monitor_panel.scale = Vector2.ONE * fit_scale
 
 func set_panel_scale(scale_value: float) -> void:
 	_panel_scale = scale_value

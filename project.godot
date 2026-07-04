@@ -19,11 +19,11 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 GameEnums="*res://SystemCore/GameEnums.gd"
 GameEventBus="*res://SystemCore/GameEventBus.gd"
 WorldState="*res://SystemCore/RuntimeStateStore.gd"
-WorldMutationStore="*res://SystemCore/WorldMutationStore.gd"
 LootCatalog="*res://SystemCore/LootCatalog.gd"
 MobSpawner="*res://SystemCore/MobSpawner.gd"
 SaveLoadService="*res://SystemCore/SaveLoadService.gd"
 AudioConductor="*res://SoundCore/audio_conductor.gd"
+WorldMutationStore="*res://SystemCore/WorldMutationStore.gd"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
 [editor_plugins]

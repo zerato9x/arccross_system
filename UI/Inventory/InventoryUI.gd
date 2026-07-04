@@ -212,6 +212,7 @@ func open_embedded_panel(host: Control, snapshot: Dictionary, feedback: String =
 	visible = true
 	if get_parent() != host:
 		reparent(host)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_apply_presentation_layout()
 	_render()
 
@@ -324,6 +325,7 @@ func _apply_presentation_layout() -> void:
 	var canvas_layer := get_parent() as CanvasLayer
 	if _presentation_mode == PresentationMode.SIDE_PANEL:
 		_backdrop.visible = false
+		_shell.scale = Vector2.ONE
 		_shell.set_anchors_preset(Control.PRESET_CENTER_LEFT)
 		_shell.offset_left = 20.0
 		_shell.offset_top = -320.0
@@ -335,13 +337,14 @@ func _apply_presentation_layout() -> void:
 			canvas_layer.layer = 21
 	elif _presentation_mode == PresentationMode.EMBEDDED:
 		_backdrop.visible = false
-		_shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_fit_shell_to_embedded_host()
 		if _ground_panel:
 			_ground_panel.visible = false
 		if canvas_layer:
 			canvas_layer.layer = 8
 	else:
 		_backdrop.visible = true
+		_shell.scale = Vector2.ONE
 		_shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_shell.offset_left = 10.0
 		_shell.offset_top = 10.0
@@ -351,6 +354,20 @@ func _apply_presentation_layout() -> void:
 			_ground_panel.visible = true
 		if canvas_layer:
 			canvas_layer.layer = 1
+
+func _fit_shell_to_embedded_host() -> void:
+	_shell.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_shell.position = Vector2.ZERO
+	var host_size := size
+	var shell_size := _shell.get_combined_minimum_size()
+	if host_size.x <= 0.0 or host_size.y <= 0.0 or shell_size.x <= 0.0 or shell_size.y <= 0.0:
+		_shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_shell.scale = Vector2.ONE
+		return
+	var fit_scale := minf(host_size.x / shell_size.x, host_size.y / shell_size.y)
+	fit_scale = clampf(fit_scale, 0.25, 1.0)
+	_shell.size = shell_size
+	_shell.scale = Vector2.ONE * fit_scale
 
 func _build_header() -> Control:
 	var header := HBoxContainer.new()

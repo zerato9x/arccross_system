@@ -1,7 +1,14 @@
-[gd_scene load_steps=3 format=3 uid="uid://macro_hex_corner"]
+[gd_scene format=3 uid="uid://b2ql3tw8hbf3q"]
 
 [ext_resource type="PackedScene" path="res://UI/HUD/Macro/MacroCornerPanel.tscn" id="1_base"]
-[ext_resource type="Script" path="res://UI/HUD/Macro/MacroHexCornerPanel.gd" id="2_script"]
+[ext_resource type="Script" uid="uid://b6v4gvj7mu6qr" path="res://UI/HUD/Macro/MacroHexCornerPanel.gd" id="2_script"]
+[ext_resource type="PackedScene" path="res://UI/HUD/Macro/MacroHexPreviewPanel.tscn" id="3_rwemp"]
 
-[node name="MacroHexPanel" instance=ExtResource("1_base")]
+[node name="MacroHexPanel" unique_id=1676794786 instance=ExtResource("1_base")]
+layout_mode = 3
+anchors_preset = 0
 script = ExtResource("2_script")
+
+[node name="MacroHexPreviewPanel" parent="PreviewRoot" index="0" unique_id=1277015574 instance=ExtResource("3_rwemp")]
+layout_mode = 0
+anchors_preset = 0

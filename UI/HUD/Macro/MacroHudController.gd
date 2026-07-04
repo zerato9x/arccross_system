@@ -55,6 +55,8 @@ func _ready() -> void:
 		func(insets: Rect2i): viewport_insets_changed.emit(insets)
 	)
 	_health_panel.medical_action_requested.connect(medical_action_requested.emit)
+	_health_panel.inventory_requested.connect(toggle_inventory_panel)
+	_health_panel.settings_requested.connect(_open_settings)
 	_hex_panel.expand_requested_hex.connect(hex_preview_expand_requested.emit)
 	_hex_panel.travel_requested_hex.connect(hex_preview_travel_requested.emit)
 	_world_status.settings_requested.connect(_open_settings)

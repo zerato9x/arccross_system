@@ -1,0 +1,75 @@
+[gd_scene load_steps=3 format=3 uid="uid://macro_world_status_panel"]
+
+[ext_resource type="Script" path="res://UI/HUD/Macro/MacroWorldStatusPanel.gd" id="1_status"]
+[ext_resource type="Script" path="res://UI/HUD/Macro/PocketClockDisplay.gd" id="2_clock"]
+
+[node name="MacroWorldStatusPanel" type="Control"]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -250.0
+offset_top = -132.0
+offset_right = -14.0
+offset_bottom = -14.0
+grow_horizontal = 0
+grow_vertical = 0
+script = ExtResource("1_status")
+
+[node name="Frame" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="Frame"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="Column" type="VBoxContainer" parent="Frame/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Top" type="HBoxContainer" parent="Frame/Margin/Column"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PocketClock" type="Control" parent="Frame/Margin/Column/Top"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 48)
+layout_mode = 2
+script = ExtResource("2_clock")
+
+[node name="DayIcon" type="TextureRect" parent="Frame/Margin/Column/Top"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TextColumn" type="VBoxContainer" parent="Frame/Margin/Column/Top"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="DayLabel" type="Label" parent="Frame/Margin/Column/Top/TextColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "DAY 001"
+
+[node name="CalendarLabel" type="Label" parent="Frame/Margin/Column/Top/TextColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "JAN 0001"
+
+[node name="SettingsButton" type="Button" parent="Frame/Margin/Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+text = "SET"

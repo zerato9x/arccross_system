@@ -1,7 +1,15 @@
-[gd_scene load_steps=3 format=3 uid="uid://macro_health_corner"]
+[gd_scene format=3 uid="uid://s184eshx8lwb"]
 
 [ext_resource type="PackedScene" path="res://UI/HUD/Macro/MacroCornerPanel.tscn" id="1_base"]
-[ext_resource type="Script" path="res://UI/HUD/Macro/MacroHealthCornerPanel.gd" id="2_script"]
+[ext_resource type="Script" uid="uid://b3yxt1n1ovdix" path="res://UI/HUD/Macro/MacroHealthCornerPanel.gd" id="2_script"]
+[ext_resource type="PackedScene" path="res://UI/HUD/Macro/MacroStatusPanel.tscn" id="3_hmij4"]
+[ext_resource type="PackedScene" path="res://UI/HUD/MedicalMonitor.tscn" id="4_txyx2"]
 
-[node name="MacroHealthPanel" instance=ExtResource("1_base")]
+[node name="MacroHealthPanel" unique_id=1508651735 instance=ExtResource("1_base")]
+layout_mode = 3
+anchors_preset = 0
 script = ExtResource("2_script")
+
+[node name="MacroStatusPanel" parent="PreviewRoot" index="0" unique_id=1347981757 instance=ExtResource("3_hmij4")]
+
+[node name="MedicalMonitor" parent="ExpandedRoot" index="0" unique_id=131878813 instance=ExtResource("4_txyx2")]

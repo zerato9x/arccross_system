@@ -1,11 +1,11 @@
-[gd_scene format=3 uid="uid://duh2uglrkqw5p"]
+[gd_scene load_steps=7 format=3 uid="uid://duh2uglrkqw5p"]
 
 [ext_resource type="Script" uid="uid://h3lyjc54on7d" path="res://UI/HUD/Macro/MacroHudController.gd" id="1_controller"]
 [ext_resource type="PackedScene" path="res://UI/HUD/Macro/MacroHealthCornerPanel.tscn" id="3_xn8iu"]
 [ext_resource type="PackedScene" path="res://UI/HUD/Macro/MacroInventoryCornerPanel.tscn" id="4_b7dj2"]
 [ext_resource type="PackedScene" uid="uid://saveloadmenu" path="res://UI/SaveLoadMenu.tscn" id="4_saveload"]
 [ext_resource type="PackedScene" path="res://UI/HUD/Macro/MacroHexCornerPanel.tscn" id="5_hd7qt"]
-[ext_resource type="Script" uid="uid://cimnkoibgovi8" path="res://UI/HUD/Macro/MacroWorldStatusPanel.gd" id="6_mf032"]
+[ext_resource type="PackedScene" path="res://UI/HUD/Macro/MacroWorldStatusPanel.tscn" id="6_mf032"]
 
 [node name="MacroHudShell" type="CanvasLayer" unique_id=1938836460]
 script = ExtResource("1_controller")
@@ -112,22 +112,50 @@ layout_mode = 1
 
 [node name="MacroHealthPanel" parent="Root" unique_id=1629032190 instance=ExtResource("3_xn8iu")]
 unique_name_in_owner = true
+layout_mode = 1
+offset_left = 14.0
+offset_top = 14.0
+offset_right = 412.0
+offset_bottom = 234.0
+use_authored_preview_rect = true
 
 [node name="MacroInventoryPanel" parent="Root" unique_id=208845366 instance=ExtResource("4_b7dj2")]
 unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 14.0
+offset_top = -142.0
+offset_right = 334.0
+offset_bottom = -14.0
+grow_vertical = 0
+use_authored_preview_rect = true
 
 [node name="MacroHexPanel" parent="Root" unique_id=600562581 instance=ExtResource("5_hd7qt")]
 unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -340.0
+offset_top = 14.0
+offset_right = -14.0
+offset_bottom = 374.0
+grow_horizontal = 0
+use_authored_preview_rect = true
 
-[node name="MacroWorldStatusPanel" type="Control" parent="Root" unique_id=1070849637]
+[node name="MacroWorldStatusPanel" parent="Root" unique_id=1070849637 instance=ExtResource("6_mf032")]
 unique_name_in_owner = true
-anchors_preset = 0
+layout_mode = 1
+anchors_preset = 3
 anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -232.0
-offset_top = -122.0
-offset_right = -12.0
-offset_bottom = -12.0
-script = ExtResource("6_mf032")
+offset_left = -250.0
+offset_top = -132.0
+offset_right = -14.0
+offset_bottom = -14.0
+grow_horizontal = 0
+grow_vertical = 0

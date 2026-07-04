@@ -1,6 +1,8 @@
 extends "res://PresentationCore/HUDAssetLibrary.gd"
 class_name RevampedHUDAtlas
 
+# Widget-only helper for the revamped art pack. Corner panel chrome belongs to
+# HUDAssetLibrary; do not apply these atlas panels to resizable HUD shells.
 const UI_ATLAS := REVAMPED_ROOT + "UI Assets pack_v.1_st/UI.png"
 const TIME_WEATHER_ATLAS := REVAMPED_ROOT + "UI assets pack 2/Time & weather.png"
 const CLOCK_FRAME := (

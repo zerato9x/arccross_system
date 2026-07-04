@@ -1,4 +1,4 @@
-extends PanelContainer
+extends Control
 class_name MacroCornerPanel
 
 signal state_changed(panel_id: String, state: int)
@@ -16,9 +16,18 @@ const EXPAND_HEIGHT_RATIO := 0.50
 @export var panel_corner: PanelCorner = PanelCorner.TOP_LEFT
 @export var can_expand: bool = true
 @export var preview_size: Vector2 = Vector2(260.0, 200.0)
+@export var use_authored_preview_rect: bool = false
 
 var _state: PanelState = PanelState.PREVIEW
 var _snapshot: Dictionary = {}
+var _authored_anchor_left := 0.0
+var _authored_anchor_top := 0.0
+var _authored_anchor_right := 0.0
+var _authored_anchor_bottom := 0.0
+var _authored_offset_left := 0.0
+var _authored_offset_top := 0.0
+var _authored_offset_right := 0.0
+var _authored_offset_bottom := 0.0
 
 @onready var _preview_root: Control = %PreviewRoot
 @onready var _expanded_root: Control = %ExpandedRoot
@@ -27,7 +36,7 @@ var _snapshot: Dictionary = {}
 
 
 func _ready() -> void:
-	HUDAssetLibrary.apply_panel(self, "neutral")
+	_capture_authored_rect()
 	if _close_button:
 		_close_button.pressed.connect(collapse)
 		_close_button.visible = false
@@ -109,10 +118,37 @@ func _apply_layout() -> void:
 		)
 		custom_minimum_size = expanded
 		size = expanded
+		_set_corner_anchors()
 	else:
 		custom_minimum_size = preview_size
-		size = preview_size
-	_set_corner_anchors()
+		if use_authored_preview_rect:
+			_restore_authored_rect()
+			size = preview_size
+		else:
+			size = preview_size
+			_set_corner_anchors()
+
+
+func _capture_authored_rect() -> void:
+	_authored_anchor_left = anchor_left
+	_authored_anchor_top = anchor_top
+	_authored_anchor_right = anchor_right
+	_authored_anchor_bottom = anchor_bottom
+	_authored_offset_left = offset_left
+	_authored_offset_top = offset_top
+	_authored_offset_right = offset_right
+	_authored_offset_bottom = offset_bottom
+
+
+func _restore_authored_rect() -> void:
+	anchor_left = _authored_anchor_left
+	anchor_top = _authored_anchor_top
+	anchor_right = _authored_anchor_right
+	anchor_bottom = _authored_anchor_bottom
+	offset_left = _authored_offset_left
+	offset_top = _authored_offset_top
+	offset_right = _authored_offset_right
+	offset_bottom = _authored_offset_bottom
 
 
 func _set_corner_anchors() -> void:

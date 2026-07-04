@@ -3,10 +3,13 @@ class_name MacroStatusPanel
 
 signal inventory_requested
 signal settings_requested
+signal body_scan_requested
 
 enum Mode { COMPACT, DETAILED }
 
 const MAX_SCALE := 12.0
+
+@export var body_scan_opens_internal := true
 
 var _snapshot: Dictionary = {}
 var _mode := Mode.COMPACT
@@ -25,7 +28,7 @@ var _vital_rows: Dictionary = {}
 func _ready() -> void:
 	_bind_vital_rows()
 	_apply_assets()
-	_body_scan_button.pressed.connect(toggle_body_scan)
+	_body_scan_button.pressed.connect(_on_body_scan_pressed)
 	_inventory_button.pressed.connect(inventory_requested.emit)
 	_settings_button.pressed.connect(settings_requested.emit)
 	_medical_monitor.closed.connect(_on_medical_closed)
@@ -42,6 +45,20 @@ func toggle_body_scan() -> void:
 		_set_mode(Mode.DETAILED)
 	else:
 		_set_mode(Mode.COMPACT)
+
+func set_clock_visible(clock_visible: bool) -> void:
+	var icon := get_node_or_null("%TimeIcon") as TextureRect
+	var label := get_node_or_null("%TimeLabel") as Label
+	if icon:
+		icon.visible = clock_visible
+	if label:
+		label.visible = clock_visible
+
+func is_action_button_at(global_pos: Vector2) -> bool:
+	for button in [_body_scan_button, _inventory_button, _settings_button]:
+		if button and button.get_global_rect().has_point(global_pos):
+			return true
+	return false
 
 func is_detailed() -> bool:
 	return _mode == Mode.DETAILED
@@ -84,9 +101,9 @@ func _apply_assets() -> void:
 
 func _apply_vital_icon(key: String, icon_name: String, fill_kind: String) -> void:
 	var row: Dictionary = _vital_rows[key]
-	(row["icon"] as TextureRect).texture = HUDAssetLibrary.status_icon(icon_name)
+	(row["icon"] as TextureRect).texture = RevampedHUDAtlas.stat_icon(icon_name)
 	HUDAssetLibrary.apply_label(row["label"], "body")
-	HUDAssetLibrary.apply_progress_bar(row["bar"], fill_kind)
+	RevampedHUDAtlas.apply_revamped_progress_bar(row["bar"], fill_kind)
 	(row["bar"] as ProgressBar).max_value = MAX_SCALE
 
 func _set_mode(mode: Mode) -> void:
@@ -107,6 +124,12 @@ func _set_mode(mode: Mode) -> void:
 func _on_medical_closed() -> void:
 	if _mode == Mode.DETAILED:
 		_set_mode(Mode.COMPACT)
+
+func _on_body_scan_pressed() -> void:
+	if body_scan_opens_internal:
+		toggle_body_scan()
+	else:
+		body_scan_requested.emit()
 
 func _render_compact() -> void:
 	if _snapshot.is_empty():
