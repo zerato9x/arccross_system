@@ -58,7 +58,7 @@ static func pick_structure_paths(
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = (seed_value + ":structures:" + landmark_id + ":" + str(coords)).hash()
-	var count := clampi(rng.randi_range(2, max_count), 1, valid.size())
+	var count := mini(3, valid.size())
 	var picked: Array[String] = []
 	var pool := valid.duplicate()
 	while picked.size() < count and not pool.is_empty():

@@ -15,7 +15,7 @@ signal core_activated
 @export var mob_spawner: MobSpawner
 @export var interaction_panel: MacroInteractionPanel
 @export var inventory_panel: InventoryUI
-@export var world_hud: WorldHUD
+@export var macro_hud: MacroHudController
 @export var exploration_window_scene: PackedScene
 
 var exploration_window: MacroExplorationWindow
@@ -167,11 +167,15 @@ func _ready() -> void:
 		inventory_panel.inventory_action_requested.connect(resolve_inventory_action)
 		inventory_panel.inventory_closed.connect(_on_inventory_closed)
 
-	if world_hud:
-		world_hud.inventory_requested.connect(open_inventory)
-		world_hud.save_requested.connect(save_requested.emit)
-		world_hud.load_requested.connect(load_requested.emit)
-		world_hud.hex_action_requested.connect(_resolve_hex_hud_action)
+	if macro_hud:
+		macro_hud.hex_preview_expand_requested.connect(_expand_hex_at)
+		macro_hud.hex_preview_travel_requested.connect(_on_hex_preview_travel)
+		macro_hud.viewport_insets_changed.connect(_on_hud_viewport_insets_changed)
+		macro_hud.medical_action_requested.connect(_on_medical_action_requested)
+		if inventory_panel:
+			macro_hud.get_inventory_corner_panel().inventory_ui = inventory_panel
+		if exploration_window:
+			macro_hud.get_hex_panel().exploration_window = exploration_window
 
 	var player_inventory := player_token.get_humanoid_core().inventory
 	player_inventory.inventory_error.connect(_on_player_inventory_error)
@@ -329,6 +333,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not _pending_interaction.is_empty():
 		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_E:
+				_resolve_current_hex_action()
+				get_viewport().set_input_as_handled()
+				return
+			KEY_T:
+				_try_travel_to_selected_hex()
+				get_viewport().set_input_as_handled()
+				return
+			KEY_R:
+				_select_hex_for_hud(_selected_hex_coords)
+				get_viewport().set_input_as_handled()
+				return
 	if (
 		event is InputEventMouseButton
 		and event.pressed
@@ -449,23 +467,22 @@ func _try_travel_to_selected_hex() -> void:
 	_execute_player_step(_selected_hex_coords)
 
 func _resolve_current_hex_action() -> void:
-	var coords := player_token.current_hex_coords
+	_expand_hex_at(player_token.current_hex_coords)
+
+func _on_hex_preview_travel(coords: Vector2i) -> void:
+	_selected_hex_coords = coords
+	_try_travel_to_selected_hex()
+
+func _expand_hex_at(coords: Vector2i) -> void:
+	if coords != player_token.current_hex_coords:
+		_on_hex_preview_travel(coords)
+		return
 	var hex_data := world_generator.get_hex_at(coords)
 	if active_enemies.has(coords):
 		var enemy: MacroEnemy = active_enemies[coords]
 		begin_entity_collision(enemy.entity_id, coords)
 		return
-	if hex_data.has_landmark():
-		begin_poi_interaction(coords, hex_data)
-		return
-	if _world_state.has_ground_items(coords):
-		open_inventory()
-		return
-	_last_macro_event = "No immediate interaction at HEX %d,%d." % [
-		coords.x,
-		coords.y,
-	]
-	_refresh_world_hud()
+	begin_poi_interaction(coords, hex_data)
 
 func _mark_hex_explored(
 	coords: Vector2i,
@@ -544,13 +561,6 @@ func begin_poi_interaction(
 	coords: Vector2i,
 	hex_data: MacroHexData
 ) -> void:
-	if not hex_data.has_landmark():
-		_last_macro_event = "No landmark interaction at HEX %d,%d." % [
-			coords.x,
-			coords.y,
-		]
-		_refresh_world_hud()
-		return
 	_pending_interaction = {
 		"type": GameEnums.MacroInteractionType.POI,
 		"coords": coords,
@@ -593,7 +603,7 @@ func _present_poi_session(
 ) -> void:
 	var camp_access := _get_camp_access(coords, hex_data)
 	var inventory_snapshot := _build_inventory_snapshot()
-	exploration_window.open_landmark(
+	var session := (
 		_PoiController.build_landmark_session_snapshot(
 			coords,
 			hex_data,
@@ -608,11 +618,25 @@ func _present_poi_session(
 			Callable(self, "_inventory_has_any_item_id"),
 			Callable(self, "_inventory_has_any_tag"),
 			Callable(self, "_inventory_has_any_role")
-		),
-		inventory_snapshot
+		)
+		if hex_data.has_landmark()
+		else _PoiController.build_hex_session_snapshot(
+			coords,
+			hex_data,
+			_world_state.world_seed,
+			_world_state.get_world_time_snapshot(),
+			_hex_label(coords, hex_data),
+			camp_access,
+			_PoiController.available_interaction_options(
+				player_token.get_humanoid_core().inventory.get_all_items()
+			),
+			inventory_snapshot.get("ground", [])
+		)
 	)
-	if inventory_panel and inventory_panel.is_open():
-		inventory_panel.open_side_panel(inventory_snapshot, "", false)
+	if macro_hud:
+		macro_hud.dock_hex_session(session)
+	else:
+		exploration_window.open_landmark(session, inventory_snapshot)
 
 func begin_entity_collision(
 	enemy_id: String,
@@ -821,10 +845,12 @@ func resolve_entity_ambush(position: GameEnums.AmbushPosition) -> void:
 func close_macro_interaction() -> void:
 	_pending_interaction.clear()
 	set_process_unhandled_input(true)
-	if exploration_window and exploration_window.is_open():
-		exploration_window.close_window(false)
 	if interaction_panel and interaction_panel.is_open():
 		interaction_panel.close_panel(false)
+	if exploration_window and exploration_window.is_open():
+		exploration_window.close_window(false)
+	if macro_hud:
+		macro_hud.collapse_hex_panel()
 	_refresh_world_hud()
 
 
@@ -856,14 +882,30 @@ func queue_entity_collision(
 	return true
 
 func open_inventory() -> void:
-	if inventory_panel == null:
-		return
-	if inventory_panel.is_open():
-		inventory_panel.close_panel()
-		return
-	var snapshot := _build_inventory_snapshot()
-	var hide_ground := exploration_window != null and exploration_window.is_open()
-	inventory_panel.open_side_panel(snapshot, "", not hide_ground)
+	if macro_hud:
+		macro_hud.toggle_inventory_panel()
+
+
+func _on_hud_viewport_insets_changed(insets: Rect2i) -> void:
+	var camera := get_node_or_null("Camera2D") as MacroCamera
+	if camera:
+		camera.set_viewport_insets(insets)
+
+
+func _on_medical_action_requested(instance_id: String, limb_region: int) -> void:
+	var player_core := player_token.get_humanoid_core()
+	var result := MacroMedicalResolver.resolve_apply_to_limb(
+		player_core,
+		instance_id,
+		limb_region
+	)
+	if not bool(result.get("success", false)):
+		_last_inventory_error = str(result.get("message", "Treatment failed."))
+	_world_state.update_player_runtime(
+		player_core.capture_runtime_state().to_dict(),
+		player_token.current_hex_coords
+	)
+	_refresh_world_hud()
 
 func _on_inventory_closed() -> void:
 	pass
@@ -903,8 +945,7 @@ func resolve_inventory_action(
 	_emit_inventory_item_used(result)
 	var snapshot := _build_inventory_snapshot()
 	if inventory_panel and inventory_panel.is_open():
-		var hide_ground := exploration_window != null and exploration_window.is_open()
-		inventory_panel.open_side_panel(snapshot, "", not hide_ground)
+		inventory_panel.open_loadout_panel(snapshot, "")
 	_refresh_exploration_ground()
 	_refresh_world_hud()
 
@@ -912,7 +953,13 @@ func _refresh_exploration_ground() -> void:
 	if exploration_window == null or not exploration_window.is_open():
 		return
 	var snapshot := _build_inventory_snapshot()
-	exploration_window.refresh_ground_items(snapshot.get("ground", []))
+	var available := _PoiController.available_interaction_options(
+		player_token.get_humanoid_core().inventory.get_all_items()
+	)
+	exploration_window.refresh_session_state(
+		available,
+		snapshot.get("ground", [])
+	)
 
 func _build_inventory_snapshot() -> Dictionary:
 	return _SnapshotBuilder.build_inventory_snapshot(
@@ -973,8 +1020,21 @@ func _build_macro_activity_snapshot() -> Dictionary:
 
 
 func _refresh_world_hud() -> void:
-	if world_hud:
-		world_hud.show_snapshot(_build_world_hud_snapshot())
+	if macro_hud == null:
+		return
+	var snapshot := _build_world_hud_snapshot()
+	var inventory_snapshot := _build_inventory_snapshot()
+	snapshot["equipment"] = inventory_snapshot.get("equipment", [])
+	snapshot["backpack"] = inventory_snapshot.get("backpack", [])
+	snapshot["current_capacity"] = inventory_snapshot.get("current_capacity", 0)
+	snapshot["maximum_capacity"] = inventory_snapshot.get("maximum_capacity", 0)
+	var hex_data := world_generator.get_hex_at(_selected_hex_coords)
+	snapshot["selected_scene_descriptor"] = EventBgCatalog.build_scene_descriptor(
+		hex_data,
+		_world_state.world_seed,
+		_selected_hex_coords
+	)
+	macro_hud.refresh(snapshot)
 
 func _can_offer_equip(item: ItemData) -> bool:
 	return (
@@ -1137,6 +1197,8 @@ func _resolve_search(
 		return
 
 	if exploration_window and exploration_window.is_open():
+		hex_data = world_generator.get_hex_at(coords)
+		_present_poi_session(coords, hex_data)
 		_refresh_exploration_ground()
 
 	_show_interaction_result("SEARCH COMPLETE", message)

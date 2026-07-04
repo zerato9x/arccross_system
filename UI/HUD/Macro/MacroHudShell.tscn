@@ -1,0 +1,133 @@
+[gd_scene format=3 uid="uid://duh2uglrkqw5p"]
+
+[ext_resource type="Script" uid="uid://h3lyjc54on7d" path="res://UI/HUD/Macro/MacroHudController.gd" id="1_controller"]
+[ext_resource type="PackedScene" path="res://UI/HUD/Macro/MacroHealthCornerPanel.tscn" id="3_xn8iu"]
+[ext_resource type="PackedScene" path="res://UI/HUD/Macro/MacroInventoryCornerPanel.tscn" id="4_b7dj2"]
+[ext_resource type="PackedScene" uid="uid://saveloadmenu" path="res://UI/SaveLoadMenu.tscn" id="4_saveload"]
+[ext_resource type="PackedScene" path="res://UI/HUD/Macro/MacroHexCornerPanel.tscn" id="5_hd7qt"]
+[ext_resource type="Script" uid="uid://cimnkoibgovi8" path="res://UI/HUD/Macro/MacroWorldStatusPanel.gd" id="6_mf032"]
+
+[node name="MacroHudShell" type="CanvasLayer" unique_id=1938836460]
+script = ExtResource("1_controller")
+
+[node name="Root" type="Control" parent="." unique_id=2056361132]
+unique_name_in_owner = true
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ScreenOverlay" type="TextureRect" parent="Root" unique_id=954678460]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+stretch_mode = 1
+
+[node name="SettingsPanel" type="PanelContainer" parent="Root" unique_id=829598900]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -190.0
+offset_top = -132.0
+offset_right = 190.0
+offset_bottom = 132.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="SettingsMargin" type="MarginContainer" parent="Root/SettingsPanel" unique_id=1352483860]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="SettingsContent" type="VBoxContainer" parent="Root/SettingsPanel/SettingsMargin" unique_id=1437364399]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SettingsTitle" type="Label" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=1271801945]
+layout_mode = 2
+text = "HUD SETTINGS"
+horizontal_alignment = 1
+
+[node name="ScreenNoiseToggle" type="CheckButton" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=1986631388]
+unique_name_in_owner = true
+layout_mode = 2
+text = "SCANLINE OVERLAY"
+
+[node name="ScaleRow" type="VBoxContainer" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=100523603]
+layout_mode = 2
+
+[node name="HudScaleLabel" type="Label" parent="Root/SettingsPanel/SettingsMargin/SettingsContent/ScaleRow" unique_id=687231233]
+unique_name_in_owner = true
+layout_mode = 2
+text = "HUD SCALE 100%"
+
+[node name="HudScaleSlider" type="HSlider" parent="Root/SettingsPanel/SettingsMargin/SettingsContent/ScaleRow" unique_id=126170699]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 0.85
+max_value = 1.25
+step = 0.05
+value = 1.0
+
+[node name="SettingsSaveButton" type="Button" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=1355427251]
+unique_name_in_owner = true
+layout_mode = 2
+text = "SAVE GAME"
+
+[node name="SettingsLoadButton" type="Button" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=1767533836]
+unique_name_in_owner = true
+layout_mode = 2
+text = "LOAD GAME"
+
+[node name="SettingsMenuButton" type="Button" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=433380375]
+unique_name_in_owner = true
+layout_mode = 2
+text = "MAIN MENU"
+
+[node name="SettingsCloseButton" type="Button" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=1873643694]
+unique_name_in_owner = true
+layout_mode = 2
+text = "CLOSE"
+
+[node name="SaveLoadMenu" parent="Root" unique_id=1223507307 instance=ExtResource("4_saveload")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+
+[node name="MacroHealthPanel" parent="Root" unique_id=1629032190 instance=ExtResource("3_xn8iu")]
+unique_name_in_owner = true
+
+[node name="MacroInventoryPanel" parent="Root" unique_id=208845366 instance=ExtResource("4_b7dj2")]
+unique_name_in_owner = true
+
+[node name="MacroHexPanel" parent="Root" unique_id=600562581 instance=ExtResource("5_hd7qt")]
+unique_name_in_owner = true
+
+[node name="MacroWorldStatusPanel" type="Control" parent="Root" unique_id=1070849637]
+unique_name_in_owner = true
+anchors_preset = 0
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -232.0
+offset_top = -122.0
+offset_right = -12.0
+offset_bottom = -12.0
+script = ExtResource("6_mf032")

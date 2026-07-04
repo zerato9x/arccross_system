@@ -19,6 +19,12 @@ signal inventory_action_requested(
 signal interaction_closed
 
 const _InventorySlotScene := preload("res://UI/Inventory/InventorySlot.tscn")
+const _PROP_SPRITE_SIZE := 170.0
+const _PROP_OUTLINE_PADDING := 4.0
+const _PROP_OUTLINE_WIDTH := 3
+const _PROP_OUTLINE_COLOR := Color("#f0c040")
+const _PROP_LOOTED_MODULATE := Color(0.42, 0.42, 0.42, 1.0)
+const _BACKGROUND_VERTICAL_SHIFT := -72.0
 
 @onready var _panel: PanelContainer = %ExplorationPanel
 @onready var _content: HBoxContainer = %Content
@@ -29,6 +35,7 @@ const _InventorySlotScene := preload("res://UI/Inventory/InventorySlot.tscn")
 @onready var _scene_root: Control = %SceneRoot
 @onready var _background: TextureRect = %Background
 @onready var _props_layer: Control = %PropsLayer
+@onready var _search_frame: PanelContainer = %SearchFrame
 @onready var _poi_name_label: Label = %PoiNameLabel
 @onready var _right_panel: VBoxContainer = %RightPanel
 @onready var _title_label: Label = %TitleLabel
@@ -37,9 +44,11 @@ const _InventorySlotScene := preload("res://UI/Inventory/InventorySlot.tscn")
 @onready var _search_button: Button = %SearchButton
 @onready var _camp_button: Button = %CampButton
 @onready var _search_options_row: HBoxContainer = %SearchOptionsRow
+@onready var _interaction_box: PanelContainer = %InteractionBox
 @onready var _metric_box: VBoxContainer = %MetricBox
-@onready var _drop_row: HBoxContainer = %DropRow
-@onready var _ground_row: HBoxContainer = %GroundRow
+@onready var _search_drop_row: HBoxContainer = %DropRow
+@onready var _camp_drop_grid: GridContainer = %CampDropGrid
+@onready var _ground_grid: GridContainer = %GroundGrid
 @onready var _action_row: HBoxContainer = %ActionRow
 @onready var _submit_button: Button = %SubmitButton
 @onready var _rest_button: Button = %RestButton
@@ -49,16 +58,19 @@ const _InventorySlotScene := preload("res://UI/Inventory/InventorySlot.tscn")
 var _session: Dictionary = {}
 var _active_mode := GameEnums.PoiAction.SEARCH
 var _selected_search_option_id := "primary_search"
-var _drop_targets: Dictionary = {}
+var _search_drop_targets: Dictionary = {}
+var _camp_drop_targets: Dictionary = {}
 var _ground_slots: Array[InventorySlot] = []
 var _inventory_slots: Array[InventorySlot] = []
-var _search_option_buttons: Dictionary = {}
+var _prop_entries: Dictionary = {}
+var _showing_result := false
 
 func _ready() -> void:
 	_panel.visible = false
 	HUDAssetLibrary.apply_panel(_panel, "warning")
 	HUDAssetLibrary.apply_panel(_inventory_panel, "neutral")
-	HUDAssetLibrary.apply_panel(%InteractionBox as PanelContainer, "neutral")
+	HUDAssetLibrary.apply_panel(_search_frame, "neutral")
+	HUDAssetLibrary.apply_panel(_interaction_box, "neutral")
 	HUDAssetLibrary.apply_panel(%GroundBox as PanelContainer, "neutral")
 	HUDAssetLibrary.apply_panel(%PoiNamePlate as PanelContainer, "neutral")
 	HUDAssetLibrary.apply_label(_inventory_header, "muted")
@@ -67,7 +79,9 @@ func _ready() -> void:
 	HUDAssetLibrary.apply_label(_title_label, "title")
 	HUDAssetLibrary.apply_label(_body_label, "body")
 	HUDAssetLibrary.apply_label(%InteractionHeader as Label, "muted")
+	HUDAssetLibrary.apply_label(%SearchFrameHeader as Label, "muted")
 	HUDAssetLibrary.apply_label(%DropHint as Label, "muted")
+	HUDAssetLibrary.apply_label(%CampDropHint as Label, "muted")
 	HUDAssetLibrary.apply_label(%GroundHeader as Label, "muted")
 	HUDAssetLibrary.apply_button(_search_button)
 	HUDAssetLibrary.apply_button(_camp_button)
@@ -80,45 +94,110 @@ func _ready() -> void:
 	_submit_button.pressed.connect(_submit_action)
 	_rest_button.pressed.connect(func(): _submit_action_for(GameEnums.PoiAction.REST))
 	_stop_rest_button.pressed.connect(func(): _submit_action_for(GameEnums.PoiAction.STOP_REST))
-	_close_button.pressed.connect(close_window)
+	_close_button.pressed.connect(_on_close_pressed)
+	_scene_root.resized.connect(_rerender_prop_positions)
+	_scene_root.clip_contents = true
+	_apply_background_layout()
 	close_window(false)
 
-func open_landmark(session: Dictionary, inventory_snapshot: Dictionary = {}) -> void:
+var _dock_host: Control
+
+
+func dock_into(host: Control) -> void:
+	_dock_host = host
+	if _panel.get_parent() != host:
+		var panel_parent := _panel.get_parent()
+		if panel_parent:
+			panel_parent.remove_child(_panel)
+		host.add_child(_panel)
+	_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_panel.offset_left = 0.0
+	_panel.offset_top = 0.0
+	_panel.offset_right = 0.0
+	_panel.offset_bottom = 0.0
+	_panel.visible = true
+	visible = true
+
+
+func undock() -> void:
+	if _panel.get_parent() != self:
+		var parent := _panel.get_parent()
+		if parent:
+			parent.remove_child(_panel)
+		add_child(_panel)
+	_panel.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	_panel.offset_left = -1020.0
+	_panel.offset_top = -340.0
+	_panel.offset_right = -20.0
+	_panel.offset_bottom = 340.0
+	_dock_host = null
+
+
+func open_landmark(session: Dictionary, _inventory_snapshot: Dictionary = {}) -> void:
 	_session = session.duplicate(true)
-	if not inventory_snapshot.is_empty():
-		_session["inventory_snapshot"] = inventory_snapshot.duplicate(true)
 	_selected_search_option_id = str(
 		_session.get("selected_search_option_id", "primary_search")
 	)
-	_active_mode = GameEnums.PoiAction.SEARCH
+	if not _session.get("has_search", true):
+		_active_mode = GameEnums.PoiAction.CAMP
+	else:
+		_active_mode = GameEnums.PoiAction.SEARCH
 	_panel.visible = true
 	_render_session()
 	_request_preview()
 
 func show_result(title: String, message: String) -> void:
+	_showing_result = true
 	_panel.visible = true
-	_clear_right_panel()
 	_title_label.text = title
 	_body_label.text = message
 	_action_row.visible = true
 	_submit_button.visible = false
 	_rest_button.visible = false
 	_stop_rest_button.visible = false
+	_close_button.text = "CONTINUE"
 
-func close_window(notify: bool = true) -> void:
+func _on_close_pressed() -> void:
+	if _showing_result:
+		_showing_result = false
+		_close_button.text = "LEAVE"
+		_render_session()
+		_request_preview()
+		return
+	close_window()
+
+func collapse_to_preview() -> void:
 	if _panel:
 		_panel.visible = false
+	_showing_result = false
+	_close_button.text = "LEAVE"
 	_session.clear()
 	_clear_ground_slots()
 	_clear_inventory_slots()
+	_prop_entries.clear()
+
+func close_window(notify: bool = true) -> void:
+	collapse_to_preview()
 	if notify:
 		interaction_closed.emit()
 
-func is_open() -> bool:
+func is_expanded() -> bool:
 	return _panel != null and _panel.visible
 
+func is_open() -> bool:
+	return is_expanded()
+
+func refresh_session_state(
+	available_items: Array,
+	ground_items: Array
+) -> void:
+	_session["available_items"] = available_items.duplicate(true)
+	_session["ground_items"] = _normalized_ground_items(ground_items)
+	_render_interaction_gear()
+	_render_ground_items()
+
 func refresh_ground_items(ground_items: Array) -> void:
-	_session["ground_items"] = ground_items.duplicate(true)
+	_session["ground_items"] = _normalized_ground_items(ground_items)
 	_render_ground_items()
 
 func show_poi_preview(action: GameEnums.PoiAction, metrics: Dictionary) -> void:
@@ -133,7 +212,7 @@ func show_poi_preview(action: GameEnums.PoiAction, metrics: Dictionary) -> void:
 		var bar := ProgressBar.new()
 		bar.max_value = GameEnums.SCALE_MAX
 		bar.value = float(metrics.get(key, 0.0))
-		bar.custom_minimum_size = Vector2(180, 12)
+		bar.custom_minimum_size = Vector2(200, 12)
 		HUDAssetLibrary.apply_progress_bar(bar, "health")
 		row.add_child(label)
 		row.add_child(bar)
@@ -144,29 +223,18 @@ func _render_session() -> void:
 	_title_label.text = "EXPLORATION"
 	_body_label.text = str(_session.get("scene_descriptor", {}).get("zone_name", ""))
 	_render_scene(_session.get("scene_descriptor", {}))
-	_render_inventory_items()
+	_render_interaction_gear()
 	_render_search_options()
 	_render_drop_targets()
 	_render_ground_items()
 	_update_mode_buttons()
 	_update_rest_buttons()
+	_update_mode_visibility()
 
-func _render_inventory_items() -> void:
+func _render_interaction_gear() -> void:
 	_clear_inventory_slots()
 	var source: Array = _session.get("available_items", [])
-	if source.is_empty():
-		_inventory_hint.text = "No usable tools or camp gear."
-		return
-
-	var role_filter: Array[int] = []
-	if _active_mode == GameEnums.PoiAction.SEARCH:
-		role_filter = [GameEnums.InteractionItemRole.SEARCH_TOOL]
-	else:
-		role_filter = [
-			GameEnums.InteractionItemRole.CAMP_GEAR,
-			GameEnums.InteractionItemRole.TRAP_GEAR,
-		]
-
+	var role_filter := _current_role_filter()
 	var rendered := 0
 	for descriptor in source:
 		if not descriptor is Dictionary:
@@ -176,133 +244,294 @@ func _render_inventory_items() -> void:
 		var slot := _InventorySlotScene.instantiate() as InventorySlot
 		slot.configure(InventorySlot.SOURCE_BACKPACK, rendered, "", null)
 		slot.set_item(descriptor)
+		slot.slot_clicked.connect(_on_gear_slot_clicked)
 		_inventory_grid.add_child(slot)
 		_inventory_slots.append(slot)
 		rendered += 1
-
 	_inventory_hint.text = (
-		"Drag tools/gear onto a target."
+		"Drag or right-click gear onto a target slot."
 		if rendered > 0
 		else "No usable tools or camp gear."
 	)
 
+func _on_gear_slot_clicked(slot_node: InventorySlot, event: InputEventMouseButton) -> void:
+	if not slot_node.has_item():
+		return
+	if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		_quick_assign_gear(slot_node.item_descriptor)
+
+func _quick_assign_gear(descriptor: Dictionary) -> void:
+	var instance_id := str(descriptor.get("instance_id", ""))
+	if instance_id.is_empty():
+		return
+	for drop in _active_drop_targets():
+		if not drop.get_assigned_instance().is_empty():
+			continue
+		if not drop.accepts_descriptor(descriptor):
+			continue
+		drop.set_assigned_instance(
+			instance_id,
+			str(descriptor.get("name", "")),
+			str(descriptor.get("sprite_path", ""))
+		)
+		_persist_drop_assignments()
+		_request_preview()
+		return
+
+func _active_drop_targets() -> Array:
+	var drops: Array = []
+	var container: Container = (
+		_search_drop_row if _active_mode == GameEnums.PoiAction.SEARCH else _camp_drop_grid
+	)
+	for child in container.get_children():
+		if child is InteractionDropTarget:
+			drops.append(child)
+	return drops
+
+func _current_role_filter() -> Array[int]:
+	if _active_mode == GameEnums.PoiAction.SEARCH:
+		return [GameEnums.InteractionItemRole.SEARCH_TOOL]
+	return [
+		GameEnums.InteractionItemRole.CAMP_GEAR,
+		GameEnums.InteractionItemRole.TRAP_GEAR,
+	]
+
 func _descriptor_has_any_role(descriptor: Dictionary, roles: Array[int]) -> bool:
 	if roles.is_empty():
 		return true
-	var descriptor_roles: Array = descriptor.get("interaction_roles", descriptor.get("roles", []))
+	var descriptor_roles: Array = descriptor.get(
+		"interaction_roles",
+		descriptor.get("roles", [])
+	)
 	for role in roles:
 		if descriptor_roles.has(role):
 			return true
 	return false
 
+func _get_ground_items() -> Array:
+	return _session.get("ground_items", [])
+
+func _normalized_ground_items(items: Array) -> Array:
+	var normalized: Array = []
+	for entry in items:
+		var descriptor := _normalize_ground_descriptor(entry)
+		if not descriptor.is_empty():
+			normalized.append(descriptor)
+	return normalized
+
+func _normalize_ground_descriptor(entry: Variant) -> Dictionary:
+	if not entry is Dictionary:
+		return {}
+	var source: Dictionary = entry
+	if source.has("sprite_path") and source.has("instance_id"):
+		return source.duplicate(true)
+	if not source.has("definition"):
+		return {}
+	var item := ItemData.from_runtime_state(source)
+	return {
+		"instance_id": item.instance_id,
+		"name": item.display_name,
+		"sprite_path": item.get_inventory_sprite_path(),
+		"interaction_roles": item.interaction_roles.duplicate(),
+		"roles": item.interaction_roles.duplicate(),
+		"size_cost": item.get_inventory_cost(),
+	}
+
 func _render_scene(descriptor: Dictionary) -> void:
 	for child in _props_layer.get_children():
 		child.queue_free()
+	_prop_entries.clear()
+	_apply_background_layout()
 	var bg_path: String = str(descriptor.get("background_path", ""))
 	if not bg_path.is_empty() and ResourceLoader.exists(bg_path):
 		_background.texture = load(bg_path)
 	else:
-		_background.texture = load(EventBgCatalog.PLAINS_BG) if ResourceLoader.exists(EventBgCatalog.PLAINS_BG) else null
+		_background.texture = (
+			load(EventBgCatalog.PLAINS_BG)
+			if ResourceLoader.exists(EventBgCatalog.PLAINS_BG)
+			else null
+		)
 	_poi_name_label.text = str(_session.get("poi_name", "LOCATION")).to_upper()
+	if not _session.get("has_search", true):
+		return
+
+	var searched_targets: Array = _session.get("searched_targets", [])
 	for prop in descriptor.get("props", []):
 		if not prop is Dictionary:
 			continue
 		var sprite_path: String = str(prop.get("sprite_path", ""))
 		if sprite_path.is_empty() or not ResourceLoader.exists(sprite_path):
 			continue
-		var sprite := TextureRect.new()
-		sprite.texture = load(sprite_path)
-		sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		sprite.custom_minimum_size = Vector2(140, 140)
-		var anchor: Vector2 = prop.get("anchor", Vector2(0.5, 0.5))
-		sprite.position = Vector2(
-			anchor.x * _scene_root.size.x - 70.0,
-			anchor.y * _scene_root.size.y - 120.0
+		var option_id := str(prop.get("search_option_id", prop.get("id", "")))
+		var depleted := searched_targets.has(option_id)
+		var label := str(prop.get("label", "Search Target"))
+		var wrapper := Control.new()
+		wrapper.custom_minimum_size = Vector2(
+			_PROP_SPRITE_SIZE + _PROP_OUTLINE_PADDING * 2.0,
+			_PROP_SPRITE_SIZE + _PROP_OUTLINE_PADDING * 2.0
 		)
-		_props_layer.add_child(sprite)
+		var anchor: Vector2 = prop.get("anchor", Vector2(0.5, 0.5))
+		wrapper.position = Vector2(
+			anchor.x * _props_layer.size.x - wrapper.custom_minimum_size.x * 0.5,
+			anchor.y * _props_layer.size.y - wrapper.custom_minimum_size.y * 0.85
+		)
+
+		var outline := Panel.new()
+		outline.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		outline.add_theme_stylebox_override("panel", _build_prop_outline_style(false))
+		wrapper.add_child(outline)
+
+		var button := TextureButton.new()
+		button.texture_normal = load(sprite_path)
+		button.ignore_texture_size = true
+		button.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		button.custom_minimum_size = Vector2(_PROP_SPRITE_SIZE, _PROP_SPRITE_SIZE)
+		button.position = Vector2(_PROP_OUTLINE_PADDING, _PROP_OUTLINE_PADDING)
+		button.focus_mode = Control.FOCUS_NONE
+		button.disabled = depleted
+		button.tooltip_text = (
+			label + " (LOOTED)" if depleted else label
+		)
+		if depleted:
+			button.modulate = _PROP_LOOTED_MODULATE
+		if not depleted:
+			button.pressed.connect(func(): _select_search_option(option_id))
+		wrapper.add_child(button)
+		_props_layer.add_child(wrapper)
+		_prop_entries[option_id] = {
+			"wrapper": wrapper,
+			"outline": outline,
+			"button": button,
+			"depleted": depleted,
+		}
+
+	if not _prop_entries.is_empty():
+		if (
+			_selected_search_option_id.is_empty()
+			or _is_option_depleted(_selected_search_option_id)
+			or not _prop_entries.has(_selected_search_option_id)
+		):
+			_select_first_available_option()
+		else:
+			_update_prop_selection_highlight()
+
+func _apply_background_layout() -> void:
+	_background.offset_top = _BACKGROUND_VERTICAL_SHIFT
+	_background.offset_bottom = -_BACKGROUND_VERTICAL_SHIFT
+	_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+
+func _build_prop_outline_style(selected: bool) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color.TRANSPARENT
+	style.set_corner_radius_all(4)
+	style.set_border_width_all(_PROP_OUTLINE_WIDTH)
+	style.border_color = _PROP_OUTLINE_COLOR if selected else Color.TRANSPARENT
+	return style
+
+func _is_option_depleted(option_id: String) -> bool:
+	if not _prop_entries.has(option_id):
+		return _session.get("searched_targets", []).has(option_id)
+	return bool(_prop_entries[option_id].get("depleted", false))
+
+func _select_first_available_option() -> void:
+	for option_id in _prop_entries:
+		if not _is_option_depleted(option_id):
+			_select_search_option(option_id)
+			return
+	_selected_search_option_id = ""
+	_update_prop_selection_highlight()
+
+func _update_prop_selection_highlight() -> void:
+	for option_id in _prop_entries:
+		var entry: Dictionary = _prop_entries[option_id]
+		var outline: Panel = entry.get("outline")
+		if outline == null:
+			continue
+		var selected: bool = (
+			option_id == _selected_search_option_id
+			and not bool(entry.get("depleted", false))
+		)
+		outline.add_theme_stylebox_override("panel", _build_prop_outline_style(selected))
 
 func _render_search_options() -> void:
 	for child in _search_options_row.get_children():
 		child.queue_free()
-	_search_option_buttons.clear()
-	if _active_mode != GameEnums.PoiAction.SEARCH:
-		_search_options_row.visible = false
-		return
-	_search_options_row.visible = true
-	for option in _session.get("search_options", []):
-		if not option is Dictionary:
-			continue
-		var option_id := str(option.get("id", ""))
-		var button := Button.new()
-		button.text = str(option.get("label", "Target"))
-		button.toggle_mode = true
-		button.button_pressed = option_id == _selected_search_option_id
-		button.disabled = bool(option.get("locked", false))
-		button.pressed.connect(func(): _select_search_option(option_id))
-		HUDAssetLibrary.apply_button(button)
-		_search_options_row.add_child(button)
-		_search_option_buttons[option_id] = button
+	_search_options_row.visible = false
 
 func _select_search_option(option_id: String) -> void:
+	if _is_option_depleted(option_id):
+		return
 	_selected_search_option_id = option_id
 	_session["selected_search_option_id"] = option_id
-	for id in _search_option_buttons:
-		_search_option_buttons[id].button_pressed = id == option_id
-	_render_drop_targets()
+	_update_prop_selection_highlight()
 	_request_preview()
 
 func _render_drop_targets() -> void:
-	for child in _drop_row.get_children():
-		child.queue_free()
-	_drop_targets.clear()
-	var targets: Array = (
-		_session.get("search_drop_targets", [])
-		if _active_mode == GameEnums.PoiAction.SEARCH
-		else _session.get("camp_drop_targets", [])
-	)
-	var visible_targets: Array = []
+	_persist_drop_assignments()
+	_clear_drop_targets()
 	if _active_mode == GameEnums.PoiAction.SEARCH:
-		for target in targets:
-			if not target is Dictionary:
-				continue
-			if str(target.get("id", "")) == _selected_search_option_id:
-				visible_targets.append(target)
-				break
-		if visible_targets.is_empty() and not targets.is_empty():
-			visible_targets = [targets[0]]
+		_render_search_drop_targets()
 	else:
-		visible_targets = targets
+		_render_camp_drop_targets()
 
-	for target in visible_targets:
-		if not target is Dictionary:
-			continue
-		var drop := InteractionDropTarget.new()
-		drop.configure(
-			str(target.get("id", "")),
-			str(target.get("label", "Target")),
-			target.get("accepted_roles", [])
+func _render_search_drop_targets() -> void:
+	var targets: Array = _session.get(
+		"search_gear_slots",
+		_session.get("search_drop_targets", [])
+	)
+	for target in targets:
+		_add_drop_target(target, _search_drop_row, _search_drop_targets)
+
+func _render_camp_drop_targets() -> void:
+	var targets: Array = _session.get("camp_drop_targets", [])
+	for target in targets:
+		_add_drop_target(target, _camp_drop_grid, _camp_drop_targets)
+
+func _add_drop_target(
+	target: Variant,
+	parent: Container,
+	registry: Dictionary
+) -> void:
+	if not target is Dictionary:
+		return
+	var drop := InteractionDropTarget.new()
+	drop.configure(
+		str(target.get("id", "")),
+		str(target.get("label", "Target")),
+		target.get("accepted_roles", [])
+	)
+	drop.item_dropped.connect(_on_item_dropped)
+	drop.item_cleared.connect(_on_item_cleared)
+	var saved_assignments: Dictionary = _session.get("gear_assignments", {})
+	var target_id := str(target.get("id", ""))
+	if saved_assignments.has(target_id):
+		var saved: Dictionary = saved_assignments[target_id]
+		drop.set_assigned_instance(
+			str(saved.get("instance_id", "")),
+			str(saved.get("name", "")),
+			str(saved.get("sprite_path", ""))
 		)
-		drop.item_dropped.connect(_on_item_dropped)
-		if not str(target.get("assigned_instance_id", "")).is_empty():
-			drop.set_assigned_instance(
-				str(target.get("assigned_instance_id", "")),
-				str(target.get("assigned_name", ""))
-			)
-		_drop_targets[str(target.get("id", drop.target_id))] = drop
-		_drop_row.add_child(drop)
+	elif not str(target.get("assigned_instance_id", "")).is_empty():
+		drop.set_assigned_instance(
+			str(target.get("assigned_instance_id", "")),
+			str(target.get("assigned_name", ""))
+		)
+	registry[str(target.get("id", drop.target_id))] = drop
+	parent.add_child(drop)
 
 func _render_ground_items() -> void:
 	_clear_ground_slots()
 	var index := 0
-	for descriptor in _session.get("ground_items", []):
-		if not descriptor is Dictionary:
+	for entry in _get_ground_items():
+		var descriptor := _normalize_ground_descriptor(entry)
+		if descriptor.is_empty():
 			continue
 		var slot := _InventorySlotScene.instantiate() as InventorySlot
 		slot.configure(InventorySlot.SOURCE_GROUND, index, "", null)
 		slot.set_item(descriptor)
 		slot.slot_clicked.connect(_on_ground_slot_clicked)
-		_ground_row.add_child(slot)
+		_ground_grid.add_child(slot)
 		_ground_slots.append(slot)
 		index += 1
 
@@ -311,24 +540,38 @@ func _clear_ground_slots() -> void:
 		if is_instance_valid(slot):
 			slot.queue_free()
 	_ground_slots.clear()
+	if _ground_grid:
+		for child in _ground_grid.get_children():
+			child.queue_free()
 
 func _clear_inventory_slots() -> void:
 	for slot in _inventory_slots:
 		if is_instance_valid(slot):
 			slot.queue_free()
 	_inventory_slots.clear()
+	if _inventory_grid:
+		for child in _inventory_grid.get_children():
+			child.queue_free()
+
+func _clear_drop_targets() -> void:
+	for child in _search_drop_row.get_children():
+		child.queue_free()
+	for child in _camp_drop_grid.get_children():
+		child.queue_free()
+	_search_drop_targets.clear()
+	_camp_drop_targets.clear()
 
 func _clear_right_panel() -> void:
 	for child in _metric_box.get_children():
 		child.queue_free()
-	for child in _drop_row.get_children():
-		child.queue_free()
+	_clear_drop_targets()
 	for child in _search_options_row.get_children():
 		child.queue_free()
-	_drop_targets.clear()
-	_search_option_buttons.clear()
+	_prop_entries.clear()
 
 func _set_mode(mode: GameEnums.PoiAction) -> void:
+	if mode == GameEnums.PoiAction.SEARCH and not _session.get("has_search", true):
+		return
 	if mode == GameEnums.PoiAction.CAMP and not _session.get("camp_allowed", false):
 		show_result(
 			"CAMP UNAVAILABLE",
@@ -336,25 +579,52 @@ func _set_mode(mode: GameEnums.PoiAction) -> void:
 		)
 		return
 	_active_mode = mode
-	_render_inventory_items()
-	_render_search_options()
+	_render_interaction_gear()
 	_render_drop_targets()
 	_update_mode_buttons()
 	_update_rest_buttons()
+	_update_mode_visibility()
 	_request_preview()
 
+func _update_mode_visibility() -> void:
+	var has_search := bool(_session.get("has_search", true))
+	_search_button.visible = has_search
+	_search_frame.visible = has_search and _active_mode == GameEnums.PoiAction.SEARCH
+	_interaction_box.visible = _active_mode == GameEnums.PoiAction.CAMP
+
 func _update_mode_buttons() -> void:
-	_search_button.disabled = _active_mode == GameEnums.PoiAction.SEARCH
+	var has_search := bool(_session.get("has_search", true))
+	_search_button.disabled = not has_search or _active_mode == GameEnums.PoiAction.SEARCH
 	_camp_button.disabled = _active_mode == GameEnums.PoiAction.CAMP
 
 func _update_rest_buttons() -> void:
 	var resting := bool(_session.get("rest_in_progress", false))
 	_rest_button.visible = _active_mode == GameEnums.PoiAction.CAMP and not resting
 	_stop_rest_button.visible = _active_mode == GameEnums.PoiAction.CAMP and resting
-	_submit_button.visible = _active_mode == GameEnums.PoiAction.SEARCH
+	_submit_button.visible = (
+		_active_mode == GameEnums.PoiAction.SEARCH
+		and not _selected_search_option_id.is_empty()
+		and not _is_option_depleted(_selected_search_option_id)
+	)
 
 func _on_item_dropped(_instance_id: String, _target_id: String) -> void:
+	_persist_drop_assignments()
 	_request_preview()
+
+func _on_item_cleared(_instance_id: String, _target_id: String) -> void:
+	_persist_drop_assignments()
+	_request_preview()
+
+func _persist_drop_assignments() -> void:
+	var assignments: Dictionary = {}
+	var containers: Array[Container] = [_search_drop_row, _camp_drop_grid]
+	for container in containers:
+		for child in container.get_children():
+			if child is InteractionDropTarget:
+				var payload: Dictionary = child.get_assignment_payload()
+				if not payload.is_empty():
+					assignments[child.target_id] = payload
+	_session["gear_assignments"] = assignments
 
 func _on_ground_slot_clicked(slot_node: InventorySlot, event: InputEventMouseButton) -> void:
 	if not slot_node.has_item():
@@ -368,10 +638,13 @@ func _on_ground_slot_clicked(slot_node: InventorySlot, event: InputEventMouseBut
 
 func _selected_item_ids() -> Array:
 	var ids: Array = []
-	for drop in _drop_targets.values():
-		var assigned: String = drop.get_assigned_instance()
-		if not assigned.is_empty() and not ids.has(assigned):
-			ids.append(assigned)
+	var containers: Array[Container] = [_search_drop_row, _camp_drop_grid]
+	for container in containers:
+		for child in container.get_children():
+			if child is InteractionDropTarget:
+				var assigned: String = child.get_assigned_instance()
+				if not assigned.is_empty() and not ids.has(assigned):
+					ids.append(assigned)
 	return ids
 
 func _request_preview() -> void:
@@ -397,3 +670,8 @@ func _submit_action_for(action: GameEnums.PoiAction) -> void:
 		_selected_item_ids(),
 		_selected_search_option_id if action == GameEnums.PoiAction.SEARCH else ""
 	)
+
+func _rerender_prop_positions() -> void:
+	if _session.is_empty():
+		return
+	_render_scene(_session.get("scene_descriptor", {}))

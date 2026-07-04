@@ -17,3 +17,21 @@ static func clock_snapshot(total_minutes: int) -> Dictionary:
 		"hour": floori(float(minute_of_day) / 60.0),
 		"minute": minute_of_day % 60,
 	}
+
+
+static func calendar_snapshot(total_minutes: int) -> Dictionary:
+	var clock: Dictionary = clock_snapshot(total_minutes)
+	var day_index := int(clock.get("day", 1)) - 1
+	var year := floori(float(day_index) / 360.0) + 1
+	var day_of_year := day_index % 360
+	var month := floori(float(day_of_year) / 30.0) + 1
+	var day_of_month := (day_of_year % 30) + 1
+	return {
+		"total_minutes": clock.get("total_minutes", 0),
+		"day": clock.get("day", 1),
+		"hour": clock.get("hour", 0),
+		"minute": clock.get("minute", 0),
+		"month": month,
+		"year": year,
+		"day_of_month": day_of_month,
+	}

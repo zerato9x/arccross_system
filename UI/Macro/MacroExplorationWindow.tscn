@@ -14,10 +14,10 @@ anchor_left = 1.0
 anchor_top = 0.5
 anchor_right = 1.0
 anchor_bottom = 0.5
-offset_left = -940.0
-offset_top = -320.0
+offset_left = -1020.0
+offset_top = -340.0
 offset_right = -20.0
-offset_bottom = 320.0
+offset_bottom = 340.0
 grow_horizontal = 0
 grow_vertical = 2
 
@@ -35,7 +35,7 @@ theme_override_constants/separation = 12
 
 [node name="InteractionInventoryPanel" type="PanelContainer" parent="ExplorationPanel/Margin/Content" unique_id=2093550136]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(220, 560)
+custom_minimum_size = Vector2(220, 600)
 layout_mode = 2
 size_flags_vertical = 3
 
@@ -59,25 +59,22 @@ text = "GEAR"
 [node name="InteractionInventoryHint" type="Label" parent="ExplorationPanel/Margin/Content/InteractionInventoryPanel/InteractionInventoryMargin/InteractionInventoryColumn" unique_id=1661537500]
 unique_name_in_owner = true
 layout_mode = 2
-autowrap_mode = 3
 text = "Drag tools/gear onto a target."
+autowrap_mode = 3
 
 [node name="InteractionItemsScroll" type="ScrollContainer" parent="ExplorationPanel/Margin/Content/InteractionInventoryPanel/InteractionInventoryMargin/InteractionInventoryColumn" unique_id=1166628107]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="InteractionItemsGrid" type="GridContainer" parent="ExplorationPanel/Margin/Content/InteractionInventoryPanel/InteractionInventoryMargin/InteractionInventoryColumn/InteractionItemsScroll" unique_id=444822566]
+[node name="InteractionItemsGrid" type="GridContainer" parent="ExplorationPanel/Margin/Content/InteractionInventoryPanel/InteractionInventoryMargin/InteractionInventoryColumn/InteractionItemsScroll" unique_id=1238835424]
 unique_name_in_owner = true
 layout_mode = 2
 columns = 3
-size_flags_horizontal = 3
-theme_override_constants/h_separation = 6
-theme_override_constants/v_separation = 6
 
 [node name="SceneRoot" type="Control" parent="ExplorationPanel/Margin/Content" unique_id=182167097]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(420, 560)
+custom_minimum_size = Vector2(520, 600)
 layout_mode = 2
 
 [node name="Background" type="TextureRect" parent="ExplorationPanel/Margin/Content/SceneRoot" unique_id=69290868]
@@ -97,9 +94,51 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_bottom = -180.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
+
+[node name="SearchFrame" type="PanelContainer" parent="ExplorationPanel/Margin/Content/SceneRoot" unique_id=1982736451]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -176.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="SearchFrameMargin" type="MarginContainer" parent="ExplorationPanel/Margin/Content/SceneRoot/SearchFrame" unique_id=1982736452]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="SearchFrameColumn" type="VBoxContainer" parent="ExplorationPanel/Margin/Content/SceneRoot/SearchFrame/SearchFrameMargin" unique_id=1982736453]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="SearchFrameHeader" type="Label" parent="ExplorationPanel/Margin/Content/SceneRoot/SearchFrame/SearchFrameMargin/SearchFrameColumn" unique_id=1982736454]
+unique_name_in_owner = true
+layout_mode = 2
+text = "SEARCH"
+
+[node name="MetricBox" type="VBoxContainer" parent="ExplorationPanel/Margin/Content/SceneRoot/SearchFrame/SearchFrameMargin/SearchFrameColumn" unique_id=1516723785]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="DropHint" type="Label" parent="ExplorationPanel/Margin/Content/SceneRoot/SearchFrame/SearchFrameMargin/SearchFrameColumn" unique_id=2075014353]
+unique_name_in_owner = true
+layout_mode = 2
+text = "CLICK A BUILDING, DRAG TOOLS IN, RIGHT-CLICK TO REMOVE"
+
+[node name="DropRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/SceneRoot/SearchFrame/SearchFrameMargin/SearchFrameColumn" unique_id=644379012]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
 
 [node name="PoiNamePlate" type="PanelContainer" parent="ExplorationPanel/Margin/Content/SceneRoot" unique_id=46616848]
 unique_name_in_owner = true
@@ -110,9 +149,9 @@ anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
 offset_left = -170.0
-offset_top = -56.0
+offset_top = -196.0
 offset_right = 170.0
-offset_bottom = -16.0
+offset_bottom = -184.0
 grow_horizontal = 2
 grow_vertical = 0
 mouse_filter = 2
@@ -132,7 +171,7 @@ vertical_alignment = 1
 
 [node name="RightPanel" type="VBoxContainer" parent="ExplorationPanel/Margin/Content" unique_id=271532382]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(420, 560)
+custom_minimum_size = Vector2(300, 600)
 layout_mode = 2
 theme_override_constants/separation = 8
 
@@ -179,27 +218,30 @@ theme_override_constants/separation = 6
 [node name="InteractionHeader" type="Label" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=1237717785]
 unique_name_in_owner = true
 layout_mode = 2
-text = "INTERACTION"
+text = "CAMP SETUP"
 
-[node name="SearchOptionsRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=1503754614]
+[node name="CampDropRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=644379013]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="MetricBox" type="VBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=1516723785]
+[node name="CampDropGrid" type="GridContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=644379014]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+columns = 3
 
-[node name="DropHint" type="Label" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=2075014353]
+[node name="CampDropHint" type="Label" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=2075014354]
 unique_name_in_owner = true
 layout_mode = 2
-text = "DRAG GEAR FROM THE LEFT INVENTORY ONTO A TARGET"
+text = "DRAG CAMP GEAR AND TRAPS INTO THE SLOTS"
 
-[node name="DropRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=644379012]
+[node name="SearchOptionsRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=1503754614]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="GroundBox" type="PanelContainer" parent="ExplorationPanel/Margin/Content/RightPanel" unique_id=1215564905]
 unique_name_in_owner = true
@@ -221,10 +263,18 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "GROUND LOOT"
 
-[node name="GroundRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/GroundBox/GroundMargin/GroundColumn" unique_id=1345151362]
+[node name="GroundScroll" type="ScrollContainer" parent="ExplorationPanel/Margin/Content/RightPanel/GroundBox/GroundMargin/GroundColumn" unique_id=1345151363]
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="GroundGrid" type="GridContainer" parent="ExplorationPanel/Margin/Content/RightPanel/GroundBox/GroundMargin/GroundColumn/GroundScroll" unique_id=1345151362]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 6
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+columns = 4
 
 [node name="ActionRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel" unique_id=2027987295]
 unique_name_in_owner = true

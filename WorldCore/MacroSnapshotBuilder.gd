@@ -20,13 +20,39 @@ static func build_limb_snapshot(body: HumanoidBody) -> Array:
 		var trauma_index := int(
 			body.limb_trauma.get(region, GameEnums.TraumaType.NONE)
 		)
+		var damage_key := "BLUNT"
+		if body.limb_damage_types.has(region):
+			var damage_index := int(body.limb_damage_types[region])
+			damage_key = GameEnums.DamageType.keys()[damage_index]
 		limbs.append({
 			"region": GameEnums.LimbRegion.keys()[region],
 			"current": float(body.limb_hp.get(region, 0.0)),
 			"maximum": body.get_limb_max(region),
 			"trauma": GameEnums.TraumaType.keys()[trauma_index],
+			"damage_type": damage_key,
 		})
 	return limbs
+
+
+static func build_emergencies(body: HumanoidBody, player_core: HumanoidCore) -> Array:
+	var emergencies: Array = []
+	if body == null:
+		return emergencies
+	if body.blood_level <= 4.0:
+		emergencies.append("LOW_BLOOD")
+	if body.hunger <= 3.0:
+		emergencies.append("STARVING")
+	if body.thirst <= 3.0:
+		emergencies.append("DEHYDRATED")
+	if body.fatigue >= 9.0:
+		emergencies.append("EXHAUSTED")
+	if player_core != null and player_core.stance_points <= 3.0:
+		emergencies.append("STANCE_BREAK")
+	for region in body.limb_trauma.keys():
+		if body.limb_trauma[region] == GameEnums.TraumaType.BLEEDING:
+			if not emergencies.has("BLEEDING"):
+				emergencies.append("BLEEDING")
+	return emergencies
 
 
 static func build_inventory_snapshot(
@@ -279,14 +305,7 @@ static func build_hex_descriptor(
 		"distance": distance,
 		"is_current": coords == player_coords,
 		"can_travel": distance == 1 and hex_data.is_passable(),
-		"can_interact": (
-			coords == player_coords
-			and (
-				hex_data.has_landmark()
-				or not ground_items.is_empty()
-				or hostile
-			)
-		),
+		"can_interact": coords == player_coords,
 		"is_poi": hex_data.is_poi,
 		"poi_name": hex_data.poi_name,
 		"search_count": hex_data.search_count,
@@ -421,4 +440,6 @@ static func build_world_hud_snapshot(
 		"current_capacity": inventory.current_size,
 		"maximum_capacity": inventory.current_max_capacity,
 		"limbs": build_limb_snapshot(body),
+		"emergencies": build_emergencies(body, player_core),
+		"calendar": GameTimeRules.calendar_snapshot(int(world_time.get("total_minutes", 0))),
 	}

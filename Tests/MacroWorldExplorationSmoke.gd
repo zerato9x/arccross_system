@@ -12,7 +12,7 @@ func _run() -> void:
 
 	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
 	var world_state := root.get_node("WorldState") as RuntimeStateStore
-	if macro_map == null or world_state == null or macro_map.world_hud == null:
+	if macro_map == null or world_state == null or macro_map.macro_hud == null:
 		_fail("Macro world systems did not initialize.")
 		return
 
@@ -25,7 +25,7 @@ func _run() -> void:
 	var target := origin + Vector2i(1, 0)
 	macro_map._select_hex_for_hud(target)
 	await process_frame
-	var snapshot: Dictionary = macro_map.world_hud.get("_snapshot")
+	var snapshot: Dictionary = macro_map.macro_hud.get("_snapshot")
 	var selected_hex: Dictionary = snapshot.get("selected_hex", {})
 	if selected_hex.get("coords", Vector2i.ZERO) != target:
 		_fail("World HUD did not receive the selected hex descriptor.")
@@ -45,6 +45,9 @@ func _run() -> void:
 	await process_frame
 	if not macro_map.exploration_window.is_open():
 		_fail("Exploration window did not open for the demonstration landmark.")
+		return
+	if not macro_map.macro_hud.get_hex_panel().is_expanded():
+		_fail("Hex corner panel did not expand for POI exploration.")
 		return
 	var session: Dictionary = macro_map.exploration_window.get("_session")
 	if session.get("search_options", []).size() < 2:
@@ -116,7 +119,7 @@ func _run() -> void:
 		_fail("NPC turn exceeded the visible token cap.")
 		return
 
-	snapshot = macro_map.world_hud.get("_snapshot")
+	snapshot = macro_map.macro_hud.get("_snapshot")
 	var activity: Dictionary = snapshot.get("macro_activity", {})
 	if int(activity.get("hostile_count", 0)) <= 0:
 		_fail("World HUD did not report hostile macro activity.")

@@ -27,6 +27,7 @@ const PERSISTENT_FIELDS := [
 	"poi_name",
 	"hazard_level",
 	"search_count",
+	"searched_targets",
 	"camp_item_states",
 	"camp_traps",
 	"camp_rest_count",

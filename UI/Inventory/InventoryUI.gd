@@ -20,6 +20,7 @@ const ACTION_INTERACT := GameEnums.MACRO_INV_INTERACT
 enum PresentationMode {
 	FULLSCREEN,
 	SIDE_PANEL,
+	EMBEDDED,
 }
 
 const SLOT_SCENE := preload("res://UI/Inventory/InventorySlot.tscn")
@@ -199,6 +200,25 @@ func open_side_panel(snapshot: Dictionary, feedback: String = "", show_ground: b
 	_apply_presentation_layout()
 	_render()
 
+func open_loadout_panel(snapshot: Dictionary, feedback: String = "") -> void:
+	open_side_panel(snapshot, feedback, false)
+
+
+func open_embedded_panel(host: Control, snapshot: Dictionary, feedback: String = "") -> void:
+	_presentation_mode = PresentationMode.EMBEDDED
+	_show_ground_in_side_panel = false
+	_snapshot = snapshot.duplicate(true)
+	_feedback = feedback
+	visible = true
+	if get_parent() != host:
+		reparent(host)
+	_apply_presentation_layout()
+	_render()
+
+
+func is_embedded() -> bool:
+	return visible and _presentation_mode == PresentationMode.EMBEDDED
+
 func is_side_panel() -> bool:
 	return visible and _presentation_mode == PresentationMode.SIDE_PANEL
 
@@ -313,6 +333,13 @@ func _apply_presentation_layout() -> void:
 			_ground_panel.visible = _show_ground_in_side_panel
 		if canvas_layer:
 			canvas_layer.layer = 21
+	elif _presentation_mode == PresentationMode.EMBEDDED:
+		_backdrop.visible = false
+		_shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		if _ground_panel:
+			_ground_panel.visible = false
+		if canvas_layer:
+			canvas_layer.layer = 8
 	else:
 		_backdrop.visible = true
 		_shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

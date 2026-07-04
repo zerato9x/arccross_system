@@ -30,6 +30,7 @@ class_name HexRecord
 var encounter_evaluated: bool = false
 var encounter_entity_id: String = ""
 var search_count: int = 0
+var searched_targets: Array = []
 var camp_item_states: Array = []
 var camp_rest_count: int = 0
 var camp_traps: Array = []
@@ -63,6 +64,7 @@ func to_dict() -> Dictionary:
 		"encounter_evaluated": encounter_evaluated,
 		"encounter_entity_id": encounter_entity_id,
 		"search_count": search_count,
+		"searched_targets": searched_targets.duplicate(),
 		"camp_item_states": camp_item_states.duplicate(true),
 		"camp_rest_count": camp_rest_count,
 		"camp_traps": camp_traps.duplicate(true),
@@ -121,6 +123,7 @@ static func from_dict(data: Dictionary) -> HexRecord:
 	record.encounter_evaluated = data.get("encounter_evaluated", false)
 	record.encounter_entity_id = data.get("encounter_entity_id", "")
 	record.search_count = data.get("search_count", 0)
+	record.searched_targets = data.get("searched_targets", []).duplicate()
 	record.camp_item_states = data.get("camp_item_states", []).duplicate(true)
 	record.camp_rest_count = data.get("camp_rest_count", 0)
 	record.camp_traps = data.get("camp_traps", []).duplicate(true)

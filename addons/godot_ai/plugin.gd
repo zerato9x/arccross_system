@@ -48,6 +48,7 @@ const Telemetry := preload("res://addons/godot_ai/telemetry.gd")
 const LogBuffer := preload("res://addons/godot_ai/utils/log_buffer.gd")
 const GameLogBuffer := preload("res://addons/godot_ai/utils/game_log_buffer.gd")
 const EditorLogBuffer := preload("res://addons/godot_ai/utils/editor_log_buffer.gd")
+const SurfacedErrorTracker := preload("res://addons/godot_ai/utils/surfaced_error_tracker.gd")
 const Dock := preload("res://addons/godot_ai/mcp_dock.gd")
 const DebuggerPlugin := preload("res://addons/godot_ai/debugger/mcp_debugger_plugin.gd")
 const ClientConfigurator := preload("res://addons/godot_ai/client_configurator.gd")
@@ -156,6 +157,7 @@ var _telemetry
 var _log_buffer
 var _game_log_buffer
 var _editor_log_buffer
+var _surfaced_error_tracker
 var _editor_logger
 var _dock
 var _handlers: Array = []  # prevent GC of RefCounted handlers
@@ -216,12 +218,14 @@ func _enter_tree() -> void:
 
 	_game_log_buffer = GameLogBuffer.new()
 	_editor_log_buffer = EditorLogBuffer.new()
+	_surfaced_error_tracker = SurfacedErrorTracker.new(_editor_log_buffer, _game_log_buffer)
 	_attach_editor_logger()
-	_dispatcher = Dispatcher.new(_log_buffer)
+	_dispatcher = Dispatcher.new(_log_buffer, _surfaced_error_tracker)
 	_startup_trace_phase("core_objects")
 
 	_connection = Connection.new()
 	_connection.log_buffer = _log_buffer
+	_connection.surfaced_error_tracker = _surfaced_error_tracker
 	_connection.ws_port = _resolved_ws_port
 	_connection.connect_blocked = _lifecycle.is_connection_blocked()
 	_connection.connect_block_reason = _lifecycle.get_status_dict().get("message", "")
@@ -233,11 +237,11 @@ func _enter_tree() -> void:
 
 	_telemetry = Telemetry.new(_connection)
 
-	_debugger_plugin = DebuggerPlugin.new(_log_buffer, _game_log_buffer, _editor_log_buffer)
+	_debugger_plugin = DebuggerPlugin.new(_log_buffer, _game_log_buffer, _editor_log_buffer, _surfaced_error_tracker)
 	add_debugger_plugin(_debugger_plugin)
 	_ensure_game_helper_autoload()
 
-	var editor_handler := EditorHandler.new(_log_buffer, _connection, _debugger_plugin, _game_log_buffer, _editor_log_buffer)
+	var editor_handler := EditorHandler.new(_log_buffer, _connection, _debugger_plugin, _game_log_buffer, _editor_log_buffer, null, _surfaced_error_tracker)
 	var scene_handler := SceneHandler.new(_connection)
 	var node_handler := NodeHandler.new(get_undo_redo())
 	var project_handler := ProjectHandler.new(_connection, _debugger_plugin, _editor_log_buffer)
@@ -245,7 +249,7 @@ func _enter_tree() -> void:
 	var script_handler := ScriptHandler.new(get_undo_redo(), _connection)
 	var resource_handler := ResourceHandler.new(get_undo_redo(), _connection)
 	var api_handler := ApiHandler.new()
-	var filesystem_handler := FilesystemHandler.new()
+	var filesystem_handler := FilesystemHandler.new(_connection)
 	var signal_handler := SignalHandler.new(get_undo_redo())
 	var autoload_handler := AutoloadHandler.new()
 	var input_handler := InputHandler.new()
@@ -318,6 +322,7 @@ func _enter_tree() -> void:
 	_dispatcher.register("read_file", filesystem_handler.read_file)
 	_dispatcher.register("write_file", filesystem_handler.write_file)
 	_dispatcher.register("reimport", filesystem_handler.reimport)
+	_dispatcher.register("scan_filesystem", filesystem_handler.scan_filesystem)
 	_dispatcher.register("list_signals", signal_handler.list_signals)
 	_dispatcher.register("connect_signal", signal_handler.connect_signal)
 	_dispatcher.register("disconnect_signal", signal_handler.disconnect_signal)
@@ -489,6 +494,7 @@ func _exit_tree() -> void:
 	_log_buffer = null
 	_game_log_buffer = null
 	_editor_log_buffer = null
+	_surfaced_error_tracker = null
 
 	_stop_server()
 	## Symmetric with prepare_for_update_reload: the static guard persists

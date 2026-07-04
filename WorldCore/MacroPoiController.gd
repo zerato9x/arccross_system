@@ -140,6 +140,12 @@ static func resolve_search_outcome(
 				search_option.get("lock_reason", "That target is locked.")
 			),
 		}
+	if hex_data.searched_targets.has(selected_search_option_id):
+		return {
+			"blocked": true,
+			"title": "ALREADY SEARCHED",
+			"message": "This structure has already been looted.",
+		}
 
 	var option_metrics: Dictionary = base_metrics
 	if not selected_search_option_id.is_empty():
@@ -168,6 +174,11 @@ static func resolve_search_outcome(
 		result["injured"] = false
 		result["attracted_enemy"] = false
 	hex_data.search_count += 1
+	if (
+		not selected_search_option_id.is_empty()
+		and not hex_data.searched_targets.has(selected_search_option_id)
+	):
+		hex_data.searched_targets.append(selected_search_option_id)
 
 	return {
 		"blocked": false,
@@ -330,12 +341,15 @@ static func build_landmark_search_options(
 		}]
 
 	var options: Array = []
+	var searched: Array = hex_data.searched_targets
 	for index in range(props.size()):
 		if not props[index] is Dictionary:
 			continue
 		var prop: Dictionary = props[index]
+		var option_id := str(prop.get("search_option_id", "structure_%d" % index))
+		var depleted := searched.has(option_id)
 		options.append({
-			"id": str(prop.get("search_option_id", "structure_%d" % index)),
+			"id": option_id,
 			"label": str(prop.get("label", "Search Target")),
 			"description": "Search this structure for salvage.",
 			"requirements": {},
@@ -345,47 +359,69 @@ static func build_landmark_search_options(
 				"sneak": -0.15 * float(index),
 			},
 			"priority": index,
-			"locked": false,
-			"lock_reason": "",
+			"locked": depleted,
+			"depleted": depleted,
+			"lock_reason": (
+				"This structure has already been searched."
+				if depleted
+				else ""
+			),
 		})
 	return options
 
 
+static func format_slot_label(slot_id: String) -> String:
+	if slot_id == "sleep_spot":
+		return "SLEEP SPOT"
+	if slot_id.begins_with("trap_"):
+		return "TRAP SLOT %d" % (int(slot_id.replace("trap_", "")) + 1)
+	if slot_id.begins_with("camp_gear_"):
+		return "CAMP GEAR %d" % (int(slot_id.replace("camp_gear_", "")) + 1)
+	if slot_id.begins_with("tool_"):
+		return "TOOL SLOT %d" % (int(slot_id.replace("tool_", "")) + 1)
+	return slot_id.replace("_", " ").to_upper()
+
+
+static func build_search_gear_slots() -> Array:
+	var slots: Array = []
+	for slot_index in range(3):
+		var slot_id := "tool_%d" % slot_index
+		slots.append({
+			"id": slot_id,
+			"label": format_slot_label(slot_id),
+			"accepted_roles": [GameEnums.InteractionItemRole.SEARCH_TOOL],
+			"assigned_instance_id": "",
+			"assigned_name": "",
+		})
+	return slots
+
+
 static func build_search_drop_targets(
 	_hex_data: MacroHexData,
-	search_options: Array
+	_search_options: Array
 ) -> Array:
-	var targets: Array = []
-	for option in search_options:
-		if not option is Dictionary:
-			continue
-		targets.append({
-			"id": str(option.get("id", "search_target")),
-			"label": str(option.get("label", "Scavenge")),
-			"accepted_roles": [GameEnums.InteractionItemRole.SEARCH_TOOL],
-			"assigned_instance_id": "",
-			"assigned_name": "",
-		})
-	if targets.is_empty():
-		targets.append({
-			"id": "search_primary",
-			"label": "Scavenge",
-			"accepted_roles": [GameEnums.InteractionItemRole.SEARCH_TOOL],
-			"assigned_instance_id": "",
-			"assigned_name": "",
-		})
-	return targets
+	return build_search_gear_slots()
 
 
 static func build_camp_drop_targets(hex_data: MacroHexData) -> Array:
-	const PoiVisualCatalog := preload("res://PresentationCore/PoiVisualCatalog.gd")
 	var targets: Array = [{
 		"id": "sleep_spot",
-		"label": "Sleep: " + PoiVisualCatalog.sleep_anchor_label(hex_data.sleep_anchor),
+		"label": format_slot_label("sleep_spot"),
 		"accepted_roles": [GameEnums.InteractionItemRole.CAMP_GEAR],
 		"assigned_instance_id": hex_data.sleep_gear_instance_id,
 		"assigned_name": "",
 	}]
+	for gear_index in range(3):
+		var assigned_id := ""
+		if gear_index < hex_data.camp_item_states.size():
+			assigned_id = str(hex_data.camp_item_states[gear_index].get("instance_id", ""))
+		targets.append({
+			"id": "camp_gear_%d" % gear_index,
+			"label": format_slot_label("camp_gear_%d" % gear_index),
+			"accepted_roles": [GameEnums.InteractionItemRole.CAMP_GEAR],
+			"assigned_instance_id": assigned_id,
+			"assigned_name": "",
+		})
 	for trap_index in range(2):
 		var trap_state: Dictionary = (
 			hex_data.camp_traps[trap_index]
@@ -394,7 +430,7 @@ static func build_camp_drop_targets(hex_data: MacroHexData) -> Array:
 		)
 		targets.append({
 			"id": "trap_%d" % trap_index,
-			"label": "Trap Slot %d" % (trap_index + 1),
+			"label": format_slot_label("trap_%d" % trap_index),
 			"accepted_roles": [GameEnums.InteractionItemRole.TRAP_GEAR],
 			"assigned_instance_id": str(trap_state.get("instance_id", "")),
 			"assigned_name": "",
@@ -430,6 +466,7 @@ static func build_landmark_session_snapshot(
 	return {
 		"poi_name": hex_data.poi_name,
 		"hex_label": hex_label,
+		"has_search": true,
 		"scene_descriptor": EventBgCatalog.build_scene_descriptor(
 			hex_data,
 			world_seed,
@@ -437,9 +474,11 @@ static func build_landmark_session_snapshot(
 		),
 		"available_items": available_items,
 		"search_drop_targets": build_search_drop_targets(hex_data, search_options),
+		"search_gear_slots": build_search_gear_slots(),
 		"camp_drop_targets": build_camp_drop_targets(hex_data),
 		"ground_items": ground_items,
 		"search_options": search_options,
+		"searched_targets": hex_data.searched_targets.duplicate(),
 		"camp_allowed": camp_access.get("allowed", false),
 		"camp_block_reason": camp_access.get("reason", ""),
 		"rest_in_progress": hex_data.rest_in_progress,
@@ -450,6 +489,41 @@ static func build_landmark_session_snapshot(
 			if not search_options.is_empty()
 			else "primary_search"
 		),
+	}
+
+
+static func build_hex_session_snapshot(
+	coords: Vector2i,
+	hex_data: MacroHexData,
+	world_seed: String,
+	world_time: Dictionary,
+	hex_label: String,
+	camp_access: Dictionary,
+	available_items: Array,
+	ground_items: Array
+) -> Dictionary:
+	const EventBgCatalog := preload("res://PresentationCore/EventBgCatalog.gd")
+	const WorldSectorCatalog := preload("res://WorldCore/WorldSectorCatalog.gd")
+	return {
+		"poi_name": hex_label if not hex_label.is_empty() else "WILDERNESS",
+		"hex_label": hex_label,
+		"has_search": false,
+		"scene_descriptor": {
+			"background_path": EventBgCatalog.resolve_background(hex_data),
+			"props": [],
+			"zone_name": WorldSectorCatalog.wedge_display_name(hex_data.zone_id),
+		},
+		"available_items": available_items,
+		"search_drop_targets": [],
+		"search_gear_slots": [],
+		"camp_drop_targets": build_camp_drop_targets(hex_data),
+		"ground_items": ground_items,
+		"search_options": [],
+		"camp_allowed": camp_access.get("allowed", false),
+		"camp_block_reason": camp_access.get("reason", ""),
+		"rest_in_progress": hex_data.rest_in_progress,
+		"world_time": world_time,
+		"selected_search_option_id": "",
 	}
 
 

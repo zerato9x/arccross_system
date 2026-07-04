@@ -2,6 +2,7 @@ extends Control
 class_name MedicalMonitor
 
 signal closed
+signal limb_treatment_requested(instance_id: String, limb_region: int)
 
 const MAX_SCALE := 12.0
 const LIMB_ORDER: Array[int] = [
@@ -70,14 +71,19 @@ var _temperature_bar: ProgressBar
 var _system_summary: Label
 var _structure_status: Label
 
-@onready var _backdrop: ColorRect = %Backdrop
 @onready var _monitor_panel: PanelContainer = %MonitorPanel
 @onready var _content: VBoxContainer = %Content
+
+var _panel_scale := 1.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_interface()
 	visible = false
+
+func set_panel_scale(scale_value: float) -> void:
+	_panel_scale = scale_value
+	scale = Vector2.ONE * scale_value
 
 func open_monitor(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
@@ -111,7 +117,6 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _build_interface() -> void:
 	HUDAssetLibrary.apply_panel(_monitor_panel, "neutral")
-	_backdrop.gui_input.connect(_on_backdrop_gui_input)
 
 	var header := HBoxContainer.new()
 	header.custom_minimum_size.y = 34.0
@@ -277,6 +282,16 @@ func _build_anatomy_column() -> Control:
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stage.add_child(badge)
 		_stage_badges[name] = badge
+
+		var drop_target := LimbDropTarget.new()
+		drop_target.configure(region)
+		drop_target.position = config.get("stage_position", Vector2.ZERO)
+		drop_target.size = Vector2(64.0, 64.0)
+		drop_target.item_dropped.connect(
+			func(instance_id: String, limb_region: int):
+				limb_treatment_requested.emit(instance_id, limb_region)
+		)
+		stage.add_child(drop_target)
 
 	var status_label := Label.new()
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -483,11 +498,6 @@ func _system_summary_text() -> String:
 	if alerts.is_empty():
 		return "SYSTEM STATUS // OPERATIONAL"
 	return "SYSTEM ALERT // " + " / ".join(alerts)
-
-func _on_backdrop_gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		close_monitor()
-		accept_event()
 
 func _region_name(region: int) -> String:
 	return str(GameEnums.LimbRegion.keys()[region])

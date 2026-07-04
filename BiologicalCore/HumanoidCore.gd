@@ -464,6 +464,51 @@ func _mutate_into_craven() -> void:
 # CONSUMABLE USE
 # ---------------------------------------------------------
 
+func apply_consumable_to_limb(
+	item: ItemData,
+	region: int,
+	combat_only: bool = false
+) -> bool:
+	if not inventory.use_consumable(item, combat_only):
+		return false
+	match item.consumable_effect:
+		GameEnums.ConsumableEffect.STOP_BLEEDING:
+			if body.limb_trauma.get(region, GameEnums.TraumaType.NONE) == GameEnums.TraumaType.BLEEDING:
+				body.limb_trauma[region] = GameEnums.TraumaType.NONE
+				print(name, " applied [", item.display_name, "] to ", GameEnums.LimbRegion.keys()[region], ".")
+			else:
+				return false
+		GameEnums.ConsumableEffect.RESTORE_BLOOD:
+			body.blood_level = clamp(
+				body.blood_level + item.consumable_potency,
+				0.0,
+				GameEnums.SCALE_MAX
+			)
+			body.blood_level_changed.emit(body.blood_level)
+		GameEnums.ConsumableEffect.RESTORE_HUNGER:
+			body.hunger = clamp(
+				body.hunger + item.consumable_potency,
+				0.0,
+				GameEnums.SCALE_MAX
+			)
+		GameEnums.ConsumableEffect.RESTORE_THIRST:
+			body.thirst = clamp(
+				body.thirst + item.consumable_potency,
+				0.0,
+				GameEnums.SCALE_MAX
+			)
+		GameEnums.ConsumableEffect.RESTORE_FATIGUE:
+			body.fatigue = clamp(
+				body.fatigue - item.consumable_potency,
+				0.0,
+				GameEnums.SCALE_MAX
+			)
+		_:
+			return false
+	_calculate_kinetic_burden()
+	return true
+
+
 func use_consumable_item(item: ItemData, combat_only: bool = false) -> bool:
 	if not inventory.use_consumable(item, combat_only):
 		return false

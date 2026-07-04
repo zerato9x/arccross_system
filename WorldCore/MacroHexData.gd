@@ -29,6 +29,7 @@ class_name MacroHexData
 var encounter_evaluated: bool = false
 var encounter_entity_id: String = ""
 var search_count: int = 0
+var searched_targets: Array = []
 var camp_item_states: Array = []
 var camp_rest_count: int = 0
 var camp_traps: Array = []
@@ -62,6 +63,7 @@ func to_state() -> HexRecord:
 	record.encounter_evaluated = encounter_evaluated
 	record.encounter_entity_id = encounter_entity_id
 	record.search_count = search_count
+	record.searched_targets = searched_targets.duplicate()
 	record.camp_item_states = camp_item_states.duplicate(true)
 	record.camp_rest_count = camp_rest_count
 	record.camp_traps = camp_traps.duplicate(true)
@@ -102,6 +104,7 @@ func apply_state(state) -> void:
 	encounter_evaluated = source.encounter_evaluated
 	encounter_entity_id = source.encounter_entity_id
 	search_count = source.search_count
+	searched_targets = source.searched_targets.duplicate()
 	camp_item_states = source.camp_item_states.duplicate(true)
 	camp_rest_count = source.camp_rest_count
 	camp_traps = source.camp_traps.duplicate(true)

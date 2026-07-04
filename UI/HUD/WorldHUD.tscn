@@ -1,11 +1,9 @@
-[gd_scene format=3 uid="uid://ca60e326dswru"]
+[gd_scene format=3 uid="uid://e2q8aaunlwqa"]
 
-[ext_resource type="Script" uid="uid://dcly5338qk2cl" path="res://UI/HUD/WorldHUD.gd" id="1_world_hud"]
 [ext_resource type="PackedScene" path="res://UI/HUD/MedicalMonitor.tscn" id="2_medical_monitor"]
 [ext_resource type="PackedScene" uid="uid://saveloadmenu" path="res://UI/SaveLoadMenu.tscn" id="3_saveload"]
 
 [node name="WorldHUD" type="CanvasLayer" unique_id=1876507874]
-script = ExtResource("1_world_hud")
 
 [node name="Root" type="Control" parent="." unique_id=194119647]
 unique_name_in_owner = true
@@ -31,7 +29,6 @@ stretch_mode = 1
 
 [node name="MedicalMonitor" parent="Root" unique_id=529718819 instance=ExtResource("2_medical_monitor")]
 unique_name_in_owner = true
-layout_mode = 1
 
 [node name="StatusPanel" type="PanelContainer" parent="Root" unique_id=1352062772]
 unique_name_in_owner = true
@@ -39,7 +36,7 @@ layout_mode = 1
 offset_left = 14.0
 offset_top = 14.0
 offset_right = 412.0
-offset_bottom = 186.0
+offset_bottom = 220.0
 
 [node name="StatusMargin" type="MarginContainer" parent="Root/StatusPanel" unique_id=1878557698]
 layout_mode = 2
@@ -253,185 +250,28 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "BODY SIGNAL STABLE"
 
-[node name="HexPanel" type="PanelContainer" parent="Root" unique_id=1741974042]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -452.0
-offset_top = 78.0
-offset_right = -14.0
-offset_bottom = 330.0
-grow_horizontal = 0
-
-[node name="HexMargin" type="MarginContainer" parent="Root/HexPanel" unique_id=893445191]
-layout_mode = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 12
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 12
-
-[node name="HexContent" type="VBoxContainer" parent="Root/HexPanel/HexMargin" unique_id=1617203506]
-layout_mode = 2
-theme_override_constants/separation = 7
-
-[node name="CurrentHexLabel" type="Label" parent="Root/HexPanel/HexMargin/HexContent" unique_id=1255170923]
-unique_name_in_owner = true
-layout_mode = 2
-text = "CURRENT HEX --"
-
-[node name="SelectedHexLabel" type="Label" parent="Root/HexPanel/HexMargin/HexContent" unique_id=1553973784]
-unique_name_in_owner = true
-layout_mode = 2
-text = "TARGET HEX --"
-
-[node name="HexDetailsLabel" type="Label" parent="Root/HexPanel/HexMargin/HexContent" unique_id=1440859509]
-unique_name_in_owner = true
-layout_mode = 2
-text = "NO HEX SIGNAL"
-autowrap_mode = 3
-
-[node name="MacroActivityLabel" type="Label" parent="Root/HexPanel/HexMargin/HexContent" unique_id=1707794231]
-unique_name_in_owner = true
-layout_mode = 2
-text = "TOKENS --"
-autowrap_mode = 3
-
-[node name="HexButtons" type="HBoxContainer" parent="Root/HexPanel/HexMargin/HexContent" unique_id=408566069]
+[node name="StatusActionRow" type="HBoxContainer" parent="Root/StatusPanel/StatusMargin/StatusContent" unique_id=901122334]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="ScanButton" type="Button" parent="Root/HexPanel/HexMargin/HexContent/HexButtons" unique_id=474773857]
+[node name="StatusHintLabel" type="Label" parent="Root/StatusPanel/StatusMargin/StatusContent/StatusActionRow" unique_id=901122335]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(92, 32)
 layout_mode = 2
-text = "SCAN"
+size_flags_horizontal = 3
+text = "CLICK STATUS FOR BODY SCAN"
+autowrap_mode = 3
 
-[node name="TravelButton" type="Button" parent="Root/HexPanel/HexMargin/HexContent/HexButtons" unique_id=39934238]
+[node name="StatusInventoryButton" type="Button" parent="Root/StatusPanel/StatusMargin/StatusContent/StatusActionRow" unique_id=901122336]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(104, 32)
-layout_mode = 2
-text = "TRAVEL"
-
-[node name="ActButton" type="Button" parent="Root/HexPanel/HexMargin/HexContent/HexButtons" unique_id=693015882]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(84, 32)
-layout_mode = 2
-text = "ACT"
-
-[node name="CommandPanel" type="PanelContainer" parent="Root" unique_id=536828318]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -452.0
-offset_top = 14.0
-offset_right = -14.0
-offset_bottom = 70.0
-grow_horizontal = 0
-
-[node name="CommandMargin" type="MarginContainer" parent="Root/CommandPanel" unique_id=2120704730]
-layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
-
-[node name="CommandButtons" type="HBoxContainer" parent="Root/CommandPanel/CommandMargin" unique_id=277428351]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="InventoryButton" type="Button" parent="Root/CommandPanel/CommandMargin/CommandButtons" unique_id=1807451963]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(118, 36)
+custom_minimum_size = Vector2(64, 28)
 layout_mode = 2
 text = "INV"
 
-[node name="MedicalButton" type="Button" parent="Root/CommandPanel/CommandMargin/CommandButtons" unique_id=36361620]
+[node name="StatusSettingsButton" type="Button" parent="Root/StatusPanel/StatusMargin/StatusContent/StatusActionRow" unique_id=901122337]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(92, 36)
-layout_mode = 2
-text = "MED"
-
-[node name="MenuButton" type="Button" parent="Root/CommandPanel/CommandMargin/CommandButtons" unique_id=102146093]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(86, 36)
-layout_mode = 2
-text = "MENU"
-
-[node name="SettingsButton" type="Button" parent="Root/CommandPanel/CommandMargin/CommandButtons" unique_id=1989940461]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(96, 36)
+custom_minimum_size = Vector2(64, 28)
 layout_mode = 2
 text = "SET"
-
-[node name="MenuPanel" type="PanelContainer" parent="Root" unique_id=633575676]
-unique_name_in_owner = true
-visible = false
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -268.0
-offset_top = 338.0
-offset_right = -14.0
-offset_bottom = 550.0
-grow_horizontal = 0
-
-[node name="MenuMargin" type="MarginContainer" parent="Root/MenuPanel" unique_id=734052159]
-layout_mode = 2
-theme_override_constants/margin_left = 12
-theme_override_constants/margin_top = 12
-theme_override_constants/margin_right = 12
-theme_override_constants/margin_bottom = 12
-
-[node name="MenuContent" type="VBoxContainer" parent="Root/MenuPanel/MenuMargin" unique_id=1999908876]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="MenuTitle" type="Label" parent="Root/MenuPanel/MenuMargin/MenuContent" unique_id=2137282420]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.8392157, 0.6039216, 0.2627451, 1)
-theme_override_font_sizes/font_size = 16
-text = "FIELD MENU"
-
-[node name="MenuInventoryButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent" unique_id=513632605]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 34)
-layout_mode = 2
-text = "INVENTORY"
-
-[node name="MenuSaveButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent" unique_id=754206019]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 34)
-layout_mode = 2
-text = "SAVE"
-
-[node name="MenuLoadButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent" unique_id=129609169]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 34)
-layout_mode = 2
-text = "LOAD"
-
-[node name="MenuSettingsButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent" unique_id=1282621573]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 34)
-layout_mode = 2
-text = "SETTINGS"
-
-[node name="MenuExitMainButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent" unique_id=1141460387]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 34)
-layout_mode = 2
-text = "MAIN MENU"
-
-[node name="MenuCloseButton" type="Button" parent="Root/MenuPanel/MenuMargin/MenuContent" unique_id=1139744028]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 34)
-layout_mode = 2
-text = "CLOSE"
 
 [node name="SettingsPanel" type="PanelContainer" parent="Root" unique_id=1410823937]
 unique_name_in_owner = true
@@ -488,6 +328,24 @@ min_value = 0.85
 max_value = 1.25
 step = 0.05
 value = 1.0
+
+[node name="SettingsSaveButton" type="Button" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=901122338]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+text = "SAVE GAME"
+
+[node name="SettingsLoadButton" type="Button" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=901122339]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+text = "LOAD GAME"
+
+[node name="SettingsMenuButton" type="Button" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=901122340]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+text = "MAIN MENU"
 
 [node name="SettingsHint" type="Label" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=8215227]
 layout_mode = 2

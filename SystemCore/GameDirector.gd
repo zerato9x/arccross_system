@@ -58,8 +58,8 @@ func _on_combat_requested(request: Dictionary) -> void:
 	print("\n[DIRECTOR] Combat request accepted. Stopping macro world...")
 	set_process_unhandled_input(false)
 	macro_map.hide()
-	if macro_map.world_hud:
-		macro_map.world_hud.visible = false
+	if macro_map.macro_hud:
+		macro_map.macro_hud.visible = false
 	_combat_coords = coords
 	_combat_approach_from = request.get(
 		"approach_from",
@@ -142,8 +142,8 @@ func _on_duel_finished(
 
 	_teardown_arena()
 	macro_map.show()
-	if macro_map.world_hud:
-		macro_map.world_hud.visible = true
+	if macro_map.macro_hud:
+		macro_map.macro_hud.visible = true
 	if should_retreat_player:
 		macro_map.retreat_player_from_combat(
 			_combat_coords,
