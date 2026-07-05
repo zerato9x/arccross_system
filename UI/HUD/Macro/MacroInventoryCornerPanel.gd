@@ -42,7 +42,7 @@ func _render_expanded() -> void:
 
 func _set_state(state: PanelState) -> void:
 	super._set_state(state)
-	if state == PanelState.PREVIEW and inventory_ui and inventory_ui.is_embedded():
+	if state == PanelState.PREVIEW and inventory_ui and inventory_ui.is_open():
 		inventory_ui.close_panel(false)
 	elif state == PanelState.EXPANDED:
 		_render_expanded()

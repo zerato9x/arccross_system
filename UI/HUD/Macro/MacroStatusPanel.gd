@@ -21,6 +21,7 @@ var _vital_rows: Dictionary = {}
 @onready var _location_label: Label = %LocationLabel
 @onready var _time_label: Label = %TimeLabel
 @onready var _warning_label: Label = %WarningLabel
+@onready var _action_row: HBoxContainer = get_node_or_null("CompactView/ActionRow") as HBoxContainer
 @onready var _body_scan_button: Button = %BodyScanButton
 @onready var _inventory_button: Button = %InventoryButton
 @onready var _settings_button: Button = %SettingsButton
@@ -53,6 +54,10 @@ func set_clock_visible(clock_visible: bool) -> void:
 		icon.visible = clock_visible
 	if label:
 		label.visible = clock_visible
+
+func set_action_row_visible(actions_visible: bool) -> void:
+	if _action_row:
+		_action_row.visible = actions_visible
 
 func is_action_button_at(global_pos: Vector2) -> bool:
 	for button in [_body_scan_button, _inventory_button, _settings_button]:

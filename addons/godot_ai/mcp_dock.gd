@@ -583,7 +583,7 @@ func _build_ui() -> void:
 	_update_label = Label.new()
 	_update_label.add_theme_font_size_override("font_size", 15)
 	_update_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
-	## Wrap long banner text (e.g. the < 4.4 manual-update guidance) instead
+	## Wrap long banner text (e.g. the < 4.5 support-floor guidance) instead
 	## of letting a single line stretch the whole dock wide. The dock is a
 	## fixed-width side panel, so constrain horizontally and wrap.
 	_update_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1133,10 +1133,17 @@ func _apply_mixed_state_banner_diagnostic(diag: Dictionary) -> void:
 
 
 ## Signal handler for the extracted LogViewer — the panel owns its own
-## display visibility, the dock owns dispatcher logging routing.
+## display visibility, the dock owns logging routing. Routes to BOTH the
+## dispatcher (gates [recv]/[send] recording) and the log buffer's console
+## echo — the connection logs [event]/[defer] lines directly to the buffer,
+## bypassing the dispatcher, so gating only `mcp_logging` left the console
+## spamming with the toggle off (#626). Ring recording is unaffected, so
+## the dock's log panel keeps working while the console stays quiet.
 func _on_log_logging_enabled_changed(enabled: bool) -> void:
 	if _connection and _connection.dispatcher:
 		_connection.dispatcher.mcp_logging = enabled
+	if _log_buffer != null:
+		_log_buffer.enabled = enabled
 
 
 ## Signal handler for the extracted PortPickerPanel — the panel range-validates
@@ -2726,6 +2733,5 @@ func _on_install_state_changed(state: Dictionary) -> void:
 	if state.has("banner_visible") and _update_banner != null:
 		_update_banner.visible = bool(state["banner_visible"])
 	if String(state.get("outcome", "")) == "success" and _update_label != null:
-		## Visual confirmation for the pre-4.4 "Updated! Restart the editor."
-		## terminal state — the only outcome the manager paints green for.
+		## Visual confirmation for successful terminal update states.
 		_update_label.add_theme_color_override("font_color", Color.GREEN)

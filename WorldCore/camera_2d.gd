@@ -8,8 +8,6 @@ const ZOOM_SPEED = 0.15
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 10
 
-var _viewport_insets := Rect2i()
-
 
 func _ready() -> void:
 	if not target:
@@ -18,8 +16,8 @@ func _ready() -> void:
 	position = target.position
 
 
-func set_viewport_insets(insets: Rect2i) -> void:
-	_viewport_insets = insets
+func set_viewport_insets(_insets: Rect2i) -> void:
+	pass
 
 
 func _process(delta: float) -> void:
@@ -32,17 +30,7 @@ func _process(delta: float) -> void:
 func _get_desired_position() -> Vector2:
 	if target == null:
 		return position
-	var viewport_size := get_viewport().get_visible_rect().size
-	var playable_size := Vector2(
-		viewport_size.x - float(_viewport_insets.position.x + _viewport_insets.size.x),
-		viewport_size.y - float(_viewport_insets.position.y + _viewport_insets.size.y)
-	)
-	var center_offset := Vector2(
-		(float(_viewport_insets.position.x) - _viewport_insets.size.x) * 0.5,
-		(float(_viewport_insets.position.y) - _viewport_insets.size.y) * 0.5
-	)
-	var screen_center := viewport_size * 0.5 + center_offset
-	return target.position + (screen_center - viewport_size * 0.5) / zoom
+	return target.position
 
 
 func _unhandled_input(event: InputEvent) -> void:

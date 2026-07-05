@@ -29,9 +29,11 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	var hour := int(clock.get("hour", 0))
 	var minute := int(clock.get("minute", 0))
 	if _clock:
+		_clock.visible = true
 		_clock.set_time(hour, minute)
 	var phase: String = RevampedHUDAtlas.time_of_day_phase(hour)
 	if _day_icon:
+		_day_icon.visible = true
 		_day_icon.texture = RevampedHUDAtlas.time_of_day_icon(phase)
 	if _day_label:
 		_day_label.text = "DAY %03d" % int(calendar.get("day", clock.get("day", 1)))

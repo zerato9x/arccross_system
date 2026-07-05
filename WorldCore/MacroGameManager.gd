@@ -328,7 +328,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		and not event.echo
 		and (event.keycode == KEY_I or event.keycode == KEY_TAB)
 	):
-		open_inventory()
+		if macro_hud:
+			macro_hud.toggle_inventory_panel()
 		get_viewport().set_input_as_handled()
 		return
 	if not _pending_interaction.is_empty():
