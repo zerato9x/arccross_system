@@ -16,6 +16,8 @@ const EXPAND_HEIGHT_RATIO := 0.50
 @export var panel_corner: PanelCorner = PanelCorner.TOP_LEFT
 @export var can_expand: bool = true
 @export var preview_size: Vector2 = Vector2(260.0, 200.0)
+@export var expand_width_ratio: float = EXPAND_WIDTH_RATIO
+@export var expand_height_ratio: float = EXPAND_HEIGHT_RATIO
 @export var use_authored_preview_rect: bool = false
 
 var _state: PanelState = PanelState.PREVIEW
@@ -113,8 +115,8 @@ func _apply_layout() -> void:
 	var vp := get_viewport_rect().size
 	if _state == PanelState.EXPANDED:
 		var expanded := Vector2(
-			vp.x * EXPAND_WIDTH_RATIO,
-			vp.y * EXPAND_HEIGHT_RATIO
+			vp.x * expand_width_ratio,
+			vp.y * expand_height_ratio
 		)
 		custom_minimum_size = expanded
 		size = expanded

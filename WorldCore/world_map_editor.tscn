@@ -1,37 +1,111 @@
-[gd_scene format=3 uid="uid://iyfucuw2e3ei"]
+[gd_scene format=4 uid="uid://iyfucuw2e3ei"]
 
 [ext_resource type="Script" uid="uid://ccgdg6podh5df" path="res://WorldCore/WorldMapEditor.gd" id="1_editor"]
 [ext_resource type="Script" uid="uid://cqqujodtqcqe8" path="res://WorldCore/AuthoredWorldMapBaker.gd" id="2_baker"]
 [ext_resource type="Resource" path="res://Asset/MacroTileCatalog.tres" id="3_avyyh"]
 [ext_resource type="TileSet" uid="uid://ehefdtks2e57" path="res://Asset/MacroTileSet.tres" id="3_tileset"]
+[ext_resource type="Script" uid="uid://davrp6m8gik5b" path="res://WorldCore/HexDecorProp.gd" id="5_1vush"]
+[ext_resource type="Script" uid="uid://dkva45ucrr4s5" path="res://WorldCore/HexMapMarker.gd" id="6_iphb3"]
 
-[node name="WorldMapEditor" type="Node2D" unique_id=462087400]
+[node name="WorldMapEditor" type="Node2D" unique_id=462087400 node_paths=PackedStringArray("terrain_layer", "flora_layer", "rock_layer", "structure_layer", "props_layer", "baker")]
 script = ExtResource("1_editor")
+terrain_layer = NodePath("TerrainLayer")
+flora_layer = NodePath("FloraLayer")
+rock_layer = NodePath("RockLayer")
+structure_layer = NodePath("StructureLayer")
+props_layer = NodePath("PropsLayer")
+baker = NodePath("AuthoredWorldMapBaker")
 
-[node name="AuthoredWorldMapBaker" type="Node" parent="." unique_id=887019120]
+[node name="AuthoredWorldMapBaker" type="Node" parent="." unique_id=887019120 node_paths=PackedStringArray("terrain_layer", "flora_layer", "rock_layer", "structure_layer", "props_layer", "decor_root", "marker_root")]
 script = ExtResource("2_baker")
+terrain_layer = NodePath("../TerrainLayer")
+flora_layer = NodePath("../FloraLayer")
+rock_layer = NodePath("../RockLayer")
+structure_layer = NodePath("../StructureLayer")
+props_layer = NodePath("../PropsLayer")
+decor_root = NodePath("../Decorations")
+marker_root = NodePath("../Markers")
 tile_catalog = ExtResource("3_avyyh")
+output_path = "res://WorldCore/Maps/example_sector.tres"
+map_id = "example_sector"
+display_name = "Example Sector"
+start_coords = Vector2i(0, 0)
 
 [node name="TerrainLayer" type="TileMapLayer" parent="." unique_id=942390597]
+tile_map_data = PackedByteArray("AAABAP//dQAAAAAAAAAAAAAAegAAAAAAAAD//wAAeAAAAAAAAAABAAAAeQAAAAAAAAAAAAEAdwAAAAAAAAD//wEAdAAAAAAAAAACAAAAewAAAAAAAAD+/wAAcgAAAAAAAAAAAP//dgAAAAAAAAA=")
 tile_set = ExtResource("3_tileset")
 
 [node name="FloraLayer" type="TileMapLayer" parent="." unique_id=1958071495]
+modulate = Color(1, 1, 1, 0.45)
 z_index = 1
+tile_map_data = PackedByteArray("AAAAAAEAIgEAAAAAAAD//wEAJAEAAAAAAAA=")
 tile_set = ExtResource("3_tileset")
 
 [node name="RockLayer" type="TileMapLayer" parent="." unique_id=1861420122]
+modulate = Color(1, 1, 1, 0.45)
 z_index = 2
+tile_map_data = PackedByteArray("AAD//wAABAEAAAAAAAA=")
 tile_set = ExtResource("3_tileset")
 
 [node name="StructureLayer" type="TileMapLayer" parent="." unique_id=1300590720]
+modulate = Color(1, 1, 1, 0.45)
 z_index = 3
+tile_map_data = PackedByteArray("AAABAAAACQEAAAAAAAA=")
 tile_set = ExtResource("3_tileset")
 
 [node name="PropsLayer" type="TileMapLayer" parent="." unique_id=1936632618]
+modulate = Color(1, 1, 1, 0.45)
 z_index = 4
-tile_map_data = PackedByteArray(0, 0, 0, 0, 255, 255, 106, 0, 0, 0, 0, 0, 0, 0)
 tile_set = ExtResource("3_tileset")
 
 [node name="Decorations" type="Node2D" parent="." unique_id=369578053]
 
+[node name="ExampleMcpShrub" type="Node2D" parent="Decorations" unique_id=501478939 node_paths=PackedStringArray("coord_layer")]
+position = Vector2(0, -148)
+scale = Vector2(0.19, 0.19)
+script = ExtResource("5_1vush")
+coord_layer = NodePath("../../TerrainLayer")
+sprite_path = "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Shrub G.png"
+hex_coords = Vector2i(0, -1)
+uniform_scale = 0.19
+
+[node name="ExampleSectorShrubSmall" type="Node2D" parent="Decorations" unique_id=1821212330 node_paths=PackedStringArray("coord_layer")]
+position = Vector2(328, 228)
+scale = Vector2(0.14, 0.14)
+script = ExtResource("5_1vush")
+coord_layer = NodePath("../../TerrainLayer")
+sprite_path = "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Shrub H.png"
+decor_layer = 0
+uniform_scale = 0.14
+
+[node name="ExampleSectorShrubLarge2" type="Node2D" parent="Decorations" unique_id=1523243092 node_paths=PackedStringArray("coord_layer")]
+position = Vector2(-48, 676)
+scale = Vector2(0.22, 0.22)
+script = ExtResource("5_1vush")
+coord_layer = NodePath("../../TerrainLayer")
+sprite_path = "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Shrub H.png"
+hex_coords = Vector2i(-1, 1)
+decor_layer = 0
+uniform_scale = 0.22
+
+[node name="ExampleSectorCrateProp" type="Node2D" parent="Decorations" unique_id=903851214 node_paths=PackedStringArray("coord_layer")]
+position = Vector2(1216, 274)
+scale = Vector2(0.16, 0.16)
+script = ExtResource("5_1vush")
+coord_layer = NodePath("../../TerrainLayer")
+sprite_path = "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/Homestead Crates Size1.png"
+hex_coords = Vector2i(2, 0)
+uniform_scale = 0.16
+
 [node name="Markers" type="Node2D" parent="." unique_id=1126101550]
+
+[node name="ExampleSectorHomesteadPoi" type="Node2D" parent="Markers" unique_id=2055288215 node_paths=PackedStringArray("coord_layer")]
+position = Vector2(768, 256)
+script = ExtResource("6_iphb3")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(1, 0)
+is_poi = true
+poi_id = "example_homestead"
+poi_name = "Example Homestead"
+zone_id = "example_sector"
+hazard_level = 0.5

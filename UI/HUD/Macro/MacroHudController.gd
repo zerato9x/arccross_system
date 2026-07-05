@@ -138,10 +138,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_I, KEY_TAB:
 			toggle_inventory_panel()
 			get_viewport().set_input_as_handled()
-		KEY_ESCAPE:
-			if _layout_manager.is_any_expanded():
-				_layout_manager.collapse_all()
-				get_viewport().set_input_as_handled()
 
 
 func _open_settings() -> void:

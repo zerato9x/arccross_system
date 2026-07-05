@@ -31,19 +31,23 @@ func _run() -> void:
 
 	hud.toggle_health_panel()
 	await process_frame
-	var vp: Vector2 = hud.get_viewport_rect().size
+	var vp: Vector2 = hud.get_viewport().get_visible_rect().size
 	var health := hud.get_node("%MacroHealthPanel") as MacroHealthCornerPanel
 	if health.get_node("%PreviewRoot").get_node_or_null("MacroStatusPanel") == null:
 		_fail("Health corner is not using MacroStatusPanel as preview.")
 		return
-	var expected_w: float = vp.x * MacroCornerPanel.EXPAND_WIDTH_RATIO
-	if abs(health.size.x - expected_w) > 8.0:
+	var health_expected_w: float = vp.x * health.expand_width_ratio
+	if abs(health.size.x - health_expected_w) > 8.0:
 		_fail("Expanded health panel width mismatch.")
 		return
 
 	hud.toggle_inventory_panel()
 	await process_frame
 	var inventory := hud.get_node("%MacroInventoryPanel") as MacroInventoryCornerPanel
+	var inventory_expected_w: float = vp.x * inventory.expand_width_ratio
+	if abs(inventory.size.x - inventory_expected_w) > 8.0:
+		_fail("Expanded inventory panel width mismatch.")
+		return
 	if inventory.get_node("%PreviewRoot").get_node_or_null("MacroInventoryPreview") == null:
 		_fail("Inventory corner is not using MacroInventoryPreview.")
 		return

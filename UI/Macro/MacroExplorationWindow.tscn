@@ -133,7 +133,7 @@ theme_override_constants/separation = 4
 [node name="DropHint" type="Label" parent="ExplorationPanel/Margin/Content/SceneRoot/SearchFrame/SearchFrameMargin/SearchFrameColumn" unique_id=2075014353]
 unique_name_in_owner = true
 layout_mode = 2
-text = "CLICK A BUILDING, DRAG TOOLS IN, RIGHT-CLICK TO REMOVE"
+text = "CLICK A BUILDING, DRAG TOOLS IN, RMB FOR ACTIONS"
 
 [node name="DropRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/SceneRoot/SearchFrame/SearchFrameMargin/SearchFrameColumn" unique_id=644379012]
 unique_name_in_owner = true
@@ -296,7 +296,8 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "STOP REST"
 
-[node name="CloseButton" type="Button" parent="ExplorationPanel/Margin/Content/RightPanel/ActionRow" unique_id=60721237]
+[node name="ContinueButton" type="Button" parent="ExplorationPanel/Margin/Content/RightPanel/ActionRow" unique_id=60721237]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
-text = "LEAVE"
+text = "CONTINUE"

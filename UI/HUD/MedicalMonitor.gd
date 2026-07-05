@@ -134,17 +134,6 @@ func show_snapshot(snapshot: Dictionary) -> void:
 func is_open() -> bool:
 	return visible
 
-func _unhandled_input(event: InputEvent) -> void:
-	if (
-		visible
-		and event is InputEventKey
-		and event.pressed
-		and not event.echo
-		and event.keycode == KEY_ESCAPE
-	):
-		close_monitor()
-		get_viewport().set_input_as_handled()
-
 func _build_interface() -> void:
 	HUDAssetLibrary.apply_panel(_monitor_panel, "neutral")
 
@@ -164,13 +153,6 @@ func _build_interface() -> void:
 	signal_label.text = "SYSTEM LINKED"
 	HUDAssetLibrary.apply_label(signal_label, "muted")
 	header.add_child(signal_label)
-
-	var close_button := Button.new()
-	close_button.text = "CLOSE"
-	close_button.custom_minimum_size = Vector2(92.0, 30.0)
-	HUDAssetLibrary.apply_button(close_button)
-	close_button.pressed.connect(close_monitor)
-	header.add_child(close_button)
 
 	var divider := HSeparator.new()
 	divider.modulate = HUDAssetLibrary.COLOR_NORMAL

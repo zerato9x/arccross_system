@@ -27,6 +27,7 @@ func _build_dock() -> void:
 	_dock.add_child(title)
 
 	_dock.add_child(_button("Open World Map Editor", _open_editor_scene))
+	_dock.add_child(_button("Paint Example Sector", _paint_example_sector))
 	_dock.add_child(_button("Bake Authored Map", _bake_current_scene))
 	_dock.add_child(_button("Sync Selected Marker Coords", _sync_selected_markers))
 	_dock.add_child(_button("Snap Selected Markers To Hex", _snap_selected_markers))
@@ -55,6 +56,10 @@ func _open_editor_scene() -> void:
 
 func _current_scene_root() -> Node:
 	return get_tree().edited_scene_root
+
+
+func _paint_example_sector() -> void:
+	_call_world_map_editor_button("_editor_paint_example_sector")
 
 
 func _bake_current_scene() -> void:

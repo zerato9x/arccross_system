@@ -19,6 +19,7 @@ signal inventory_action_requested(
 signal interaction_closed
 
 const _InventorySlotScene := preload("res://UI/Inventory/InventorySlot.tscn")
+const _SlotActionBuilder := preload("res://UI/Inventory/InventorySlotActionBuilder.gd")
 const _PROP_SPRITE_SIZE := 170.0
 const _PROP_OUTLINE_PADDING := 4.0
 const _PROP_OUTLINE_WIDTH := 3
@@ -53,7 +54,7 @@ const _BACKGROUND_VERTICAL_SHIFT := -72.0
 @onready var _submit_button: Button = %SubmitButton
 @onready var _rest_button: Button = %RestButton
 @onready var _stop_rest_button: Button = %StopRestButton
-@onready var _close_button: Button = %CloseButton
+@onready var _continue_button: Button = %ContinueButton
 
 var _session: Dictionary = {}
 var _active_mode := GameEnums.PoiAction.SEARCH
@@ -64,6 +65,8 @@ var _ground_slots: Array[InventorySlot] = []
 var _inventory_slots: Array[InventorySlot] = []
 var _prop_entries: Dictionary = {}
 var _showing_result := false
+var _context_drop_target: InteractionDropTarget
+var _context_slot: InventorySlot
 
 func _ready() -> void:
 	_panel.visible = false
@@ -88,13 +91,14 @@ func _ready() -> void:
 	HUDAssetLibrary.apply_button(_submit_button)
 	HUDAssetLibrary.apply_button(_rest_button)
 	HUDAssetLibrary.apply_button(_stop_rest_button)
-	HUDAssetLibrary.apply_button(_close_button)
+	HUDAssetLibrary.apply_button(_continue_button)
+	_continue_button.visible = false
 	_search_button.pressed.connect(func(): _set_mode(GameEnums.PoiAction.SEARCH))
 	_camp_button.pressed.connect(func(): _set_mode(GameEnums.PoiAction.CAMP))
 	_submit_button.pressed.connect(_submit_action)
 	_rest_button.pressed.connect(func(): _submit_action_for(GameEnums.PoiAction.REST))
 	_stop_rest_button.pressed.connect(func(): _submit_action_for(GameEnums.PoiAction.STOP_REST))
-	_close_button.pressed.connect(_on_close_pressed)
+	_continue_button.pressed.connect(_on_continue_pressed)
 	_scene_root.resized.connect(_rerender_prop_positions)
 	_scene_root.clip_contents = true
 	_apply_background_layout()
@@ -121,15 +125,11 @@ func dock_into(host: Control) -> void:
 
 func undock() -> void:
 	if _panel.get_parent() != self:
-		var parent := _panel.get_parent()
-		if parent:
-			parent.remove_child(_panel)
+		var panel_parent := _panel.get_parent()
+		if panel_parent:
+			panel_parent.remove_child(_panel)
 		add_child(_panel)
-	_panel.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-	_panel.offset_left = -1020.0
-	_panel.offset_top = -340.0
-	_panel.offset_right = -20.0
-	_panel.offset_bottom = 340.0
+	_panel.visible = false
 	_dock_host = null
 
 
@@ -155,22 +155,22 @@ func show_result(title: String, message: String) -> void:
 	_submit_button.visible = false
 	_rest_button.visible = false
 	_stop_rest_button.visible = false
-	_close_button.text = "CONTINUE"
+	_continue_button.visible = true
 
-func _on_close_pressed() -> void:
-	if _showing_result:
-		_showing_result = false
-		_close_button.text = "LEAVE"
-		_render_session()
-		_request_preview()
+func _on_continue_pressed() -> void:
+	if not _showing_result:
 		return
-	close_window()
+	_showing_result = false
+	_continue_button.visible = false
+	_render_session()
+	_request_preview()
 
 func collapse_to_preview() -> void:
 	if _panel:
 		_panel.visible = false
 	_showing_result = false
-	_close_button.text = "LEAVE"
+	if _continue_button:
+		_continue_button.visible = false
 	_session.clear()
 	_clear_ground_slots()
 	_clear_inventory_slots()
@@ -249,7 +249,7 @@ func _render_interaction_gear() -> void:
 		_inventory_slots.append(slot)
 		rendered += 1
 	_inventory_hint.text = (
-		"Drag or right-click gear onto a target slot."
+		"Drag gear in or right-click a slot for actions."
 		if rendered > 0
 		else "No usable tools or camp gear."
 	)
@@ -258,7 +258,127 @@ func _on_gear_slot_clicked(slot_node: InventorySlot, event: InputEventMouseButto
 	if not slot_node.has_item():
 		return
 	if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		_open_gear_context_menu(slot_node, event.global_position)
+	elif event.double_click:
 		_quick_assign_gear(slot_node.item_descriptor)
+
+func _open_gear_context_menu(slot_node: InventorySlot, global_pos: Vector2) -> void:
+	var entries := _SlotActionBuilder.build_for_exploration_gear(
+		slot_node,
+		_active_drop_targets()
+	)
+	if entries.is_empty():
+		return
+	_context_drop_target = null
+	_context_slot = slot_node
+	_show_slot_details(slot_node)
+	InventorySlotContextMenuHost.request_open(
+		get_tree(),
+		global_pos,
+		_SlotActionBuilder.menu_header_for_slot(slot_node),
+		entries,
+		_on_slot_context_menu_action,
+		slot_node.item_descriptor
+	)
+
+func _open_ground_context_menu(slot_node: InventorySlot, global_pos: Vector2) -> void:
+	var entries := _SlotActionBuilder.build_for_exploration_ground(slot_node)
+	if entries.is_empty():
+		return
+	_context_drop_target = null
+	_context_slot = slot_node
+	_show_slot_details(slot_node)
+	InventorySlotContextMenuHost.request_open(
+		get_tree(),
+		global_pos,
+		_SlotActionBuilder.menu_header_for_slot(slot_node),
+		entries,
+		_on_slot_context_menu_action,
+		slot_node.item_descriptor
+	)
+
+func _open_drop_target_context_menu(
+	drop: InteractionDropTarget,
+	global_pos: Vector2
+) -> void:
+	var entries := _SlotActionBuilder.build_for_drop_target(drop)
+	if entries.is_empty():
+		return
+	_context_slot = null
+	_context_drop_target = drop
+	var payload := drop.get_assignment_payload()
+	_show_drop_target_details(drop)
+	InventorySlotContextMenuHost.request_open(
+		get_tree(),
+		global_pos,
+		_SlotActionBuilder.menu_header_for_drop_target(drop),
+		entries,
+		_on_slot_context_menu_action,
+		payload
+	)
+
+func _on_slot_context_menu_action(entry: Dictionary) -> void:
+	match str(entry.get("kind", "")):
+		_SlotActionBuilder.KIND_EXAMINE:
+			if _context_drop_target != null:
+				_show_drop_target_details(_context_drop_target)
+			elif _context_slot != null:
+				_show_slot_details(_context_slot)
+		_SlotActionBuilder.KIND_INVENTORY:
+			if _context_slot == null or not _context_slot.has_item():
+				return
+			inventory_action_requested.emit(
+				str(entry.get("action_id", "")),
+				str(_context_slot.item_descriptor.get("instance_id", "")),
+				int(entry.get("equipment_slot", GameEnums.EquipmentSlot.NONE))
+			)
+		_SlotActionBuilder.KIND_EXPLORATION_ASSIGN:
+			_assign_gear_to_target(entry)
+		_SlotActionBuilder.KIND_EXPLORATION_CLEAR:
+			_clear_drop_target(entry)
+
+func _assign_gear_to_target(entry: Dictionary) -> void:
+	var drop: InteractionDropTarget = entry.get("drop_target", null)
+	if drop == null or _context_slot == null or not _context_slot.has_item():
+		return
+	var descriptor: Dictionary = _context_slot.item_descriptor
+	if not drop.accepts_descriptor(descriptor):
+		return
+	drop.set_assigned_instance(
+		str(descriptor.get("instance_id", "")),
+		str(descriptor.get("name", "")),
+		str(descriptor.get("sprite_path", ""))
+	)
+	_persist_drop_assignments()
+	_request_preview()
+
+func _clear_drop_target(entry: Dictionary) -> void:
+	var drop: InteractionDropTarget = entry.get("drop_target", null)
+	if drop == null:
+		return
+	var cleared_id := drop.get_assigned_instance()
+	if cleared_id.is_empty():
+		return
+	drop.clear_assignment()
+	drop.item_cleared.emit(cleared_id, drop.target_id)
+	_persist_drop_assignments()
+	_request_preview()
+
+func _show_drop_target_details(drop: InteractionDropTarget) -> void:
+	var payload := drop.get_assignment_payload()
+	if payload.is_empty():
+		return
+	_body_label.text = str(payload.get("name", drop.target_id))
+
+
+func _show_slot_details(slot_node: InventorySlot) -> void:
+	if slot_node == null or not slot_node.has_item():
+		return
+	var descriptor: Dictionary = slot_node.item_descriptor
+	_body_label.text = "%s\n%s" % [
+		str(descriptor.get("name", "Item")),
+		str(descriptor.get("description", "")),
+	]
 
 func _quick_assign_gear(descriptor: Dictionary) -> void:
 	var instance_id := str(descriptor.get("instance_id", ""))
@@ -503,6 +623,9 @@ func _add_drop_target(
 	)
 	drop.item_dropped.connect(_on_item_dropped)
 	drop.item_cleared.connect(_on_item_cleared)
+	drop.context_menu_requested.connect(
+		_on_drop_target_context_menu_requested.bind(drop)
+	)
 	var saved_assignments: Dictionary = _session.get("gear_assignments", {})
 	var target_id := str(target.get("id", ""))
 	if saved_assignments.has(target_id):
@@ -626,10 +749,18 @@ func _persist_drop_assignments() -> void:
 					assignments[child.target_id] = payload
 	_session["gear_assignments"] = assignments
 
+func _on_drop_target_context_menu_requested(
+	global_pos: Vector2,
+	drop: InteractionDropTarget
+) -> void:
+	_open_drop_target_context_menu(drop, global_pos)
+
 func _on_ground_slot_clicked(slot_node: InventorySlot, event: InputEventMouseButton) -> void:
 	if not slot_node.has_item():
 		return
-	if event.double_click:
+	if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		_open_ground_context_menu(slot_node, event.global_position)
+	elif event.double_click:
 		inventory_action_requested.emit(
 			GameEnums.MACRO_INV_TAKE,
 			str(slot_node.item_descriptor.get("instance_id", "")),

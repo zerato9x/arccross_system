@@ -3,6 +3,7 @@ class_name InteractionDropTarget
 
 signal item_dropped(instance_id: String, target_id: String)
 signal item_cleared(instance_id: String, target_id: String)
+signal context_menu_requested(global_position: Vector2)
 
 @export var target_id: String = ""
 @export var accepted_roles: Array[int] = []
@@ -35,7 +36,7 @@ func configure(new_target_id: String, new_target_label: String, roles: Array) ->
 	accepted_roles.clear()
 	for role in roles:
 		accepted_roles.append(int(role))
-	tooltip_text = _slot_title + "\nRight-click to remove."
+	tooltip_text = _slot_title + "\nRight-click for actions."
 	if _slot_label:
 		_slot_label.text = _slot_title
 	if _item_label:
@@ -58,6 +59,10 @@ func set_assigned_instance(
 
 func get_assigned_instance() -> String:
 	return _assigned_instance_id
+
+
+func get_slot_label() -> String:
+	return _slot_title
 
 func get_assignment_payload() -> Dictionary:
 	if _assigned_instance_id.is_empty():
@@ -146,12 +151,13 @@ func _on_gui_input(event: InputEvent) -> void:
 		return
 	if _assigned_instance_id.is_empty():
 		return
+	if event.button_index == MOUSE_BUTTON_RIGHT:
+		context_menu_requested.emit(event.global_position)
+		accept_event()
+		return
 	var clear_requested: bool = (
-		event.button_index == MOUSE_BUTTON_RIGHT
-		or (
-			event.button_index == MOUSE_BUTTON_LEFT
-			and event.double_click
-		)
+		event.button_index == MOUSE_BUTTON_LEFT
+		and event.double_click
 	)
 	if not clear_requested:
 		return

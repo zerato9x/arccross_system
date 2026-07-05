@@ -10,6 +10,8 @@ func _ready() -> void:
 	panel_id = "inventory"
 	panel_corner = PanelCorner.BOTTOM_LEFT
 	preview_size = Vector2(320.0, 128.0)
+	expand_width_ratio = 0.36
+	expand_height_ratio = 0.48
 	super._ready()
 	_install_preview_ui()
 

@@ -184,9 +184,23 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(132, 12)
 layout_mode = 2
 
-[node name="WarningLabel" type="Label" parent="CompactView"]
+[node name="WarningRow" type="HBoxContainer" parent="CompactView"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ConditionIcon" type="TextureRect" parent="CompactView/WarningRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+texture_filter = 0
+
+[node name="WarningLabel" type="Label" parent="CompactView/WarningRow"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 text = "BODY SIGNAL STABLE"
 
 [node name="ActionRow" type="HBoxContainer" parent="CompactView"]

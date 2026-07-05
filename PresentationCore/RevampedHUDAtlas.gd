@@ -29,8 +29,9 @@ const UI_INVENTORY_SLOT := Rect2(1056.0, 16.0, 32.0, 32.0)
 const UI_BUTTON_IDLE := Rect2(288.0, 16.0, 48.0, 24.0)
 const UI_BUTTON_HOVER := Rect2(352.0, 17.0, 48.0, 24.0)
 
-const TIME_SQUARE_SIZE := Vector2(48.0, 72.0)
-const TIME_SQUARE_ORIGIN := Vector2(176.0, 16.0)
+const TIME_SQUARE_GRID_ORIGIN := Vector2(168.0, 0.0)
+const TIME_SQUARE_CELL := Vector2(84.0, 55.0)
+const TIME_SQUARE_COLS := 2
 
 const TIME_PHASES := [
 	"dawn",
@@ -210,15 +211,15 @@ static func time_of_day_icon(phase: String) -> Texture2D:
 	var index := TIME_PHASES.find(phase)
 	if index < 0:
 		index = 0
-	var col := index % 3
-	var row := index / 3
-	var origin := TIME_SQUARE_ORIGIN + Vector2(
-		float(col) * TIME_SQUARE_SIZE.x,
-		float(row) * TIME_SQUARE_SIZE.y
+	var col := index % TIME_SQUARE_COLS
+	var row := index / TIME_SQUARE_COLS
+	var origin := TIME_SQUARE_GRID_ORIGIN + Vector2(
+		float(col) * TIME_SQUARE_CELL.x,
+		float(row) * TIME_SQUARE_CELL.y
 	)
 	return atlas_region(
 		TIME_WEATHER_ATLAS,
-		Rect2(origin, TIME_SQUARE_SIZE)
+		Rect2(origin, TIME_SQUARE_CELL)
 	)
 
 

@@ -64,6 +64,15 @@ func dock_session(session: Dictionary) -> void:
 		exploration_window.open_landmark(session)
 
 
+func collapse() -> void:
+	if _state == PanelState.PREVIEW:
+		return
+	if exploration_window and exploration_window.is_open():
+		exploration_window.close_window()
+		return
+	super.collapse()
+
+
 func _set_state(state: PanelState) -> void:
 	super._set_state(state)
 	if state == PanelState.PREVIEW and exploration_window:

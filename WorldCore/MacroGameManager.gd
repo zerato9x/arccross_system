@@ -143,11 +143,8 @@ func _ready() -> void:
 		return
 
 	if interaction_panel:
-		interaction_panel.poi_action_submitted.connect(resolve_poi_action)
-		interaction_panel.poi_preview_requested.connect(preview_poi_action)
 		interaction_panel.talk_action_submitted.connect(resolve_talk_action)
 		interaction_panel.ambush_submitted.connect(resolve_entity_ambush)
-		interaction_panel.inventory_requested.connect(open_inventory)
 		interaction_panel.interaction_closed.connect(close_macro_interaction)
 
 	if exploration_window_scene:
@@ -1026,9 +1023,11 @@ func _refresh_world_hud() -> void:
 	var snapshot := _build_world_hud_snapshot()
 	var inventory_snapshot := _build_inventory_snapshot()
 	snapshot["equipment"] = inventory_snapshot.get("equipment", [])
+	snapshot["containers"] = inventory_snapshot.get("containers", [])
 	snapshot["backpack"] = inventory_snapshot.get("backpack", [])
 	snapshot["current_capacity"] = inventory_snapshot.get("current_capacity", 0)
 	snapshot["maximum_capacity"] = inventory_snapshot.get("maximum_capacity", 0)
+	snapshot["capacity_breakdown"] = inventory_snapshot.get("capacity_breakdown", [])
 	var hex_data := world_generator.get_hex_at(_selected_hex_coords)
 	snapshot["selected_scene_descriptor"] = EventBgCatalog.build_scene_descriptor(
 		hex_data,

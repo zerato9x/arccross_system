@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://e2q8aaunlwqa"]
+[gd_scene format=3 uid="uid://dwoidwynbwd31"]
 
 [ext_resource type="PackedScene" path="res://UI/HUD/MedicalMonitor.tscn" id="2_medical_monitor"]
 [ext_resource type="PackedScene" uid="uid://saveloadmenu" path="res://UI/SaveLoadMenu.tscn" id="3_saveload"]

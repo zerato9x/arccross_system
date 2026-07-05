@@ -21,6 +21,9 @@ var _vital_rows: Dictionary = {}
 @onready var _location_label: Label = %LocationLabel
 @onready var _time_label: Label = %TimeLabel
 @onready var _warning_label: Label = %WarningLabel
+@onready var _condition_icon: TextureRect = %ConditionIcon
+
+var _condition_tween: Tween
 @onready var _action_row: HBoxContainer = get_node_or_null("CompactView/ActionRow") as HBoxContainer
 @onready var _body_scan_button: Button = %BodyScanButton
 @onready var _inventory_button: Button = %InventoryButton
@@ -59,8 +62,21 @@ func set_action_row_visible(actions_visible: bool) -> void:
 	if _action_row:
 		_action_row.visible = actions_visible
 
+func set_corner_action_mode(body_scan_only: bool) -> void:
+	if _action_row:
+		_action_row.visible = true
+	if _inventory_button:
+		_inventory_button.visible = not body_scan_only
+	if _settings_button:
+		_settings_button.visible = not body_scan_only
+
 func is_action_button_at(global_pos: Vector2) -> bool:
-	for button in [_body_scan_button, _inventory_button, _settings_button]:
+	var buttons: Array[Button] = [_body_scan_button]
+	if _inventory_button and _inventory_button.visible:
+		buttons.append(_inventory_button)
+	if _settings_button and _settings_button.visible:
+		buttons.append(_settings_button)
+	for button in buttons:
 		if button and button.get_global_rect().has_point(global_pos):
 			return true
 	return false
@@ -141,6 +157,7 @@ func _render_compact() -> void:
 		_location_label.text = "HEX --, --"
 		_time_label.text = "DAY -- // --:--"
 		_warning_label.text = "NO BODY SIGNAL"
+		_update_condition_icon([])
 		return
 	var coords: Vector2i = _snapshot.get("coords", Vector2i.ZERO)
 	var clock: Dictionary = _snapshot.get("world_time", {})
@@ -162,6 +179,26 @@ func _render_compact() -> void:
 		"TEMP %.1fC" % temperature
 	)
 	_warning_label.text = _warning_text()
+	_update_condition_icon(_snapshot.get("emergencies", []))
+
+func _update_condition_icon(emergencies: Array) -> void:
+	if _condition_icon == null:
+		return
+	if _condition_tween:
+		_condition_tween.kill()
+		_condition_tween = null
+	if emergencies.is_empty():
+		_condition_icon.visible = true
+		_condition_icon.texture = RevampedHUDAtlas.condition_icon("fine")
+		_condition_icon.modulate = Color.WHITE
+		return
+	var primary := str(emergencies[0])
+	_condition_icon.visible = true
+	_condition_icon.texture = RevampedHUDAtlas.emergency_condition_icon(primary)
+	_condition_icon.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	_condition_tween = create_tween().set_loops()
+	_condition_tween.tween_property(_condition_icon, "modulate:a", 0.35, 0.45)
+	_condition_tween.tween_property(_condition_icon, "modulate:a", 1.0, 0.45)
 
 func _update_vital(
 	key: String,

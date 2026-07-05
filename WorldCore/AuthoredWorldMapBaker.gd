@@ -33,11 +33,43 @@ const _AuthoredWorldMap := preload("res://WorldCore/AuthoredWorldMap.gd")
 func _ready() -> void:
 	if tile_catalog == null and ResourceLoader.exists(CATALOG_PATH):
 		tile_catalog = load(CATALOG_PATH) as MacroTileCatalog
+	if Engine.is_editor_hint():
+		_auto_wire_references()
+
+
+func _auto_wire_references() -> void:
+	var editor_root := get_parent()
+	if editor_root == null:
+		return
+	if terrain_layer == null:
+		terrain_layer = editor_root.get_node_or_null("TerrainLayer") as TileMapLayer
+	if flora_layer == null:
+		flora_layer = editor_root.get_node_or_null("FloraLayer") as TileMapLayer
+	if rock_layer == null:
+		rock_layer = editor_root.get_node_or_null("RockLayer") as TileMapLayer
+	if structure_layer == null:
+		structure_layer = editor_root.get_node_or_null("StructureLayer") as TileMapLayer
+	if props_layer == null:
+		props_layer = editor_root.get_node_or_null("PropsLayer") as TileMapLayer
+	if decor_root == null:
+		decor_root = editor_root.get_node_or_null("Decorations") as Node2D
+	if marker_root == null:
+		marker_root = editor_root.get_node_or_null("Markers")
 
 
 func _editor_bake_authored_map() -> void:
 	if Engine.is_editor_hint():
 		bake_to_resource(true)
+
+
+@export var bake_now: bool = false:
+	set(value):
+		if not value:
+			bake_now = false
+			return
+		if Engine.is_editor_hint():
+			bake_to_resource(true)
+		bake_now = false
 
 
 func bake_to_resource(save_to_disk: bool = true) -> Resource:

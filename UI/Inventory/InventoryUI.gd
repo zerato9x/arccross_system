@@ -25,6 +25,7 @@ enum PresentationMode {
 
 const SLOT_SCENE := preload("res://UI/Inventory/InventorySlot.tscn")
 const PAPERDOLL_SCENE := preload("res://UI/Inventory/PaperDollModel.tscn")
+const SLOT_ACTION_BUILDER := preload("res://UI/Inventory/InventorySlotActionBuilder.gd")
 
 const COLOR_BACKDROP := Color("#080907")
 const COLOR_PANEL := Color("#11140f")
@@ -149,10 +150,11 @@ var _hover_name: Label
 var _hover_meta: Label
 var _hover_description: Label
 var _hover_stats: Label
+var _header_close_button: Button
+var _context_menu_slot: InventorySlot
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	set_process_unhandled_input(true)
 	_build_interface()
 	close_panel(false)
 
@@ -170,17 +172,6 @@ func _process(_delta: float) -> void:
 		clampf(target.x, 8.0, maxf(8.0, viewport_size.x - card_size.x - 8.0)),
 		clampf(target.y, 8.0, maxf(8.0, viewport_size.y - card_size.y - 8.0))
 	)
-
-func _unhandled_input(event: InputEvent) -> void:
-	if (
-		visible
-		and event is InputEventKey
-		and event.pressed
-		and not event.echo
-		and event.keycode == KEY_ESCAPE
-	):
-		close_panel()
-		get_viewport().set_input_as_handled()
 
 func open_inventory(snapshot: Dictionary, feedback: String = "", show_ground: bool = true) -> void:
 	_presentation_mode = PresentationMode.FULLSCREEN
@@ -333,6 +324,8 @@ func _apply_presentation_layout() -> void:
 		_shell.offset_bottom = 320.0
 		if _ground_panel:
 			_ground_panel.visible = _show_ground_in_side_panel
+		if _header_close_button:
+			_header_close_button.visible = true
 		if canvas_layer:
 			canvas_layer.layer = 21
 	elif _presentation_mode == PresentationMode.EMBEDDED:
@@ -340,6 +333,8 @@ func _apply_presentation_layout() -> void:
 		_fit_shell_to_embedded_host()
 		if _ground_panel:
 			_ground_panel.visible = false
+		if _header_close_button:
+			_header_close_button.visible = false
 		if canvas_layer:
 			canvas_layer.layer = 8
 	else:
@@ -352,22 +347,18 @@ func _apply_presentation_layout() -> void:
 		_shell.offset_bottom = -10.0
 		if _ground_panel:
 			_ground_panel.visible = true
+		if _header_close_button:
+			_header_close_button.visible = true
 		if canvas_layer:
 			canvas_layer.layer = 1
 
 func _fit_shell_to_embedded_host() -> void:
-	_shell.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_shell.position = Vector2.ZERO
-	var host_size := size
-	var shell_size := _shell.get_combined_minimum_size()
-	if host_size.x <= 0.0 or host_size.y <= 0.0 or shell_size.x <= 0.0 or shell_size.y <= 0.0:
-		_shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		_shell.scale = Vector2.ONE
-		return
-	var fit_scale := minf(host_size.x / shell_size.x, host_size.y / shell_size.y)
-	fit_scale = clampf(fit_scale, 0.25, 1.0)
-	_shell.size = shell_size
-	_shell.scale = Vector2.ONE * fit_scale
+	_shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_shell.scale = Vector2.ONE
+	_shell.offset_left = 0.0
+	_shell.offset_top = 0.0
+	_shell.offset_right = 0.0
+	_shell.offset_bottom = 0.0
 
 func _build_header() -> Control:
 	var header := HBoxContainer.new()
@@ -408,11 +399,12 @@ func _build_header() -> Control:
 	capacity_box.add_child(_capacity_bar)
 
 	var close_button := Button.new()
-	close_button.text = "CLOSE  [ESC]"
+	close_button.text = "CLOSE"
 	close_button.custom_minimum_size = Vector2(120, 36)
 	HUDAssetLibrary.apply_button(close_button)
 	close_button.pressed.connect(close_panel)
 	header.add_child(close_button)
+	_header_close_button = close_button
 	return header
 
 func _build_paperdoll_column() -> Control:
@@ -425,7 +417,7 @@ func _build_paperdoll_column() -> Control:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 4)
 	panel.add_child(column)
-	column.add_child(_section_header("EQUIPMENT", "RIGHT CLICK TO UNEQUIP"))
+	column.add_child(_section_header("EQUIPMENT", "RMB CONTEXT MENU"))
 
 	var stage := Control.new()
 	stage.name = "PaperDollStage"
@@ -583,7 +575,7 @@ func _build_footer() -> Control:
 	footer.add_child(_feedback_label)
 
 	var controls := Label.new()
-	controls.text = "LMB SELECT  |  DOUBLE LMB USE  |  RMB QUICK ACTION  |  DRAG MOVE"
+	controls.text = "LMB SELECT  |  DOUBLE LMB USE  |  RMB CONTEXT MENU  |  DRAG MOVE"
 	controls.add_theme_font_size_override("font_size", 10)
 	controls.add_theme_color_override("font_color", COLOR_MUTED)
 	controls.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -864,10 +856,37 @@ func _on_slot_clicked(
 	if event.double_click:
 		_execute_primary(slot)
 	elif event.button_index == MOUSE_BUTTON_RIGHT:
-		if slot.source_kind == InventorySlot.SOURCE_BACKPACK:
-			_execute_secondary(slot)
-		else:
-			_execute_primary(slot)
+		_open_slot_context_menu(slot, event.global_position)
+
+func _open_slot_context_menu(slot: InventorySlot, global_pos: Vector2) -> void:
+	if not slot.has_item():
+		return
+	var entries: Array = SLOT_ACTION_BUILDER.build_for_inventory_slot(slot)
+	if entries.is_empty():
+		return
+	hide_item_details()
+	_context_menu_slot = slot
+	InventorySlotContextMenuHost.request_open(
+		get_tree(),
+		global_pos,
+		SLOT_ACTION_BUILDER.menu_header_for_slot(slot),
+		entries,
+		_on_slot_context_menu_action,
+		slot.item_descriptor
+	)
+
+func _on_slot_context_menu_action(entry: Dictionary) -> void:
+	if not is_instance_valid(_context_menu_slot):
+		return
+	match str(entry.get("kind", "")):
+		SLOT_ACTION_BUILDER.KIND_EXAMINE:
+			show_item_details(_context_menu_slot.item_descriptor)
+		SLOT_ACTION_BUILDER.KIND_INVENTORY:
+			_execute_inventory_action(
+				str(entry.get("action_id", "")),
+				_context_menu_slot,
+				int(entry.get("equipment_slot", GameEnums.EquipmentSlot.NONE))
+			)
 
 func _on_slot_hovered(slot: InventorySlot) -> void:
 	show_item_details(slot.item_descriptor)
@@ -981,64 +1000,69 @@ func _execute_primary(slot: InventorySlot) -> void:
 	if not slot.has_item():
 		return
 	var descriptor := slot.item_descriptor
-	var instance_id := str(descriptor.get("instance_id", ""))
 	match slot.source_kind:
 		InventorySlot.SOURCE_EQUIPMENT:
-			inventory_action_requested.emit(
+			_execute_inventory_action(
 				ACTION_UNEQUIP,
-				instance_id,
+				slot,
 				slot.equipment_slot
 			)
 		InventorySlot.SOURCE_GROUND:
-			inventory_action_requested.emit(
+			_execute_inventory_action(
 				ACTION_TAKE
 					if descriptor.get("can_pick_up", true)
 					else ACTION_INTERACT,
-				instance_id,
+				slot,
 				GameEnums.EquipmentSlot.NONE
 			)
 		InventorySlot.SOURCE_BACKPACK:
 			if descriptor.get("can_load_magazine", false):
-				inventory_action_requested.emit(
+				_execute_inventory_action(
 					ACTION_LOAD_MAGAZINE,
-					instance_id,
+					slot,
 					slot.container_slot
 				)
 			elif descriptor.get("can_equip", false):
-				inventory_action_requested.emit(
+				_execute_inventory_action(
 					ACTION_EQUIP,
-					instance_id,
+					slot,
 					int(descriptor.get(
 						"preferred_equipment_slot",
 						GameEnums.EquipmentSlot.NONE
 					))
 				)
 			elif descriptor.get("can_consume", false):
-				inventory_action_requested.emit(
+				_execute_inventory_action(
 					ACTION_CONSUME,
-					instance_id,
+					slot,
 					GameEnums.EquipmentSlot.NONE
 				)
+
+func _execute_inventory_action(
+	action_id: String,
+	slot: InventorySlot,
+	equipment_slot: int
+) -> void:
+	if action_id.is_empty() or not slot.has_item():
+		return
+	inventory_action_requested.emit(
+		action_id,
+		str(slot.item_descriptor.get("instance_id", "")),
+		equipment_slot
+	)
 
 func _execute_secondary(slot: InventorySlot) -> void:
 	if not slot.has_item():
 		return
-	var instance_id := str(slot.item_descriptor.get("instance_id", ""))
 	match slot.source_kind:
-		InventorySlot.SOURCE_EQUIPMENT:
-			inventory_action_requested.emit(
+		InventorySlot.SOURCE_EQUIPMENT, InventorySlot.SOURCE_BACKPACK:
+			_execute_inventory_action(
 				ACTION_DROP,
-				instance_id,
+				slot,
 				GameEnums.EquipmentSlot.NONE
 			)
 		InventorySlot.SOURCE_GROUND:
 			_execute_primary(slot)
-		InventorySlot.SOURCE_BACKPACK:
-			inventory_action_requested.emit(
-				ACTION_DROP,
-				instance_id,
-				GameEnums.EquipmentSlot.NONE
-			)
 
 func _format_item_stats(descriptor: Dictionary) -> String:
 	var lines := PackedStringArray()

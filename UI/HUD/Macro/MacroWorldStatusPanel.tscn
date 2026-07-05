@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://dvwgktmev06j3"]
 
 [ext_resource type="Script" uid="uid://cimnkoibgovi8" path="res://UI/HUD/Macro/MacroWorldStatusPanel.gd" id="1_status"]
-[ext_resource type="Script" uid="uid://d17ynre4g3a5w" path="res://UI/HUD/Macro/PocketClockDisplay.gd" id="2_clock"]
+[ext_resource type="PackedScene" uid="uid://b8pocketclock01" path="res://UI/HUD/Macro/PocketClockDisplay.tscn" id="3_clock_scene"]
 
 [node name="MacroWorldStatusPanel" type="Control" unique_id=1062311896]
 layout_mode = 3
@@ -42,18 +42,17 @@ theme_override_constants/separation = 6
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="PocketClock" type="Control" parent="Frame/Margin/Column/Top" unique_id=750068881]
+[node name="PocketClock" parent="Frame/Margin/Column/Top" instance=ExtResource("3_clock_scene")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(96, 48)
 layout_mode = 2
-script = ExtResource("2_clock")
 
 [node name="DayIcon" type="TextureRect" parent="Frame/Margin/Column/Top" unique_id=1290488893]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(56, 40)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
+texture_filter = 0
 
 [node name="TextColumn" type="VBoxContainer" parent="Frame/Margin/Column/Top" unique_id=401281231]
 layout_mode = 2

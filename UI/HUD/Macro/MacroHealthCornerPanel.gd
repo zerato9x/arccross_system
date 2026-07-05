@@ -30,7 +30,7 @@ func _install_status_preview() -> void:
 	_status_panel.inventory_requested.connect(inventory_requested.emit)
 	_status_panel.settings_requested.connect(settings_requested.emit)
 	_status_panel.set_clock_visible(false)
-	_status_panel.set_action_row_visible(true)
+	_status_panel.set_corner_action_mode(true)
 
 
 func _build_expanded_ui() -> void:
