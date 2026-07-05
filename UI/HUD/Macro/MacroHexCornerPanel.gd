@@ -14,6 +14,10 @@ func _ready() -> void:
 	panel_id = "hex"
 	panel_corner = PanelCorner.TOP_RIGHT
 	preview_size = Vector2(326.0, 360.0)
+	expand_width_ratio = 0.42
+	expand_height_ratio = 0.50
+	expanded_min_size = Vector2(1080.0, 640.0)
+	expanded_max_size = Vector2(1220.0, 780.0)
 	super._ready()
 	_install_preview_ui()
 
@@ -69,7 +73,8 @@ func collapse() -> void:
 		return
 	if exploration_window and exploration_window.is_open():
 		exploration_window.close_window()
-		return
+		if _state == PanelState.PREVIEW:
+			return
 	super.collapse()
 
 

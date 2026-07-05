@@ -69,16 +69,16 @@ func _render(scene_descriptor: Dictionary) -> void:
 		_thumb.texture = null
 		_thumb.visible = false
 	if bool(_hex.get("can_interact", false)):
-		_hint_label.text = "CLICK TO EXPLORE"
-		_expand_button.text = "EXPLORE"
+		_hint_label.text = "Click to explore"
+		_expand_button.text = "Explore"
 		_expand_button.disabled = false
 	elif bool(_hex.get("can_travel", false)):
-		_hint_label.text = "CLICK TO TRAVEL HERE"
-		_expand_button.text = "TRAVEL"
+		_hint_label.text = "Click to travel here"
+		_expand_button.text = "Travel"
 		_expand_button.disabled = false
 	else:
-		_hint_label.text = "HEX SELECTED"
-		_expand_button.text = "SELECTED"
+		_hint_label.text = "Hex selected"
+		_expand_button.text = "Selected"
 		_expand_button.disabled = true
 
 func _on_expand_pressed() -> void:

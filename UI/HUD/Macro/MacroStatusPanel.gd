@@ -131,7 +131,7 @@ func _set_mode(mode: Mode) -> void:
 	_mode = mode
 	_compact_view.visible = mode == Mode.COMPACT
 	_detailed_view.visible = mode == Mode.DETAILED
-	_body_scan_button.text = "COMPACT" if mode == Mode.DETAILED else "BODY SCAN"
+	_body_scan_button.text = "Compact" if mode == Mode.DETAILED else "Body Scan"
 	if mode == Mode.DETAILED:
 		custom_minimum_size = Vector2(910, 520)
 		size = custom_minimum_size

@@ -14,11 +14,12 @@ var _snapshot: Dictionary = {}
 
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(236.0, 118.0)
+	custom_minimum_size = Vector2(260.0, 118.0)
 	HUDAssetLibrary.apply_panel(_frame, "neutral")
 	HUDAssetLibrary.apply_label(_day_label, "body")
 	HUDAssetLibrary.apply_label(_calendar_label, "muted")
 	HUDAssetLibrary.apply_button(_settings_button, "settings")
+	_settings_button.text = "Settings"
 	_settings_button.pressed.connect(func(): settings_requested.emit())
 
 

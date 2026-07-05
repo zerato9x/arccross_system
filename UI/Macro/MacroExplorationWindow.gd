@@ -20,6 +20,7 @@ signal interaction_closed
 
 const _InventorySlotScene := preload("res://UI/Inventory/InventorySlot.tscn")
 const _SlotActionBuilder := preload("res://UI/Inventory/InventorySlotActionBuilder.gd")
+const _ContextMenuHost := preload("res://UI/Inventory/InventorySlotContextMenuHost.gd")
 const _PROP_SPRITE_SIZE := 170.0
 const _PROP_OUTLINE_PADDING := 4.0
 const _PROP_OUTLINE_WIDTH := 3
@@ -47,6 +48,8 @@ const _BACKGROUND_VERTICAL_SHIFT := -72.0
 @onready var _search_options_row: HBoxContainer = %SearchOptionsRow
 @onready var _interaction_box: PanelContainer = %InteractionBox
 @onready var _metric_box: VBoxContainer = %MetricBox
+@onready var _search_frame_header: Label = %SearchFrameHeader
+@onready var _drop_hint: Label = %DropHint
 @onready var _search_drop_row: HBoxContainer = %DropRow
 @onready var _camp_drop_grid: GridContainer = %CampDropGrid
 @onready var _ground_grid: GridContainer = %GroundGrid
@@ -82,8 +85,8 @@ func _ready() -> void:
 	HUDAssetLibrary.apply_label(_title_label, "title")
 	HUDAssetLibrary.apply_label(_body_label, "body")
 	HUDAssetLibrary.apply_label(%InteractionHeader as Label, "muted")
-	HUDAssetLibrary.apply_label(%SearchFrameHeader as Label, "muted")
-	HUDAssetLibrary.apply_label(%DropHint as Label, "muted")
+	HUDAssetLibrary.apply_label(_search_frame_header, "muted")
+	HUDAssetLibrary.apply_label(_drop_hint, "muted")
 	HUDAssetLibrary.apply_label(%CampDropHint as Label, "muted")
 	HUDAssetLibrary.apply_label(%GroundHeader as Label, "muted")
 	HUDAssetLibrary.apply_button(_search_button)
@@ -92,6 +95,8 @@ func _ready() -> void:
 	HUDAssetLibrary.apply_button(_rest_button)
 	HUDAssetLibrary.apply_button(_stop_rest_button)
 	HUDAssetLibrary.apply_button(_continue_button)
+	_search_button.text = "Search"
+	_camp_button.text = "Camp"
 	_continue_button.visible = false
 	_search_button.pressed.connect(func(): _set_mode(GameEnums.PoiAction.SEARCH))
 	_camp_button.pressed.connect(func(): _set_mode(GameEnums.PoiAction.CAMP))
@@ -220,7 +225,7 @@ func show_poi_preview(action: GameEnums.PoiAction, metrics: Dictionary) -> void:
 
 func _render_session() -> void:
 	_clear_right_panel()
-	_title_label.text = "EXPLORATION"
+	_title_label.text = "Explore"
 	_body_label.text = str(_session.get("scene_descriptor", {}).get("zone_name", ""))
 	_render_scene(_session.get("scene_descriptor", {}))
 	_render_interaction_gear()
@@ -249,9 +254,9 @@ func _render_interaction_gear() -> void:
 		_inventory_slots.append(slot)
 		rendered += 1
 	_inventory_hint.text = (
-		"Drag gear in or right-click a slot for actions."
+		"Drag gear into a slot, double-click to fill the next open slot, or right-click for actions."
 		if rendered > 0
-		else "No usable tools or camp gear."
+		else _empty_inventory_hint()
 	)
 
 func _on_gear_slot_clicked(slot_node: InventorySlot, event: InputEventMouseButton) -> void:
@@ -272,7 +277,7 @@ func _open_gear_context_menu(slot_node: InventorySlot, global_pos: Vector2) -> v
 	_context_drop_target = null
 	_context_slot = slot_node
 	_show_slot_details(slot_node)
-	InventorySlotContextMenuHost.request_open(
+	_ContextMenuHost.request_open(
 		get_tree(),
 		global_pos,
 		_SlotActionBuilder.menu_header_for_slot(slot_node),
@@ -288,7 +293,7 @@ func _open_ground_context_menu(slot_node: InventorySlot, global_pos: Vector2) ->
 	_context_drop_target = null
 	_context_slot = slot_node
 	_show_slot_details(slot_node)
-	InventorySlotContextMenuHost.request_open(
+	_ContextMenuHost.request_open(
 		get_tree(),
 		global_pos,
 		_SlotActionBuilder.menu_header_for_slot(slot_node),
@@ -308,7 +313,7 @@ func _open_drop_target_context_menu(
 	_context_drop_target = drop
 	var payload := drop.get_assignment_payload()
 	_show_drop_target_details(drop)
-	InventorySlotContextMenuHost.request_open(
+	_ContextMenuHost.request_open(
 		get_tree(),
 		global_pos,
 		_SlotActionBuilder.menu_header_for_drop_target(drop),
@@ -400,13 +405,15 @@ func _quick_assign_gear(descriptor: Dictionary) -> void:
 
 func _active_drop_targets() -> Array:
 	var drops: Array = []
-	var container: Container = (
-		_search_drop_row if _active_mode == GameEnums.PoiAction.SEARCH else _camp_drop_grid
-	)
-	for child in container.get_children():
+	for child in _search_drop_row.get_children():
 		if child is InteractionDropTarget:
 			drops.append(child)
 	return drops
+
+func _empty_inventory_hint() -> String:
+	if _active_mode == GameEnums.PoiAction.SEARCH:
+		return "No search tools available."
+	return "No camp gear or traps available."
 
 func _current_role_filter() -> Array[int]:
 	if _active_mode == GameEnums.PoiAction.SEARCH:
@@ -606,7 +613,7 @@ func _render_search_drop_targets() -> void:
 func _render_camp_drop_targets() -> void:
 	var targets: Array = _session.get("camp_drop_targets", [])
 	for target in targets:
-		_add_drop_target(target, _camp_drop_grid, _camp_drop_targets)
+		_add_drop_target(target, _search_drop_row, _camp_drop_targets)
 
 func _add_drop_target(
 	target: Variant,
@@ -678,8 +685,10 @@ func _clear_inventory_slots() -> void:
 
 func _clear_drop_targets() -> void:
 	for child in _search_drop_row.get_children():
+		_search_drop_row.remove_child(child)
 		child.queue_free()
 	for child in _camp_drop_grid.get_children():
+		_camp_drop_grid.remove_child(child)
 		child.queue_free()
 	_search_drop_targets.clear()
 	_camp_drop_targets.clear()
@@ -712,8 +721,17 @@ func _set_mode(mode: GameEnums.PoiAction) -> void:
 func _update_mode_visibility() -> void:
 	var has_search := bool(_session.get("has_search", true))
 	_search_button.visible = has_search
-	_search_frame.visible = has_search and _active_mode == GameEnums.PoiAction.SEARCH
-	_interaction_box.visible = _active_mode == GameEnums.PoiAction.CAMP
+	_search_frame.visible = (
+		_active_mode == GameEnums.PoiAction.CAMP
+		or (has_search and _active_mode == GameEnums.PoiAction.SEARCH)
+	)
+	_interaction_box.visible = false
+	if _active_mode == GameEnums.PoiAction.SEARCH:
+		_search_frame_header.text = "Search"
+		_drop_hint.text = "Pick a structure, add tools, then scavenge."
+	else:
+		_search_frame_header.text = "Camp"
+		_drop_hint.text = "Add shelter, camp gear, or traps before resting."
 
 func _update_mode_buttons() -> void:
 	var has_search := bool(_session.get("has_search", true))
@@ -729,6 +747,9 @@ func _update_rest_buttons() -> void:
 		and not _selected_search_option_id.is_empty()
 		and not _is_option_depleted(_selected_search_option_id)
 	)
+	_submit_button.text = "Scavenge"
+	_rest_button.text = "Rest"
+	_stop_rest_button.text = "Pack Up"
 
 func _on_item_dropped(_instance_id: String, _target_id: String) -> void:
 	_persist_drop_assignments()

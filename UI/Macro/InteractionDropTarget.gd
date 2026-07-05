@@ -8,11 +8,6 @@ signal context_menu_requested(global_position: Vector2)
 @export var target_id: String = ""
 @export var accepted_roles: Array[int] = []
 
-const _EMPTY_STYLE_COLOR := Color("#141a22")
-const _EMPTY_STYLE_BORDER := Color("#4a6a86")
-const _FILLED_STYLE_BORDER := Color("#8fae57")
-const _FILLED_STYLE_COLOR := Color("#1c2416")
-
 var _slot_label: Label
 var _item_label: Label
 var _icon_rect: TextureRect
@@ -24,7 +19,7 @@ var _assigned_sprite_path := ""
 var _slot_title := ""
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(108, 88)
+	custom_minimum_size = HUDAssetLibrary.MACRO_SLOT_SIZE
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	gui_input.connect(_on_gui_input)
 	_build_shell()
@@ -98,10 +93,10 @@ func _build_shell() -> void:
 	add_child(_column)
 
 	_slot_label = Label.new()
-	_slot_label.text = target_id
+	_slot_label.text = _slot_title if not _slot_title.is_empty() else target_id
 	_slot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_slot_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	HUDAssetLibrary.apply_label(_slot_label, "muted")
+	HUDAssetLibrary.apply_label(_slot_label, "warning")
 	_column.add_child(_slot_label)
 
 	_icon_rect = TextureRect.new()
@@ -117,7 +112,7 @@ func _build_shell() -> void:
 	_item_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_item_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_item_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	HUDAssetLibrary.apply_label(_item_label, "body")
+	HUDAssetLibrary.apply_label(_item_label, "muted")
 	_column.add_child(_item_label)
 
 func _set_icon(sprite_path: String) -> void:
@@ -131,20 +126,10 @@ func _set_icon(sprite_path: String) -> void:
 		_icon_rect.visible = false
 
 func _apply_box_style() -> void:
-	var style := StyleBoxFlat.new()
-	style.set_corner_radius_all(3)
-	style.set_border_width_all(2)
-	style.content_margin_left = 6.0
-	style.content_margin_right = 6.0
-	style.content_margin_top = 4.0
-	style.content_margin_bottom = 4.0
-	if _assigned_instance_id.is_empty():
-		style.bg_color = _EMPTY_STYLE_COLOR
-		style.border_color = _EMPTY_STYLE_BORDER
-	else:
-		style.bg_color = _FILLED_STYLE_COLOR
-		style.border_color = _FILLED_STYLE_BORDER
-	add_theme_stylebox_override("panel", style)
+	add_theme_stylebox_override(
+		"panel",
+		HUDAssetLibrary.macro_slot_style(not _assigned_instance_id.is_empty())
+	)
 
 func _on_gui_input(event: InputEvent) -> void:
 	if not event is InputEventMouseButton or not event.pressed:

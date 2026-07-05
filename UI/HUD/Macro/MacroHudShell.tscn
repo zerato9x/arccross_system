@@ -61,13 +61,13 @@ theme_override_constants/separation = 10
 
 [node name="SettingsTitle" type="Label" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=1271801945]
 layout_mode = 2
-text = "HUD SETTINGS"
+text = "HUD Settings"
 horizontal_alignment = 1
 
 [node name="ScreenNoiseToggle" type="CheckButton" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=1986631388]
 unique_name_in_owner = true
 layout_mode = 2
-text = "SCANLINE OVERLAY"
+text = "Scanline Overlay"
 
 [node name="ScaleRow" type="VBoxContainer" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=100523603]
 layout_mode = 2
@@ -75,7 +75,7 @@ layout_mode = 2
 [node name="HudScaleLabel" type="Label" parent="Root/SettingsPanel/SettingsMargin/SettingsContent/ScaleRow" unique_id=687231233]
 unique_name_in_owner = true
 layout_mode = 2
-text = "HUD SCALE 100%"
+text = "HUD Scale 100%"
 
 [node name="HudScaleSlider" type="HSlider" parent="Root/SettingsPanel/SettingsMargin/SettingsContent/ScaleRow" unique_id=126170699]
 unique_name_in_owner = true
@@ -88,22 +88,22 @@ value = 1.0
 [node name="SettingsSaveButton" type="Button" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=1355427251]
 unique_name_in_owner = true
 layout_mode = 2
-text = "SAVE GAME"
+text = "Save Game"
 
 [node name="SettingsLoadButton" type="Button" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=1767533836]
 unique_name_in_owner = true
 layout_mode = 2
-text = "LOAD GAME"
+text = "Load Game"
 
 [node name="SettingsMenuButton" type="Button" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=433380375]
 unique_name_in_owner = true
 layout_mode = 2
-text = "MAIN MENU"
+text = "Main Menu"
 
 [node name="SettingsCloseButton" type="Button" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=1873643694]
 unique_name_in_owner = true
 layout_mode = 2
-text = "CLOSE"
+text = "Close"
 
 [node name="SaveLoadMenu" parent="Root" unique_id=1223507307 instance=ExtResource("4_saveload")]
 unique_name_in_owner = true
@@ -153,7 +153,7 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -250.0
+offset_left = -274.0
 offset_top = -132.0
 offset_right = -14.0
 offset_bottom = -14.0

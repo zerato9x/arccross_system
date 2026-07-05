@@ -26,6 +26,7 @@ enum PresentationMode {
 const SLOT_SCENE := preload("res://UI/Inventory/InventorySlot.tscn")
 const PAPERDOLL_SCENE := preload("res://UI/Inventory/PaperDollModel.tscn")
 const SLOT_ACTION_BUILDER := preload("res://UI/Inventory/InventorySlotActionBuilder.gd")
+const CONTEXT_MENU_HOST := preload("res://UI/Inventory/InventorySlotContextMenuHost.gd")
 
 const COLOR_BACKDROP := Color("#080907")
 const COLOR_PANEL := Color("#11140f")
@@ -866,7 +867,7 @@ func _open_slot_context_menu(slot: InventorySlot, global_pos: Vector2) -> void:
 		return
 	hide_item_details()
 	_context_menu_slot = slot
-	InventorySlotContextMenuHost.request_open(
+	CONTEXT_MENU_HOST.request_open(
 		get_tree(),
 		global_pos,
 		SLOT_ACTION_BUILDER.menu_header_for_slot(slot),

@@ -27,7 +27,7 @@ theme_override_constants/separation = 8
 [node name="PreviewTitleLabel" type="Label" parent="Margin/Column"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "TARGET HEX --"
+text = "Target Hex --"
 
 [node name="PreviewThumb" type="TextureRect" parent="Margin/Column"]
 unique_name_in_owner = true
@@ -40,14 +40,14 @@ stretch_mode = 5
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 3
-text = "NO HEX SIGNAL"
+text = "No hex signal"
 
 [node name="PreviewHintLabel" type="Label" parent="Margin/Column"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "CLICK TO EXPLORE"
+text = "Click to explore"
 
 [node name="PreviewExpandButton" type="Button" parent="Margin/Column"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "EXPLORE"
+text = "Explore"

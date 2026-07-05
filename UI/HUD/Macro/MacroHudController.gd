@@ -179,4 +179,4 @@ func _set_hud_scale(value: float) -> void:
 func _update_scale_label() -> void:
 	if _hud_scale_label == null or _hud_scale_slider == null:
 		return
-	_hud_scale_label.text = "HUD SCALE %.0f%%" % (_hud_scale_slider.value * 100.0)
+	_hud_scale_label.text = "HUD Scale %.0f%%" % (_hud_scale_slider.value * 100.0)

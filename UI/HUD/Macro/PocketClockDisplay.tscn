@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://b8pocketclock01"]
+[gd_scene format=3 uid="uid://brfhlc87rfknk"]
 
 [ext_resource type="Script" path="res://UI/HUD/Macro/PocketClockDisplay.gd" id="1_script"]
 

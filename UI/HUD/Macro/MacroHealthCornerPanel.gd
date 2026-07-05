@@ -14,6 +14,8 @@ func _ready() -> void:
 	panel_id = "health"
 	panel_corner = PanelCorner.TOP_LEFT
 	preview_size = Vector2(398.0, 220.0)
+	expanded_min_size = Vector2(760.0, 520.0)
+	expanded_max_size = Vector2(960.0, 660.0)
 	super._ready()
 	_install_status_preview()
 	_build_expanded_ui()

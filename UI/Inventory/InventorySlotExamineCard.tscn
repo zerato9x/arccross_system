@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://c8examinecard01"]
+[gd_scene format=3 uid="uid://c0lw3g8d60bc7"]
 
 [ext_resource type="Script" path="res://UI/Inventory/InventorySlotExamineCard.gd" id="1_card"]
 

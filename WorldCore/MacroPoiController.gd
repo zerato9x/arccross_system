@@ -372,14 +372,14 @@ static func build_landmark_search_options(
 
 static func format_slot_label(slot_id: String) -> String:
 	if slot_id == "sleep_spot":
-		return "SLEEP SPOT"
+		return "Bedroll"
 	if slot_id.begins_with("trap_"):
-		return "TRAP SLOT %d" % (int(slot_id.replace("trap_", "")) + 1)
+		return "Trap %d" % (int(slot_id.replace("trap_", "")) + 1)
 	if slot_id.begins_with("camp_gear_"):
-		return "CAMP GEAR %d" % (int(slot_id.replace("camp_gear_", "")) + 1)
+		return "Gear %d" % (int(slot_id.replace("camp_gear_", "")) + 1)
 	if slot_id.begins_with("tool_"):
-		return "TOOL SLOT %d" % (int(slot_id.replace("tool_", "")) + 1)
-	return slot_id.replace("_", " ").to_upper()
+		return "Tool %d" % (int(slot_id.replace("tool_", "")) + 1)
+	return slot_id.replace("_", " ").capitalize()
 
 
 static func build_search_gear_slots() -> Array:

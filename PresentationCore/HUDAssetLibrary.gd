@@ -12,6 +12,9 @@ const COLOR_PANEL_WARM := Color("#201b13")
 const COLOR_BORDER := Color("#6f634d")
 const COLOR_BORDER_DARK := Color("#37372f")
 const COLOR_SLOT := Color("#11140f")
+const MACRO_PANEL_PADDING := 8.0
+const MACRO_SLOT_SIZE := Vector2(78.0, 84.0)
+const MACRO_BUTTON_MIN_HEIGHT := 28.0
 
 const ROOT := "res://Asset/UI/HUD/"
 const PANEL_NEUTRAL := ROOT + "frames/panel_neutral_64.png"
@@ -216,6 +219,14 @@ static func pocket_slot_style(active: bool = false) -> StyleBox:
 	var background := Color("#171a14") if active else COLOR_SLOT
 	var border := COLOR_CAUTION if active else COLOR_BORDER_DARK
 	return _pixel_panel_style(background, border, 1, 3.0, 0.96)
+
+static func macro_slot_style(filled: bool = false) -> StyleBox:
+	var background := COLOR_PANEL_WARM if filled else COLOR_SLOT
+	var border := COLOR_CAUTION if filled else COLOR_BORDER_DARK
+	return _pixel_panel_style(background, border, 1, 5.0, 0.96)
+
+static func macro_button_minimum_size(width: float = 0.0) -> Vector2:
+	return Vector2(width, MACRO_BUTTON_MIN_HEIGHT)
 
 static func pocket_grid_texture() -> Texture2D:
 	return null

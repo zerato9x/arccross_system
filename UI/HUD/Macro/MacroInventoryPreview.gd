@@ -22,6 +22,7 @@ func _ready() -> void:
 	HUDAssetLibrary.apply_panel(self, "neutral")
 	HUDAssetLibrary.apply_label(_capacity_label, "muted")
 	HUDAssetLibrary.apply_button(_open_button, "inventory")
+	_open_button.text = "Open Pack"
 	_open_button.pressed.connect(open_requested.emit)
 
 
@@ -32,7 +33,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	var equipment_by_slot := _equipment_by_slot(_snapshot.get("equipment", []))
 	for slot_config: Dictionary in PREVIEW_SLOTS:
 		_gear_row.add_child(_make_equipment_tile(slot_config, equipment_by_slot))
-	_capacity_label.text = "CAP %d / %d" % [
+	_capacity_label.text = "Capacity %d / %d" % [
 		int(_snapshot.get("current_capacity", 0)),
 		int(_snapshot.get("maximum_capacity", 0)),
 	]

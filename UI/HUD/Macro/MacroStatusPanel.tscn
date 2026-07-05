@@ -209,21 +209,21 @@ theme_override_constants/separation = 6
 
 [node name="BodyScanButton" type="Button" parent="CompactView/ActionRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(96, 28)
+custom_minimum_size = Vector2(104, 28)
 layout_mode = 2
-text = "BODY SCAN"
+text = "Body Scan"
 
 [node name="InventoryButton" type="Button" parent="CompactView/ActionRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(56, 28)
+custom_minimum_size = Vector2(72, 28)
 layout_mode = 2
-text = "INV"
+text = "Pack"
 
 [node name="SettingsButton" type="Button" parent="CompactView/ActionRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(56, 28)
+custom_minimum_size = Vector2(88, 28)
 layout_mode = 2
-text = "SET"
+text = "Settings"
 
 [node name="DetailedView" type="Control" parent="."]
 unique_name_in_owner = true

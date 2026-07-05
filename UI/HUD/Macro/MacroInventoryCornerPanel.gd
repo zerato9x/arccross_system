@@ -12,6 +12,8 @@ func _ready() -> void:
 	preview_size = Vector2(320.0, 128.0)
 	expand_width_ratio = 0.36
 	expand_height_ratio = 0.48
+	expanded_min_size = Vector2(880.0, 620.0)
+	expanded_max_size = Vector2(1120.0, 780.0)
 	super._ready()
 	_install_preview_ui()
 

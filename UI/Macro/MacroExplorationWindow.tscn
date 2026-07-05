@@ -35,7 +35,7 @@ theme_override_constants/separation = 12
 
 [node name="InteractionInventoryPanel" type="PanelContainer" parent="ExplorationPanel/Margin/Content" unique_id=2093550136]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(220, 600)
+custom_minimum_size = Vector2(180, 600)
 layout_mode = 2
 size_flags_vertical = 3
 
@@ -54,12 +54,12 @@ theme_override_constants/separation = 6
 [node name="InteractionInventoryHeader" type="Label" parent="ExplorationPanel/Margin/Content/InteractionInventoryPanel/InteractionInventoryMargin/InteractionInventoryColumn" unique_id=422988410]
 unique_name_in_owner = true
 layout_mode = 2
-text = "GEAR"
+text = "Gear"
 
 [node name="InteractionInventoryHint" type="Label" parent="ExplorationPanel/Margin/Content/InteractionInventoryPanel/InteractionInventoryMargin/InteractionInventoryColumn" unique_id=1661537500]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Drag tools/gear onto a target."
+text = "Drag gear into a slot."
 autowrap_mode = 3
 
 [node name="InteractionItemsScroll" type="ScrollContainer" parent="ExplorationPanel/Margin/Content/InteractionInventoryPanel/InteractionInventoryMargin/InteractionInventoryColumn" unique_id=1166628107]
@@ -74,7 +74,7 @@ columns = 3
 
 [node name="SceneRoot" type="Control" parent="ExplorationPanel/Margin/Content" unique_id=182167097]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(520, 600)
+custom_minimum_size = Vector2(500, 600)
 layout_mode = 2
 
 [node name="Background" type="TextureRect" parent="ExplorationPanel/Margin/Content/SceneRoot" unique_id=69290868]
@@ -123,7 +123,7 @@ theme_override_constants/separation = 6
 [node name="SearchFrameHeader" type="Label" parent="ExplorationPanel/Margin/Content/SceneRoot/SearchFrame/SearchFrameMargin/SearchFrameColumn" unique_id=1982736454]
 unique_name_in_owner = true
 layout_mode = 2
-text = "SEARCH"
+text = "Search"
 
 [node name="MetricBox" type="VBoxContainer" parent="ExplorationPanel/Margin/Content/SceneRoot/SearchFrame/SearchFrameMargin/SearchFrameColumn" unique_id=1516723785]
 unique_name_in_owner = true
@@ -133,7 +133,7 @@ theme_override_constants/separation = 4
 [node name="DropHint" type="Label" parent="ExplorationPanel/Margin/Content/SceneRoot/SearchFrame/SearchFrameMargin/SearchFrameColumn" unique_id=2075014353]
 unique_name_in_owner = true
 layout_mode = 2
-text = "CLICK A BUILDING, DRAG TOOLS IN, RMB FOR ACTIONS"
+text = "Pick a structure, add tools, then scavenge."
 
 [node name="DropRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/SceneRoot/SearchFrame/SearchFrameMargin/SearchFrameColumn" unique_id=644379012]
 unique_name_in_owner = true
@@ -171,7 +171,7 @@ vertical_alignment = 1
 
 [node name="RightPanel" type="VBoxContainer" parent="ExplorationPanel/Margin/Content" unique_id=271532382]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(300, 600)
+custom_minimum_size = Vector2(260, 600)
 layout_mode = 2
 theme_override_constants/separation = 8
 
@@ -191,12 +191,12 @@ layout_mode = 2
 [node name="SearchButton" type="Button" parent="ExplorationPanel/Margin/Content/RightPanel/ModeTabs" unique_id=1146930131]
 unique_name_in_owner = true
 layout_mode = 2
-text = "SEARCH"
+text = "Search"
 
 [node name="CampButton" type="Button" parent="ExplorationPanel/Margin/Content/RightPanel/ModeTabs" unique_id=1029220909]
 unique_name_in_owner = true
 layout_mode = 2
-text = "CAMP"
+text = "Camp"
 
 [node name="InteractionBox" type="PanelContainer" parent="ExplorationPanel/Margin/Content/RightPanel" unique_id=1705059346]
 unique_name_in_owner = true
@@ -218,7 +218,7 @@ theme_override_constants/separation = 6
 [node name="InteractionHeader" type="Label" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=1237717785]
 unique_name_in_owner = true
 layout_mode = 2
-text = "CAMP SETUP"
+text = "Camp"
 
 [node name="CampDropRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=644379013]
 unique_name_in_owner = true
@@ -235,7 +235,7 @@ columns = 3
 [node name="CampDropHint" type="Label" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=2075014354]
 unique_name_in_owner = true
 layout_mode = 2
-text = "DRAG CAMP GEAR AND TRAPS INTO THE SLOTS"
+text = "Add shelter, camp gear, or traps before resting."
 
 [node name="SearchOptionsRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=1503754614]
 unique_name_in_owner = true
@@ -261,7 +261,7 @@ theme_override_constants/separation = 6
 [node name="GroundHeader" type="Label" parent="ExplorationPanel/Margin/Content/RightPanel/GroundBox/GroundMargin/GroundColumn" unique_id=914937216]
 unique_name_in_owner = true
 layout_mode = 2
-text = "GROUND LOOT"
+text = "Supplies"
 
 [node name="GroundScroll" type="ScrollContainer" parent="ExplorationPanel/Margin/Content/RightPanel/GroundBox/GroundMargin/GroundColumn" unique_id=1345151363]
 custom_minimum_size = Vector2(0, 120)
@@ -284,20 +284,20 @@ theme_override_constants/separation = 8
 [node name="SubmitButton" type="Button" parent="ExplorationPanel/Margin/Content/RightPanel/ActionRow" unique_id=426720117]
 unique_name_in_owner = true
 layout_mode = 2
-text = "SCAVENGE"
+text = "Scavenge"
 
 [node name="RestButton" type="Button" parent="ExplorationPanel/Margin/Content/RightPanel/ActionRow" unique_id=1191298930]
 unique_name_in_owner = true
 layout_mode = 2
-text = "REST"
+text = "Rest"
 
 [node name="StopRestButton" type="Button" parent="ExplorationPanel/Margin/Content/RightPanel/ActionRow" unique_id=1325904351]
 unique_name_in_owner = true
 layout_mode = 2
-text = "STOP REST"
+text = "Pack Up"
 
 [node name="ContinueButton" type="Button" parent="ExplorationPanel/Margin/Content/RightPanel/ActionRow" unique_id=60721237]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-text = "CONTINUE"
+text = "Continue"

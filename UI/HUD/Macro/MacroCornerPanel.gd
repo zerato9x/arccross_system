@@ -11,6 +11,8 @@ enum PanelState { PREVIEW, EXPANDED }
 const PREVIEW_MARGIN := 14.0
 const EXPAND_WIDTH_RATIO := 0.32
 const EXPAND_HEIGHT_RATIO := 0.50
+const DEFAULT_EXPANDED_MIN_SIZE := Vector2(560.0, 420.0)
+const DEFAULT_EXPANDED_MAX_SIZE := Vector2(1040.0, 760.0)
 
 @export var panel_id: String = "corner"
 @export var panel_corner: PanelCorner = PanelCorner.TOP_LEFT
@@ -18,6 +20,8 @@ const EXPAND_HEIGHT_RATIO := 0.50
 @export var preview_size: Vector2 = Vector2(260.0, 200.0)
 @export var expand_width_ratio: float = EXPAND_WIDTH_RATIO
 @export var expand_height_ratio: float = EXPAND_HEIGHT_RATIO
+@export var expanded_min_size: Vector2 = DEFAULT_EXPANDED_MIN_SIZE
+@export var expanded_max_size: Vector2 = DEFAULT_EXPANDED_MAX_SIZE
 @export var use_authored_preview_rect: bool = false
 
 var _state: PanelState = PanelState.PREVIEW
@@ -30,6 +34,7 @@ var _authored_offset_left := 0.0
 var _authored_offset_top := 0.0
 var _authored_offset_right := 0.0
 var _authored_offset_bottom := 0.0
+var _expanded_available_override := Vector2.ZERO
 
 @onready var _preview_root: Control = %PreviewRoot
 @onready var _expanded_root: Control = %ExpandedRoot
@@ -99,6 +104,12 @@ func set_emergency_active(active: bool, tint: Color = Color(1.0, 0.2, 0.15, 0.35
 	_emergency_overlay.color = tint
 
 
+func set_expanded_available_override(available_size: Vector2) -> void:
+	_expanded_available_override = available_size
+	if _state == PanelState.EXPANDED:
+		_apply_layout()
+
+
 func _set_state(state: PanelState) -> void:
 	_state = state
 	if _preview_root:
@@ -114,10 +125,7 @@ func _set_state(state: PanelState) -> void:
 func _apply_layout() -> void:
 	var vp := get_viewport_rect().size
 	if _state == PanelState.EXPANDED:
-		var expanded := Vector2(
-			vp.x * expand_width_ratio,
-			vp.y * expand_height_ratio
-		)
+		var expanded := _expanded_size_for_viewport(vp)
 		custom_minimum_size = expanded
 		size = expanded
 		_set_corner_anchors()
@@ -129,6 +137,29 @@ func _apply_layout() -> void:
 		else:
 			size = preview_size
 			_set_corner_anchors()
+
+
+func _expanded_size_for_viewport(viewport_size: Vector2) -> Vector2:
+	var available := Vector2(
+		maxf(1.0, viewport_size.x - PREVIEW_MARGIN * 2.0),
+		maxf(1.0, viewport_size.y - PREVIEW_MARGIN * 2.0)
+	)
+	if _expanded_available_override.x > 0.0:
+		available.x = minf(available.x, _expanded_available_override.x)
+	if _expanded_available_override.y > 0.0:
+		available.y = minf(available.y, _expanded_available_override.y)
+	var max_size := Vector2(
+		available.x if expanded_max_size.x <= 0.0 else minf(expanded_max_size.x, available.x),
+		available.y if expanded_max_size.y <= 0.0 else minf(expanded_max_size.y, available.y)
+	)
+	var min_size := Vector2(
+		minf(expanded_min_size.x, max_size.x),
+		minf(expanded_min_size.y, max_size.y)
+	)
+	return Vector2(
+		clampf(viewport_size.x * expand_width_ratio, min_size.x, max_size.x),
+		clampf(viewport_size.y * expand_height_ratio, min_size.y, max_size.y)
+	)
 
 
 func _capture_authored_rect() -> void:
