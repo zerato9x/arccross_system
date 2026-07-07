@@ -8,6 +8,8 @@ signal hex_preview_expand_requested(coords: Vector2i)
 signal hex_preview_travel_requested(coords: Vector2i)
 signal medical_action_requested(instance_id: String, limb_region: int)
 signal viewport_insets_changed(insets: Rect2i)
+signal event_choice_submitted(choice_id: String)
+signal event_closed
 
 const MAX_SCALE := 12.0
 
@@ -29,6 +31,7 @@ var _layout_manager := MacroHudLayoutManager.new()
 @onready var _settings_save_button: Button = %SettingsSaveButton
 @onready var _settings_load_button: Button = %SettingsLoadButton
 @onready var _settings_menu_button: Button = %SettingsMenuButton
+@onready var _event_hud: MacroEventHud = %MacroEventHud
 
 
 func _ready() -> void:
@@ -60,6 +63,8 @@ func _ready() -> void:
 	_hex_panel.expand_requested_hex.connect(hex_preview_expand_requested.emit)
 	_hex_panel.travel_requested_hex.connect(hex_preview_travel_requested.emit)
 	_world_status.settings_requested.connect(_open_settings)
+	_event_hud.choice_submitted.connect(event_choice_submitted.emit)
+	_event_hud.event_closed.connect(event_closed.emit)
 	_settings_close_button.pressed.connect(_close_settings)
 	_settings_save_button.pressed.connect(func(): _open_save_load("save"))
 	_settings_load_button.pressed.connect(func(): _open_save_load("load"))
@@ -118,6 +123,22 @@ func collapse_hex_panel() -> void:
 
 func dock_hex_session(session: Dictionary) -> void:
 	_hex_panel.dock_session(session)
+
+
+func open_event(session: Dictionary) -> void:
+	_event_hud.open_event(session)
+
+
+func show_event_result(result: Dictionary) -> void:
+	_event_hud.show_result(result)
+
+
+func close_event(notify: bool = true) -> void:
+	_event_hud.close_event(notify)
+
+
+func is_event_open() -> bool:
+	return _event_hud.is_open()
 
 
 func toggle_body_scan() -> void:

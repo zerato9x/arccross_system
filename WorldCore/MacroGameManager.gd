@@ -169,6 +169,8 @@ func _ready() -> void:
 		macro_hud.hex_preview_travel_requested.connect(_on_hex_preview_travel)
 		macro_hud.viewport_insets_changed.connect(_on_hud_viewport_insets_changed)
 		macro_hud.medical_action_requested.connect(_on_medical_action_requested)
+		macro_hud.event_choice_submitted.connect(resolve_macro_event_choice)
+		macro_hud.event_closed.connect(close_macro_interaction)
 		if inventory_panel:
 			macro_hud.get_inventory_corner_panel().inventory_ui = inventory_panel
 		if exploration_window:
@@ -319,6 +321,17 @@ func spawn_procedural_enemy(coords: Vector2i, faction: GameEnums.Faction, diffic
 # ---------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
+	if macro_hud != null and macro_hud.is_event_open():
+		if event is InputEventKey or event is InputEventMouseButton:
+			get_viewport().set_input_as_handled()
+		return
+	if (
+		_pending_interaction.get("type", GameEnums.MacroInteractionType.NONE)
+		== GameEnums.MacroInteractionType.MACRO_EVENT
+	):
+		if event is InputEventKey or event is InputEventMouseButton:
+			get_viewport().set_input_as_handled()
+		return
 	if (
 		event is InputEventKey
 		and event.pressed
@@ -595,6 +608,45 @@ func debug_requirements_met(requirements: Dictionary) -> bool:
 	)
 
 
+func begin_macro_event(
+	event_id: String,
+	coords: Vector2i = Vector2i(2147483647, 2147483647),
+	context_overrides: Dictionary = {}
+) -> void:
+	if not _pending_interaction.is_empty():
+		return
+	if coords == Vector2i(2147483647, 2147483647):
+		coords = player_token.current_hex_coords
+	var hex_data := world_generator.get_hex_at(coords)
+	var context := _build_macro_event_context(coords, hex_data)
+	context.merge(context_overrides, true)
+	var session: Dictionary = MacroEventResolver.build_event_session(event_id, context)
+	if session.is_empty():
+		push_error("[MacroGameManager] Unknown macro event: " + event_id)
+		return
+	_pending_interaction = {
+		"type": GameEnums.MacroInteractionType.MACRO_EVENT,
+		"coords": coords,
+		"event_id": event_id,
+		"context": context,
+	}
+	player_token.play_interaction()
+	set_process_unhandled_input(false)
+	if macro_hud == null:
+		push_error("Macro event opened without a HUD subscriber.")
+		close_macro_interaction()
+		return
+	macro_hud.open_event(session)
+
+
+func debug_begin_macro_event(
+	event_id: String = "locked_treatment_room",
+	coords: Vector2i = Vector2i(2147483647, 2147483647),
+	context_overrides: Dictionary = {}
+) -> void:
+	begin_macro_event(event_id, coords, context_overrides)
+
+
 func _present_poi_session(
 	coords: Vector2i,
 	hex_data: MacroHexData
@@ -745,6 +797,29 @@ func resolve_poi_action(
 		hex_data.rest_in_progress = false
 		_world_state.set_hex_record(coords, hex_data.to_state())
 
+
+func resolve_macro_event_choice(choice_id: String) -> void:
+	if (
+		_pending_interaction.get("type")
+		!= GameEnums.MacroInteractionType.MACRO_EVENT
+	):
+		return
+	var event_id := str(_pending_interaction.get("event_id", ""))
+	var context: Dictionary = _pending_interaction.get("context", {})
+	var result: Dictionary = MacroEventResolver.resolve_choice(
+		event_id,
+		choice_id,
+		context
+	)
+	_apply_macro_event_effects(result.get("effects", {}))
+	_last_macro_event = "%s: %s" % [
+		str(_pending_interaction.get("event_id", "Macro event")),
+		str(result.get("title", "Resolved")),
+	]
+	_refresh_world_hud()
+	if macro_hud:
+		macro_hud.show_event_result(result)
+
 func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 	if (
 		_pending_interaction.get("type")
@@ -849,6 +924,8 @@ func close_macro_interaction() -> void:
 		exploration_window.close_window(false)
 	if macro_hud:
 		macro_hud.collapse_hex_panel()
+		if macro_hud.is_event_open():
+			macro_hud.close_event(false)
 	_refresh_world_hud()
 
 
@@ -907,6 +984,84 @@ func _on_medical_action_requested(instance_id: String, limb_region: int) -> void
 
 func _on_inventory_closed() -> void:
 	pass
+
+
+func _build_macro_event_context(
+	coords: Vector2i,
+	hex_data: MacroHexData
+) -> Dictionary:
+	var player_core := player_token.get_humanoid_core()
+	var inventory := player_core.inventory
+	var item_ids: Array[String] = []
+	var item_tags: Array[String] = []
+	var item_roles: Array[String] = []
+	var item_names: Dictionary = {}
+	for item in inventory.get_all_items():
+		if item == null:
+			continue
+		if not item_ids.has(item.id):
+			item_ids.append(item.id)
+		item_names[item.id] = item.display_name
+		for tag in item.tags:
+			if not item_tags.has(tag):
+				item_tags.append(tag)
+		for role in item.interaction_roles:
+			var role_id := str(role)
+			if not item_roles.has(role_id):
+				item_roles.append(role_id)
+	var scene_descriptor := EventBgCatalog.build_scene_descriptor(
+		hex_data,
+		_world_state.world_seed,
+		coords
+	)
+	return {
+		"coords": coords,
+		"location_label": _hex_label(coords, hex_data),
+		"time_label": _format_world_time(),
+		"background_path": scene_descriptor.get("background_path", ""),
+		"item_ids": item_ids,
+		"item_tags": item_tags,
+		"item_roles": item_roles,
+		"item_names": item_names,
+		"occupations": _player_context_list("occupations"),
+		"traits": _player_context_list("traits"),
+		"flaws": _player_context_list("flaws"),
+		"stats": {
+			"brawn": player_core.definition.brawn,
+			"finesse": player_core.definition.finesse,
+			"fortitude": player_core.definition.fortitude,
+			"will": player_core.definition.will,
+		},
+	}
+
+
+func _player_context_list(key: String) -> Array[String]:
+	var metadata := {}
+	var player_definition := player_token.get_humanoid_core().definition
+	if player_definition != null and player_definition.has_meta("macro_context"):
+		metadata = player_definition.get_meta("macro_context")
+	if metadata is Dictionary and metadata.has(key):
+		var values: Array[String] = []
+		for value in metadata.get(key, []):
+			values.append(str(value))
+		return values
+	return []
+
+
+func _apply_macro_event_effects(effects: Dictionary) -> void:
+	if effects.is_empty():
+		return
+	var coords: Vector2i = _pending_interaction.get(
+		"coords",
+		player_token.current_hex_coords
+	)
+	var elapsed_minutes := int(effects.get("elapsed_minutes", 0))
+	if elapsed_minutes > 0:
+		_advance_survival_time(
+			elapsed_minutes,
+			float(effects.get("exertion", 0.0)),
+			coords
+		)
 
 func resolve_inventory_action(
 	action_id: String,
@@ -1390,6 +1545,8 @@ func _request_pending_combat(
 		exploration_window.close_window(false)
 	if interaction_panel:
 		interaction_panel.close_panel(false)
+	if macro_hud and macro_hud.is_event_open():
+		macro_hud.close_event(false)
 	combat_requested.emit(request)
 
 func _get_loot_profile(hex_data: MacroHexData) -> Dictionary:

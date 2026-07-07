@@ -1,0 +1,166 @@
+[gd_scene format=3 uid="uid://bxybqicj7tad2"]
+
+[ext_resource type="Script" path="res://UI/HUD/Macro/MacroEventHud.gd" id="1_event"]
+
+[node name="MacroEventHud" type="CanvasLayer"]
+layer = 40
+script = ExtResource("1_event")
+
+[node name="Root" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="DimOverlay" type="ColorRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0, 0, 0, 0.68)
+
+[node name="Center" type="CenterContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 48.0
+offset_top = 48.0
+offset_right = -48.0
+offset_bottom = -48.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="EventPanel" type="PanelContainer" parent="Root/Center"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(1060, 700)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Root/Center/EventPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="MainRow" type="HBoxContainer" parent="Root/Center/EventPanel/Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="ImageFrame" type="PanelContainer" parent="Root/Center/EventPanel/Margin/MainRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(590, 0)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ImageMargin" type="MarginContainer" parent="Root/Center/EventPanel/Margin/MainRow/ImageFrame"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="EventImage" type="TextureRect" parent="Root/Center/EventPanel/Margin/MainRow/ImageFrame/ImageMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+expand_mode = 1
+stretch_mode = 6
+
+[node name="TextColumn" type="VBoxContainer" parent="Root/Center/EventPanel/Margin/MainRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(410, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="TopRow" type="HBoxContainer" parent="Root/Center/EventPanel/Margin/MainRow/TextColumn"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TitleLabel" type="Label" parent="Root/Center/EventPanel/Margin/MainRow/TextColumn/TopRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "EVENT"
+autowrap_mode = 3
+
+[node name="CloseButton" type="Button" parent="Root/Center/EventPanel/Margin/MainRow/TextColumn/TopRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(32, 28)
+layout_mode = 2
+text = "X"
+
+[node name="BodyLabel" type="Label" parent="Root/Center/EventPanel/Margin/MainRow/TextColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Event text."
+autowrap_mode = 3
+
+[node name="TagRow" type="HFlowContainer" parent="Root/Center/EventPanel/Margin/MainRow/TextColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 6
+
+[node name="ChoiceScroll" type="ScrollContainer" parent="Root/Center/EventPanel/Margin/MainRow/TextColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ChoiceList" type="VBoxContainer" parent="Root/Center/EventPanel/Margin/MainRow/TextColumn/ChoiceScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="ResultBox" type="PanelContainer" parent="Root/Center/EventPanel/Margin/MainRow/TextColumn"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="ResultMargin" type="MarginContainer" parent="Root/Center/EventPanel/Margin/MainRow/TextColumn/ResultBox"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="ResultColumn" type="VBoxContainer" parent="Root/Center/EventPanel/Margin/MainRow/TextColumn/ResultBox/ResultMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ResultTitle" type="Label" parent="Root/Center/EventPanel/Margin/MainRow/TextColumn/ResultBox/ResultMargin/ResultColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "RESULT"
+
+[node name="ResultMeta" type="Label" parent="Root/Center/EventPanel/Margin/MainRow/TextColumn/ResultBox/ResultMargin/ResultColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "+0 min | exertion 0.00"
+
+[node name="ResultBody" type="Label" parent="Root/Center/EventPanel/Margin/MainRow/TextColumn/ResultBox/ResultMargin/ResultColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Result text."
+autowrap_mode = 3
+
+[node name="ContinueButton" type="Button" parent="Root/Center/EventPanel/Margin/MainRow/TextColumn"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+text = "Continue"
