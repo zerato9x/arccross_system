@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://ds0leevyc2nlo" path="res://addons/cinematic_camera_2d/scripts/cinematic_camera_2d.gd" id="6_cinematic_camera"]
 [ext_resource type="PackedScene" uid="uid://dd8xqqy5yy123" path="res://UI/Inventory/PaperDollModel.tscn" id="7_paper_doll"]
 [ext_resource type="Script" uid="uid://ds2dy44dqbcef" path="res://addons/cinematic_camera_2d/scripts/virtual_camera_2d.gd" id="8_virtual_camera"]
-[ext_resource type="AudioStream" uid="uid://byvi8ysnojuyv" path="res://SoundCore/Sound/sfx/universfield-fatal-body-fall-thud-352716.mp3" id="9_fatal_thud"]
+[ext_resource type="AudioStream" uid="uid://byvi8ysnojuyv" path="res://SoundCore/Sound/sfx/universfield-fatal-body-fall-thud-352716.mp3" id="9_impact"]
 
 [node name="CombatLaneHUD" type="Node2D" unique_id=1163430543]
 script = ExtResource("1_lane_hud")
@@ -543,6 +543,10 @@ theme_override_colors/font_color = Color(0.86, 0.82, 0.72, 1)
 theme_override_font_sizes/font_size = 10
 autowrap_mode = 3
 
+[node name="WeaponEffectSprite" type="Sprite2D" parent="WeaponCard" unique_id=534929697]
+visible = false
+z_index = 4
+
 [node name="ActionGroupTabs" type="Node2D" parent="." unique_id=1821710689]
 unique_name_in_owner = true
 z_index = 35
@@ -756,9 +760,9 @@ z_index = 120
 unique_name_in_owner = true
 z_index = 118
 
-[node name="FatalThudPlayer" type="AudioStreamPlayer" parent="." unique_id=203226104]
+[node name="ImpactSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=203226104]
 unique_name_in_owner = true
-stream = ExtResource("9_fatal_thud")
+stream = ExtResource("9_impact")
 volume_db = -2.5
 
 [node name="ResolveScreen" type="Node2D" parent="." unique_id=969370391]

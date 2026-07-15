@@ -4,6 +4,7 @@ const ITEM_DIRECTORY := "res://ItemCore/Items/"
 const PROFILE_DIRECTORY := "res://ItemCore/LootProfiles/"
 
 var _items_by_id: Dictionary = {}
+var _items_by_path: Dictionary = {}
 var _profiles_by_id: Dictionary = {}
 
 func _ready() -> void:
@@ -43,6 +44,32 @@ func get_item_descriptor(item_id: String) -> Dictionary:
 	}
 
 
+func get_all_item_descriptors() -> Array[Dictionary]:
+	var descriptors: Array[Dictionary] = []
+	for template_path_value in _items_by_path.keys():
+		var template_path := str(template_path_value)
+		var definition := _items_by_path.get(template_path) as ItemData
+		if definition == null:
+			continue
+		descriptors.append({
+			"id": definition.id,
+			"display_name": definition.display_name,
+			"item_type": definition.item_type,
+			"target_slot": definition.target_slot,
+			"requires_two_hands": definition.requires_two_hands,
+			"item_size": definition.get_effective_item_size(),
+			"tags": definition.tags.duplicate(),
+			"template_path": template_path,
+		})
+	descriptors.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			var a_name := str(a.get("display_name", a.get("id", "")))
+			var b_name := str(b.get("display_name", b.get("id", "")))
+			return a_name.naturalnocasecmp_to(b_name) < 0
+	)
+	return descriptors
+
+
 ## SystemCore-internal factory access. External domains should use descriptors
 ## and runtime item dicts instead.
 func get_item_definition(item_id: String) -> ItemData:
@@ -71,6 +98,7 @@ func create_runtime_item_from_template_path(template_path: String) -> Dictionary
 
 func _load_items() -> void:
 	_items_by_id.clear()
+	_items_by_path.clear()
 	_load_items_from_directory(ITEM_DIRECTORY)
 
 func _load_items_from_directory(directory_path: String) -> void:
@@ -88,6 +116,7 @@ func _load_items_from_directory(directory_path: String) -> void:
 		elif file_name.ends_with(".tres"):
 			var item := load(resource_path) as ItemData
 			if item and not item.id.is_empty():
+				_items_by_path[resource_path] = item
 				if _items_by_id.has(item.id):
 					push_error("[LOOT CATALOG] Duplicate item ID: " + item.id)
 				else:

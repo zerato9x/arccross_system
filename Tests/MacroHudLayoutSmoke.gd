@@ -14,6 +14,7 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	root.size = Vector2i(1280, 720)
 	var main_scene := load("res://SystemCore/game_director.tscn") as PackedScene
 	var game_director := main_scene.instantiate()
 	root.add_child(game_director)
@@ -122,11 +123,12 @@ func _run() -> void:
 	if not macro_map.exploration_window.is_open():
 		_fail("Hex exploration window did not open inside the expanded host.")
 		return
-	var exploration_panel := macro_map.exploration_window.get_node_or_null(
-		"%ExplorationPanel"
-	) as Control
+	var exploration_panel := macro_map.exploration_window.get("_panel") as Control
 	if exploration_panel == null:
 		_fail("Exploration panel missing from the hex work surface.")
+		return
+	if exploration_panel.get_parent() != hex.get_node("%ExpandedRoot"):
+		_fail("Exploration panel was not docked into the hex work surface.")
 		return
 	if not _assert_rect_inside_rect(
 		exploration_panel.get_global_rect(),
@@ -175,20 +177,7 @@ func _assert_panel_size(
 	panel: MacroCornerPanel,
 	label: String
 ) -> bool:
-	var expected := Vector2(
-		_expected_axis(
-			viewport_size.x,
-			panel.expand_width_ratio,
-			panel.expanded_min_size.x,
-			panel.expanded_max_size.x
-		),
-		_expected_axis(
-			viewport_size.y,
-			panel.expand_height_ratio,
-			panel.expanded_min_size.y,
-			panel.expanded_max_size.y
-		)
-	)
+	var expected := panel.expanded_size_for_viewport(viewport_size)
 	if panel.size.distance_to(expected) > 10.0:
 		_fail("%s expanded size mismatch: got %s expected %s." % [
 			label,

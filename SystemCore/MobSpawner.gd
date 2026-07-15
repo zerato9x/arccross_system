@@ -170,7 +170,16 @@ func generate_mob(
 			# sit at/below the Drifter baseline (6) and the Scavenger (B5/T4).
 			def.brawn = _roll_attribute(6 + difficulty_bias, 3, rng) # Feral rush threat
 			def.finesse = _roll_attribute(3, 3, rng) # Clumsy, feral
-			def.fortitude = _roll_attribute(3 + difficulty_bias, 2, rng) # Frail, easy to put down
+			# Naked, malnourished thralls should actually be fragile. The old bell-
+			# curve centered them near ordinary human durability despite this comment.
+			var craven_variance := (
+				rng.randi_range(0, 2) if rng else randi_range(0, 2)
+			)
+			def.fortitude = clampi(
+				2 + difficulty_bias + craven_variance,
+				2,
+				8
+			)
 			def.will = 1 # No willpower, pure instinct
 			def.red_mist_resistance = 0.0
 			def.loadout = _generate_craven_loadout()

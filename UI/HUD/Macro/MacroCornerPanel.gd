@@ -110,6 +110,10 @@ func set_expanded_available_override(available_size: Vector2) -> void:
 		_apply_layout()
 
 
+func expanded_size_for_viewport(viewport_size: Vector2) -> Vector2:
+	return _expanded_size_for_viewport(viewport_size)
+
+
 func _set_state(state: PanelState) -> void:
 	_state = state
 	if _preview_root:

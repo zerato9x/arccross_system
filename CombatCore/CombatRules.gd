@@ -17,6 +17,39 @@ const MUD_MIN_TRIP_CHANCE: float = 0.05
 const MUD_MOVE_FINESSE_REDUCTION: float = 0.02
 const MUD_DODGE_FINESSE_REDUCTION: float = 0.015
 
+## Unarmed attacks must remain useful against exposed targets without turning
+## fists into superior weapons. Brawn drives the impact; worn blunt protection
+## and positive bulk reduce how much of that impact reaches flesh/equilibrium.
+const UNARMED_FLESH_BASE: float = 0.75
+const UNARMED_FLESH_PER_BRAWN: float = 0.125
+const UNARMED_STANCE_BASE: float = 1.0
+const UNARMED_STANCE_PER_BRAWN: float = 0.25
+const UNARMED_ARMOR_FACTOR: float = 0.35
+const UNARMED_BULK_FLESH_FACTOR: float = 0.10
+const UNARMED_BULK_STANCE_FACTOR: float = 0.50
+
+static func get_unarmed_damage(
+	attacker_brawn: int,
+	defender_blunt_protection: float,
+	defender_bulk: float
+) -> Dictionary:
+	var brawn := clampf(float(attacker_brawn), 1.0, GameEnums.SCALE_MAX)
+	var positive_bulk := maxf(0.0, defender_bulk)
+	var raw_flesh := UNARMED_FLESH_BASE + brawn * UNARMED_FLESH_PER_BRAWN
+	var raw_stance := UNARMED_STANCE_BASE + brawn * UNARMED_STANCE_PER_BRAWN
+	return {
+		"flesh": maxf(
+			0.1,
+			raw_flesh
+			- maxf(0.0, defender_blunt_protection) * UNARMED_ARMOR_FACTOR
+			- positive_bulk * UNARMED_BULK_FLESH_FACTOR
+		),
+		"stance": maxf(
+			1.0,
+			raw_stance - positive_bulk * UNARMED_BULK_STANCE_FACTOR
+		),
+	}
+
 ## Mathematical categorization of action costs. Scales through KineticTier.
 enum ActionCategory {
 	QUICK,

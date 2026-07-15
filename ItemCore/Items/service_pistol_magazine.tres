@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://dbj2gmxxnnecx"]
 
-[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+[ext_resource type="Script" uid="uid://jbxk0eeleei8" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
 
 [resource]
 script = ExtResource("1_itemdata")
@@ -14,3 +14,5 @@ size_cost = 0
 target_slot = 9
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Pistol/service_pistol_magazine.png"
 weight = 0.2
+accepted_ammunition_id = "pistol_round"
+magazine_capacity = 8

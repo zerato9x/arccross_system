@@ -1,6 +1,8 @@
 extends Node
 class_name HumanoidCore
 
+const MINDLESS_BASE_AP: int = 8
+
 # ---------------------------------------------------------
 # SIGNALS: The Nervous System Broadcasting
 # ---------------------------------------------------------
@@ -90,8 +92,10 @@ func _derive_physical_reality() -> void:
 	# 3. Will establishes psychological baseline
 	current_morale = float(definition.will)
 	
-	# 4. Time is a constant. AP is heavily punished later by condition.
-	base_ap = 12 
+	# 4. Mindless thralls are frantic but biologically ruined. They get a shorter
+	# action budget instead of chaining a charge and several attacks every turn.
+	base_ap = MINDLESS_BASE_AP if is_mindless_hive_thrall else 12
+	current_max_ap = base_ap
 	_calculate_kinetic_burden()
 
 	print(
@@ -372,11 +376,23 @@ func _evaluate_flight_response(opponent_threat: float = -1.0) -> void:
 		GameEnums.Agenda.BELLIGERENT: breakpoint_ratio = 0.2 # Runs at 20% morale
 		GameEnums.Agenda.ZEALOT, GameEnums.Agenda.MINDLESS: return # Never runs
 		
-	# THE THREAT CHECK: SURVIVALIST enemies flee immediately if out-Threatened
+	# THE THREAT CHECK: survivalists compare the opponent's projected threat
+	# against both their nerve and their own equipment. The old WILL-only check
+	# made any scavenger facing the player's starting pistol flee immediately,
+	# even when the scavenger was armed just as well.
 	if definition.agenda == GameEnums.Agenda.SURVIVALIST and opponent_threat >= 0.0:
-		if opponent_threat > float(definition.will):
+		var threat_tolerance := float(definition.will) + get_effective_threat()
+		if opponent_threat > threat_tolerance:
 			is_fleeing = true
-			print("\n[THREAT OVERRIDE] ", name, " sees THREAT(", opponent_threat, ") > WILL(", definition.will, "). Fleeing immediately!")
+			print(
+				"\n[THREAT OVERRIDE] ",
+				name,
+				" sees THREAT(",
+				opponent_threat,
+				") > TOLERANCE(",
+				threat_tolerance,
+				"). Fleeing immediately!"
+			)
 			morale_broken.emit()
 			return
 	

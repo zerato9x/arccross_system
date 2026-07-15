@@ -1,5 +1,18 @@
 # ARCCROSS Changelog
 
+## July 13, 2026
+
+### Shield-Specific BLOCK Rules
+
+- Completed Phase 2 workstream P2-06 with authored shield damage-type coverage,
+  protected Limb Regions, and flesh/Stance bleed-through multipliers.
+- Ballistic shields can BLOCK covered SHOOT and AIMED SHOT impacts; makeshift
+  shields retain narrower blunt/sharp coverage and weaker mitigation.
+- Restored DODGE reaction availability for AIMED SHOT, which had been omitted
+  from the ranged reaction trigger list.
+- Added `ShieldBlockSmoke.gd` coverage for reaction availability, mitigation,
+  uncovered limbs, and runtime serialization.
+
 ## June 30, 2026
 
 ### Documentation Sync

@@ -770,6 +770,14 @@ func resolve_poi_action(
 		if selected_search_option_id == "activate_core":
 			_resolve_core_activation(coords, hex_data)
 			return
+		if selected_search_option_id == "event_locked_treatment_room":
+			_begin_macro_event_from_poi(
+				MacroEventResolver.EVENT_LOCKED_TREATMENT_ROOM,
+				selected_search_option_id,
+				coords,
+				hex_data
+			)
+			return
 		_resolve_search(
 			coords,
 			hex_data,
@@ -811,6 +819,8 @@ func resolve_macro_event_choice(choice_id: String) -> void:
 		choice_id,
 		context
 	)
+	if result.has("choice_id"):
+		_complete_macro_event_source()
 	_apply_macro_event_effects(result.get("effects", {}))
 	_last_macro_event = "%s: %s" % [
 		str(_pending_interaction.get("event_id", "Macro event")),
@@ -819,6 +829,42 @@ func resolve_macro_event_choice(choice_id: String) -> void:
 	_refresh_world_hud()
 	if macro_hud:
 		macro_hud.show_event_result(result)
+
+
+func _begin_macro_event_from_poi(
+	event_id: String,
+	search_option_id: String,
+	coords: Vector2i,
+	hex_data: MacroHexData
+) -> void:
+	if hex_data.searched_targets.has(search_option_id):
+		_present_poi_session(coords, hex_data)
+		return
+	if exploration_window and exploration_window.is_open():
+		exploration_window.close_window(false)
+	if macro_hud:
+		macro_hud.collapse_hex_panel()
+	_pending_interaction.clear()
+	begin_macro_event(
+		event_id,
+		coords,
+		{"source_search_option_id": search_option_id}
+	)
+
+
+func _complete_macro_event_source() -> void:
+	var context: Dictionary = _pending_interaction.get("context", {})
+	var search_option_id := str(context.get("source_search_option_id", ""))
+	if search_option_id.is_empty():
+		return
+	var coords: Vector2i = _pending_interaction.get(
+		"coords",
+		player_token.current_hex_coords
+	)
+	var hex_data := world_generator.get_hex_at(coords)
+	if not hex_data.searched_targets.has(search_option_id):
+		hex_data.searched_targets.append(search_option_id)
+		_world_state.set_hex_record(coords, hex_data.to_state())
 
 func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 	if (

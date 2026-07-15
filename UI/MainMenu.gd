@@ -2,19 +2,23 @@ extends Control
 class_name MainMenu
 
 @export_file("*.tscn") var game_scene_path: String
+@export_file("*.tscn") var wave_scene_path: String
 
 @onready var btn_new_game = %BtnNewGame
 @onready var btn_continue = %BtnContinue
+@onready var btn_wave = %BtnWave
 @onready var btn_quit = %BtnQuit
 @onready var save_load_menu = %SaveLoadMenu
 
 func _ready() -> void:
 	HUDAssetLibrary.apply_button(btn_new_game)
 	HUDAssetLibrary.apply_button(btn_continue)
+	HUDAssetLibrary.apply_button(btn_wave)
 	HUDAssetLibrary.apply_button(btn_quit)
 	
 	btn_new_game.pressed.connect(_on_new_game)
 	btn_continue.pressed.connect(_on_continue)
+	btn_wave.pressed.connect(_on_wave)
 	btn_quit.pressed.connect(_on_quit)
 	
 	save_load_menu.visible = false
@@ -40,6 +44,12 @@ func _on_new_game() -> void:
 func _on_continue() -> void:
 	save_load_menu.visible = true
 	save_load_menu.refresh_slots()
+
+func _on_wave() -> void:
+	if wave_scene_path.is_empty():
+		push_error("[MainMenu] Missing wave_scene_path.")
+		return
+	get_tree().change_scene_to_file(wave_scene_path)
 
 func _on_slot_selected(slot_index: int) -> void:
 	var save_service = get_node_or_null("/root/SaveLoadService")

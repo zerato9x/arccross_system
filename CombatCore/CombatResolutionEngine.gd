@@ -218,6 +218,36 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 		)
 		return
 
+	var resolved_target_limb := (
+		target_limb if is_aimed else _roll_ballistic_target()
+	)
+	var shield_blocked := false
+	if (
+		chosen_reaction == GameEnums.ActionType.BLOCK
+		and reaction_success
+		and final_victim == victim
+	):
+		_active_projectile_damage_victim = victim
+		shield_blocked = resolve_block(
+			victim,
+			attacker,
+			weapon,
+			resolved_target_limb
+		)
+		_active_projectile_damage_victim = null
+	if shield_blocked:
+		print("[SHOT BLOCKED] The raised shield intercepted the projectile.")
+		_emit_shot_event(
+			attacker,
+			victim,
+			action_type,
+			attacker_idx,
+			target_idx,
+			"shield_block",
+			resolved_target_limb
+		)
+		return
+
 	# 6. The Meat Impact
 	print("DIRECT HIT! Striking ", final_victim.name, "...")
 	var damage_multiplier := weapon.damage_multiplier_at_distance(distance)
@@ -235,12 +265,14 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 			"aimed_shot"
 		)
 	else:
-		damage_event = _apply_ballistic_trauma(
+		damage_event = _resolve_damage(
 			final_victim,
 			weapon,
+			resolved_target_limb,
 			damage_multiplier,
 			attacker,
-			action_type
+			action_type,
+			"shot"
 		)
 	_active_projectile_damage_victim = null
 	_emit_shot_event(
@@ -511,22 +543,29 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 			damage_source
 		)
 	else:
-		# Unarmed strike — minimal damage
+		# Unarmed strike — Brawn matters, and clothing finally does something.
+		var unarmed := CombatRules.get_unarmed_damage(
+			attacker.definition.brawn,
+			defender.inventory.get_protection_for(GameEnums.DamageType.BLUNT),
+			defender.get_bulk_modifier()
+		)
+		var flesh_damage := float(unarmed.get("flesh", 0.1)) * grounded_bonus
+		var stance_damage := float(unarmed.get("stance", 1.0))
 		var stance_before := defender.stance_points
 		var state_before: GameEnums.StanceState = defender.current_stance
 		defender.body.apply_targeted_hit(
 			target_limb,
-			0.5 * grounded_bonus,
+			flesh_damage,
 			0.0,
 			GameEnums.DamageType.BLUNT
 		)
-		defender.apply_stance_damage(2.0)
+		defender.apply_stance_damage(stance_damage)
 		_emit_damage_event(
 			attacker,
 			defender,
 			GameEnums.ActionType.STRIKE,
 			target_limb,
-			0.5 * grounded_bonus,
+			flesh_damage,
 			maxf(0.0, float(stance_before - defender.stance_points)),
 			"unarmed",
 			state_before,
@@ -534,7 +573,13 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 			GameEnums.DamageType.BLUNT
 		)
 		damage_applied.emit(defender)
-		print("[UNARMED] Fists connect for minor trauma.")
+		print(
+			"[UNARMED] Fists connect for ",
+			flesh_damage,
+			" flesh / ",
+			stance_damage,
+			" stance."
+		)
 
 func roll_melee_target() -> GameEnums.LimbRegion:
 	return MELEE_HIT_REGIONS.pick_random()
@@ -905,19 +950,42 @@ func check_dodge_hazard(entity: HumanoidCore, tile_slot: CombatLaneSlot) -> bool
 # BLOCK RESOLUTION
 # ---------------------------------------------------------
 
-func resolve_block(defender: HumanoidCore, attacker: HumanoidCore, weapon: ItemData) -> bool:
+func resolve_block(
+	defender: HumanoidCore,
+	attacker: HumanoidCore,
+	weapon: ItemData,
+	target_limb: int = -1
+) -> bool:
 	if not defender.body.has_functional_arms():
 		print("[BLOCK FAILED] ", defender.name, " cannot block — arms are shattered.")
 		return false
 	
+	var shield := _get_blocking_shield(defender)
+	if (
+		shield != null
+		and weapon != null
+		and not shield.can_block_damage(weapon.damage_type, target_limb)
+	):
+		print(
+			"[BLOCK MISSED] ",
+			shield.display_name,
+			" does not cover this impact."
+		)
+		return false
 	action_started.emit(defender, GameEnums.ActionType.BLOCK)
 	print("[BLOCK] ", defender.name, " raises a guard against the incoming strike!")
 	
 	# Damage type rules: blunt stance bleed-through (50% stance damage) vs. sharp mitigation (0 stance, 10% flesh)
 	var final_stance: float = 0.0
 	var final_flesh: float = 0.0
+	var incoming_damage_type := (
+		weapon.damage_type if weapon != null else GameEnums.DamageType.BLUNT
+	)
 	
-	if weapon:
+	if shield != null and weapon != null:
+		final_stance = weapon.stance_damage * shield.block_stance_multiplier
+		final_flesh = weapon.flesh_damage * shield.block_flesh_multiplier
+	elif weapon:
 		if weapon.damage_type == GameEnums.DamageType.BLUNT:
 			final_stance = weapon.stance_damage * 0.5
 			final_flesh = weapon.flesh_damage * 0.25
@@ -932,6 +1000,8 @@ func resolve_block(defender: HumanoidCore, attacker: HumanoidCore, weapon: ItemD
 		# Unarmed block
 		final_stance = 1.0
 		final_flesh = 0.5
+	if incoming_damage_type == GameEnums.DamageType.BALLISTIC:
+		final_stance = 0.0
 		
 	# Apply reduced damage to the blocking arm
 	var block_arm: GameEnums.LimbRegion = GameEnums.LimbRegion.LEFT_ARM
@@ -945,13 +1015,13 @@ func resolve_block(defender: HumanoidCore, attacker: HumanoidCore, weapon: ItemD
 			block_arm,
 			final_flesh,
 			1.0,
-			weapon.damage_type
+			incoming_damage_type
 		)
 		print("[BLOCK] ", defender.name, " absorbed the strike. Arm took ", final_flesh, " bleed-through damage.")
 		
 	if final_stance > 0.0:
 		var resulting_state = defender.apply_stance_damage(final_stance)
-		print("[BLOCK BLEED-THROUGH] Blunt impact rattled posture: -", final_stance, " stance → ", GameEnums.StanceState.keys()[resulting_state])
+		print("[BLOCK BLEED-THROUGH] Impact rattled posture: -", final_stance, " stance → ", GameEnums.StanceState.keys()[resulting_state])
 		
 	if final_flesh > 0.0 or final_stance > 0.0:
 		_emit_damage_event(
@@ -961,13 +1031,22 @@ func resolve_block(defender: HumanoidCore, attacker: HumanoidCore, weapon: ItemD
 			block_arm,
 			final_flesh,
 			maxf(0.0, float(stance_before - defender.stance_points)),
-			"block",
+			"shield_block" if shield != null else "block",
 			state_before,
 			0.0,
-			weapon.damage_type
+			incoming_damage_type
 		)
 		damage_applied.emit(defender)
 	return true
+
+func _get_blocking_shield(defender: HumanoidCore) -> ItemData:
+	if defender == null or defender.inventory == null:
+		return null
+	for slot in [GameEnums.EquipmentSlot.HAND, GameEnums.EquipmentSlot.OFFHAND]:
+		var item: ItemData = defender.inventory.paper_doll.get(slot)
+		if item != null and item.is_blocking_shield():
+			return item
+	return null
 
 # ---------------------------------------------------------
 # DODGE RESOLUTION
@@ -1063,10 +1142,7 @@ func _apply_ballistic_trauma(
 ) -> Dictionary:
 	# Prototype: Randomize which limb gets hit. 
 	# A real system would let the player spend extra AP to "Aim" for the head.
-	var hit_location = [
-		GameEnums.LimbRegion.UPPER_TORSO, GameEnums.LimbRegion.LOWER_TORSO, GameEnums.LimbRegion.LEFT_ARM, 
-		GameEnums.LimbRegion.RIGHT_ARM, GameEnums.LimbRegion.LEFT_LEG, GameEnums.LimbRegion.RIGHT_LEG
-	].pick_random()
+	var hit_location := _roll_ballistic_target()
 	
 	# Run the damage through the armor resolution pipeline
 	return _resolve_damage(
@@ -1078,6 +1154,16 @@ func _apply_ballistic_trauma(
 		action_type,
 		"shot"
 	)
+
+func _roll_ballistic_target() -> GameEnums.LimbRegion:
+	return [
+		GameEnums.LimbRegion.UPPER_TORSO,
+		GameEnums.LimbRegion.LOWER_TORSO,
+		GameEnums.LimbRegion.LEFT_ARM,
+		GameEnums.LimbRegion.RIGHT_ARM,
+		GameEnums.LimbRegion.LEFT_LEG,
+		GameEnums.LimbRegion.RIGHT_LEG,
+	].pick_random()
 
 # ---------------------------------------------------------
 # ARMOR RESOLUTION PIPELINE

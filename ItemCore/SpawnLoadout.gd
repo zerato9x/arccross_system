@@ -13,6 +13,13 @@ class_name SpawnLoadout
 @export var feet: ItemData           ## FEET slot
 @export var vest: ItemData           ## VEST slot / combat-accessible rig
 @export var backpack_gear: ItemData  ## BACKPACK slot (the bag itself, not contents)
+@export var head: ItemData           ## HEAD slot
+@export var eyes: ItemData           ## EYES slot
+@export var face: ItemData           ## FACE slot
+@export var neck: ItemData           ## NECK slot
+@export var arms: ItemData           ## ARMS slot
+@export var belt: ItemData           ## BELT slot / worn storage
+@export var sling: ItemData          ## SLING slot / worn storage
 
 @export_group("Backpack Contents (Loose Items)")
 @export var starting_items: Array[ItemData] = []
@@ -20,25 +27,42 @@ class_name SpawnLoadout
 ## Equips all items from this loadout onto the given inventory system.
 ## Call this AFTER the InventorySystem has initialized its paper_doll.
 func apply_to(inventory: InventorySystem) -> void:
-	# 1. Equip paper doll slots (order matters: backpack first for capacity)
+	# 1. Equip storage-bearing paper doll slots first so loose items have a legal
+	# destination when the loadout is materialized.
 	if backpack_gear:
 		inventory.equip_item(backpack_gear, GameEnums.EquipmentSlot.BACKPACK)
-	if inner_torso:
-		inventory.equip_item(inner_torso, GameEnums.EquipmentSlot.INNER_TORSO)
+	if sling:
+		inventory.equip_item(sling, GameEnums.EquipmentSlot.SLING)
+	if belt:
+		inventory.equip_item(belt, GameEnums.EquipmentSlot.BELT)
+	if vest:
+		inventory.equip_item(vest, GameEnums.EquipmentSlot.VEST)
 	if outer_torso:
 		inventory.equip_item(outer_torso, GameEnums.EquipmentSlot.OUTER_TORSO)
 	if legs:
 		inventory.equip_item(legs, GameEnums.EquipmentSlot.LEGS)
+
+	# 2. Equip the remaining authored slots supported by InventorySystem.
+	if inner_torso:
+		inventory.equip_item(inner_torso, GameEnums.EquipmentSlot.INNER_TORSO)
 	if feet:
 		inventory.equip_item(feet, GameEnums.EquipmentSlot.FEET)
-	if vest:
-		inventory.equip_item(vest, GameEnums.EquipmentSlot.VEST)
+	if head:
+		inventory.equip_item(head, GameEnums.EquipmentSlot.HEAD)
+	if eyes:
+		inventory.equip_item(eyes, GameEnums.EquipmentSlot.EYES)
+	if face:
+		inventory.equip_item(face, GameEnums.EquipmentSlot.FACE)
+	if neck:
+		inventory.equip_item(neck, GameEnums.EquipmentSlot.NECK)
+	if arms:
+		inventory.equip_item(arms, GameEnums.EquipmentSlot.ARMS)
 	if weapon:
 		inventory.equip_item(weapon, GameEnums.EquipmentSlot.HAND)
 	if offhand:
 		inventory.equip_item(offhand, GameEnums.EquipmentSlot.OFFHAND)
-	
-	# 2. Stuff loose items into the backpack
+
+	# 3. Stuff loose items into legal worn storage.
 	for item in starting_items:
 		if not inventory.add_to_backpack(item):
 			print("[LOADOUT] WARNING: Backpack full. Could not fit: ", item.display_name)
@@ -59,6 +83,13 @@ func to_state() -> Dictionary:
 		"feet": _item_definition_path(feet),
 		"vest": _item_definition_path(vest),
 		"backpack_gear": _item_definition_path(backpack_gear),
+		"head": _item_definition_path(head),
+		"eyes": _item_definition_path(eyes),
+		"face": _item_definition_path(face),
+		"neck": _item_definition_path(neck),
+		"arms": _item_definition_path(arms),
+		"belt": _item_definition_path(belt),
+		"sling": _item_definition_path(sling),
 		"starting_items": starting_items.map(
 			func(item: ItemData) -> String: return _item_definition_path(item)
 		),
@@ -74,6 +105,13 @@ static func from_state(state: Dictionary) -> SpawnLoadout:
 	loadout.feet = _load_item_definition(state.get("feet", ""))
 	loadout.vest = _load_item_definition(state.get("vest", ""))
 	loadout.backpack_gear = _load_item_definition(state.get("backpack_gear", ""))
+	loadout.head = _load_item_definition(state.get("head", ""))
+	loadout.eyes = _load_item_definition(state.get("eyes", ""))
+	loadout.face = _load_item_definition(state.get("face", ""))
+	loadout.neck = _load_item_definition(state.get("neck", ""))
+	loadout.arms = _load_item_definition(state.get("arms", ""))
+	loadout.belt = _load_item_definition(state.get("belt", ""))
+	loadout.sling = _load_item_definition(state.get("sling", ""))
 
 	for item_path in state.get("starting_items", []):
 		var item := _load_item_definition(item_path)

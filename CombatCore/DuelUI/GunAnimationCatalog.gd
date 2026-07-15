@@ -6,7 +6,7 @@ const EFFECT_AIM := "aim"
 const EFFECT_RELOAD := "reload"
 const EFFECT_CYCLE := "cycle"
 const EFFECT_EMPTY := "empty"
-const FATAL_BODY_THUD := (
+const IMPACT_SOUND := (
 	"res://SoundCore/Sound/sfx/universfield-fatal-body-fall-thud-352716.mp3"
 )
 
@@ -33,10 +33,10 @@ const _PATHS := {
 		EFFECT_EMPTY: "res://Asset/Guns_Animation/pistol_revolver/[EMPTY NO CASINGS] Revolver - Colt 45.png",
 	},
 	"carbon_rifle": {
-		EFFECT_SHOOT: "res://Asset/Guns_Animation/rifle_carbon/[FULL_MUZZLE_FLASH] Assault_rifle_V1.00.png",
+		EFFECT_SHOOT: "res://Asset/Guns_Animation/rifle_carbon/[SINGLE_SHOT] Assault_rifle_V1.00.png",
 		EFFECT_AIM: "res://Asset/Guns_Animation/rifle_carbon/[SINGLE_SHOT] Assault_rifle_V1.00.png",
 		EFFECT_RELOAD: "res://Asset/Guns_Animation/rifle_carbon/[RELOAD] Assault_rifle_V1.00 - Reload.png",
-		EFFECT_CYCLE: "res://Asset/Guns_Animation/rifle_carbon/[CASING_SINGLE_SHOT] Assault_rifle_V1.00.png",
+		EFFECT_CYCLE: "res://Asset/Guns_Animation/rifle_carbon/[SINGLE_SHOT] Assault_rifle_V1.00.png",
 		EFFECT_EMPTY: "res://Asset/Guns_Animation/rifle_carbon/[EMPTYING] Assault_rifle_V1.00.png",
 	},
 	"ak47": {
@@ -47,18 +47,35 @@ const _PATHS := {
 		EFFECT_EMPTY: "res://Asset/Guns_Animation/ak47/[EMPTY] AK 47.png",
 	},
 	"service_rifle": {
-		EFFECT_SHOOT: "res://Asset/Guns_Animation/rifle_service/[SNIPER_MUZZLE_FLASH]_Sniper_rifle_[KAR98]_V1.00.png",
+		EFFECT_SHOOT: "res://Asset/Guns_Animation/rifle_service/[SNIPER_SHOOTING]_Sniper_rifle_[KAR98]_V1.00.png",
 		EFFECT_AIM: "res://Asset/Guns_Animation/rifle_service/[SNIPER_SHOOTING]_Sniper_rifle_[KAR98]_V1.00.png",
 		EFFECT_RELOAD: "res://Asset/Guns_Animation/rifle_service/[SINGLE_RELOADING]_Sniper_rifle_[KAR98]_V1.00.png",
-		EFFECT_CYCLE: "res://Asset/Guns_Animation/rifle_service/[RELOADING_CASING_ONLY]_Sniper_rifle_[KAR98]_V1.00.png",
+		EFFECT_CYCLE: "res://Asset/Guns_Animation/rifle_service/[SNIPER_EMPTYING]_Sniper_rifle_[KAR98]_V1.00.png",
 		EFFECT_EMPTY: "res://Asset/Guns_Animation/rifle_service/[SNIPER_EMPTYING]_Sniper_rifle_[KAR98]_V1.00.png",
 	},
 	"shotgun": {
-		EFFECT_SHOOT: "res://Asset/Guns_Animation/shotgun/[FULL_MUZZLE_FLASH] Shotgun_V1.02.png",
+		EFFECT_SHOOT: "res://Asset/Guns_Animation/shotgun/[SHOOTING_CHAMBER_CLOSED] Shotgun_V1.02.png",
 		EFFECT_AIM: "res://Asset/Guns_Animation/shotgun/[SHOOTING_CHAMBER_CLOSED] Shotgun_V1.02.png",
 		EFFECT_RELOAD: "res://Asset/Guns_Animation/shotgun/[RELOAD] Shotgun_V1.02 - Rreloading_01.png",
 		EFFECT_CYCLE: "res://Asset/Guns_Animation/shotgun/[SHOOTING_CHAMBER_OPEN] Shotgun_V1.02.png",
 		EFFECT_EMPTY: "res://Asset/Guns_Animation/shotgun/[EMPTYING] Shotgun_V1.02.png",
+	},
+}
+
+# These sheets contain only flash/casing pixels. They must be layered over the
+# matching gun sheet instead of replacing it, or the weapon disappears while
+# firing.
+const _EFFECT_PATHS := {
+	"carbon_rifle": {
+		EFFECT_SHOOT: "res://Asset/Guns_Animation/rifle_carbon/[FULL_MUZZLE_FLASH] Assault_rifle_V1.00.png",
+		EFFECT_CYCLE: "res://Asset/Guns_Animation/rifle_carbon/[CASING_SINGLE_SHOT] Assault_rifle_V1.00.png",
+	},
+	"service_rifle": {
+		EFFECT_SHOOT: "res://Asset/Guns_Animation/rifle_service/[SNIPER_MUZZLE_FLASH]_Sniper_rifle_[KAR98]_V1.00.png",
+		EFFECT_CYCLE: "res://Asset/Guns_Animation/rifle_service/[RELOADING_CASING_ONLY]_Sniper_rifle_[KAR98]_V1.00.png",
+	},
+	"shotgun": {
+		EFFECT_SHOOT: "res://Asset/Guns_Animation/shotgun/[FULL_MUZZLE_FLASH] Shotgun_V1.02.png",
 	},
 }
 
@@ -117,6 +134,16 @@ static func texture(weapon_id: String, effect: String) -> Texture2D:
 		return null
 	return load(path) as Texture2D
 
+static func effect_path(weapon_id: String, effect: String) -> String:
+	var weapon_paths: Dictionary = _EFFECT_PATHS.get(weapon_id, {})
+	return str(weapon_paths.get(effect, ""))
+
+static func effect_texture(weapon_id: String, effect: String) -> Texture2D:
+	var path := effect_path(weapon_id, effect)
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return null
+	return load(path) as Texture2D
+
 static func audio_family(weapon_id: String) -> String:
 	return str(_AUDIO_FAMILIES.get(weapon_id, "generic"))
 
@@ -127,8 +154,11 @@ static func frame_spec(weapon_id: String, effect: String) -> Dictionary:
 	var path := animation_path(weapon_id, effect)
 	return (_FRAME_SPECS.get(path, {}) as Dictionary).duplicate(true)
 
+static func effect_frame_spec(weapon_id: String, effect: String) -> Dictionary:
+	var path := effect_path(weapon_id, effect)
+	return (_FRAME_SPECS.get(path, {}) as Dictionary).duplicate(true)
 
-static func fatal_body_thud_stream() -> AudioStream:
-	if not ResourceLoader.exists(FATAL_BODY_THUD):
+static func impact_sound_stream() -> AudioStream:
+	if not ResourceLoader.exists(IMPACT_SOUND):
 		return null
-	return load(FATAL_BODY_THUD) as AudioStream
+	return load(IMPACT_SOUND) as AudioStream

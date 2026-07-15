@@ -15,7 +15,23 @@ func _run() -> void:
 		_fail("Macro map or HUD did not initialize.")
 		return
 
-	macro_map.debug_begin_macro_event()
+	var event_coords := Vector2i(4, 0)
+	var event_hex := macro_map.world_generator.get_hex_at(event_coords)
+	macro_map.begin_poi_interaction(event_coords, event_hex)
+	await process_frame
+	var poi_session: Dictionary = macro_map.exploration_window.get("_session")
+	var event_option := _find_search_option(
+		poi_session.get("search_options", []),
+		"event_locked_treatment_room"
+	)
+	if event_option.is_empty() or bool(event_option.get("locked", true)):
+		_fail("Ruined Homestead did not expose the playable macro event target.")
+		return
+	macro_map.resolve_poi_action(
+		GameEnums.PoiAction.SEARCH,
+		[],
+		"event_locked_treatment_room"
+	)
 	await process_frame
 	await process_frame
 
@@ -96,6 +112,21 @@ func _run() -> void:
 	if macro_map.get_pending_interaction_type() != GameEnums.MacroInteractionType.NONE:
 		_fail("Closing the event did not clear the pending interaction.")
 		return
+	var completed_hex := macro_map.world_generator.get_hex_at(event_coords)
+	if not completed_hex.searched_targets.has("event_locked_treatment_room"):
+		_fail("Resolving the event did not persist its completed search target.")
+		return
+	macro_map.begin_poi_interaction(event_coords, completed_hex)
+	await process_frame
+	var completed_session: Dictionary = macro_map.exploration_window.get("_session")
+	var completed_option := _find_search_option(
+		completed_session.get("search_options", []),
+		"event_locked_treatment_room"
+	)
+	if completed_option.is_empty() or not bool(completed_option.get("locked", false)):
+		_fail("Resolved macro event remained available for repeated activation.")
+		return
+	macro_map.close_macro_interaction()
 
 	print("[TEST PASS] Macro event HUD modal flow and contextual choices.")
 	quit(0)
@@ -118,8 +149,12 @@ func _has_disabled_choice(choice_list: VBoxContainer, label: String) -> bool:
 		var button := _find_button_in(row, label)
 		if button == null or not button.disabled:
 			continue
-		var reason := _first_label_after_button(row)
-		return reason != null and reason.text.begins_with("Requires ")
+		var labels: Array[Label] = []
+		_collect_labels(row, labels)
+		for reason in labels:
+			if reason.text.begins_with("Requires "):
+				return true
+		return false
 	return false
 
 
@@ -144,6 +179,13 @@ func _choice_has_label(choice_list: VBoxContainer, choice_label: String, label_t
 	return false
 
 
+func _find_search_option(options: Array, option_id: String) -> Dictionary:
+	for option in options:
+		if option is Dictionary and str(option.get("id", "")) == option_id:
+			return option
+	return {}
+
+
 func _find_button_in(node: Node, label: String) -> Button:
 	if node is Button and (node as Button).text.contains(label):
 		return node as Button
@@ -152,12 +194,6 @@ func _find_button_in(node: Node, label: String) -> Button:
 		if found != null:
 			return found
 	return null
-
-
-func _first_label_after_button(node: Node) -> Label:
-	var labels: Array[Label] = []
-	_collect_labels(node, labels)
-	return labels[0] if not labels.is_empty() else null
 
 
 func _collect_labels(node: Node, labels: Array[Label]) -> void:

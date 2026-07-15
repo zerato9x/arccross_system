@@ -18,7 +18,7 @@ of restating it.
 
 ## Current Implementation
 
-Status updated on **June 30, 2026**:
+Status updated on **July 13, 2026**:
 
 ### Playable Loop
 
@@ -42,8 +42,9 @@ Status updated on **June 30, 2026**:
   2026. The bottom command deck, grouped legal actions, weapon cards, visible
   AIMED SHOT limb choices, and `GunAnimationCatalog` effects are implemented
   and covered by `CombatLaneHUDSmoke.gd`.
-- Remaining Phase 2 focus: token art coverage, shield-specific BLOCK rules,
-  presentation polish, and authored content expansion — not combat HUD layout.
+- Remaining Phase 2 focus: token art coverage, presentation polish, and
+  authored content expansion — not combat HUD layout. Shield-specific BLOCK
+  rules are complete.
 
 ### Systems Snapshot
 
@@ -74,14 +75,16 @@ Status updated on **June 30, 2026**:
   plus categorized SFX through `GameEventBus`.
 - Core state is decoupled into `BodyState`, `HumanoidState`, `InventoryState`,
   `EntityRecord`, and `HexRecord`.
-- **23** automated smoke scripts pass on Godot 4.6.
+- Automated smoke scripts cover the vertical slice and focused system contracts.
+  The current broad HUD/interface runners still contain teardown and timing
+  failures recorded during the July 13 gameplay-loop audit.
 
 ### Known Gaps
 
 - Service-rifle scope data is present, but macro **SNIPE** remains unimplemented.
 - **EXECUTE** is disabled pending a trait-unlock system.
-- Shield items exist; generic BLOCK rules have not been replaced by
-  shield-specific coverage and mitigation.
+- Shield items now author BLOCK damage-type coverage, protected Limb Regions,
+  and distinct mitigation values.
 - Token art coverage remains incomplete for rigs, face and eye equipment, several
   armor regions, and unsupported weapons.
 - Squad combat, full narrative dialogue, and balance tuning beyond deadlock

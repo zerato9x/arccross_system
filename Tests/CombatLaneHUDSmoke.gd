@@ -211,11 +211,17 @@ func _run() -> void:
 	if combat_sfx_events.has("combat_damage_sfx"):
 		_fail("The target hurt sound fired before projectile impact.")
 		return
+	if arena.lane_hud._impact_sound_play_count != 0:
+		_fail("The renamed impact sound fired before projectile impact.")
+		return
 	if not await _wait_for_animation(enemy_token, "TakeDamage", 45):
 		_fail("The target damage animation did not wait for bullet impact.")
 		return
 	if not combat_sfx_events.has("combat_damage_sfx"):
 		_fail("The target hurt sound did not fire at projectile impact.")
+		return
+	if arena.lane_hud._impact_sound_play_count != 1:
+		_fail("The former body-thud asset did not play as the hit impact sound.")
 		return
 	await create_timer(0.65).timeout
 	if not arena.lane_hud.has_blood_vfx():
@@ -242,9 +248,6 @@ func _run() -> void:
 		return
 	if enemy_token.get("_animation_speed_scale") >= 0.75:
 		_fail("Final blow death animation was not slowed down.")
-		return
-	if not arena.lane_hud._fatal_thud_player.playing:
-		_fail("Final blow did not trigger the fatal body-fall thud.")
 		return
 	if not await _wait_for_hud_queue(arena.lane_hud):
 		_fail("Final blow presentation did not finish before the next HUD probe.")
@@ -294,6 +297,10 @@ func _run() -> void:
 		return
 	if GUN_ANIMATION_CATALOG.texture("service_pistol", "shoot") == null:
 		_fail("The service pistol did not load its Guns_Animation shot sprite.")
+		return
+	var catalog_error := _gun_animation_catalog_error()
+	if not catalog_error.is_empty():
+		_fail(catalog_error)
 		return
 	var aimed_root_button: CombatActionButton = null
 	for button in arena.lane_hud._action_buttons:
@@ -1160,6 +1167,61 @@ func _find_action_button(hud: CombatLaneHUD, action: int) -> CombatActionButton:
 		if int(descriptor.get("action", -1)) == action:
 			return button
 	return null
+
+func _gun_animation_catalog_error() -> String:
+	var weapon_ids := [
+		"service_pistol",
+		"carbon_pistol",
+		"revolver",
+		"carbon_rifle",
+		"ak47",
+		"service_rifle",
+		"shotgun",
+	]
+	var effects := ["shoot", "aim", "reload", "cycle", "empty"]
+	for weapon_id in weapon_ids:
+		if not GUN_ANIMATION_CATALOG.has_weapon(weapon_id):
+			return "The gun animation catalog omitted %s." % weapon_id
+		for effect in effects:
+			var texture := GUN_ANIMATION_CATALOG.texture(weapon_id, effect)
+			var spec := GUN_ANIMATION_CATALOG.frame_spec(weapon_id, effect)
+			if texture == null:
+				return "%s has no %s animation texture." % [weapon_id, effect]
+			var width := int(spec.get("w", 0))
+			var height := int(spec.get("h", 0))
+			if (
+				width <= 0
+				or height <= 0
+				or texture.get_width() % width != 0
+				or texture.get_height() % height != 0
+			):
+				return "%s has an invalid %s frame grid." % [weapon_id, effect]
+	var layered_effects := {
+		"carbon_rifle": ["shoot", "cycle"],
+		"service_rifle": ["shoot", "cycle"],
+		"shotgun": ["shoot"],
+	}
+	for weapon_id in layered_effects:
+		for effect in layered_effects[weapon_id]:
+			var base := GUN_ANIMATION_CATALOG.texture(weapon_id, effect)
+			var overlay := GUN_ANIMATION_CATALOG.effect_texture(weapon_id, effect)
+			var base_spec := GUN_ANIMATION_CATALOG.frame_spec(weapon_id, effect)
+			var overlay_spec := GUN_ANIMATION_CATALOG.effect_frame_spec(
+				weapon_id,
+				effect
+			)
+			if overlay == null:
+				return "%s %s omitted its effect overlay." % [weapon_id, effect]
+			if (
+				int(base_spec.get("w", 0)) != int(overlay_spec.get("w", -1))
+				or int(base_spec.get("h", 0)) != int(overlay_spec.get("h", -1))
+				or base.get_size() != overlay.get_size()
+			):
+				return "%s %s overlay does not align with its gun sheet." % [
+					weapon_id,
+					effect,
+				]
+	return ""
 
 func _fail(message: String) -> void:
 	push_error("[TEST FAIL] " + message)

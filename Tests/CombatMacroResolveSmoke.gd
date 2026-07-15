@@ -134,9 +134,6 @@ func _verify_enemy_death_resolve_zoom() -> bool:
 		return _fail("Final blow did not drive the enemy death animation.")
 	if enemy_token.get("_animation_speed_scale") >= 0.75:
 		return _fail("Final blow did not slow the enemy death animation.")
-	if not arena.lane_hud._fatal_thud_player.playing:
-		return _fail("Final blow did not play the fatal body-fall thud.")
-
 	if not await _wait_for_result_overlay(arena.lane_hud):
 		return _fail("Enemy death did not settle into the result overlay.")
 	if not outcomes.is_empty():

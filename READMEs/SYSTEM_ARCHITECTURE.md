@@ -2,7 +2,7 @@
 
 Canonical terminology is defined in [GLOSSARY.md](GLOSSARY.md). Delivery status
 belongs in [phase_2_execution_plan.md](phase_2_execution_plan.md) (Phase 2
-combat HUD complete; token coverage and shield rules remain open). The closed
+combat HUD and shield rules complete; token coverage remains open). The closed
 Phase 1 record remains in [phase_1_execution_plan.md](phase_1_execution_plan.md).
 
 ## Core Invariants

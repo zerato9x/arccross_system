@@ -171,7 +171,7 @@ enum CombatOutcome {
 
 # AI Agendas heavily rely on the new THREAT stat from player gear
 enum Agenda { 
-	SURVIVALIST,   # Flees immediately if Player THREAT > Enemy WILL
+	SURVIVALIST,   # Flees if enemy THREAT overwhelms WILL plus own gear THREAT.
 	BELLIGERENT,   # Fights until severely crippled or out-Threatened
 	ZEALOT,        # Ignores THREAT. Fights to the bitter end.
 	MINDLESS       # No self-preservation. Ignores THREAT completely.

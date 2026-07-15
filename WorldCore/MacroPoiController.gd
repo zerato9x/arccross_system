@@ -367,6 +367,24 @@ static func build_landmark_search_options(
 				else ""
 			),
 		})
+	if hex_data.poi_id == "plains_homestead":
+		var event_option_id := "event_locked_treatment_room"
+		var event_completed := searched.has(event_option_id)
+		options.append({
+			"id": event_option_id,
+			"label": "Locked Treatment Room",
+			"description": "Investigate the sealed treatment wing inside the homestead.",
+			"requirements": {},
+			"metric_modifiers": {"loot": 0.0, "safety": -1.0, "sneak": 0.0},
+			"priority": options.size(),
+			"locked": event_completed,
+			"depleted": event_completed,
+			"lock_reason": (
+				"The treatment room event has already been resolved."
+				if event_completed
+				else ""
+			),
+		})
 	return options
 
 

@@ -21,7 +21,7 @@ measurements retain meaningful units.
 
 ## Current Prototype
 
-Status updated on **June 30, 2026**.
+Status updated on **July 13, 2026**.
 
 ### Playable Today
 
@@ -43,8 +43,8 @@ Launch from `UI/MainMenu.tscn` into a persistent macro run:
   command deck, grouped actions, weapon cards, visible AIMED SHOT targets, and
   `GunAnimationCatalog` feedback are live in `CombatLaneHUD`.
 - Active Phase 2 follow-up work now targets content coverage, presentation
-  polish, and deferred non-goals such as macro SNIPE and shield-specific BLOCK
-  rules. See [Phase 2 Execution Plan](READMEs/phase_2_execution_plan.md).
+  polish, and deferred non-goals such as macro SNIPE. Shield-specific BLOCK
+  rules are complete. See [Phase 2 Execution Plan](READMEs/phase_2_execution_plan.md).
 
 ### Core Systems
 
@@ -70,15 +70,16 @@ Launch from `UI/MainMenu.tscn` into a persistent macro run:
 - Core biological and system states live in explicit resource classes
   (`BodyState`, `HumanoidState`, `InventoryState`, `EntityRecord`,
   `HexRecord`).
-- **23** automated smoke scripts cover the vertical slice, combat HUD, weapon
-  data, inventory, save/load, and macro interactions.
+- Automated smoke scripts cover the vertical slice, combat HUD, weapon data,
+  inventory, save/load, macro interactions, and shield BLOCK rules.
 
 ### Known Gaps
 
 - Macro **SNIPE** remains unimplemented; service-rifle scope data is metadata
   only.
 - **EXECUTE** is gated off (`CombatRules.EXECUTE_ENABLED = false`).
-- Shield items exist, but shield-specific BLOCK mitigation is not implemented.
+- Shield BLOCK uses item-authored damage-type and Limb Region coverage with
+  distinct ballistic and makeshift mitigation.
 - Humanoid token art coverage remains incomplete for several rigs, face/eye
   equipment, and unsupported weapons.
 - Gameplay remains 1v1; squad combat infrastructure is not player-facing.

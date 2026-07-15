@@ -7,16 +7,17 @@ domain cores validate and mutate authoritative state.
 
 ## Current Phase 2 Focus
 
-Status updated on **June 30, 2026**:
+Status updated on **July 13, 2026**:
 
 - Phase 1 remains closed and verified in
   [phase_1_execution_plan.md](phase_1_execution_plan.md).
 - Combat HUD workstreams **P2-01 through P2-04 are complete**. See
   [June 29 changelog](CHANGELOG.md#june-29-2026).
+- Shield-specific BLOCK workstream **P2-06 is complete**. See
+  [July 13 changelog](CHANGELOG.md#july-13-2026).
 - Remaining Phase 2 goals:
   - Expand humanoid token visual coverage per
     [HUMANOID_TOKEN_PIPELINE.md](HUMANOID_TOKEN_PIPELINE.md).
-  - Replace generic BLOCK with shield-specific coverage and mitigation.
   - Polish macro and combat presentation using the HUD asset packs.
   - Expand authored content, loadouts, and loot profiles without breaking the
     owner-validated rule boundaries.
@@ -75,7 +76,7 @@ Acceptance criteria:
 - Every new visual maps through `HumanoidVisualCatalog` and passes
   `PersistentPlayerSmoke.gd` and `CombatLaneHUDSmoke.gd`.
 
-### P2-06: Shield-Specific BLOCK Rules
+### P2-06: Shield-Specific BLOCK Rules — Verified July 13, 2026
 
 Goal: make ballistic shields mechanically distinct from generic BLOCK.
 
@@ -85,6 +86,17 @@ Acceptance criteria:
   coverage and mitigation during BLOCK reactions.
 - Rules remain in CombatCore; presentation only reflects owner-produced outcomes.
 - Regression coverage extends `CombatInterfaceSmoke.gd` or a focused shield smoke.
+
+Implementation record:
+
+- `ItemData` authors shield damage-type coverage, protected Limb Regions, and
+  flesh/Stance bleed-through multipliers that survive runtime serialization.
+- Ballistic shields can offer BLOCK against SHOOT and AIMED SHOT; makeshift
+  shields remain limited to authored blunt/sharp coverage.
+- Uncovered Limb Regions continue through normal attack resolution instead of
+  receiving magical full-body protection from a handheld rectangle.
+- `ShieldBlockSmoke.gd` verifies reaction availability, coverage, mitigation,
+  AIMED SHOT reaction parity, and serialization.
 
 ### P2-07: Presentation Polish
 

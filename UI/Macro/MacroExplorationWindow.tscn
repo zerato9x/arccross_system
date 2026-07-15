@@ -35,7 +35,7 @@ theme_override_constants/separation = 12
 
 [node name="InteractionInventoryPanel" type="PanelContainer" parent="ExplorationPanel/Margin/Content" unique_id=2093550136]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(180, 600)
+custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
 size_flags_vertical = 3
 
@@ -74,8 +74,10 @@ columns = 3
 
 [node name="SceneRoot" type="Control" parent="ExplorationPanel/Margin/Content" unique_id=182167097]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(500, 600)
+custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 
 [node name="Background" type="TextureRect" parent="ExplorationPanel/Margin/Content/SceneRoot" unique_id=69290868]
 unique_name_in_owner = true
@@ -171,8 +173,9 @@ vertical_alignment = 1
 
 [node name="RightPanel" type="VBoxContainer" parent="ExplorationPanel/Margin/Content" unique_id=271532382]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(260, 600)
+custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
+size_flags_vertical = 3
 theme_override_constants/separation = 8
 
 [node name="TitleLabel" type="Label" parent="ExplorationPanel/Margin/Content/RightPanel" unique_id=913150538]

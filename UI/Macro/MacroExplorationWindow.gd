@@ -124,6 +124,7 @@ func dock_into(host: Control) -> void:
 	_panel.offset_top = 0.0
 	_panel.offset_right = 0.0
 	_panel.offset_bottom = 0.0
+	_apply_docked_layout()
 	_panel.visible = true
 	visible = true
 
@@ -136,6 +137,15 @@ func undock() -> void:
 		add_child(_panel)
 	_panel.visible = false
 	_dock_host = null
+	_apply_docked_layout()
+
+
+func _apply_docked_layout() -> void:
+	var compact := _dock_host != null and _dock_host.size.x < 800.0
+	_inventory_panel.custom_minimum_size = Vector2(88.0 if compact else 180.0, 0.0)
+	_inventory_grid.columns = 1 if compact else 3
+	_scene_root.custom_minimum_size = Vector2(200.0 if compact else 500.0, 0.0)
+	_right_panel.custom_minimum_size = Vector2(200.0 if compact else 260.0, 0.0)
 
 
 func open_landmark(session: Dictionary, _inventory_snapshot: Dictionary = {}) -> void:

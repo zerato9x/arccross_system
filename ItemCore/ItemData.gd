@@ -48,6 +48,15 @@ class_name ItemData
 ## Thermal insulation value for hypothermia resistance. Only inner/outer torso items.
 @export_range(0.0, 12.0) var insulation: float = 0.0
 
+@export_group("Shield BLOCK Mechanics")
+## Damage types this item can intercept when it is readied in either hand.
+@export var block_damage_types: Array[int] = []
+## Limb Regions protected by the raised shield. Empty means no shield coverage.
+@export var block_coverage: Array[int] = []
+## Fraction of the intercepted attack that bleeds through the shield.
+@export_range(0.0, 1.0) var block_flesh_multiplier: float = 1.0
+@export_range(0.0, 1.0) var block_stance_multiplier: float = 1.0
+
 @export_group("Consumable")
 @export var consumable_effect: GameEnums.ConsumableEffect = GameEnums.ConsumableEffect.RESTORE_HUNGER
 @export_range(0.0, 12.0) var consumable_potency: float = 0.0
@@ -111,6 +120,16 @@ func is_ranged() -> bool:
 ## Helper: Is this item a melee weapon?
 func is_melee() -> bool:
 	return weapon_type == GameEnums.WeaponClass.BLUNT or weapon_type == GameEnums.WeaponClass.BLADE
+
+func is_blocking_shield() -> bool:
+	return not block_damage_types.is_empty() and not block_coverage.is_empty()
+
+func can_block_damage(damage_type: GameEnums.DamageType, limb_region: int = -1) -> bool:
+	return (
+		is_blocking_shield()
+		and block_damage_types.has(int(damage_type))
+		and (limb_region < 0 or block_coverage.has(limb_region))
+	)
 
 func is_ready_to_fire() -> bool:
 	return is_ranged() and current_magazine > 0 and not needs_cycling
@@ -255,6 +274,10 @@ func to_definition_state() -> Dictionary:
 		"weight": weight,
 		"threat": threat,
 		"insulation": insulation,
+		"block_damage_types": block_damage_types.duplicate(),
+		"block_coverage": block_coverage.duplicate(),
+		"block_flesh_multiplier": block_flesh_multiplier,
+		"block_stance_multiplier": block_stance_multiplier,
 		"consumable_effect": consumable_effect,
 		"consumable_potency": consumable_potency,
 		"interaction_roles": interaction_roles.duplicate(),
@@ -318,11 +341,15 @@ func _apply_definition_state(state: Dictionary) -> void:
 			for entry in value:
 				strings.append(str(entry))
 			set(property_name, strings)
-		elif property_name == "interaction_roles":
+		elif property_name in [
+			"interaction_roles",
+			"block_damage_types",
+			"block_coverage",
+		]:
 			var roles: Array[int] = []
 			for entry in value:
 				roles.append(int(entry))
-			interaction_roles = roles
+			set(property_name, roles)
 		else:
 			set(property_name, value)
 	armor_penetration = clampf(armor_penetration, 0.0, GameEnums.SCALE_MAX)
@@ -340,6 +367,8 @@ func _apply_definition_state(state: Dictionary) -> void:
 		int(GameEnums.SCALE_MAX)
 	)
 	insulation = clampf(insulation, 0.0, GameEnums.SCALE_MAX)
+	block_flesh_multiplier = clampf(block_flesh_multiplier, 0.0, 1.0)
+	block_stance_multiplier = clampf(block_stance_multiplier, 0.0, 1.0)
 	consumable_potency = clampf(
 		consumable_potency,
 		0.0,

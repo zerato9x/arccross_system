@@ -121,6 +121,7 @@ var _active_projectile_nodes: Array[Node] = []
 var _last_shot_event: Dictionary = {}
 var _final_blow_sides: Dictionary = {}
 var _final_blow_complete_sides: Dictionary = {}
+var _impact_sound_play_count := 0
 
 var _round_label: Label
 var _active_label: Label
@@ -158,6 +159,7 @@ var _enemy_melee_card: Dictionary = {}
 @onready var _weapon_panel_box: Polygon2D = $WeaponCard/WeaponCardBox
 @onready var _weapon_panel_border: Line2D = $WeaponCard/WeaponCardBorder
 @onready var _weapon_sprite: Sprite2D = $WeaponCard/WeaponSprite
+@onready var _weapon_effect_sprite: Sprite2D = $WeaponCard/WeaponEffectSprite
 @onready var _weapon_name_label: Label = $WeaponCard/WeaponNameLabel
 @onready var _weapon_state_label: Label = $WeaponCard/WeaponStateLabel
 @onready var _weapon_detail_label: Label = $WeaponCard/WeaponDetailLabel
@@ -178,7 +180,7 @@ var _enemy_melee_card: Dictionary = {}
 var _camera_profiles: Dictionary = {}
 @onready var _projectile_root: Node2D = %ProjectileVFX
 @onready var _blood_vfx_root: Node2D = %BloodVFX
-@onready var _fatal_thud_player: AudioStreamPlayer = %FatalThudPlayer
+@onready var _impact_sound_player: AudioStreamPlayer = %ImpactSoundPlayer
 
 @onready var _lane_view: CombatLaneView = %CombatLaneView
 @onready var _combat_camera: Camera2D = %CombatCamera
@@ -416,6 +418,7 @@ func _emit_damage_sfx_at_impact(event: Dictionary) -> void:
 		and str(event.get("trauma", "NONE")) == "NONE"
 	):
 		return
+	_play_impact_sound()
 	_emit_presentation_sfx("combat_damage_sfx", event)
 
 func _emit_presentation_sfx(scene_id: String, event: Dictionary) -> void:
@@ -789,6 +792,7 @@ func _layout_weapon_card(viewport_size: Vector2, ui_scale: Vector2) -> void:
 		_weapon_card_rect.size.x * 0.5,
 		_weapon_card_rect.size.y * 0.36
 	)
+	_weapon_effect_sprite.position = _weapon_sprite.position
 	_weapon_name_label.position = Vector2(12.0, _weapon_card_rect.size.y - 66.0)
 	_weapon_name_label.size = Vector2(_weapon_card_rect.size.x - 20.0, 20.0)
 	_weapon_state_label.position = Vector2(12.0, _weapon_card_rect.size.y - 44.0)
@@ -1382,8 +1386,8 @@ func _configure_camera_profile(
 	return profile
 
 func _setup_presentation_layers() -> void:
-	if _fatal_thud_player.stream == null:
-		_fatal_thud_player.stream = GUN_ANIMATION_CATALOG.fatal_body_thud_stream()
+	if _impact_sound_player.stream == null:
+		_impact_sound_player.stream = GUN_ANIMATION_CATALOG.impact_sound_stream()
 
 func _setup_resolve_screen() -> void:
 	_resolve_panel_box.color = Color(0.045, 0.035, 0.025, 0.92)
@@ -2222,7 +2226,7 @@ func _shot_end_position(
 	target_side: String,
 	target_lane: int
 ) -> Vector2:
-	if result in ["hit", "collateral_hit"]:
+	if result in ["hit", "collateral_hit", "shield_block"]:
 		return _lane_view.get_projectile_anchor_global(target_side, target_lane)
 	if result == "cover_impact":
 		return _lane_view.get_slot_center_global(target_lane) + Vector2(0.0, -20.0)
@@ -2284,18 +2288,17 @@ func _play_final_blow(side: String) -> void:
 			"type": "final_blow",
 			"animation_speed": FINAL_BLOW_ANIMATION_SPEED,
 		})
-		_play_fatal_thud()
 		await get_tree().create_timer(FINAL_BLOW_CORPSE_HOLD_SECONDS).timeout
 	else:
 		await get_tree().create_timer(FINAL_BLOW_HOLD_SECONDS).timeout
-		_play_fatal_thud()
 	_final_blow_complete_sides[side] = true
 
-func _play_fatal_thud() -> void:
-	if _fatal_thud_player == null or GUN_ANIMATION_CATALOG.fatal_body_thud_stream() == null:
+func _play_impact_sound() -> void:
+	if _impact_sound_player == null or GUN_ANIMATION_CATALOG.impact_sound_stream() == null:
 		return
-	_fatal_thud_player.stop()
-	_fatal_thud_player.play()
+	_impact_sound_play_count += 1
+	_impact_sound_player.stop()
+	_impact_sound_player.play()
 
 func _play_blood_vfx(position: Vector2, event: Dictionary) -> void:
 	if _blood_vfx_root == null:
@@ -2630,8 +2633,10 @@ func _render_weapon_card() -> void:
 		else _weapon_effect_for_state(weapon_state)
 	)
 	var animation_texture: Texture2D = null
+	var effect_texture: Texture2D = null
 	if bool(player.get("has_firearm", false)) and not locked_in_melee:
 		animation_texture = GUN_ANIMATION_CATALOG.texture(weapon_id, effect)
+		effect_texture = GUN_ANIMATION_CATALOG.effect_texture(weapon_id, effect)
 	_weapon_sprite.texture = (
 		animation_texture
 		if animation_texture != null
@@ -2640,6 +2645,7 @@ func _render_weapon_card() -> void:
 	_weapon_sprite.visible = _weapon_sprite.texture != null
 	if _weapon_sprite.texture == null:
 		_weapon_sprite.region_enabled = false
+		_clear_weapon_effect_sprite()
 		_weapon_animation_key = ""
 		_weapon_animation_playing = false
 		_weapon_animation_frame_count = 1
@@ -2654,8 +2660,15 @@ func _render_weapon_card() -> void:
 			weapon_id,
 			effect
 		)
+		_configure_weapon_effect_sprite(
+			effect_texture,
+			weapon_id,
+			effect,
+			frame_size
+		)
 	else:
 		_weapon_sprite.region_enabled = false
+		_clear_weapon_effect_sprite()
 		_weapon_animation_key = ""
 		_weapon_animation_playing = false
 		_weapon_animation_frame_count = 1
@@ -2670,6 +2683,7 @@ func _render_weapon_card() -> void:
 		max_height / maxf(1.0, texture_size.y)
 	)
 	_weapon_sprite.scale = Vector2.ONE * scale_factor
+	_weapon_effect_sprite.scale = _weapon_sprite.scale
 
 func _render_top_hud() -> void:
 	if _snapshot.is_empty():
@@ -2818,6 +2832,37 @@ func _configure_weapon_sprite_sheet(
 	_set_weapon_animation_frame(_current_weapon_frame_index())
 	return frame_size
 
+func _configure_weapon_effect_sprite(
+	texture: Texture2D,
+	weapon_id: String,
+	effect: String,
+	base_frame_size: Vector2i
+) -> void:
+	if texture == null:
+		_clear_weapon_effect_sprite()
+		return
+	var frame_spec := GUN_ANIMATION_CATALOG.effect_frame_spec(weapon_id, effect)
+	var frame_size := _weapon_frame_size(texture, frame_spec)
+	var frame_count := _weapon_frame_count(texture, frame_size)
+	if frame_size != base_frame_size or frame_count != _weapon_animation_frame_count:
+		_clear_weapon_effect_sprite()
+		push_warning(
+			"Weapon effect sheet does not align with its base animation: %s %s"
+			% [weapon_id, effect]
+		)
+		return
+	_weapon_effect_sprite.texture = texture
+	_weapon_effect_sprite.visible = true
+	_weapon_effect_sprite.region_enabled = true
+	_weapon_effect_sprite.hframes = 1
+	_weapon_effect_sprite.vframes = 1
+	_set_weapon_animation_frame(_current_weapon_frame_index())
+
+func _clear_weapon_effect_sprite() -> void:
+	_weapon_effect_sprite.texture = null
+	_weapon_effect_sprite.visible = false
+	_weapon_effect_sprite.region_enabled = false
+
 func _weapon_frame_size(texture: Texture2D, frame_spec: Dictionary) -> Vector2i:
 	var width := texture.get_width()
 	var height := texture.get_height()
@@ -2895,6 +2940,20 @@ func _set_weapon_animation_frame(frame_index: int) -> void:
 		Vector2(column * frame_size.x, row * frame_size.y),
 		Vector2(float(frame_size.x), float(frame_size.y))
 	)
+	if _weapon_effect_sprite.visible and _weapon_effect_sprite.texture != null:
+		var effect_columns := maxi(
+			1,
+			int(floor(
+				float(_weapon_effect_sprite.texture.get_width())
+				/ float(maxi(1, frame_size.x))
+			))
+		)
+		var effect_column := clamped_index % effect_columns
+		var effect_row := int(floor(float(clamped_index) / float(effect_columns)))
+		_weapon_effect_sprite.region_rect = Rect2(
+			Vector2(effect_column * frame_size.x, effect_row * frame_size.y),
+			Vector2(float(frame_size.x), float(frame_size.y))
+		)
 
 func _weapon_effect_for_state(state: String) -> String:
 	match state:

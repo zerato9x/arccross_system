@@ -324,15 +324,25 @@ func open_reaction_window(defender: HumanoidCore, attacker: HumanoidCore, trigge
 	if defender.is_dead or defender.current_stance == GameEnums.StanceState.FELLED:
 		return available
 	
-	# BLOCK: Only against STRIKE, requires shield or functional arms
-	if trigger_action == GameEnums.ActionType.STRIKE:
+	# BLOCK: A bare guard can answer melee. A readied shield may also
+	# intercept the damage types it explicitly covers.
+	var incoming_damage_type := _reaction_damage_type(attacker, trigger_action)
+	var shield := _get_blocking_shield(defender)
+	var can_offer_block := trigger_action == GameEnums.ActionType.STRIKE
+	if shield != null and incoming_damage_type >= 0:
+		can_offer_block = shield.can_block_damage(incoming_damage_type)
+	if can_offer_block:
 		if defender_ap >= get_action_cost(defender, GameEnums.ActionType.BLOCK):
 			if defender.body.has_functional_arms():
 				available.append(GameEnums.ActionType.BLOCK)
 	
 	# DODGE: Against both ranged (SHOOT) and melee (STRIKE) attacks
 	# Disabled if either leg is destroyed (The Cripple Clause)
-	if trigger_action == GameEnums.ActionType.STRIKE or trigger_action == GameEnums.ActionType.SHOOT:
+	if trigger_action in [
+		GameEnums.ActionType.STRIKE,
+		GameEnums.ActionType.SHOOT,
+		GameEnums.ActionType.AIMED_SHOT,
+	]:
 		if defender_ap >= get_action_cost(defender, GameEnums.ActionType.DODGE):
 			var left_leg_ok: bool = defender.body.limb_hp[GameEnums.LimbRegion.LEFT_LEG] > 0
 			var right_leg_ok: bool = defender.body.limb_hp[GameEnums.LimbRegion.RIGHT_LEG] > 0
@@ -345,6 +355,28 @@ func open_reaction_window(defender: HumanoidCore, attacker: HumanoidCore, trigge
 		reaction_window_opened.emit(defender, attacker, trigger_action, available)
 	
 	return available
+
+func _get_blocking_shield(defender: HumanoidCore) -> ItemData:
+	if defender == null or defender.inventory == null:
+		return null
+	for slot in [GameEnums.EquipmentSlot.HAND, GameEnums.EquipmentSlot.OFFHAND]:
+		var item: ItemData = defender.inventory.paper_doll.get(slot)
+		if item != null and item.is_blocking_shield():
+			return item
+	return null
+
+func _reaction_damage_type(
+	attacker: HumanoidCore,
+	trigger_action: GameEnums.ActionType
+) -> int:
+	if attacker == null or attacker.inventory == null:
+		return -1
+	var ranged := trigger_action in [
+		GameEnums.ActionType.SHOOT,
+		GameEnums.ActionType.AIMED_SHOT,
+	]
+	var weapon := attacker.inventory.get_active_weapon(not ranged)
+	return int(weapon.damage_type) if weapon != null else int(GameEnums.DamageType.BLUNT)
 
 ## Called by the UI/AI when a reaction choice is made.
 func resolve_reaction(defender: HumanoidCore, chosen_reaction: GameEnums.ActionType) -> bool:
