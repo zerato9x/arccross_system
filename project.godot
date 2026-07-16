@@ -30,7 +30,7 @@ DebugTools="*res://SystemCore/Debug/DebugTools.gd"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/cinematic_camera_2d/plugin.cfg", "res://addons/godot_ai/plugin.cfg", "res://addons/hex_strategy_map/plugin.cfg")
+enabled=PackedStringArray("res://addons/cinematic_camera_2d/plugin.cfg", "res://addons/godot_ai/plugin.cfg")
 
 [gui]
 
