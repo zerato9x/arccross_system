@@ -1,12 +1,13 @@
-[gd_scene load_steps=2 format=3 uid="uid://macro_corner_panel"]
+[gd_scene format=3 uid="uid://dndye2gk8jvnc"]
 
-[ext_resource type="Script" path="res://UI/HUD/Macro/MacroCornerPanel.gd" id="1_base"]
+[ext_resource type="Script" uid="uid://dno5jg3f4lbvq" path="res://UI/HUD/Macro/MacroCornerPanel.gd" id="1_base"]
 
-[node name="MacroCornerPanel" type="Control"]
-layout_mode = 0
+[node name="MacroCornerPanel" type="Control" unique_id=2033732762]
+layout_mode = 3
+anchors_preset = 0
 script = ExtResource("1_base")
 
-[node name="PreviewRoot" type="Control" parent="."]
+[node name="PreviewRoot" type="Control" parent="." unique_id=1381968677]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -15,7 +16,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="ExpandedRoot" type="Control" parent="."]
+[node name="ExpandedRoot" type="Control" parent="." unique_id=1940813981]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -25,7 +26,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="EmergencyOverlay" type="ColorRect" parent="."]
+[node name="EmergencyOverlay" type="ColorRect" parent="." unique_id=1389812705]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -37,7 +38,7 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(1, 0.2, 0.15, 0.35)
 
-[node name="CloseButton" type="Button" parent="."]
+[node name="CloseButton" type="Button" parent="." unique_id=552547871]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1

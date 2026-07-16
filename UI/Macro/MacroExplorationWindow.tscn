@@ -201,6 +201,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Camp"
 
+[node name="NodeMapButton" type="Button" parent="ExplorationPanel/Margin/Content/RightPanel/ModeTabs" unique_id=1029220910]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Node Map"
+
 [node name="InteractionBox" type="PanelContainer" parent="ExplorationPanel/Margin/Content/RightPanel" unique_id=1705059346]
 unique_name_in_owner = true
 layout_mode = 2

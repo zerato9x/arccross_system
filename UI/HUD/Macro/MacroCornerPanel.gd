@@ -97,7 +97,7 @@ func get_occupied_rect() -> Rect2:
 	return get_global_rect()
 
 
-func set_emergency_active(active: bool, tint: Color = Color(1.0, 0.2, 0.15, 0.35)) -> void:
+func set_emergency_active(active: bool, tint: Color = Color(0.0, 0.0, 0.0, 0.45)) -> void:
 	if _emergency_overlay == null:
 		return
 	_emergency_overlay.visible = active

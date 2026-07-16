@@ -17,6 +17,7 @@ signal inventory_action_requested(
 	equipment_slot: int
 )
 signal interaction_closed
+signal node_map_requested
 
 const _InventorySlotScene := preload("res://UI/Inventory/InventorySlot.tscn")
 const _SlotActionBuilder := preload("res://UI/Inventory/InventorySlotActionBuilder.gd")
@@ -45,6 +46,7 @@ const _BACKGROUND_VERTICAL_SHIFT := -72.0
 @onready var _mode_tabs: HBoxContainer = %ModeTabs
 @onready var _search_button: Button = %SearchButton
 @onready var _camp_button: Button = %CampButton
+@onready var _node_map_button: Button = %NodeMapButton
 @onready var _search_options_row: HBoxContainer = %SearchOptionsRow
 @onready var _interaction_box: PanelContainer = %InteractionBox
 @onready var _metric_box: VBoxContainer = %MetricBox
@@ -91,15 +93,18 @@ func _ready() -> void:
 	HUDAssetLibrary.apply_label(%GroundHeader as Label, "muted")
 	HUDAssetLibrary.apply_button(_search_button)
 	HUDAssetLibrary.apply_button(_camp_button)
+	HUDAssetLibrary.apply_button(_node_map_button, "map")
 	HUDAssetLibrary.apply_button(_submit_button)
 	HUDAssetLibrary.apply_button(_rest_button)
 	HUDAssetLibrary.apply_button(_stop_rest_button)
 	HUDAssetLibrary.apply_button(_continue_button)
 	_search_button.text = "Search"
 	_camp_button.text = "Camp"
+	_node_map_button.text = "Node Map"
 	_continue_button.visible = false
 	_search_button.pressed.connect(func(): _set_mode(GameEnums.PoiAction.SEARCH))
 	_camp_button.pressed.connect(func(): _set_mode(GameEnums.PoiAction.CAMP))
+	_node_map_button.pressed.connect(func(): node_map_requested.emit())
 	_submit_button.pressed.connect(_submit_action)
 	_rest_button.pressed.connect(func(): _submit_action_for(GameEnums.PoiAction.REST))
 	_stop_rest_button.pressed.connect(func(): _submit_action_for(GameEnums.PoiAction.STOP_REST))

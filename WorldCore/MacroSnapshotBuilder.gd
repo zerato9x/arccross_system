@@ -278,6 +278,8 @@ static func build_hex_descriptor(
 		hostile = is_entity_hostile_callback.call(entity_record.entity_id)
 
 	var distance: int = hex_distance_callback.call(player_coords, coords)
+	var travel_minutes := GameTimeRules.move_minutes_for_hex(hex_data) if distance == 1 else 0
+	var travel_km := GameTimeRules.travel_distance_km(1) if distance == 1 else 0.0
 	return {
 		"coords": coords,
 		"label": hex_label,
@@ -303,6 +305,9 @@ static func build_hex_descriptor(
 		"explored": hex_data.is_explored,
 		"hazard": hex_data.hazard_level,
 		"distance": distance,
+		"travel_minutes": travel_minutes,
+		"travel_km": travel_km,
+		"travel_exertion": hex_data.travel_exertion(),
 		"is_current": coords == player_coords,
 		"can_travel": distance == 1 and hex_data.is_passable(),
 		"can_interact": coords == player_coords,

@@ -131,13 +131,18 @@ func has_landmark() -> bool:
 func coords_is_service_hub() -> bool:
 	return poi_id == "alpha_central_hub"
 
-func travel_exertion() -> float:
+func travel_time_multiplier() -> float:
 	if rock_layer == GameEnums.MacroRockLayer.HILLS:
-		return 2.5
+		return 2.0
 	if terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW:
-		return 2.0
+		return 1.5
 	if terrain_tile == GameEnums.MacroTerrainTile.SNOW_TRANSITION:
-		return 2.0
+		return 1.5
 	if flora_layer == GameEnums.MacroFloraLayer.TREES and flora_sprite_path.is_empty():
-		return 1.25
+		return 1.2
 	return 1.0
+
+
+func travel_exertion() -> float:
+	# Fatigue tracks the same terrain multipliers as travel time.
+	return travel_time_multiplier()

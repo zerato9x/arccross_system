@@ -2,6 +2,7 @@ extends Control
 class_name MacroWorldStatusPanel
 
 signal settings_requested
+signal node_map_requested
 
 var _snapshot: Dictionary = {}
 
@@ -11,16 +12,22 @@ var _snapshot: Dictionary = {}
 @onready var _day_label: Label = %DayLabel
 @onready var _calendar_label: Label = %CalendarLabel
 @onready var _settings_button: Button = %SettingsButton
+@onready var _node_map_button: Button = %NodeMapButton
 
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(260.0, 118.0)
+	custom_minimum_size = Vector2(260.0, 148.0)
 	HUDAssetLibrary.apply_panel(_frame, "neutral")
 	HUDAssetLibrary.apply_label(_day_label, "body")
 	HUDAssetLibrary.apply_label(_calendar_label, "muted")
 	HUDAssetLibrary.apply_button(_settings_button, "settings")
+	HUDAssetLibrary.apply_button(_node_map_button, "map")
 	_settings_button.text = "Settings"
+	_node_map_button.text = "Node Map"
+	_settings_button.custom_minimum_size = HUDAssetLibrary.macro_button_minimum_size()
+	_node_map_button.custom_minimum_size = HUDAssetLibrary.macro_button_minimum_size()
 	_settings_button.pressed.connect(func(): settings_requested.emit())
+	_node_map_button.pressed.connect(func(): node_map_requested.emit())
 
 
 func apply_snapshot(snapshot: Dictionary) -> void:

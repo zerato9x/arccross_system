@@ -12,6 +12,7 @@ var current_hex_coords: Vector2i = Vector2i(0, 0)
 var _movement_tween: Tween
 var _movement_serial := 0
 var _interaction_queued := false
+var _ground_ring: Polygon2D
 
 func _ready() -> void:
 	if not humanoid_core:
@@ -27,6 +28,7 @@ func _ready() -> void:
 		definition.loadout.apply_to(humanoid_core.inventory)
 		print("[PLAYER] Persistent runtime state initialized with starting loadout.")
 	_configure_humanoid_token()
+	_ensure_player_readability()
 
 func get_humanoid_core() -> HumanoidCore:
 	return humanoid_core
@@ -113,6 +115,27 @@ func _inventory_is_empty() -> bool:
 
 	return true
 
+func _ensure_player_readability() -> void:
+	# Always above fog overlays and map props.
+	z_index = 8
+	modulate = Color(1, 1, 1, 1)
+	if _ground_ring != null:
+		return
+	_ground_ring = Polygon2D.new()
+	_ground_ring.name = "PlayerGroundRing"
+	_ground_ring.polygon = PackedVector2Array([
+		Vector2(0.0, -28.0),
+		Vector2(32.0, -14.0),
+		Vector2(32.0, 14.0),
+		Vector2(0.0, 28.0),
+		Vector2(-32.0, 14.0),
+		Vector2(-32.0, -14.0),
+	])
+	_ground_ring.color = Color(0.98, 0.86, 0.28, 0.35)
+	_ground_ring.z_index = -1
+	add_child(_ground_ring)
+
+
 func _configure_humanoid_token() -> void:
 	var placeholder := get_node_or_null("Sprite2D") as Sprite2D
 	if placeholder:
@@ -122,6 +145,8 @@ func _configure_humanoid_token() -> void:
 		push_error("MacroPlayer requires an authored HumanoidTokenView child.")
 		return
 	humanoid_token.set_display_scale(2.4)
+	humanoid_token.modulate = Color(1, 1, 1, 1)
+	humanoid_token.z_index = 1
 	humanoid_token.bind_appearance_record(capture_runtime_record())
 	if not humanoid_core.inventory.equipment_changed.is_connected(
 		_on_inventory_appearance_changed

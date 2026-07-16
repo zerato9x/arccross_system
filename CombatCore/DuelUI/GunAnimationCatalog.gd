@@ -47,6 +47,8 @@ const _PATHS := {
 		EFFECT_EMPTY: "res://Asset/Guns_Animation/ak47/[EMPTY] AK 47.png",
 	},
 	"service_rifle": {
+		# NOTE: the [..._MUZZLE_FLASH] and [..._CASING_ONLY] sheets are FX-only
+		# overlays (no rifle body), so SHOOT/CYCLE use the full-rifle sheets.
 		EFFECT_SHOOT: "res://Asset/Guns_Animation/rifle_service/[SNIPER_SHOOTING]_Sniper_rifle_[KAR98]_V1.00.png",
 		EFFECT_AIM: "res://Asset/Guns_Animation/rifle_service/[SNIPER_SHOOTING]_Sniper_rifle_[KAR98]_V1.00.png",
 		EFFECT_RELOAD: "res://Asset/Guns_Animation/rifle_service/[SINGLE_RELOADING]_Sniper_rifle_[KAR98]_V1.00.png",
@@ -109,11 +111,11 @@ const _FRAME_SPECS := {
 	"res://Asset/Guns_Animation/ak47/[SHOOT WITH CASING AND MUZZLE FLASH] FULL AUTO - AK 47.png": {"w": 96, "h": 48, "fps": 14.0},
 	"res://Asset/Guns_Animation/ak47/[RELOAD] AK 47.png": {"w": 96, "h": 48, "fps": 14.0},
 	"res://Asset/Guns_Animation/ak47/[EMPTY] AK 47.png": {"w": 96, "h": 48, "fps": 14.0},
-	"res://Asset/Guns_Animation/rifle_service/[SNIPER_SHOOTING]_Sniper_rifle_[KAR98]_V1.00.png": {"w": 160, "h": 128, "fps": 14.0},
-	"res://Asset/Guns_Animation/rifle_service/[SNIPER_MUZZLE_FLASH]_Sniper_rifle_[KAR98]_V1.00.png": {"w": 160, "h": 128, "fps": 14.0},
-	"res://Asset/Guns_Animation/rifle_service/[SINGLE_RELOADING]_Sniper_rifle_[KAR98]_V1.00.png": {"w": 128, "h": 128, "fps": 14.0},
-	"res://Asset/Guns_Animation/rifle_service/[RELOADING_CASING_ONLY]_Sniper_rifle_[KAR98]_V1.00.png": {"w": 128, "h": 128, "fps": 14.0},
-	"res://Asset/Guns_Animation/rifle_service/[SNIPER_EMPTYING]_Sniper_rifle_[KAR98]_V1.00.png": {"w": 128, "h": 128, "fps": 14.0},
+	"res://Asset/Guns_Animation/rifle_service/[SNIPER_SHOOTING]_Sniper_rifle_[KAR98]_V1.00.png": {"w": 160, "h": 32, "fps": 24.0},
+	"res://Asset/Guns_Animation/rifle_service/[SNIPER_MUZZLE_FLASH]_Sniper_rifle_[KAR98]_V1.00.png": {"w": 160, "h": 32, "fps": 24.0},
+	"res://Asset/Guns_Animation/rifle_service/[SINGLE_RELOADING]_Sniper_rifle_[KAR98]_V1.00.png": {"w": 128, "h": 32, "fps": 24.0},
+	"res://Asset/Guns_Animation/rifle_service/[RELOADING_CASING_ONLY]_Sniper_rifle_[KAR98]_V1.00.png": {"w": 128, "h": 32, "fps": 24.0},
+	"res://Asset/Guns_Animation/rifle_service/[SNIPER_EMPTYING]_Sniper_rifle_[KAR98]_V1.00.png": {"w": 128, "h": 32, "fps": 24.0},
 	"res://Asset/Guns_Animation/shotgun/[FULL_MUZZLE_FLASH] Shotgun_V1.02.png": {"w": 160, "h": 32, "fps": 14.0},
 	"res://Asset/Guns_Animation/shotgun/[SHOOTING_CHAMBER_CLOSED] Shotgun_V1.02.png": {"w": 160, "h": 32, "fps": 14.0},
 	"res://Asset/Guns_Animation/shotgun/[SHOOTING_CHAMBER_OPEN] Shotgun_V1.02.png": {"w": 160, "h": 32, "fps": 14.0},

@@ -48,6 +48,15 @@ func _render(scene_descriptor: Dictionary) -> void:
 	)
 	if bool(_hex.get("is_poi", false)):
 		lines.append("POI " + str(_hex.get("poi_name", "Unknown")))
+	if int(_hex.get("travel_minutes", 0)) > 0:
+		lines.append(
+			"TRAVEL %d min // ~%.1f km // EXERT %.1f"
+			% [
+				int(_hex.get("travel_minutes", 0)),
+				float(_hex.get("travel_km", 0.0)),
+				float(_hex.get("travel_exertion", 1.0)),
+			]
+		)
 	if int(_hex.get("ground_item_count", 0)) > 0:
 		lines.append("GROUND ITEMS " + str(_hex.get("ground_item_count", 0)))
 	if not str(_hex.get("entity_name", "")).is_empty():

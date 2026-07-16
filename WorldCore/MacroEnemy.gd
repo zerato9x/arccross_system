@@ -22,6 +22,10 @@ func _ready() -> void:
 		push_error("MacroEnemy requires an authored HumanoidTokenView child.")
 		return
 	humanoid_token.set_display_scale(2.4)
+	# Above fog overlays when visible; never rely on alpha for fog state.
+	z_index = 7
+	modulate = Color(1, 1, 1, 1)
+	humanoid_token.modulate = Color(1, 1, 1, 1)
 
 func snap_to_hex(coords: Vector2i, pixel_position: Vector2) -> void:
 	current_hex_coords = coords

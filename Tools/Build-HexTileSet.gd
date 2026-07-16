@@ -92,7 +92,21 @@ static func _categorize_tile(path: String, source_id: int, catalog: MacroTileCat
 	
 	if "water_default" in lowered:
 		return
-	if lowered.ends_with("/bg_plains.png") or lowered.ends_with("/mud.png"):
+	if lowered.ends_with("/bg_plains.png"):
+		return
+	if lowered.ends_with("/mud.png"):
+		_add_to_catalog_array(
+			catalog.terrain_source_ids,
+			GameEnums.MacroTerrainTile.MUD_YELLOW,
+			source_id
+		)
+		_add_to_pack(
+			catalog,
+			biome_pack,
+			"terrain",
+			GameEnums.MacroTerrainTile.MUD_YELLOW,
+			source_id
+		)
 		return
 
 	if "concrete_tiles" in lowered:
@@ -118,14 +132,17 @@ static func _categorize_tile(path: String, source_id: int, catalog: MacroTileCat
 		elif "snowy" in lowered:
 			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.SNOW_TRANSITION, source_id)
 			_add_to_pack(catalog, biome_pack, "terrain", GameEnums.MacroTerrainTile.SNOW_TRANSITION, source_id)
-		elif "sparse green" in lowered or "green_hex" in lowered or "painted - green" in lowered:
+		elif "sparse green" in lowered:
+			# Forest sparse floor only — never mixed into PLAINS_GRASS.
 			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.FOREST_SPARSE, source_id)
-			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.PLAINS_GRASS, source_id)
-			_add_to_pack(catalog, biome_pack, "terrain", GameEnums.MacroTerrainTile.PLAINS_GRASS, source_id)
 			_add_to_pack(catalog, biome_pack, "terrain", GameEnums.MacroTerrainTile.FOREST_SPARSE, source_id)
-		else:
+		elif "green_hex" in lowered or "painted - green" in lowered:
+			# Single coherent plains family for node zones.
 			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.PLAINS_GRASS, source_id)
 			_add_to_pack(catalog, biome_pack, "terrain", GameEnums.MacroTerrainTile.PLAINS_GRASS, source_id)
+		else:
+			# Old Riverbed and other grass families stay out of procedural plains.
+			pass
 	elif "trees" in lowered or "temperate trees" in lowered:
 		if "temperate trees v2" in lowered or "trees 2x2" in lowered:
 			_add_to_catalog_array(catalog.flora_source_ids, GameEnums.MacroFloraLayer.TREES, source_id)
@@ -208,8 +225,9 @@ static func _collect_all_tile_paths() -> PackedStringArray:
 
 static func _should_collect_tile_path(path: String) -> bool:
 	var lowered := path.to_lower()
-	if lowered.ends_with("/bg_plains.png") or lowered.ends_with("/mud.png"):
+	if lowered.ends_with("/bg_plains.png"):
 		return false
+	# mud.png is a ground terrain source for MUD_YELLOW.
 	return true
 
 static func _is_valid_tile_texture(texture: Texture2D, image_path: String) -> bool:

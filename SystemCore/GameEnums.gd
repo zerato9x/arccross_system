@@ -292,8 +292,26 @@ enum MacroArmDirection {
 	WEST,
 }
 
+## Campaign-map node kinds on the node-graph progression layer.
+enum MacroNodeType {
+	HUB,
+	STANDARD,
+	ELITE,
+	RESOURCE,
+	CORRUPTED,
+	LOCKED,
+	SPECIAL,
+}
+
+## How a campaign node's local 12x12 hex zone is authored.
+enum MacroZoneKind {
+	BIOME_RNG,
+	UNIQUE_EVENT,
+}
+
 const BIOME_PACK_PLAINS := "plains"
 const BIOME_PACK_CENTRALCORE := "centralcore"
+const MACRO_ZONE_SIZE := 12
 
 enum MacroInteractionType { NONE, POI, ENTITY_COLLISION, MACRO_EVENT }
 enum PoiAction { SEARCH, CAMP, REST, STOP_REST, ACTIVATE_CORE }

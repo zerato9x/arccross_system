@@ -10,6 +10,7 @@ signal medical_action_requested(instance_id: String, limb_region: int)
 signal viewport_insets_changed(insets: Rect2i)
 signal event_choice_submitted(choice_id: String)
 signal event_closed
+signal node_map_requested
 
 const MAX_SCALE := 12.0
 
@@ -63,6 +64,7 @@ func _ready() -> void:
 	_hex_panel.expand_requested_hex.connect(hex_preview_expand_requested.emit)
 	_hex_panel.travel_requested_hex.connect(hex_preview_travel_requested.emit)
 	_world_status.settings_requested.connect(_open_settings)
+	_world_status.node_map_requested.connect(node_map_requested.emit)
 	_event_hud.choice_submitted.connect(event_choice_submitted.emit)
 	_event_hud.event_closed.connect(event_closed.emit)
 	_settings_close_button.pressed.connect(_close_settings)

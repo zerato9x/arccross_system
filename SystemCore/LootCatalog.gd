@@ -29,6 +29,32 @@ func has_item(item_id: String) -> bool:
 	return _items_by_id.has(item_id)
 
 
+## Debug/tooling helper: every registered item id, sorted alphabetically.
+func get_all_item_ids() -> Array:
+	var ids := _items_by_id.keys()
+	ids.sort()
+	return ids
+
+
+## Debug/tooling helper: lightweight [id, display_name, item_type] rows for
+## every registered item, sorted by display name. Used by the debug overlay's
+## item spawner so it never has to touch raw ItemData definitions.
+func get_all_item_rows() -> Array:
+	var rows: Array = []
+	for item_id in _items_by_id.keys():
+		var definition := _items_by_id[item_id] as ItemData
+		if definition == null:
+			continue
+		rows.append({
+			"id": definition.id,
+			"display_name": definition.display_name,
+			"item_type": definition.item_type,
+			"category": definition.catalog_category,
+		})
+	rows.sort_custom(func(a, b): return str(a["display_name"]) < str(b["display_name"]))
+	return rows
+
+
 func get_item_descriptor(item_id: String) -> Dictionary:
 	var definition := _items_by_id.get(item_id) as ItemData
 	if not definition:

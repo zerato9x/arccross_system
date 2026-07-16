@@ -47,6 +47,10 @@ func _run() -> void:
 		false
 	)
 	await process_frame
+	# The fabricated shooter starts with a null loadout (no worn storage), so
+	# grant it a combat rig + pack. Reload/cycle only surface when ammo can be
+	# stowed in combat-accessible storage.
+	_grant_storage(shooter)
 	_clear_inventory(target)
 	_clear_inventory(target)
 
@@ -158,6 +162,7 @@ func _verify_service_pistol_reload(
 	shooter: HumanoidCore
 ) -> bool:
 	_clear_hands(shooter)
+	_clear_backpack(shooter)
 	var pistol := (
 		load("res://ItemCore/Items/service_pistol.tres") as ItemData
 	).create_runtime_instance()
@@ -174,6 +179,8 @@ func _verify_service_pistol_reload(
 	shooter.inventory.load_magazine(wrong_magazine)
 	if arena.resolution_engine.execute_reload(shooter):
 		return _fail("Service pistol accepted a carbon pistol magazine.")
+	# Free the decoy magazine so the real one can occupy the small combat rig.
+	shooter.inventory.remove_item_by_instance_id(wrong_magazine.instance_id)
 	_add_item_copies(shooter, "pistol_round", 8)
 	var service_magazine := (
 		load("res://ItemCore/Items/service_pistol_magazine.tres") as ItemData
@@ -196,6 +203,7 @@ func _verify_revolver_reload(
 	shooter: HumanoidCore
 ) -> bool:
 	_clear_hands(shooter)
+	_clear_backpack(shooter)
 	var revolver := (
 		load("res://ItemCore/Items/revolver.tres") as ItemData
 	).create_runtime_instance()
@@ -253,6 +261,21 @@ func _add_item_copies(
 	) as ItemData
 	for _item_index in range(count):
 		entity.inventory.add_to_backpack(definition)
+
+func _grant_storage(entity: HumanoidCore) -> void:
+	entity.inventory.equip_item(
+		(load("res://ItemCore/Items/backpack_service_big.tres") as ItemData).create_runtime_instance(),
+		GameEnums.EquipmentSlot.BACKPACK
+	)
+	entity.inventory.equip_item(
+		(load("res://ItemCore/Items/webbing_service.tres") as ItemData).create_runtime_instance(),
+		GameEnums.EquipmentSlot.VEST
+	)
+
+func _clear_backpack(entity: HumanoidCore) -> void:
+	entity.inventory.backpack_array.clear()
+	entity.inventory.item_container_slots.clear()
+	entity.inventory._recalculate_bounds()
 
 func _clear_hands(entity: HumanoidCore) -> void:
 	var held: ItemData = entity.inventory.paper_doll.get(

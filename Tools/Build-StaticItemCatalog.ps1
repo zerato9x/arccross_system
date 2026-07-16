@@ -533,7 +533,30 @@ function Add-SpecialWeaponValues([System.Collections.IDictionary]$Item) {
                 grants_snipe = $true; macro_snipe_range = 2
             }
         }
-        'revolver_speedloader' { $Item.display_name = 'Revolver Speedloader' }
+        'revolver_speedloader' {
+            Set-Values $Item @{
+                display_name = 'Revolver Speedloader'
+                accepted_ammunition_id = 'pistol_round'; magazine_capacity = 6
+            }
+        }
+        'service_pistol_magazine' {
+            Set-Values $Item @{ accepted_ammunition_id = 'pistol_round'; magazine_capacity = 8 }
+        }
+        'carbon_pistol_magazine' {
+            Set-Values $Item @{ accepted_ammunition_id = 'pistol_round'; magazine_capacity = 16 }
+        }
+        'unique_theoperator_magazine' {
+            Set-Values $Item @{ accepted_ammunition_id = 'pistol_round'; magazine_capacity = 8 }
+        }
+        'carbon_rifle_magazine' {
+            Set-Values $Item @{ accepted_ammunition_id = 'rifle_round'; magazine_capacity = 31 }
+        }
+        'ak47_magazine' {
+            Set-Values $Item @{ accepted_ammunition_id = 'rifle_round'; magazine_capacity = 31 }
+        }
+        'service_rifle_clip' {
+            Set-Values $Item @{ accepted_ammunition_id = 'rifle_round'; magazine_capacity = 5 }
+        }
     }
 }
 

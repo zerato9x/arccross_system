@@ -14,7 +14,7 @@ signal save_completed(path: String)
 signal load_completed(path: String)
 signal persistence_failed(operation: String, message: String)
 
-const SAVE_VERSION: int = 2
+const SAVE_VERSION: int = 3
 const DEFAULT_SAVE_PATH: String = "user://arccross_run.json"
 const VARIANT_TYPE_KEY: String = "__arccross_type"
 
@@ -22,6 +22,9 @@ var world_seed: String = ""
 var world_time_minutes: int = GameTimeRules.STARTING_WORLD_MINUTES
 var player_coords: Vector2i = Vector2i.ZERO
 var player_record: EntityRecord = null
+## Campaign node-graph state (MacroMapGraph.to_dict()). Empty until a campaign begins.
+var campaign_graph: Dictionary = {}
+var active_node_id: String = ""
 
 var entity_records: Dictionary = {} # String entity_id -> EntityRecord
 var entity_ids_by_coords: Dictionary = {} # Vector2i -> String entity_id
@@ -41,6 +44,8 @@ func begin_new_world(seed: String) -> void:
 	world_time_minutes = GameTimeRules.STARTING_WORLD_MINUTES
 	player_coords = Vector2i.ZERO
 	player_record = null
+	campaign_graph = {}
+	active_node_id = ""
 	entity_records.clear()
 	entity_ids_by_coords.clear()
 	hex_records.clear()
@@ -367,6 +372,8 @@ func _capture_save_snapshot() -> Dictionary:
 		"entities": entities,
 		"hexes": hexes,
 		"ground_items": ground_items,
+		"campaign_graph": campaign_graph.duplicate(true),
+		"active_node_id": active_node_id,
 	}
 
 func _restore_save_snapshot(snapshot: Dictionary) -> bool:
@@ -383,6 +390,8 @@ func _restore_save_snapshot(snapshot: Dictionary) -> bool:
 		))
 	)
 	player_coords = snapshot.get("player_coords", Vector2i.ZERO)
+	campaign_graph = snapshot.get("campaign_graph", {}).duplicate(true)
+	active_node_id = str(snapshot.get("active_node_id", ""))
 
 	var player_data: Dictionary = snapshot.get("player_record", {})
 	player_record = EntityRecord.from_dict(player_data) if not player_data.is_empty() else null

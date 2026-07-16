@@ -2,11 +2,27 @@ extends RefCounted
 class_name GameTimeRules
 
 ## Physical time remains in minutes. These are orchestration rules, not enums.
+## 12x12 axial zone ≈ 100 km² → ~0.69 km²/hex, center-to-center ≈ 0.9 km.
+const HEX_AREA_KM2: float = 0.69
+const ZONE_AREA_KM2: float = 100.0
+const HEX_CENTER_DISTANCE_KM: float = 0.9
+
 const STARTING_WORLD_MINUTES: int = 8 * 60
-const MOVE_MINUTES: int = 15
+## Plains baseline: one hex step is a real trek (~45 minutes).
+const MOVE_MINUTES: int = 45
 const SEARCH_MINUTES: int = 60
 const CAMP_MINUTES: int = 8 * 60
 const COMBAT_MINUTES: int = 15
+
+static func move_minutes_for_hex(hex_data: MacroHexData) -> int:
+	if hex_data == null:
+		return MOVE_MINUTES
+	return maxi(1, int(round(float(MOVE_MINUTES) * hex_data.travel_time_multiplier())))
+
+
+static func travel_distance_km(hex_steps: int = 1) -> float:
+	return HEX_CENTER_DISTANCE_KM * float(maxi(0, hex_steps))
+
 
 static func clock_snapshot(total_minutes: int) -> Dictionary:
 	var safe_minutes := maxi(0, total_minutes)

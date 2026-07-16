@@ -6,6 +6,8 @@ signal combat_requested(request: Dictionary)
 signal save_requested
 signal load_requested
 signal core_activated
+signal campaign_node_changed(node_id: String)
+signal campaign_nodes_unlocked(node_ids: Array)
 
 @export_group("The Strings")
 @export var world_generator: HexWorldGenerator
@@ -17,8 +19,17 @@ signal core_activated
 @export var inventory_panel: InventoryUI
 @export var macro_hud: MacroHudController
 @export var exploration_window_scene: PackedScene
+@export var node_map_system_scene: PackedScene
 
 var exploration_window: MacroExplorationWindow
+## Fullscreen Node Map System (independent of MacroHudShell).
+var node_map_system: CanvasLayer
+## Campaign node-graph progression (linear north path for v1).
+var campaign: MacroProgressController
+var _node_map_inventory_layer_restore := 1
+var _inventory_home_layer: CanvasLayer
+var _node_map_overlay_layer: CanvasLayer
+var _node_map_medical: MedicalMonitor
 
 @export_group("Proximity Loading")
 @export_range(1, 12) var active_radius: int = 3
@@ -72,6 +83,10 @@ const HEX_NEIGHBORS = [
 const _SnapshotBuilder := preload("res://WorldCore/MacroSnapshotBuilder.gd")
 const _PoiController := preload("res://WorldCore/MacroPoiController.gd")
 const _NpcSimulator := preload("res://WorldCore/MacroNpcSimulator.gd")
+const _NODE_MAP_SCENE := preload("res://UI/NodeMap/NodeMapSystem.tscn")
+const _MEDICAL_MONITOR_SCENE := preload("res://UI/HUD/MedicalMonitor.tscn")
+const _NODE_MAP_INVENTORY_LAYER := 36
+const _NODE_MAP_OVERLAY_LAYER := 36
 
 func configure_services(
 	world_state: RuntimeStateStore,
@@ -81,8 +96,403 @@ func configure_services(
 	_loot_catalog = loot_catalog
 	if world_generator:
 		world_generator.configure_services(world_state)
+	_ensure_campaign()
 	if is_node_ready() and not _world_bootstrapped:
 		_bootstrap_world()
+
+
+func _ensure_campaign() -> void:
+	if campaign == null:
+		campaign = MacroProgressController.new()
+	campaign.configure(_world_state)
+	if not campaign.node_entered.is_connected(_on_campaign_node_entered):
+		campaign.node_entered.connect(_on_campaign_node_entered)
+	if not campaign.nodes_unlocked.is_connected(_on_campaign_nodes_unlocked):
+		campaign.nodes_unlocked.connect(_on_campaign_nodes_unlocked)
+
+
+func get_available_nodes() -> Array[String]:
+	_ensure_campaign()
+	return campaign.get_available_nodes()
+
+
+func enter_campaign_node(node_id: String) -> bool:
+	_ensure_campaign()
+	if not campaign.can_enter_node(node_id):
+		return false
+	# Keep player inventory; unload tokens before zone swap.
+	_unload_all_enemy_tokens()
+	var ok := campaign.enter_node(node_id)
+	if not ok:
+		return false
+	_apply_active_zone_to_world()
+	return true
+
+
+func mark_node_completed(node_id: String) -> void:
+	_ensure_campaign()
+	campaign.mark_node_completed(node_id)
+
+
+func evaluate_unlocks(player_progress: Dictionary = {}) -> Array[String]:
+	_ensure_campaign()
+	return campaign.evaluate_unlocks(player_progress)
+
+
+func debug_print_campaign_map() -> String:
+	_ensure_campaign()
+	return campaign.debug_print_map()
+
+
+func _ensure_node_map_system() -> void:
+	if node_map_system != null:
+		return
+	var packed := node_map_system_scene
+	if packed == null:
+		packed = _NODE_MAP_SCENE
+	node_map_system = packed.instantiate() as CanvasLayer
+	node_map_system.name = "NodeMapSystem"
+	add_child(node_map_system)
+	node_map_system.connect("closed", _on_node_map_closed)
+	node_map_system.connect("enter_node_requested", _on_node_map_enter_requested)
+	node_map_system.connect("advance_requested", _on_node_map_advance_requested)
+	node_map_system.connect("inventory_requested", _on_node_map_inventory_requested)
+	node_map_system.connect("medical_requested", _on_node_map_medical_requested)
+
+
+func open_node_map() -> void:
+	_ensure_campaign()
+	_ensure_node_map_system()
+	if node_map_system == null:
+		return
+	node_map_system.call("open", build_node_map_ui_snapshot())
+
+
+func close_node_map() -> void:
+	if node_map_system != null and bool(node_map_system.call("is_open")):
+		node_map_system.call("close")
+
+
+func toggle_node_map() -> void:
+	if is_node_map_open():
+		close_node_map()
+	else:
+		open_node_map()
+
+
+func is_node_map_open() -> bool:
+	return node_map_system != null and bool(node_map_system.call("is_open"))
+
+
+## Full graph + player presentation for the fullscreen Node Map System window.
+func build_node_map_ui_snapshot() -> Dictionary:
+	_ensure_campaign()
+	var next_ids := _next_incomplete_available_nodes()
+	var available := campaign.get_available_nodes()
+	var nodes: Array = []
+	var edges: Array = []
+	if campaign.graph != null:
+		for node_id in campaign.graph.node_ids_in_order():
+			var node := campaign.graph.get_node(node_id)
+			if node == null:
+				continue
+			# Filter undiscovered LOCKED nodes from the graph list.
+			if (
+				node.type == GameEnums.MacroNodeType.LOCKED
+				and not node.discovered
+				and not node.unlocked
+			):
+				continue
+			var entry := node.to_dict()
+			var can_enter := campaign.can_enter_node(node_id)
+			var is_active := node_id == campaign.active_node_id
+			var is_next := next_ids.has(node_id)
+			var enter_reason := ""
+			if not can_enter:
+				enter_reason = "Node is locked."
+			elif is_active:
+				enter_reason = "Already present in this node's zone."
+				can_enter = false
+			entry["can_enter"] = can_enter
+			entry["enter_reason"] = enter_reason
+			entry["is_active"] = is_active
+			entry["is_next"] = is_next
+			entry["zone_flavor"] = _node_zone_flavor(node)
+			entry["objective_text"] = _node_objective_text(node)
+			nodes.append(entry)
+		for edge in campaign.graph.edges:
+			if not (edge is Dictionary):
+				continue
+			var from_id := str(edge.get("from", ""))
+			var to_id := str(edge.get("to", ""))
+			if _node_map_entry_visible(from_id) and _node_map_entry_visible(to_id):
+				edges.append({"from": from_id, "to": to_id})
+
+	var snapshot := {
+		"active_node_id": campaign.active_node_id if campaign != null else "",
+		"available_nodes": available,
+		"next_nodes": next_ids,
+		"advance_hint": (
+			"Advance to %s." % next_ids[0]
+			if not next_ids.is_empty()
+			else "No next campaign node is available yet."
+		),
+		"can_advance": not next_ids.is_empty(),
+		"advance_reason": (
+			""
+			if not next_ids.is_empty()
+			else "No unlocked incomplete node is ready."
+		),
+		"nodes": nodes,
+		"edges": edges,
+	}
+
+	if player_token != null:
+		var hud := _build_world_hud_snapshot()
+		var inventory_snapshot := _build_inventory_snapshot()
+		snapshot["blood"] = hud.get("blood", 0.0)
+		snapshot["hunger"] = hud.get("hunger", 0.0)
+		snapshot["thirst"] = hud.get("thirst", 0.0)
+		snapshot["fatigue"] = hud.get("fatigue", 0.0)
+		snapshot["stance"] = hud.get("stance", 0)
+		snapshot["stance_state"] = hud.get("stance_state", "")
+		snapshot["morale"] = hud.get("morale", 0)
+		snapshot["emergencies"] = hud.get("emergencies", [])
+		snapshot["equipment"] = inventory_snapshot.get("equipment", [])
+		snapshot["current_capacity"] = inventory_snapshot.get("current_capacity", 0)
+		snapshot["maximum_capacity"] = inventory_snapshot.get("maximum_capacity", 0)
+	return snapshot
+
+
+func _node_map_entry_visible(node_id: String) -> bool:
+	if campaign == null or campaign.graph == null:
+		return false
+	var node := campaign.graph.get_node(node_id)
+	if node == null:
+		return false
+	if (
+		node.type == GameEnums.MacroNodeType.LOCKED
+		and not node.discovered
+		and not node.unlocked
+	):
+		return false
+	return true
+
+
+func _node_zone_flavor(node: MacroNodeData) -> String:
+	match node.zone_kind:
+		GameEnums.MacroZoneKind.UNIQUE_EVENT:
+			return "Authored hex-event site. Resolve the encounter to progress."
+		_:
+			var biome_name := "unknown"
+			var biome_keys := GameEnums.GridBiome.keys()
+			if node.biome >= 0 and node.biome < biome_keys.size():
+				biome_name = str(biome_keys[node.biome]).capitalize()
+			return "Procedural %s zone. Reach the marked exit hex." % biome_name
+
+
+func _node_objective_text(node: MacroNodeData) -> String:
+	if node.zone_kind == GameEnums.MacroZoneKind.UNIQUE_EVENT:
+		return "Reach the event hex and resolve the encounter."
+	if str(node.objective_id) == "exit" or node.objective_id.is_empty():
+		return "Reach the exit hex to complete this node."
+	return "Complete objective '%s'." % node.objective_id
+
+
+func _on_node_map_closed() -> void:
+	_close_node_map_overlays()
+
+
+func _on_node_map_enter_requested(node_id: String) -> void:
+	if enter_campaign_node(node_id):
+		_last_macro_event = "Entered campaign node: %s" % node_id
+		_refresh_world_hud()
+		close_node_map()
+	elif is_node_map_open():
+		node_map_system.call("refresh", build_node_map_ui_snapshot())
+
+
+func _on_node_map_advance_requested() -> void:
+	if advance_to_next_node():
+		close_node_map()
+	elif is_node_map_open():
+		node_map_system.call("refresh", build_node_map_ui_snapshot())
+
+
+func _on_node_map_inventory_requested() -> void:
+	if inventory_panel == null:
+		return
+	_close_node_map_medical(false)
+	if macro_hud:
+		var corner := macro_hud.get_inventory_corner_panel()
+		if corner != null and corner.is_expanded():
+			corner.collapse()
+	if _inventory_home_layer == null:
+		_inventory_home_layer = inventory_panel.get_parent() as CanvasLayer
+	if (
+		_inventory_home_layer != null
+		and inventory_panel.get_parent() != _inventory_home_layer
+	):
+		inventory_panel.reparent(_inventory_home_layer)
+	var snapshot := _build_inventory_snapshot()
+	if _inventory_home_layer:
+		_node_map_inventory_layer_restore = _inventory_home_layer.layer
+	inventory_panel.open_inventory(snapshot)
+	if _inventory_home_layer:
+		_inventory_home_layer.layer = _NODE_MAP_INVENTORY_LAYER
+
+
+func _on_node_map_medical_requested() -> void:
+	if inventory_panel != null and inventory_panel.is_open():
+		inventory_panel.close_panel(false)
+		_restore_node_map_inventory_layer()
+	_ensure_node_map_overlay_layer()
+	if _node_map_medical == null:
+		var host := Control.new()
+		host.name = "NodeMapMedicalHost"
+		host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		host.mouse_filter = Control.MOUSE_FILTER_STOP
+		_node_map_overlay_layer.add_child(host)
+
+		var dim := ColorRect.new()
+		dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		dim.color = Color(0, 0, 0, 0.55)
+		dim.mouse_filter = Control.MOUSE_FILTER_STOP
+		host.add_child(dim)
+
+		_node_map_medical = _MEDICAL_MONITOR_SCENE.instantiate() as MedicalMonitor
+		host.add_child(_node_map_medical)
+		_node_map_medical.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_node_map_medical.offset_left = 48.0
+		_node_map_medical.offset_top = 48.0
+		_node_map_medical.offset_right = -48.0
+		_node_map_medical.offset_bottom = -72.0
+		_node_map_medical.set_embedded_fit(false)
+		_node_map_medical.limb_treatment_requested.connect(_on_medical_action_requested)
+		_node_map_medical.closed.connect(_on_node_map_medical_closed)
+
+		var close_button := Button.new()
+		close_button.name = "CloseMedicalButton"
+		close_button.text = "Close Medical"
+		close_button.custom_minimum_size = HUDAssetLibrary.macro_button_minimum_size(140.0)
+		HUDAssetLibrary.apply_button(close_button, "pass")
+		close_button.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		close_button.offset_left = -180.0
+		close_button.offset_top = -52.0
+		close_button.offset_right = -48.0
+		close_button.offset_bottom = -20.0
+		close_button.pressed.connect(_close_node_map_medical)
+		host.add_child(close_button)
+	var snapshot := _build_world_hud_snapshot()
+	var inventory_snapshot := _build_inventory_snapshot()
+	snapshot["equipment"] = inventory_snapshot.get("equipment", [])
+	snapshot["containers"] = inventory_snapshot.get("containers", [])
+	snapshot["backpack"] = inventory_snapshot.get("backpack", [])
+	snapshot["current_capacity"] = inventory_snapshot.get("current_capacity", 0)
+	snapshot["maximum_capacity"] = inventory_snapshot.get("maximum_capacity", 0)
+	_node_map_medical.open_monitor(snapshot)
+	_node_map_overlay_layer.visible = true
+
+
+func _on_node_map_medical_closed() -> void:
+	if _node_map_overlay_layer:
+		_node_map_overlay_layer.visible = (
+			_node_map_medical != null and _node_map_medical.is_open()
+		)
+
+
+func _ensure_node_map_overlay_layer() -> void:
+	if _node_map_overlay_layer != null:
+		return
+	_node_map_overlay_layer = CanvasLayer.new()
+	_node_map_overlay_layer.name = "NodeMapOverlayLayer"
+	_node_map_overlay_layer.layer = _NODE_MAP_OVERLAY_LAYER
+	_node_map_overlay_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(_node_map_overlay_layer)
+
+
+func _close_node_map_medical(emit_closed: bool = true) -> void:
+	if _node_map_medical == null or not _node_map_medical.is_open():
+		return
+	if emit_closed:
+		_node_map_medical.close_monitor()
+	else:
+		_node_map_medical.visible = false
+	if _node_map_overlay_layer:
+		_node_map_overlay_layer.visible = false
+
+
+func _close_node_map_overlays() -> void:
+	if inventory_panel != null and inventory_panel.is_open():
+		# Only auto-close inventory if it was raised for the node map.
+		if (
+			_inventory_home_layer != null
+			and _inventory_home_layer.layer == _NODE_MAP_INVENTORY_LAYER
+		):
+			inventory_panel.close_panel(false)
+	_restore_node_map_inventory_layer()
+	_close_node_map_medical(false)
+
+
+func _restore_node_map_inventory_layer() -> void:
+	if _inventory_home_layer == null:
+		return
+	if _inventory_home_layer.layer == _NODE_MAP_INVENTORY_LAYER:
+		_inventory_home_layer.layer = _node_map_inventory_layer_restore
+
+
+func _on_campaign_node_entered(node_id: String) -> void:
+	campaign_node_changed.emit(node_id)
+	_macro_log("Entered campaign node %s." % node_id)
+
+
+func _on_campaign_nodes_unlocked(node_ids: Array) -> void:
+	campaign_nodes_unlocked.emit(node_ids)
+	_last_macro_event = "Path unlocked: %s" % ", ".join(PackedStringArray(node_ids))
+	_macro_log(_last_macro_event)
+	_refresh_world_hud()
+
+
+func _unload_all_enemy_tokens() -> void:
+	var coords_list: Array = active_enemies.keys()
+	for coords in coords_list:
+		unload_enemy_token(coords)
+
+
+func _apply_active_zone_to_world() -> void:
+	if campaign == null or campaign.zone_generator == null:
+		return
+	var zone := campaign.zone_generator
+	world_generator.enable_zone_bounds(MacroZoneGenerator.ZONE_SIZE)
+	world_generator.configure_seed(_world_state.world_seed + ":node:" + zone.node_id)
+	world_generator.inject_zone_hexes(zone.world_hex_cache)
+	world_generator.inject_zone_decorations(zone.zone_decorations)
+	for coords in zone.world_hex_cache.keys():
+		var hex: MacroHexData = zone.world_hex_cache[coords]
+		_world_state.set_hex_record(coords, hex.to_state())
+
+	var start_coords := zone.start_coords
+	# Preserve player runtime (inventory) across node swaps.
+	if player_token.get_humanoid_core() != null and _world_state.player_record != null:
+		_world_state.update_player_runtime(
+			player_token.get_humanoid_core().capture_runtime_state().to_dict(),
+			start_coords
+		)
+	else:
+		_world_state.set_player_record(
+			player_token.capture_runtime_record(),
+			start_coords
+		)
+
+	var start_pixel := map_visualizer.map_to_local(start_coords)
+	player_token.snap_to_hex(start_coords, start_pixel)
+	_visible_hexes.clear()
+	_mark_hex_explored(start_coords)
+	_select_hex_for_hud(start_coords)
+	_refresh_map_visuals(start_coords, true)
+	refresh_proximity(start_coords)
+	_refresh_world_hud()
+	print(MacroMapDebug.print_campaign(campaign))
 
 
 func get_runtime_state_store() -> RuntimeStateStore:
@@ -91,6 +501,70 @@ func get_runtime_state_store() -> RuntimeStateStore:
 
 func debug_step_player_to(target_coords: Vector2i) -> void:
 	_execute_player_step(target_coords)
+
+
+## Debug tooling: instantly relocate the player to any hex without walking,
+## survival-time cost, or triggering pending interactions. Rebuilds fog,
+## proximity tokens, and the HUD so the jump is fully reflected.
+func debug_teleport_player(target_coords: Vector2i) -> void:
+	if map_visualizer == null or player_token == null:
+		return
+	var pixel_pos := map_visualizer.map_to_local(target_coords)
+	player_token.snap_to_hex(target_coords, pixel_pos)
+	_world_state.update_player_runtime(
+		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
+		target_coords
+	)
+	_select_hex_for_hud(target_coords)
+	_mark_hex_explored(target_coords)
+	_refresh_map_visuals(target_coords, false)
+	refresh_proximity(target_coords)
+	_macro_log("Debug teleport to %s." % str(target_coords))
+	_refresh_world_hud()
+
+
+## Debug tooling: persist the live player runtime into WorldState and rebuild
+## every player-facing surface (token pose, inventory panel, exploration ground,
+## HUD). Call this after directly mutating the HumanoidCore/body/inventory so
+## the change becomes visible and save-safe.
+func debug_sync_player_after_mutation() -> void:
+	if player_token == null:
+		return
+	var core := player_token.get_humanoid_core()
+	_world_state.update_player_runtime(
+		core.capture_runtime_state().to_dict(),
+		player_token.current_hex_coords
+	)
+	if player_token.humanoid_token:
+		player_token.humanoid_token.refresh_from_record(
+			player_token.capture_runtime_record()
+		)
+		player_token.refresh_token_pose()
+	var snapshot := _build_inventory_snapshot()
+	if inventory_panel and inventory_panel.is_open():
+		inventory_panel.open_loadout_panel(snapshot, "")
+	_refresh_exploration_ground()
+	_refresh_world_hud()
+
+
+## Debug tooling: spawn a procedural enemy on the first free, passable hex
+## adjacent to the player. Returns true if an encounter was projected.
+func debug_spawn_enemy_near_player(
+	faction: GameEnums.Faction = GameEnums.Faction.SCAVENGER_CELL,
+	difficulty: int = 0
+) -> bool:
+	if player_token == null or world_generator == null:
+		return false
+	for delta in HEX_NEIGHBORS:
+		var coords: Vector2i = player_token.current_hex_coords + delta
+		if not world_generator.get_hex_at(coords).is_passable():
+			continue
+		if _world_state.has_entity_at(coords):
+			continue
+		spawn_procedural_enemy(coords, faction, difficulty)
+		_refresh_world_hud()
+		return true
+	return false
 
 
 func debug_project_npc_token(record: EntityRecord) -> MacroEnemy:
@@ -157,12 +631,16 @@ func _ready() -> void:
 		exploration_window.poi_preview_requested.connect(preview_poi_action)
 		exploration_window.inventory_action_requested.connect(resolve_inventory_action)
 		exploration_window.interaction_closed.connect(close_macro_interaction)
+		exploration_window.node_map_requested.connect(open_node_map)
 	else:
 		push_error("[MacroGameManager] Missing exploration_window_scene.")
+
+	_ensure_node_map_system()
 
 	if inventory_panel:
 		inventory_panel.inventory_action_requested.connect(resolve_inventory_action)
 		inventory_panel.inventory_closed.connect(_on_inventory_closed)
+		_inventory_home_layer = inventory_panel.get_parent() as CanvasLayer
 
 	if macro_hud:
 		macro_hud.hex_preview_expand_requested.connect(_expand_hex_at)
@@ -171,6 +649,7 @@ func _ready() -> void:
 		macro_hud.medical_action_requested.connect(_on_medical_action_requested)
 		macro_hud.event_choice_submitted.connect(resolve_macro_event_choice)
 		macro_hud.event_closed.connect(close_macro_interaction)
+		macro_hud.node_map_requested.connect(open_node_map)
 		if inventory_panel:
 			macro_hud.get_inventory_corner_panel().inventory_ui = inventory_panel
 		if exploration_window:
@@ -195,27 +674,23 @@ func _bootstrap_world() -> void:
 	_refresh_world_hud()
 
 func _initialize_demo() -> void:
-	var seed := "DEMO_WASTELAND_01"
+	var seed := "DEMO_NORTH_PATH_01"
 	_world_state.begin_new_world(seed)
-	world_generator.configure_seed(seed)
-	_bind_authored_map_profile()
+	_ensure_campaign()
+	campaign.begin_campaign(seed)
+	world_generator.configure_services(_world_state)
+	world_generator.enable_zone_bounds(MacroZoneGenerator.ZONE_SIZE)
 
-	var start_coords := Vector2i(3, 0)
-	if (
-		world_generator.authored_map != null
-		and world_generator.authored_map.get("start_coords") != null
-	):
-		start_coords = world_generator.authored_map.start_coords
+	# Preserve freshly created player token inventory into the run, then enter hub.
+	_world_state.set_player_record(
+		player_token.capture_runtime_record(),
+		Vector2i.ZERO
+	)
+	if not enter_campaign_node(MacroGraphGenerator.HUB_ID):
+		push_error("[MacroGameManager] Failed to enter hub campaign node.")
+		return
+	_macro_log("North-path campaign initialized at hub.")
 
-	var start_pixel_pos = map_visualizer.map_to_local(start_coords)
-	player_token.snap_to_hex(start_coords, start_pixel_pos)
-	_world_state.set_player_record(player_token.capture_runtime_record(), start_coords)
-	_mark_hex_explored(start_coords)
-	_update_fog_of_war(start_coords)
-	_select_hex_for_hud(start_coords)
-	map_visualizer.render_radius(start_coords, 3)
-	_macro_log("Demo world initialized at %s." % str(start_coords))
-	refresh_proximity(start_coords)
 
 func _initialize_loaded_world() -> void:
 	if _world_state.world_seed.is_empty() or _world_state.player_record == null:
@@ -223,20 +698,35 @@ func _initialize_loaded_world() -> void:
 		_initialize_demo()
 		return
 
-	world_generator.configure_seed(_world_state.world_seed)
-	_bind_authored_map_profile()
+	_ensure_campaign()
+	world_generator.configure_services(_world_state)
+	world_generator.enable_zone_bounds(MacroZoneGenerator.ZONE_SIZE)
 	player_token.restore_runtime_record(_world_state.player_record)
-	var loaded_coords := _world_state.player_coords
-	player_token.snap_to_hex(
-		loaded_coords,
-		map_visualizer.map_to_local(loaded_coords)
+
+	if not _world_state.campaign_graph.is_empty():
+		campaign.load_campaign(
+			_world_state.campaign_graph,
+			_world_state.active_node_id
+		)
+		_apply_active_zone_to_world()
+		var loaded_coords := _world_state.player_coords
+		if world_generator.is_in_zone_bounds(loaded_coords):
+			player_token.snap_to_hex(
+				loaded_coords,
+				map_visualizer.map_to_local(loaded_coords)
+			)
+			_mark_hex_explored(loaded_coords)
+			_select_hex_for_hud(loaded_coords)
+			_refresh_map_visuals(loaded_coords, true)
+			refresh_proximity(loaded_coords)
+	else:
+		campaign.begin_campaign(_world_state.world_seed)
+		enter_campaign_node(MacroGraphGenerator.HUB_ID)
+
+	_macro_log(
+		"Loaded campaign node=%s at %s."
+		% [_world_state.active_node_id, str(player_token.current_hex_coords)]
 	)
-	_mark_hex_explored(loaded_coords)
-	_update_fog_of_war(loaded_coords)
-	_select_hex_for_hud(loaded_coords)
-	map_visualizer.render_radius(loaded_coords, 3)
-	_macro_log("Loaded world initialized at %s." % str(loaded_coords))
-	refresh_proximity(loaded_coords)
 
 func synchronize_runtime_state() -> void:
 	_world_state.set_player_record(
@@ -246,6 +736,9 @@ func synchronize_runtime_state() -> void:
 	for coords in world_generator.world_hex_cache.keys():
 		var hex_data: MacroHexData = world_generator.world_hex_cache[coords]
 		_world_state.set_hex_record(coords, hex_data.to_state())
+	if campaign != null and campaign.graph != null:
+		_world_state.campaign_graph = campaign.graph.to_dict()
+		_world_state.active_node_id = campaign.active_node_id
 	flush_world_mutations()
 
 
@@ -321,6 +814,32 @@ func spawn_procedural_enemy(coords: Vector2i, faction: GameEnums.Faction, diffic
 # ---------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
+	if is_node_map_open():
+		if (
+			event is InputEventKey
+			and event.pressed
+			and not event.echo
+			and event.keycode == KEY_ESCAPE
+		):
+			if _node_map_medical != null and _node_map_medical.is_open():
+				_close_node_map_medical()
+				get_viewport().set_input_as_handled()
+				return
+			if (
+				inventory_panel != null
+				and inventory_panel.is_open()
+				and _inventory_home_layer != null
+				and _inventory_home_layer.layer == _NODE_MAP_INVENTORY_LAYER
+			):
+				inventory_panel.close_panel()
+				get_viewport().set_input_as_handled()
+				return
+			close_node_map()
+			get_viewport().set_input_as_handled()
+			return
+		if event is InputEventKey or event is InputEventMouseButton:
+			get_viewport().set_input_as_handled()
+		return
 	if macro_hud != null and macro_hud.is_event_open():
 		if event is InputEventKey or event is InputEventMouseButton:
 			get_viewport().set_input_as_handled()
@@ -346,8 +865,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
+			KEY_P:
+				toggle_node_map()
+				get_viewport().set_input_as_handled()
+				return
 			KEY_E:
 				_resolve_current_hex_action()
+				get_viewport().set_input_as_handled()
+				return
+			KEY_N:
+				advance_to_next_node()
 				get_viewport().set_input_as_handled()
 				return
 			KEY_T:
@@ -377,6 +904,9 @@ func _attempt_move_to_mouse() -> bool:
 	var distance_vector = clicked_hex_coords - player_token.current_hex_coords
 	if not HEX_NEIGHBORS.has(distance_vector):
 		return false # Ignored. Too far away.
+
+	if not world_generator.is_in_zone_bounds(clicked_hex_coords):
+		return false
 		
 	var target_hex := world_generator.get_hex_at(clicked_hex_coords)
 	if not target_hex.is_passable():
@@ -388,6 +918,8 @@ func _attempt_move_to_mouse() -> bool:
 func _execute_player_step(target_coords: Vector2i) -> void:
 	if not _pending_interaction.is_empty():
 		return
+	if not world_generator.is_in_zone_bounds(target_coords):
+		return
 	var origin_coords := player_token.current_hex_coords
 	var pixel_pos = map_visualizer.map_to_local(target_coords)
 	player_token.walk_to_hex(target_coords, pixel_pos)
@@ -396,15 +928,14 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
 		target_coords
 	)
-	map_visualizer.render_radius(target_coords, 3)
 	_macro_log("Player stepped to %s." % str(target_coords))
-	_update_fog_of_war(target_coords)
+	_refresh_map_visuals(target_coords, false)
 	refresh_proximity(target_coords)
 
 	var hex_data := world_generator.get_hex_at(target_coords)
 	_mark_hex_explored(target_coords, hex_data)
 	_advance_survival_time(
-		GameTimeRules.MOVE_MINUTES,
+		GameTimeRules.move_minutes_for_hex(hex_data),
 		_get_exertion_for_hex(hex_data),
 		target_coords
 	)
@@ -430,7 +961,78 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 		]
 
 	advance_macro_world(1)
+	# Campaign objectives resolve by reaching the marked hex — no separate
+	# "interact" action required for the north-path loop.
+	_try_resolve_campaign_objective_on_arrival(target_coords, hex_data)
 	_refresh_world_hud()
+
+
+## Complete the active RNG node when the player reaches its exit hex, or open
+## the unique hex-event when they reach the event site.
+func _try_resolve_campaign_objective_on_arrival(
+	coords: Vector2i,
+	hex_data: MacroHexData
+) -> void:
+	if campaign == null or campaign.active_node_id.is_empty():
+		return
+	var node := campaign.get_active_node()
+	if node == null or node.completed:
+		return
+	if campaign.zone_generator == null:
+		return
+	if coords != campaign.zone_generator.objective_coords:
+		return
+
+	if node.zone_kind == GameEnums.MacroZoneKind.UNIQUE_EVENT:
+		var event_id := node.event_id
+		if event_id.is_empty():
+			event_id = MacroEventResolver.EVENT_LOCKED_TREATMENT_ROOM
+		begin_macro_event(event_id, coords)
+		return
+
+	if campaign.try_complete_objective_at(coords):
+		_announce_objective_complete(node)
+
+
+func _announce_objective_complete(node: MacroNodeData) -> void:
+	var next_ids := _next_incomplete_available_nodes()
+	var next_hint := "Press N to advance to the next node."
+	if next_ids.is_empty():
+		next_hint = "No further nodes unlocked."
+	else:
+		next_hint = "Press N to enter %s." % next_ids[0]
+	_last_macro_event = "Objective complete: %s. %s" % [node.display_name, next_hint]
+	_macro_log(_last_macro_event)
+
+
+func _next_incomplete_available_nodes() -> Array[String]:
+	var result: Array[String] = []
+	if campaign == null or campaign.graph == null:
+		return result
+	for node_id in campaign.get_available_nodes():
+		var node := campaign.graph.get_node(node_id)
+		if node == null or node.completed:
+			continue
+		if node_id == campaign.active_node_id:
+			continue
+		result.append(node_id)
+	return result
+
+
+## Enter the next unlocked incomplete campaign node (linear north path).
+func advance_to_next_node() -> bool:
+	_ensure_campaign()
+	var next_ids := _next_incomplete_available_nodes()
+	if next_ids.is_empty():
+		_last_macro_event = "No next campaign node is available yet."
+		_refresh_world_hud()
+		return false
+	var ok := enter_campaign_node(next_ids[0])
+	if ok:
+		_last_macro_event = "Entered campaign node: %s" % next_ids[0]
+		_refresh_world_hud()
+	return ok
+
 
 func advance_macro_world(turns: int = 1, bypass_interaction_check: bool = false) -> void:
 	for i in range(turns):
@@ -468,6 +1070,10 @@ func _try_travel_to_selected_hex() -> void:
 	var distance_vector := _selected_hex_coords - player_token.current_hex_coords
 	if not HEX_NEIGHBORS.has(distance_vector):
 		_last_macro_event = "Selected hex is not adjacent."
+		_refresh_world_hud()
+		return
+	if not world_generator.is_in_zone_bounds(_selected_hex_coords):
+		_last_macro_event = "Selected hex is outside this zone."
 		_refresh_world_hud()
 		return
 	var target_hex := world_generator.get_hex_at(_selected_hex_coords)
@@ -520,6 +1126,8 @@ func _update_fog_of_war(center_coords: Vector2i) -> void:
 	_visible_hexes.clear()
 	var newly_revealed := 0
 	for coords in _coords_in_radius(center_coords, vision_radius):
+		if world_generator.zone_bounds_enabled and not world_generator.is_in_zone_bounds(coords):
+			continue
 		_visible_hexes[coords] = true
 		var hex_data := world_generator.get_hex_at(coords)
 		if not hex_data.is_explored:
@@ -530,6 +1138,34 @@ func _update_fog_of_war(center_coords: Vector2i) -> void:
 		"Fog update @%s: %d visible hex(es), %d newly explored."
 		% [str(center_coords), _visible_hexes.size(), newly_revealed]
 	)
+
+
+## Paint / refresh zone visuals and push black fog states to the visualizer.
+func _refresh_map_visuals(center_coords: Vector2i, repaint_zone: bool = false) -> void:
+	if map_visualizer == null:
+		return
+	_update_fog_of_war(center_coords)
+	if world_generator != null and world_generator.zone_bounds_enabled:
+		if repaint_zone or map_visualizer.rendered_cells.is_empty():
+			map_visualizer.render_zone()
+		map_visualizer.apply_fog(_visible_hexes)
+	else:
+		map_visualizer.render_radius(center_coords, 3)
+		map_visualizer.apply_fog(_visible_hexes)
+	_refresh_enemy_visibility()
+
+
+func _refresh_enemy_visibility() -> void:
+	for coords in active_enemies.keys():
+		_apply_enemy_visibility(active_enemies[coords], coords)
+
+
+## Enemies are fully visible only inside vision. No translucent alpha fog.
+func _apply_enemy_visibility(enemy: MacroEnemy, coords: Vector2i) -> void:
+	if enemy == null:
+		return
+	enemy.modulate = Color(1, 1, 1, 1)
+	enemy.visible = _is_hex_visible(coords)
 
 func _is_hex_visible(coords: Vector2i) -> bool:
 	return _visible_hexes.has(coords)
@@ -560,9 +1196,11 @@ func _advance_survival_time(
 
 func _get_exertion_for_biome(biome: GameEnums.GridBiome) -> float:
 	if biome == GameEnums.GridBiome.HILLS:
-		return 2.5
-	if biome == GameEnums.GridBiome.SWAMP or biome == GameEnums.GridBiome.MUD:
 		return 2.0
+	if biome == GameEnums.GridBiome.SWAMP or biome == GameEnums.GridBiome.MUD:
+		return 1.5
+	if biome == GameEnums.GridBiome.FOREST:
+		return 1.2
 	return 1.0
 
 func _get_exertion_for_hex(hex_data: MacroHexData) -> float:
@@ -572,6 +1210,9 @@ func begin_poi_interaction(
 	coords: Vector2i,
 	hex_data: MacroHexData
 ) -> void:
+	# Campaign objective / unique-event sites intercept the normal POI flow.
+	if _try_handle_campaign_site(coords, hex_data):
+		return
 	_pending_interaction = {
 		"type": GameEnums.MacroInteractionType.POI,
 		"coords": coords,
@@ -583,6 +1224,30 @@ func begin_poi_interaction(
 		close_macro_interaction()
 		return
 	_present_poi_session(coords, hex_data)
+
+
+func _try_handle_campaign_site(coords: Vector2i, hex_data: MacroHexData) -> bool:
+	if campaign == null or campaign.active_node_id.is_empty():
+		return false
+	var node := campaign.get_active_node()
+	if node == null or node.completed:
+		return false
+
+	if str(hex_data.poi_id).begins_with("macro_event_"):
+		var event_id := node.event_id
+		if event_id.is_empty():
+			event_id = MacroEventResolver.EVENT_LOCKED_TREATMENT_ROOM
+		begin_macro_event(event_id, coords)
+		return true
+
+	if hex_data.poi_id == "node_exit":
+		player_token.play_interaction()
+		if campaign.try_complete_objective_at(coords):
+			_announce_objective_complete(node)
+		_refresh_world_hud()
+		return true
+
+	return false
 
 
 func debug_begin_poi_interaction(
@@ -826,6 +1491,9 @@ func resolve_macro_event_choice(choice_id: String) -> void:
 		str(_pending_interaction.get("event_id", "Macro event")),
 		str(result.get("title", "Resolved")),
 	]
+	# Unique-event campaign nodes complete after any resolved choice.
+	if campaign != null:
+		campaign.complete_active_event_objective()
 	_refresh_world_hud()
 	if macro_hud:
 		macro_hud.show_event_result(result)
@@ -1029,7 +1697,7 @@ func _on_medical_action_requested(instance_id: String, limb_region: int) -> void
 	_refresh_world_hud()
 
 func _on_inventory_closed() -> void:
-	pass
+	_restore_node_map_inventory_layer()
 
 
 func _build_macro_event_context(
@@ -1172,7 +1840,7 @@ func _build_inventory_snapshot() -> Dictionary:
 func _build_world_hud_snapshot() -> Dictionary:
 	if not player_token:
 		return {}
-	return _SnapshotBuilder.build_world_hud_snapshot(
+	var snapshot := _SnapshotBuilder.build_world_hud_snapshot(
 		player_token.get_humanoid_core(),
 		player_token.current_hex_coords,
 		_selected_hex_coords,
@@ -1188,6 +1856,29 @@ func _build_world_hud_snapshot() -> Dictionary:
 		Callable(_world_state, "is_entity_alive"),
 		Callable(_world_state, "is_entity_hostile")
 	)
+	if campaign != null:
+		var active := campaign.get_active_node()
+		var next_ids := _next_incomplete_available_nodes()
+		snapshot["campaign"] = {
+			"active_node_id": campaign.active_node_id,
+			"available_nodes": campaign.get_available_nodes(),
+			"next_nodes": next_ids,
+			"active_display_name": (
+				active.display_name if active != null else ""
+			),
+			"active_completed": active != null and active.completed,
+			"objective_coords": (
+				campaign.zone_generator.objective_coords
+				if campaign.zone_generator != null
+				else Vector2i.ZERO
+			),
+			"advance_hint": (
+				"Press N to enter %s." % next_ids[0]
+				if not next_ids.is_empty()
+				else ""
+			),
+		}
+	return snapshot
 
 
 func _build_hex_descriptor(coords: Vector2i) -> Dictionary:
@@ -1236,6 +1927,8 @@ func _refresh_world_hud() -> void:
 		_selected_hex_coords
 	)
 	macro_hud.refresh(snapshot)
+	if is_node_map_open():
+		node_map_system.call("refresh", build_node_map_ui_snapshot())
 
 func _can_offer_equip(item: ItemData) -> bool:
 	return (
@@ -1819,9 +2512,8 @@ func retreat_player_from_combat(
 		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
 		retreat_coords
 	)
-	map_visualizer.render_radius(retreat_coords, 3)
-	_update_fog_of_war(retreat_coords)
 	_mark_hex_explored(retreat_coords, retreat_hex)
+	_refresh_map_visuals(retreat_coords, false)
 	refresh_proximity(retreat_coords)
 	_last_macro_event = "Escaped combat; fell back to HEX %d,%d." % [
 		retreat_coords.x,
@@ -2022,7 +2714,7 @@ func _move_npc_record(
 			unload_enemy_token(target_coords)
 		active_enemies[target_coords] = token
 		token.walk_to_hex(target_coords, map_visualizer.map_to_local(target_coords))
-		_apply_fog_tint(token, target_coords)
+		_apply_enemy_visibility(token, target_coords)
 		_macro_log(
 			"Token %s moved %s -> %s."
 			% [record.entity_id, str(old_coords), str(target_coords)]
@@ -2100,7 +2792,7 @@ func _spawn_enemy_token_from_record(record: EntityRecord) -> MacroEnemy:
 		# the coord means the index desynced (e.g. a record relocated without its
 		# token); tear the stale token down so we never render the wrong identity.
 		if existing != null and existing.entity_id == entity_id:
-			_apply_fog_tint(existing, coords)
+			_apply_enemy_visibility(existing, coords)
 			return existing
 		_macro_log(
 			"Replacing stale token at %s (%s -> %s)."
@@ -2117,7 +2809,7 @@ func _spawn_enemy_token_from_record(record: EntityRecord) -> MacroEnemy:
 	enemy.setup_from_record(record.to_dict())
 	enemy.snap_to_hex(coords, map_visualizer.map_to_local(coords))
 	active_enemies[coords] = enemy
-	_apply_fog_tint(enemy, coords)
+	_apply_enemy_visibility(enemy, coords)
 
 	var definition_state: Dictionary = record.definition
 	_macro_log(
@@ -2129,11 +2821,3 @@ func _spawn_enemy_token_from_record(record: EntityRecord) -> MacroEnemy:
 		]
 	)
 	return enemy
-
-## Dim tokens that sit in explored-but-currently-unseen hexes so the fog-of-war
-## state reads visually: enemies inside the player's sight are fully lit, those
-## lurking just out of view are shadowed.
-func _apply_fog_tint(enemy: MacroEnemy, coords: Vector2i) -> void:
-	if enemy == null:
-		return
-	enemy.modulate.a = 1.0 if _is_hex_visible(coords) else 0.45

@@ -14,10 +14,17 @@ class_name HexWorldGenerator
 @export_range(1, 6) var central_hub_radius: int = 2
 @export_range(3, 12) var hub_border_radius: int = 4
 
+## When enabled, only hexes inside [0, zone_size) x [0, zone_size) are playable.
+## Used by the node-campaign local 12x12 zones.
+@export var zone_bounds_enabled: bool = false
+@export_range(1, 32) var zone_size: int = GameEnums.MACRO_ZONE_SIZE
+
 var elevation_noise: FastNoiseLite
 var moisture_noise: FastNoiseLite
 var world_hex_cache: Dictionary = {}
 var manual_poi_overrides: Dictionary = {}
+## Zone-generated prop clutter (Vector2i -> Array[Dictionary]). Used when no authored map.
+var zone_decorations: Dictionary = {}
 
 var _world_state: RuntimeStateStore
 var _mutation_store: Node
@@ -63,6 +70,44 @@ func configure_seed(seed_value: String) -> void:
 	manual_poi_overrides.clear()
 	_initialize_noise()
 
+
+func enable_zone_bounds(size: int = GameEnums.MACRO_ZONE_SIZE) -> void:
+	zone_bounds_enabled = true
+	zone_size = size
+
+
+func disable_zone_bounds() -> void:
+	zone_bounds_enabled = false
+
+
+func is_in_zone_bounds(coords: Vector2i) -> bool:
+	if not zone_bounds_enabled:
+		return true
+	# Campaign node zones fill the axial square [0, zone_size)^2 (rhombus on screen).
+	return coords.x >= 0 and coords.y >= 0 and coords.x < zone_size and coords.y < zone_size
+
+
+func inject_zone_hexes(hexes: Dictionary) -> void:
+	## Replace cache with a pre-generated local zone (Vector2i -> MacroHexData).
+	world_hex_cache.clear()
+	zone_decorations.clear()
+	for coords in hexes.keys():
+		if coords is Vector2i:
+			world_hex_cache[coords] = hexes[coords]
+
+
+func inject_zone_decorations(decorations: Dictionary) -> void:
+	zone_decorations = decorations.duplicate(true)
+
+
+func get_decorations_at(coords: Vector2i) -> Array:
+	if authored_map != null and authored_map.has_method("get_decorations_at"):
+		var authored_props: Array = authored_map.get_decorations_at(coords)
+		if not authored_props.is_empty():
+			return authored_props
+	return zone_decorations.get(coords, [])
+
+
 func inject_unique_poi(
 	coords: Vector2i,
 	poi_id: String,
@@ -75,9 +120,15 @@ func inject_unique_poi(
 		"biome": forced_biome,
 	}
 
+
 func get_hex_at(coords: Vector2i) -> MacroHexData:
 	if world_hex_cache.has(coords):
 		return world_hex_cache[coords]
+
+	if zone_bounds_enabled and not is_in_zone_bounds(coords):
+		var void_hex := build_void_hex(coords)
+		world_hex_cache[coords] = void_hex
+		return void_hex
 
 	var persistent_state: HexRecord = _world_state.get_hex_record(coords)
 	if persistent_state != null:

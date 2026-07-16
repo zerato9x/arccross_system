@@ -93,19 +93,24 @@ static func menu_icon(name: String) -> Texture2D:
 	return status_icon(name)
 
 static func panel_style(kind: String = "neutral") -> StyleBox:
-	var background := COLOR_PANEL
-	var border := COLOR_BORDER
+	# Macro chrome: black fills + dark grey borders (no crimson/warm-red panels).
+	var background := Color(0, 0, 0, 1.0)
+	var border := COLOR_BORDER_DARK
+	var alpha := 0.88
 	match kind:
 		"warning":
-			background = COLOR_PANEL_WARM
-			border = COLOR_CAUTION
+			background = Color(0, 0, 0, 1.0)
+			border = Color("#5a5648")
+			alpha = 0.90
 		"critical":
-			background = Color("#211512")
-			border = COLOR_CRITICAL
+			background = Color(0, 0, 0, 1.0)
+			border = Color("#4a4a44")
+			alpha = 0.92
 		"anomaly":
-			background = Color("#1f1714")
-			border = COLOR_ANOMALY
-	return _pixel_panel_style(background, border, 1, 8.0, 0.94)
+			background = Color(0, 0, 0, 1.0)
+			border = Color("#45423c")
+			alpha = 0.90
+	return _pixel_panel_style(background, border, 1, 8.0, alpha)
 
 static func button_style(state: String = "normal") -> StyleBox:
 	var background := Color("#171912")
@@ -221,9 +226,10 @@ static func pocket_slot_style(active: bool = false) -> StyleBox:
 	return _pixel_panel_style(background, border, 1, 3.0, 0.96)
 
 static func macro_slot_style(filled: bool = false) -> StyleBox:
-	var background := COLOR_PANEL_WARM if filled else COLOR_SLOT
-	var border := COLOR_CAUTION if filled else COLOR_BORDER_DARK
-	return _pixel_panel_style(background, border, 1, 5.0, 0.96)
+	var background := Color(0, 0, 0, 1.0) if filled else Color(0, 0, 0, 0.85)
+	var border := COLOR_BORDER_DARK
+	return _pixel_panel_style(background, border, 1, 5.0, 0.92)
+
 
 static func macro_button_minimum_size(width: float = 0.0) -> Vector2:
 	return Vector2(width, MACRO_BUTTON_MIN_HEIGHT)
@@ -236,23 +242,19 @@ static func pocket_panel_texture() -> Texture2D:
 
 static func pixel_panel_color(kind: String = "neutral") -> Color:
 	match kind:
-		"warning":
-			return COLOR_PANEL_WARM
-		"critical":
-			return Color("#211512")
-		"anomaly":
-			return Color("#1f1714")
-	return COLOR_PANEL
+		"warning", "critical", "anomaly":
+			return Color(0, 0, 0, 1.0)
+	return Color(0, 0, 0, 1.0)
 
 static func pixel_border_color(kind: String = "neutral") -> Color:
 	match kind:
 		"warning":
-			return COLOR_CAUTION
+			return Color("#5a5648")
 		"critical":
-			return COLOR_CRITICAL
+			return Color("#4a4a44")
 		"anomaly":
-			return COLOR_ANOMALY
-	return COLOR_BORDER
+			return Color("#45423c")
+	return COLOR_BORDER_DARK
 
 static func _pixel_panel_style(
 	background: Color,
