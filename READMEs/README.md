@@ -18,7 +18,7 @@ of restating it.
 
 ## Current Implementation
 
-Status updated on **July 13, 2026**:
+Status updated on **July 17, 2026**:
 
 ### Playable Loop
 
@@ -69,9 +69,12 @@ Status updated on **July 13, 2026**:
   IDs.
 - `LootCatalog` is the single runtime registry. The offline catalog builder
   adds missing definitions without overwriting later Inspector edits.
-- Macro world maps are procedurally generated using `HexRecord` and
-  `MacroTileCatalog`, with multiple biomes and region staging from
-  `HexWorldGenerator`.
+- Macro node zones retain deterministic seeded generation as a fallback, while
+  the authored pipeline stores painted terrain, water, gameplay layers,
+  decorations, and placement sockets in `AuthoredWorldMap` resources.
+- `WorldCore/plains_zone_template.tscn` is the canonical radius-12 authoring
+  example: 469 terrain cells, eight directional arrival/exit pairs, and POI,
+  encounter, and quest-object socket examples.
 - Macro NPC projection is sparse and purpose-driven; the HUD surfaces nearby NPC
   intent.
 - `AudioConductor` handles macro day/night music, combat, and game-over scenes
@@ -92,6 +95,9 @@ Status updated on **July 13, 2026**:
   armor regions, and unsupported weapons.
 - Squad combat, full narrative dialogue, and balance tuning beyond deadlock
   prevention remain out of scope.
+- Hand-painted preset coverage is still incomplete. The authoring contract is
+  implemented; assigning finished presets across campaign profiles is content
+  work rather than secretly completed by the template scene.
 
 See the [June 29 changelog](CHANGELOG.md#june-29-2026) for the combat HUD
 completion record and [Phase 2 Execution Plan](phase_2_execution_plan.md) for

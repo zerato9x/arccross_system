@@ -35,17 +35,23 @@ func get_hex_coords() -> Vector2i:
 	return _hex.get("coords", Vector2i.ZERO)
 
 func _render(scene_descriptor: Dictionary) -> void:
-	_title_label.text = str(_hex.get("label", "HEX --"))
+	var coords: Vector2i = _hex.get("coords", Vector2i.ZERO)
+	_title_label.text = "HEX %d,%d // %s" % [
+		coords.x,
+		coords.y,
+		str(_hex.get("feature_title", "Unknown Ground")).to_upper(),
+	]
 	var lines := PackedStringArray()
 	lines.append(
-		"%s // %s // HAZ %.1f // DIST %d"
+		"%s // %s // %s"
 		% [
-			str(_hex.get("terrain", "TERRAIN")),
-			str(_hex.get("structure", "NONE")),
-			float(_hex.get("hazard", 0.0)),
-			int(_hex.get("distance", 0)),
+			str(_hex.get("region", "UNKNOWN REGION")),
+			str(_hex.get("terrain", "UNKNOWN TERRAIN")),
+			str(_hex.get("water", "NONE")),
 		]
 	)
+	lines.append(str(_hex.get("environment_summary", "No useful survey data.")))
+	lines.append(str(_hex.get("movement_note", "Movement conditions unknown.")))
 	if bool(_hex.get("is_poi", false)):
 		lines.append("POI " + str(_hex.get("poi_name", "Unknown")))
 	if int(_hex.get("travel_minutes", 0)) > 0:
@@ -57,6 +63,16 @@ func _render(scene_descriptor: Dictionary) -> void:
 				float(_hex.get("travel_exertion", 1.0)),
 			]
 		)
+	lines.append(
+		"VIS %s // COVER %s // HAZ %.1f // DIST %d"
+		% [
+			str(_hex.get("visibility", "UNKNOWN")),
+			str(_hex.get("cover", "UNKNOWN")),
+			float(_hex.get("hazard", 0.0)),
+			int(_hex.get("distance", 0)),
+		]
+	)
+	lines.append(str(_hex.get("resource_hint", "No obvious resources.")))
 	if int(_hex.get("ground_item_count", 0)) > 0:
 		lines.append("GROUND ITEMS " + str(_hex.get("ground_item_count", 0)))
 	if not str(_hex.get("entity_name", "")).is_empty():

@@ -37,7 +37,12 @@ database, stat registry, or rule table.
 
 - Owns hex generation, movement, macro presentation, proximity loading, POI
   resolution, and macro interaction rules.
-- Generates the world map dynamically using `HexMapVisualizer` and `MacroTileCatalog` rather than a static scene.
+- Renders local zones dynamically through `HexMapVisualizer` and
+  `MacroTileCatalog`; baselines may come from seeded generation or baked
+  `AuthoredWorldMap` resources rather than thousands of live authored nodes.
+- `WorldMapEditor` owns the paint workflow, `AuthoredWorldMapBaker` converts
+  editor layers to neutral records, and `HexMapSocket` stores placement hooks
+  without spawning gameplay content in the editor scene.
 - Selects Loot Profile IDs from biome and POI state without exposing ItemCore
   resources to UI.
 - Creates encounter records deterministically from world seed and coordinates.
@@ -108,6 +113,12 @@ definition: Dictionary
 
 ```text
 biome: GameEnums.GridBiome
+terrain_tile: GameEnums.MacroTerrainTile
+flora_layer: GameEnums.MacroFloraLayer
+rock_layer: GameEnums.MacroRockLayer
+water_layer: GameEnums.MacroWaterLayer
+structure_layer: GameEnums.MacroStructureLayer
+water_sprite_path: String
 is_poi: bool
 poi_id: String
 poi_name: String
@@ -214,9 +225,16 @@ ambush_position: GameEnums.AmbushPosition
   outward rim step and only for eligible adjacent directional edges.
 - `RuntimeStateStore` snapshots visited nodes within one run so backtracking
   cannot reset enemies, loot, fog, or quest objects.
-- TileMap terrain remains full-hex. Uneven flora/structure overlays are bottom-
-  aligned, while local rock and clutter recipes use normalized sprite boxes,
-  zero arbitrary rotation, and consistent ground anchors.
+- `AuthoredWorldMap` stores painted hex entries, freeform decoration records,
+  and socket records. The template supplies all eight arrival and exit anchors;
+  authored presets must keep those corridors traversable.
+- TileMap terrain and water remain full-hex gameplay layers. `HexDecorProp`
+  remains visual-only; blockers, travel cost, POIs, and water authority come
+  from the baked hex entry or marker metadata.
+- Seeded procedural generation remains a fallback for campaign profiles without
+  a finished authored preset. The template does not magically constitute a
+  complete preset library, despite being much more organized than the old
+  shrub lottery.
 
 ## Dependency Direction
 
@@ -263,6 +281,8 @@ Stable surfaces for content mods (no orchestration code changes required):
 - **Entity records** — `EntityRecord` JSON fields (`entity_id`, `kind`,
   `life_state`, `world_status`, `coords`, `definition`, `runtime`).
 - **Hex records** — `HexRecord` fields documented above.
+- **Authored local zones** — `AuthoredWorldMap` entries, decorations, and
+  `HexMapSocket` records baked from `WorldMapEditor` scenes.
 - **Item runtime dict** — `instance_id`, `template_path`, `current_magazine`,
   `needs_cycling`, `definition` (neutral descriptor subset).
 - **`GameEnums` macro inventory command IDs** — `MACRO_INV_TAKE`, `MACRO_INV_DROP`,

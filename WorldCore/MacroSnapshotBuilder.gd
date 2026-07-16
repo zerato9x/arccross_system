@@ -297,6 +297,10 @@ static func build_hex_descriptor(
 			int(hex_data.flora_layer)
 		),
 		"rock": enum_key(GameEnums.MacroRockLayer.keys(), int(hex_data.rock_layer)),
+		"water": enum_key(
+			GameEnums.MacroWaterLayer.keys(),
+			int(hex_data.water_layer)
+		),
 		"structure": enum_key(
 			GameEnums.MacroStructureLayer.keys(),
 			int(hex_data.structure_layer)
@@ -320,7 +324,110 @@ static func build_hex_descriptor(
 		"entity_status": entity_status,
 		"entity_purpose": entity_purpose,
 		"hostile": hostile,
+		"feature_title": _hex_feature_title(hex_data),
+		"environment_summary": _hex_environment_summary(hex_data),
+		"movement_note": _hex_movement_note(hex_data),
+		"visibility": _hex_visibility(hex_data),
+		"cover": _hex_cover(hex_data),
+		"resource_hint": _hex_resource_hint(hex_data),
 	}
+
+
+static func _hex_feature_title(hex_data: MacroHexData) -> String:
+	if hex_data.is_poi and not hex_data.poi_name.is_empty():
+		return hex_data.poi_name
+	if hex_data.water_layer == GameEnums.MacroWaterLayer.SHALLOW_RIVER:
+		return "Shallow River Channel"
+	if hex_data.water_layer == GameEnums.MacroWaterLayer.DEEP_WATER:
+		return "Deep Water"
+	if hex_data.rock_layer == GameEnums.MacroRockLayer.ROCKS:
+		return "Blocking Boulder Field"
+	if hex_data.rock_layer == GameEnums.MacroRockLayer.HILLS:
+		return "Broken Rocky Rise"
+	if hex_data.flora_layer == GameEnums.MacroFloraLayer.TREES:
+		return "Temperate Grove"
+	if hex_data.structure_layer == GameEnums.MacroStructureLayer.REMNANTS:
+		return "Scattered Remnants"
+	if hex_data.structure_layer == GameEnums.MacroStructureLayer.STRUCTURES:
+		return "Isolated Structure"
+	if hex_data.terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW:
+		return "Waterlogged Lowland"
+	if hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS:
+		return "Shrub-Dotted Prairie"
+	return "Open Prairie"
+
+
+static func _hex_environment_summary(hex_data: MacroHexData) -> String:
+	if hex_data.water_layer == GameEnums.MacroWaterLayer.SHALLOW_RIVER:
+		return "Cold shallow water, stony banks, and dense riverside growth."
+	if hex_data.water_layer == GameEnums.MacroWaterLayer.DEEP_WATER:
+		return "Dark water with no safe footing visible from the bank."
+	if hex_data.rock_layer == GameEnums.MacroRockLayer.ROCKS:
+		return "Massive weathered stone closes off direct passage."
+	if hex_data.rock_layer == GameEnums.MacroRockLayer.HILLS:
+		return "Uneven stone shelves break up the surrounding grassland."
+	if hex_data.flora_layer == GameEnums.MacroFloraLayer.TREES:
+		return "Mature trees, leaf litter, and thick understory limit sightlines."
+	if hex_data.structure_layer != GameEnums.MacroStructureLayer.NONE:
+		return "Human-made remains interrupt the otherwise open plains."
+	if hex_data.terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW:
+		return "Soft saturated ground records tracks and slows every step."
+	if hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS:
+		return "Waist-high scrub and hardy plants cluster across the prairie."
+	return "Wind-cut grassland with long sightlines and little shelter."
+
+
+static func _hex_movement_note(hex_data: MacroHexData) -> String:
+	if not hex_data.is_passable():
+		if hex_data.water_layer == GameEnums.MacroWaterLayer.DEEP_WATER:
+			return "IMPASSABLE // deep water"
+		return "IMPASSABLE // massive stone obstruction"
+	if hex_data.water_layer == GameEnums.MacroWaterLayer.SHALLOW_RIVER:
+		return "FORDABLE // current and slick stones slow movement"
+	if hex_data.rock_layer == GameEnums.MacroRockLayer.HILLS:
+		return "DIFFICULT // uneven climbing"
+	if hex_data.terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW:
+		return "SLOW // unstable wet ground"
+	if hex_data.flora_layer == GameEnums.MacroFloraLayer.TREES:
+		return "SLOW // dense understory"
+	return "CLEAR // normal travel"
+
+
+static func _hex_visibility(hex_data: MacroHexData) -> String:
+	if hex_data.flora_layer == GameEnums.MacroFloraLayer.TREES:
+		return "OBSTRUCTED"
+	if hex_data.structure_layer != GameEnums.MacroStructureLayer.NONE:
+		return "BROKEN"
+	if hex_data.rock_layer != GameEnums.MacroRockLayer.NONE:
+		return "LIMITED"
+	return "OPEN"
+
+
+static func _hex_cover(hex_data: MacroHexData) -> String:
+	if (
+		hex_data.rock_layer != GameEnums.MacroRockLayer.NONE
+		or hex_data.structure_layer != GameEnums.MacroStructureLayer.NONE
+	):
+		return "HIGH"
+	if hex_data.flora_layer == GameEnums.MacroFloraLayer.TREES:
+		return "MEDIUM"
+	if hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS:
+		return "LOW"
+	return "NONE"
+
+
+static func _hex_resource_hint(hex_data: MacroHexData) -> String:
+	if hex_data.water_layer != GameEnums.MacroWaterLayer.NONE:
+		return "Possible finds: water, reeds, smooth stone"
+	if hex_data.flora_layer == GameEnums.MacroFloraLayer.TREES:
+		return "Possible finds: wood, forage, concealment"
+	if hex_data.rock_layer != GameEnums.MacroRockLayer.NONE:
+		return "Possible finds: stone, sheltered crevices"
+	if hex_data.structure_layer != GameEnums.MacroStructureLayer.NONE:
+		return "Possible finds: salvage, containers, traces of habitation"
+	if hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS:
+		return "Possible finds: fibers, berries, small game signs"
+	return "Possible finds: grasses, exposed tracks"
 
 
 static func build_macro_activity_snapshot(

@@ -12,6 +12,7 @@ enum FogState {
 @export var world_generator: HexWorldGenerator
 @export var tile_catalog: MacroTileCatalog
 @export var overlay_layer: TileMapLayer
+@export var water_layer: TileMapLayer
 @export var flora_layer: TileMapLayer
 @export var rock_layer: TileMapLayer
 @export var structure_layer: TileMapLayer
@@ -163,6 +164,7 @@ func _collect_source_ids(value: Variant, output: Dictionary) -> void:
 func _assign_tileset_to_layers(generated_tile_set: TileSet) -> void:
 	for layer in [
 		overlay_layer,
+		water_layer,
 		flora_layer,
 		rock_layer,
 		structure_layer,
@@ -353,12 +355,14 @@ func _paint_single_hex(coords: Vector2i) -> void:
 	set_cell(coords, bg_source_id, SINGLE_TILE_COORD)
 
 	var target_flora_layer := flora_layer if flora_layer != null else overlay_layer
+	var target_water_layer := water_layer if water_layer != null else overlay_layer
 	var target_rock_layer := rock_layer if rock_layer != null else overlay_layer
 	var target_structure_layer := (
 		structure_layer if structure_layer != null else overlay_layer
 	)
 
 	if is_unknown:
+		_paint_optional_layer(target_water_layer, coords, -1)
 		_paint_optional_layer(target_flora_layer, coords, -1)
 		_paint_optional_layer(target_rock_layer, coords, -1)
 		_paint_optional_layer(target_structure_layer, coords, -1)
@@ -366,6 +370,11 @@ func _paint_single_hex(coords: Vector2i) -> void:
 		_clear_decorations(coords)
 		_hide_poi_marker(coords)
 	else:
+		_paint_optional_layer(
+			target_water_layer,
+			coords,
+			_resolve_water_source_id(hex_data)
+		)
 		if (
 			_zone_mode
 			and hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS
@@ -438,6 +447,19 @@ func _resolve_rock_source_id(hex_data: MacroHexData) -> int:
 			hex_data.biome_pack
 		)
 	return -1
+
+
+func _resolve_water_source_id(hex_data: MacroHexData) -> int:
+	if (
+		hex_data.water_layer == GameEnums.MacroWaterLayer.NONE
+		or hex_data.water_sprite_path.is_empty()
+		or tile_catalog == null
+	):
+		return -1
+	return tile_catalog.resolve_asset_path(
+		hex_data.water_sprite_path,
+		hex_data.visual_variant_hash
+	)
 
 func _resolve_structure_source_id(hex_data: MacroHexData) -> int:
 	if tile_catalog != null:
@@ -660,11 +682,13 @@ func _sync_detail_visibility(coords: Vector2i, state: int) -> void:
 	var is_unknown := state == FogState.UNKNOWN
 	var hex_data: MacroHexData = world_generator.get_hex_at(coords)
 	var target_flora_layer := flora_layer if flora_layer != null else overlay_layer
+	var target_water_layer := water_layer if water_layer != null else overlay_layer
 	var target_rock_layer := rock_layer if rock_layer != null else overlay_layer
 	var target_structure_layer := (
 		structure_layer if structure_layer != null else overlay_layer
 	)
 	if is_unknown:
+		_paint_optional_layer(target_water_layer, coords, -1)
 		_paint_optional_layer(target_flora_layer, coords, -1)
 		_paint_optional_layer(target_rock_layer, coords, -1)
 		_paint_optional_layer(target_structure_layer, coords, -1)
@@ -676,6 +700,11 @@ func _sync_detail_visibility(coords: Vector2i, state: int) -> void:
 		return
 
 	# Restored visibility: repaint details if missing.
+	_paint_optional_layer(
+		target_water_layer,
+		coords,
+		_resolve_water_source_id(hex_data)
+	)
 	if (
 		_zone_mode
 		and hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS
@@ -717,6 +746,8 @@ func _erase_hex_visual(coords: Vector2i) -> void:
 	erase_cell(coords)
 	if overlay_layer != null:
 		overlay_layer.erase_cell(coords)
+	if water_layer != null:
+		water_layer.erase_cell(coords)
 	if flora_layer != null:
 		flora_layer.erase_cell(coords)
 	if rock_layer != null:

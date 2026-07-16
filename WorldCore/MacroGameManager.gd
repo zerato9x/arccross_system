@@ -2090,11 +2090,14 @@ func _refresh_world_hud() -> void:
 	snapshot["maximum_capacity"] = inventory_snapshot.get("maximum_capacity", 0)
 	snapshot["capacity_breakdown"] = inventory_snapshot.get("capacity_breakdown", [])
 	var hex_data := world_generator.get_hex_at(_selected_hex_coords)
-	snapshot["selected_scene_descriptor"] = EventBgCatalog.build_scene_descriptor(
+	var scene_descriptor := EventBgCatalog.build_scene_descriptor(
 		hex_data,
 		_world_state.world_seed,
 		_selected_hex_coords
 	)
+	if not hex_data.water_sprite_path.is_empty():
+		scene_descriptor["background_path"] = hex_data.water_sprite_path
+	snapshot["selected_scene_descriptor"] = scene_descriptor
 	macro_hud.refresh(snapshot)
 	if is_node_map_open():
 		node_map_system.call("refresh", build_node_map_ui_snapshot())

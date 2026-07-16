@@ -1,0 +1,297 @@
+[gd_scene format=4 uid="uid://bjcy21t8cklve"]
+
+[ext_resource type="Script" uid="uid://ccgdg6podh5df" path="res://WorldCore/WorldMapEditor.gd" id="1_vkugh"]
+[ext_resource type="Script" uid="uid://cqqujodtqcqe8" path="res://WorldCore/AuthoredWorldMapBaker.gd" id="2_c0f33"]
+[ext_resource type="Resource" path="res://Asset/MacroTileCatalog.tres" id="3_wgo4v"]
+[ext_resource type="TileSet" uid="uid://7rtukh4n1cqx" path="res://Asset/MacroTileSet.tres" id="4_7ohcw"]
+[ext_resource type="Script" uid="uid://davrp6m8gik5b" path="res://WorldCore/HexDecorProp.gd" id="5_17tud"]
+[ext_resource type="Script" uid="uid://dkva45ucrr4s5" path="res://WorldCore/HexMapMarker.gd" id="6_jg77r"]
+[ext_resource type="Script" uid="uid://26tws8ib8ygd" path="res://WorldCore/HexMapSocket.gd" id="7_c0f33"]
+
+[node name="WorldMapEditor" type="Node2D" unique_id=462087400 node_paths=PackedStringArray("terrain_layer", "water_layer", "flora_layer", "rock_layer", "structure_layer", "props_layer", "baker")]
+script = ExtResource("1_vkugh")
+terrain_layer = NodePath("TerrainLayer")
+water_layer = NodePath("WaterLayer")
+flora_layer = NodePath("FloraLayer")
+rock_layer = NodePath("RockLayer")
+structure_layer = NodePath("StructureLayer")
+props_layer = NodePath("PropsLayer")
+baker = NodePath("AuthoredWorldMapBaker")
+
+[node name="AuthoredWorldMapBaker" type="Node" parent="." unique_id=887019120 node_paths=PackedStringArray("terrain_layer", "water_layer", "flora_layer", "rock_layer", "structure_layer", "props_layer", "decor_root", "marker_root", "socket_root")]
+script = ExtResource("2_c0f33")
+terrain_layer = NodePath("../TerrainLayer")
+water_layer = NodePath("../WaterLayer")
+flora_layer = NodePath("../FloraLayer")
+rock_layer = NodePath("../RockLayer")
+structure_layer = NodePath("../StructureLayer")
+props_layer = NodePath("../PropsLayer")
+decor_root = NodePath("../Decorations")
+marker_root = NodePath("../Markers")
+socket_root = NodePath("../Sockets")
+tile_catalog = ExtResource("3_wgo4v")
+output_path = "res://WorldCore/Maps/plains_custom_01.tres"
+map_id = "plains_custom_01"
+display_name = "Plains Custom 01"
+start_coords = Vector2i(-6, 12)
+
+[node name="TerrainLayer" type="TileMapLayer" parent="." unique_id=942390597]
+tile_map_data = PackedByteArray("AAABAP//dQAAAAAAAAAAAAAAegAAAAAAAAD//wAAeAAAAAAAAAABAAAAeQAAAAAAAAAAAAEAdwAAAAAAAAD//wEAdAAAAAAAAAACAAAAewAAAAAAAAD+/wAAcgAAAAAAAAAAAP//dgAAAAAAAAD0/wAAegAAAAAAAAD0/wEAegAAAAAAAAD0/wIAegAAAAAAAAD0/wMAegAAAAAAAAD0/wQAegAAAAAAAAD0/wUAegAAAAAAAAD0/wYAegAAAAAAAAD0/wcAegAAAAAAAAD0/wgAegAAAAAAAAD0/wkAegAAAAAAAAD0/woAegAAAAAAAAD0/wsAegAAAAAAAAD0/wwAegAAAAAAAAD1////egAAAAAAAAD1/wAAegAAAAAAAAD1/wEAegAAAAAAAAD1/wIAegAAAAAAAAD1/wMAegAAAAAAAAD1/wQAegAAAAAAAAD1/wUAegAAAAAAAAD1/wYAegAAAAAAAAD1/wcAegAAAAAAAAD1/wgAegAAAAAAAAD1/wkAegAAAAAAAAD1/woAegAAAAAAAAD1/wsAegAAAAAAAAD1/wwAegAAAAAAAAD2//7/egAAAAAAAAD2////egAAAAAAAAD2/wAAegAAAAAAAAD2/wEAegAAAAAAAAD2/wIAegAAAAAAAAD2/wMAegAAAAAAAAD2/wQAegAAAAAAAAD2/wUAegAAAAAAAAD2/wYAegAAAAAAAAD2/wcAegAAAAAAAAD2/wgAegAAAAAAAAD2/wkAegAAAAAAAAD2/woAegAAAAAAAAD2/wsAegAAAAAAAAD2/wwAegAAAAAAAAD3//3/egAAAAAAAAD3//7/egAAAAAAAAD3////egAAAAAAAAD3/wAAegAAAAAAAAD3/wEAegAAAAAAAAD3/wIAegAAAAAAAAD3/wMAegAAAAAAAAD3/wQAegAAAAAAAAD3/wUAegAAAAAAAAD3/wYAegAAAAAAAAD3/wcAegAAAAAAAAD3/wgAegAAAAAAAAD3/wkAegAAAAAAAAD3/woAegAAAAAAAAD3/wsAegAAAAAAAAD3/wwAegAAAAAAAAD4//z/egAAAAAAAAD4//3/egAAAAAAAAD4//7/egAAAAAAAAD4////egAAAAAAAAD4/wAAegAAAAAAAAD4/wEAegAAAAAAAAD4/wIAegAAAAAAAAD4/wMAegAAAAAAAAD4/wQAegAAAAAAAAD4/wUAegAAAAAAAAD4/wYAegAAAAAAAAD4/wcAegAAAAAAAAD4/wgAegAAAAAAAAD4/wkAegAAAAAAAAD4/woAegAAAAAAAAD4/wsAegAAAAAAAAD4/wwAegAAAAAAAAD5//v/egAAAAAAAAD5//z/egAAAAAAAAD5//3/egAAAAAAAAD5//7/egAAAAAAAAD5////egAAAAAAAAD5/wAAegAAAAAAAAD5/wEAegAAAAAAAAD5/wIAegAAAAAAAAD5/wMAegAAAAAAAAD5/wQAegAAAAAAAAD5/wUAegAAAAAAAAD5/wYAegAAAAAAAAD5/wcAegAAAAAAAAD5/wgAegAAAAAAAAD5/wkAegAAAAAAAAD5/woAegAAAAAAAAD5/wsAegAAAAAAAAD5/wwAegAAAAAAAAD6//r/egAAAAAAAAD6//v/egAAAAAAAAD6//z/egAAAAAAAAD6//3/egAAAAAAAAD6//7/egAAAAAAAAD6////egAAAAAAAAD6/wAAegAAAAAAAAD6/wEAegAAAAAAAAD6/wIAegAAAAAAAAD6/wMAegAAAAAAAAD6/wQAegAAAAAAAAD6/wUAegAAAAAAAAD6/wYAegAAAAAAAAD6/wcAegAAAAAAAAD6/wgAegAAAAAAAAD6/wkAegAAAAAAAAD6/woAegAAAAAAAAD6/wsAegAAAAAAAAD6/wwAegAAAAAAAAD7//n/egAAAAAAAAD7//r/egAAAAAAAAD7//v/egAAAAAAAAD7//z/egAAAAAAAAD7//3/egAAAAAAAAD7//7/egAAAAAAAAD7////egAAAAAAAAD7/wAAegAAAAAAAAD7/wEAegAAAAAAAAD7/wIAegAAAAAAAAD7/wMAegAAAAAAAAD7/wQAegAAAAAAAAD7/wUAegAAAAAAAAD7/wYAegAAAAAAAAD7/wcAegAAAAAAAAD7/wgAegAAAAAAAAD7/wkAegAAAAAAAAD7/woAegAAAAAAAAD7/wsAegAAAAAAAAD7/wwAegAAAAAAAAD8//j/egAAAAAAAAD8//n/egAAAAAAAAD8//r/egAAAAAAAAD8//v/egAAAAAAAAD8//z/egAAAAAAAAD8//3/egAAAAAAAAD8//7/egAAAAAAAAD8////egAAAAAAAAD8/wAAegAAAAAAAAD8/wEAegAAAAAAAAD8/wIAegAAAAAAAAD8/wMAegAAAAAAAAD8/wQAegAAAAAAAAD8/wUAegAAAAAAAAD8/wYAegAAAAAAAAD8/wcAegAAAAAAAAD8/wgAegAAAAAAAAD8/wkAegAAAAAAAAD8/woAegAAAAAAAAD8/wsAegAAAAAAAAD8/wwAegAAAAAAAAD9//f/egAAAAAAAAD9//j/egAAAAAAAAD9//n/egAAAAAAAAD9//r/egAAAAAAAAD9//v/egAAAAAAAAD9//z/egAAAAAAAAD9//3/egAAAAAAAAD9//7/egAAAAAAAAD9////egAAAAAAAAD9/wAAegAAAAAAAAD9/wEAegAAAAAAAAD9/wIAegAAAAAAAAD9/wMAegAAAAAAAAD9/wQAegAAAAAAAAD9/wUAegAAAAAAAAD9/wYAegAAAAAAAAD9/wcAegAAAAAAAAD9/wgAegAAAAAAAAD9/wkAegAAAAAAAAD9/woAegAAAAAAAAD9/wsAegAAAAAAAAD9/wwAegAAAAAAAAD+//b/egAAAAAAAAD+//f/egAAAAAAAAD+//j/egAAAAAAAAD+//n/egAAAAAAAAD+//r/egAAAAAAAAD+//v/egAAAAAAAAD+//z/egAAAAAAAAD+//3/egAAAAAAAAD+//7/egAAAAAAAAD+////egAAAAAAAAD+/wEAegAAAAAAAAD+/wIAegAAAAAAAAD+/wMAegAAAAAAAAD+/wQAegAAAAAAAAD+/wUAegAAAAAAAAD+/wYAegAAAAAAAAD+/wcAegAAAAAAAAD+/wgAegAAAAAAAAD+/wkAegAAAAAAAAD+/woAegAAAAAAAAD+/wsAegAAAAAAAAD+/wwAegAAAAAAAAD///X/egAAAAAAAAD///b/egAAAAAAAAD///f/egAAAAAAAAD///j/egAAAAAAAAD///n/egAAAAAAAAD///r/egAAAAAAAAD///v/egAAAAAAAAD///z/egAAAAAAAAD///3/egAAAAAAAAD///7/egAAAAAAAAD/////egAAAAAAAAD//wIAegAAAAAAAAD//wMAegAAAAAAAAD//wQAegAAAAAAAAD//wUAegAAAAAAAAD//wYAegAAAAAAAAD//wcAegAAAAAAAAD//wgAegAAAAAAAAD//wkAegAAAAAAAAD//woAegAAAAAAAAD//wsAegAAAAAAAAD//wwAegAAAAAAAAAAAPT/egAAAAAAAAAAAPX/egAAAAAAAAAAAPb/egAAAAAAAAAAAPf/egAAAAAAAAAAAPj/egAAAAAAAAAAAPn/egAAAAAAAAAAAPr/egAAAAAAAAAAAPv/egAAAAAAAAAAAPz/egAAAAAAAAAAAP3/egAAAAAAAAAAAP7/egAAAAAAAAAAAAIAegAAAAAAAAAAAAMAegAAAAAAAAAAAAQAegAAAAAAAAAAAAUAegAAAAAAAAAAAAYAegAAAAAAAAAAAAcAegAAAAAAAAAAAAgAegAAAAAAAAAAAAkAegAAAAAAAAAAAAoAegAAAAAAAAAAAAsAegAAAAAAAAAAAAwAegAAAAAAAAABAPT/egAAAAAAAAABAPX/egAAAAAAAAABAPb/egAAAAAAAAABAPf/egAAAAAAAAABAPj/egAAAAAAAAABAPn/egAAAAAAAAABAPr/egAAAAAAAAABAPv/egAAAAAAAAABAPz/egAAAAAAAAABAP3/egAAAAAAAAABAP7/egAAAAAAAAABAAEAegAAAAAAAAABAAIAegAAAAAAAAABAAMAegAAAAAAAAABAAQAegAAAAAAAAABAAUAegAAAAAAAAABAAYAegAAAAAAAAABAAcAegAAAAAAAAABAAgAegAAAAAAAAABAAkAegAAAAAAAAABAAoAegAAAAAAAAABAAsAegAAAAAAAAACAPT/egAAAAAAAAACAPX/egAAAAAAAAACAPb/egAAAAAAAAACAPf/egAAAAAAAAACAPj/egAAAAAAAAACAPn/egAAAAAAAAACAPr/egAAAAAAAAACAPv/egAAAAAAAAACAPz/egAAAAAAAAACAP3/egAAAAAAAAACAP7/egAAAAAAAAACAP//egAAAAAAAAACAAEAegAAAAAAAAACAAIAegAAAAAAAAACAAMAegAAAAAAAAACAAQAegAAAAAAAAACAAUAegAAAAAAAAACAAYAegAAAAAAAAACAAcAegAAAAAAAAACAAgAegAAAAAAAAACAAkAegAAAAAAAAACAAoAegAAAAAAAAADAPT/egAAAAAAAAADAPX/egAAAAAAAAADAPb/egAAAAAAAAADAPf/egAAAAAAAAADAPj/egAAAAAAAAADAPn/egAAAAAAAAADAPr/egAAAAAAAAADAPv/egAAAAAAAAADAPz/egAAAAAAAAADAP3/egAAAAAAAAADAP7/egAAAAAAAAADAP//egAAAAAAAAADAAAAegAAAAAAAAADAAEAegAAAAAAAAADAAIAegAAAAAAAAADAAMAegAAAAAAAAADAAQAegAAAAAAAAADAAUAegAAAAAAAAADAAYAegAAAAAAAAADAAcAegAAAAAAAAADAAgAegAAAAAAAAADAAkAegAAAAAAAAAEAPT/egAAAAAAAAAEAPX/egAAAAAAAAAEAPb/egAAAAAAAAAEAPf/egAAAAAAAAAEAPj/egAAAAAAAAAEAPn/egAAAAAAAAAEAPr/egAAAAAAAAAEAPv/egAAAAAAAAAEAPz/egAAAAAAAAAEAP3/egAAAAAAAAAEAP7/egAAAAAAAAAEAP//egAAAAAAAAAEAAAAegAAAAAAAAAEAAEAegAAAAAAAAAEAAIAegAAAAAAAAAEAAMAegAAAAAAAAAEAAQAegAAAAAAAAAEAAUAegAAAAAAAAAEAAYAegAAAAAAAAAEAAcAegAAAAAAAAAEAAgAegAAAAAAAAAFAPT/egAAAAAAAAAFAPX/egAAAAAAAAAFAPb/egAAAAAAAAAFAPf/egAAAAAAAAAFAPj/egAAAAAAAAAFAPn/egAAAAAAAAAFAPr/egAAAAAAAAAFAPv/egAAAAAAAAAFAPz/egAAAAAAAAAFAP3/egAAAAAAAAAFAP7/egAAAAAAAAAFAP//egAAAAAAAAAFAAAAegAAAAAAAAAFAAEAegAAAAAAAAAFAAIAegAAAAAAAAAFAAMAegAAAAAAAAAFAAQAegAAAAAAAAAFAAUAegAAAAAAAAAFAAYAegAAAAAAAAAFAAcAegAAAAAAAAAGAPT/egAAAAAAAAAGAPX/egAAAAAAAAAGAPb/egAAAAAAAAAGAPf/egAAAAAAAAAGAPj/egAAAAAAAAAGAPn/egAAAAAAAAAGAPr/egAAAAAAAAAGAPv/egAAAAAAAAAGAPz/egAAAAAAAAAGAP3/egAAAAAAAAAGAP7/egAAAAAAAAAGAP//egAAAAAAAAAGAAAAegAAAAAAAAAGAAEAegAAAAAAAAAGAAIAegAAAAAAAAAGAAMAegAAAAAAAAAGAAQAegAAAAAAAAAGAAUAegAAAAAAAAAGAAYAegAAAAAAAAAHAPT/egAAAAAAAAAHAPX/egAAAAAAAAAHAPb/egAAAAAAAAAHAPf/egAAAAAAAAAHAPj/egAAAAAAAAAHAPn/egAAAAAAAAAHAPr/egAAAAAAAAAHAPv/egAAAAAAAAAHAPz/egAAAAAAAAAHAP3/egAAAAAAAAAHAP7/egAAAAAAAAAHAP//egAAAAAAAAAHAAAAegAAAAAAAAAHAAEAegAAAAAAAAAHAAIAegAAAAAAAAAHAAMAegAAAAAAAAAHAAQAegAAAAAAAAAHAAUAegAAAAAAAAAIAPT/egAAAAAAAAAIAPX/egAAAAAAAAAIAPb/egAAAAAAAAAIAPf/egAAAAAAAAAIAPj/egAAAAAAAAAIAPn/egAAAAAAAAAIAPr/egAAAAAAAAAIAPv/egAAAAAAAAAIAPz/egAAAAAAAAAIAP3/egAAAAAAAAAIAP7/egAAAAAAAAAIAP//egAAAAAAAAAIAAAAegAAAAAAAAAIAAEAegAAAAAAAAAIAAIAegAAAAAAAAAIAAMAegAAAAAAAAAIAAQAegAAAAAAAAAJAPT/egAAAAAAAAAJAPX/egAAAAAAAAAJAPb/egAAAAAAAAAJAPf/egAAAAAAAAAJAPj/egAAAAAAAAAJAPn/egAAAAAAAAAJAPr/egAAAAAAAAAJAPv/egAAAAAAAAAJAPz/egAAAAAAAAAJAP3/egAAAAAAAAAJAP7/egAAAAAAAAAJAP//egAAAAAAAAAJAAAAegAAAAAAAAAJAAEAegAAAAAAAAAJAAIAegAAAAAAAAAJAAMAegAAAAAAAAAKAPT/egAAAAAAAAAKAPX/egAAAAAAAAAKAPb/egAAAAAAAAAKAPf/egAAAAAAAAAKAPj/egAAAAAAAAAKAPn/egAAAAAAAAAKAPr/egAAAAAAAAAKAPv/egAAAAAAAAAKAPz/egAAAAAAAAAKAP3/egAAAAAAAAAKAP7/egAAAAAAAAAKAP//egAAAAAAAAAKAAAAegAAAAAAAAAKAAEAegAAAAAAAAAKAAIAegAAAAAAAAALAPT/egAAAAAAAAALAPX/egAAAAAAAAALAPb/egAAAAAAAAALAPf/egAAAAAAAAALAPj/egAAAAAAAAALAPn/egAAAAAAAAALAPr/egAAAAAAAAALAPv/egAAAAAAAAALAPz/egAAAAAAAAALAP3/egAAAAAAAAALAP7/egAAAAAAAAALAP//egAAAAAAAAALAAAAegAAAAAAAAALAAEAegAAAAAAAAAMAPT/egAAAAAAAAAMAPX/egAAAAAAAAAMAPb/egAAAAAAAAAMAPf/egAAAAAAAAAMAPj/egAAAAAAAAAMAPn/egAAAAAAAAAMAPr/egAAAAAAAAAMAPv/egAAAAAAAAAMAPz/egAAAAAAAAAMAP3/egAAAAAAAAAMAP7/egAAAAAAAAAMAP//egAAAAAAAAAMAAAAegAAAAAAAAA=")
+tile_set = ExtResource("4_7ohcw")
+
+[node name="FloraLayer" type="TileMapLayer" parent="." unique_id=1958071495]
+modulate = Color(1, 1, 1, 0.35)
+z_index = 2
+tile_map_data = PackedByteArray("AAAAAAEAIgEAAAAAAAD//wEAJAEAAAAAAAA=")
+tile_set = ExtResource("4_7ohcw")
+
+[node name="RockLayer" type="TileMapLayer" parent="." unique_id=1861420122]
+modulate = Color(1, 1, 1, 0.35)
+z_index = 3
+tile_map_data = PackedByteArray("AAD//wAABAEAAAAAAAA=")
+tile_set = ExtResource("4_7ohcw")
+
+[node name="StructureLayer" type="TileMapLayer" parent="." unique_id=1300590720]
+modulate = Color(1, 1, 1, 0.35)
+z_index = 4
+tile_map_data = PackedByteArray("AAABAAAACQEAAAAAAAA=")
+tile_set = ExtResource("4_7ohcw")
+
+[node name="PropsLayer" type="TileMapLayer" parent="." unique_id=1936632618]
+modulate = Color(1, 1, 1, 0.35)
+z_index = 5
+tile_set = ExtResource("4_7ohcw")
+
+[node name="Decorations" type="Node2D" parent="." unique_id=369578053]
+
+[node name="FloraAccent_Shrub" type="Node2D" parent="Decorations" unique_id=1821212330 node_paths=PackedStringArray("coord_layer")]
+position = Vector2(328, 228)
+scale = Vector2(0.14, 0.14)
+script = ExtResource("5_17tud")
+coord_layer = NodePath("../../TerrainLayer")
+sprite_path = "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Shrub H.png"
+decor_layer = 0
+uniform_scale = 0.14
+
+[node name="FloraAccent_ShrubLarge" type="Node2D" parent="Decorations" unique_id=1523243092 node_paths=PackedStringArray("coord_layer")]
+position = Vector2(-48, 676)
+scale = Vector2(0.22, 0.22)
+script = ExtResource("5_17tud")
+coord_layer = NodePath("../../TerrainLayer")
+sprite_path = "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Shrub H.png"
+hex_coords = Vector2i(-1, 1)
+decor_layer = 0
+uniform_scale = 0.22
+
+[node name="PropAccent_Crates" type="Node2D" parent="Decorations" unique_id=903851214 node_paths=PackedStringArray("coord_layer")]
+position = Vector2(1216, 274)
+scale = Vector2(0.16, 0.16)
+script = ExtResource("5_17tud")
+coord_layer = NodePath("../../TerrainLayer")
+sprite_path = "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/Homestead Crates Size1.png"
+hex_coords = Vector2i(2, 0)
+uniform_scale = 0.16
+
+[node name="Markers" type="Node2D" parent="." unique_id=1126101550]
+
+[node name="FixedPoiExample_Homestead" type="Node2D" parent="Markers" unique_id=2055288215 node_paths=PackedStringArray("coord_layer")]
+position = Vector2(768, 256)
+script = ExtResource("6_jg77r")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(1, 0)
+is_poi = true
+poi_id = "example_homestead"
+poi_name = "Example Homestead"
+zone_id = "example_sector"
+hazard_level = 0.5
+
+[node name="WaterLayer" type="TileMapLayer" parent="." unique_id=484799446]
+modulate = Color(1, 1, 1, 0.35)
+z_index = 1
+tile_map_data = PackedByteArray("AAD///7/WAEAAAAAAAAAAP7/WgEAAAAAAAABAP7/WQEAAAAAAAA=")
+tile_set = ExtResource("4_7ohcw")
+
+[node name="Sockets" type="Node2D" parent="." unique_id=794669394]
+
+[node name="Arrival_North" type="Node2D" parent="Sockets" unique_id=1299572735 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(6, -12)
+socket_id = "arrival_north"
+kind = 3
+direction = 1
+profile_tags = PackedStringArray()
+required = true
+
+[node name="Exit_North" type="Node2D" parent="Sockets" unique_id=699301225 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(6, -12)
+socket_id = "exit_north"
+kind = 4
+direction = 1
+profile_tags = PackedStringArray()
+required = true
+
+[node name="Arrival_NorthEast" type="Node2D" parent="Sockets" unique_id=4212065 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(12, -10)
+socket_id = "arrival_northeast"
+kind = 3
+direction = 5
+profile_tags = PackedStringArray()
+required = true
+
+[node name="Exit_NorthEast" type="Node2D" parent="Sockets" unique_id=75828465 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(12, -10)
+socket_id = "exit_northeast"
+kind = 4
+direction = 5
+profile_tags = PackedStringArray()
+required = true
+
+[node name="Arrival_East" type="Node2D" parent="Sockets" unique_id=1745114212 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(12, 0)
+socket_id = "arrival_east"
+kind = 3
+direction = 2
+profile_tags = PackedStringArray()
+required = true
+
+[node name="Exit_East" type="Node2D" parent="Sockets" unique_id=1444767519 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(12, 0)
+socket_id = "exit_east"
+kind = 4
+direction = 2
+profile_tags = PackedStringArray()
+required = true
+
+[node name="Arrival_SouthEast" type="Node2D" parent="Sockets" unique_id=212757668 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(2, 10)
+socket_id = "arrival_southeast"
+kind = 3
+direction = 6
+profile_tags = PackedStringArray()
+required = true
+
+[node name="Exit_SouthEast" type="Node2D" parent="Sockets" unique_id=1530475728 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(2, 10)
+socket_id = "exit_southeast"
+kind = 4
+direction = 6
+profile_tags = PackedStringArray()
+required = true
+
+[node name="Arrival_South" type="Node2D" parent="Sockets" unique_id=1160698938 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(-6, 12)
+socket_id = "arrival_south"
+kind = 3
+direction = 3
+profile_tags = PackedStringArray()
+required = true
+
+[node name="Exit_South" type="Node2D" parent="Sockets" unique_id=253476293 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(-6, 12)
+socket_id = "exit_south"
+kind = 4
+direction = 3
+profile_tags = PackedStringArray()
+required = true
+
+[node name="Arrival_SouthWest" type="Node2D" parent="Sockets" unique_id=1802398207 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(-12, 10)
+socket_id = "arrival_southwest"
+kind = 3
+direction = 7
+profile_tags = PackedStringArray()
+required = true
+
+[node name="Exit_SouthWest" type="Node2D" parent="Sockets" unique_id=454480115 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(-12, 10)
+socket_id = "exit_southwest"
+kind = 4
+direction = 7
+profile_tags = PackedStringArray()
+required = true
+
+[node name="Arrival_West" type="Node2D" parent="Sockets" unique_id=1955678533 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(-12, 0)
+socket_id = "arrival_west"
+kind = 3
+direction = 4
+profile_tags = PackedStringArray()
+required = true
+
+[node name="Exit_West" type="Node2D" parent="Sockets" unique_id=199312163 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(-12, 0)
+socket_id = "exit_west"
+kind = 4
+direction = 4
+profile_tags = PackedStringArray()
+required = true
+
+[node name="Arrival_NorthWest" type="Node2D" parent="Sockets" unique_id=1115987899 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(-2, -10)
+socket_id = "arrival_northwest"
+kind = 3
+direction = 8
+profile_tags = PackedStringArray()
+required = true
+
+[node name="Exit_NorthWest" type="Node2D" parent="Sockets" unique_id=1588349104 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(-2, -10)
+socket_id = "exit_northwest"
+kind = 4
+direction = 8
+profile_tags = PackedStringArray()
+required = true
+
+[node name="VariablePoi_Farmstead" type="Node2D" parent="Sockets" unique_id=1206526815 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(2, -1)
+socket_id = "poi_farmstead"
+profile_tags = PackedStringArray("plains", "farmstead")
+
+[node name="Encounter_OpenField" type="Node2D" parent="Sockets" unique_id=1030779578 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(-3, 2)
+socket_id = "encounter_open_field"
+kind = 1
+profile_tags = PackedStringArray("plains", "open")
+
+[node name="QuestObject_Cache" type="Node2D" parent="Sockets" unique_id=1258235919 node_paths=PackedStringArray("coord_layer")]
+script = ExtResource("7_c0f33")
+coord_layer = NodePath("../../TerrainLayer")
+hex_coords = Vector2i(4, 1)
+socket_id = "quest_object_cache"
+kind = 2
+profile_tags = PackedStringArray("quest", "cache")

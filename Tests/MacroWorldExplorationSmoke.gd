@@ -30,6 +30,18 @@ func _run() -> void:
 	if selected_hex.get("coords", Vector2i.ZERO) != target:
 		_fail("World HUD did not receive the selected hex descriptor.")
 		return
+	for detail_key in [
+		"feature_title",
+		"environment_summary",
+		"movement_note",
+		"visibility",
+		"cover",
+		"resource_hint",
+		"water",
+	]:
+		if str(selected_hex.get(detail_key, "")).is_empty():
+			_fail("Selected hex detail is missing: %s" % detail_key)
+			return
 	if not selected_hex.get("can_travel", false):
 		_fail("Adjacent passable selected hex was not travel-enabled.")
 		return

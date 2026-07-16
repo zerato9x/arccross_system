@@ -7,7 +7,7 @@ domain cores validate and mutate authoritative state.
 
 ## Current Phase 2 Focus
 
-Status updated on **July 13, 2026**:
+Status updated on **July 17, 2026**:
 
 - Phase 1 remains closed and verified in
   [phase_1_execution_plan.md](phase_1_execution_plan.md).
@@ -15,12 +15,16 @@ Status updated on **July 13, 2026**:
   [June 29 changelog](CHANGELOG.md#june-29-2026).
 - Shield-specific BLOCK workstream **P2-06 is complete**. See
   [July 13 changelog](CHANGELOG.md#july-13-2026).
+- Authored local-zone tooling **P2-08 is complete**. See
+  [July 17 changelog](CHANGELOG.md#july-17-2026).
 - Remaining Phase 2 goals:
   - Expand humanoid token visual coverage per
     [HUMANOID_TOKEN_PIPELINE.md](HUMANOID_TOKEN_PIPELINE.md).
   - Polish macro and combat presentation using the HUD asset packs.
   - Expand authored content, loadouts, and loot profiles without breaking the
     owner-validated rule boundaries.
+  - Paint and assign a real preset library for campaign node profiles using the
+    completed authored-zone pipeline.
 
 ## Completed Workstreams
 
@@ -107,6 +111,31 @@ Acceptance criteria:
 - Wire remaining regions from `Asset/UI/HUD/` and
   `design/COMBAT_HUD_ASSET_MAP.md` where they improve readability.
 - Preserve presentation boundaries: no gameplay legality in UI scripts.
+
+### P2-08: Authored Local-Zone Pipeline — Verified July 17, 2026
+
+Goal: replace procedural decoration guesswork with a reusable hand-painted zone
+contract while retaining seeded generation as a safe fallback.
+
+Implementation record:
+
+- `WorldMapEditor` exposes terrain, water, flora, rock, structure, props,
+  decoration, marker, and socket authoring surfaces.
+- `AuthoredWorldMapBaker` emits neutral 469-cell resources containing gameplay
+  layers, freeform decoration records, fixed marker metadata, and runtime
+  placement sockets.
+- `plains_zone_template.tscn` demonstrates all eight arrival/exit directions
+  plus fixed POI, variable POI, encounter, quest-object, water, blocker, and
+  decoration placement.
+- Live Godot evaluation verified 469 entries, three water cells, three
+  decorations, eight arrivals, eight exits, and three content sockets.
+
+Remaining content work:
+
+- Duplicate the template into finished biome/layout presets.
+- Assign those baked resources to campaign node profiles.
+- Keep seeded generation for profiles that do not yet have approved authored
+  coverage.
 
 ## Implementation Record: Combat HUD (Completed)
 

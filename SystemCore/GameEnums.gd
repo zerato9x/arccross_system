@@ -265,6 +265,12 @@ enum MacroRockLayer {
 	ROCKS,
 }
 
+enum MacroWaterLayer {
+	NONE,
+	SHALLOW_RIVER,
+	DEEP_WATER,
+}
+
 enum MacroStructureLayer {
 	NONE,
 	STRUCTURES,

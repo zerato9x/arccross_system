@@ -67,9 +67,6 @@ var start_coords: Vector2i = HexCoordUtils.rim_anchor(
 	ZONE_RADIUS
 )
 var objective_coords: Vector2i = Vector2i.ZERO
-var authored_map: Resource = null # unused; kept for MacroGameManager compatibility
-var require_authored_map: bool = false
-
 @export_range(0.0, 1.0) var random_structure_chance: float = 0.018
 @export_range(0.0, 1.0) var random_remnant_chance: float = 0.035
 @export_range(0.0, 1.0) var shrub_spawn_chance: float = 0.40

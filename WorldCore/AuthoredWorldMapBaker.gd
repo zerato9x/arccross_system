@@ -7,12 +7,14 @@ class_name AuthoredWorldMapBaker
 ## so structures, flora, rocks, and props appear exactly as authored.
 
 @export var terrain_layer: TileMapLayer
+@export var water_layer: TileMapLayer
 @export var flora_layer: TileMapLayer
 @export var rock_layer: TileMapLayer
 @export var structure_layer: TileMapLayer
 @export var props_layer: TileMapLayer
 @export var decor_root: Node2D
 @export var marker_root: Node
+@export var socket_root: Node
 @export var tile_catalog: MacroTileCatalog
 @export var output_map: Resource
 @export_file("*.tres") var output_path: String = (
@@ -43,6 +45,8 @@ func _auto_wire_references() -> void:
 		return
 	if terrain_layer == null:
 		terrain_layer = editor_root.get_node_or_null("TerrainLayer") as TileMapLayer
+	if water_layer == null:
+		water_layer = editor_root.get_node_or_null("WaterLayer") as TileMapLayer
 	if flora_layer == null:
 		flora_layer = editor_root.get_node_or_null("FloraLayer") as TileMapLayer
 	if rock_layer == null:
@@ -55,6 +59,8 @@ func _auto_wire_references() -> void:
 		decor_root = editor_root.get_node_or_null("Decorations") as Node2D
 	if marker_root == null:
 		marker_root = editor_root.get_node_or_null("Markers")
+	if socket_root == null:
+		socket_root = editor_root.get_node_or_null("Sockets")
 
 
 func _editor_bake_authored_map() -> void:
@@ -81,9 +87,11 @@ func bake_to_resource(save_to_disk: bool = true) -> Resource:
 	baked.core_coords = core_coords
 
 	var marker_entries := _collect_marker_entries()
+	baked.sockets = _collect_sockets()
 	var coords_set: Dictionary = {}
 	for layer in [
 		terrain_layer,
+		water_layer,
 		flora_layer,
 		rock_layer,
 		structure_layer,
@@ -131,8 +139,8 @@ func _collect_marker_entries() -> Dictionary:
 	return entries
 
 
-func _collect_decorations() -> Array:
-	var records: Array = []
+func _collect_decorations() -> Array[Dictionary]:
+	var records: Array[Dictionary] = []
 	if decor_root == null:
 		return records
 	for child in decor_root.get_children():
@@ -144,11 +152,22 @@ func _collect_decorations() -> Array:
 	return records
 
 
+func _collect_sockets() -> Array[Dictionary]:
+	var records: Array[Dictionary] = []
+	if socket_root == null:
+		return records
+	for child in socket_root.get_children():
+		if child is HexMapSocket:
+			records.append((child as HexMapSocket).to_record())
+	return records
+
+
 func _build_entry(coords: Vector2i, marker_entry: Dictionary) -> Dictionary:
 	var entry := marker_entry.duplicate(true)
 	entry["coords"] = coords
 
 	_apply_layer_tile(entry, terrain_layer, coords, "terrain")
+	_apply_layer_tile(entry, water_layer, coords, "water")
 	_apply_layer_tile(entry, flora_layer, coords, "flora")
 	_apply_layer_tile(entry, rock_layer, coords, "rock")
 	_apply_layer_tile(entry, structure_layer, coords, "structure")
@@ -176,6 +195,10 @@ func _apply_layer_tile(
 			entry["terrain_sprite_path"] = asset_path
 			entry["terrain_tile"] = _terrain_for_path(asset_path)
 			entry["biome_pack"] = _pack_for_path(asset_path)
+		"water":
+			entry["water_sprite_path"] = asset_path
+			if int(entry.get("water_layer", GameEnums.MacroWaterLayer.NONE)) == GameEnums.MacroWaterLayer.NONE:
+				entry["water_layer"] = GameEnums.MacroWaterLayer.SHALLOW_RIVER
 		"flora":
 			entry["flora_sprite_path"] = asset_path
 			entry["flora_layer"] = _flora_for_path(asset_path)
@@ -198,6 +221,8 @@ func _apply_defaults(entry: Dictionary) -> void:
 		entry["flora_layer"] = GameEnums.MacroFloraLayer.NONE
 	if not entry.has("rock_layer"):
 		entry["rock_layer"] = GameEnums.MacroRockLayer.NONE
+	if not entry.has("water_layer"):
+		entry["water_layer"] = GameEnums.MacroWaterLayer.NONE
 	if not entry.has("structure_layer"):
 		entry["structure_layer"] = GameEnums.MacroStructureLayer.NONE
 	if not entry.has("biome"):

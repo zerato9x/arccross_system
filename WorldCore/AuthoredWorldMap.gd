@@ -11,14 +11,18 @@ class_name AuthoredWorldMap
 @export var entries: Array[Dictionary] = []
 ## Scaled sprite props: {coords, sprite_path, scale, offset, layer}
 @export var decorations: Array[Dictionary] = []
+## Runtime placement hooks authored in the template scene.
+@export var sockets: Array[Dictionary] = []
 
 var _coords_index: Dictionary = {}
 var _decor_by_coords: Dictionary = {}
+var _socket_by_id: Dictionary = {}
 
 
 func rebuild_index() -> void:
 	_coords_index.clear()
 	_decor_by_coords.clear()
+	_socket_by_id.clear()
 	for entry in entries:
 		if not entry is Dictionary:
 			continue
@@ -33,6 +37,28 @@ func rebuild_index() -> void:
 			if not _decor_by_coords.has(decor_coords):
 				_decor_by_coords[decor_coords] = []
 			_decor_by_coords[decor_coords].append(decor)
+	for socket in sockets:
+		if socket is Dictionary:
+			var socket_id := str(socket.get("socket_id", ""))
+			if not socket_id.is_empty():
+				_socket_by_id[socket_id] = socket
+
+
+func get_socket(socket_id: String) -> Dictionary:
+	if _socket_by_id.is_empty() and not sockets.is_empty():
+		rebuild_index()
+	return _socket_by_id.get(socket_id, {})
+
+
+func get_sockets(kind: int = -1) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for socket in sockets:
+		if not socket is Dictionary or not bool(socket.get("enabled", true)):
+			continue
+		if kind >= 0 and int(socket.get("kind", -1)) != kind:
+			continue
+		result.append(socket.duplicate(true))
+	return result
 
 
 func get_decorations_at(coords: Vector2i) -> Array:
@@ -88,6 +114,7 @@ func build_hex_data(coords: Vector2i, seed_value: String = "") -> MacroHexData:
 	)
 	hex.flora_layer = int(entry.get("flora_layer", GameEnums.MacroFloraLayer.NONE))
 	hex.rock_layer = int(entry.get("rock_layer", GameEnums.MacroRockLayer.NONE))
+	hex.water_layer = int(entry.get("water_layer", GameEnums.MacroWaterLayer.NONE))
 	hex.structure_layer = int(
 		entry.get("structure_layer", GameEnums.MacroStructureLayer.NONE)
 	)
@@ -104,6 +131,7 @@ func build_hex_data(coords: Vector2i, seed_value: String = "") -> MacroHexData:
 	hex.terrain_sprite_path = str(entry.get("terrain_sprite_path", ""))
 	hex.flora_sprite_path = str(entry.get("flora_sprite_path", ""))
 	hex.rock_sprite_path = str(entry.get("rock_sprite_path", ""))
+	hex.water_sprite_path = str(entry.get("water_sprite_path", ""))
 	hex.structure_sprite_path = str(entry.get("structure_sprite_path", ""))
 	hex.is_poi = bool(entry.get("is_poi", false))
 	hex.poi_id = str(entry.get("poi_id", ""))
@@ -139,6 +167,7 @@ static func entry_from_hex_data(coords: Vector2i, hex: MacroHexData) -> Dictiona
 		"terrain_tile": hex.terrain_tile,
 		"flora_layer": hex.flora_layer,
 		"rock_layer": hex.rock_layer,
+		"water_layer": hex.water_layer,
 		"structure_layer": hex.structure_layer,
 		"region": hex.region,
 		"arm_direction": hex.arm_direction,
@@ -149,6 +178,7 @@ static func entry_from_hex_data(coords: Vector2i, hex: MacroHexData) -> Dictiona
 		"terrain_sprite_path": hex.terrain_sprite_path,
 		"flora_sprite_path": hex.flora_sprite_path,
 		"rock_sprite_path": hex.rock_sprite_path,
+		"water_sprite_path": hex.water_sprite_path,
 		"structure_sprite_path": hex.structure_sprite_path,
 		"is_poi": hex.is_poi,
 		"poi_id": hex.poi_id,

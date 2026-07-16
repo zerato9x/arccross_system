@@ -10,11 +10,13 @@ func _run() -> void:
 		return
 	if not _verify_plains_catalog():
 		return
+	if not _verify_authored_plains_template():
+		return
 	if not _verify_zone_density_offline():
 		return
 	if not await _verify_zone_and_fog():
 		return
-	print("[TEST PASS] Zone visual overhaul: radius-12 axial hex, clustered detail, full-hex fog.")
+	print("[TEST PASS] Zone visuals: authored radius-12 template, layers, sockets, and fog.")
 	quit(0)
 
 
@@ -31,6 +33,8 @@ func _verify_time_rules() -> bool:
 	hills.rock_layer = GameEnums.MacroRockLayer.HILLS
 	var mud := MacroHexData.new()
 	mud.terrain_tile = GameEnums.MacroTerrainTile.MUD_YELLOW
+	var river := MacroHexData.new()
+	river.water_layer = GameEnums.MacroWaterLayer.SHALLOW_RIVER
 	if not is_equal_approx(plains.travel_exertion(), 1.0):
 		_fail("Plains exertion should be 1.0.")
 		return false
@@ -39,6 +43,12 @@ func _verify_time_rules() -> bool:
 		return false
 	if mud.travel_time_multiplier() <= plains.travel_time_multiplier():
 		_fail("Mud travel time must exceed plains.")
+		return false
+	if (
+		not river.is_passable()
+		or river.travel_time_multiplier() <= plains.travel_time_multiplier()
+	):
+		_fail("Shallow river must be fordable but slower than plains.")
 		return false
 	if GameTimeRules.move_minutes_for_hex(plains) != 45:
 		_fail("Plains move minutes should be 45.")
@@ -163,6 +173,64 @@ func _verify_zone_density_offline() -> bool:
 	return true
 
 
+func _verify_authored_plains_template() -> bool:
+	var packed := load("res://WorldCore/plains_zone_template.tscn") as PackedScene
+	if packed == null:
+		_fail("Authored plains template scene is missing.")
+		return false
+	var template := packed.instantiate()
+	var terrain := template.get_node_or_null("TerrainLayer") as TileMapLayer
+	var water := template.get_node_or_null("WaterLayer") as TileMapLayer
+	var baker := template.get_node_or_null("AuthoredWorldMapBaker") as AuthoredWorldMapBaker
+	if terrain == null or water == null or baker == null:
+		_fail("Template is missing a required paint layer or baker.")
+		template.queue_free()
+		return false
+	var cells := terrain.get_used_cells()
+	if cells.size() != GameEnums.MACRO_ZONE_CELL_COUNT:
+		_fail("Template terrain must contain 469 cells, got %d." % cells.size())
+		template.queue_free()
+		return false
+	for coords in cells:
+		if not HexCoordUtils.is_in_radius(coords, GameEnums.MACRO_ZONE_RADIUS):
+			_fail("Template contains terrain outside radius 12: %s." % str(coords))
+			template.queue_free()
+			return false
+	if water.get_used_cells().size() < 3:
+		_fail("Template should demonstrate a short authored water segment.")
+		template.queue_free()
+		return false
+
+	var baked := baker.bake_to_resource(false) as AuthoredWorldMap
+	if baked == null or baked.entries.size() != GameEnums.MACRO_ZONE_CELL_COUNT:
+		_fail("Template baker did not produce the full radius-12 map.")
+		template.queue_free()
+		return false
+	var arrivals := baked.get_sockets(HexMapSocket.SocketKind.ARRIVAL)
+	var exits := baked.get_sockets(HexMapSocket.SocketKind.EXIT)
+	if arrivals.size() != 8 or exits.size() != 8:
+		_fail("Template must expose eight arrivals and eight exits.")
+		template.queue_free()
+		return false
+	for socket in arrivals + exits:
+		var coords: Vector2i = socket.get("coords", Vector2i.ZERO)
+		var direction := int(socket.get("direction", GameEnums.MacroTravelDirection.NONE))
+		if coords != HexCoordUtils.rim_anchor(direction, GameEnums.MACRO_ZONE_RADIUS):
+			_fail("Directional socket is not on its rim anchor: %s." % str(socket))
+			template.queue_free()
+			return false
+	if baked.get_sockets(HexMapSocket.SocketKind.POI).is_empty():
+		_fail("Template has no variable POI socket example.")
+		template.queue_free()
+		return false
+	if baked.decorations.size() < 3:
+		_fail("Template should demonstrate a small manual decoration cluster.")
+		template.queue_free()
+		return false
+	template.queue_free()
+	return true
+
+
 func _verify_zone_and_fog() -> bool:
 	var game_director: Node = await _spawn_game()
 	if game_director == null:
@@ -176,6 +244,9 @@ func _verify_zone_and_fog() -> bool:
 	await process_frame
 
 	var viz := macro_map.map_visualizer
+	if viz.water_layer == null:
+		_fail("Macro world has no dedicated water TileMap layer.")
+		return false
 	if viz.rendered_cells.size() != GameEnums.MACRO_ZONE_CELL_COUNT:
 		_fail(
 			"Expected full radius-12 render, got %d cells."

@@ -8,6 +8,7 @@ class_name HexRecord
 @export var terrain_tile: GameEnums.MacroTerrainTile = GameEnums.MacroTerrainTile.PLAINS_GRASS
 @export var flora_layer: GameEnums.MacroFloraLayer = GameEnums.MacroFloraLayer.NONE
 @export var rock_layer: GameEnums.MacroRockLayer = GameEnums.MacroRockLayer.NONE
+@export var water_layer: GameEnums.MacroWaterLayer = GameEnums.MacroWaterLayer.NONE
 @export var structure_layer: GameEnums.MacroStructureLayer = GameEnums.MacroStructureLayer.NONE
 @export var region: GameEnums.MacroRegion = GameEnums.MacroRegion.WASTELAND
 @export var arm_direction: GameEnums.MacroArmDirection = GameEnums.MacroArmDirection.NONE
@@ -18,6 +19,7 @@ class_name HexRecord
 @export var terrain_sprite_path: String = ""
 @export var flora_sprite_path: String = ""
 @export var rock_sprite_path: String = ""
+@export var water_sprite_path: String = ""
 @export var structure_sprite_path: String = ""
 @export var sleep_anchor: String = "ground"
 @export var sleep_gear_instance_id: String = ""
@@ -42,6 +44,7 @@ func to_dict() -> Dictionary:
 		"terrain_tile": terrain_tile,
 		"flora_layer": flora_layer,
 		"rock_layer": rock_layer,
+		"water_layer": water_layer,
 		"structure_layer": structure_layer,
 		"region": region,
 		"arm_direction": arm_direction,
@@ -52,6 +55,7 @@ func to_dict() -> Dictionary:
 		"terrain_sprite_path": terrain_sprite_path,
 		"flora_sprite_path": flora_sprite_path,
 		"rock_sprite_path": rock_sprite_path,
+		"water_sprite_path": water_sprite_path,
 		"structure_sprite_path": structure_sprite_path,
 		"sleep_anchor": sleep_anchor,
 		"sleep_gear_instance_id": sleep_gear_instance_id,
@@ -86,6 +90,10 @@ static func from_dict(data: Dictionary) -> HexRecord:
 		"rock_layer",
 		_legacy_rock_for_biome(record.biome)
 	)
+	record.water_layer = data.get(
+		"water_layer",
+		GameEnums.MacroWaterLayer.NONE
+	)
 	record.structure_layer = data.get(
 		"structure_layer",
 		GameEnums.MacroStructureLayer.NONE
@@ -105,6 +113,7 @@ static func from_dict(data: Dictionary) -> HexRecord:
 	record.terrain_sprite_path = data.get("terrain_sprite_path", "")
 	record.flora_sprite_path = data.get("flora_sprite_path", "")
 	record.rock_sprite_path = data.get("rock_sprite_path", "")
+	record.water_sprite_path = data.get("water_sprite_path", "")
 	record.structure_sprite_path = data.get("structure_sprite_path", "")
 	record.sleep_anchor = data.get("sleep_anchor", "ground")
 	record.sleep_gear_instance_id = data.get("sleep_gear_instance_id", "")

@@ -21,14 +21,14 @@ measurements retain meaningful units.
 
 ## Current Prototype
 
-Status updated on **July 16, 2026**.
+Status updated on **July 17, 2026**.
 
 ### Playable Today
 
 Launch from `UI/MainMenu.tscn` into a persistent macro run:
 
 1. Start a new world or continue from one of three save slots.
-2. Explore a procedurally generated hex map with fog of war, POIs, and
+2. Explore seeded radius-12 local zones with fog of war, POIs, and
    purpose-driven NPC activity.
 3. Fight persistent enemies in 1v1 lane combat when colliding on the macro map.
 4. Manage inventory, equipment, firearm loading, SEARCH, and CAMP.
@@ -70,8 +70,13 @@ profile.
   macro world and combat lane.
 - Item definitions are shared Resources loaded once by `LootCatalog`; items do
   not require individual scripts or scene nodes.
-- Macro world maps are procedurally generated from seeded `HexRecord` data and
-  rendered through `HexMapVisualizer` and `MacroTileCatalog`.
+- Macro local zones use seeded generation as a fallback, while
+  `AuthoredWorldMap`, `WorldMapEditor`, and `AuthoredWorldMapBaker` provide a
+  hand-painted preset pipeline for terrain, water, blockers, decorations, and
+  runtime content sockets.
+- The reusable `plains_zone_template.tscn` contains the complete 469-cell
+  footprint, eight arrival sockets, eight exit sockets, and examples for fixed
+  POIs, variable POIs, encounters, quest objects, water, and freeform props.
 - Macro NPC projection is capped for readability and surfaces purpose signals
   through the world HUD.
 - An integrated Audio Conductor handles synchronized music and categorized SFX.
@@ -91,12 +96,23 @@ profile.
 - Humanoid token art coverage remains incomplete for several rigs, face/eye
   equipment, and unsupported weapons.
 - Gameplay remains 1v1; squad combat infrastructure is not player-facing.
+- The authored-zone toolchain is complete, but campaign profiles still need a
+  real library of hand-painted presets; unassigned random nodes retain the
+  seeded procedural fallback.
 
 ## Item Authoring
 
 Run `Tools/Build-StaticItemCatalog.ps1` after adding static Innawoods assets.
 The default mode creates only missing definitions and preserves Inspector
 edits. Use `-Rebuild` only when intentionally replacing the generated catalog.
+
+## Macro Zone Authoring
+
+Duplicate `WorldCore/plains_zone_template.tscn`, paint the TileMap layers, place
+`HexDecorProp`, `HexMapMarker`, and `HexMapSocket` children, then set a unique
+`map_id` and `output_path` on `AuthoredWorldMapBaker`. Toggle `bake_now` to emit
+the runtime `.tres`. Keep all directional rim corridors traversable; the baker
+records authored data but does not rescue a beautifully painted dead end.
 
 ## Documentation
 

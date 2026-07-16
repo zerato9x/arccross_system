@@ -14,6 +14,7 @@ class_name HexMapMarker
 @export var landmark_id: String = ""
 @export var sleep_anchor: String = "ground"
 @export var impassable: bool = false
+@export var water_layer: GameEnums.MacroWaterLayer = GameEnums.MacroWaterLayer.NONE
 @export var region: GameEnums.MacroRegion = GameEnums.MacroRegion.WASTELAND
 @export var arm_direction: GameEnums.MacroArmDirection = (
 	GameEnums.MacroArmDirection.NONE
@@ -74,6 +75,7 @@ func to_entry() -> Dictionary:
 		"landmark_id": landmark_id,
 		"sleep_anchor": sleep_anchor,
 		"impassable": impassable,
+		"water_layer": water_layer,
 		"region": resolved_region,
 		"arm_direction": arm_direction,
 		"zone_id": zone_id,

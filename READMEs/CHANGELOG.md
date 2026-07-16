@@ -1,5 +1,27 @@
 # ARCCROSS Changelog
 
+## July 17, 2026
+
+### Authored Local-Zone Pipeline And Generator Cleanup
+
+- Removed the abandoned procedural river pass, polygon connector bandages,
+  random oversized-boulder/tree expansion, and unused generator compatibility
+  fields from the in-progress macro-world changes.
+- Kept water as authored gameplay data with persistence, passability, travel
+  cost, fog-aware rendering, and exploration-HUD descriptions.
+- Rebuilt `world_map_editor.tscn` as a clean authoring workspace and added
+  `plains_zone_template.tscn` as a complete 469-cell radius-12 example.
+- Added `HexMapSocket` records for variable POIs, encounters, quest items, and
+  all eight arrival/exit directions. Sockets bake into `AuthoredWorldMap`
+  instead of masquerading as decorative sprites with delusions of authority.
+- Extended `AuthoredWorldMapBaker` to preserve water layers, freeform
+  decorations, fixed marker metadata, and runtime placement sockets.
+- Expanded selected-hex HUD descriptors with environment, movement,
+  visibility, cover, resources, and water details.
+- Verified the authoring scene through live Godot evaluation: 469 baked entries,
+  three water examples, three decorations, and nineteen sockets. The standalone
+  Godot 4.6.3 SceneTree runner still crashes with the known `signal 11` failure.
+
 ## July 16, 2026
 
 ### Directional Node Web and Meta World Overhaul

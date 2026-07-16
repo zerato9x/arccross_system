@@ -28,6 +28,13 @@ Unmarked terms are established. Terms still in motion are labeled
 - **Seeded Random Node:** A stable Node Web slot whose arm, tier, and content
   profile remain recognizable while its local radius-12 zone regenerates from
   each run seed.
+- **Authored Zone Preset:** A baked `AuthoredWorldMap` containing the painted
+  469-cell baseline, gameplay layers, decorations, markers, and placement
+  sockets for one reusable local-zone layout.
+- **Map Socket:** An authored placement contract identified by a stable ID,
+  coordinate, kind, direction, and profile tags. Sockets reserve locations for
+  POIs, encounters, quest objects, arrivals, or exits; they are not decorative
+  sprites and do not own runtime content.
 - **Directional Rim Travel:** Leaving a local zone through one of eight screen-
   space sectors (cardinals plus corners) restricts travel to matching graph
   edges; arrival occurs on the opposite rim of the destination zone.
@@ -232,6 +239,9 @@ describes a tool; Damage Type describes a hit.
 - **World Seed:** Stable input for repeatable procedural generation.
 - **Deterministic Generation:** Generation where the same seed and location
   produce the same initial result.
+- **World Map Editor:** The Godot authoring workspace for painted terrain,
+  water, flora, rocks, structures, freeform decorations, metadata markers, and
+  sockets. `AuthoredWorldMapBaker` converts it into neutral runtime data.
 - **Proximity Loading:** Creating and removing nearby presentation nodes without
   changing represented entity state.
 - **Active Radius:** Distance within which entity projections are loaded.

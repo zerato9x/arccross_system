@@ -5,6 +5,7 @@ class_name MacroHexData
 @export var terrain_tile: GameEnums.MacroTerrainTile = GameEnums.MacroTerrainTile.PLAINS_GRASS
 @export var flora_layer: GameEnums.MacroFloraLayer = GameEnums.MacroFloraLayer.NONE
 @export var rock_layer: GameEnums.MacroRockLayer = GameEnums.MacroRockLayer.NONE
+@export var water_layer: GameEnums.MacroWaterLayer = GameEnums.MacroWaterLayer.NONE
 @export var structure_layer: GameEnums.MacroStructureLayer = GameEnums.MacroStructureLayer.NONE
 @export var region: GameEnums.MacroRegion = GameEnums.MacroRegion.WASTELAND
 @export var arm_direction: GameEnums.MacroArmDirection = GameEnums.MacroArmDirection.NONE
@@ -15,6 +16,7 @@ class_name MacroHexData
 @export var terrain_sprite_path: String = ""
 @export var flora_sprite_path: String = ""
 @export var rock_sprite_path: String = ""
+@export var water_sprite_path: String = ""
 @export var structure_sprite_path: String = ""
 
 # POI Variables
@@ -43,6 +45,7 @@ func to_state() -> HexRecord:
 	record.terrain_tile = terrain_tile
 	record.flora_layer = flora_layer
 	record.rock_layer = rock_layer
+	record.water_layer = water_layer
 	record.structure_layer = structure_layer
 	record.region = region
 	record.arm_direction = arm_direction
@@ -53,6 +56,7 @@ func to_state() -> HexRecord:
 	record.terrain_sprite_path = terrain_sprite_path
 	record.flora_sprite_path = flora_sprite_path
 	record.rock_sprite_path = rock_sprite_path
+	record.water_sprite_path = water_sprite_path
 	record.structure_sprite_path = structure_sprite_path
 	record.is_poi = is_poi
 	record.poi_id = poi_id
@@ -84,6 +88,7 @@ func apply_state(state) -> void:
 	terrain_tile = source.terrain_tile
 	flora_layer = source.flora_layer
 	rock_layer = source.rock_layer
+	water_layer = source.water_layer
 	structure_layer = source.structure_layer
 	region = source.region
 	arm_direction = source.arm_direction
@@ -94,6 +99,7 @@ func apply_state(state) -> void:
 	terrain_sprite_path = source.terrain_sprite_path
 	flora_sprite_path = source.flora_sprite_path
 	rock_sprite_path = source.rock_sprite_path
+	water_sprite_path = source.water_sprite_path
 	structure_sprite_path = source.structure_sprite_path
 	is_poi = source.is_poi
 	poi_id = source.poi_id
@@ -121,6 +127,8 @@ static func from_state(state) -> MacroHexData:
 func is_passable() -> bool:
 	if impassable:
 		return false
+	if water_layer == GameEnums.MacroWaterLayer.DEEP_WATER:
+		return false
 	return rock_layer != GameEnums.MacroRockLayer.ROCKS
 
 func has_landmark() -> bool:
@@ -134,6 +142,8 @@ func coords_is_service_hub() -> bool:
 func travel_time_multiplier() -> float:
 	if rock_layer == GameEnums.MacroRockLayer.HILLS:
 		return 2.0
+	if water_layer == GameEnums.MacroWaterLayer.SHALLOW_RIVER:
+		return 1.75
 	if terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW:
 		return 1.5
 	if terrain_tile == GameEnums.MacroTerrainTile.SNOW_TRANSITION:
