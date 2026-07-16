@@ -29,6 +29,9 @@ Status updated on **July 13, 2026**:
   metadata.
 - Macro play covers hex movement, fog of war, proximity loading, SEARCH/CAMP,
   TALK/AMBUSH, inventory, and world-time biology.
+- Macro zones use center-plus-12-ring geometry and directional boundary travel
+  through a 22-node four-arm web. Permanent Meta nodes survive characters;
+  seeded random nodes and ordinary runtime state do not.
 - Hostile entity collision suspends macro input and opens `CombatCore/MainDuelScene`.
 - Combat outcomes return to the macro map with persistent injury, ammunition,
   loot, and entity life state intact.

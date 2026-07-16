@@ -4,7 +4,7 @@ class_name MacroMapGraph
 ## Campaign node graph: adjacency list of MacroNodeData resources.
 
 @export var nodes: Dictionary = {} # String id -> MacroNodeData
-@export var edges: Array = [] # Array of { "from": String, "to": String }
+@export var edges: Array = [] # Directional neutral edge dictionaries.
 @export var hub_id: String = ""
 @export var seed_value: String = ""
 
@@ -32,15 +32,37 @@ func has_node(node_id: String) -> bool:
 	return nodes.has(node_id)
 
 
-func add_edge(from_id: String, to_id: String, bidirectional: bool = false) -> void:
+func add_edge(
+	from_id: String,
+	to_id: String,
+	from_direction: int = GameEnums.MacroTravelDirection.NONE,
+	arrival_direction: int = GameEnums.MacroTravelDirection.NONE,
+	unlock_flag: String = "",
+	visible: bool = true,
+	bidirectional: bool = false
+) -> void:
 	if from_id.is_empty() or to_id.is_empty():
 		return
 	if not _has_edge(from_id, to_id):
-		edges.append({"from": from_id, "to": to_id})
+		edges.append({
+			"from": from_id,
+			"to": to_id,
+			"from_direction": from_direction,
+			"arrival_direction": arrival_direction,
+			"unlock_flag": unlock_flag,
+			"visible": visible,
+		})
 	_ensure_neighbor(from_id, to_id)
 	if bidirectional:
 		if not _has_edge(to_id, from_id):
-			edges.append({"from": to_id, "to": from_id})
+			edges.append({
+				"from": to_id,
+				"to": from_id,
+				"from_direction": arrival_direction,
+				"arrival_direction": from_direction,
+				"unlock_flag": unlock_flag,
+				"visible": visible,
+			})
 		_ensure_neighbor(to_id, from_id)
 
 
@@ -66,6 +88,31 @@ func get_outgoing(node_id: String) -> Array[String]:
 		return result
 	for neighbor_id in node.neighbors:
 		result.append(neighbor_id)
+	return result
+
+
+func get_edge(from_id: String, to_id: String) -> Dictionary:
+	for edge in edges:
+		if not edge is Dictionary:
+			continue
+		if str(edge.get("from", "")) == from_id and str(edge.get("to", "")) == to_id:
+			return edge
+	return {}
+
+
+func get_directional_edges(node_id: String, exit_direction: int) -> Array:
+	var result: Array = []
+	for edge in edges:
+		if not edge is Dictionary:
+			continue
+		if str(edge.get("from", "")) != node_id:
+			continue
+		if int(edge.get(
+			"from_direction",
+			GameEnums.MacroTravelDirection.NONE
+		)) != exit_direction:
+			continue
+		result.append(edge.duplicate(true))
 	return result
 
 
@@ -108,7 +155,15 @@ static func from_dict(data: Dictionary) -> MacroMapGraph:
 		graph.add_node(MacroNodeData.from_dict(node_dicts[node_id]))
 	for edge in data.get("edges", []):
 		if edge is Dictionary:
-			graph.add_edge(str(edge.get("from", "")), str(edge.get("to", "")), false)
+			graph.add_edge(
+				str(edge.get("from", "")),
+				str(edge.get("to", "")),
+				int(edge.get("from_direction", GameEnums.MacroTravelDirection.NONE)),
+				int(edge.get("arrival_direction", GameEnums.MacroTravelDirection.NONE)),
+				str(edge.get("unlock_flag", "")),
+				bool(edge.get("visible", true)),
+				false
+			)
 	return graph
 
 
@@ -124,8 +179,8 @@ func debug_print() -> String:
 			flags.append("unlocked")
 		if node.discovered:
 			flags.append("discovered")
-		if node.completed:
-			flags.append("completed")
+		if node.traversed:
+			flags.append("traversed")
 		lines.append(
 			"%s [%s] pos=%s type=%s zone=%s biome=%s neighbors=%s {%s}"
 			% [
@@ -140,5 +195,14 @@ func debug_print() -> String:
 			]
 		)
 	for edge in edges:
-		lines.append("  edge %s -> %s" % [str(edge.get("from", "")), str(edge.get("to", ""))])
+		lines.append(
+			"  edge %s -[%s]-> %s arrive=%s flag=%s"
+			% [
+				str(edge.get("from", "")),
+				str(edge.get("from_direction", 0)),
+				str(edge.get("to", "")),
+				str(edge.get("arrival_direction", 0)),
+				str(edge.get("unlock_flag", "")),
+			]
+		)
 	return "\n".join(lines)

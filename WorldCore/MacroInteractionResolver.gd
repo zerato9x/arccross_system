@@ -92,7 +92,7 @@ static func build_search_options(
 			{"loot": 2.0, "safety": -0.5, "sneak": -0.5}
 		))
 
-	if hex_data.poi_id == "alpha_central_hub":
+	if hex_data.poi_id in ["alpha_central_hub", "central_core"]:
 		options.append(_search_option(
 			"activate_core",
 			"Activate Alpha Core",

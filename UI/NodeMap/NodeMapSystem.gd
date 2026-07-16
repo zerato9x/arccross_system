@@ -88,6 +88,18 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _apply_snapshot() -> void:
+	if bool(_snapshot.get("travel_mode", false)):
+		var direction := int(_snapshot.get(
+			"pending_exit_direction",
+			GameEnums.MacroTravelDirection.NONE
+		))
+		_title_label.text = "NODE WEB // TRAVEL %s" % (
+			GameEnums.MacroTravelDirection.keys()[direction]
+			if direction > GameEnums.MacroTravelDirection.NONE
+			else ""
+		)
+	else:
+		_title_label.text = "NODE WEB // INSPECTION"
 	_graph_view.call("apply_snapshot", _snapshot)
 	_inspector.call("apply_snapshot", _snapshot)
 	_player_panel.call("apply_snapshot", _snapshot)

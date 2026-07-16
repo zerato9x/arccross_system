@@ -18,10 +18,22 @@ Unmarked terms are established. Terms still in motion are labeled
   its genetic Pillars.
 - **Gear Progression:** Equipment is the primary source of practical progression
   during a run.
-- **Run** *(planned):* One disposable survival attempt, including its world,
+- **Run:** One disposable survival attempt, including its world,
   body, inventory, injuries, and local consequences.
-- **Meta-progression** *(planned):* Cross-run unlocks that broaden future choices
-  without increasing Pillars during the current run.
+- **Meta-progression:** Cross-run changes to permanent nodes, gateway state,
+  Meta Events, and core reconstruction. It never preserves a dead character or
+  increases that character's Pillars.
+- **Permanent Meta Node:** A stable Node Web location whose authored identity,
+  structural mutations, and Meta Event state survive disposable runs.
+- **Seeded Random Node:** A stable Node Web slot whose arm, tier, and content
+  profile remain recognizable while its local radius-12 zone regenerates from
+  each run seed.
+- **Directional Rim Travel:** Leaving a local zone through one of eight screen-
+  space sectors (cardinals plus corners) restricts travel to matching graph
+  edges; arrival occurs on the opposite rim of the destination zone.
+- **Route Preview Ring:** The non-playable radius-13 band outside a local zone.
+  Hovering it shows the eligible destination for that boundary sector; clicking
+  it from an adjacent radius-12 rim cell opens directional travel.
 
 ## Character Identity
 
@@ -276,8 +288,9 @@ describes a tool; Damage Type describes a hit.
   descriptors without transferring resource ownership.
 - **Presentation Boundary:** UI displays owner-produced snapshots and emits
   intent; it does not resolve gameplay.
-- **MetaProgressionStore** *(planned):* A separate save owner for cross-run
-  unlock IDs.
+- **MetaProgressionStore:** The separate versioned profile owner for completed
+  Meta Events, gateway/core state, node-profile mutations, and node-scoped
+  structural patches. It never owns characters or ordinary run state.
 - **GameDirector:** The SystemCore orchestrator translating records and signals
   between the macro world and combat.
 

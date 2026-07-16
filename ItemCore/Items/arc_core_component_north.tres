@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+
+[resource]
+script = ExtResource("1_itemdata")
+id = "arc_core_component_north"
+display_name = "North Core Regulator"
+lore_description = "A dense pre-collapse regulator keyed to the northern arm gateway. It is useless as ordinary salvage and irreplaceable to the Central Core."
+item_type = 0
+catalog_category = 0
+tags = Array[String](["meta_quest", "core_component", "unique"])
+size_cost = 2
+max_stack_size = 1
+target_slot = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Items/Electronics/unknown_device.png"
+weight = 1.8

@@ -34,12 +34,10 @@ const FOG_VISIBLE_COLOR := Color(0, 0, 0, 0)
 const FOG_EXPLORED_COLOR := Color(0, 0, 0, 0.52)
 const FOG_UNKNOWN_COLOR := Color(0, 0, 0, 0.94)
 const FOG_HEX_OVERSIZE := 1.05
-const DECOR_LAYER_Z := {
-	0: 1,
-	1: 2,
-	2: 3,
-	3: 4,
-}
+const BOUNDARY_PREVIEW_RADIUS := GameEnums.MACRO_ZONE_RADIUS + 1
+const BOUNDARY_LOCKED_COLOR := Color(0.07, 0.08, 0.07, 0.58)
+const BOUNDARY_ROUTE_COLOR := Color(0.55, 0.42, 0.12, 0.42)
+const BOUNDARY_HOVER_COLOR := Color(0.95, 0.72, 0.18, 0.72)
 
 var rendered_cells: Dictionary = {}
 var poi_markers: Dictionary = {}
@@ -49,16 +47,31 @@ var fog_overlays: Dictionary = {} # Vector2i -> Polygon2D
 var fog_states: Dictionary = {} # Vector2i -> FogState
 var selection_marker: Polygon2D
 var fog_root: Node2D
+var boundary_preview_root: Node2D
+var boundary_hover_label: Label
+var boundary_preview_polygons: Dictionary = {} # Vector2i -> Polygon2D
+var boundary_preview_data: Dictionary = {} # direction -> destination summary
+var boundary_hover_coords := Vector2i(999999, 999999)
 var _zone_mode := false
 var _cached_fog_polygon: PackedVector2Array = PackedVector2Array()
+var _decor_texture_cache: Dictionary = {} # asset path -> Texture2D
 
 func _ready() -> void:
 	if not world_generator:
 		push_error("Visualizer cannot see the Cartographer. Hook it up.")
 		return
+	if shrub_layer != null:
+		shrub_layer.y_sort_enabled = true
 	_load_generated_assets()
 	_ensure_selection_marker()
 	_ensure_fog_root()
+	_ensure_boundary_preview_root()
+
+
+func _process(_delta: float) -> void:
+	if boundary_preview_root == null or not boundary_preview_root.visible:
+		return
+	update_boundary_hover(local_to_map(get_local_mouse_position()))
 
 
 ## Pointy-top hex vertices from TileSet cell size, oversized so tiles never peek.
@@ -104,9 +117,48 @@ func _load_generated_assets() -> void:
 	if ResourceLoader.exists(TILESET_PATH):
 		var generated_tile_set := load(TILESET_PATH) as TileSet
 		if generated_tile_set != null:
+			_align_overlay_sources_to_hex_base(generated_tile_set)
 			tile_set = generated_tile_set
 			_assign_tileset_to_layers(generated_tile_set)
 			_rebuild_fog_overlay_geometry()
+
+
+func _align_overlay_sources_to_hex_base(generated_tile_set: TileSet) -> void:
+	if tile_catalog == null:
+		return
+	var source_ids: Dictionary = {}
+	for source_dict in [
+		tile_catalog.flora_source_ids,
+		tile_catalog.rock_source_ids,
+		tile_catalog.structure_source_ids,
+		tile_catalog.poi_source_ids,
+	]:
+		_collect_source_ids(source_dict, source_ids)
+	for pack_data in tile_catalog.pack_layer_ids.values():
+		if not pack_data is Dictionary:
+			continue
+		for layer_name in ["flora", "rock", "structure", "poi"]:
+			_collect_source_ids(pack_data.get(layer_name, {}), source_ids)
+	for source_id in source_ids.keys():
+		var source := generated_tile_set.get_source(int(source_id)) as TileSetAtlasSource
+		if source == null or not source.has_tile(Vector2i.ZERO):
+			continue
+		var tile_data := source.get_tile_data(Vector2i.ZERO, 0)
+		if tile_data == null:
+			continue
+		var vertical_offset := int(round(
+			(float(generated_tile_set.tile_size.y) - float(source.texture_region_size.y)) * 0.5
+		))
+		tile_data.texture_origin = Vector2i(0, vertical_offset)
+
+
+func _collect_source_ids(value: Variant, output: Dictionary) -> void:
+	if value is Dictionary:
+		for nested in value.values():
+			_collect_source_ids(nested, output)
+	elif value is PackedInt32Array or value is Array:
+		for source_id in value:
+			output[int(source_id)] = true
 
 func _assign_tileset_to_layers(generated_tile_set: TileSet) -> void:
 	for layer in [
@@ -127,6 +179,104 @@ func _ensure_fog_root() -> void:
 	# Above terrain/flora/structure, below player tokens (typically z >= 5).
 	fog_root.z_index = 3
 	add_child(fog_root)
+
+
+func _ensure_boundary_preview_root() -> void:
+	if boundary_preview_root != null:
+		return
+	boundary_preview_root = Node2D.new()
+	boundary_preview_root.name = "BoundaryRoutePreviews"
+	boundary_preview_root.z_index = 2
+	add_child(boundary_preview_root)
+	boundary_hover_label = Label.new()
+	boundary_hover_label.name = "BoundaryHoverLabel"
+	boundary_hover_label.visible = false
+	boundary_hover_label.z_index = 3
+	boundary_hover_label.add_theme_font_size_override("font_size", 18)
+	boundary_hover_label.add_theme_color_override("font_color", Color(1.0, 0.88, 0.42))
+	boundary_hover_label.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.02))
+	boundary_hover_label.add_theme_constant_override("outline_size", 8)
+	boundary_preview_root.add_child(boundary_hover_label)
+
+
+func configure_boundary_previews(previews: Dictionary) -> void:
+	_ensure_boundary_preview_root()
+	boundary_preview_data = previews.duplicate(true)
+	var ring_cells := HexCoordUtils.cells_in_ring(BOUNDARY_PREVIEW_RADIUS)
+	for coords in ring_cells:
+		var direction := HexCoordUtils.travel_direction_for_coords(coords)
+		var data: Dictionary = boundary_preview_data.get(direction, {})
+		var polygon := _ensure_boundary_preview_polygon(coords)
+		polygon.color = _boundary_preview_color(data)
+		polygon.visible = true
+	for coords in boundary_preview_polygons.keys().duplicate():
+		if ring_cells.has(coords):
+			continue
+		var stale := boundary_preview_polygons[coords] as Polygon2D
+		if is_instance_valid(stale):
+			stale.queue_free()
+		boundary_preview_polygons.erase(coords)
+	update_boundary_hover(Vector2i(999999, 999999))
+
+
+func _ensure_boundary_preview_polygon(coords: Vector2i) -> Polygon2D:
+	if boundary_preview_polygons.has(coords):
+		var existing := boundary_preview_polygons[coords] as Polygon2D
+		if is_instance_valid(existing):
+			existing.position = map_to_local(coords)
+			existing.polygon = _hex_fog_polygon()
+			return existing
+	var polygon := Polygon2D.new()
+	polygon.name = "RoutePreview_%d_%d" % [coords.x, coords.y]
+	polygon.position = map_to_local(coords)
+	polygon.polygon = _hex_fog_polygon()
+	boundary_preview_root.add_child(polygon)
+	boundary_preview_polygons[coords] = polygon
+	return polygon
+
+
+func _boundary_preview_color(data: Dictionary) -> Color:
+	return (
+		BOUNDARY_ROUTE_COLOR
+		if not data.get("node_ids", []).is_empty()
+		else BOUNDARY_LOCKED_COLOR
+	)
+
+
+func update_boundary_hover(coords: Vector2i) -> void:
+	if coords == boundary_hover_coords:
+		return
+	if boundary_preview_polygons.has(boundary_hover_coords):
+		var old_direction := HexCoordUtils.travel_direction_for_coords(boundary_hover_coords)
+		var old_data: Dictionary = boundary_preview_data.get(old_direction, {})
+		var old_polygon := boundary_preview_polygons[boundary_hover_coords] as Polygon2D
+		if is_instance_valid(old_polygon):
+			old_polygon.color = _boundary_preview_color(old_data)
+	boundary_hover_coords = coords
+	if boundary_hover_label == null:
+		return
+	if not boundary_preview_polygons.has(coords):
+		boundary_hover_label.visible = false
+		return
+	var direction := HexCoordUtils.travel_direction_for_coords(coords)
+	var data: Dictionary = boundary_preview_data.get(direction, {})
+	var polygon := boundary_preview_polygons[coords] as Polygon2D
+	if is_instance_valid(polygon):
+		polygon.color = BOUNDARY_HOVER_COLOR
+	var direction_name := str(data.get(
+		"direction_name",
+		GameEnums.MacroTravelDirection.keys()[direction]
+	)).replace("_", " ")
+	var node_names: Array = data.get("node_names", [])
+	boundary_hover_label.text = (
+		"%s  >  %s\nClick from the rim to travel"
+		% [direction_name, " / ".join(PackedStringArray(node_names))]
+		if not node_names.is_empty()
+		else "%s  >  NO CONNECTED ROUTE" % direction_name
+	)
+	var inward := -HexCoordUtils.travel_direction_vector(direction) * 310.0
+	boundary_hover_label.position = map_to_local(coords) + inward + Vector2(-145.0, -28.0)
+	boundary_hover_label.visible = true
 
 
 ## Paint every hex currently in the world generator cache (full 12×12 zone).
@@ -216,14 +366,25 @@ func _paint_single_hex(coords: Vector2i) -> void:
 		_clear_decorations(coords)
 		_hide_poi_marker(coords)
 	else:
-		if hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS and hex_data.flora_sprite_path.is_empty():
+		if (
+			_zone_mode
+			and hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS
+			and hex_data.flora_sprite_path.is_empty()
+		):
+			# Radius zones render shrub recipes through zone_decorations. Painting
+			# the legacy single shrub as well duplicated and mis-scaled every patch.
+			_clear_shrub(coords)
+			_paint_optional_layer(target_flora_layer, coords, -1)
+		elif hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS and hex_data.flora_sprite_path.is_empty():
 			_paint_optional_layer(target_flora_layer, coords, -1)
 			_paint_shrub(coords, hex_data)
 		else:
 			_clear_shrub(coords)
 			var flora_source := _resolve_flora_source_id(hex_data)
 			_paint_optional_layer(target_flora_layer, coords, flora_source)
-		var rock_source := _resolve_rock_source_id(hex_data)
+		# Local zones use normalized rock clusters. The raw rock atlas entries
+		# have wildly different footprints and create overlapping full-hex rings.
+		var rock_source := -1 if _zone_mode else _resolve_rock_source_id(hex_data)
 		_paint_optional_layer(target_rock_layer, coords, rock_source)
 		var structure_source := _resolve_structure_source_id(hex_data)
 		_paint_optional_layer(target_structure_layer, coords, structure_source)
@@ -336,12 +497,15 @@ func _paint_shrub(coords: Vector2i, hex_data: MacroHexData) -> void:
 	rng.seed = ("shrub-visual:" + str(hex_data.visual_variant_hash)).hash()
 	var shrub := Sprite2D.new()
 	shrub.texture = atlas.texture
-	shrub.scale = Vector2.ONE * rng.randf_range(0.12, 0.20)
+	var texture_size := atlas.texture.get_size()
+	var fit_scale := minf(76.0 / texture_size.x, 88.0 / texture_size.y)
+	shrub.scale = Vector2.ONE * fit_scale * rng.randf_range(0.88, 1.08)
+	shrub.offset = Vector2(0.0, -texture_size.y * 0.5)
 	shrub.position = map_to_local(coords) + Vector2(
-		rng.randf_range(-96.0, 96.0),
-		rng.randf_range(-56.0, 56.0)
+		rng.randf_range(-72.0, 72.0),
+		rng.randf_range(-42.0, 42.0)
 	)
-	shrub.z_index = 0
+	shrub.z_index = 1
 	shrub_layer.add_child(shrub)
 	shrub_sprites[coords] = shrub
 
@@ -360,25 +524,39 @@ func _paint_decorations(coords: Vector2i) -> void:
 		var path := str(prop.get("sprite_path", ""))
 		if path.is_empty():
 			continue
-		var texture := load(path) as Texture2D
+		var texture: Texture2D = _decor_texture_cache.get(path)
+		if texture == null:
+			texture = load(path) as Texture2D
+			if texture != null:
+				_decor_texture_cache[path] = texture
 		if texture == null:
 			continue
 		var sprite := Sprite2D.new()
 		sprite.texture = texture
 		sprite.centered = true
-		var prop_scale: Variant = prop.get("scale", Vector2.ONE)
-		if prop_scale is Vector2:
-			sprite.scale = prop_scale
+		var target_box: Variant = prop.get("target_box", Vector2.ZERO)
+		if target_box is Vector2 and not target_box.is_zero_approx():
+			var texture_size := texture.get_size()
+			var fit_scale := minf(target_box.x / texture_size.x, target_box.y / texture_size.y)
+			sprite.scale = Vector2.ONE * fit_scale * float(prop.get("scale_multiplier", 1.0))
+			sprite.offset = Vector2(0.0, -texture_size.y * 0.5)
 		else:
-			var uniform := float(prop.get("uniform_scale", 0.18))
-			sprite.scale = Vector2.ONE * uniform
+			var prop_scale: Variant = prop.get("scale", Vector2.ONE)
+			if prop_scale is Vector2:
+				sprite.scale = prop_scale
+			else:
+				var uniform := float(prop.get("uniform_scale", 0.18))
+				sprite.scale = Vector2.ONE * uniform
 		var offset: Variant = prop.get("offset", Vector2.ZERO)
 		if offset is Vector2:
 			sprite.position = hex_center + offset
 		else:
 			sprite.position = hex_center
-		var layer_index := int(prop.get("layer", 3))
-		sprite.z_index = DECOR_LAYER_Z.get(layer_index, 3)
+		# These isometric sprites have a shared light direction and ground plane.
+		# Arbitrary rotation makes them look drunk, floating, or both.
+		sprite.rotation = 0.0
+		sprite.flip_h = bool(prop.get("flip_h", false))
+		sprite.z_index = 1
 		shrub_layer.add_child(sprite)
 		decor_sprites[_decor_key(coords, index)] = sprite
 
@@ -498,18 +676,30 @@ func _sync_detail_visibility(coords: Vector2i, state: int) -> void:
 		return
 
 	# Restored visibility: repaint details if missing.
-	if hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS and hex_data.flora_sprite_path.is_empty():
+	if (
+		_zone_mode
+		and hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS
+		and hex_data.flora_sprite_path.is_empty()
+	):
+		_clear_shrub(coords)
+		_paint_optional_layer(target_flora_layer, coords, -1)
+	elif hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS and hex_data.flora_sprite_path.is_empty():
 		_paint_optional_layer(target_flora_layer, coords, -1)
 		_paint_shrub(coords, hex_data)
 	else:
 		_clear_shrub(coords)
 		_paint_optional_layer(target_flora_layer, coords, _resolve_flora_source_id(hex_data))
-	_paint_optional_layer(target_rock_layer, coords, _resolve_rock_source_id(hex_data))
+	_paint_optional_layer(
+		target_rock_layer,
+		coords,
+		-1 if _zone_mode else _resolve_rock_source_id(hex_data)
+	)
 	_paint_optional_layer(target_structure_layer, coords, _resolve_structure_source_id(hex_data))
 	if shrub_sprites.has(coords):
 		var shrub_vis := shrub_sprites[coords] as Sprite2D
 		if is_instance_valid(shrub_vis):
 			shrub_vis.visible = true
+	_paint_decorations(coords)
 	if hex_data.is_poi or not hex_data.landmark_id.is_empty():
 		_mark_poi_visually(
 			coords,

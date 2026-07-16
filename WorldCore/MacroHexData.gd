@@ -129,7 +129,7 @@ func has_landmark() -> bool:
 	)
 
 func coords_is_service_hub() -> bool:
-	return poi_id == "alpha_central_hub"
+	return poi_id in ["alpha_central_hub", "central_core"]
 
 func travel_time_multiplier() -> float:
 	if rock_layer == GameEnums.MacroRockLayer.HILLS:

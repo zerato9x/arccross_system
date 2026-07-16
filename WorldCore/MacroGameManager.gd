@@ -24,7 +24,7 @@ signal campaign_nodes_unlocked(node_ids: Array)
 var exploration_window: MacroExplorationWindow
 ## Fullscreen Node Map System (independent of MacroHudShell).
 var node_map_system: CanvasLayer
-## Campaign node-graph progression (linear north path for v1).
+## Directional campaign-web progression and local-zone ownership.
 var campaign: MacroProgressController
 var _node_map_inventory_layer_restore := 1
 var _inventory_home_layer: CanvasLayer
@@ -75,6 +75,8 @@ var _selected_hex_coords: Vector2i = Vector2i.ZERO
 var _macro_turn_index := 0
 var _last_macro_event := "Macro systems nominal."
 var _mutation_store: Node
+var _meta_progress: Node
+var _pending_exit_direction: GameEnums.MacroTravelDirection = GameEnums.MacroTravelDirection.NONE
 
 const HEX_NEIGHBORS = [
 	Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1), 
@@ -116,16 +118,21 @@ func get_available_nodes() -> Array[String]:
 	return campaign.get_available_nodes()
 
 
-func enter_campaign_node(node_id: String) -> bool:
+func enter_campaign_node(
+	node_id: String,
+	exit_direction: int = GameEnums.MacroTravelDirection.NONE
+) -> bool:
 	_ensure_campaign()
-	if not campaign.can_enter_node(node_id):
+	if not campaign.can_enter_node(node_id, exit_direction):
 		return false
 	# Keep player inventory; unload tokens before zone swap.
 	_unload_all_enemy_tokens()
-	var ok := campaign.enter_node(node_id)
+	var ok := campaign.enter_node(node_id, exit_direction)
 	if not ok:
 		return false
+	_pending_exit_direction = GameEnums.MacroTravelDirection.NONE
 	_apply_active_zone_to_world()
+	_ensure_meta_component_source()
 	return true
 
 
@@ -161,6 +168,11 @@ func _ensure_node_map_system() -> void:
 
 
 func open_node_map() -> void:
+	_pending_exit_direction = GameEnums.MacroTravelDirection.NONE
+	_open_node_map_with_context()
+
+
+func _open_node_map_with_context() -> void:
 	_ensure_campaign()
 	_ensure_node_map_system()
 	if node_map_system == null:
@@ -187,7 +199,9 @@ func is_node_map_open() -> bool:
 ## Full graph + player presentation for the fullscreen Node Map System window.
 func build_node_map_ui_snapshot() -> Dictionary:
 	_ensure_campaign()
-	var next_ids := _next_incomplete_available_nodes()
+	var next_ids: Array[String] = []
+	if _pending_exit_direction != GameEnums.MacroTravelDirection.NONE:
+		next_ids = campaign.get_directional_destinations(_pending_exit_direction)
 	var available := campaign.get_available_nodes()
 	var nodes: Array = []
 	var edges: Array = []
@@ -196,20 +210,17 @@ func build_node_map_ui_snapshot() -> Dictionary:
 			var node := campaign.graph.get_node(node_id)
 			if node == null:
 				continue
-			# Filter undiscovered LOCKED nodes from the graph list.
-			if (
-				node.type == GameEnums.MacroNodeType.LOCKED
-				and not node.discovered
-				and not node.unlocked
-			):
+			if not _node_map_entry_visible(node_id):
 				continue
 			var entry := node.to_dict()
-			var can_enter := campaign.can_enter_node(node_id)
+			var can_enter := campaign.can_enter_node(node_id, _pending_exit_direction)
 			var is_active := node_id == campaign.active_node_id
 			var is_next := next_ids.has(node_id)
 			var enter_reason := ""
-			if not can_enter:
-				enter_reason = "Node is locked."
+			if _pending_exit_direction == GameEnums.MacroTravelDirection.NONE:
+				enter_reason = "Reach a zone rim and step outward to travel."
+			elif not can_enter:
+				enter_reason = "No unlocked connection in this exit direction."
 			elif is_active:
 				enter_reason = "Already present in this node's zone."
 				can_enter = false
@@ -217,6 +228,10 @@ func build_node_map_ui_snapshot() -> Dictionary:
 			entry["enter_reason"] = enter_reason
 			entry["is_active"] = is_active
 			entry["is_next"] = is_next
+			entry["detail_hidden"] = not node.details_revealed
+			if not node.details_revealed:
+				entry["display_name"] = "Unknown Route"
+				entry["zone_profile_id"] = ""
 			entry["zone_flavor"] = _node_zone_flavor(node)
 			entry["objective_text"] = _node_objective_text(node)
 			nodes.append(entry)
@@ -225,23 +240,33 @@ func build_node_map_ui_snapshot() -> Dictionary:
 				continue
 			var from_id := str(edge.get("from", ""))
 			var to_id := str(edge.get("to", ""))
-			if _node_map_entry_visible(from_id) and _node_map_entry_visible(to_id):
-				edges.append({"from": from_id, "to": to_id})
+			if (
+				bool(edge.get("visible", true))
+				and _node_map_entry_visible(from_id)
+				and _node_map_entry_visible(to_id)
+			):
+				var edge_entry: Dictionary = edge.duplicate(true)
+				edge_entry["eligible"] = (
+					from_id == campaign.active_node_id
+					and next_ids.has(to_id)
+					and int(edge.get("from_direction", 0)) == int(_pending_exit_direction)
+				)
+				edges.append(edge_entry)
 
 	var snapshot := {
 		"active_node_id": campaign.active_node_id if campaign != null else "",
+		"travel_mode": _pending_exit_direction != GameEnums.MacroTravelDirection.NONE,
+		"pending_exit_direction": int(_pending_exit_direction),
 		"available_nodes": available,
 		"next_nodes": next_ids,
 		"advance_hint": (
-			"Advance to %s." % next_ids[0]
+			"Travel %s to an adjacent node." % GameEnums.MacroTravelDirection.keys()[_pending_exit_direction]
 			if not next_ids.is_empty()
-			else "No next campaign node is available yet."
+			else "Inspect the web, or leave the local map through a connected rim."
 		),
-		"can_advance": not next_ids.is_empty(),
+		"can_advance": false,
 		"advance_reason": (
-			""
-			if not next_ids.is_empty()
-			else "No unlocked incomplete node is ready."
+			"Select an eligible connected node directly."
 		),
 		"nodes": nodes,
 		"edges": edges,
@@ -270,16 +295,16 @@ func _node_map_entry_visible(node_id: String) -> bool:
 	var node := campaign.graph.get_node(node_id)
 	if node == null:
 		return false
-	if (
-		node.type == GameEnums.MacroNodeType.LOCKED
-		and not node.discovered
-		and not node.unlocked
-	):
+	if node.id == MacroGraphGenerator.FETCH_BRANCH_ID and not node.discovered:
 		return false
 	return true
 
 
 func _node_zone_flavor(node: MacroNodeData) -> String:
+	if not node.details_revealed:
+		return "Unsurveyed route. Enter the zone to identify its properties."
+	if node.persistence == GameEnums.MacroNodePersistence.PERMANENT_META:
+		return "Permanent Meta node. Structural changes survive every character."
 	match node.zone_kind:
 		GameEnums.MacroZoneKind.UNIQUE_EVENT:
 			return "Authored hex-event site. Resolve the encounter to progress."
@@ -288,23 +313,26 @@ func _node_zone_flavor(node: MacroNodeData) -> String:
 			var biome_keys := GameEnums.GridBiome.keys()
 			if node.biome >= 0 and node.biome < biome_keys.size():
 				biome_name = str(biome_keys[node.biome]).capitalize()
-			return "Procedural %s zone. Reach the marked exit hex." % biome_name
+			return "Seeded %s zone. Leave through a connected directional rim." % biome_name
 
 
 func _node_objective_text(node: MacroNodeData) -> String:
-	if node.zone_kind == GameEnums.MacroZoneKind.UNIQUE_EVENT:
-		return "Reach the event hex and resolve the encounter."
-	if str(node.objective_id) == "exit" or node.objective_id.is_empty():
-		return "Reach the exit hex to complete this node."
-	return "Complete objective '%s'." % node.objective_id
+	if node.role == GameEnums.MacroNodeRole.GATEWAY and not node.unlocked:
+		return "Sealed by Meta Progress."
+	if node.role == GameEnums.MacroNodeRole.CENTRAL_CORE:
+		return "Return recovered core components here."
+	if node.role == GameEnums.MacroNodeRole.META_BRANCH:
+		return "Recover the North Core Regulator."
+	return "Traverse the zone through a graph-connected rim."
 
 
 func _on_node_map_closed() -> void:
 	_close_node_map_overlays()
+	_pending_exit_direction = GameEnums.MacroTravelDirection.NONE
 
 
 func _on_node_map_enter_requested(node_id: String) -> void:
-	if enter_campaign_node(node_id):
+	if enter_campaign_node(node_id, _pending_exit_direction):
 		_last_macro_event = "Entered campaign node: %s" % node_id
 		_refresh_world_hud()
 		close_node_map()
@@ -313,9 +341,9 @@ func _on_node_map_enter_requested(node_id: String) -> void:
 
 
 func _on_node_map_advance_requested() -> void:
-	if advance_to_next_node():
-		close_node_map()
-	elif is_node_map_open():
+	# The legacy global "advance" button cannot bypass directional travel.
+	_last_macro_event = "Choose an eligible adjacent node from the directional web."
+	if is_node_map_open():
 		node_map_system.call("refresh", build_node_map_ui_snapshot())
 
 
@@ -450,6 +478,7 @@ func _on_campaign_nodes_unlocked(node_ids: Array) -> void:
 	campaign_nodes_unlocked.emit(node_ids)
 	_last_macro_event = "Path unlocked: %s" % ", ".join(PackedStringArray(node_ids))
 	_macro_log(_last_macro_event)
+	_refresh_boundary_previews()
 	_refresh_world_hud()
 
 
@@ -463,7 +492,7 @@ func _apply_active_zone_to_world() -> void:
 	if campaign == null or campaign.zone_generator == null:
 		return
 	var zone := campaign.zone_generator
-	world_generator.enable_zone_bounds(MacroZoneGenerator.ZONE_SIZE)
+	world_generator.enable_zone_bounds(MacroZoneGenerator.ZONE_RADIUS)
 	world_generator.configure_seed(_world_state.world_seed + ":node:" + zone.node_id)
 	world_generator.inject_zone_hexes(zone.world_hex_cache)
 	world_generator.inject_zone_decorations(zone.zone_decorations)
@@ -490,9 +519,96 @@ func _apply_active_zone_to_world() -> void:
 	_mark_hex_explored(start_coords)
 	_select_hex_for_hud(start_coords)
 	_refresh_map_visuals(start_coords, true)
+	_refresh_boundary_previews()
 	refresh_proximity(start_coords)
 	_refresh_world_hud()
 	print(MacroMapDebug.print_campaign(campaign))
+
+
+func _refresh_boundary_previews() -> void:
+	if map_visualizer == null or campaign == null or campaign.graph == null:
+		return
+	var previews: Dictionary = {}
+	for direction in [
+		GameEnums.MacroTravelDirection.NORTH,
+		GameEnums.MacroTravelDirection.NORTHEAST,
+		GameEnums.MacroTravelDirection.EAST,
+		GameEnums.MacroTravelDirection.SOUTHEAST,
+		GameEnums.MacroTravelDirection.SOUTH,
+		GameEnums.MacroTravelDirection.SOUTHWEST,
+		GameEnums.MacroTravelDirection.WEST,
+		GameEnums.MacroTravelDirection.NORTHWEST,
+	]:
+		var node_ids := campaign.get_directional_destinations(direction)
+		var node_names: Array[String] = []
+		for destination_id in node_ids:
+			var destination := campaign.graph.get_node(destination_id)
+			if destination != null:
+				node_names.append(destination.display_name)
+		previews[int(direction)] = {
+			"direction_name": GameEnums.MacroTravelDirection.keys()[direction],
+			"node_ids": node_ids,
+			"node_names": node_names,
+		}
+	map_visualizer.configure_boundary_previews(previews)
+
+
+func _ensure_meta_component_source() -> void:
+	if campaign == null or campaign.active_node_id != MacroGraphGenerator.FETCH_BRANCH_ID:
+		return
+	if (
+		_meta_progress != null
+		and _meta_progress.has_method("is_event_completed")
+		and _meta_progress.is_event_completed(MacroGraphGenerator.META_FETCH_EVENT_ID)
+	):
+		return
+	if _run_has_meta_component():
+		return
+	if _loot_catalog == null or not _loot_catalog.has_item(MacroGraphGenerator.FETCH_ITEM_ID):
+		push_error("[MacroGameManager] Missing authored Meta quest item.")
+		return
+	var item_state: Dictionary = _loot_catalog.create_runtime_item_state(
+		MacroGraphGenerator.FETCH_ITEM_ID
+	)
+	if item_state.is_empty():
+		return
+	_world_state.add_ground_items(Vector2i.ZERO, [item_state])
+	_last_macro_event = "A North Core Regulator rests inside the Component Vault."
+
+
+func _run_has_meta_component() -> bool:
+	if player_token != null and player_token.get_humanoid_core() != null:
+		for item in player_token.get_humanoid_core().inventory.get_all_items():
+			if item.id == MacroGraphGenerator.FETCH_ITEM_ID:
+				return true
+	for ground_stack in _world_state.ground_item_records.values():
+		for item_state in ground_stack:
+			if (
+				item_state is Dictionary
+				and _runtime_item_state_id(item_state) == MacroGraphGenerator.FETCH_ITEM_ID
+			):
+				return true
+	for snapshot in _world_state.node_runtime_snapshots.values():
+		if not snapshot is Dictionary:
+			continue
+		for ground_entry in snapshot.get("ground_items", []):
+			if not ground_entry is Dictionary:
+				continue
+			for item_state in ground_entry.get("items", []):
+				if (
+					item_state is Dictionary
+					and _runtime_item_state_id(item_state) == MacroGraphGenerator.FETCH_ITEM_ID
+				):
+					return true
+	return false
+
+
+func _runtime_item_state_id(item_state: Dictionary) -> String:
+	var item_id := str(item_state.get("id", ""))
+	if not item_id.is_empty():
+		return item_id
+	var definition: Dictionary = item_state.get("definition", {})
+	return str(definition.get("id", ""))
 
 
 func get_runtime_state_store() -> RuntimeStateStore:
@@ -605,6 +721,7 @@ func _ready() -> void:
 	if _world_state == null:
 		_world_state = get_node("/root/WorldState") as RuntimeStateStore
 	_mutation_store = get_node_or_null("/root/WorldMutationStore")
+	_meta_progress = get_node_or_null("/root/MetaProgression")
 	if _loot_catalog == null:
 		_loot_catalog = get_node("/root/LootCatalog")
 	if not mob_spawner:
@@ -674,12 +791,12 @@ func _bootstrap_world() -> void:
 	_refresh_world_hud()
 
 func _initialize_demo() -> void:
-	var seed := "DEMO_NORTH_PATH_01"
+	var seed := "ARCCROSS_DIRECTIONAL_WEB_01"
 	_world_state.begin_new_world(seed)
 	_ensure_campaign()
 	campaign.begin_campaign(seed)
 	world_generator.configure_services(_world_state)
-	world_generator.enable_zone_bounds(MacroZoneGenerator.ZONE_SIZE)
+	world_generator.enable_zone_bounds(MacroZoneGenerator.ZONE_RADIUS)
 
 	# Preserve freshly created player token inventory into the run, then enter hub.
 	_world_state.set_player_record(
@@ -689,7 +806,7 @@ func _initialize_demo() -> void:
 	if not enter_campaign_node(MacroGraphGenerator.HUB_ID):
 		push_error("[MacroGameManager] Failed to enter hub campaign node.")
 		return
-	_macro_log("North-path campaign initialized at hub.")
+	_macro_log("Directional campaign initialized at the Central Core south rim.")
 
 
 func _initialize_loaded_world() -> void:
@@ -700,20 +817,24 @@ func _initialize_loaded_world() -> void:
 
 	_ensure_campaign()
 	world_generator.configure_services(_world_state)
-	world_generator.enable_zone_bounds(MacroZoneGenerator.ZONE_SIZE)
+	world_generator.enable_zone_bounds(MacroZoneGenerator.ZONE_RADIUS)
 	player_token.restore_runtime_record(_world_state.player_record)
 
 	if not _world_state.campaign_graph.is_empty():
+		var loaded_coords := _world_state.player_coords
 		campaign.load_campaign(
 			_world_state.campaign_graph,
 			_world_state.active_node_id
 		)
 		_apply_active_zone_to_world()
-		var loaded_coords := _world_state.player_coords
 		if world_generator.is_in_zone_bounds(loaded_coords):
 			player_token.snap_to_hex(
 				loaded_coords,
 				map_visualizer.map_to_local(loaded_coords)
+			)
+			_world_state.update_player_runtime(
+				player_token.get_humanoid_core().capture_runtime_state().to_dict(),
+				loaded_coords
 			)
 			_mark_hex_explored(loaded_coords)
 			_select_hex_for_hud(loaded_coords)
@@ -739,10 +860,28 @@ func synchronize_runtime_state() -> void:
 	if campaign != null and campaign.graph != null:
 		_world_state.campaign_graph = campaign.graph.to_dict()
 		_world_state.active_node_id = campaign.active_node_id
+		_world_state.active_arrival_direction = int(campaign.last_arrival_direction)
+		_world_state.capture_node_runtime(campaign.active_node_id)
+		var active_node := campaign.get_active_node()
+		if (
+			active_node != null
+			and active_node.persistence == GameEnums.MacroNodePersistence.PERMANENT_META
+			and _meta_progress != null
+			and _meta_progress.has_method("capture_node_mutations")
+		):
+			_meta_progress.capture_node_mutations(
+				active_node.id,
+				campaign.zone_generator.permanent_baseline_records,
+				_world_state.hex_records
+			)
 	flush_world_mutations()
 
 
 func flush_world_mutations() -> void:
+	if campaign != null and not campaign.active_node_id.is_empty():
+		# Directional node worlds use node-scoped Meta patches. The legacy
+		# coordinate-only store must never receive these overlapping coordinates.
+		return
 	if _mutation_store == null or world_generator.authored_map == null:
 		return
 	if not _mutation_store.has_method("capture_run_mutations"):
@@ -873,10 +1012,6 @@ func _unhandled_input(event: InputEvent) -> void:
 				_resolve_current_hex_action()
 				get_viewport().set_input_as_handled()
 				return
-			KEY_N:
-				advance_to_next_node()
-				get_viewport().set_input_as_handled()
-				return
 			KEY_T:
 				_try_travel_to_selected_hex()
 				get_viewport().set_input_as_handled()
@@ -899,14 +1034,17 @@ func _unhandled_input(event: InputEvent) -> void:
 func _attempt_move_to_mouse() -> bool:
 	var mouse_pos = map_visualizer.get_local_mouse_position()
 	var clicked_hex_coords = map_visualizer.local_to_map(mouse_pos)
-	_select_hex_for_hud(clicked_hex_coords)
 	
 	var distance_vector = clicked_hex_coords - player_token.current_hex_coords
 	if not HEX_NEIGHBORS.has(distance_vector):
 		return false # Ignored. Too far away.
 
 	if not world_generator.is_in_zone_bounds(clicked_hex_coords):
-		return false
+		return _try_begin_directional_exit(
+			player_token.current_hex_coords,
+			clicked_hex_coords
+		)
+	_select_hex_for_hud(clicked_hex_coords)
 		
 	var target_hex := world_generator.get_hex_at(clicked_hex_coords)
 	if not target_hex.is_passable():
@@ -919,6 +1057,7 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 	if not _pending_interaction.is_empty():
 		return
 	if not world_generator.is_in_zone_bounds(target_coords):
+		_try_begin_directional_exit(player_token.current_hex_coords, target_coords)
 		return
 	var origin_coords := player_token.current_hex_coords
 	var pixel_pos = map_visualizer.map_to_local(target_coords)
@@ -967,71 +1106,66 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 	_refresh_world_hud()
 
 
+func _try_begin_directional_exit(
+	origin_coords: Vector2i,
+	target_coords: Vector2i
+) -> bool:
+	if campaign == null or campaign.active_node_id.is_empty():
+		return false
+	if HexCoordUtils.distance_from_origin(origin_coords) != MacroZoneGenerator.ZONE_RADIUS:
+		return false
+	var step := target_coords - origin_coords
+	if not HEX_NEIGHBORS.has(step):
+		return false
+	var direction := HexCoordUtils.travel_direction_for_boundary_target(target_coords)
+	if direction == GameEnums.MacroTravelDirection.NONE:
+		return false
+	_pending_exit_direction = direction as GameEnums.MacroTravelDirection
+	var destinations := campaign.get_directional_destinations(direction)
+	_last_macro_event = (
+		"Boundary reached: %s. Select an adjacent node."
+		% GameEnums.MacroTravelDirection.keys()[direction]
+	)
+	if destinations.is_empty():
+		_last_macro_event += " No unlocked route leaves this sector."
+	_open_node_map_with_context()
+	_refresh_world_hud()
+	return true
+
+
 ## Complete the active RNG node when the player reaches its exit hex, or open
 ## the unique hex-event when they reach the event site.
 func _try_resolve_campaign_objective_on_arrival(
-	coords: Vector2i,
-	hex_data: MacroHexData
+	_coords: Vector2i,
+	_hex_data: MacroHexData
 ) -> void:
-	if campaign == null or campaign.active_node_id.is_empty():
-		return
-	var node := campaign.get_active_node()
-	if node == null or node.completed:
-		return
-	if campaign.zone_generator == null:
-		return
-	if coords != campaign.zone_generator.objective_coords:
-		return
-
-	if node.zone_kind == GameEnums.MacroZoneKind.UNIQUE_EVENT:
-		var event_id := node.event_id
-		if event_id.is_empty():
-			event_id = MacroEventResolver.EVENT_LOCKED_TREATMENT_ROOM
-		begin_macro_event(event_id, coords)
-		return
-
-	if campaign.try_complete_objective_at(coords):
-		_announce_objective_complete(node)
+	# Ordinary traversal is resolved by directional rim departure, not by a
+	# hard-coded northern objective hex.
+	return
 
 
 func _announce_objective_complete(node: MacroNodeData) -> void:
 	var next_ids := _next_incomplete_available_nodes()
-	var next_hint := "Press N to advance to the next node."
+	var next_hint := "Leave through a connected rim to continue."
 	if next_ids.is_empty():
-		next_hint = "No further nodes unlocked."
+		next_hint = "No route is eligible in the active rim sector."
 	else:
-		next_hint = "Press N to enter %s." % next_ids[0]
+		next_hint = "The active rim sector connects to %s." % next_ids[0]
 	_last_macro_event = "Objective complete: %s. %s" % [node.display_name, next_hint]
 	_macro_log(_last_macro_event)
 
 
 func _next_incomplete_available_nodes() -> Array[String]:
-	var result: Array[String] = []
-	if campaign == null or campaign.graph == null:
-		return result
-	for node_id in campaign.get_available_nodes():
-		var node := campaign.graph.get_node(node_id)
-		if node == null or node.completed:
-			continue
-		if node_id == campaign.active_node_id:
-			continue
-		result.append(node_id)
-	return result
+	if campaign == null:
+		return []
+	return campaign.get_directional_destinations(_pending_exit_direction)
 
 
-## Enter the next unlocked incomplete campaign node (linear north path).
+## Compatibility shim: unrestricted global node advancement is forbidden.
 func advance_to_next_node() -> bool:
-	_ensure_campaign()
-	var next_ids := _next_incomplete_available_nodes()
-	if next_ids.is_empty():
-		_last_macro_event = "No next campaign node is available yet."
-		_refresh_world_hud()
-		return false
-	var ok := enter_campaign_node(next_ids[0])
-	if ok:
-		_last_macro_event = "Entered campaign node: %s" % next_ids[0]
-		_refresh_world_hud()
-	return ok
+	_last_macro_event = "Global advance is disabled. Leave through a directional rim."
+	_refresh_world_hud()
+	return false
 
 
 func advance_macro_world(turns: int = 1, bypass_interaction_check: bool = false) -> void:
@@ -1230,8 +1364,11 @@ func _try_handle_campaign_site(coords: Vector2i, hex_data: MacroHexData) -> bool
 	if campaign == null or campaign.active_node_id.is_empty():
 		return false
 	var node := campaign.get_active_node()
-	if node == null or node.completed:
+	if node == null:
 		return false
+	if node.role == GameEnums.MacroNodeRole.CENTRAL_CORE and hex_data.poi_id == "central_core":
+		_handle_central_meta_quest()
+		return true
 
 	if str(hex_data.poi_id).begins_with("macro_event_"):
 		var event_id := node.event_id
@@ -1240,14 +1377,50 @@ func _try_handle_campaign_site(coords: Vector2i, hex_data: MacroHexData) -> bool
 		begin_macro_event(event_id, coords)
 		return true
 
-	if hex_data.poi_id == "node_exit":
-		player_token.play_interaction()
-		if campaign.try_complete_objective_at(coords):
-			_announce_objective_complete(node)
-		_refresh_world_hud()
-		return true
-
 	return false
+
+
+func _handle_central_meta_quest() -> void:
+	player_token.play_interaction()
+	if _meta_progress == null:
+		_last_macro_event = "Meta Progress profile is unavailable."
+		_refresh_world_hud()
+		return
+	if _meta_progress.is_event_completed(MacroGraphGenerator.META_FETCH_EVENT_ID):
+		_last_macro_event = "North Core Regulator installed. The north gateway is permanently unsealed."
+		_refresh_world_hud()
+		return
+	var inventory := player_token.get_humanoid_core().inventory
+	var component: ItemData = null
+	for item in inventory.get_all_items():
+		if item.id == MacroGraphGenerator.FETCH_ITEM_ID:
+			component = item
+			break
+	if component == null:
+		campaign.reveal_fetch_branch()
+		_last_macro_event = (
+			"META QUEST: Recover the North Core Regulator from the revealed east-arm branch "
+			+ "and return it to the Central Core."
+		)
+		_world_state.campaign_graph = campaign.graph.to_dict()
+		_refresh_world_hud()
+		return
+	inventory.remove_item_by_instance_id(component.instance_id)
+	_meta_progress.complete_event(
+		MacroGraphGenerator.META_FETCH_EVENT_ID,
+		[{
+			"type": "set_gateway",
+			"gateway_id": "north",
+			"unsealed": true,
+		}]
+	)
+	campaign.refresh_meta_unlocks()
+	_last_macro_event = (
+		"META EVENT COMPLETE: North Core Regulator installed. "
+		+ "The north gateway is unsealed for every future character."
+	)
+	_macro_log(_last_macro_event)
+	_refresh_world_hud()
 
 
 func debug_begin_poi_interaction(
@@ -1866,14 +2039,10 @@ func _build_world_hud_snapshot() -> Dictionary:
 			"active_display_name": (
 				active.display_name if active != null else ""
 			),
-			"active_completed": active != null and active.completed,
-			"objective_coords": (
-				campaign.zone_generator.objective_coords
-				if campaign.zone_generator != null
-				else Vector2i.ZERO
-			),
+			"active_traversed": active != null and active.traversed,
+			"pending_exit_direction": int(_pending_exit_direction),
 			"advance_hint": (
-				"Press N to enter %s." % next_ids[0]
+				"Leave through the active rim sector to reach %s." % next_ids[0]
 				if not next_ids.is_empty()
 				else ""
 			),
@@ -1971,13 +2140,18 @@ func _on_player_items_spilled(spilled_items: Array[ItemData]) -> void:
 	_world_state.add_ground_items(player_token.current_hex_coords, item_states)
 
 func _resolve_core_activation(coords: Vector2i, hex_data: MacroHexData) -> void:
-	if hex_data.poi_id != "alpha_central_hub":
+	if hex_data.poi_id != "central_core":
 		_show_interaction_result(
 			"ACTIVATION BLOCKED",
 			"This location cannot bring the Alpha Core online."
 		)
 		return
-	if _mutation_store != null and bool(_mutation_store.core_activated):
+	var core_state: Dictionary = (
+		_meta_progress.get_core_state("central_core")
+		if _meta_progress != null and _meta_progress.has_method("get_core_state")
+		else {}
+	)
+	if bool(core_state.get("activated", false)):
 		_show_interaction_result(
 			"CORE ONLINE",
 			"The Alpha Core is already active. The wasteland remembers."
@@ -1985,9 +2159,11 @@ func _resolve_core_activation(coords: Vector2i, hex_data: MacroHexData) -> void:
 		return
 
 	_advance_survival_time(GameTimeRules.SEARCH_MINUTES, 1.5, coords)
-	if _mutation_store != null and _mutation_store.has_method("mark_core_activated"):
-		_mutation_store.mark_core_activated(true)
-	flush_world_mutations()
+	if _meta_progress != null:
+		_meta_progress.complete_event(
+			"central_core_activated",
+			[{"type": "set_core_state", "core_id": "central_core", "state": {"activated": true}}]
+		)
 	close_macro_interaction()
 	_last_macro_event = "Alpha Core activated at %s." % str(coords)
 	_refresh_world_hud()

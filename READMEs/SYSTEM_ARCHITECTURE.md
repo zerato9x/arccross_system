@@ -182,8 +182,14 @@ ambush_position: GameEnums.AmbushPosition
 
 ## Persistence Boundary
 
-- `RuntimeStateStore` writes one versioned JSON save containing the world seed,
-  time, player record, entity records, Hex records, and ground-item records.
+- `RuntimeStateStore` writes the disposable run save: world seed, time, player,
+  graph discovery/traversal, node-keyed runtime snapshots, entities, Hexes, fog,
+  and ground items. Character death/new-run creation discards this state.
+- `MetaProgressionStore` writes a separate cross-run profile containing only
+  permanent-node structural patches, completed Meta Events, gateway state,
+  node-profile mutations, and arm-core reconstruction.
+- Permanent Hex patches are keyed by stable node ID and coordinate. An unscoped
+  `(0,0)` patch must never leak into another node's `(0,0)`.
 - Godot-specific values such as `Vector2i` are explicitly tagged in JSON rather
   than restored through executable Variant text.
 - A successful load sets a one-shot startup flag. WorldCore consumes that flag
@@ -193,6 +199,24 @@ ambush_position: GameEnums.AmbushPosition
 - `GameDirector` synchronizes cached player and Hex state before saving. `F5`
   saves and `F9` loads the current run. `SaveLoadMenu` exposes three named slots
   with day and timestamp metadata from the main menu and defeat flow.
+
+### Directional Node Web
+
+- Each local node zone is a true axial radius-12 footprint: 469 cells, with 72
+  cells on the outer ring.
+- Travel classification uses eight visual sectors. This avoids pretending axial
+  north-west and south-east neighbor steps are screen-space north and south.
+- A non-playable 78-cell radius-13 preview band displays eligible destination
+  nodes on hover without contaminating world generation or runtime snapshots.
+- `MacroMapGraph` edges carry source exit direction, destination arrival
+  direction, visibility, and optional Meta unlock flag.
+- The Node Map is inspectable anywhere; travel intent is accepted only after an
+  outward rim step and only for eligible adjacent directional edges.
+- `RuntimeStateStore` snapshots visited nodes within one run so backtracking
+  cannot reset enemies, loot, fog, or quest objects.
+- TileMap terrain remains full-hex. Uneven flora/structure overlays are bottom-
+  aligned, while local rock and clutter recipes use normalized sprite boxes,
+  zero arbitrary rotation, and consistent ground anchors.
 
 ## Dependency Direction
 

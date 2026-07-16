@@ -21,6 +21,8 @@ func _run() -> void:
 	var snapshot := macro_map.build_node_map_ui_snapshot()
 	for key in [
 		"active_node_id",
+		"travel_mode",
+		"pending_exit_direction",
 		"available_nodes",
 		"next_nodes",
 		"advance_hint",
@@ -95,15 +97,23 @@ func _run() -> void:
 		_fail("close_node_map did not close NodeMapSystem.")
 		return
 
-	# Complete hub so the next plains node unlocks, then enter via node map flow.
-	macro_map.mark_node_completed(MacroGraphGenerator.HUB_ID)
-	await process_frame
-	macro_map.open_node_map()
+	# Directional travel becomes available only after an outward rim step.
+	var north_rim := HexCoordUtils.rim_anchor(
+		GameEnums.MacroTravelDirection.NORTH,
+		GameEnums.MACRO_ZONE_RADIUS
+	)
+	macro_map.debug_teleport_player(north_rim)
+	if not macro_map._try_begin_directional_exit(north_rim, north_rim + Vector2i(0, -1)):
+		_fail("North rim step did not open directional travel.")
+		return
 	await process_frame
 	var refreshed := macro_map.build_node_map_ui_snapshot()
+	if not bool(refreshed.get("travel_mode", false)):
+		_fail("Boundary-opened node map is not in travel mode.")
+		return
 	var next_nodes: Array = refreshed.get("next_nodes", [])
-	if next_nodes.is_empty():
-		_fail("Completing hub did not expose a next node.")
+	if next_nodes != ["north_random_1"]:
+		_fail("North exit exposed wrong destinations: %s" % str(next_nodes))
 		return
 	var next_id := str(next_nodes[0])
 	macro_map.node_map_system.emit_signal("enter_node_requested", next_id)
@@ -117,7 +127,17 @@ func _run() -> void:
 		_fail("Enter flow did not switch the active campaign node.")
 		return
 
-	print("[TEST PASS] Node Map System snapshot, open/close, and enter flow.")
+	if macro_map.player_token.current_hex_coords != HexCoordUtils.rim_anchor(
+		GameEnums.MacroTravelDirection.SOUTH,
+		GameEnums.MACRO_ZONE_RADIUS
+	):
+		_fail("North travel did not spawn on destination south rim.")
+		return
+	if macro_map.map_visualizer.boundary_preview_polygons.size() != 78:
+		_fail("Radius-13 boundary preview did not render 78 cells.")
+		return
+
+	print("[TEST PASS] Node Map inspection, directional travel, and opposite-rim arrival.")
 	quit(0)
 
 

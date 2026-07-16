@@ -303,15 +303,46 @@ enum MacroNodeType {
 	SPECIAL,
 }
 
-## How a campaign node's local 12x12 hex zone is authored.
+## How a campaign node's local radius-12 hex zone is authored.
 enum MacroZoneKind {
 	BIOME_RNG,
 	UNIQUE_EVENT,
 }
 
+## Stable campaign-web travel sectors. Local hexes still use six axial
+## neighbors; the two eastward and two westward diagonals fold into these four
+## graph-facing directions.
+enum MacroTravelDirection {
+	NONE,
+	NORTH,
+	EAST,
+	SOUTH,
+	WEST,
+	NORTHEAST,
+	SOUTHEAST,
+	SOUTHWEST,
+	NORTHWEST,
+}
+
+## Seeded nodes are recreated for each disposable run. Permanent Meta nodes use
+## a seed-independent baseline and receive cross-run structural patches.
+enum MacroNodePersistence {
+	SEEDED_RANDOM,
+	PERMANENT_META,
+}
+
+enum MacroNodeRole {
+	CENTRAL_CORE,
+	RANDOM_ZONE,
+	GATEWAY,
+	ARM_CORE,
+	META_BRANCH,
+}
+
 const BIOME_PACK_PLAINS := "plains"
 const BIOME_PACK_CENTRALCORE := "centralcore"
-const MACRO_ZONE_SIZE := 12
+const MACRO_ZONE_RADIUS := 12
+const MACRO_ZONE_CELL_COUNT := 1 + 3 * MACRO_ZONE_RADIUS * (MACRO_ZONE_RADIUS + 1)
 
 enum MacroInteractionType { NONE, POI, ENTITY_COLLISION, MACRO_EVENT }
 enum PoiAction { SEARCH, CAMP, REST, STOP_REST, ACTIVATE_CORE }

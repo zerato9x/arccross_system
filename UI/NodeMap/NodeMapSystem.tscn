@@ -1,15 +1,15 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene format=3 uid="uid://csfn7pskkd0ad"]
 
-[ext_resource type="Script" path="res://UI/NodeMap/NodeMapSystem.gd" id="1_system"]
-[ext_resource type="Script" path="res://UI/NodeMap/NodeMapGraphView.gd" id="2_graph"]
-[ext_resource type="Script" path="res://UI/NodeMap/NodeMapInspector.gd" id="3_inspector"]
-[ext_resource type="Script" path="res://UI/NodeMap/NodeMapPlayerPanel.gd" id="4_player"]
+[ext_resource type="Script" uid="uid://2siueuq2cje0" path="res://UI/NodeMap/NodeMapSystem.gd" id="1_system"]
+[ext_resource type="Script" uid="uid://bw45xygkumwfd" path="res://UI/NodeMap/NodeMapGraphView.gd" id="2_graph"]
+[ext_resource type="Script" uid="uid://cefqp3u66ki80" path="res://UI/NodeMap/NodeMapInspector.gd" id="3_inspector"]
+[ext_resource type="Script" uid="uid://cwam7fu6tt168" path="res://UI/NodeMap/NodeMapPlayerPanel.gd" id="4_player"]
 
-[node name="NodeMapSystem" type="CanvasLayer"]
+[node name="NodeMapSystem" type="CanvasLayer" unique_id=2018563287]
 layer = 30
 script = ExtResource("1_system")
 
-[node name="Root" type="Control" parent="."]
+[node name="Root" type="Control" parent="." unique_id=670757918]
 unique_name_in_owner = true
 layout_mode = 3
 anchors_preset = 15
@@ -17,19 +17,17 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 0
 
-[node name="DimOverlay" type="ColorRect" parent="Root"]
+[node name="DimOverlay" type="ColorRect" parent="Root" unique_id=358134128]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 0
 color = Color(0, 0, 0, 0.72)
 
-[node name="ShellPanel" type="PanelContainer" parent="Root"]
+[node name="ShellPanel" type="PanelContainer" parent="Root" unique_id=923536127]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -42,51 +40,51 @@ offset_bottom = -18.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Margin" type="MarginContainer" parent="Root/ShellPanel"]
+[node name="Margin" type="MarginContainer" parent="Root/ShellPanel" unique_id=895185192]
 layout_mode = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 10
 
-[node name="MainColumn" type="VBoxContainer" parent="Root/ShellPanel/Margin"]
+[node name="MainColumn" type="VBoxContainer" parent="Root/ShellPanel/Margin" unique_id=1643150501]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="HeaderRow" type="HBoxContainer" parent="Root/ShellPanel/Margin/MainColumn"]
+[node name="HeaderRow" type="HBoxContainer" parent="Root/ShellPanel/Margin/MainColumn" unique_id=17486301]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="TitleLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/HeaderRow"]
+[node name="TitleLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/HeaderRow" unique_id=1736225246]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 text = "NODE MAP SYSTEM"
 
-[node name="CloseButton" type="Button" parent="Root/ShellPanel/Margin/MainColumn/HeaderRow"]
+[node name="CloseButton" type="Button" parent="Root/ShellPanel/Margin/MainColumn/HeaderRow" unique_id=1024093713]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Close"
 
-[node name="BodyRow" type="HBoxContainer" parent="Root/ShellPanel/Margin/MainColumn"]
+[node name="BodyRow" type="HBoxContainer" parent="Root/ShellPanel/Margin/MainColumn" unique_id=1304497994]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 12
 
-[node name="GraphFrame" type="PanelContainer" parent="Root/ShellPanel/Margin/MainColumn/BodyRow"]
+[node name="GraphFrame" type="PanelContainer" parent="Root/ShellPanel/Margin/MainColumn/BodyRow" unique_id=418773158]
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.7
 size_flags_vertical = 3
+size_flags_stretch_ratio = 1.7
 
-[node name="GraphMargin" type="MarginContainer" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/GraphFrame"]
+[node name="GraphMargin" type="MarginContainer" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/GraphFrame" unique_id=467667981]
 layout_mode = 2
 theme_override_constants/margin_left = 6
 theme_override_constants/margin_top = 6
 theme_override_constants/margin_right = 6
 theme_override_constants/margin_bottom = 6
 
-[node name="NodeMapGraphView" type="Control" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/GraphFrame/GraphMargin"]
+[node name="NodeMapGraphView" type="Control" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/GraphFrame/GraphMargin" unique_id=650888469]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(420, 280)
 layout_mode = 2
@@ -95,180 +93,180 @@ size_flags_vertical = 3
 focus_mode = 2
 script = ExtResource("2_graph")
 
-[node name="NodeMapInspector" type="PanelContainer" parent="Root/ShellPanel/Margin/MainColumn/BodyRow"]
+[node name="NodeMapInspector" type="PanelContainer" parent="Root/ShellPanel/Margin/MainColumn/BodyRow" unique_id=973999522]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.0
 size_flags_vertical = 3
 script = ExtResource("3_inspector")
 
-[node name="InspectorMargin" type="MarginContainer" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector"]
+[node name="InspectorMargin" type="MarginContainer" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector" unique_id=2024682567]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 8
 
-[node name="InspectorColumn" type="VBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin"]
+[node name="InspectorColumn" type="VBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin" unique_id=175519951]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="InspectorHeader" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn"]
+[node name="InspectorHeader" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn" unique_id=1014953453]
 layout_mode = 2
 text = "NODE INSPECTOR"
 
-[node name="NameLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn"]
+[node name="NameLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn" unique_id=1977427664]
 unique_name_in_owner = true
 layout_mode = 2
 text = "No node selected"
 autowrap_mode = 3
 
-[node name="IdLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn"]
+[node name="IdLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn" unique_id=1002225289]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="TypeLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn"]
+[node name="TypeLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn" unique_id=784468275]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="StatusLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn"]
+[node name="StatusLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn" unique_id=1576313411]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="ZoneLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn"]
+[node name="ZoneLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn" unique_id=1925025713]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="ObjectiveLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn"]
+[node name="ObjectiveLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn" unique_id=448357516]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 autowrap_mode = 3
 
-[node name="NeighborsLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn"]
+[node name="NeighborsLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn" unique_id=444401670]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="HintLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn"]
+[node name="HintLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn" unique_id=698811272]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="ActionRow" type="HBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn"]
+[node name="ActionRow" type="HBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn" unique_id=812759477]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="EnterButton" type="Button" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn/ActionRow"]
+[node name="EnterButton" type="Button" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn/ActionRow" unique_id=862364818]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Enter Node"
 
-[node name="AdvanceButton" type="Button" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn/ActionRow"]
+[node name="AdvanceButton" type="Button" parent="Root/ShellPanel/Margin/MainColumn/BodyRow/NodeMapInspector/InspectorMargin/InspectorColumn/ActionRow" unique_id=954784537]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Advance"
 
-[node name="NodeMapPlayerPanel" type="PanelContainer" parent="Root/ShellPanel/Margin/MainColumn"]
+[node name="NodeMapPlayerPanel" type="PanelContainer" parent="Root/ShellPanel/Margin/MainColumn" unique_id=1794959758]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 110)
 layout_mode = 2
 script = ExtResource("4_player")
 
-[node name="PlayerMargin" type="MarginContainer" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel"]
+[node name="PlayerMargin" type="MarginContainer" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel" unique_id=1608855128]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 8
 
-[node name="PlayerRow" type="HBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin"]
+[node name="PlayerRow" type="HBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin" unique_id=986104044]
 layout_mode = 2
 theme_override_constants/separation = 16
 
-[node name="VitalsColumn" type="VBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow"]
+[node name="VitalsColumn" type="VBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow" unique_id=2035820627]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 4
 
-[node name="BloodBar" type="ProgressBar" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/VitalsColumn"]
+[node name="BloodBar" type="ProgressBar" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/VitalsColumn" unique_id=1454067457]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 14)
 layout_mode = 2
 show_percentage = false
 
-[node name="HungerBar" type="ProgressBar" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/VitalsColumn"]
+[node name="HungerBar" type="ProgressBar" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/VitalsColumn" unique_id=1148898584]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 14)
 layout_mode = 2
 show_percentage = false
 
-[node name="ThirstBar" type="ProgressBar" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/VitalsColumn"]
+[node name="ThirstBar" type="ProgressBar" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/VitalsColumn" unique_id=448547677]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 14)
 layout_mode = 2
 show_percentage = false
 
-[node name="FatigueBar" type="ProgressBar" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/VitalsColumn"]
+[node name="FatigueBar" type="ProgressBar" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/VitalsColumn" unique_id=1118433659]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 14)
 layout_mode = 2
 show_percentage = false
 
-[node name="MetaColumn" type="VBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow"]
+[node name="MetaColumn" type="VBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow" unique_id=618477762]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 4
 
-[node name="StanceLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/MetaColumn"]
+[node name="StanceLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/MetaColumn" unique_id=453517163]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Stance"
 
-[node name="MoraleLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/MetaColumn"]
+[node name="MoraleLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/MetaColumn" unique_id=1555874429]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Morale"
 
-[node name="EmergencyLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/MetaColumn"]
+[node name="EmergencyLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/MetaColumn" unique_id=759624700]
 unique_name_in_owner = true
 layout_mode = 2
 text = "No active emergencies"
 autowrap_mode = 3
 
-[node name="CapacityLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/MetaColumn"]
+[node name="CapacityLabel" type="Label" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/MetaColumn" unique_id=768603593]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Capacity"
 
-[node name="GearColumn" type="VBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow"]
+[node name="GearColumn" type="VBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow" unique_id=602240896]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
-[node name="GearRow" type="HBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/GearColumn"]
+[node name="GearRow" type="HBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/GearColumn" unique_id=1241938537]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="ButtonRow" type="HBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/GearColumn"]
+[node name="ButtonRow" type="HBoxContainer" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/GearColumn" unique_id=1831891677]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="InventoryButton" type="Button" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/GearColumn/ButtonRow"]
+[node name="InventoryButton" type="Button" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/GearColumn/ButtonRow" unique_id=1344305557]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Inventory"
 
-[node name="MedicalButton" type="Button" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/GearColumn/ButtonRow"]
+[node name="MedicalButton" type="Button" parent="Root/ShellPanel/Margin/MainColumn/NodeMapPlayerPanel/PlayerMargin/PlayerRow/GearColumn/ButtonRow" unique_id=2108578020]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Medical"

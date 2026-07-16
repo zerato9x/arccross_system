@@ -39,6 +39,8 @@ func refresh_slots() -> void:
 		
 		if meta.is_empty():
 			text += " - Empty"
+		elif not bool(meta.get("compatible", false)):
+			text += " - Legacy run incompatible\nSelect to start a fresh character (Meta preserved)"
 		else:
 			var day = (int(meta.get("world_time_minutes", 0)) / 1440) + 1
 			text += " - Day " + str(day) + "\n" + str(meta.get("timestamp", ""))

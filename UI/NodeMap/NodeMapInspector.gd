@@ -82,7 +82,7 @@ func _render() -> void:
 	var can_advance := bool(_snapshot.get("can_advance", false))
 	var advance_reason := str(_snapshot.get("advance_reason", ""))
 	_advance_button.disabled = not can_advance
-	_advance_button.text = "Advance"
+	_advance_button.text = "Directional Travel"
 	_advance_button.tooltip_text = (
 		advance_reason
 		if not advance_reason.is_empty()
@@ -132,8 +132,8 @@ func _status_text(node: Dictionary) -> String:
 		parts.append("ACTIVE")
 	if bool(node.get("is_next", false)):
 		parts.append("NEXT")
-	if bool(node.get("completed", false)):
-		parts.append("COMPLETED")
+	if bool(node.get("traversed", false)):
+		parts.append("TRAVERSED")
 	elif bool(node.get("unlocked", false)):
 		parts.append("UNLOCKED")
 	elif bool(node.get("discovered", false)):

@@ -14,7 +14,7 @@ signal save_completed(path: String)
 signal load_completed(path: String)
 signal persistence_failed(operation: String, message: String)
 
-const SAVE_VERSION: int = 3
+const SAVE_VERSION: int = 5
 const DEFAULT_SAVE_PATH: String = "user://arccross_run.json"
 const VARIANT_TYPE_KEY: String = "__arccross_type"
 
@@ -25,6 +25,10 @@ var player_record: EntityRecord = null
 ## Campaign node-graph state (MacroMapGraph.to_dict()). Empty until a campaign begins.
 var campaign_graph: Dictionary = {}
 var active_node_id: String = ""
+var active_arrival_direction: int = GameEnums.MacroTravelDirection.SOUTH
+## Run-local zone snapshots. Cleared with the disposable run and never written
+## to the cross-run Meta Progress profile.
+var node_runtime_snapshots: Dictionary = {} # node_id -> neutral snapshot
 
 var entity_records: Dictionary = {} # String entity_id -> EntityRecord
 var entity_ids_by_coords: Dictionary = {} # Vector2i -> String entity_id
@@ -46,6 +50,8 @@ func begin_new_world(seed: String) -> void:
 	player_record = null
 	campaign_graph = {}
 	active_node_id = ""
+	active_arrival_direction = GameEnums.MacroTravelDirection.SOUTH
+	node_runtime_snapshots.clear()
 	entity_records.clear()
 	entity_ids_by_coords.clear()
 	hex_records.clear()
@@ -251,7 +257,8 @@ func get_save_metadata(slot: int) -> Dictionary:
 		"timestamp": Time.get_datetime_string_from_unix_time(FileAccess.get_modified_time(path)),
 		"world_time_minutes": int(data.get("world_time_minutes", 0)),
 		"world_seed": str(data.get("world_seed", "")),
-		"version": int(data.get("version", -1))
+		"version": int(data.get("version", -1)),
+		"compatible": int(data.get("version", -1)) == SAVE_VERSION,
 	}
 
 func save_to_slot(slot: int) -> bool:
@@ -340,6 +347,61 @@ func consume_pending_loaded_world() -> bool:
 func get_last_persistence_error() -> String:
 	return _last_persistence_error
 
+
+func capture_node_runtime(node_id: String) -> void:
+	if node_id.is_empty():
+		return
+	var entities: Array = []
+	for entity in entity_records.values():
+		if entity is EntityRecord:
+			entities.append(entity.to_dict())
+	var hexes: Array = []
+	for coords in hex_records.keys():
+		var record: HexRecord = hex_records[coords]
+		if record != null:
+			hexes.append({"coords": coords, "record": record.to_dict()})
+	var ground_items: Array = []
+	for coords in ground_item_records.keys():
+		ground_items.append({
+			"coords": coords,
+			"items": ground_item_records[coords].duplicate(true),
+		})
+	node_runtime_snapshots[node_id] = {
+		"entities": entities,
+		"hexes": hexes,
+		"ground_items": ground_items,
+	}
+
+
+func has_node_runtime(node_id: String) -> bool:
+	return node_runtime_snapshots.has(node_id)
+
+
+func restore_node_runtime(node_id: String) -> bool:
+	if not node_runtime_snapshots.has(node_id):
+		return false
+	var snapshot: Dictionary = node_runtime_snapshots[node_id]
+	entity_records.clear()
+	entity_ids_by_coords.clear()
+	hex_records.clear()
+	ground_item_records.clear()
+	for record_data in snapshot.get("entities", []):
+		if record_data is Dictionary:
+			register_entity(EntityRecord.from_dict(record_data))
+	for entry in snapshot.get("hexes", []):
+		if not entry is Dictionary:
+			continue
+		var coords: Variant = entry.get("coords")
+		if coords is Vector2i:
+			hex_records[coords] = HexRecord.from_dict(entry.get("record", {}))
+	for entry in snapshot.get("ground_items", []):
+		if not entry is Dictionary:
+			continue
+		var coords: Variant = entry.get("coords")
+		if coords is Vector2i:
+			ground_item_records[coords] = entry.get("items", []).duplicate(true)
+	return true
+
 # ---------------------------------------------------------
 # SERIALIZATION BOUNDARY — Resources flatten to Dicts here
 # ---------------------------------------------------------
@@ -374,6 +436,8 @@ func _capture_save_snapshot() -> Dictionary:
 		"ground_items": ground_items,
 		"campaign_graph": campaign_graph.duplicate(true),
 		"active_node_id": active_node_id,
+		"active_arrival_direction": active_arrival_direction,
+		"node_runtime_snapshots": node_runtime_snapshots.duplicate(true),
 	}
 
 func _restore_save_snapshot(snapshot: Dictionary) -> bool:
@@ -392,6 +456,11 @@ func _restore_save_snapshot(snapshot: Dictionary) -> bool:
 	player_coords = snapshot.get("player_coords", Vector2i.ZERO)
 	campaign_graph = snapshot.get("campaign_graph", {}).duplicate(true)
 	active_node_id = str(snapshot.get("active_node_id", ""))
+	active_arrival_direction = int(snapshot.get(
+		"active_arrival_direction",
+		GameEnums.MacroTravelDirection.SOUTH
+	))
+	node_runtime_snapshots = snapshot.get("node_runtime_snapshots", {}).duplicate(true)
 
 	var player_data: Dictionary = snapshot.get("player_record", {})
 	player_record = EntityRecord.from_dict(player_data) if not player_data.is_empty() else null

@@ -21,7 +21,7 @@ measurements retain meaningful units.
 
 ## Current Prototype
 
-Status updated on **July 13, 2026**.
+Status updated on **July 16, 2026**.
 
 ### Playable Today
 
@@ -33,6 +33,14 @@ Launch from `UI/MainMenu.tscn` into a persistent macro run:
 3. Fight persistent enemies in 1v1 lane combat when colliding on the macro map.
 4. Manage inventory, equipment, firearm loading, SEARCH, and CAMP.
 5. Save and reload with `F5` / `F9` or the main-menu and in-game slot UI.
+6. Cross radius-12 local zones through directional rims and choose only
+   graph-connected destinations in the eight-sector, four-arm Node Web. Hover
+   the non-playable radius-13 route band to inspect the destination first.
+
+Characters and their run-local worlds are disposable. Permanent Meta nodes,
+completed Meta Events, gateway state, structural mutations, and arm-core
+reconstruction persist for later characters through the separate Meta Progress
+profile.
 
 ### Phase Status
 

@@ -2,9 +2,9 @@ extends RefCounted
 class_name GameTimeRules
 
 ## Physical time remains in minutes. These are orchestration rules, not enums.
-## 12x12 axial zone ≈ 100 km² → ~0.69 km²/hex, center-to-center ≈ 0.9 km.
+## Radius-12 axial zone: 469 cells at ~0.69 km² per hex.
 const HEX_AREA_KM2: float = 0.69
-const ZONE_AREA_KM2: float = 100.0
+const ZONE_AREA_KM2: float = HEX_AREA_KM2 * GameEnums.MACRO_ZONE_CELL_COUNT
 const HEX_CENTER_DISTANCE_KM: float = 0.9
 
 const STARTING_WORLD_MINUTES: int = 8 * 60

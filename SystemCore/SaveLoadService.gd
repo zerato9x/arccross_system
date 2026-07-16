@@ -13,6 +13,15 @@ func load_from_slot(slot: int) -> bool:
 	var store := _store()
 	if store == null:
 		return false
+	var metadata := store.get_save_metadata(slot)
+	if not metadata.is_empty() and not bool(metadata.get("compatible", false)):
+		push_warning(
+			"[SaveLoadService] Legacy run save is incompatible with the "
+			+ "directional node-web overhaul. Starting a fresh character; "
+			+ "the separate Meta Progress profile is preserved."
+		)
+		store.begin_new_world("DEMO_WASTELAND_01")
+		return true
 	return store.load_from_slot(slot)
 
 

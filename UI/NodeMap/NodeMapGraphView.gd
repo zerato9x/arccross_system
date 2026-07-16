@@ -159,7 +159,12 @@ func _draw() -> void:
 			and bool(from_node.get("unlocked", false))
 			and bool(to_node.get("unlocked", false))
 		)
-		_draw_edge(_layout[from_id], _layout[to_id], unlocked_edge)
+		_draw_edge(
+			_layout[from_id],
+			_layout[to_id],
+			unlocked_edge,
+			bool(edge.get("eligible", false))
+		)
 
 	for node in _nodes:
 		if not (node is Dictionary):
@@ -186,13 +191,18 @@ func _draw_camera_hint() -> void:
 	)
 
 
-func _draw_edge(from_pos: Vector2, to_pos: Vector2, unlocked_edge: bool) -> void:
+func _draw_edge(
+	from_pos: Vector2,
+	to_pos: Vector2,
+	unlocked_edge: bool,
+	eligible: bool = false
+) -> void:
 	var color := (
-		HUDAssetLibrary.COLOR_NORMAL
+		HUDAssetLibrary.COLOR_CAUTION if eligible else HUDAssetLibrary.COLOR_NORMAL
 		if unlocked_edge
 		else HUDAssetLibrary.COLOR_MUTED.darkened(0.25)
 	)
-	var width := 2.5 * _zoom
+	var width := (4.5 if eligible else 2.5) * _zoom
 	if unlocked_edge:
 		draw_line(from_pos, to_pos, color, width)
 	else:
@@ -220,7 +230,7 @@ func _draw_node(node: Dictionary, pos: Vector2) -> void:
 	var is_active := bool(node.get("is_active", false))
 	var is_next := bool(node.get("is_next", false))
 	var unlocked := bool(node.get("unlocked", false))
-	var completed := bool(node.get("completed", false))
+	var completed := bool(node.get("traversed", false))
 	var selected := node_id == _selected_id
 	var hovered := node_id == _hovered_id
 
@@ -250,24 +260,54 @@ func _draw_node(node: Dictionary, pos: Vector2) -> void:
 	draw_circle(pos, radius, fill)
 	draw_arc(pos, radius, 0.0, TAU, 32, border, 2.0 if selected else 1.5)
 
-	var label := str(node.get("display_name", node_id))
 	var font := ThemeDB.fallback_font
-	var font_size := maxi(9, int(round(11.0 * _zoom)))
-	var text_size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
-	draw_string(
-		font,
-		pos + Vector2(-text_size.x * 0.5, radius + 16.0 * _zoom),
-		label,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1,
-		font_size,
-		HUDAssetLibrary.COLOR_TEXT if unlocked else HUDAssetLibrary.COLOR_MUTED
-	)
+	var show_label := _zoom >= 0.66 or selected or hovered or is_active
+	var role := int(node.get("role", GameEnums.MacroNodeRole.RANDOM_ZONE))
+	if role in [
+		GameEnums.MacroNodeRole.CENTRAL_CORE,
+		GameEnums.MacroNodeRole.GATEWAY,
+		GameEnums.MacroNodeRole.ARM_CORE,
+	]:
+		show_label = true
+	if show_label:
+		var label := _compact_node_label(node, _zoom < 0.66)
+		var font_size := maxi(8, int(round(11.0 * _zoom)))
+		var text_size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+		draw_string(
+			font,
+			pos + Vector2(-text_size.x * 0.5, radius + 16.0 * _zoom),
+			label,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			font_size,
+			HUDAssetLibrary.COLOR_TEXT if unlocked else HUDAssetLibrary.COLOR_MUTED
+		)
 
 	if is_active:
 		_draw_badge(pos + Vector2(0.0, -radius - 14.0 * _zoom), "YOU ARE HERE", HUDAssetLibrary.COLOR_CAUTION)
 	elif is_next:
 		_draw_badge(pos + Vector2(0.0, -radius - 14.0 * _zoom), "NEXT", HUDAssetLibrary.COLOR_NORMAL)
+
+
+func _compact_node_label(node: Dictionary, compact: bool) -> String:
+	if bool(node.get("detail_hidden", false)):
+		return "?"
+	var label := str(node.get("display_name", node.get("id", "")))
+	if not compact:
+		return label
+	var arm_index := int(node.get("arm_direction", GameEnums.MacroArmDirection.NONE))
+	var arm_letter := ""
+	if arm_index > GameEnums.MacroArmDirection.NONE:
+		arm_letter = str(GameEnums.MacroArmDirection.keys()[arm_index]).left(1)
+	match int(node.get("role", GameEnums.MacroNodeRole.RANDOM_ZONE)):
+		GameEnums.MacroNodeRole.CENTRAL_CORE:
+			return "CORE"
+		GameEnums.MacroNodeRole.GATEWAY:
+			return arm_letter + " GATE"
+		GameEnums.MacroNodeRole.ARM_CORE:
+			return arm_letter + " CORE"
+		_:
+			return label
 
 
 func _draw_badge(center: Vector2, text: String, color: Color) -> void:

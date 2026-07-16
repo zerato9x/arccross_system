@@ -14,10 +14,9 @@ class_name HexWorldGenerator
 @export_range(1, 6) var central_hub_radius: int = 2
 @export_range(3, 12) var hub_border_radius: int = 4
 
-## When enabled, only hexes inside [0, zone_size) x [0, zone_size) are playable.
-## Used by the node-campaign local 12x12 zones.
+## When enabled, only axial cells within zone_radius of the origin are playable.
 @export var zone_bounds_enabled: bool = false
-@export_range(1, 32) var zone_size: int = GameEnums.MACRO_ZONE_SIZE
+@export_range(1, 32) var zone_radius: int = GameEnums.MACRO_ZONE_RADIUS
 
 var elevation_noise: FastNoiseLite
 var moisture_noise: FastNoiseLite
@@ -71,9 +70,9 @@ func configure_seed(seed_value: String) -> void:
 	_initialize_noise()
 
 
-func enable_zone_bounds(size: int = GameEnums.MACRO_ZONE_SIZE) -> void:
+func enable_zone_bounds(radius: int = GameEnums.MACRO_ZONE_RADIUS) -> void:
 	zone_bounds_enabled = true
-	zone_size = size
+	zone_radius = radius
 
 
 func disable_zone_bounds() -> void:
@@ -83,8 +82,7 @@ func disable_zone_bounds() -> void:
 func is_in_zone_bounds(coords: Vector2i) -> bool:
 	if not zone_bounds_enabled:
 		return true
-	# Campaign node zones fill the axial square [0, zone_size)^2 (rhombus on screen).
-	return coords.x >= 0 and coords.y >= 0 and coords.x < zone_size and coords.y < zone_size
+	return HexCoordUtils.is_in_radius(coords, zone_radius)
 
 
 func inject_zone_hexes(hexes: Dictionary) -> void:
@@ -126,9 +124,9 @@ func get_hex_at(coords: Vector2i) -> MacroHexData:
 		return world_hex_cache[coords]
 
 	if zone_bounds_enabled and not is_in_zone_bounds(coords):
-		var void_hex := build_void_hex(coords)
-		world_hex_cache[coords] = void_hex
-		return void_hex
+		# Boundary probes are not part of the local zone. Caching them quietly
+		# bloats a 469-cell map and leaks fake cells into node snapshots.
+		return build_void_hex(coords)
 
 	var persistent_state: HexRecord = _world_state.get_hex_record(coords)
 	if persistent_state != null:

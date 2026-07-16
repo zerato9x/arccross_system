@@ -1,23 +1,26 @@
 extends RefCounted
 class_name MacroProgressController
 
-## Owns campaign graph progression: available nodes, enter, complete, unlocks.
-## Local 12x12 hex sessions are generated through MacroZoneGenerator.
+## Owns disposable run graph state and directional node transitions. Cross-run
+## unlocks are read from MetaProgressionStore; character state never enters it.
 
 signal node_entered(node_id: String)
-signal node_completed(node_id: String)
+signal node_traversed(node_id: String)
 signal nodes_unlocked(node_ids: Array)
 
 var graph: MacroMapGraph
 var zone_generator: MacroZoneGenerator
-var active_node_id: String = ""
-var world_seed: String = ""
+var active_node_id := ""
+var world_seed := ""
+var last_arrival_direction: GameEnums.MacroTravelDirection = GameEnums.MacroTravelDirection.SOUTH
 
 var _world_state: RuntimeStateStore
+var _meta_progress: Node
 
 
 func configure(world_state: RuntimeStateStore) -> void:
 	_world_state = world_state
+	_meta_progress = Engine.get_main_loop().root.get_node_or_null("MetaProgression")
 	if zone_generator == null:
 		zone_generator = MacroZoneGenerator.new()
 	zone_generator.configure_services(world_state)
@@ -25,8 +28,10 @@ func configure(world_state: RuntimeStateStore) -> void:
 
 func begin_campaign(seed_value: String) -> MacroMapGraph:
 	world_seed = seed_value
-	graph = MacroGraphGenerator.generate_north_path(seed_value)
+	graph = MacroGraphGenerator.generate_web(seed_value, _meta_flags())
+	_apply_meta_unlocks()
 	active_node_id = ""
+	last_arrival_direction = GameEnums.MacroTravelDirection.SOUTH
 	if zone_generator == null:
 		zone_generator = MacroZoneGenerator.new()
 	zone_generator.configure_services(_world_state)
@@ -38,139 +43,140 @@ func load_campaign(graph_data: Dictionary, p_active_node_id: String = "") -> voi
 	graph = MacroMapGraph.from_dict(graph_data)
 	world_seed = graph.seed_value
 	active_node_id = p_active_node_id
+	if _world_state != null:
+		last_arrival_direction = int(_world_state.active_arrival_direction) as GameEnums.MacroTravelDirection
 	if zone_generator == null:
 		zone_generator = MacroZoneGenerator.new()
 	zone_generator.configure_services(_world_state)
 	zone_generator.configure_seed(world_seed)
+	_apply_meta_unlocks()
 	if not active_node_id.is_empty() and graph.has_node(active_node_id):
-		_generate_active_zone(graph.get_node(active_node_id))
+		_generate_active_zone(graph.get_node(active_node_id), last_arrival_direction)
 
 
 func get_available_nodes() -> Array[String]:
 	var result: Array[String] = []
 	if graph == null:
 		return result
-	for node_id in graph.nodes.keys():
-		var node: MacroNodeData = graph.get_node(node_id)
-		if node == null:
-			continue
-		if not node.unlocked:
-			continue
-		if not node.discovered and node.id != graph.hub_id:
-			# Undiscovered locked content stays hidden until unlock reveals it.
-			if node.type == GameEnums.MacroNodeType.LOCKED:
-				continue
-		result.append(node.id)
+	for node_id in graph.node_ids_in_order():
+		var node := graph.get_node(node_id)
+		if node != null and node.unlocked:
+			result.append(node_id)
 	return result
 
 
-func can_enter_node(node_id: String) -> bool:
+func get_directional_destinations(exit_direction: int) -> Array[String]:
+	var result: Array[String] = []
+	if graph == null or active_node_id.is_empty():
+		return result
+	for edge in graph.get_directional_edges(active_node_id, exit_direction):
+		var target_id := str(edge.get("to", ""))
+		var target := graph.get_node(target_id)
+		if target == null or not target.unlocked:
+			continue
+		if not _edge_unlocked(edge):
+			continue
+		if not bool(edge.get("visible", true)) and not target.discovered:
+			continue
+		result.append(target_id)
+	return result
+
+
+func can_enter_node(
+	node_id: String,
+	exit_direction: int = GameEnums.MacroTravelDirection.NONE
+) -> bool:
 	if graph == null:
 		return false
 	var node := graph.get_node(node_id)
 	if node == null or not node.unlocked:
 		return false
-	if node.id == graph.hub_id:
-		return true
-	# Linear gate: may enter if unlocked (previous objective completed).
-	return true
+	if active_node_id.is_empty():
+		return node_id == graph.hub_id
+	if exit_direction == GameEnums.MacroTravelDirection.NONE:
+		return false
+	return get_directional_destinations(exit_direction).has(node_id)
 
 
-func enter_node(node_id: String) -> bool:
-	if not can_enter_node(node_id):
+func enter_node(
+	node_id: String,
+	exit_direction: int = GameEnums.MacroTravelDirection.NONE
+) -> bool:
+	if not can_enter_node(node_id, exit_direction):
 		return false
 	var node := graph.get_node(node_id)
 	if node == null:
 		return false
 
-	# Preserve player inventory across swaps — only local hex/entity state resets.
+	var arrival := GameEnums.MacroTravelDirection.SOUTH
+	if not active_node_id.is_empty():
+		var edge := graph.get_edge(active_node_id, node_id)
+		arrival = int(edge.get(
+			"arrival_direction",
+			HexCoordUtils.opposite_travel_direction(exit_direction)
+		)) as GameEnums.MacroTravelDirection
+		_mark_active_traversed()
+		_capture_active_node_runtime()
 	_clear_local_zone_runtime()
 
 	node.discovered = true
+	node.details_revealed = true
 	active_node_id = node_id
-	_generate_active_zone(node)
+	last_arrival_direction = arrival
+	_generate_active_zone(node, arrival)
 
 	if _world_state != null:
 		_world_state.active_node_id = node_id
+		_world_state.active_arrival_direction = int(arrival)
 		_world_state.campaign_graph = graph.to_dict()
-
 	node_entered.emit(node_id)
 	return true
 
 
-func mark_node_completed(node_id: String) -> void:
+func reveal_fetch_branch() -> void:
 	if graph == null:
 		return
-	var node := graph.get_node(node_id)
-	if node == null:
+	var branch := graph.get_node(MacroGraphGenerator.FETCH_BRANCH_ID)
+	if branch == null:
 		return
-	if node.completed:
-		evaluate_unlocks()
-		return
-	node.completed = true
-	node.discovered = true
-	node_completed.emit(node_id)
-	evaluate_unlocks()
+	branch.discovered = true
+	branch.details_revealed = true
+	for edge in graph.edges:
+		if not edge is Dictionary:
+			continue
+		if (
+			str(edge.get("from", "")) == MacroGraphGenerator.FETCH_BRANCH_ID
+			or str(edge.get("to", "")) == MacroGraphGenerator.FETCH_BRANCH_ID
+		):
+			edge["visible"] = true
 	if _world_state != null:
 		_world_state.campaign_graph = graph.to_dict()
 
 
-func evaluate_unlocks(player_progress: Dictionary = {}) -> Array[String]:
+func refresh_meta_unlocks() -> Array[String]:
+	var before: Array[String] = get_available_nodes()
+	_apply_meta_unlocks()
 	var newly: Array[String] = []
-	if graph == null:
-		return newly
-
-	# v1 linear rule: completing a node unlocks its outgoing neighbors.
-	for node_id in graph.nodes.keys():
-		var node: MacroNodeData = graph.get_node(node_id)
-		if node == null or not node.completed:
-			continue
-		for neighbor_id in node.neighbors:
-			var neighbor := graph.get_node(neighbor_id)
-			if neighbor == null:
-				continue
-			if not neighbor.unlocked:
-				neighbor.unlocked = true
-				neighbor.discovered = true
-				newly.append(neighbor_id)
-
-	# Extensible rule hooks (future branching / corrupted unlocks).
-	var completed_count := 0
-	var completed_types: Dictionary = {}
-	for node_id in graph.nodes.keys():
-		var node: MacroNodeData = graph.get_node(node_id)
-		if node == null or not node.completed:
-			continue
-		completed_count += 1
-		var type_key := int(node.type)
-		completed_types[type_key] = int(completed_types.get(type_key, 0)) + 1
-
-	var progress := player_progress.duplicate(true)
-	progress["completed_count"] = completed_count
-	progress["completed_types"] = completed_types
-	progress["active_node_id"] = active_node_id
-
-	for node_id in graph.nodes.keys():
-		var node: MacroNodeData = graph.get_node(node_id)
-		if node == null:
-			continue
-		for rule in node.unlock_rules:
-			if not rule is Dictionary:
-				continue
-			if _rule_satisfied(rule, progress) and not node.unlocked:
-				node.unlocked = true
-				node.discovered = true
-				if not newly.has(node_id):
-					newly.append(node_id)
-				var connect_from := str(rule.get("connect_from", ""))
-				if not connect_from.is_empty() and graph.has_node(connect_from):
-					graph.add_edge(connect_from, node_id, false)
-
+	for node_id in get_available_nodes():
+		if not before.has(node_id):
+			newly.append(node_id)
 	if not newly.is_empty():
 		nodes_unlocked.emit(newly)
 	if _world_state != null and graph != null:
 		_world_state.campaign_graph = graph.to_dict()
 	return newly
+
+
+func mark_node_completed(node_id: String) -> void:
+	## Compatibility: ordinary nodes no longer own campaign completion.
+	var node := graph.get_node(node_id) if graph != null else null
+	if node != null and not node.traversed:
+		node.traversed = true
+		node_traversed.emit(node_id)
+
+
+func evaluate_unlocks(_player_progress: Dictionary = {}) -> Array[String]:
+	return refresh_meta_unlocks()
 
 
 func get_active_node() -> MacroNodeData:
@@ -179,58 +185,79 @@ func get_active_node() -> MacroNodeData:
 	return graph.get_node(active_node_id)
 
 
-func try_complete_objective_at(coords: Vector2i) -> bool:
-	## Called when the player interacts with / reaches the objective hex.
-	if zone_generator == null or active_node_id.is_empty():
-		return false
-	if coords != zone_generator.objective_coords:
-		return false
-	var node := get_active_node()
-	if node == null or node.completed:
-		return false
-	# Unique event nodes complete via event resolution, not mere arrival.
-	if node.zone_kind == GameEnums.MacroZoneKind.UNIQUE_EVENT:
-		return false
-	mark_node_completed(active_node_id)
-	return true
+func try_complete_objective_at(_coords: Vector2i) -> bool:
+	return false
 
 
 func complete_active_event_objective() -> bool:
-	var node := get_active_node()
-	if node == null or node.completed:
-		return false
-	if node.zone_kind != GameEnums.MacroZoneKind.UNIQUE_EVENT:
-		return false
-	mark_node_completed(active_node_id)
-	return true
+	return false
 
 
 func debug_print_map() -> String:
 	var parts: PackedStringArray = PackedStringArray()
-	if graph != null:
-		parts.append(graph.debug_print())
-	else:
-		parts.append("(no campaign graph)")
-	parts.append("active_node_id=%s" % active_node_id)
-	parts.append("available=%s" % str(get_available_nodes()))
+	parts.append(graph.debug_print() if graph != null else "(no campaign graph)")
+	parts.append("active_node_id=%s arrival=%s" % [active_node_id, str(last_arrival_direction)])
 	if zone_generator != null and not zone_generator.node_id.is_empty():
 		parts.append(zone_generator.debug_ascii())
 	return "\n".join(parts)
 
 
-func _generate_active_zone(node: MacroNodeData) -> void:
+func _generate_active_zone(node: MacroNodeData, arrival_direction: int) -> void:
 	zone_generator.configure_seed(world_seed)
-	zone_generator.generate_zone(
-		node.id,
-		node.zone_kind,
-		node.biome,
-		node.event_id
+	zone_generator.generate_node_zone(
+		node,
+		arrival_direction,
+		_connected_directions(node.id)
 	)
+	if _world_state != null and _world_state.restore_node_runtime(node.id):
+		zone_generator.world_hex_cache.clear()
+		for coords in _world_state.hex_records.keys():
+			var record: HexRecord = _world_state.hex_records[coords]
+			zone_generator.world_hex_cache[coords] = MacroHexData.from_state(record)
+
+
+func _connected_directions(node_id: String) -> Array[int]:
+	var result: Array[int] = []
+	if graph == null:
+		return result
+	for edge in graph.edges:
+		if not edge is Dictionary or str(edge.get("from", "")) != node_id:
+			continue
+		var direction := int(edge.get(
+			"from_direction", GameEnums.MacroTravelDirection.NONE
+		))
+		if direction != GameEnums.MacroTravelDirection.NONE and not result.has(direction):
+			result.append(direction)
+	return result
+
+
+func _mark_active_traversed() -> void:
+	var active := get_active_node()
+	if active == null or active.traversed:
+		return
+	active.traversed = true
+	node_traversed.emit(active.id)
+
+
+func _capture_active_node_runtime() -> void:
+	if _world_state == null or active_node_id.is_empty():
+		return
+	_world_state.capture_node_runtime(active_node_id)
+	var node := get_active_node()
+	if (
+		node != null
+		and node.persistence == GameEnums.MacroNodePersistence.PERMANENT_META
+		and _meta_progress != null
+		and _meta_progress.has_method("capture_node_mutations")
+	):
+		_meta_progress.capture_node_mutations(
+			node.id,
+			zone_generator.permanent_baseline_records,
+			_world_state.hex_records
+		)
 
 
 func _clear_local_zone_runtime() -> void:
-	## Drop local hex / entity / ground state so the next zone starts clean.
-	## Player record + inventory are intentionally left intact.
 	if _world_state == null:
 		return
 	_world_state.hex_records.clear()
@@ -241,21 +268,47 @@ func _clear_local_zone_runtime() -> void:
 		zone_generator.world_hex_cache.clear()
 
 
-func _rule_satisfied(rule: Dictionary, progress: Dictionary) -> bool:
-	var when := str(rule.get("when", ""))
-	match when:
-		"complete_type":
-			var type_key := int(rule.get("type", -1))
-			var needed := int(rule.get("count", 1))
-			var completed_types: Dictionary = progress.get("completed_types", {})
-			return int(completed_types.get(type_key, 0)) >= needed
-		"complete_count":
-			return int(progress.get("completed_count", 0)) >= int(rule.get("count", 1))
-		"complete_node":
-			var target := str(rule.get("node_id", ""))
-			if graph == null or target.is_empty():
-				return false
-			var target_node := graph.get_node(target)
-			return target_node != null and target_node.completed
-		_:
-			return false
+func _edge_unlocked(edge: Dictionary) -> bool:
+	var flag := str(edge.get("unlock_flag", ""))
+	if flag.is_empty():
+		return true
+	return bool(_meta_flags().get(flag, false))
+
+
+func _apply_meta_unlocks() -> void:
+	if graph == null:
+		return
+	var flags := _meta_flags()
+	for node_id in graph.nodes.keys():
+		var node := graph.get_node(node_id)
+		if node == null:
+			continue
+		var profile_patch: Dictionary = (
+			_meta_progress.get_node_profile_patch(node_id)
+			if _meta_progress != null and _meta_progress.has_method("get_node_profile_patch")
+			else {}
+		)
+		for field_name in [
+			"zone_profile_id",
+			"biome",
+			"zone_kind",
+			"type",
+			"details_revealed",
+		]:
+			if profile_patch.has(field_name):
+				node.set(field_name, profile_patch[field_name])
+	for prefix in MacroGraphGenerator.ARM_PREFIXES:
+		var flag := "gateway_%s_unsealed" % prefix
+		var open := bool(flags.get(flag, false))
+		var gateway := graph.get_node("%s_gateway" % prefix)
+		var core := graph.get_node("%s_core" % prefix)
+		if gateway != null:
+			gateway.unlocked = open
+		if core != null:
+			core.unlocked = open
+
+
+func _meta_flags() -> Dictionary:
+	if _meta_progress != null and _meta_progress.has_method("get_meta_flags"):
+		return _meta_progress.get_meta_flags()
+	return {}

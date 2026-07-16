@@ -11,6 +11,7 @@ const DEFAULT_LOOT_PROFILE_BY_BIOME := {
 
 const LOOT_PROFILE_BY_POI_ID := {
 	"alpha_central_hub": "loot_alpha_hub",
+	"central_core": "loot_alpha_hub",
 	"alpha_hub_district": "loot_alpha_hub",
 }
 

@@ -1,5 +1,28 @@
 # ARCCROSS Changelog
 
+## July 16, 2026
+
+### Directional Node Web and Meta World Overhaul
+
+- Replaced the 12-by-12 axial rhombus with true radius-12 zones containing 469
+  playable cells and 72 outer-ring cells.
+- Rebuilt the campaign as a four-arm directional web with twelve seeded-random
+  zones, four permanent gateways, four permanent arm cores, the Central Core,
+  and a permanent Meta fetch branch.
+- Added opposite-rim arrival, directional destination filtering, run-local node
+  snapshots, and a separate `MetaProgressionStore` for cross-run structural and
+  progression state.
+- Added the North Core Regulator fetch chain: retrieve it from the east branch,
+  return it to the Central Core, and permanently unseal the north gateway.
+- Marked pre-overhaul run saves incompatible; selecting one now starts a fresh
+  character with a clear warning while preserving the separate Meta profile.
+- Replaced single tiny decoration rolls with deterministic multi-sprite shrub,
+  tree, stone, and prop clusters plus spatially separated POI placement.
+- Corrected overlay anchoring and removed arbitrary prop rotation, duplicate
+  shrub rendering, full-hex rock clutter, and topology-free road/wall picks.
+- Expanded rim travel to eight visual sectors and added a 78-cell, non-playable
+  radius-13 hover band that previews eligible destination nodes.
+
 ## July 13, 2026
 
 ### Shield-Specific BLOCK Rules

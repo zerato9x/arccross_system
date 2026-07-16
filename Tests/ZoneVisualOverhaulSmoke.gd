@@ -14,7 +14,7 @@ func _run() -> void:
 		return
 	if not await _verify_zone_and_fog():
 		return
-	print("[TEST PASS] Zone visual overhaul: axial 12x12, full-hex black fog, density, 45min moves.")
+	print("[TEST PASS] Zone visual overhaul: radius-12 axial hex, clustered detail, full-hex fog.")
 	quit(0)
 
 
@@ -91,27 +91,31 @@ func _verify_zone_density_offline() -> bool:
 	var zone := MacroZoneGenerator.new()
 	zone.configure_seed("ZONE_VISUAL_OVERHAUL_SMOKE")
 	zone.generate_zone("smoke_plains", GameEnums.MacroZoneKind.BIOME_RNG, GameEnums.GridBiome.PLAINS)
-	if zone.hex_count() != GameEnums.MACRO_ZONE_SIZE * GameEnums.MACRO_ZONE_SIZE:
-		_fail("Expected 144 axial cells, got %d." % zone.hex_count())
+	if zone.hex_count() != GameEnums.MACRO_ZONE_CELL_COUNT:
+		_fail("Expected 469 axial cells, got %d." % zone.hex_count())
 		return false
-	if zone.start_coords != Vector2i(6, 10) or zone.objective_coords != Vector2i(6, 1):
+	if zone.start_coords != HexCoordUtils.rim_anchor(
+		GameEnums.MacroTravelDirection.SOUTH,
+		GameEnums.MACRO_ZONE_RADIUS
+	):
 		_fail(
-			"Start/objective not axial-relative: start=%s objective=%s"
-			% [str(zone.start_coords), str(zone.objective_coords)]
+			"Start is not on the south rim: %s"
+			% str(zone.start_coords)
 		)
+		return false
+	if HexCoordUtils.cells_in_ring(GameEnums.MACRO_ZONE_RADIUS).size() != 72:
+		_fail("Radius-12 rim must contain 72 cells.")
 		return false
 
 	var landmark_count := 0
 	var shrub_count := 0
 	var structure_count := 0
-	var rejected_by_offset := 0
+	var clustered_hex_count := 0
+	var multi_prop_cluster_count := 0
 	for coords in zone.world_hex_cache.keys():
 		if not zone.is_in_bounds(coords):
 			_fail("Generated out-of-bounds cell %s." % str(coords))
 			return false
-		# Offset-rect membership must NOT be required for axial zone cells.
-		if not HexCoordUtils.is_in_offset_rect(coords, GameEnums.MACRO_ZONE_SIZE):
-			rejected_by_offset += 1
 		var hex: MacroHexData = zone.world_hex_cache[coords]
 		if hex.is_poi or not hex.landmark_id.is_empty():
 			landmark_count += 1
@@ -119,6 +123,11 @@ func _verify_zone_density_offline() -> bool:
 			shrub_count += 1
 		if hex.structure_layer != GameEnums.MacroStructureLayer.NONE:
 			structure_count += 1
+		var props: Array = zone.get_decorations_at(coords)
+		if not props.is_empty():
+			clustered_hex_count += 1
+			if props.size() >= 3:
+				multi_prop_cluster_count += 1
 
 	if landmark_count < zone.guaranteed_landmark_count:
 		_fail(
@@ -126,18 +135,31 @@ func _verify_zone_density_offline() -> bool:
 			% [landmark_count, zone.guaranteed_landmark_count]
 		)
 		return false
-	if shrub_count < 20:
+	if shrub_count < 60:
 		_fail("Shrub density too sparse: %d." % shrub_count)
 		return false
-	if structure_count < 8:
+	if structure_count < 20:
 		_fail("Structure/remnant density too sparse: %d." % structure_count)
 		return false
-	if zone.zone_decorations.is_empty():
-		_fail("Expected zone decoration clutter.")
+	if landmark_count < 12:
+		_fail("Expected at least 12 separated POIs, got %d." % landmark_count)
 		return false
-	if rejected_by_offset <= 0:
-		_fail("Expected some axial rhombus cells outside odd-R rect (bounds fight regression).")
+	if clustered_hex_count < 50 or multi_prop_cluster_count < 35:
+		_fail(
+			"Cluster density too sparse: occupied=%d multi=%d."
+			% [clustered_hex_count, multi_prop_cluster_count]
+		)
 		return false
+	for props in zone.zone_decorations.values():
+		for prop in props:
+			if not prop is Dictionary:
+				continue
+			if not is_zero_approx(float(prop.get("rotation", 99.0))):
+				_fail("Procedural decoration rotation must remain zero.")
+				return false
+			if not prop.get("target_box", Vector2.ZERO) is Vector2:
+				_fail("Decoration is missing normalized target_box sizing.")
+				return false
 	return true
 
 
@@ -154,9 +176,9 @@ func _verify_zone_and_fog() -> bool:
 	await process_frame
 
 	var viz := macro_map.map_visualizer
-	if viz.rendered_cells.size() != GameEnums.MACRO_ZONE_SIZE * GameEnums.MACRO_ZONE_SIZE:
+	if viz.rendered_cells.size() != GameEnums.MACRO_ZONE_CELL_COUNT:
 		_fail(
-			"Expected full 12x12 render, got %d cells."
+			"Expected full radius-12 render, got %d cells."
 			% viz.rendered_cells.size()
 		)
 		return false
@@ -176,8 +198,8 @@ func _verify_zone_and_fog() -> bool:
 			if not outside.impassable:
 				_fail("Out-of-bounds cell %s should be impassable void." % str(coords))
 				return false
-	if in_bounds_count != GameEnums.MACRO_ZONE_SIZE * GameEnums.MACRO_ZONE_SIZE:
-		_fail("Expected 144 in-bounds zone cells, got %d." % in_bounds_count)
+	if in_bounds_count != GameEnums.MACRO_ZONE_CELL_COUNT:
+		_fail("Expected 469 in-bounds zone cells, got %d." % in_bounds_count)
 		return false
 
 	var fog_poly := viz._hex_fog_polygon()
