@@ -25,9 +25,10 @@ HUDs display owner-produced snapshots and emit intent through stable command or
 item IDs. Visual replacement must not require gameplay rewiring. The full rule
 is defined in [System Architecture](../SYSTEM_ARCHITECTURE.md).
 
-The combat HUD uses ItemCore presentation sprites for static weapon cards and
-`GunAnimationCatalog` for short weapon action effects. That contract shipped
-with the Phase 2 bottom command deck on June 29, 2026.
+The combat HUD uses timeline events from `RealtimeDuelRuntime`, layered
+humanoid animations, ItemCore weapon state, projectile/blood effects, and
+cinematic camera profiles. The old Phase 2 bottom command deck is historical,
+not a second gameplay surface.
 
 ## Macro Map
 

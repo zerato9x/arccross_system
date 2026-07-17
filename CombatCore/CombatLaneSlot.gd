@@ -23,6 +23,10 @@ var is_spawnable: bool = true # Grids 5 and 6 will turn this off
 var trap_armed: bool = false
 var trap_item_id: String = ""
 var trap_damage: float = 2.5
+## Encounter-local territory and trap ownership used by the real-time duel.
+## Empty owner preserves legacy trigger-on-any-entry behavior.
+var territory_side: String = "neutral"
+var trap_owner_side: String = ""
 
 # The claustrophobic box
 var occupants: Array[HumanoidCore] = []
@@ -51,6 +55,8 @@ func get_presentation_descriptor() -> Dictionary:
 		"object_name": get_object_display_name(),
 		"object_asset": get_object_asset_path(),
 		"object_interactions": get_object_interactions(),
+		"territory_side": territory_side,
+		"trap_owner_side": trap_owner_side,
 	}
 
 func get_background_label() -> String:

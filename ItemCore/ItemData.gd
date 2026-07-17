@@ -33,6 +33,9 @@ class_name ItemData
 @export_range(0, 12) var effective_range: int = 1
 @export_range(0, 12) var optimal_range: int = 1
 @export_range(0.0, 1.0) var minimum_damage_multiplier: float = 1.0
+## Neutral lookup key for CombatCore's real-time handling profile. Empty uses
+## the weapon-class fallback, preserving existing item definitions.
+@export var realtime_profile_id: String = ""
 
 @export_group("Gear Stats")
 ## Defensive values. Only relevant for ARMOR type items equipped on the paper doll.
@@ -267,6 +270,7 @@ func to_definition_state() -> Dictionary:
 		"effective_range": effective_range,
 		"optimal_range": optimal_range,
 		"minimum_damage_multiplier": minimum_damage_multiplier,
+		"realtime_profile_id": realtime_profile_id,
 		"protection_blunt": protection_blunt,
 		"protection_sharp": protection_sharp,
 		"protection_ballistic": protection_ballistic,

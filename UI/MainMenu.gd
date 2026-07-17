@@ -7,19 +7,36 @@ class_name MainMenu
 @onready var btn_new_game = %BtnNewGame
 @onready var btn_continue = %BtnContinue
 @onready var btn_wave = %BtnWave
+@onready var btn_settings = %BtnSettings
 @onready var btn_quit = %BtnQuit
 @onready var save_load_menu = %SaveLoadMenu
+@onready var settings_panel: Control = %SettingsPanel
+@onready var combat_mode_option: OptionButton = %CombatModeOption
+@onready var settings_close_button: Button = %SettingsCloseButton
 
 func _ready() -> void:
 	HUDAssetLibrary.apply_button(btn_new_game)
 	HUDAssetLibrary.apply_button(btn_continue)
 	HUDAssetLibrary.apply_button(btn_wave)
+	HUDAssetLibrary.apply_button(btn_settings)
 	HUDAssetLibrary.apply_button(btn_quit)
 	
 	btn_new_game.pressed.connect(_on_new_game)
 	btn_continue.pressed.connect(_on_continue)
 	btn_wave.pressed.connect(_on_wave)
+	btn_settings.pressed.connect(func(): settings_panel.visible = true)
 	btn_quit.pressed.connect(_on_quit)
+	settings_close_button.pressed.connect(func(): settings_panel.visible = false)
+	combat_mode_option.clear()
+	combat_mode_option.add_item("Real-Time Duel", 0)
+	combat_mode_option.add_item("Turn-Based Duel", 1)
+	var settings := get_node_or_null("/root/GameSettings")
+	if settings != null:
+		combat_mode_option.select(
+			1 if settings.combat_mode == settings.COMBAT_TURN_BASED else 0
+		)
+	combat_mode_option.item_selected.connect(_on_combat_mode_selected)
+	settings_panel.visible = false
 	
 	save_load_menu.visible = false
 	save_load_menu.setup_mode("load")
@@ -68,3 +85,12 @@ func _on_save_load_closed() -> void:
 
 func _on_quit() -> void:
 	get_tree().quit()
+
+
+func _on_combat_mode_selected(index: int) -> void:
+	var settings := get_node_or_null("/root/GameSettings")
+	if settings == null:
+		return
+	settings.set_combat_mode(
+		settings.COMBAT_TURN_BASED if index == 1 else settings.COMBAT_REALTIME
+	)

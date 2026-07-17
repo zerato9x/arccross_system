@@ -30,7 +30,8 @@ Launch from `UI/MainMenu.tscn` into a persistent macro run:
 1. Start a new world or continue from one of three save slots.
 2. Explore seeded radius-12 local zones with fog of war, POIs, and
    purpose-driven NPC activity.
-3. Fight persistent enemies in 1v1 lane combat when colliding on the macro map.
+3. Fight persistent enemies in readable, lethal real-time 1v1 lane duels when colliding on
+   the macro map.
 4. Manage inventory, equipment, firearm loading, SEARCH, and CAMP.
 5. Save and reload with `F5` / `F9` or the main-menu and in-game slot UI.
 6. Cross radius-12 local zones through directional rims and choose only
@@ -47,19 +48,24 @@ profile.
 - **Phase 1** is closed and verified. The persistent vertical slice — macro
   movement, combat, inventory, SEARCH/CAMP, and JSON persistence — remains the
   regression baseline.
-- **Phase 2** combat HUD work (P2-01 through P2-04) is **complete**. The bottom
-  command deck, grouped actions, weapon cards, visible AIMED SHOT targets, and
-  `GunAnimationCatalog` feedback are live in `CombatLaneHUD`.
-- Active Phase 2 follow-up work now targets content coverage, presentation
-  polish, and deferred non-goals such as macro SNIPE. Shield-specific BLOCK
-  rules are complete. See [Phase 2 Execution Plan](READMEs/phase_2_execution_plan.md).
+- Production combat runs through a dedicated real-time duel state machine with
+  regenerating AP, paced A/D grid movement, timed guard/parry, enemy action
+  telegraphs, weapon combos, contextual push/follow, blind fire, and held aimed
+  fire. Both combatants retain always-visible Paper Dolls, Limb wounds, Trauma,
+  full vitals, and animated gun-sheet presentation. The historical turn-based rules remain isolated in
+  `CombatCore/TurnBased/TurnBasedDuelScene.tscn` for comparison rather than
+  contaminating the production runtime with a mode flag.
+- Active Phase 2 follow-up work targets balance, animation coverage, content,
+  and presentation polish. See
+  [Phase 2 Execution Plan](READMEs/phase_2_execution_plan.md).
 
 ### Core Systems
 
 - Combat uses a twelve-slot lane, localized Limb Region damage, and
-  encounter-local Stance. Ordinary Stance pressure cannot directly Fell a
-  combatant; explicit takedowns and BREAK against an already-Stumbling target
-  can. GET UP consumes the active turn and restores protected footing.
+  encounter-local Stance. AP regenerates continuously: Kinetic Burden supplies
+  the base rate and Stance supplies the live multiplier while action costs stay
+  fixed. Heavy attacks and finishers can Fell; recovery begins automatically
+  when enough AP returns.
 - Ballistic hits deal no Stance Damage. A successful shot applies the weapon's
   authored Flesh Damage directly to one Limb Region.
 - Firearms enforce authored range, accuracy, ammunition, magazine or loading
@@ -83,16 +89,18 @@ profile.
 - Core biological and system states live in explicit resource classes
   (`BodyState`, `HumanoidState`, `InventoryState`, `EntityRecord`,
   `HexRecord`).
-- Automated smoke scripts cover the vertical slice, combat HUD, weapon data,
-  inventory, save/load, macro interactions, and shield BLOCK rules.
+- `CombatCore/CombatModeComparison.tscn` runs both combat authorities against
+  identical standalone records (`F1` real-time, `F2` turn-based).
+- Automated smoke scripts cover the vertical slice, real-time duel rules,
+  weapon data, inventory, save/load, macro interactions, and shield rules.
 
 ### Known Gaps
 
 - Macro **SNIPE** remains unimplemented; service-rifle scope data is metadata
   only.
 - **EXECUTE** is gated off (`CombatRules.EXECUTE_ENABLED = false`).
-- Shield BLOCK uses item-authored damage-type and Limb Region coverage with
-  distinct ballistic and makeshift mitigation.
+- Ballistic defense still requires shield-authored damage-type and Limb Region
+  coverage; ordinary melee guard/parry does not magically stop bullets.
 - Humanoid token art coverage remains incomplete for several rigs, face/eye
   equipment, and unsupported weapons.
 - Gameplay remains 1v1; squad combat infrastructure is not player-facing.

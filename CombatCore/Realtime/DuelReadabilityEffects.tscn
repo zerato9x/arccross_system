@@ -1,0 +1,95 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://CombatCore/Realtime/DuelReadabilityEffects.gd" id="1_effects"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_threat"]
+bg_color = Color(0.035, 0.025, 0.02, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.75, 0.25, 0.12, 0.9)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[node name="DuelReadabilityEffects" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_effects")
+
+[node name="DangerVignette" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.28, 0.015, 0.005, 0.12)
+
+[node name="ThreatPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -230.0
+offset_top = 86.0
+offset_right = 230.0
+offset_bottom = 164.0
+grow_horizontal = 2
+theme_override_styles/panel = SubResource("StyleBox_threat")
+
+[node name="Margin" type="MarginContainer" parent="ThreatPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 8
+
+[node name="Rows" type="VBoxContainer" parent="ThreatPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="ThreatTitle" type="Label" parent="ThreatPanel/Margin/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 21
+text = "HEAVY WIND-UP"
+horizontal_alignment = 1
+
+[node name="ThreatHint" type="Label" parent="ThreatPanel/Margin/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.76, 0.67, 1)
+theme_override_font_sizes/font_size = 12
+text = "WAIT FOR THE COMMIT, THEN SPACE"
+horizontal_alignment = 1
+
+[node name="ThreatBar" type="ProgressBar" parent="ThreatPanel/Margin/Rows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+show_percentage = false
+
+[node name="PopupRoot" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2

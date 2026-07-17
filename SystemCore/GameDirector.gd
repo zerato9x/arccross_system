@@ -58,6 +58,7 @@ func _on_combat_requested(request: Dictionary) -> void:
 	print("\n[DIRECTOR] Combat request accepted. Stopping macro world...")
 	set_process_unhandled_input(false)
 	macro_map.hide()
+	_set_macro_camera_active(false)
 	if macro_map.macro_hud:
 		macro_map.macro_hud.visible = false
 	_combat_coords = coords
@@ -68,7 +69,16 @@ func _on_combat_requested(request: Dictionary) -> void:
 	_combat_enemy_id = enemy_id
 	_combat_request = request.duplicate(true)
 	
-	_active_arena = duel_scene.instantiate()
+	var selected_scene := duel_scene
+	var settings := get_node_or_null("/root/GameSettings")
+	if settings != null and settings.has_method("get_combat_scene_path"):
+		var selected_path: String = settings.get_combat_scene_path()
+		var loaded_scene := load(selected_path) as PackedScene
+		if loaded_scene != null:
+			selected_scene = loaded_scene
+		else:
+			push_error("[DIRECTOR] Selected combat scene failed to load: " + selected_path)
+	_active_arena = selected_scene.instantiate()
 	add_child(_active_arena)
 	
 	_active_arena.duel_finished.connect(_on_duel_finished)
@@ -142,6 +152,7 @@ func _on_duel_finished(
 
 	_teardown_arena()
 	macro_map.show()
+	_set_macro_camera_active(true)
 	if macro_map.macro_hud:
 		macro_map.macro_hud.visible = true
 	if should_retreat_player:
@@ -161,6 +172,17 @@ func _teardown_arena() -> void:
 		_active_arena = null
 	_combat_request.clear()
 	_combat_approach_from = Vector2i.ZERO
+
+
+func _set_macro_camera_active(active: bool) -> void:
+	if macro_map == null:
+		return
+	var macro_camera := macro_map.get_node_or_null("Camera2D") as Camera2D
+	if macro_camera == null:
+		return
+	macro_camera.enabled = active
+	if active:
+		macro_camera.make_current()
 
 func restart_new_run() -> void:
 	macro_map.flush_world_mutations()

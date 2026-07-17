@@ -116,6 +116,12 @@ custom_minimum_size = Vector2(200, 50)
 layout_mode = 2
 text = "WAVE // COMBAT LAB"
 
+[node name="BtnSettings" type="Button" parent="CenterContainer/VBoxContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 50)
+layout_mode = 2
+text = "SETTINGS"
+
 [node name="BtnQuit" type="Button" parent="CenterContainer/VBoxContainer" unique_id=1189387435]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(200, 50)
@@ -126,6 +132,58 @@ text = "QUIT"
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
+
+[node name="SettingsPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_top = -120.0
+offset_right = 220.0
+offset_bottom = 120.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="SettingsPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 20
+
+[node name="Rows" type="VBoxContainer" parent="SettingsPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="SettingsPanel/Margin/Rows"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "GAME SETTINGS"
+horizontal_alignment = 1
+
+[node name="CombatModeLabel" type="Label" parent="SettingsPanel/Margin/Rows"]
+layout_mode = 2
+text = "Combat System"
+
+[node name="CombatModeOption" type="OptionButton" parent="SettingsPanel/Margin/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Choose which combat system normal encounters use."
+
+[node name="CombatModeHint" type="Label" parent="SettingsPanel/Margin/Rows"]
+layout_mode = 2
+text = "The choice is saved and applied to the next encounter."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="SettingsCloseButton" type="Button" parent="SettingsPanel/Margin/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "CLOSE"
 
 [node name="BGM" type="AudioStreamPlayer" parent="." unique_id=366169804]
 stream = ExtResource("4_audio")

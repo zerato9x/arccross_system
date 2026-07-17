@@ -59,6 +59,12 @@ func _verify_player_escape_retreat() -> bool:
 	var arena = game_director.get_active_arena()
 	if arena == null:
 		return _fail("Combat handoff did not create an arena for escape.")
+	var macro_camera := macro_map.get_node_or_null("Camera2D") as Camera2D
+	if macro_camera != null and macro_camera.enabled:
+		return _fail("Macro camera stayed enabled during integrated combat.")
+	if arena.lane_hud is RealtimeDuelHUD:
+		if not arena.lane_hud.combat_camera.enabled:
+			return _fail("Real-time duel camera did not claim integrated combat.")
 	arena.turn_manager.escape_combat(arena.player_core)
 	if not await _wait_for_director_teardown(game_director):
 		return _fail("Player escape did not return to the macro scene.")
@@ -71,6 +77,8 @@ func _verify_player_escape_retreat() -> bool:
 		return _fail("Player runtime coords did not follow the escape retreat.")
 	if not world_state.is_entity_alive(enemy_record.entity_id):
 		return _fail("Player escape incorrectly killed the macro enemy.")
+	if macro_camera != null and not macro_camera.enabled:
+		return _fail("Macro camera was not restored after integrated combat.")
 
 	game_director.queue_free()
 	await process_frame

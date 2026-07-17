@@ -43,9 +43,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -190.0
-offset_top = -132.0
+offset_top = -188.0
 offset_right = 190.0
-offset_bottom = 132.0
+offset_bottom = 188.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -62,8 +62,17 @@ theme_override_constants/separation = 10
 
 [node name="SettingsTitle" type="Label" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=1271801945]
 layout_mode = 2
-text = "HUD Settings"
+text = "GAME SETTINGS"
 horizontal_alignment = 1
+
+[node name="CombatModeLabel" type="Label" parent="Root/SettingsPanel/SettingsMargin/SettingsContent"]
+layout_mode = 2
+text = "Combat System"
+
+[node name="CombatModeOption" type="OptionButton" parent="Root/SettingsPanel/SettingsMargin/SettingsContent"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Applied when the next combat encounter begins."
 
 [node name="ScreenNoiseToggle" type="CheckButton" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=1986631388]
 unique_name_in_owner = true

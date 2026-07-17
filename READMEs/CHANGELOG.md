@@ -2,6 +2,55 @@
 
 ## July 17, 2026
 
+### Duel Readability And Turn-Based Comparison
+
+- Replaced the prototype's global `1.6x` timer multiplier with authored action
+  profiles: movement is `1.2s`, light strikes are approximately `1.45-1.65s`,
+  heavy strikes are approximately `2.4-2.65s`, and finishers are `2.9s`.
+  Humanoid sprite sheets now distribute their actual visible frames across the
+  matching action duration instead of finishing early and idling through the
+  resolver wind-up. AP ticks every `0.5s` and regenerates at only `25%` while
+  committed, so action animation no longer doubles as a free refill break.
+- Rebuilt the real-time HUD around permanent player and opponent Paper Dolls,
+  seven-region wound/Trauma projection, labelled Blood/AP/Stance rails, current
+  action and recovery state, terrain context, an impact-marked duel timeline,
+  contextual controls, and animated weapon cards for both combatants.
+- Preserved layered `GunAnimationCatalog` playback for shoot, reload, and cycle
+  effects. Projectiles now begin from the action timeline and arrive on the
+  resolver's impact marker instead of damage appearing before the bullet.
+- Removed ordinary-action threat zooms and light-hit camera spasms. The camera
+  now uses one stable approach profile and one stable Melee Lock profile, with
+  restrained displacement reserved for parry, heavy, and finisher impacts.
+- `DuelReadabilityEffects` remains responsible for parry, block, feint, trip,
+  and damage popups; the permanent central timeline owns enemy intent and the
+  explicit telegraph/impact/recovery phases.
+- Restored the original turn-based stack as the independent
+  `TurnBasedDuelScene`, retaining its turn manager, resolver, adapter, AI, and
+  command HUD without leaking turn scheduling into production real-time combat.
+- Added `CombatModeComparison.tscn` (`F1` real-time, `F2` turn-based) to run
+  both systems from identical standalone records.
+
+### Real-Time Duel Combat Overhaul
+
+- Replaced the production turn manager, Reserved AP reactions, command adapter,
+  turn AI, and grouped command deck with a separate fixed-step real-time duel
+  runtime. The old stack is no longer wearing a fake moustache and calling
+  itself action combat.
+- Kept the twelve-slot lane, no-crossing rule, Melee Lock, terrain, cover,
+  owner-aware pre-combat traps, Limb trauma, armor, Stance, firearm state,
+  encounter handoff, loot, outcomes, humanoid layers, and cinematic camera.
+- Added Kinetic Burden plus Stance AP regeneration, fixed action prices,
+  animation-timed impacts, automatic Felled recovery, weapon combo profiles,
+  cancellable heavy windups, timed guard/parry, push/follow, blind fire, held
+  aimed fire, cycling, and reload.
+- Added `RealtimeDuelAI` on the same intent surface as the player and a
+  full-state `RealtimeDuelHUD` with Paper Dolls, wounds, vitals, weapon-sheet
+  animation, action phases, aim, combo, follow, terrain, and feedback.
+- Added `RealtimeDuelSmoke.gd`; live editor evaluation verified AP matrices,
+  fixed-cost grid movement, melee/combo impact, heavy feint cost, parry stagger,
+  partial aimed fire, hostile-only traps, push, and follow. The standalone
+  SceneTree runner still encounters the checkout's known Godot `signal 11`.
+
 ### Authored Local-Zone Pipeline And Generator Cleanup
 
 - Removed the abandoned procedural river pass, polygon connector bandages,

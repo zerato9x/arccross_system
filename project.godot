@@ -17,6 +17,7 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 [autoload]
 
 GameEnums="*res://SystemCore/GameEnums.gd"
+GameSettings="*res://SystemCore/GameSettings.gd"
 GameEventBus="*res://SystemCore/GameEventBus.gd"
 WorldState="*res://SystemCore/RuntimeStateStore.gd"
 LootCatalog="*res://SystemCore/LootCatalog.gd"

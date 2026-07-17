@@ -19,6 +19,7 @@ var _animation_speed_scale := 1.0
 var _display_scale := 2.4
 var _appearance_record: Dictionary = {}
 var _return_animation := "Idle"
+var _return_animation_speed_scale := 1.0
 var _animation_completion_emitted := false
 
 func _ready() -> void:
@@ -79,6 +80,31 @@ func set_display_scale(value: float) -> void:
 
 func set_animation_speed(scale: float) -> void:
 	_animation_speed_scale = maxf(0.1, scale)
+
+func get_animation_duration(animation: String) -> float:
+	if not HumanoidVisualCatalog.supports_animation(animation):
+		return 0.0
+	return (
+		float(HumanoidVisualCatalog.animation_frames(animation))
+		/ maxf(0.01, HumanoidVisualCatalog.animation_fps(animation))
+	)
+
+## Plays every visible frame across the requested presentation duration. This
+## makes sprite playback follow the duel timeline instead of finishing early
+## and idling while the resolver is still winding up.
+func play_timed_one_shot(
+	animation: String,
+	return_animation: String,
+	target_duration: float
+) -> bool:
+	if HumanoidVisualCatalog.animation_loops(animation):
+		return false
+	var nominal_duration := get_animation_duration(animation)
+	if nominal_duration <= 0.0:
+		return false
+	_return_animation_speed_scale = 1.0
+	set_animation_speed(nominal_duration / maxf(0.05, target_duration))
+	return play_animation(animation, true, return_animation)
 
 func play_animation(
 	animation: String,
@@ -164,6 +190,7 @@ func _process(delta: float) -> void:
 		else:
 			var finished_animation := _animation
 			_emit_animation_finished(finished_animation)
+			set_animation_speed(_return_animation_speed_scale)
 			play_animation(_return_animation)
 			return
 

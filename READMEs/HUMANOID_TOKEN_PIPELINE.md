@@ -162,4 +162,4 @@ visual substitute.
 3. Map every item sharing that Innawoods appearance to the same directory.
 4. Run the headless editor import.
 5. Run `PersistentPlayerSmoke.gd`, `MacroInteractionSmoke.gd`, and
-   `CombatLaneHUDSmoke.gd`.
+   `RealtimeDuelSmoke.gd` and a live `RealtimeDuelHUD` projection probe.
