@@ -324,16 +324,20 @@ static func build_hex_descriptor(
 		"entity_status": entity_status,
 		"entity_purpose": entity_purpose,
 		"hostile": hostile,
-		"feature_title": _hex_feature_title(hex_data),
-		"environment_summary": _hex_environment_summary(hex_data),
-		"movement_note": _hex_movement_note(hex_data),
+		"feature_title": feature_title(hex_data),
+		"environment_summary": environment_summary(hex_data),
+		"movement_note": movement_note(hex_data),
 		"visibility": _hex_visibility(hex_data),
 		"cover": _hex_cover(hex_data),
-		"resource_hint": _hex_resource_hint(hex_data),
+		"resource_hint": resource_hint(hex_data),
 	}
 
 
 static func _hex_feature_title(hex_data: MacroHexData) -> String:
+	return feature_title(hex_data)
+
+
+static func feature_title(hex_data: MacroHexData) -> String:
 	if hex_data.is_poi and not hex_data.poi_name.is_empty():
 		return hex_data.poi_name
 	if hex_data.water_layer == GameEnums.MacroWaterLayer.SHALLOW_RIVER:
@@ -358,6 +362,10 @@ static func _hex_feature_title(hex_data: MacroHexData) -> String:
 
 
 static func _hex_environment_summary(hex_data: MacroHexData) -> String:
+	return environment_summary(hex_data)
+
+
+static func environment_summary(hex_data: MacroHexData) -> String:
 	if hex_data.water_layer == GameEnums.MacroWaterLayer.SHALLOW_RIVER:
 		return "Cold shallow water, stony banks, and dense riverside growth."
 	if hex_data.water_layer == GameEnums.MacroWaterLayer.DEEP_WATER:
@@ -378,6 +386,10 @@ static func _hex_environment_summary(hex_data: MacroHexData) -> String:
 
 
 static func _hex_movement_note(hex_data: MacroHexData) -> String:
+	return movement_note(hex_data)
+
+
+static func movement_note(hex_data: MacroHexData) -> String:
 	if not hex_data.is_passable():
 		if hex_data.water_layer == GameEnums.MacroWaterLayer.DEEP_WATER:
 			return "IMPASSABLE // deep water"
@@ -417,6 +429,10 @@ static func _hex_cover(hex_data: MacroHexData) -> String:
 
 
 static func _hex_resource_hint(hex_data: MacroHexData) -> String:
+	return resource_hint(hex_data)
+
+
+static func resource_hint(hex_data: MacroHexData) -> String:
 	if hex_data.water_layer != GameEnums.MacroWaterLayer.NONE:
 		return "Possible finds: water, reeds, smooth stone"
 	if hex_data.flora_layer == GameEnums.MacroFloraLayer.TREES:

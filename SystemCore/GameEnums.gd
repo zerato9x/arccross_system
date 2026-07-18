@@ -390,8 +390,8 @@ const MACRO_ZONE_CELL_COUNT := 1 + 3 * MACRO_ZONE_RADIUS * (MACRO_ZONE_RADIUS + 
 enum MacroInteractionType { NONE, POI, ENTITY_COLLISION, MACRO_EVENT }
 enum PoiAction { SEARCH, CAMP, REST, STOP_REST, ACTIVATE_CORE }
 enum InteractionItemRole { NONE, SEARCH_TOOL, CAMP_GEAR, TRAP_GEAR, LIGHT_SOURCE }
-enum TalkAction { THREAT, ROB, CEASEFIRE }
-enum NegotiationOutcome { INTIMIDATED, ROB_SUCCESS, CEASEFIRE, COMBAT }
+enum TalkAction { THREAT, CEASEFIRE }
+enum NegotiationOutcome { INTIMIDATED, CEASEFIRE, COMBAT }
 enum AmbushPosition { FAR, STANDARD, CLOSE }
 
 enum EncounterContext { 

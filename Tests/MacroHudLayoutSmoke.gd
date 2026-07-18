@@ -97,6 +97,10 @@ func _run() -> void:
 		return
 
 	var poi_coords := Vector2i(4, 0)
+	var world_state := root.get_node("WorldState") as RuntimeStateStore
+	_ensure_demo_homestead(macro_map, world_state, poi_coords)
+	macro_map.debug_teleport_player(poi_coords + Vector2i(-1, 0))
+	await process_frame
 	macro_map.debug_step_player_to(poi_coords)
 	await process_frame
 	var poi_hex := macro_map.world_generator.get_hex_at(poi_coords)
@@ -106,35 +110,24 @@ func _run() -> void:
 	macro_map.debug_begin_poi_interaction(poi_coords, poi_hex)
 	await process_frame
 	await process_frame
-	if not health.is_expanded() or not inventory.is_expanded() or not hex.is_expanded():
+	if not health.is_expanded() or not inventory.is_expanded():
 		_fail("Opening hex exploration should leave health and inventory open too.")
 		return
-	if hud.get_layout_manager().get_expanded_count() != 3:
-		_fail("Layout manager should allow all three major macro panels to stay open.")
+	if not _assert_panel_size(vp, health, "health"):
 		return
-	if not _assert_panel_size(vp, hex, "hex"):
-		return
-	if not _assert_rect_inside_viewport(hex.get_global_rect(), vp, "hex"):
-		return
-	if not _assert_rects_do_not_overlap(health.get_global_rect(), hex.get_global_rect(), "health/hex"):
-		return
-	if not _assert_rects_do_not_overlap(inventory.get_global_rect(), world_status.get_global_rect(), "inventory/world status"):
+	if not _assert_panel_size(vp, inventory, "inventory"):
 		return
 	if not macro_map.exploration_window.is_open():
-		_fail("Hex exploration window did not open inside the expanded host.")
+		_fail("Exploration window did not open on the exploration stage.")
 		return
 	var exploration_panel := macro_map.exploration_window.get("_panel") as Control
 	if exploration_panel == null:
-		_fail("Exploration panel missing from the hex work surface.")
+		_fail("Exploration panel missing from the stage work surface.")
 		return
-	if exploration_panel.get_parent() != hex.get_node("%ExpandedRoot"):
-		_fail("Exploration panel was not docked into the hex work surface.")
+	if exploration_panel.get_parent() != macro_map.exploration_window:
+		_fail("Exploration panel should remain owned by MacroExplorationWindow.")
 		return
-	if not _assert_rect_inside_rect(
-		exploration_panel.get_global_rect(),
-		hex.get_global_rect(),
-		"hex exploration panel"
-	):
+	if not _assert_rect_inside_viewport(exploration_panel.get_global_rect(), vp, "stage exploration panel"):
 		return
 
 	macro_map.exploration_window.call("_set_mode", GameEnums.PoiAction.CAMP)
@@ -160,16 +153,19 @@ func _run() -> void:
 
 	health.collapse()
 	await process_frame
-	if health.is_expanded() or not inventory.is_expanded() or not hex.is_expanded():
-		_fail("Collapsing health should leave inventory and hex exploration open.")
+	if health.is_expanded() or not inventory.is_expanded():
+		_fail("Collapsing health should leave inventory open during exploration.")
 		return
 	if not world_status.visible:
 		_fail("World status panel disappeared during work-surface switching.")
 		return
+	if not macro_map.exploration_window.is_open():
+		_fail("Closing health should not dismiss stage exploration.")
+		return
 
 	hud.get_layout_manager().collapse_all()
 	await process_frame
-	print("[TEST PASS] Macro HUD cockpit layout, copy, and exploration docking.")
+	print("[TEST PASS] Macro HUD cockpit layout, copy, and exploration stage hosting.")
 	quit(0)
 
 func _assert_panel_size(
@@ -254,6 +250,27 @@ func _contains_banned_copy(value: String) -> bool:
 		if value.contains(banned):
 			return true
 	return false
+
+
+func _ensure_demo_homestead(
+	macro_map: MacroGameManager,
+	world_state: RuntimeStateStore,
+	coords: Vector2i = Vector2i(4, 0)
+) -> Vector2i:
+	var hex := macro_map.world_generator.get_hex_at(coords)
+	hex.rock_layer = GameEnums.MacroRockLayer.NONE
+	hex.water_layer = GameEnums.MacroWaterLayer.NONE
+	hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
+	hex.is_poi = true
+	hex.landmark_id = "homestead_b"
+	hex.poi_id = "plains_homestead"
+	hex.poi_name = "Abandoned Homestead"
+	hex.sleep_anchor = "ground"
+	macro_map.world_generator.world_hex_cache[coords] = hex
+	if world_state != null:
+		world_state.set_hex_record(coords, hex.to_state())
+	return coords
+
 
 func _fail(message: String) -> void:
 	push_error("[TEST FAIL] " + message)

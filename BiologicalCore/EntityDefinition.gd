@@ -5,6 +5,10 @@ class_name EntityDefinition
 @export var archetype_name: String = "Baseline Human"
 @export var faction: GameEnums.Faction = GameEnums.Faction.UNALIGNED
 @export var agenda: GameEnums.Agenda = GameEnums.Agenda.SURVIVALIST
+## Optional authored dialogue profile id for unique NPC Ask trees.
+@export var dialogue_id: String = ""
+## When false, Ceasefire Trade stays locked.
+@export var allows_trade: bool = true
 # --- THE 12-POINT PILLARS ---
 @export_group("Core Attributes")
 @export_range(1, 12) var brawn: int = 6     # 6 = Average
@@ -30,6 +34,8 @@ func to_state() -> Dictionary:
 		"archetype_name": archetype_name,
 		"faction": faction,
 		"agenda": agenda,
+		"dialogue_id": dialogue_id,
+		"allows_trade": allows_trade,
 		"brawn": brawn,
 		"finesse": finesse,
 		"fortitude": fortitude,
@@ -46,6 +52,8 @@ static func from_state(state: Dictionary) -> EntityDefinition:
 	definition.archetype_name = state.get("archetype_name", "Baseline Human")
 	definition.faction = state.get("faction", GameEnums.Faction.UNALIGNED)
 	definition.agenda = state.get("agenda", GameEnums.Agenda.SURVIVALIST)
+	definition.dialogue_id = str(state.get("dialogue_id", ""))
+	definition.allows_trade = bool(state.get("allows_trade", true))
 	definition.brawn = clampi(state.get("brawn", 6), 1, 12)
 	definition.finesse = clampi(state.get("finesse", 6), 1, 12)
 	definition.fortitude = clampi(state.get("fortitude", 6), 1, 12)

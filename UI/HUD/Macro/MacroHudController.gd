@@ -10,6 +10,23 @@ signal medical_action_requested(instance_id: String, limb_region: int)
 signal viewport_insets_changed(insets: Rect2i)
 signal event_choice_submitted(choice_id: String)
 signal event_closed
+signal travel_beat_finished
+signal poi_action_submitted(
+	action: GameEnums.PoiAction,
+	selected_item_ids: Array,
+	selected_search_option_id: String
+)
+signal poi_preview_requested(
+	action: GameEnums.PoiAction,
+	selected_item_ids: Array,
+	selected_search_option_id: String
+)
+signal exploration_inventory_action_requested(
+	action_id: String,
+	instance_id: String,
+	equipment_slot: int
+)
+signal exploration_interaction_closed
 signal node_map_requested
 
 const MAX_SCALE := 12.0
@@ -33,7 +50,7 @@ var _layout_manager := MacroHudLayoutManager.new()
 @onready var _settings_save_button: Button = %SettingsSaveButton
 @onready var _settings_load_button: Button = %SettingsLoadButton
 @onready var _settings_menu_button: Button = %SettingsMenuButton
-@onready var _event_hud: MacroEventHud = %MacroEventHud
+@onready var _exploration_stage: MacroExplorationStage = %MacroExplorationStage
 
 
 func _ready() -> void:
@@ -66,8 +83,16 @@ func _ready() -> void:
 	_hex_panel.travel_requested_hex.connect(hex_preview_travel_requested.emit)
 	_world_status.settings_requested.connect(_open_settings)
 	_world_status.node_map_requested.connect(node_map_requested.emit)
-	_event_hud.choice_submitted.connect(event_choice_submitted.emit)
-	_event_hud.event_closed.connect(event_closed.emit)
+	_exploration_stage.choice_submitted.connect(event_choice_submitted.emit)
+	_exploration_stage.event_closed.connect(event_closed.emit)
+	_exploration_stage.travel_beat_finished.connect(travel_beat_finished.emit)
+	_exploration_stage.poi_action_submitted.connect(poi_action_submitted.emit)
+	_exploration_stage.poi_preview_requested.connect(poi_preview_requested.emit)
+	_exploration_stage.inventory_action_requested.connect(
+		exploration_inventory_action_requested.emit
+	)
+	_exploration_stage.interaction_closed.connect(exploration_interaction_closed.emit)
+	_exploration_stage.node_map_requested.connect(node_map_requested.emit)
 	_settings_close_button.pressed.connect(_close_settings)
 	_settings_save_button.pressed.connect(func(): _open_save_load("save"))
 	_settings_load_button.pressed.connect(func(): _open_save_load("load"))
@@ -138,24 +163,64 @@ func collapse_hex_panel() -> void:
 
 
 func dock_hex_session(session: Dictionary) -> void:
-	_hex_panel.dock_session(session)
+	present_poi(session)
+
+
+func append_exploration_log(message: String) -> void:
+	_world_status.append_log(message)
+
+
+func present_travel_beat(session: Dictionary) -> void:
+	# Travel flavor goes to the world log; no modal popup.
+	var title := str(session.get("title", "")).strip_edges()
+	var body := str(session.get("body", "")).strip_edges()
+	var line := title
+	if not body.is_empty():
+		var first_line := body.split("\n")[0].strip_edges()
+		if not first_line.is_empty():
+			line = "%s — %s" % [title, first_line] if not title.is_empty() else first_line
+	if not line.is_empty():
+		append_exploration_log(line)
+
+
+func present_poi(session: Dictionary, inventory_snapshot: Dictionary = {}) -> void:
+	_exploration_stage.present_poi(session, inventory_snapshot)
+
+
+func bind_exploration_window(window: MacroExplorationWindow) -> void:
+	_exploration_stage.bind_exploration_window(window)
+
+
+func get_exploration_stage() -> MacroExplorationStage:
+	return _exploration_stage
 
 
 func open_event(session: Dictionary) -> void:
-	_event_hud.open_event(session)
+	_exploration_stage.open_event(session)
 
 
 func show_event_result(result: Dictionary) -> void:
-	_event_hud.show_result(result)
+	_exploration_stage.show_result(result)
 
 
 func close_event(notify: bool = true) -> void:
-	_event_hud.close_event(notify)
+	_exploration_stage.close_event(notify)
 
 
 func is_event_open() -> bool:
-	return _event_hud.is_open()
+	return _exploration_stage.is_open()
 
+
+func is_travel_beat_showing() -> bool:
+	return false
+
+
+func clear_exploration_presentation(notify: bool = false) -> void:
+	_exploration_stage.clear_presentation(notify)
+
+
+func get_exploration_window() -> MacroExplorationWindow:
+	return _exploration_stage.get_exploration_window()
 
 func toggle_body_scan() -> void:
 	toggle_health_panel()

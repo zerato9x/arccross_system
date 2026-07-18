@@ -15,7 +15,6 @@ signal campaign_nodes_unlocked(node_ids: Array)
 @export var player_token: MacroPlayer
 @export var enemy_token_scene: PackedScene
 @export var mob_spawner: MobSpawner
-@export var interaction_panel: MacroInteractionPanel
 @export var inventory_panel: InventoryUI
 @export var macro_hud: MacroHudController
 @export var exploration_window_scene: PackedScene
@@ -30,6 +29,7 @@ var _node_map_inventory_layer_restore := 1
 var _inventory_home_layer: CanvasLayer
 var _node_map_overlay_layer: CanvasLayer
 var _node_map_medical: MedicalMonitor
+var _movement_trail: MacroMovementTrail
 
 @export_group("Proximity Loading")
 @export_range(1, 12) var active_radius: int = 3
@@ -733,22 +733,12 @@ func _ready() -> void:
 		push_error("The Puppet Master is missing its strings. Check the inspector.")
 		return
 
-	if interaction_panel:
-		interaction_panel.talk_action_submitted.connect(resolve_talk_action)
-		interaction_panel.ambush_submitted.connect(resolve_entity_ambush)
-		interaction_panel.interaction_closed.connect(close_macro_interaction)
-
 	if exploration_window_scene:
 		exploration_window = (
 			exploration_window_scene.instantiate() as MacroExplorationWindow
 		)
 		exploration_window.name = "MacroExplorationWindow"
 		add_child(exploration_window)
-		exploration_window.poi_action_submitted.connect(resolve_poi_action)
-		exploration_window.poi_preview_requested.connect(preview_poi_action)
-		exploration_window.inventory_action_requested.connect(resolve_inventory_action)
-		exploration_window.interaction_closed.connect(close_macro_interaction)
-		exploration_window.node_map_requested.connect(open_node_map)
 	else:
 		push_error("[MacroGameManager] Missing exploration_window_scene.")
 
@@ -764,14 +754,19 @@ func _ready() -> void:
 		macro_hud.hex_preview_travel_requested.connect(_on_hex_preview_travel)
 		macro_hud.viewport_insets_changed.connect(_on_hud_viewport_insets_changed)
 		macro_hud.medical_action_requested.connect(_on_medical_action_requested)
-		macro_hud.event_choice_submitted.connect(resolve_macro_event_choice)
-		macro_hud.event_closed.connect(close_macro_interaction)
+		macro_hud.event_choice_submitted.connect(_on_macro_hud_choice_submitted)
+		macro_hud.event_closed.connect(_on_macro_hud_event_closed)
 		macro_hud.node_map_requested.connect(open_node_map)
 		if inventory_panel:
 			macro_hud.get_inventory_corner_panel().inventory_ui = inventory_panel
 		if exploration_window:
-			macro_hud.get_hex_panel().exploration_window = exploration_window
-
+			macro_hud.bind_exploration_window(exploration_window)
+			macro_hud.poi_action_submitted.connect(resolve_poi_action)
+			macro_hud.poi_preview_requested.connect(preview_poi_action)
+			macro_hud.exploration_inventory_action_requested.connect(
+				resolve_inventory_action
+			)
+			macro_hud.exploration_interaction_closed.connect(close_macro_interaction)
 	var player_inventory := player_token.get_humanoid_core().inventory
 	player_inventory.inventory_error.connect(_on_player_inventory_error)
 	player_inventory.items_spilled.connect(_on_player_items_spilled)
@@ -980,6 +975,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 	if macro_hud != null and macro_hud.is_event_open():
+		if (
+			event is InputEventKey
+			and event.pressed
+			and not event.echo
+			and event.keycode == KEY_ESCAPE
+		):
+			close_macro_interaction()
+			get_viewport().set_input_as_handled()
+			return
 		if event is InputEventKey or event is InputEventMouseButton:
 			get_viewport().set_input_as_handled()
 		return
@@ -1068,7 +1072,7 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 		target_coords
 	)
 	_macro_log("Player stepped to %s." % str(target_coords))
-	_refresh_map_visuals(target_coords, false)
+	var newly_explored := _refresh_map_visuals(target_coords, false)
 	refresh_proximity(target_coords)
 
 	var hex_data := world_generator.get_hex_at(target_coords)
@@ -1092,12 +1096,20 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 				origin_coords
 			)
 			return
-		
-	if _world_state.has_ground_items(target_coords):
+
+	var has_ground_loot := _world_state.has_ground_items(target_coords)
+	if has_ground_loot:
 		_last_macro_event = "Ground items detected at HEX %d,%d." % [
 			target_coords.x,
 			target_coords.y,
 		]
+	_present_travel_beat(
+		origin_coords,
+		target_coords,
+		hex_data,
+		newly_explored,
+		has_ground_loot
+	)
 
 	advance_macro_world(1)
 	# Campaign objectives resolve by reaching the marked hex — no separate
@@ -1105,6 +1117,63 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 	_try_resolve_campaign_objective_on_arrival(target_coords, hex_data)
 	_refresh_world_hud()
 
+
+func _present_travel_beat(
+	origin_coords: Vector2i,
+	target_coords: Vector2i,
+	hex_data: MacroHexData,
+	newly_explored: Array,
+	has_ground_loot: bool
+) -> void:
+	var beat: Dictionary = MacroTravelBeatResolver.build_step_beat(
+		origin_coords,
+		target_coords,
+		hex_data,
+		newly_explored,
+		has_ground_loot
+	)
+	if beat.is_empty():
+		return
+	var title := str(beat.get("title", "EXPLORING"))
+	var body := str(beat.get("body", ""))
+	var first_line := body.split("\n")[0].strip_edges() if not body.is_empty() else ""
+	_last_macro_event = (
+		"%s — %s" % [title, first_line] if not first_line.is_empty() else title
+	)
+	if macro_hud:
+		macro_hud.present_travel_beat(beat)
+	_guide_camera_for_travel(origin_coords, target_coords)
+	_leave_movement_trail(origin_coords, target_coords)
+
+
+func _guide_camera_for_travel(origin_coords: Vector2i, target_coords: Vector2i) -> void:
+	## Soft look-ahead toward the destination — never zoom/vignette pulse.
+	var camera := get_node_or_null("Camera2D") as MacroCamera
+	if camera == null or map_visualizer == null:
+		return
+	var from_pos: Vector2 = map_visualizer.map_to_local(origin_coords)
+	var to_pos: Vector2 = map_visualizer.map_to_local(target_coords)
+	camera.begin_travel_look_ahead(from_pos, to_pos)
+	get_tree().create_timer(MacroPlayer.WALK_DURATION_SECONDS).timeout.connect(
+		func() -> void:
+			if is_instance_valid(camera):
+				camera.end_travel_look_ahead()
+	)
+
+
+func _leave_movement_trail(origin_coords: Vector2i, target_coords: Vector2i) -> void:
+	if map_visualizer == null:
+		return
+	if _movement_trail == null:
+		_movement_trail = MacroMovementTrail.new()
+		_movement_trail.name = "MacroMovementTrail"
+		_movement_trail.z_index = -1
+		add_child(_movement_trail)
+	var from_pos: Vector2 = map_visualizer.map_to_local(origin_coords)
+	var to_pos: Vector2 = map_visualizer.map_to_local(target_coords)
+	var facing := to_pos - from_pos
+	_movement_trail.add_step(from_pos.lerp(to_pos, 0.35), facing)
+	_movement_trail.add_step(from_pos.lerp(to_pos, 0.7), facing)
 
 func _try_begin_directional_exit(
 	origin_coords: Vector2i,
@@ -1256,9 +1325,10 @@ func _macro_log(message: String) -> void:
 
 ## Recompute the player's line of sight around a center and reveal it.
 ## "Visible" = currently in sight this turn. "Explored" = seen at least once.
-func _update_fog_of_war(center_coords: Vector2i) -> void:
+## Returns axial coords newly marked explored this call.
+func _update_fog_of_war(center_coords: Vector2i) -> Array[Vector2i]:
 	_visible_hexes.clear()
-	var newly_revealed := 0
+	var newly_explored: Array[Vector2i] = []
 	for coords in _coords_in_radius(center_coords, vision_radius):
 		if world_generator.zone_bounds_enabled and not world_generator.is_in_zone_bounds(coords):
 			continue
@@ -1267,18 +1337,20 @@ func _update_fog_of_war(center_coords: Vector2i) -> void:
 		if not hex_data.is_explored:
 			hex_data.is_explored = true
 			_world_state.set_hex_record(coords, hex_data.to_state())
-			newly_revealed += 1
+			newly_explored.append(coords)
 	_macro_log(
 		"Fog update @%s: %d visible hex(es), %d newly explored."
-		% [str(center_coords), _visible_hexes.size(), newly_revealed]
+		% [str(center_coords), _visible_hexes.size(), newly_explored.size()]
 	)
+	return newly_explored
 
 
 ## Paint / refresh zone visuals and push black fog states to the visualizer.
-func _refresh_map_visuals(center_coords: Vector2i, repaint_zone: bool = false) -> void:
+## Returns axial coords newly marked explored this call.
+func _refresh_map_visuals(center_coords: Vector2i, repaint_zone: bool = false) -> Array[Vector2i]:
 	if map_visualizer == null:
-		return
-	_update_fog_of_war(center_coords)
+		return []
+	var newly_explored := _update_fog_of_war(center_coords)
 	if world_generator != null and world_generator.zone_bounds_enabled:
 		if repaint_zone or map_visualizer.rendered_cells.is_empty():
 			map_visualizer.render_zone()
@@ -1287,6 +1359,7 @@ func _refresh_map_visuals(center_coords: Vector2i, repaint_zone: bool = false) -
 		map_visualizer.render_radius(center_coords, 3)
 		map_visualizer.apply_fog(_visible_hexes)
 	_refresh_enemy_visibility()
+	return newly_explored
 
 
 func _refresh_enemy_visibility() -> void:
@@ -1367,7 +1440,7 @@ func _try_handle_campaign_site(coords: Vector2i, hex_data: MacroHexData) -> bool
 	if node == null:
 		return false
 	if node.role == GameEnums.MacroNodeRole.CENTRAL_CORE and hex_data.poi_id == "central_core":
-		_handle_central_meta_quest()
+		_begin_central_core_debug_hub(coords)
 		return true
 
 	if str(hex_data.poi_id).begins_with("macro_event_"):
@@ -1522,9 +1595,12 @@ func _present_poi_session(
 		)
 	)
 	if macro_hud:
-		macro_hud.dock_hex_session(session)
-	else:
+		macro_hud.present_poi(session, inventory_snapshot)
+	elif exploration_window:
 		exploration_window.open_landmark(session, inventory_snapshot)
+	else:
+		push_error("POI session opened without a presentation subscriber.")
+		close_macro_interaction()
 
 func begin_entity_collision(
 	enemy_id: String,
@@ -1538,15 +1614,13 @@ func begin_entity_collision(
 		var enemy: MacroEnemy = active_enemies[coords]
 		enemy.play_interaction()
 	set_process_unhandled_input(false)
-	if not interaction_panel:
-		push_error("Entity interaction opened without a presentation subscriber.")
+	if macro_hud == null:
+		push_error("Entity interaction opened without a HUD subscriber.")
+		close_macro_interaction()
 		return
-	interaction_panel.open_entity_collision({
-		"entity_name": _world_state.get_entity(enemy_id).definition.get(
-			"archetype_name",
-			"Unknown"
-		),
-	})
+	_open_entity_collision_session(
+		MacroEntityCollisionResolver.MODE_ROOT
+	)
 
 func preview_poi_action(
 	action: GameEnums.PoiAction,
@@ -1644,6 +1718,228 @@ func resolve_poi_action(
 		_world_state.set_hex_record(coords, hex_data.to_state())
 
 
+func _on_macro_hud_choice_submitted(choice_id: String) -> void:
+	var pending_type: int = _pending_interaction.get(
+		"type",
+		GameEnums.MacroInteractionType.NONE
+	)
+	if pending_type == GameEnums.MacroInteractionType.ENTITY_COLLISION:
+		resolve_entity_collision_choice(choice_id)
+		return
+	if pending_type == GameEnums.MacroInteractionType.MACRO_EVENT:
+		if str(_pending_interaction.get("event_id", "")) == "debug_central_hub":
+			_resolve_central_core_debug_choice(choice_id)
+			return
+		resolve_macro_event_choice(choice_id)
+
+
+func _begin_central_core_debug_hub(coords: Vector2i) -> void:
+	if not _pending_interaction.is_empty():
+		return
+	_pending_interaction = {
+		"type": GameEnums.MacroInteractionType.MACRO_EVENT,
+		"coords": coords,
+		"event_id": "debug_central_hub",
+	}
+	player_token.play_interaction()
+	set_process_unhandled_input(false)
+	if macro_hud == null:
+		close_macro_interaction()
+		return
+	macro_hud.open_event({
+		"id": "debug_central_hub",
+		"mode": "event",
+		"title": "CENTRAL CORE — DEBUG HUB",
+		"body": (
+			"Campaign control node. Use the live meta path, or fire isolated "
+			+ "probes for exploration, events, collisions, and loot."
+		),
+		"tags": ["CENTRAL", "DEBUG"],
+		"can_close": true,
+		"fx": {"kind": "landmark", "intensity": 0.35},
+		"choices": [
+			{
+				"id": "meta_quest",
+				"label": "Continue Meta Quest",
+				"kind": "talk",
+				"enabled": true,
+				"stakes": ["LIVE"],
+				"reason": "Runs the North Core Regulator fetch / install flow.",
+			},
+			{
+				"id": "dbg_event",
+				"label": "DEBUG: Open Treatment Room Event",
+				"kind": "observe",
+				"enabled": true,
+				"stakes": ["EVENT"],
+				"reason": "Opens the authored locked_treatment_room macro event.",
+			},
+			{
+				"id": "dbg_hostile",
+				"label": "DEBUG: Spawn Hostile Collision",
+				"kind": "ambush",
+				"enabled": true,
+				"stakes": ["COMBAT"],
+				"reason": "Spawns a scavenger on this hex and opens Talk/Ambush.",
+			},
+			{
+				"id": "dbg_loot",
+				"label": "DEBUG: Drop Ground Loot",
+				"kind": "item",
+				"enabled": true,
+				"stakes": ["LOOT"],
+				"reason": "Drops sample items on this hex for ground pickup tests.",
+			},
+			{
+				"id": "dbg_poi",
+				"label": "DEBUG: Open Landmark Explore",
+				"kind": "observe",
+				"enabled": true,
+				"stakes": ["POI"],
+				"reason": "Injects a homestead landmark here and opens Search/Camp.",
+			},
+			{
+				"id": "dbg_travel",
+				"label": "DEBUG: Sample Travel Feedback",
+				"kind": "pass",
+				"enabled": true,
+				"stakes": ["TRAVEL"],
+				"reason": "Writes a travel log line, leaves a trail, and soft look-ahead.",
+			},
+			{
+				"id": "leave",
+				"label": "Leave",
+				"kind": "pass",
+				"enabled": true,
+				"stakes": [],
+				"reason": "Close the hub.",
+			},
+		],
+	})
+
+
+func _resolve_central_core_debug_choice(choice_id: String) -> void:
+	var coords: Vector2i = _pending_interaction.get(
+		"coords",
+		player_token.current_hex_coords
+	)
+	match choice_id:
+		"meta_quest":
+			close_macro_interaction()
+			_handle_central_meta_quest()
+		"dbg_event":
+			close_macro_interaction()
+			begin_macro_event(MacroEventResolver.EVENT_LOCKED_TREATMENT_ROOM, coords)
+		"dbg_hostile":
+			close_macro_interaction()
+			var spawned := debug_spawn_enemy_near_player(
+				GameEnums.Faction.SCAVENGER_CELL,
+				0
+			)
+			if not spawned:
+				_last_macro_event = "DEBUG: Hostile spawn failed (no free adjacent hex)."
+				_refresh_world_hud()
+				return
+			var enemy_id := ""
+			for delta in HEX_NEIGHBORS:
+				var probe: Vector2i = coords + delta
+				var record := _world_state.get_entity_at(probe)
+				if record != null and _world_state.is_entity_hostile(record.entity_id):
+					enemy_id = record.entity_id
+					_world_state.move_entity(enemy_id, coords)
+					break
+			if enemy_id.is_empty():
+				_last_macro_event = "DEBUG: Hostile spawned but collision handoff failed."
+				_refresh_world_hud()
+				return
+			begin_entity_collision(enemy_id, coords)
+		"dbg_loot":
+			close_macro_interaction()
+			_debug_drop_sample_loot(coords)
+		"dbg_poi":
+			close_macro_interaction()
+			_debug_open_landmark_here(coords)
+		"dbg_travel":
+			close_macro_interaction()
+			var hex_data := world_generator.get_hex_at(coords)
+			_present_travel_beat(
+				coords,
+				coords + Vector2i(1, 0),
+				hex_data,
+				[coords],
+				false
+			)
+			_refresh_world_hud()
+		"leave", _:
+			close_macro_interaction()
+
+
+func _debug_drop_sample_loot(coords: Vector2i) -> void:
+	if _loot_catalog == null:
+		_last_macro_event = "DEBUG: Loot catalog unavailable."
+		_refresh_world_hud()
+		return
+	var drops: Array = []
+	for item_id in ["water_bottle", "crackers", "bandage", "matches", "bottle"]:
+		if not _loot_catalog.has_item(item_id):
+			continue
+		var state: Dictionary = _loot_catalog.create_runtime_item_state(item_id)
+		if not state.is_empty():
+			drops.append(state)
+		if drops.size() >= 3:
+			break
+	if drops.is_empty():
+		_last_macro_event = "DEBUG: No sample loot definitions found."
+	else:
+		_world_state.add_ground_items(coords, drops)
+		_last_macro_event = "DEBUG: Dropped %d ground item(s) at HEX %d,%d." % [
+			drops.size(),
+			coords.x,
+			coords.y,
+		]
+	if macro_hud:
+		macro_hud.append_exploration_log(_last_macro_event)
+	_refresh_world_hud()
+
+
+func _debug_open_landmark_here(coords: Vector2i) -> void:
+	var hex := world_generator.get_hex_at(coords)
+	hex.rock_layer = GameEnums.MacroRockLayer.NONE
+	hex.water_layer = GameEnums.MacroWaterLayer.NONE
+	hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
+	hex.is_poi = true
+	hex.landmark_id = "homestead_b"
+	hex.poi_id = "plains_homestead"
+	hex.poi_name = "Debug Homestead"
+	hex.sleep_anchor = "ground"
+	world_generator.world_hex_cache[coords] = hex
+	_world_state.set_hex_record(coords, hex.to_state())
+	begin_poi_interaction(coords, hex)
+
+
+func _on_macro_hud_event_closed() -> void:
+	if (
+		_pending_interaction.get("type")
+		== GameEnums.MacroInteractionType.ENTITY_COLLISION
+	):
+		var resume := str(_pending_interaction.get("resume_after_result", ""))
+		_pending_interaction.erase("resume_after_result")
+		if resume == MacroEntityCollisionResolver.MODE_PEACEFUL:
+			_open_entity_collision_session(
+				MacroEntityCollisionResolver.MODE_PEACEFUL
+			)
+			return
+		if resume == MacroEntityCollisionResolver.MODE_ASK:
+			_open_entity_collision_session(
+				MacroEntityCollisionResolver.MODE_ASK
+			)
+			return
+		if bool(_pending_interaction.get("keep_open_on_close", false)):
+			_pending_interaction.erase("keep_open_on_close")
+			return
+	close_macro_interaction()
+
+
 func resolve_macro_event_choice(choice_id: String) -> void:
 	if (
 		_pending_interaction.get("type")
@@ -1670,6 +1966,141 @@ func resolve_macro_event_choice(choice_id: String) -> void:
 	_refresh_world_hud()
 	if macro_hud:
 		macro_hud.show_event_result(result)
+
+
+func resolve_entity_collision_choice(choice_id: String) -> void:
+	if (
+		_pending_interaction.get("type")
+		!= GameEnums.MacroInteractionType.ENTITY_COLLISION
+	):
+		return
+	match choice_id:
+		MacroEntityCollisionResolver.CHOICE_TALK:
+			_open_entity_collision_session(
+				MacroEntityCollisionResolver.MODE_TALK
+			)
+		MacroEntityCollisionResolver.CHOICE_AMBUSH:
+			_open_entity_collision_session(
+				MacroEntityCollisionResolver.MODE_AMBUSH
+			)
+		MacroEntityCollisionResolver.CHOICE_BACK:
+			_resolve_entity_collision_back()
+		MacroEntityCollisionResolver.CHOICE_THREAT:
+			resolve_talk_action(GameEnums.TalkAction.THREAT)
+		MacroEntityCollisionResolver.CHOICE_CEASEFIRE:
+			resolve_talk_action(GameEnums.TalkAction.CEASEFIRE)
+		MacroEntityCollisionResolver.CHOICE_AMBUSH_FAR:
+			resolve_entity_ambush(GameEnums.AmbushPosition.FAR)
+		MacroEntityCollisionResolver.CHOICE_AMBUSH_STANDARD:
+			resolve_entity_ambush(GameEnums.AmbushPosition.STANDARD)
+		MacroEntityCollisionResolver.CHOICE_AMBUSH_CLOSE:
+			resolve_entity_ambush(GameEnums.AmbushPosition.CLOSE)
+		MacroEntityCollisionResolver.CHOICE_ASK:
+			_open_entity_collision_session(
+				MacroEntityCollisionResolver.MODE_ASK
+			)
+		MacroEntityCollisionResolver.CHOICE_TRADE:
+			_resolve_entity_collision_trade()
+		MacroEntityCollisionResolver.CHOICE_LEAVE:
+			_resolve_entity_collision_leave()
+		_:
+			if str(choice_id).begins_with("ask_"):
+				_resolve_entity_collision_ask(choice_id)
+
+
+func _resolve_entity_collision_back() -> void:
+	var mode := str(
+		_pending_interaction.get(
+			"collision_mode",
+			MacroEntityCollisionResolver.MODE_ROOT
+		)
+	)
+	if mode == MacroEntityCollisionResolver.MODE_ASK:
+		_open_entity_collision_session(
+			MacroEntityCollisionResolver.MODE_PEACEFUL
+		)
+		return
+	_open_entity_collision_session(MacroEntityCollisionResolver.MODE_ROOT)
+
+
+func _resolve_entity_collision_trade() -> void:
+	var enemy_id: String = _pending_interaction.get("enemy_id", "")
+	var enemy_record := _world_state.get_entity(enemy_id)
+	if enemy_record == null:
+		return
+	var opponent := MacroEntityCollisionResolver.build_opponent_summary(
+		enemy_record
+	)
+	if not bool(opponent.get("allows_trade", true)):
+		return
+	var result := MacroEntityCollisionResolver.trade_placeholder_result()
+	_pending_interaction["resume_after_result"] = str(
+		result.get("resume", MacroEntityCollisionResolver.MODE_PEACEFUL)
+	)
+	if macro_hud:
+		macro_hud.show_event_result(result)
+
+
+func _resolve_entity_collision_ask(choice_id: String) -> void:
+	var enemy_id: String = _pending_interaction.get("enemy_id", "")
+	var enemy_record := _world_state.get_entity(enemy_id)
+	if enemy_record == null:
+		return
+	player_token.play_interaction()
+	var result := MacroEntityCollisionResolver.resolve_ask_choice(
+		enemy_record,
+		choice_id
+	)
+	_apply_macro_event_effects(result.get("effects", {}))
+	_pending_interaction["resume_after_result"] = str(
+		result.get("resume", MacroEntityCollisionResolver.MODE_ASK)
+	)
+	_refresh_world_hud()
+	if macro_hud:
+		macro_hud.show_event_result(result)
+
+
+func _resolve_entity_collision_leave() -> void:
+	var enemy_id: String = _pending_interaction.get("enemy_id", "")
+	if not enemy_id.is_empty():
+		_world_state.set_entity_world_status(
+			enemy_id,
+			GameEnums.EntityWorldStatus.CEASEFIRE
+		)
+	close_macro_interaction()
+
+
+func _open_entity_collision_session(mode: String) -> void:
+	var enemy_id: String = _pending_interaction.get("enemy_id", "")
+	var enemy_record := _world_state.get_entity(enemy_id)
+	if enemy_record == null or macro_hud == null:
+		close_macro_interaction()
+		return
+	var session: Dictionary
+	match mode:
+		MacroEntityCollisionResolver.MODE_TALK:
+			session = MacroEntityCollisionResolver.build_talk_session(
+				enemy_record
+			)
+		MacroEntityCollisionResolver.MODE_AMBUSH:
+			session = MacroEntityCollisionResolver.build_ambush_session(
+				enemy_record
+			)
+		MacroEntityCollisionResolver.MODE_PEACEFUL:
+			session = MacroEntityCollisionResolver.build_peaceful_session(
+				enemy_record
+			)
+		MacroEntityCollisionResolver.MODE_ASK:
+			session = MacroEntityCollisionResolver.build_ask_session(
+				enemy_record
+			)
+		_:
+			session = MacroEntityCollisionResolver.build_root_session(
+				enemy_record
+			)
+	_pending_interaction["collision_mode"] = mode
+	_pending_interaction.erase("resume_after_result")
+	macro_hud.open_event(session)
 
 
 func _begin_macro_event_from_poi(
@@ -1751,45 +2182,53 @@ func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 		_request_pending_combat(GameEnums.EncounterContext.DIALOGUE_BREAKDOWN)
 		return
 
-	var message: String
-	if outcome == GameEnums.NegotiationOutcome.ROB_SUCCESS:
+	if outcome == GameEnums.NegotiationOutcome.INTIMIDATED:
 		_world_state.set_entity_world_status(
 			enemy_id,
 			GameEnums.EntityWorldStatus.WITHDRAWN
 		)
-		var rob_result: Dictionary = MacroInteractionResolver.resolve_rob_transfer(
-			enemy_record.definition,
-			_loot_catalog,
-			player_core,
-			player_token.current_hex_coords
-		)
-		message = str(rob_result.get("message", ""))
-		if not rob_result.get("player_runtime", {}).is_empty():
-			_world_state.update_player_runtime(
-				rob_result.get("player_runtime", {}),
-				player_token.current_hex_coords
+		var threat_result: Dictionary = (
+			MacroInteractionResolver.resolve_threat_surrender(
+				_world_state.world_seed,
+				enemy_id,
+				attempt,
+				enemy_record.definition,
+				_loot_catalog
 			)
-		if not rob_result.get("ground_items", []).is_empty():
+		)
+		var definition: Dictionary = enemy_record.definition.duplicate(true)
+		definition["loadout"] = threat_result.get(
+			"kept_loadout",
+			definition.get("loadout", {})
+		)
+		_world_state.patch_entity_record(
+			enemy_id,
+			{"definition": definition}
+		)
+		if not threat_result.get("ground_items", []).is_empty():
 			_world_state.add_ground_items(
 				player_token.current_hex_coords,
-				rob_result.get("ground_items", [])
+				threat_result.get("ground_items", [])
 			)
-	elif outcome == GameEnums.NegotiationOutcome.INTIMIDATED:
-		_world_state.set_entity_world_status(
-			enemy_id,
-			GameEnums.EntityWorldStatus.WITHDRAWN
+		unload_enemy_token(_pending_interaction.get("coords", Vector2i.ZERO))
+		_show_collision_result(
+			"THREAT SUCCESS",
+			str(threat_result.get("message", "")),
+			""
 		)
-		message = "The target backs away and leaves the area."
-	else:
-		_world_state.set_entity_world_status(
-			enemy_id,
-			GameEnums.EntityWorldStatus.CEASEFIRE
-		)
-		message = "Both sides lower their weapons and separate."
+		return
 
-	unload_enemy_token(_pending_interaction.get("coords", Vector2i.ZERO))
-	if interaction_panel:
-		_show_interaction_result("NEGOTIATION SUCCESS", message)
+	_world_state.set_entity_world_status(
+		enemy_id,
+		GameEnums.EntityWorldStatus.CEASEFIRE
+	)
+	var updated_record := _world_state.get_entity(enemy_id)
+	if updated_record != null and active_enemies.has(interaction_coords):
+		active_enemies[interaction_coords].setup_from_record(updated_record)
+	_open_entity_collision_session(
+		MacroEntityCollisionResolver.MODE_PEACEFUL
+	)
+
 
 func resolve_entity_ambush(position: GameEnums.AmbushPosition) -> void:
 	if (
@@ -1802,17 +2241,15 @@ func resolve_entity_ambush(position: GameEnums.AmbushPosition) -> void:
 		position
 	)
 
+
 func close_macro_interaction() -> void:
 	_pending_interaction.clear()
 	set_process_unhandled_input(true)
-	if interaction_panel and interaction_panel.is_open():
-		interaction_panel.close_panel(false)
 	if exploration_window and exploration_window.is_open():
 		exploration_window.close_window(false)
 	if macro_hud:
+		macro_hud.clear_exploration_presentation(false)
 		macro_hud.collapse_hex_panel()
-		if macro_hud.is_event_open():
-			macro_hud.close_event(false)
 	_refresh_world_hud()
 
 
@@ -2461,8 +2898,6 @@ func _request_pending_combat(
 	_pending_interaction.clear()
 	if exploration_window and exploration_window.is_open():
 		exploration_window.close_window(false)
-	if interaction_panel:
-		interaction_panel.close_panel(false)
 	if macro_hud and macro_hud.is_event_open():
 		macro_hud.close_event(false)
 	combat_requested.emit(request)
@@ -2528,10 +2963,28 @@ func _hex_label(coords: Vector2i, hex_data: MacroHexData) -> String:
 func _show_interaction_result(title: String, message: String) -> void:
 	if exploration_window and exploration_window.is_open():
 		exploration_window.show_result(title, message)
-	elif interaction_panel and interaction_panel.is_open():
-		interaction_panel.show_result(title, message)
 	else:
+		_show_collision_result(title, message, "")
+
+
+func _show_collision_result(
+	title: String,
+	message: String,
+	resume_mode: String
+) -> void:
+	if resume_mode.is_empty():
+		_pending_interaction.erase("resume_after_result")
+	else:
+		_pending_interaction["resume_after_result"] = resume_mode
+	if macro_hud == null:
 		close_macro_interaction()
+		return
+	macro_hud.show_event_result({
+		"title": title,
+		"body": message,
+		"effects": {},
+		"resume": resume_mode,
+	})
 
 func _apply_poi_session_selections(
 	coords: Vector2i,

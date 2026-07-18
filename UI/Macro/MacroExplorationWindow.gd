@@ -100,11 +100,10 @@ func _ready() -> void:
 	HUDAssetLibrary.apply_button(_continue_button)
 	_search_button.text = "Search"
 	_camp_button.text = "Camp"
-	_node_map_button.text = "Node Map"
+	_node_map_button.visible = false
 	_continue_button.visible = false
 	_search_button.pressed.connect(func(): _set_mode(GameEnums.PoiAction.SEARCH))
 	_camp_button.pressed.connect(func(): _set_mode(GameEnums.PoiAction.CAMP))
-	_node_map_button.pressed.connect(func(): node_map_requested.emit())
 	_submit_button.pressed.connect(_submit_action)
 	_rest_button.pressed.connect(func(): _submit_action_for(GameEnums.PoiAction.REST))
 	_stop_rest_button.pressed.connect(func(): _submit_action_for(GameEnums.PoiAction.STOP_REST))
@@ -134,6 +133,29 @@ func dock_into(host: Control) -> void:
 	visible = true
 
 
+func present_as_stage_overlay(edge: float = 48.0) -> void:
+	undock()
+	layer = 41
+	_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_panel.anchor_left = 0.0
+	_panel.anchor_top = 0.0
+	_panel.anchor_right = 1.0
+	_panel.anchor_bottom = 1.0
+	_panel.offset_left = edge
+	_panel.offset_top = edge
+	_panel.offset_right = -edge
+	_panel.offset_bottom = -edge
+	_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_dock_host = null
+	_apply_stage_overlay_layout()
+	_panel.visible = true
+	visible = true
+	# Always expose an obvious leave path on the stage overlay.
+	_continue_button.visible = true
+	_continue_button.text = "Leave (Esc)"
+
+
 func undock() -> void:
 	if _panel.get_parent() != self:
 		var panel_parent := _panel.get_parent()
@@ -142,6 +164,7 @@ func undock() -> void:
 		add_child(_panel)
 	_panel.visible = false
 	_dock_host = null
+	layer = 22
 	_apply_docked_layout()
 
 
@@ -151,6 +174,13 @@ func _apply_docked_layout() -> void:
 	_inventory_grid.columns = 1 if compact else 3
 	_scene_root.custom_minimum_size = Vector2(200.0 if compact else 500.0, 0.0)
 	_right_panel.custom_minimum_size = Vector2(200.0 if compact else 260.0, 0.0)
+
+
+func _apply_stage_overlay_layout() -> void:
+	_inventory_panel.custom_minimum_size = Vector2(180.0, 0.0)
+	_inventory_grid.columns = 3
+	_scene_root.custom_minimum_size = Vector2(500.0, 0.0)
+	_right_panel.custom_minimum_size = Vector2(260.0, 0.0)
 
 
 func open_landmark(session: Dictionary, _inventory_snapshot: Dictionary = {}) -> void:
@@ -178,12 +208,14 @@ func show_result(title: String, message: String) -> void:
 	_continue_button.visible = true
 
 func _on_continue_pressed() -> void:
-	if not _showing_result:
+	if _showing_result:
+		_showing_result = false
+		_continue_button.visible = false
+		_render_session()
+		_request_preview()
 		return
-	_showing_result = false
-	_continue_button.visible = false
-	_render_session()
-	_request_preview()
+	# Stage overlay leave affordance.
+	close_window(true)
 
 func collapse_to_preview() -> void:
 	if _panel:
@@ -198,6 +230,7 @@ func collapse_to_preview() -> void:
 
 func close_window(notify: bool = true) -> void:
 	collapse_to_preview()
+	layer = 22
 	if notify:
 		interaction_closed.emit()
 
@@ -250,6 +283,9 @@ func _render_session() -> void:
 	_update_mode_buttons()
 	_update_rest_buttons()
 	_update_mode_visibility()
+	if layer >= 40:
+		_continue_button.visible = true
+		_continue_button.text = "Leave (Esc)"
 
 func _render_interaction_gear() -> void:
 	_clear_inventory_slots()

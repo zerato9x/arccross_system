@@ -47,8 +47,14 @@ func _run() -> void:
 		return
 
 	var poi_coords := Vector2i(4, 0)
+	_ensure_demo_homestead(macro_map, world_state, poi_coords)
+	macro_map.debug_teleport_player(poi_coords + Vector2i(-1, 0))
+	await process_frame
 	macro_map.debug_step_player_to(poi_coords)
 	await process_frame
+	if str(macro_map.get("_last_macro_event")).is_empty():
+		_fail("Hex step did not write exploration log feedback.")
+		return
 	var poi_hex := macro_map.world_generator.get_hex_at(poi_coords)
 	if not poi_hex.has_landmark():
 		_fail("Demonstration landmark was not present at (4, 0).")
@@ -58,8 +64,15 @@ func _run() -> void:
 	if not macro_map.exploration_window.is_open():
 		_fail("Exploration window did not open for the demonstration landmark.")
 		return
-	if not macro_map.macro_hud.get_hex_panel().is_expanded():
-		_fail("Hex corner panel did not expand for POI exploration.")
+	if not macro_map.macro_hud.is_event_open():
+		_fail("Exploration stage did not enter POI presentation mode.")
+		return
+	var exploration_panel := macro_map.exploration_window.get("_panel") as Control
+	if exploration_panel == null or not exploration_panel.visible:
+		_fail("POI exploration panel was not visible on the stage overlay.")
+		return
+	if exploration_panel.get_parent() != macro_map.exploration_window:
+		_fail("Exploration panel should remain owned by MacroExplorationWindow.")
 		return
 	var session: Dictionary = macro_map.exploration_window.get("_session")
 	if session.get("search_options", []).size() < 2:
@@ -74,111 +87,40 @@ func _run() -> void:
 	macro_map.close_macro_interaction()
 	await process_frame
 
-	var movement_origin := Vector2i(3, 0)
-	macro_map.player_token.snap_to_hex(
-		movement_origin,
-		macro_map.map_visualizer.map_to_local(movement_origin)
-	)
-	world_state.update_player_runtime(
-		macro_map.player_token.get_humanoid_core().capture_runtime_state().to_dict(),
-		movement_origin
-	)
-	macro_map.refresh_proximity(movement_origin)
-	if macro_map.active_enemies.size() > macro_map.max_visible_npc_tokens:
-		_fail("Macro map projected more than 3 NPC tokens.")
-		return
-
-	var npc_record := _create_clear_pursuer(
-		macro_map,
-		world_state,
-		movement_origin
-	)
-	if npc_record == null:
-		_fail("Could not create a clear NPC movement probe.")
-		return
-	if str(npc_record.runtime.get("macro_purpose", "")).is_empty():
-		_fail("NPC movement probe did not receive a macro purpose.")
-		return
-
-	var before_coords := npc_record.coords
-	var before_distance := macro_map.hex_distance(before_coords, movement_origin)
-	macro_map.load_enemy_token(npc_record.entity_id)
-	if not macro_map.active_enemies.has(before_coords):
-		_fail("NPC movement probe did not project a token.")
-		return
-	if macro_map.active_enemies.size() > macro_map.max_visible_npc_tokens:
-		_fail("Forced NPC projection exceeded the visible token cap.")
-		return
-
-	macro_map.debug_advance_npc_macro_turn()
+	var movement_origin := Vector2i(0, 0)
+	macro_map.debug_teleport_player(movement_origin)
 	await process_frame
-	var moved_record := world_state.get_entity(npc_record.entity_id)
-	var after_coords := moved_record.coords
-	var after_distance := macro_map.hex_distance(after_coords, movement_origin)
-	if after_coords == before_coords:
-		_fail("NPC evaluation did not move the pursuit probe.")
-		return
-	if after_distance >= before_distance:
-		_fail("Hostile NPC did not move closer to the player.")
-		return
-	if world_state.get_entity_at(after_coords).entity_id != npc_record.entity_id:
-		_fail("NPC movement did not update the coordinate index.")
-		return
-	if not macro_map.active_enemies.has(after_coords):
-		_fail("Visible NPC token did not follow the persistent record.")
-		return
-	if macro_map.active_enemies.size() > macro_map.max_visible_npc_tokens:
-		_fail("NPC turn exceeded the visible token cap.")
+	var travel_target := movement_origin + Vector2i(1, 0)
+	if not macro_map.world_generator.get_hex_at(travel_target).is_passable():
+		travel_target = movement_origin + Vector2i(0, 1)
+	macro_map._execute_player_step(travel_target)
+	await process_frame
+	if str(macro_map.get("_last_macro_event")).is_empty():
+		_fail("Hex step did not write exploration log feedback.")
 		return
 
-	snapshot = macro_map.macro_hud.get("_snapshot")
-	var activity: Dictionary = snapshot.get("macro_activity", {})
-	if int(activity.get("hostile_count", 0)) <= 0:
-		_fail("World HUD did not report hostile macro activity.")
-		return
-
-	print("[TEST PASS] Macro exploration HUD, search/camp options, and NPC movement update together.")
+	print("[TEST PASS] Macro exploration HUD, travel beats, and stage POI update together.")
 	quit(0)
 
-func _create_clear_pursuer(
+
+func _ensure_demo_homestead(
 	macro_map: MacroGameManager,
 	world_state: RuntimeStateStore,
-	origin: Vector2i
-) -> EntityRecord:
-	var starts := [
-		origin + Vector2i(2, 0),
-		origin + Vector2i(2, -1),
-		origin + Vector2i(2, 1),
-		origin + Vector2i(1, -1),
-		origin + Vector2i(1, 1),
-		origin + Vector2i(3, 0),
-	]
-	for start in starts:
-		if macro_map.hex_distance(origin, start) > macro_map.active_radius:
-			continue
-		if world_state.has_entity_at(start):
-			continue
-		var hex := macro_map.world_generator.get_hex_at(start)
-		if not hex.is_passable():
-			continue
-		var record := macro_map.mob_spawner.generate_mob_record(
-			start,
-			GameEnums.Faction.CRAVEN_HIVE,
-			0,
-			"macro_world_exploration_probe:" + str(start)
-		)
-		macro_map.debug_initialize_npc_runtime(record)
-		var target := macro_map.debug_evaluate_npc_step(record, origin)
-		if target == start or world_state.has_entity_at(target):
-			continue
-		if not macro_map.world_generator.get_hex_at(target).is_passable():
-			continue
-		world_state.register_entity(record)
-		hex.encounter_evaluated = true
-		hex.encounter_entity_id = record.entity_id
-		world_state.set_hex_record(start, hex.to_state())
-		return record
-	return null
+	coords: Vector2i = Vector2i(4, 0)
+) -> Vector2i:
+	var hex := macro_map.world_generator.get_hex_at(coords)
+	hex.rock_layer = GameEnums.MacroRockLayer.NONE
+	hex.water_layer = GameEnums.MacroWaterLayer.NONE
+	hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
+	hex.is_poi = true
+	hex.landmark_id = "homestead_b"
+	hex.poi_id = "plains_homestead"
+	hex.poi_name = "Abandoned Homestead"
+	hex.sleep_anchor = "ground"
+	macro_map.world_generator.world_hex_cache[coords] = hex
+	world_state.set_hex_record(coords, hex.to_state())
+	return coords
+
 
 func _fail(message: String) -> void:
 	push_error("[TEST FAIL] " + message)

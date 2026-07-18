@@ -44,9 +44,14 @@ func _run() -> void:
 		return
 	disposition_probe.setup_from_record(hostile_record)
 	var starting_time := world_state.world_time_minutes
-	var poi_coords := Vector2i(4, 0)
+	var poi_coords := _ensure_demo_homestead(macro_map, world_state)
+	macro_map.debug_teleport_player(poi_coords + Vector2i(-1, 0))
+	await process_frame
 	macro_map.debug_step_player_to(poi_coords)
 	await process_frame
+	if str(macro_map.get("_last_macro_event")).is_empty():
+		_fail("Hex step did not write exploration log feedback.")
+		return
 	if (
 		macro_map.get_pending_interaction_type()
 		== GameEnums.MacroInteractionType.POI
@@ -246,8 +251,20 @@ func _run() -> void:
 	):
 		_fail("Opening a hostile entity collision did not show collision choices.")
 		return
+	if macro_map.macro_hud == null or not macro_map.macro_hud.is_event_open():
+		_fail("Entity collision did not open through MacroExplorationStage.")
+		return
 
-	macro_map.resolve_entity_ambush(GameEnums.AmbushPosition.CLOSE)
+	macro_map.resolve_entity_collision_choice(
+		MacroEntityCollisionResolver.CHOICE_AMBUSH
+	)
+	await process_frame
+	if not macro_map.macro_hud.is_event_open():
+		_fail("Ambush branch did not stay on MacroExplorationStage.")
+		return
+	macro_map.resolve_entity_collision_choice(
+		MacroEntityCollisionResolver.CHOICE_AMBUSH_CLOSE
+	)
 	await process_frame
 	await process_frame
 	var arena = game_director.get_active_arena()
@@ -271,10 +288,14 @@ func _run() -> void:
 
 	if not await _verify_failed_talk_deployment():
 		return
+	if not await _verify_ceasefire_ask_trade_tree():
+		return
+	if not await _verify_threat_surrender_drops():
+		return
 
 	print(
 		"[TEST PASS] POI Search/Camp UI and entity collision setup preserve "
-		+ "persistent state, placement, and collider initiative."
+		+ "persistent state, placement, Event HUD collision tree, and collider initiative."
 	)
 	quit(0)
 
@@ -339,6 +360,140 @@ func _verify_failed_talk_deployment() -> bool:
 	game_director.queue_free()
 	await process_frame
 	return true
+
+
+func _verify_ceasefire_ask_trade_tree() -> bool:
+	var game_director: Node = await _spawn_game()
+	if game_director == null:
+		return false
+	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
+	var world_state := root.get_node("WorldState") as RuntimeStateStore
+	var origin := macro_map.player_token.current_hex_coords
+	var enemy_id := _ensure_collision_probe(macro_map, world_state, origin)
+	if enemy_id.is_empty():
+		_fail("Could not create a ceasefire collision probe.")
+		return false
+	var enemy_record := world_state.get_entity(enemy_id)
+	var definition: Dictionary = enemy_record.definition.duplicate(true)
+	definition["will"] = 1
+	definition["allows_trade"] = true
+	world_state.patch_entity_record(enemy_id, {"definition": definition})
+	macro_map.begin_entity_collision(enemy_id, enemy_record.coords)
+	await process_frame
+	macro_map.resolve_entity_collision_choice(
+		MacroEntityCollisionResolver.CHOICE_TALK
+	)
+	await process_frame
+	macro_map.resolve_talk_action(GameEnums.TalkAction.CEASEFIRE)
+	await process_frame
+	if world_state.get_entity(enemy_id).world_status != GameEnums.EntityWorldStatus.CEASEFIRE:
+		_fail("Successful ceasefire did not set CEASEFIRE world status.")
+		return false
+	if not macro_map.macro_hud.is_event_open():
+		_fail("Successful ceasefire did not open the peaceful Event HUD session.")
+		return false
+	if game_director.get_active_arena() != null:
+		_fail("Successful ceasefire incorrectly started combat.")
+		return false
+
+	macro_map.resolve_entity_collision_choice(
+		MacroEntityCollisionResolver.CHOICE_ASK
+	)
+	await process_frame
+	macro_map.resolve_entity_collision_choice("ask_intent")
+	await process_frame
+	if not macro_map.macro_hud.is_event_open():
+		_fail("Ask choice did not show a result on MacroExplorationStage.")
+		return false
+	macro_map.macro_hud.close_event(true)
+	await process_frame
+	if not macro_map.macro_hud.is_event_open():
+		_fail("Ask result continue did not resume the Ask session.")
+		return false
+
+	macro_map.resolve_entity_collision_choice(
+		MacroEntityCollisionResolver.CHOICE_BACK
+	)
+	await process_frame
+	macro_map.resolve_entity_collision_choice(
+		MacroEntityCollisionResolver.CHOICE_TRADE
+	)
+	await process_frame
+	if not macro_map.macro_hud.is_event_open():
+		_fail("Trade placeholder did not open a result panel.")
+		return false
+	macro_map.macro_hud.close_event(true)
+	await process_frame
+	if not macro_map.macro_hud.is_event_open():
+		_fail("Trade placeholder continue did not resume the peaceful session.")
+		return false
+
+	macro_map.resolve_entity_collision_choice(
+		MacroEntityCollisionResolver.CHOICE_LEAVE
+	)
+	await process_frame
+	if macro_map.get_pending_interaction_type() != GameEnums.MacroInteractionType.NONE:
+		_fail("Leave did not close the entity collision interaction.")
+		return false
+	if world_state.get_entity(enemy_id).world_status != GameEnums.EntityWorldStatus.CEASEFIRE:
+		_fail("Leave cleared ceasefire status.")
+		return false
+
+	game_director.queue_free()
+	await process_frame
+	return true
+
+
+func _verify_threat_surrender_drops() -> bool:
+	var game_director: Node = await _spawn_game()
+	if game_director == null:
+		return false
+	var macro_map := game_director.get_node("MainWorld") as MacroGameManager
+	var world_state := root.get_node("WorldState") as RuntimeStateStore
+	var origin := macro_map.player_token.current_hex_coords
+	var enemy_id := _ensure_collision_probe(macro_map, world_state, origin)
+	if enemy_id.is_empty():
+		_fail("Could not create a threat collision probe.")
+		return false
+	var enemy_record := world_state.get_entity(enemy_id)
+	var definition: Dictionary = enemy_record.definition.duplicate(true)
+	definition["will"] = 1
+	world_state.patch_entity_record(enemy_id, {"definition": definition})
+	macro_map.begin_entity_collision(enemy_id, enemy_record.coords)
+	await process_frame
+	macro_map.resolve_talk_action(GameEnums.TalkAction.THREAT)
+	await process_frame
+	if world_state.get_entity(enemy_id).world_status != GameEnums.EntityWorldStatus.WITHDRAWN:
+		_fail("Successful threat did not withdraw the opponent.")
+		return false
+	if game_director.get_active_arena() != null:
+		_fail("Successful threat incorrectly started combat.")
+		return false
+	# Threat should dump non-clothes gear when the loadout has droppable items.
+	var kept_loadout: Dictionary = world_state.get_entity(enemy_id).definition.get(
+		"loadout",
+		{}
+	)
+	if not str(kept_loadout.get("weapon", "")).is_empty():
+		_fail("Successful threat kept the opponent weapon equipped in loadout.")
+		return false
+	if not world_state.has_ground_items(macro_map.player_token.current_hex_coords):
+		var original_loadout: Dictionary = definition.get("loadout", {})
+		var had_droppable: bool = (
+			not str(original_loadout.get("weapon", "")).is_empty()
+			or not str(original_loadout.get("offhand", "")).is_empty()
+			or not str(original_loadout.get("vest", "")).is_empty()
+			or not str(original_loadout.get("backpack_gear", "")).is_empty()
+			or not (original_loadout.get("starting_items", []) as Array).is_empty()
+		)
+		if had_droppable:
+			_fail("Successful threat did not leave dropped gear on the ground.")
+			return false
+
+	game_director.queue_free()
+	await process_frame
+	return true
+
 
 func _spawn_game() -> Node:
 	var main_scene := load("res://SystemCore/game_director.tscn") as PackedScene
@@ -527,6 +682,27 @@ func _build_hex_path(
 func _hex_distance(from_coords: Vector2i, to_coords: Vector2i) -> int:
 	var delta := to_coords - from_coords
 	return maxi(abs(delta.x), maxi(abs(delta.y), abs(delta.x + delta.y)))
+
+
+func _ensure_demo_homestead(
+	macro_map: MacroGameManager,
+	world_state: RuntimeStateStore,
+	coords: Vector2i = Vector2i(4, 0)
+) -> Vector2i:
+	var hex := macro_map.world_generator.get_hex_at(coords)
+	hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
+	hex.rock_layer = GameEnums.MacroRockLayer.NONE
+	hex.water_layer = GameEnums.MacroWaterLayer.NONE
+	hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
+	hex.is_poi = true
+	hex.landmark_id = "homestead_b"
+	hex.poi_id = "plains_homestead"
+	hex.poi_name = "Abandoned Homestead"
+	hex.sleep_anchor = "ground"
+	macro_map.world_generator.world_hex_cache[coords] = hex
+	world_state.set_hex_record(coords, hex.to_state())
+	return coords
+
 
 func _fail(message: String) -> void:
 	push_error("[TEST FAIL] " + message)

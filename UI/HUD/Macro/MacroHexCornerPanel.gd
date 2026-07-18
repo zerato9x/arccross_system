@@ -4,8 +4,6 @@ class_name MacroHexCornerPanel
 signal expand_requested_hex(coords: Vector2i)
 signal travel_requested_hex(coords: Vector2i)
 
-@export var exploration_window: MacroExplorationWindow
-
 var _hex: Dictionary = {}
 var _preview_panel: MacroHexPreviewPanel
 
@@ -54,36 +52,12 @@ func _render_preview() -> void:
 
 
 func _render_expanded() -> void:
-	if exploration_window == null:
-		return
-	var host := %ExpandedRoot
-	if host:
-		exploration_window.dock_into(host)
+	pass
 
 
-func dock_session(session: Dictionary) -> void:
-	expand()
-	_render_expanded()
-	if exploration_window:
-		exploration_window.open_landmark(session)
-
-
-func collapse() -> void:
-	if _state == PanelState.PREVIEW:
-		return
-	if exploration_window and exploration_window.is_open():
-		exploration_window.close_window()
-		if _state == PanelState.PREVIEW:
-			return
-	super.collapse()
-
-
-func _set_state(state: PanelState) -> void:
-	super._set_state(state)
-	if state == PanelState.PREVIEW and exploration_window:
-		exploration_window.undock()
-	elif state == PanelState.EXPANDED:
-		_render_expanded()
+func dock_session(_session: Dictionary) -> void:
+	# POI sessions are hosted by MacroExplorationStage; hex panel stays preview-only.
+	pass
 
 
 func _is_primary_action_click(global_pos: Vector2) -> bool:

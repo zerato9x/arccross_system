@@ -1,6 +1,28 @@
 extends RefCounted
 class_name MacroInteractionResolver
 
+## Clothes slots stay with the fleeing NPC. Everything else may drop to ground.
+const THREAT_CLOTHES_LOADOUT_KEYS := [
+	"inner_torso",
+	"outer_torso",
+	"legs",
+	"feet",
+	"head",
+	"eyes",
+	"face",
+	"neck",
+	"arms",
+]
+
+const THREAT_DROP_LOADOUT_KEYS := [
+	"weapon",
+	"offhand",
+	"vest",
+	"backpack_gear",
+	"belt",
+	"sling",
+]
+
 const SEARCH_KEYS := ["loot", "safety", "sneak"]
 const CAMP_KEYS := ["sleep", "shelter", "healing", "concealment", "alertness"]
 
@@ -445,17 +467,13 @@ static func resolve_negotiation(
 				float(player_summary.get("threat", 0.0))
 				+ float(player_summary.get("will", 0.0)) * 0.65
 			)
-		GameEnums.TalkAction.ROB:
-			player_score = (
-				float(player_summary.get("threat", 0.0))
-				+ float(player_summary.get("brawn", 0.0)) * 0.45
-				- 2.0
-			)
 		GameEnums.TalkAction.CEASEFIRE:
 			player_score = (
 				float(player_summary.get("finesse", 0.0)) * 0.55
 				+ float(player_summary.get("will", 0.0)) * 0.55
 			)
+		_:
+			player_score = float(player_summary.get("will", 0.0))
 
 	var succeeded := player_score + rng.randf_range(-2.0, 2.0) >= enemy_score
 	if not succeeded:
@@ -464,48 +482,98 @@ static func resolve_negotiation(
 	match action:
 		GameEnums.TalkAction.THREAT:
 			return GameEnums.NegotiationOutcome.INTIMIDATED
-		GameEnums.TalkAction.ROB:
-			return GameEnums.NegotiationOutcome.ROB_SUCCESS
 		_:
 			return GameEnums.NegotiationOutcome.CEASEFIRE
 
 
-static func resolve_rob_transfer(
+static func resolve_threat_surrender(
+	world_seed: String,
+	enemy_id: String,
+	attempt: int,
 	enemy_definition: Dictionary,
-	loot_catalog: Node,
-	player_core: HumanoidCore,
-	player_coords: Vector2i
+	loot_catalog: Node
 ) -> Dictionary:
 	if loot_catalog == null or not loot_catalog.has_method(
-		"pick_loadout_surrender_runtime_item"
+		"create_runtime_item_from_template_path"
 	):
 		return {
-			"message": "The target withdraws, but carries nothing worth taking.",
-			"player_runtime": {},
+			"message": "The target flees, abandoning nothing useful.",
 			"ground_items": [],
+			"kept_loadout": enemy_definition.get("loadout", {}),
 		}
 
-	var loadout: Dictionary = enemy_definition.get("loadout", {})
-	var item_state: Dictionary = loot_catalog.pick_loadout_surrender_runtime_item(
-		loadout
-	)
-	if item_state.is_empty():
-		return {
-			"message": "The target withdraws before any usable property changes hands.",
-			"player_runtime": {},
-			"ground_items": [],
-		}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = (
+		world_seed
+		+ ":threat_drop:"
+		+ enemy_id
+		+ ":"
+		+ str(attempt)
+	).hash()
 
-	var runtime_item := ItemData.from_runtime_state(item_state)
-	if player_core.inventory.add_to_backpack(runtime_item):
-		return {
-			"message": "The target surrenders %s and withdraws." % runtime_item.display_name,
-			"player_runtime": player_core.capture_runtime_state().to_dict(),
-			"ground_items": [],
-		}
+	var loadout: Dictionary = enemy_definition.get("loadout", {}).duplicate(true)
+	var ground_items: Array = []
+	var dropped_names: PackedStringArray = []
+	var kept_loadout: Dictionary = loadout.duplicate(true)
+
+	for key in THREAT_DROP_LOADOUT_KEYS:
+		var path := str(loadout.get(key, ""))
+		if path.is_empty():
+			continue
+		# Always dump held weapons / storage carriers when intimidated.
+		var drop_chance := 1.0
+		if key == "belt" or key == "sling":
+			drop_chance = 0.85
+		if rng.randf() > drop_chance:
+			continue
+		var item_state: Dictionary = loot_catalog.create_runtime_item_from_template_path(
+			path
+		)
+		if item_state.is_empty():
+			continue
+		ground_items.append(item_state)
+		var item := ItemData.from_runtime_state(item_state)
+		dropped_names.append(item.display_name)
+		kept_loadout[key] = ""
+
+	var starting_items: Array = loadout.get("starting_items", []).duplicate()
+	var kept_starting: Array = []
+	for path_value in starting_items:
+		var path := str(path_value)
+		if path.is_empty():
+			continue
+		# Loose pack items usually hit the dirt; roll keeps a rare cling.
+		if rng.randf() > 0.9:
+			kept_starting.append(path)
+			continue
+		var item_state: Dictionary = loot_catalog.create_runtime_item_from_template_path(
+			path
+		)
+		if item_state.is_empty():
+			kept_starting.append(path)
+			continue
+		ground_items.append(item_state)
+		var item := ItemData.from_runtime_state(item_state)
+		dropped_names.append(item.display_name)
+	kept_loadout["starting_items"] = kept_starting
+
+	for clothes_key in THREAT_CLOTHES_LOADOUT_KEYS:
+		kept_loadout[clothes_key] = loadout.get(clothes_key, "")
+
+	var message: String
+	if dropped_names.is_empty():
+		message = (
+			"The target flees in their clothes, leaving nothing else behind."
+		)
+	else:
+		message = (
+			"The target dumps gear and flees. Left on the ground: %s."
+			% ", ".join(dropped_names)
+		)
 
 	return {
-		"message": "%s was surrendered and left on the ground." % runtime_item.display_name,
-		"player_runtime": player_core.capture_runtime_state().to_dict(),
-		"ground_items": [item_state],
+		"message": message,
+		"ground_items": ground_items,
+		"kept_loadout": kept_loadout,
 	}
+

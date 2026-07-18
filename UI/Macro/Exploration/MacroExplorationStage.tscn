@@ -1,10 +1,12 @@
-[gd_scene format=3 uid="uid://bxybqicj7tad2"]
+[gd_scene load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://UI/HUD/Macro/MacroEventHud.gd" id="1_event"]
+[ext_resource type="Script" path="res://UI/Macro/Exploration/MacroExplorationStage.gd" id="1_stage"]
+[ext_resource type="Script" path="res://UI/Macro/Exploration/ExplorationFxLayer.gd" id="2_fx"]
+[ext_resource type="Script" path="res://UI/Macro/Exploration/TravelBeatPresenter.gd" id="3_travel"]
 
-[node name="MacroEventHud" type="CanvasLayer"]
+[node name="MacroExplorationStage" type="CanvasLayer"]
 layer = 40
-script = ExtResource("1_event")
+script = ExtResource("1_stage")
 
 [node name="Root" type="Control" parent="."]
 unique_name_in_owner = true
@@ -14,9 +16,11 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 0
+mouse_filter = 2
 
 [node name="DimOverlay" type="ColorRect" parent="Root"]
+unique_name_in_owner = true
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -26,8 +30,75 @@ grow_vertical = 2
 mouse_filter = 0
 color = Color(0, 0, 0, 0.68)
 
+[node name="FxLayer" type="Control" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_fx")
+
+[node name="TravelBeat" type="Control" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -210.0
+offset_right = -24.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+script = ExtResource("3_travel")
+
+[node name="TravelPanel" type="PanelContainer" parent="Root/TravelBeat"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TravelMargin" type="MarginContainer" parent="Root/TravelBeat/TravelPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 10
+
+[node name="TravelColumn" type="VBoxContainer" parent="Root/TravelBeat/TravelPanel/TravelMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TravelTitle" type="Label" parent="Root/TravelBeat/TravelPanel/TravelMargin/TravelColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "EXPLORING"
+
+[node name="TravelBody" type="Label" parent="Root/TravelBeat/TravelPanel/TravelMargin/TravelColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+text = "You move into open ground."
+autowrap_mode = 3
+
+[node name="TravelTagRow" type="HFlowContainer" parent="Root/TravelBeat/TravelPanel/TravelMargin/TravelColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 4
+
 [node name="Center" type="CenterContainer" parent="Root"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -70,12 +141,22 @@ theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
 
-[node name="EventImage" type="TextureRect" parent="Root/Center/EventPanel/Margin/MainRow/ImageFrame/ImageMargin"]
+[node name="ImageColumn" type="VBoxContainer" parent="Root/Center/EventPanel/Margin/MainRow/ImageFrame/ImageMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="EventImage" type="TextureRect" parent="Root/Center/EventPanel/Margin/MainRow/ImageFrame/ImageMargin/ImageColumn"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 expand_mode = 1
 stretch_mode = 6
+
+[node name="GridPreview" type="VBoxContainer" parent="Root/Center/EventPanel/Margin/MainRow/ImageFrame/ImageMargin/ImageColumn"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 6
 
 [node name="TextColumn" type="VBoxContainer" parent="Root/Center/EventPanel/Margin/MainRow"]
 unique_name_in_owner = true
@@ -164,3 +245,18 @@ visible = false
 custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
 text = "Continue"
+
+[node name="PoiHost" type="Control" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 48.0
+offset_top = 48.0
+offset_right = -48.0
+offset_bottom = -48.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0

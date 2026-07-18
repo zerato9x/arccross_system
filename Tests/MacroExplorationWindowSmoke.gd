@@ -14,12 +14,19 @@ func _run() -> void:
 	var world_state := root.get_node("WorldState") as RuntimeStateStore
 	var player_core := macro_map.player_token.get_humanoid_core()
 
+	_ensure_demo_homestead(macro_map, world_state, DEMO_POI)
+	macro_map.debug_teleport_player(Vector2i(3, 0))
+	await process_frame
+
 	if macro_map.player_token.current_hex_coords != Vector2i(3, 0):
 		_fail("Demo start did not move to the hub border.")
 		return
 
 	macro_map.debug_step_player_to(DEMO_POI)
 	await process_frame
+	if str(macro_map.get("_last_macro_event")).is_empty():
+		_fail("Hex step did not write exploration log feedback.")
+		return
 	if macro_map.get_pending_interaction_type() == GameEnums.MacroInteractionType.POI:
 		_fail("Landmark POI auto-opened on step instead of Act entry.")
 		return
@@ -205,6 +212,26 @@ func _find_safe_camp_attempt(
 		if not result.get("interrupted", false):
 			return attempt
 	return 0
+
+
+func _ensure_demo_homestead(
+	macro_map: MacroGameManager,
+	world_state: RuntimeStateStore,
+	coords: Vector2i = Vector2i(4, 0)
+) -> Vector2i:
+	var hex := macro_map.world_generator.get_hex_at(coords)
+	hex.rock_layer = GameEnums.MacroRockLayer.NONE
+	hex.water_layer = GameEnums.MacroWaterLayer.NONE
+	hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
+	hex.is_poi = true
+	hex.landmark_id = "homestead_b"
+	hex.poi_id = "plains_homestead"
+	hex.poi_name = "Abandoned Homestead"
+	hex.sleep_anchor = "ground"
+	macro_map.world_generator.world_hex_cache[coords] = hex
+	world_state.set_hex_record(coords, hex.to_state())
+	return coords
+
 
 func _fail(message: String) -> void:
 	push_error("[TEST FAIL] " + message)

@@ -15,7 +15,9 @@ func _run() -> void:
 		_fail("Macro map or HUD did not initialize.")
 		return
 
-	var event_coords := Vector2i(4, 0)
+	var event_coords := _ensure_demo_homestead(macro_map)
+	macro_map.debug_teleport_player(event_coords)
+	await process_frame
 	var event_hex := macro_map.world_generator.get_hex_at(event_coords)
 	macro_map.begin_poi_interaction(event_coords, event_hex)
 	await process_frame
@@ -42,20 +44,26 @@ func _run() -> void:
 		_fail("Macro event did not become the pending interaction.")
 		return
 
-	var event_hud := macro_map.macro_hud.get_node_or_null("MacroEventHud") as MacroEventHud
+	var event_hud := macro_map.macro_hud.get_exploration_stage()
 	if event_hud == null:
-		_fail("MacroEventHud is not present under the macro HUD shell.")
+		_fail("MacroExplorationStage is not present under the macro HUD shell.")
 		return
 	if not event_hud.is_open():
-		_fail("MacroEventHud did not open.")
+		_fail("MacroExplorationStage did not open for the event.")
 		return
 	if macro_map.exploration_window != null and event_hud.layer <= macro_map.exploration_window.layer:
-		_fail("MacroEventHud layer must be above the exploration window.")
-		return
+		# While a POI overlay is open the exploration window sits above the stage.
+		# After the macro event replaces it, the window must drop back below.
+		if macro_map.exploration_window.is_open():
+			_fail("Exploration stage layer must be above the exploration window.")
+			return
+		if macro_map.exploration_window.layer >= event_hud.layer:
+			_fail("Exploration window layer was not restored below the stage.")
+			return
 
 	var choice_list := event_hud.get_node_or_null("%ChoiceList") as VBoxContainer
 	if choice_list == null or choice_list.get_child_count() < 5:
-		_fail("MacroEventHud did not render the prototype event choices.")
+		_fail("Exploration stage did not render the prototype event choices.")
 		return
 
 	if not _has_disabled_choice(choice_list, "Disable the alarm circuit"):
@@ -128,7 +136,7 @@ func _run() -> void:
 		return
 	macro_map.close_macro_interaction()
 
-	print("[TEST PASS] Macro event HUD modal flow and contextual choices.")
+	print("[TEST PASS] Macro exploration stage event modal flow and contextual choices.")
 	quit(0)
 
 
@@ -142,6 +150,27 @@ func _spawn_game() -> Node:
 	await process_frame
 	await process_frame
 	return game_director
+
+
+func _ensure_demo_homestead(
+	macro_map: MacroGameManager,
+	coords: Vector2i = Vector2i(4, 0)
+) -> Vector2i:
+	var world_state := root.get_node("WorldState") as RuntimeStateStore
+	var hex := macro_map.world_generator.get_hex_at(coords)
+	hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
+	hex.rock_layer = GameEnums.MacroRockLayer.NONE
+	hex.water_layer = GameEnums.MacroWaterLayer.NONE
+	hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
+	hex.is_poi = true
+	hex.landmark_id = "homestead_b"
+	hex.poi_id = "plains_homestead"
+	hex.poi_name = "Abandoned Homestead"
+	hex.sleep_anchor = "ground"
+	macro_map.world_generator.world_hex_cache[coords] = hex
+	if world_state != null:
+		world_state.set_hex_record(coords, hex.to_state())
+	return coords
 
 
 func _has_disabled_choice(choice_list: VBoxContainer, label: String) -> bool:

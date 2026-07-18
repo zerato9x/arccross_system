@@ -10,20 +10,18 @@
 [ext_resource type="Script" uid="uid://c6bbmynmpcyyd" path="res://BiologicalCore/HumanoidCore.gd" id="26_humanoid_core"]
 [ext_resource type="Script" uid="uid://cyby11uaje4em" path="res://BiologicalCore/HumanoidBody.gd" id="27_humanoid_body"]
 [ext_resource type="Script" uid="uid://cfggpum5ci84n" path="res://ItemCore/InventorySystem.gd" id="28_inventory"]
-[ext_resource type="Script" uid="uid://b3cich77l6nye" path="res://WorldCore/MacroInteractionPanel.gd" id="29_interaction"]
 [ext_resource type="PackedScene" uid="uid://bidwe2cg476w8" path="res://UI/Humanoid/HumanoidToken.tscn" id="31_bnpb6"]
 [ext_resource type="PackedScene" uid="uid://duh2uglrkqw5p" path="res://UI/HUD/Macro/MacroHudShell.tscn" id="32_macro_hud"]
 [ext_resource type="Resource" path="res://WorldCore/Maps/phase2_east_arm.tres" id="33_authored_map"]
 [ext_resource type="PackedScene" uid="uid://b72xqqy5yyt02" path="res://UI/Inventory/InventoryUI.tscn" id="34_inventory_panel"]
 [ext_resource type="PackedScene" uid="uid://cpfc2cyt5tmx7" path="res://UI/Macro/MacroExplorationWindow.tscn" id="35_exploration_window"]
 
-[node name="MainWorld" type="Node2D" unique_id=1029321409 node_paths=PackedStringArray("world_generator", "map_visualizer", "player_token", "interaction_panel", "inventory_panel", "macro_hud")]
+[node name="MainWorld" type="Node2D" unique_id=1029321409 node_paths=PackedStringArray("world_generator", "map_visualizer", "player_token", "inventory_panel", "macro_hud")]
 script = ExtResource("1_tu7u5")
 world_generator = NodePath("HexWorldGenerator")
 map_visualizer = NodePath("HexMapVisualizer")
 player_token = NodePath("PlayerMacroToken")
 enemy_token_scene = ExtResource("2_uks48")
-interaction_panel = NodePath("MacroInteractionPanel")
 inventory_panel = NodePath("InventoryPanel/InventoryUI")
 macro_hud = NodePath("MacroHudShell")
 exploration_window_scene = ExtResource("35_exploration_window")
@@ -73,31 +71,14 @@ position = Vector2(0, -64)
 position = Vector2(0, 1)
 script = ExtResource("7_aac4l")
 target = NodePath("../PlayerMacroToken")
-
-[node name="MacroInteractionPanel" type="CanvasLayer" parent="." unique_id=1948304426]
-script = ExtResource("29_interaction")
-
-[node name="Panel" type="PanelContainer" parent="MacroInteractionPanel" unique_id=1084287987]
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -310.0
-offset_top = -330.0
-offset_right = 310.0
-offset_bottom = 330.0
-
-[node name="Margin" type="MarginContainer" parent="MacroInteractionPanel/Panel" unique_id=777457857]
-layout_mode = 2
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 20
-theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 20
-
-[node name="Content" type="VBoxContainer" parent="MacroInteractionPanel/Panel/Margin" unique_id=1901020423]
-layout_mode = 2
-theme_override_constants/separation = 12
+follow_lerp = 5.5
+look_ahead_distance = 40.0
+look_ahead_blend = 4.5
+settle_lerp = 3.5
+zoom_min = 0.55
+zoom_max = 2.2
+zoom_step = 0.08
+zoom_smooth_speed = 9.0
 
 [node name="MacroHudShell" parent="." unique_id=1334210933 instance=ExtResource("32_macro_hud")]
 

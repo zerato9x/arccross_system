@@ -1,47 +1,114 @@
-extends Camera2D
 class_name MacroCamera
+extends Camera2D
+## Stable top-down macro camera: damped follow, soft look-ahead, smooth wheel zoom.
+## Never pulses zoom on travel — that causes motion sickness.
 
 @export var target: Node2D
-var follow_speed: float = 6.0
-const PAN_SPEED = 5000.0
-const ZOOM_SPEED = 0.15
-const MIN_ZOOM = 0.1
-const MAX_ZOOM = 10
+@export var follow_lerp: float = 6.0
+@export var look_ahead_distance: float = 48.0
+@export var look_ahead_blend: float = 5.0
+@export var settle_lerp: float = 4.0
+@export var zoom_min: float = 0.55
+@export var zoom_max: float = 2.4
+@export var zoom_step: float = 0.08
+@export var zoom_smooth_speed: float = 10.0
+
+var _desired_zoom: float = 1.0
+var _look_ahead: Vector2 = Vector2.ZERO
+var _look_ahead_goal: Vector2 = Vector2.ZERO
+var _hud_offset: Vector2 = Vector2.ZERO
+var _travel_active: bool = false
 
 
 func _ready() -> void:
-	if not target:
-		push_error("Camera has no target. It will stare at the void forever.")
-		return
-	position = target.position
-
-
-func set_viewport_insets(_insets: Rect2i) -> void:
-	pass
+	make_current()
+	_desired_zoom = zoom.x
+	# Drag deadzone absorbs tiny hex-step jitter; we still own follow for look-ahead.
+	anchor_mode = Camera2D.ANCHOR_MODE_DRAG_CENTER
+	position_smoothing_enabled = false
+	drag_horizontal_enabled = true
+	drag_vertical_enabled = true
+	drag_left_margin = 0.12
+	drag_right_margin = 0.12
+	drag_top_margin = 0.12
+	drag_bottom_margin = 0.12
+	if target != null:
+		global_position = target.global_position + _hud_offset
 
 
 func _process(delta: float) -> void:
-	if not target:
-		return
-	var desired := _get_desired_position()
-	position = position.lerp(desired, follow_speed * delta)
-
-
-func _get_desired_position() -> Vector2:
-	if target == null:
-		return position
-	return target.position
+	_update_zoom(delta)
+	_update_follow(delta)
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_adjust_zoom(ZOOM_SPEED)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_adjust_zoom(-ZOOM_SPEED)
+	if not (event is InputEventMouseButton):
+		return
+	var mouse := event as InputEventMouseButton
+	if not mouse.pressed:
+		return
+	if mouse.button_index == MOUSE_BUTTON_WHEEL_UP:
+		_desired_zoom = clampf(_desired_zoom + zoom_step, zoom_min, zoom_max)
+		get_viewport().set_input_as_handled()
+	elif mouse.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		_desired_zoom = clampf(_desired_zoom - zoom_step, zoom_min, zoom_max)
+		get_viewport().set_input_as_handled()
 
 
-func _adjust_zoom(amount: float) -> void:
-	var new_zoom = zoom.x + amount
-	new_zoom = clamp(new_zoom, MIN_ZOOM, MAX_ZOOM)
-	zoom = Vector2(new_zoom, new_zoom)
+func set_viewport_insets(insets: Rect2i) -> void:
+	## Frame the playfield clear of HUD chrome.
+	## Rect2i encodes (left, top, right, bottom) margins in pixels.
+	var size := get_viewport_rect().size
+	if size.x <= 0.0 or size.y <= 0.0:
+		return
+	var z := maxf(zoom.x, 0.01)
+	_hud_offset = Vector2(
+		(float(insets.position.x) - float(insets.size.x)) * 0.5 / z,
+		(float(insets.position.y) - float(insets.size.y)) * 0.5 / z
+	)
+
+
+func begin_travel_look_ahead(from_world: Vector2, to_world: Vector2) -> void:
+	## Soft lead toward the destination hex. Position only — never zoom.
+	_travel_active = true
+	var delta := to_world - from_world
+	if delta.length_squared() < 1.0:
+		_look_ahead_goal = Vector2.ZERO
+		return
+	_look_ahead_goal = delta.normalized() * look_ahead_distance
+
+
+func end_travel_look_ahead() -> void:
+	_travel_active = false
+	_look_ahead_goal = Vector2.ZERO
+
+
+func snap_to_target() -> void:
+	if target == null:
+		return
+	_look_ahead = Vector2.ZERO
+	_look_ahead_goal = Vector2.ZERO
+	_travel_active = false
+	global_position = target.global_position + _hud_offset
+
+
+func _update_zoom(delta: float) -> void:
+	var current := zoom.x
+	if is_equal_approx(current, _desired_zoom):
+		return
+	var next := lerpf(current, _desired_zoom, clampf(zoom_smooth_speed * delta, 0.0, 1.0))
+	zoom = Vector2(next, next)
+
+
+func _update_follow(delta: float) -> void:
+	if target == null:
+		return
+	var blend := clampf(
+		(look_ahead_blend if _travel_active else settle_lerp) * delta,
+		0.0,
+		1.0
+	)
+	_look_ahead = _look_ahead.lerp(_look_ahead_goal, blend)
+	var goal := target.global_position + _look_ahead + _hud_offset
+	var rate := clampf(follow_lerp * delta, 0.0, 1.0)
+	global_position = global_position.lerp(goal, rate)
