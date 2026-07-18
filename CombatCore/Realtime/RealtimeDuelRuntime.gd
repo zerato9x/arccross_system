@@ -4,6 +4,7 @@ class_name RealtimeDuelRuntime
 signal snapshot_changed(snapshot: Dictionary)
 signal presentation_event(event: Dictionary)
 signal feedback(message: String)
+signal intent_rejected(side: String, code: String, message: String)
 signal entity_escaped(entity: HumanoidCore)
 
 const AP_MAX := 12.0
@@ -150,7 +151,7 @@ func _physics_process(delta: float) -> void:
 
 func request_intent(entity: HumanoidCore, intent: int) -> bool:
 	if not running or not _states.has(entity) or entity.is_dead:
-		return false
+		return _reject(entity, "NOT_AVAILABLE", "The duel is not accepting commands.")
 	var state: Dictionary = _states[entity]
 	var opponent := _opponent(entity)
 
@@ -170,12 +171,12 @@ func request_intent(entity: HumanoidCore, intent: int) -> bool:
 			GameEnums.DuelIntent.GUARD, GameEnums.DuelIntent.MOVE_AWAY, GameEnums.DuelIntent.MOVE_TOWARD:
 				_cancel_aim(state)
 			_:
-				return false
+				return _reject(entity, "BUSY", "Release or cancel the current aim first.")
 
 	if _is_busy(state):
-		return false
+		return _reject(entity, "BUSY", "Finish the current action first.")
 	if entity.current_stance == GameEnums.StanceState.FELLED:
-		return false
+		return _reject(entity, "FELLED", "Recover your stance before acting.")
 
 	match intent:
 		GameEnums.DuelIntent.MOVE_AWAY, GameEnums.DuelIntent.MOVE_TOWARD:
@@ -196,7 +197,7 @@ func request_intent(entity: HumanoidCore, intent: int) -> bool:
 			return _start_reload_or_cycle(entity, state)
 		GameEnums.DuelIntent.FOLLOW:
 			return _start_follow(entity, state)
-	return false
+	return _reject(entity, "INVALID_ACTION", "That command is unavailable here.")
 
 func request_escape(entity: HumanoidCore) -> bool:
 	if not _states.has(entity):
@@ -352,7 +353,7 @@ func _start_movement_intent(entity: HumanoidCore, intent: int, state: Dictionary
 	if _is_melee_locked(entity):
 		if intent == GameEnums.DuelIntent.MOVE_TOWARD:
 			return _start_push(entity, state)
-		return false
+		return _reject(entity, "MELEE_LOCK", "You cannot retreat while locked; push to create space.")
 	if intent == GameEnums.DuelIntent.MOVE_TOWARD and _follow_available(state):
 		return _start_follow(entity, state)
 	var from_lane := lane_manager._find_entity_lane(entity)
@@ -362,7 +363,7 @@ func _start_movement_intent(entity: HumanoidCore, intent: int, state: Dictionary
 	if to_lane < 0 or to_lane >= lane_manager.lane_slots.size():
 		return request_escape(entity)
 	if not lane_manager.can_move_entity_to(entity, from_lane, to_lane):
-		return false
+		return _reject(entity, "BLOCKED_MOVEMENT", "The next grid cannot be entered.")
 	if not _spend_ap(state, MOVE_COST):
 		return false
 	_start_action(entity, state, {
@@ -382,7 +383,7 @@ func _start_melee(
 	heavy: bool
 ) -> bool:
 	if not _is_melee_locked(entity) or opponent == null or opponent.is_dead:
-		return false
+		return _reject(entity, "OUT_OF_RANGE", "Close into melee lock before striking.")
 	var weapon := entity.inventory.get_active_weapon(true)
 	var profile := DuelWeaponProfileCatalog.profile_for(weapon)
 	var combo_step := int(state.get("combo_step", 0))
@@ -432,7 +433,9 @@ func _start_push(entity: HumanoidCore, state: Dictionary) -> bool:
 	return true
 
 func _start_follow(entity: HumanoidCore, state: Dictionary) -> bool:
-	if not _follow_available(state) or not _spend_ap(state, FOLLOW_COST):
+	if not _follow_available(state):
+		return _reject(entity, "FOLLOW_UNAVAILABLE", "The follow window has closed.")
+	if not _spend_ap(state, FOLLOW_COST):
 		return false
 	_start_action(entity, state, {
 		"action": GameEnums.DuelActionType.FOLLOW,
@@ -458,7 +461,9 @@ func _start_guard(entity: HumanoidCore, state: Dictionary) -> bool:
 
 func _start_aim(entity: HumanoidCore, state: Dictionary) -> bool:
 	var weapon := entity.inventory.get_active_weapon(false)
-	if weapon == null or not weapon.is_ready_to_fire() or _is_melee_locked(entity):
+	if _is_melee_locked(entity):
+		return _reject(entity, "MELEE_LOCK", "Create distance before aiming the firearm.")
+	if not _validate_ready_firearm(entity, weapon):
 		return false
 	var profile := DuelWeaponProfileCatalog.profile_for(weapon)
 	if not _spend_ap(state, profile.aim_setup_cost):
@@ -479,13 +484,14 @@ func _start_aim(entity: HumanoidCore, state: Dictionary) -> bool:
 
 func _start_shot(entity: HumanoidCore, state: Dictionary, aimed: bool) -> bool:
 	var weapon := entity.inventory.get_active_weapon(false)
-	if weapon == null or not weapon.is_ready_to_fire() or _is_melee_locked(entity):
+	if _is_melee_locked(entity):
+		return _reject(entity, "MELEE_LOCK", "Use a melee strike or push to create distance.")
+	if not _validate_ready_firearm(entity, weapon):
 		return false
 	var target := _opponent(entity)
 	var distance := absi(lane_manager._find_entity_lane(entity) - lane_manager._find_entity_lane(target))
 	if distance > weapon.effective_range:
-		feedback.emit("Target is outside %s effective range." % weapon.display_name)
-		return false
+		return _reject(entity, "OUT_OF_RANGE", "Target is outside %s effective range." % weapon.display_name)
 	var profile := DuelWeaponProfileCatalog.profile_for(weapon)
 	var cost := profile.aimed_fire_cost if aimed else profile.blind_cost
 	if not _spend_ap(state, cost):
@@ -507,9 +513,11 @@ func _start_shot(entity: HumanoidCore, state: Dictionary, aimed: bool) -> bool:
 func _start_reload_or_cycle(entity: HumanoidCore, state: Dictionary) -> bool:
 	var weapon := entity.inventory.get_active_weapon(false)
 	if weapon == null:
-		return false
+		return _reject(entity, "NO_FIREARM", "No firearm is equipped.")
 	if weapon.needs_cycling or weapon.cycle_loads_one_round:
-		if not _can_cycle(entity, weapon) or not _spend_ap(state, 1.0):
+		if not _can_cycle(entity, weapon):
+			return _reject(entity, "NEED_CYCLE", "The weapon cannot cycle without ammunition.")
+		if not _spend_ap(state, 1.0):
 			return false
 		_start_action(entity, state, {
 			"action": GameEnums.DuelActionType.CYCLE,
@@ -519,7 +527,9 @@ func _start_reload_or_cycle(entity: HumanoidCore, state: Dictionary) -> bool:
 			"weapon": weapon,
 		})
 		return true
-	if not _can_reload(entity, weapon) or not _spend_ap(state, 2.0):
+	if not _can_reload(entity, weapon):
+		return _reject(entity, "UNLOADED", "No compatible ammunition is available.")
+	if not _spend_ap(state, 2.0):
 		return false
 	_start_action(entity, state, {
 		"action": GameEnums.DuelActionType.RELOAD,
@@ -817,8 +827,7 @@ func _resolve_firearm_service(entity: HumanoidCore, action: int, weapon: ItemDat
 
 func _spend_ap(state: Dictionary, amount: float) -> bool:
 	if float(state.get("ap", 0.0)) + 0.0001 < amount:
-		if str(state.get("side", "")) == "player":
-			feedback.emit("Not enough AP.")
+		_reject_state(state, "NOT_ENOUGH_AP", "Wait for AP regeneration.")
 		return false
 	state["ap"] = maxf(0.0, float(state["ap"]) - amount)
 	return true
@@ -828,6 +837,26 @@ func _refund_ap(state: Dictionary, amount: float) -> void:
 
 func _is_busy(state: Dictionary) -> bool:
 	return int(state.get("action", GameEnums.DuelActionType.NONE)) != GameEnums.DuelActionType.NONE
+
+func _validate_ready_firearm(entity: HumanoidCore, weapon: ItemData) -> bool:
+	if weapon == null:
+		return _reject(entity, "NO_FIREARM", "No firearm is equipped.")
+	if weapon.needs_cycling:
+		return _reject(entity, "NEED_CYCLE", "Press R to cycle the weapon.")
+	if weapon.current_magazine <= 0:
+		return _reject(entity, "UNLOADED", "Press R to reload the weapon.")
+	if not weapon.is_ready_to_fire():
+		return _reject(entity, "WEAPON_UNAVAILABLE", "The firearm is not ready.")
+	return true
+
+func _reject(entity: HumanoidCore, code: String, message: String) -> bool:
+	var side := _side(entity) if entity != null else "unknown"
+	intent_rejected.emit(side, code, message)
+	return false
+
+func _reject_state(state: Dictionary, code: String, message: String) -> bool:
+	intent_rejected.emit(str(state.get("side", "unknown")), code, message)
+	return false
 
 func _is_melee_locked(entity: HumanoidCore) -> bool:
 	return lane_manager != null and lane_manager.is_entity_melee_locked(entity)
@@ -873,6 +902,11 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 	return {
 		"name": entity.name,
 		"archetype": entity.definition.archetype_name,
+		"display_name": (
+			entity.definition.archetype_name
+			if not entity.definition.archetype_name.strip_edges().is_empty()
+			else entity.name
+		),
 		"lane": lane_manager._find_entity_lane(entity),
 		"ap": float(state.get("ap", 0.0)),
 		"ap_max": AP_MAX,

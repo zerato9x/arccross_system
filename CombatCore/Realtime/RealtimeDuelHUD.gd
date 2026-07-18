@@ -22,6 +22,7 @@ const BLOOD_TEXTURE := preload("res://Asset/VFX/BLOOD VFX/1/1_000.png")
 @onready var phase_label: Label = %PhaseLabel
 @onready var timeline_bar: ProgressBar = %TimelineBar
 @onready var impact_marker: ColorRect = %ImpactMarker
+@onready var parry_window: ColorRect = %ParryWindow
 @onready var hint_label: Label = %HintLabel
 @onready var feedback_label: Label = %FeedbackLabel
 @onready var context_label: Label = %ContextLabel
@@ -47,6 +48,10 @@ var _resolve_focus_side := ""
 var _impact_tween: Tween
 var _active_timeline: Dictionary = {}
 var _active_timeline_started := 0.0
+var _camera_lock_state := false
+var _camera_state_initialized := false
+var _last_rejection_code := ""
+var _last_rejection_time := -99.0
 
 func _ready() -> void:
 	visible = false
@@ -71,6 +76,8 @@ func configure(duel_runtime: RealtimeDuelRuntime, player: HumanoidCore) -> void:
 		runtime.presentation_event.connect(show_presentation_event)
 	if not runtime.feedback.is_connected(show_feedback):
 		runtime.feedback.connect(show_feedback)
+	if not runtime.intent_rejected.is_connected(_on_intent_rejected):
+		runtime.intent_rejected.connect(_on_intent_rejected)
 	show_snapshot(runtime.get_snapshot())
 
 func open_hud() -> void:
@@ -108,6 +115,11 @@ func show_snapshot(snapshot: Dictionary) -> void:
 func show_presentation_event(event: Dictionary) -> void:
 	lane_view.show_realtime_event(event)
 	var event_type := str(event.get("type", ""))
+	readability_effects.show_event(
+		event,
+		bool(_snapshot.get("is_melee_locked", false)),
+		_actor_popup_anchors()
+	)
 	if event_type == "action_timeline":
 		_start_timeline(event)
 		var side := str(event.get("side", ""))
@@ -116,13 +128,12 @@ func show_presentation_event(event: Dictionary) -> void:
 		if int(event.get("action", GameEnums.DuelActionType.NONE)) in [GameEnums.DuelActionType.BLIND_FIRE, GameEnums.DuelActionType.AIMED_FIRE]:
 			_play_projectile_timeline(event)
 		return
-	readability_effects.show_event(event, bool(_snapshot.get("is_melee_locked", false)))
 	match event_type:
 		"shot":
 			_play_shot_impact(event)
 		"parry":
 			show_feedback("PARRY // attacker staggered")
-			_play_camera_impact(2.5, 0.12)
+			_play_camera_impact(2.0, 0.12)
 		"block":
 			show_feedback("BLOCK // impact absorbed")
 		"heavy_cancel":
@@ -130,7 +141,7 @@ func show_presentation_event(event: Dictionary) -> void:
 		"damage":
 			var source := str(event.get("source", ""))
 			if source in ["heavy", "combo_finisher"]:
-				_play_camera_impact(2.0 if source == "heavy" else 3.5, 0.14)
+				_play_camera_impact(1.5 if source == "heavy" else 2.0, 0.14)
 
 func show_feedback(message: String) -> void:
 	feedback_label.text = message
@@ -257,29 +268,51 @@ func _start_timeline(event: Dictionary) -> void:
 	_active_timeline = event.duplicate()
 	_active_timeline_started = Time.get_ticks_msec() / 1000.0
 	var action := int(event.get("action", GameEnums.DuelActionType.NONE))
+	var descriptor := readability_effects.get_telegraph_descriptor(action) if incoming_side == "enemy" else {}
+	var action_label := str(descriptor.get("title", _action_name(action)))
 	var prefix := "INCOMING" if incoming_side == "enemy" else "YOUR ACTION"
-	intent_label.text = "%s  //  %s" % [prefix, _action_name(action)]
+	if bool(_snapshot.get("is_melee_locked", false)):
+		prefix += "  //  MELEE LOCK"
+	intent_label.text = "%s  //  %s" % [prefix, action_label]
 	intent_label.modulate = Color(1.0, 0.42, 0.3) if incoming_side == "enemy" else Color(0.45, 0.85, 1.0)
 	timeline_bar.max_value = maxf(0.05, float(event.get("duration", 1.0)))
 	timeline_bar.value = 0.0
 	var impact_ratio := clampf(float(event.get("impact_time", 0.5)) / timeline_bar.max_value, 0.0, 1.0)
 	impact_marker.position.x = timeline_bar.position.x + timeline_bar.size.x * impact_ratio - 2.0
 	impact_marker.visible = true
+	var melee_threat := incoming_side == "enemy" and action in [
+		GameEnums.DuelActionType.LIGHT_STRIKE,
+		GameEnums.DuelActionType.HEAVY_STRIKE,
+		GameEnums.DuelActionType.COMBO_FINISHER,
+	]
+	var parry_width := maxf(10.0, timeline_bar.size.x * minf(0.32 / timeline_bar.max_value, 0.18))
+	parry_window.position.x = maxf(0.0, impact_marker.position.x - parry_width)
+	parry_window.size.x = parry_width
+	parry_window.visible = melee_threat
 
 func _process_timeline() -> void:
 	if _active_timeline.is_empty():
-		intent_label.text = "DUEL READOUT // READY"
+		intent_label.text = "MELEE LOCK // READ THE OPPONENT" if bool(_snapshot.get("is_melee_locked", false)) else "DUEL READOUT // READY"
 		phase_label.text = "Watch the body, then commit."
 		impact_marker.visible = false
+		parry_window.visible = false
+		timeline_bar.value = 0.0
+		timeline_bar.modulate = Color(0.45, 0.48, 0.5, 0.42)
 		return
 	var elapsed := Time.get_ticks_msec() / 1000.0 - _active_timeline_started
 	var duration := maxf(0.05, float(_active_timeline.get("duration", 1.0)))
 	var impact := float(_active_timeline.get("impact_time", duration * 0.6))
 	timeline_bar.value = minf(duration, elapsed)
 	if elapsed < impact:
-		phase_label.text = "TELEGRAPH  //  IMPACT IN %.2fs" % maxf(0.0, impact - elapsed)
+		var hint := readability_effects.get_active_telegraph_hint()
+		phase_label.text = "TELEGRAPH  //  IMPACT IN %.2fs%s" % [
+			maxf(0.0, impact - elapsed),
+			"  //  " + hint if not hint.is_empty() else "",
+		]
+		timeline_bar.modulate = Color(1.0, 0.62, 0.26, 0.9)
 	else:
 		phase_label.text = "RECOVERY  //  OPEN FOR %.2fs" % maxf(0.0, duration - elapsed)
+		timeline_bar.modulate = Color(0.38, 0.78, 0.62, 0.78)
 	if elapsed >= duration:
 		_active_timeline.clear()
 
@@ -340,7 +373,12 @@ func _resolve_body_report(snapshot: Dictionary) -> String:
 func _update_camera() -> void:
 	if lane_view == null or camera_focus == null:
 		return
-	if bool(_snapshot.get("is_melee_locked", false)):
+	var locked := bool(_snapshot.get("is_melee_locked", false))
+	if _camera_state_initialized and locked == _camera_lock_state:
+		return
+	_camera_state_initialized = true
+	_camera_lock_state = locked
+	if locked:
 		camera_focus.global_position = lane_view.get_combat_focus_global()
 		combat_camera.virtual_camera = lock_camera
 		combat_camera.transition_speed = 1.35
@@ -384,11 +422,33 @@ func _play_shot_impact(event: Dictionary) -> void:
 func _play_camera_impact(strength: float, duration: float) -> void:
 	if _impact_tween != null and _impact_tween.is_valid():
 		_impact_tween.kill()
-	combat_camera.offset = Vector2(-strength, strength * 0.25)
+	var safe_strength := minf(2.0, maxf(0.0, strength))
+	var safe_duration := minf(0.15, maxf(0.04, duration))
+	combat_camera.offset = Vector2(-safe_strength, safe_strength * 0.25)
 	_impact_tween = create_tween()
 	_impact_tween.set_trans(Tween.TRANS_SINE)
 	_impact_tween.set_ease(Tween.EASE_OUT)
-	_impact_tween.tween_property(combat_camera, "offset", Vector2.ZERO, duration)
+	_impact_tween.tween_property(combat_camera, "offset", Vector2.ZERO, safe_duration)
+
+func _actor_popup_anchors() -> Dictionary:
+	var anchors := {}
+	if ui_root == null or lane_view == null:
+		return anchors
+	var world_to_screen := get_viewport().get_canvas_transform()
+	var screen_to_ui := ui_root.get_global_transform().affine_inverse()
+	for side in ["player", "enemy"]:
+		anchors[side] = screen_to_ui * (world_to_screen * lane_view.get_actor_anchor_global(side))
+	return anchors
+
+func _on_intent_rejected(side: String, code: String, message: String) -> void:
+	if side != "player":
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	if code == _last_rejection_code and now - _last_rejection_time < 0.7:
+		return
+	_last_rejection_code = code
+	_last_rejection_time = now
+	show_feedback("%s // %s" % [code.replace("_", " "), message])
 
 func _on_viewport_size_changed() -> void:
 	lane_view.layout_for_viewport(get_viewport_rect().size)
@@ -404,12 +464,27 @@ func _layout_ui_root() -> void:
 	# recreating the previous 1440x900 billboard effect at 2048x1152.
 	var ui_scale := clampf(
 		minf(viewport_size.x / 1920.0, viewport_size.y / 1080.0),
-		0.85,
+		0.65,
 		1.5
 	)
 	ui_root.scale = Vector2.ONE * ui_scale
 	ui_root.position = Vector2.ZERO
 	ui_root.size = viewport_size / ui_scale
+	var duel_timeline := get_node_or_null("UILayer/UIRoot/DuelTimeline") as Control
+	if duel_timeline != null:
+		if viewport_size.x < 1600.0:
+			# On compact windows the three top cards cannot coexist horizontally.
+			# Put the timeline immediately below the paper dolls instead of letting
+			# its minimum width expand underneath them.
+			duel_timeline.offset_left = 16.0
+			duel_timeline.offset_top = 380.0
+			duel_timeline.offset_right = -16.0
+			duel_timeline.offset_bottom = 512.0
+		else:
+			duel_timeline.offset_left = 446.0
+			duel_timeline.offset_top = 16.0
+			duel_timeline.offset_right = -446.0
+			duel_timeline.offset_bottom = 148.0
 
 
 func _layout_camera_for_viewport() -> void:
@@ -425,4 +500,5 @@ func _layout_camera_for_viewport() -> void:
 		virtual_camera.limit_top = floori(bounds.position.y)
 		virtual_camera.limit_right = ceili(bounds.end.x)
 		virtual_camera.limit_bottom = ceili(bounds.end.y)
+	_camera_state_initialized = false
 	_update_camera()

@@ -1,14 +1,14 @@
 extends Control
 class_name DuelReadabilityEffects
 
-signal camera_cue_requested(duration: float, strength: float)
-
 const TELEGRAPH_COLORS := {
 	GameEnums.DuelActionType.LIGHT_STRIKE: Color(1.0, 0.76, 0.28, 1.0),
 	GameEnums.DuelActionType.HEAVY_STRIKE: Color(1.0, 0.35, 0.2, 1.0),
 	GameEnums.DuelActionType.COMBO_FINISHER: Color(1.0, 0.12, 0.12, 1.0),
 	GameEnums.DuelActionType.PUSH: Color(0.92, 0.56, 0.22, 1.0),
 	GameEnums.DuelActionType.GUARD: Color(0.35, 0.72, 1.0, 1.0),
+	GameEnums.DuelActionType.BLIND_FIRE: Color(1.0, 0.66, 0.22, 1.0),
+	GameEnums.DuelActionType.AIMED_FIRE: Color(1.0, 0.18, 0.12, 1.0),
 }
 
 @onready var threat_panel: PanelContainer = %ThreatPanel
@@ -21,6 +21,9 @@ const TELEGRAPH_COLORS := {
 var _telegraph_remaining := 0.0
 var _telegraph_duration := 0.0
 var _last_telegraph := ""
+var _last_hint := ""
+var _last_popup_side := ""
+var _last_popup_position := Vector2.ZERO
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -28,27 +31,28 @@ func _ready() -> void:
 	danger_vignette.visible = false
 	set_process(false)
 
-func show_event(event: Dictionary, melee_locked: bool) -> void:
+func show_event(event: Dictionary, _melee_locked: bool, actor_anchors: Dictionary = {}) -> void:
 	var event_type := str(event.get("type", ""))
 	if (
 		event_type == "action_timeline"
 		and str(event.get("side", "")) == "enemy"
-		and melee_locked
 	):
 		_show_enemy_telegraph(event)
 		return
 
+	var side := str(event.get("side", event.get("target_side", "")))
+	var anchor := actor_anchors.get(side, Vector2.ZERO) as Vector2
 	match event_type:
 		"parry":
-			_show_popup("PARRY", Color(0.4, 0.9, 1.0, 1.0), 0.95)
+			_show_popup("PARRY", Color(0.4, 0.9, 1.0, 1.0), 0.95, side, anchor)
 		"block":
-			_show_popup("BLOCK", Color(0.55, 0.75, 1.0, 1.0), 0.7)
+			_show_popup("BLOCK", Color(0.55, 0.75, 1.0, 1.0), 0.7, side, anchor)
 		"heavy_cancel":
-			_show_popup("FEINT", Color(0.95, 0.72, 0.32, 1.0), 0.65)
+			_show_popup("FEINT", Color(0.95, 0.72, 0.32, 1.0), 0.65, side, anchor)
 		"hazard_trip":
-			_show_popup("TRIPPED", Color(0.9, 0.4, 0.25, 1.0), 0.85)
+			_show_popup("TRIPPED", Color(0.9, 0.4, 0.25, 1.0), 0.85, side, anchor)
 		"damage":
-			_show_popup(_damage_text(event), Color(1.0, 0.28, 0.22, 1.0), 0.55)
+			_show_popup(_damage_text(event), Color(1.0, 0.28, 0.22, 1.0), 0.55, side, anchor)
 
 func clear_telegraph() -> void:
 	_telegraph_remaining = 0.0
@@ -58,7 +62,19 @@ func clear_telegraph() -> void:
 		set_process(false)
 
 func get_active_telegraph_text() -> String:
-	return _last_telegraph if threat_panel.visible else ""
+	return _last_telegraph if _telegraph_remaining > 0.0 else ""
+
+func get_active_telegraph_hint() -> String:
+	return _last_hint if _telegraph_remaining > 0.0 else ""
+
+func get_last_popup_side() -> String:
+	return _last_popup_side
+
+func get_last_popup_position() -> Vector2:
+	return _last_popup_position
+
+func get_telegraph_descriptor(action: int) -> Dictionary:
+	return _telegraph_descriptor(action)
 
 func _process(delta: float) -> void:
 	if _telegraph_remaining <= 0.0:
@@ -80,15 +96,17 @@ func _show_enemy_telegraph(event: Dictionary) -> void:
 	_telegraph_duration = impact_time
 	_telegraph_remaining = impact_time
 	_last_telegraph = str(descriptor.get("title", "ENEMY ACTION"))
+	_last_hint = str(descriptor.get("hint", "READ THE MOTION"))
 	threat_title.text = _last_telegraph
-	threat_hint.text = str(descriptor.get("hint", "READ THE MOTION"))
+	threat_hint.text = _last_hint
 	threat_title.modulate = TELEGRAPH_COLORS.get(action, Color.WHITE)
 	threat_bar.max_value = impact_time
 	threat_bar.value = impact_time
-	threat_panel.visible = true
+	# The top duel timeline owns telegraph text. This component retains the
+	# synchronized state and vignette without spawning a second overlapping card.
+	threat_panel.visible = false
 	danger_vignette.visible = bool(descriptor.get("danger", false))
 	set_process(true)
-	camera_cue_requested.emit(impact_time, float(descriptor.get("camera", 0.45)))
 
 func _telegraph_descriptor(action: int) -> Dictionary:
 	match action:
@@ -124,19 +142,37 @@ func _telegraph_descriptor(action: int) -> Dictionary:
 				"hint": "DELAY, FEINT, OR RESET THE EXCHANGE",
 				"camera": 0.2,
 			}
+		GameEnums.DuelActionType.BLIND_FIRE:
+			return {
+				"title": "BLIND FIRE",
+				"hint": "MOVE TO COVER OR DISRUPT THE SHOT",
+			}
+		GameEnums.DuelActionType.AIMED_FIRE:
+			return {
+				"title": "AIMED SHOT",
+				"hint": "BREAK AIM, MOVE, OR FIRE FIRST",
+				"danger": true,
+			}
 	return {}
 
-func _show_popup(text: String, color: Color, duration: float) -> void:
+func _show_popup(
+	text: String,
+	color: Color,
+	duration: float,
+	side: String,
+	anchor: Vector2
+) -> void:
 	var label := Label.new()
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 24)
 	label.add_theme_color_override("font_color", color)
-	label.set_anchors_preset(Control.PRESET_CENTER)
-	label.position = Vector2(-110.0, -48.0)
+	label.position = anchor + Vector2(-110.0, -92.0)
 	label.size = Vector2(220.0, 44.0)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	popup_root.add_child(label)
+	_last_popup_side = side
+	_last_popup_position = label.position
 	set_process(true)
 	var tween := create_tween()
 	tween.set_parallel(true)

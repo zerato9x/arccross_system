@@ -5,6 +5,8 @@ signal slot_hovered(slot_data: Dictionary, global_position: Vector2)
 signal slot_unhovered
 
 const DEFAULT_LANE_MOVE_DURATION_SECONDS := 1.2
+# Compatibility for the turn-based presentation smoke and older scene callers.
+const LANE_MOVE_DURATION_SECONDS := DEFAULT_LANE_MOVE_DURATION_SECONDS
 const MOTION_WAIT_FRAME_LIMIT := 210
 const TOKEN_PRESENTATION_FRAME_LIMIT := 240
 const FINAL_BLOW_SETTLE_FRACTION := 0.58
@@ -33,6 +35,7 @@ var _realtime_animation_speed_scale := 1.0
 var _lane_move_duration_seconds := DEFAULT_LANE_MOVE_DURATION_SECONDS
 var _player_realtime_target_lane := -1
 var _enemy_realtime_target_lane := -1
+var _duel_focus_slot := -1
 
 @onready var _slots_root: Node2D = %Slots
 @onready var _actor_root: Node2D = %ActorPawns
@@ -64,10 +67,24 @@ func _on_token_footstep(is_player: bool) -> void:
 
 func show_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
-	_showing_melee_lock = _find_lock_slot() >= 0
+	_duel_focus_slot = _find_lock_slot()
+	_showing_melee_lock = _duel_focus_slot >= 0
 	_sync_slots()
 	_sync_tokens()
-	_melee_lock_banner.visible = _showing_melee_lock
+	set_duel_focus(_showing_melee_lock, _duel_focus_slot)
+	# Lock state belongs in the responsive HUD. This fixed-width world label was
+	# mostly useful for demonstrating why fixed-width world labels are a bad idea.
+	_melee_lock_banner.visible = false
+
+func set_duel_focus(active: bool, lock_slot: int = -1) -> void:
+	_duel_focus_slot = lock_slot if active else -1
+	for slot in _slot_nodes:
+		if slot.has_method("set_duel_focus"):
+			slot.set_duel_focus(active, _duel_focus_slot)
+	_stage_grass.modulate = Color(0.62, 0.62, 0.62, 1.0) if active else Color.WHITE
+
+func get_duel_focus_slot() -> int:
+	return _duel_focus_slot
 
 func show_presentation_event(event: Dictionary) -> void:
 	play_presentation_event(event)

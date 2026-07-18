@@ -35,7 +35,10 @@ func show_actor(data: Dictionary) -> void:
 		visible = false
 		return
 	visible = true
-	title_label.text = "%s // %s" % [side_label, str(data.get("name", "UNKNOWN")).to_upper()]
+	title_label.text = "%s // %s" % [
+		side_label,
+		str(data.get("display_name", data.get("archetype", data.get("name", "UNKNOWN")))).to_upper(),
+	]
 	blood_bar.max_value = float(data.get("blood_max", GameEnums.SCALE_MAX))
 	blood_bar.value = float(data.get("blood", 0.0))
 	blood_value.text = "BLOOD  %.1f / %.0f" % [blood_bar.value, blood_bar.max_value]
