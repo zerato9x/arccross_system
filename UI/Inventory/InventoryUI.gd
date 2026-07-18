@@ -138,6 +138,7 @@ var _location_label: Label
 var _capacity_label: Label
 var _capacity_bar: ProgressBar
 var _capacity_sources_label: Label
+var _loadout_stats_label: Label
 var _backpack_count_label: Label
 var _ground_count_label: Label
 var _feedback_label: Label
@@ -398,6 +399,13 @@ func _build_header() -> Control:
 	_capacity_bar.show_percentage = false
 	HUDAssetLibrary.apply_progress_bar(_capacity_bar, "health")
 	capacity_box.add_child(_capacity_bar)
+
+	_loadout_stats_label = Label.new()
+	_loadout_stats_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_loadout_stats_label.add_theme_font_size_override("font_size", 10)
+	_loadout_stats_label.add_theme_color_override("font_color", COLOR_GOLD)
+	_loadout_stats_label.tooltip_text = "Equipped totals. Protection is shown by damage type: blunt / sharp / ballistic."
+	capacity_box.add_child(_loadout_stats_label)
 
 	var close_button := Button.new()
 	close_button.text = "CLOSE"
@@ -666,6 +674,20 @@ func _render() -> void:
 	)
 	_spill_warning.visible = current > maximum
 	_feedback_label.text = _feedback
+	var loadout: Dictionary = _snapshot.get("loadout_stats", {})
+	_loadout_stats_label.text = (
+		"WT %.1f  BULK %.1f  THREAT %.1f  INS %.1f\nPROTECTION  B %.1f / S %.1f / R %.1f  // %s"
+		% [
+			float(loadout.get("weight", 0.0)),
+			float(loadout.get("bulk", 0.0)),
+			float(loadout.get("threat", 0.0)),
+			float(loadout.get("insulation", 0.0)),
+			float(loadout.get("protection_blunt", 0.0)),
+			float(loadout.get("protection_sharp", 0.0)),
+			float(loadout.get("protection_ballistic", 0.0)),
+			str(loadout.get("kinetic_tier", "FLUID")),
+		]
+	)
 
 	var breakdown: Array = _snapshot.get("capacity_breakdown", [])
 	var sources: PackedStringArray = []

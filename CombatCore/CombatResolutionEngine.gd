@@ -546,8 +546,8 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 		# Unarmed strike — Brawn matters, and clothing finally does something.
 		var unarmed := CombatRules.get_unarmed_damage(
 			attacker.definition.brawn,
-			defender.inventory.get_protection_for(GameEnums.DamageType.BLUNT),
-			defender.get_bulk_modifier()
+			defender.inventory.get_protection_for(GameEnums.DamageType.BLUNT, target_limb),
+			0.0
 		)
 		var flesh_damage := float(unarmed.get("flesh", 0.1)) * grounded_bonus
 		var stance_damage := float(unarmed.get("stance", 1.0))
@@ -1111,11 +1111,7 @@ func resolve_dodge(
 	return false
 
 func _active_bleed_count(entity: HumanoidCore) -> int:
-	var count := 0
-	for limb in entity.body.limb_trauma.keys():
-		if entity.body.limb_trauma[limb] == GameEnums.TraumaType.BLEEDING:
-			count += 1
-	return count
+	return entity.body.get_active_bleeding_wound_count()
 
 func _leg_damage_ratio(entity: HumanoidCore) -> float:
 	var current := (
@@ -1189,11 +1185,8 @@ func _resolve_damage(
 		raw_stance = 0.0
 	
 	# 1. Get the victim's armor protection for this damage type
-	var armor_value: float = victim.inventory.get_protection_for(damage_type)
-	
-	# 2. BULK provides bonus damage resistance (only positive BULK helps here)
-	var bulk_bonus: float = max(0.0, victim.get_bulk_modifier()) * 0.15
-	var total_defense: float = armor_value + bulk_bonus
+	var armor_value: float = victim.inventory.get_protection_for(damage_type, hit_location)
+	var total_defense: float = armor_value
 	
 	# 3. Penetration is authored on 0-12 and becomes a ratio only for this formula.
 	var penetration_ratio := clampf(
@@ -1214,7 +1207,7 @@ func _resolve_damage(
 	
 	# 5. Log the math
 	print("--- ARMOR RESOLUTION ---")
-	print("Damage Type: ", GameEnums.DamageType.keys()[damage_type], " | Raw: ", raw_flesh, " | Armor: ", armor_value, " | Bulk Bonus: ", bulk_bonus)
+	print("Damage Type: ", GameEnums.DamageType.keys()[damage_type], " | Raw: ", raw_flesh, " | Local Armor: ", armor_value)
 	print("Penetration: ", penetration, " | Effective Defense: ", effective_defense, " | Final Flesh: ", final_flesh)
 	
 	if final_flesh <= 0.0 and final_stance <= 0.0:

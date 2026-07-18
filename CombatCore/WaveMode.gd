@@ -3,7 +3,6 @@ class_name WaveMode
 
 const DUEL_SCENE := preload("res://CombatCore/MainDuelScene.tscn")
 const PLAYER_DEFINITION := preload("res://BiologicalCore/player_def.tres")
-const MAIN_MENU_SCENE := "res://UI/MainMenu.tscn"
 const PROFILE_TEXTURE := preload("res://Asset/Innawoods_Asset/Humanoid/Body/Body_Nude.png")
 const LOADOUT_PRESET_DIR := "res://ItemCore/Loadouts"
 
@@ -1025,7 +1024,7 @@ func _enum_name(keys: Array, index: int) -> String:
 	return str(keys[index]).replace("_", " ")
 
 func _return_to_menu() -> void:
-	get_tree().change_scene_to_file(MAIN_MENU_SCENE)
+	get_tree().change_scene_to_file(PresentationSceneRegistry.MAIN_MENU_SCENE)
 
 func _cleanup_arena() -> void:
 	if is_instance_valid(_arena):

@@ -180,14 +180,13 @@ func _resolve_weapon_damage(
 ) -> Dictionary:
 	var raw_flesh := weapon.flesh_damage * flesh_multiplier
 	var raw_stance := weapon.stance_damage * stance_multiplier
-	var armor := defender.inventory.get_protection_for(weapon.damage_type)
-	var bulk_bonus := maxf(0.0, defender.get_bulk_modifier()) * 0.15
+	var armor := defender.inventory.get_protection_for(weapon.damage_type, limb)
 	var penetration_ratio := clampf(
 		weapon.armor_penetration / GameEnums.SCALE_MAX,
 		0.0,
 		1.0
 	)
-	var defense := (armor + bulk_bonus) * (1.0 - penetration_ratio)
+	var defense := armor * (1.0 - penetration_ratio)
 	var flesh := maxf(0.0, raw_flesh - defense)
 	var stance := raw_stance
 	if weapon.damage_type != GameEnums.DamageType.BLUNT:
@@ -229,8 +228,8 @@ func _resolve_unarmed(
 ) -> Dictionary:
 	var values := CombatRules.get_unarmed_damage(
 		attacker.definition.brawn,
-		defender.inventory.get_protection_for(GameEnums.DamageType.BLUNT),
-		defender.get_bulk_modifier()
+		defender.inventory.get_protection_for(GameEnums.DamageType.BLUNT, limb),
+		0.0
 	)
 	var flesh := float(values.get("flesh", 0.25)) * flesh_multiplier
 	var stance := float(values.get("stance", 1.0)) * stance_multiplier

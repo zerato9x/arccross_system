@@ -3,6 +3,10 @@ extends RefCounted
 ## Neutral macro presentation snapshots for inventory UI and world HUD.
 ## Domain rules stay in MacroGameManager callbacks passed at build time.
 
+const _WOUND_TREATMENTS: WoundTreatmentProfile = preload(
+	"res://BiologicalCore/default_wound_treatments.tres"
+)
+
 
 static func build_limb_snapshot(body: HumanoidBody) -> Array:
 	var limbs: Array = []
@@ -24,14 +28,49 @@ static func build_limb_snapshot(body: HumanoidBody) -> Array:
 		if body.limb_damage_types.has(region):
 			var damage_index := int(body.limb_damage_types[region])
 			damage_key = GameEnums.DamageType.keys()[damage_index]
+		var wounds: Array = []
+		for wound in body.get_wounds_for_limb(region):
+			if wound is Wound:
+				var treatment := _WOUND_TREATMENTS.descriptor_for(int(wound.wound_type))
+				wounds.append({
+					"id": wound.wound_id,
+					"type": wound.display_name().to_upper(),
+					"severity": wound.severity,
+					"bleeding_rate": wound.active_bleeding_rate(),
+					"pain": wound.pain,
+					"contamination": wound.contamination,
+					"treated": wound.treated,
+					"treatment": treatment,
+				})
 		limbs.append({
 			"region": GameEnums.LimbRegion.keys()[region],
 			"current": float(body.limb_hp.get(region, 0.0)),
 			"maximum": body.get_limb_max(region),
 			"trauma": GameEnums.TraumaType.keys()[trauma_index],
 			"damage_type": damage_key,
+			"bleeding_rate": body.get_limb_bleeding_rate(region),
+			"wounds": wounds,
 		})
 	return limbs
+
+
+static func build_medical_item_snapshot(inventory: InventorySystem) -> Array:
+	var medical_items: Array = []
+	if inventory == null:
+		return medical_items
+	for item in inventory.get_all_items():
+		if item == null or item.item_type != GameEnums.ItemType.CONSUMABLE:
+			continue
+		medical_items.append({
+			"instance_id": item.instance_id,
+			"item_id": item.id,
+			"name": item.display_name,
+			"sprite_path": item.get_inventory_sprite_path(),
+			"effect": int(item.consumable_effect),
+			"potency": item.consumable_potency,
+			"stack_count": item.stack_count,
+		})
+	return medical_items
 
 
 static func build_emergencies(body: HumanoidBody, player_core: HumanoidCore) -> Array:
@@ -46,12 +85,12 @@ static func build_emergencies(body: HumanoidBody, player_core: HumanoidCore) -> 
 		emergencies.append("DEHYDRATED")
 	if body.fatigue >= 9.0:
 		emergencies.append("EXHAUSTED")
-	if player_core != null and player_core.stance_points <= 3.0:
-		emergencies.append("STANCE_BREAK")
-	for region in body.limb_trauma.keys():
-		if body.limb_trauma[region] == GameEnums.TraumaType.BLEEDING:
-			if not emergencies.has("BLEEDING"):
-				emergencies.append("BLEEDING")
+	if body.get_total_bleeding_rate() > 0.0:
+		emergencies.append("BLEEDING")
+	if body.get_total_pain() >= 8.0:
+		emergencies.append("SEVERE_PAIN")
+	if body.get_infection_risk() >= 8.0:
+		emergencies.append("INFECTION_RISK")
 	return emergencies
 
 
@@ -142,6 +181,18 @@ static func build_inventory_snapshot(
 		"current_capacity": inventory.current_size,
 		"maximum_capacity": inventory.current_max_capacity,
 		"capacity_breakdown": capacity_breakdown,
+		"loadout_stats": {
+			"weight": inventory.get_total_weight(),
+			"bulk": inventory.get_total_bulk(),
+			"threat": player_core.get_effective_threat(),
+			"insulation": inventory.get_total_insulation(),
+			"protection_blunt": inventory.get_protection_for(GameEnums.DamageType.BLUNT),
+			"protection_sharp": inventory.get_protection_for(GameEnums.DamageType.SHARP),
+			"protection_ballistic": inventory.get_protection_for(GameEnums.DamageType.BALLISTIC),
+			"burden": player_core.total_burden,
+			"kinetic_tier": GameEnums.KineticTier.keys()[player_core.kinetic_tier],
+		},
+		"medical_items": build_medical_item_snapshot(inventory),
 		"containers": containers,
 		"equipment": equipment,
 		"limbs": build_limb_snapshot(player_core.body),
@@ -540,17 +591,20 @@ static func build_world_hud_snapshot(
 		"last_macro_event": last_macro_event,
 		"world_time": world_time,
 		"blood": body.blood_level,
+		"pain": body.get_total_pain(),
+		"bleeding_rate": body.get_total_bleeding_rate(),
+		"wound_count": body.get_total_wound_count(),
+		"infection_risk": body.get_infection_risk(),
 		"hunger": body.hunger,
 		"thirst": body.thirst,
 		"fatigue": body.fatigue,
 		"core_temperature": body.core_temperature,
-		"stance": player_core.stance_points,
-		"stance_state": GameEnums.StanceState.keys()[player_core.current_stance],
 		"morale": player_core.current_morale,
 		"arc_energy": player_core.current_arc_energy,
 		"red_mist": player_core.red_mist_corruption,
 		"current_capacity": inventory.current_size,
 		"maximum_capacity": inventory.current_max_capacity,
+		"medical_items": build_medical_item_snapshot(inventory),
 		"limbs": build_limb_snapshot(body),
 		"emergencies": build_emergencies(body, player_core),
 		"calendar": GameTimeRules.calendar_snapshot(int(world_time.get("total_minutes", 0))),

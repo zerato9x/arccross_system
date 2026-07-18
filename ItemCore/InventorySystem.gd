@@ -520,15 +520,40 @@ func get_total_threat() -> float:
 func get_total_insulation() -> float:
 	return _sum_equipped_stat("insulation")
 
-func get_protection_for(damage_type: GameEnums.DamageType) -> float:
+func get_protection_for(damage_type: GameEnums.DamageType, limb_region: int = -1) -> float:
+	var stat_name := ""
 	match damage_type:
 		GameEnums.DamageType.BLUNT:
-			return _sum_equipped_stat("protection_blunt")
+			stat_name = "protection_blunt"
 		GameEnums.DamageType.SHARP:
-			return _sum_equipped_stat("protection_sharp")
+			stat_name = "protection_sharp"
 		GameEnums.DamageType.BALLISTIC:
-			return _sum_equipped_stat("protection_ballistic")
-	return 0.0
+			stat_name = "protection_ballistic"
+	if stat_name.is_empty():
+		return 0.0
+	var total := 0.0
+	for slot in paper_doll.keys():
+		var item: ItemData = paper_doll.get(slot)
+		if item != null and (limb_region < 0 or _slot_covers_limb(int(slot), limb_region)):
+			total += float(item.get(stat_name))
+	return total
+
+
+func _slot_covers_limb(slot: int, limb: int) -> bool:
+	match slot:
+		GameEnums.EquipmentSlot.HEAD, GameEnums.EquipmentSlot.EYES, GameEnums.EquipmentSlot.FACE:
+			return limb == GameEnums.LimbRegion.HEAD
+		GameEnums.EquipmentSlot.NECK:
+			return limb in [GameEnums.LimbRegion.HEAD, GameEnums.LimbRegion.UPPER_TORSO]
+		GameEnums.EquipmentSlot.INNER_TORSO, GameEnums.EquipmentSlot.OUTER_TORSO, GameEnums.EquipmentSlot.VEST:
+			return limb in [GameEnums.LimbRegion.UPPER_TORSO, GameEnums.LimbRegion.LOWER_TORSO]
+		GameEnums.EquipmentSlot.ARMS:
+			return limb in [GameEnums.LimbRegion.LEFT_ARM, GameEnums.LimbRegion.RIGHT_ARM]
+		GameEnums.EquipmentSlot.LEGS:
+			return limb in [GameEnums.LimbRegion.LOWER_TORSO, GameEnums.LimbRegion.LEFT_LEG, GameEnums.LimbRegion.RIGHT_LEG]
+		GameEnums.EquipmentSlot.FEET:
+			return limb in [GameEnums.LimbRegion.LEFT_LEG, GameEnums.LimbRegion.RIGHT_LEG]
+	return false
 
 func get_active_weapon(requires_melee: bool) -> ItemData:
 	for slot in [

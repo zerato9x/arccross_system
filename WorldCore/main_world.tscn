@@ -16,6 +16,8 @@
 [ext_resource type="Resource" path="res://WorldCore/Maps/phase2_east_arm.tres" id="33_authored_map"]
 [ext_resource type="PackedScene" uid="uid://b72xqqy5yyt02" path="res://UI/Inventory/InventoryUI.tscn" id="34_inventory_panel"]
 [ext_resource type="PackedScene" uid="uid://cpfc2cyt5tmx7" path="res://UI/Macro/MacroExplorationWindow.tscn" id="35_exploration_window"]
+[ext_resource type="PackedScene" path="res://UI/NodeMap/NodeMapSystem.tscn" id="36_node_map"]
+[ext_resource type="PackedScene" path="res://UI/HUD/Health/FieldHealthHUD.tscn" id="37_health_hud"]
 
 [node name="MainWorld" type="Node2D" unique_id=1029321409 node_paths=PackedStringArray("world_generator", "map_visualizer", "player_token", "interaction_panel", "inventory_panel", "macro_hud")]
 script = ExtResource("1_tu7u5")
@@ -27,6 +29,8 @@ interaction_panel = NodePath("MacroInteractionPanel")
 inventory_panel = NodePath("InventoryPanel/InventoryUI")
 macro_hud = NodePath("MacroHudShell")
 exploration_window_scene = ExtResource("35_exploration_window")
+node_map_system_scene = ExtResource("36_node_map")
+node_map_medical_scene = ExtResource("37_health_hud")
 
 [node name="HexWorldGenerator" type="Node" parent="." unique_id=1630662270]
 script = ExtResource("2_3etub")

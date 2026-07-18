@@ -1,5 +1,67 @@
 # ARCCROSS Changelog
 
+## July 19, 2026
+
+### Authored Field Health HUD And Boundary Cleanup
+
+- Replaced the macro health corner's legacy `MacroStatusPanel` and scripted
+  `MedicalMonitor` route with a new `FieldHealthHUD`. The compact view uses six
+  large icon-and-bar vital tiles plus an explicit condition banner; the detailed
+  view adds seven systemic readouts and seven regional wound cards with limb,
+  trauma, integrity, bleeding, and treatment visuals.
+- Rearranged the detailed regions into an anatomical paper doll: head above the
+  torso, arms flanking the upper torso, and legs below. Region hotspots expose a
+  full wound inspector on hover and open a carried-item treatment tray on right
+  click while retaining medical-item drag and drop.
+- Added an authored six-wound treatment profile. Neutral health snapshots now
+  include care instructions, required effects, recommended item IDs, and carried
+  medical-item descriptors. Unsupported care such as splinting a fracture is
+  identified honestly instead of presenting a button that can never succeed.
+- Added a data-authored `HealthHUDProfile` with metric thresholds, transforms,
+  icon paths, and body-region definitions. Presentation consumes only the
+  neutral `MacroSnapshotBuilder` dictionary and cannot reach live
+  `HumanoidBody`, `InventorySystem`, or WorldCore state.
+- Routed the campaign node-map medical surface through the same detailed health
+  HUD, so the old monitor is no longer a hidden second implementation.
+- Added `FieldHealthHUDSmoke.gd` for live metric/region/icon coverage and
+  `HealthItemArchitectureSmoke.gd` for cutover, snapshot, profile, and authored
+  item-stat contracts.
+- Removed the remaining static domain-boundary violations by moving combat and
+  menu scene paths plus the debug HUD theme into `PresentationSceneRegistry`.
+  `DomainBoundarySmoke.gd` once again validates SystemCore, WorldCore,
+  CombatCore, UI, and ItemCore imports.
+
+## July 18, 2026
+
+### Wound, Health, And Item-Stat Overhaul
+
+- Replaced the one-value-per-limb bleeding flag with persistent per-limb Wound
+  records: bruise, laceration, puncture, gunshot, fracture, and burn. Each wound
+  carries severity, pain, bleeding rate, contamination, and treatment state and
+  survives runtime snapshot/save round trips.
+- Made active wounds authoritative for blood loss. Combat and macro biological
+  ticks now drain Blood from summed hemorrhage rates, while accumulated pain,
+  damaged legs, and low Blood reduce motor efficiency and Kinetic Burden.
+- Changed bleeding treatment from clearing an entire limb flag to treating the
+  worst active wound with the item's authored potency. Old saves and debug
+  fixtures containing only `TraumaType.BLEEDING` migrate into wound records.
+- Removed encounter-local Stance from the macro survival readout. The interim
+  compact health HUD and Medical Monitor exposed Pain, active bleed rate, wound
+  counts, wound types, severity, and treatment state; Stance remains a
+  combat-only equilibrium resource. That interim presentation was superseded
+  by the authored Field Health HUD on July 19.
+- Made armor protection body-region-aware. Torso clothing no longer protects
+  the head or limbs, and Bulk no longer acts as invisible bonus armor; equipped
+  Bulk instead contributes to movement burden. Rebalanced the burden formula so
+  ordinary starter equipment is Labored rather than Agonizing; high capacity
+  use, heavy gear, and high Bulk still compound into the severe tier.
+- Added always-visible loadout totals for Weight, Bulk, Threat, Insulation,
+  blunt/sharp/ballistic protection, and Kinetic tier. Inventory examine cards
+  now expose these values plus weapon damage and penetration directly.
+- Added `WoundItemOverhaulSmoke.gd` covering wound creation, hemorrhage,
+  treatment, fractures, persistence, local armor coverage, and visible item
+  stats.
+
 ## July 17, 2026
 
 ### Duel Readability And Turn-Based Comparison

@@ -1,0 +1,388 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://UI/HUD/Health/FieldHealthHUD.gd" id="1_script"]
+
+[node name="FieldHealthHUD" type="PanelContainer"]
+script = ExtResource("1_script")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="CompactRoot" type="VBoxContainer" parent="Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CompactHeader" type="HBoxContainer" parent="Margin/CompactRoot"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ConditionIcon" type="TextureRect" parent="Margin/CompactRoot/CompactHeader"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(62, 62)
+layout_mode = 2
+texture_filter = 1
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ConditionText" type="VBoxContainer" parent="Margin/CompactRoot/CompactHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 0
+
+[node name="CompactEyebrow" type="Label" parent="Margin/CompactRoot/CompactHeader/ConditionText"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "FIELD HEALTH // LIVE BODY STATE"
+
+[node name="ConditionLabel" type="Label" parent="Margin/CompactRoot/CompactHeader/ConditionText"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "STABLE"
+
+[node name="ConditionDetail" type="Label" parent="Margin/CompactRoot/CompactHeader/ConditionText"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "NO ACTIVE TRAUMA"
+
+[node name="CompactMetricGrid" type="GridContainer" parent="Margin/CompactRoot"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 7
+theme_override_constants/v_separation = 7
+columns = 2
+
+[node name="AlertLabel" type="Label" parent="Margin/CompactRoot"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+text = "BODY SIGNALS NOMINAL"
+vertical_alignment = 1
+text_overrun_behavior = 3
+
+[node name="CompactActions" type="HBoxContainer" parent="Margin/CompactRoot"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="DetailsButton" type="Button" parent="Margin/CompactRoot/CompactActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "OPEN BODY MAP"
+
+[node name="InventoryButton" type="Button" parent="Margin/CompactRoot/CompactActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 32)
+layout_mode = 2
+text = "PACK"
+
+[node name="SettingsButton" type="Button" parent="Margin/CompactRoot/CompactActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 32)
+layout_mode = 2
+text = "SET"
+
+[node name="DetailRoot" type="VBoxContainer" parent="Margin"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 9
+
+[node name="DetailHeader" type="HBoxContainer" parent="Margin/DetailRoot"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="DetailConditionIcon" type="TextureRect" parent="Margin/DetailRoot/DetailHeader"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(62, 62)
+layout_mode = 2
+texture_filter = 1
+expand_mode = 1
+stretch_mode = 5
+
+[node name="DetailTitleStack" type="VBoxContainer" parent="Margin/DetailRoot/DetailHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="DetailEyebrow" type="Label" parent="Margin/DetailRoot/DetailHeader/DetailTitleStack"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "FIELD MEDICAL // SYSTEMIC + REGIONAL"
+
+[node name="DetailConditionLabel" type="Label" parent="Margin/DetailRoot/DetailHeader/DetailTitleStack"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "STABLE"
+
+[node name="SummaryGrid" type="GridContainer" parent="Margin/DetailRoot"]
+layout_mode = 2
+theme_override_constants/h_separation = 14
+columns = 4
+
+[node name="BloodSummary" type="Label" parent="Margin/DetailRoot/SummaryGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "BLOOD  --"
+
+[node name="WoundSummary" type="Label" parent="Margin/DetailRoot/SummaryGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "WOUNDS  --"
+
+[node name="BleedSummary" type="Label" parent="Margin/DetailRoot/SummaryGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "BLEED  --"
+
+[node name="InfectionSummary" type="Label" parent="Margin/DetailRoot/SummaryGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "CONTAMINATION  --"
+
+[node name="BodySplit" type="HBoxContainer" parent="Margin/DetailRoot"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 9
+
+[node name="SystemColumn" type="VBoxContainer" parent="Margin/DetailRoot/BodySplit"]
+custom_minimum_size = Vector2(240, 0)
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 5
+
+[node name="SystemTitle" type="Label" parent="Margin/DetailRoot/BodySplit/SystemColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "SYSTEMIC VITALS"
+
+[node name="SystemScroll" type="ScrollContainer" parent="Margin/DetailRoot/BodySplit/SystemColumn"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="DetailMetricList" type="VBoxContainer" parent="Margin/DetailRoot/BodySplit/SystemColumn/SystemScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 5
+
+[node name="RegionColumn" type="VBoxContainer" parent="Margin/DetailRoot/BodySplit"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 5
+
+[node name="RegionTitle" type="Label" parent="Margin/DetailRoot/BodySplit/RegionColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "BODY MAP // HOVER FOR DETAILS // RIGHT-CLICK TO TREAT"
+
+[node name="RegionScroll" type="ScrollContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="PaperDollSurface" type="BoxContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="PaperDollStage" type="PanelContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(354, 360)
+layout_mode = 2
+
+[node name="StageMargin" type="MarginContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/PaperDollStage"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 6
+
+[node name="StageRows" type="VBoxContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/PaperDollStage/StageMargin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="HeadRow" type="CenterContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/PaperDollStage/StageMargin/StageRows"]
+layout_mode = 2
+
+[node name="HeadSlot" type="CenterContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/PaperDollStage/StageMargin/StageRows/HeadRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(106, 82)
+layout_mode = 2
+
+[node name="ShoulderRow" type="HBoxContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/PaperDollStage/StageMargin/StageRows"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="LeftArmSlot" type="CenterContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/PaperDollStage/StageMargin/StageRows/ShoulderRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(106, 82)
+layout_mode = 2
+
+[node name="UpperTorsoSlot" type="CenterContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/PaperDollStage/StageMargin/StageRows/ShoulderRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(106, 82)
+layout_mode = 2
+
+[node name="RightArmSlot" type="CenterContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/PaperDollStage/StageMargin/StageRows/ShoulderRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(106, 82)
+layout_mode = 2
+
+[node name="CoreRow" type="CenterContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/PaperDollStage/StageMargin/StageRows"]
+layout_mode = 2
+
+[node name="LowerTorsoSlot" type="CenterContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/PaperDollStage/StageMargin/StageRows/CoreRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(106, 82)
+layout_mode = 2
+
+[node name="LegRow" type="HBoxContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/PaperDollStage/StageMargin/StageRows"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="LeftLegSlot" type="CenterContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/PaperDollStage/StageMargin/StageRows/LegRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(106, 82)
+layout_mode = 2
+
+[node name="LegGap" type="Control" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/PaperDollStage/StageMargin/StageRows/LegRow"]
+custom_minimum_size = Vector2(106, 82)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RightLegSlot" type="CenterContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/PaperDollStage/StageMargin/StageRows/LegRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(106, 82)
+layout_mode = 2
+
+[node name="InspectorStack" type="VBoxContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(278, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 7
+
+[node name="RegionInspector" type="PanelContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="InspectorMargin" type="MarginContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/RegionInspector"]
+layout_mode = 2
+theme_override_constants/margin_left = 9
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 9
+theme_override_constants/margin_bottom = 8
+
+[node name="InspectorContent" type="VBoxContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/RegionInspector/InspectorMargin"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="InspectorTitle" type="Label" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/RegionInspector/InspectorMargin/InspectorContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "HOVER A BODY REGION"
+
+[node name="InspectorHeader" type="HBoxContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/RegionInspector/InspectorMargin/InspectorContent"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="InspectorIcon" type="TextureRect" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/RegionInspector/InspectorMargin/InspectorContent/InspectorHeader"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 70)
+layout_mode = 2
+texture_filter = 1
+expand_mode = 1
+stretch_mode = 5
+
+[node name="InspectorReadout" type="VBoxContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/RegionInspector/InspectorMargin/InspectorContent/InspectorHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="InspectorIntegrity" type="Label" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/RegionInspector/InspectorMargin/InspectorContent/InspectorHeader/InspectorReadout"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "INTEGRITY --"
+
+[node name="InspectorIntegrityBar" type="ProgressBar" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/RegionInspector/InspectorMargin/InspectorContent/InspectorHeader/InspectorReadout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 18)
+layout_mode = 2
+max_value = 12.0
+value = 12.0
+show_percentage = false
+
+[node name="InspectorTrauma" type="Label" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/RegionInspector/InspectorMargin/InspectorContent/InspectorHeader/InspectorReadout"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "NO ACTIVE TRAUMA"
+
+[node name="InspectorWounds" type="RichTextLabel" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/RegionInspector/InspectorMargin/InspectorContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 112)
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+text = "Hover a body region to inspect every wound, bleed rate, pain, contamination, and treatment state."
+
+[node name="InspectorTreatment" type="Label" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/RegionInspector/InspectorMargin/InspectorContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "RIGHT-CLICK AN INJURED REGION TO OPEN TREATMENT"
+autowrap_mode = 2
+
+[node name="TreatmentTray" type="PanelContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="TreatmentMargin" type="MarginContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/TreatmentTray"]
+layout_mode = 2
+theme_override_constants/margin_left = 9
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 9
+theme_override_constants/margin_bottom = 8
+
+[node name="TreatmentContent" type="VBoxContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/TreatmentTray/TreatmentMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TreatmentTitle" type="Label" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/TreatmentTray/TreatmentMargin/TreatmentContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "MEDICAL TREATMENT"
+
+[node name="TreatmentNeed" type="Label" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/TreatmentTray/TreatmentMargin/TreatmentContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "SELECT AN INJURED REGION"
+autowrap_mode = 2
+
+[node name="TreatmentItems" type="VBoxContainer" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/TreatmentTray/TreatmentMargin/TreatmentContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="TreatmentMissing" type="Label" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/TreatmentTray/TreatmentMargin/TreatmentContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "NO COMPATIBLE MEDICAL ITEM CARRIED"
+autowrap_mode = 2
+
+[node name="TreatmentClose" type="Button" parent="Margin/DetailRoot/BodySplit/RegionColumn/RegionScroll/PaperDollSurface/InspectorStack/TreatmentTray/TreatmentMargin/TreatmentContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+text = "CLOSE TREATMENT"

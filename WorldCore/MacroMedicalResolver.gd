@@ -37,10 +37,7 @@ static func _can_apply_to_limb(
 		return false
 	match item.consumable_effect:
 		GameEnums.ConsumableEffect.STOP_BLEEDING:
-			return (
-				body.limb_trauma.get(limb_region, GameEnums.TraumaType.NONE)
-				== GameEnums.TraumaType.BLEEDING
-			)
+			return body.can_treat_bleeding(limb_region)
 		GameEnums.ConsumableEffect.RESTORE_BLOOD:
 			return body.blood_level < GameEnums.SCALE_MAX
 		GameEnums.ConsumableEffect.RESTORE_HUNGER:

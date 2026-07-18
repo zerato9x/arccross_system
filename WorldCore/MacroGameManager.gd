@@ -20,6 +20,7 @@ signal campaign_nodes_unlocked(node_ids: Array)
 @export var macro_hud: MacroHudController
 @export var exploration_window_scene: PackedScene
 @export var node_map_system_scene: PackedScene
+@export var node_map_medical_scene: PackedScene
 
 var exploration_window: MacroExplorationWindow
 ## Fullscreen Node Map System (independent of MacroHudShell).
@@ -29,7 +30,7 @@ var campaign: MacroProgressController
 var _node_map_inventory_layer_restore := 1
 var _inventory_home_layer: CanvasLayer
 var _node_map_overlay_layer: CanvasLayer
-var _node_map_medical: MedicalMonitor
+var _node_map_medical: Control
 
 @export_group("Proximity Loading")
 @export_range(1, 12) var active_radius: int = 3
@@ -85,8 +86,6 @@ const HEX_NEIGHBORS = [
 const _SnapshotBuilder := preload("res://WorldCore/MacroSnapshotBuilder.gd")
 const _PoiController := preload("res://WorldCore/MacroPoiController.gd")
 const _NpcSimulator := preload("res://WorldCore/MacroNpcSimulator.gd")
-const _NODE_MAP_SCENE := preload("res://UI/NodeMap/NodeMapSystem.tscn")
-const _MEDICAL_MONITOR_SCENE := preload("res://UI/HUD/MedicalMonitor.tscn")
 const _NODE_MAP_INVENTORY_LAYER := 36
 const _NODE_MAP_OVERLAY_LAYER := 36
 
@@ -156,7 +155,8 @@ func _ensure_node_map_system() -> void:
 		return
 	var packed := node_map_system_scene
 	if packed == null:
-		packed = _NODE_MAP_SCENE
+		push_error("MacroGameManager requires an authored node_map_system_scene.")
+		return
 	node_map_system = packed.instantiate() as CanvasLayer
 	node_map_system.name = "NodeMapSystem"
 	add_child(node_map_system)
@@ -276,16 +276,19 @@ func build_node_map_ui_snapshot() -> Dictionary:
 		var hud := _build_world_hud_snapshot()
 		var inventory_snapshot := _build_inventory_snapshot()
 		snapshot["blood"] = hud.get("blood", 0.0)
+		snapshot["pain"] = hud.get("pain", 0.0)
+		snapshot["bleeding_rate"] = hud.get("bleeding_rate", 0.0)
+		snapshot["wound_count"] = hud.get("wound_count", 0)
+		snapshot["infection_risk"] = hud.get("infection_risk", 0.0)
 		snapshot["hunger"] = hud.get("hunger", 0.0)
 		snapshot["thirst"] = hud.get("thirst", 0.0)
 		snapshot["fatigue"] = hud.get("fatigue", 0.0)
-		snapshot["stance"] = hud.get("stance", 0)
-		snapshot["stance_state"] = hud.get("stance_state", "")
 		snapshot["morale"] = hud.get("morale", 0)
 		snapshot["emergencies"] = hud.get("emergencies", [])
 		snapshot["equipment"] = inventory_snapshot.get("equipment", [])
 		snapshot["current_capacity"] = inventory_snapshot.get("current_capacity", 0)
 		snapshot["maximum_capacity"] = inventory_snapshot.get("maximum_capacity", 0)
+		snapshot["loadout_stats"] = inventory_snapshot.get("loadout_stats", {})
 	return snapshot
 
 
@@ -376,6 +379,9 @@ func _on_node_map_medical_requested() -> void:
 		_restore_node_map_inventory_layer()
 	_ensure_node_map_overlay_layer()
 	if _node_map_medical == null:
+		if node_map_medical_scene == null:
+			push_error("MacroGameManager requires an authored node_map_medical_scene.")
+			return
 		var host := Control.new()
 		host.name = "NodeMapMedicalHost"
 		host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -388,16 +394,15 @@ func _on_node_map_medical_requested() -> void:
 		dim.mouse_filter = Control.MOUSE_FILTER_STOP
 		host.add_child(dim)
 
-		_node_map_medical = _MEDICAL_MONITOR_SCENE.instantiate() as MedicalMonitor
+		_node_map_medical = node_map_medical_scene.instantiate() as Control
+		_node_map_medical.set("display_mode", 1)
 		host.add_child(_node_map_medical)
 		_node_map_medical.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_node_map_medical.offset_left = 48.0
 		_node_map_medical.offset_top = 48.0
 		_node_map_medical.offset_right = -48.0
 		_node_map_medical.offset_bottom = -72.0
-		_node_map_medical.set_embedded_fit(false)
-		_node_map_medical.limb_treatment_requested.connect(_on_medical_action_requested)
-		_node_map_medical.closed.connect(_on_node_map_medical_closed)
+		_node_map_medical.connect("limb_treatment_requested", _on_medical_action_requested)
 
 		var close_button := Button.new()
 		close_button.name = "CloseMedicalButton"
@@ -418,14 +423,16 @@ func _on_node_map_medical_requested() -> void:
 	snapshot["backpack"] = inventory_snapshot.get("backpack", [])
 	snapshot["current_capacity"] = inventory_snapshot.get("current_capacity", 0)
 	snapshot["maximum_capacity"] = inventory_snapshot.get("maximum_capacity", 0)
-	_node_map_medical.open_monitor(snapshot)
+	snapshot["loadout_stats"] = inventory_snapshot.get("loadout_stats", {})
+	_node_map_medical.call("apply_snapshot", snapshot)
+	_node_map_medical.visible = true
 	_node_map_overlay_layer.visible = true
 
 
 func _on_node_map_medical_closed() -> void:
 	if _node_map_overlay_layer:
 		_node_map_overlay_layer.visible = (
-			_node_map_medical != null and _node_map_medical.is_open()
+			_node_map_medical != null and _node_map_medical.visible
 		)
 
 
@@ -439,13 +446,10 @@ func _ensure_node_map_overlay_layer() -> void:
 	add_child(_node_map_overlay_layer)
 
 
-func _close_node_map_medical(emit_closed: bool = true) -> void:
-	if _node_map_medical == null or not _node_map_medical.is_open():
+func _close_node_map_medical(_emit_closed: bool = true) -> void:
+	if _node_map_medical == null or not _node_map_medical.visible:
 		return
-	if emit_closed:
-		_node_map_medical.close_monitor()
-	else:
-		_node_map_medical.visible = false
+	_node_map_medical.visible = false
 	if _node_map_overlay_layer:
 		_node_map_overlay_layer.visible = false
 
@@ -960,7 +964,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			and not event.echo
 			and event.keycode == KEY_ESCAPE
 		):
-			if _node_map_medical != null and _node_map_medical.is_open():
+			if _node_map_medical != null and _node_map_medical.visible:
 				_close_node_map_medical()
 				get_viewport().set_input_as_handled()
 				return
@@ -2089,6 +2093,7 @@ func _refresh_world_hud() -> void:
 	snapshot["current_capacity"] = inventory_snapshot.get("current_capacity", 0)
 	snapshot["maximum_capacity"] = inventory_snapshot.get("maximum_capacity", 0)
 	snapshot["capacity_breakdown"] = inventory_snapshot.get("capacity_breakdown", [])
+	snapshot["loadout_stats"] = inventory_snapshot.get("loadout_stats", {})
 	var hex_data := world_generator.get_hex_at(_selected_hex_coords)
 	var scene_descriptor := EventBgCatalog.build_scene_descriptor(
 		hex_data,

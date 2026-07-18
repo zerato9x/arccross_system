@@ -6,8 +6,6 @@ signal settings_changed(snapshot: Dictionary)
 const SETTINGS_PATH := "user://arccross_settings.cfg"
 const COMBAT_REALTIME := "realtime"
 const COMBAT_TURN_BASED := "turn_based"
-const REALTIME_SCENE_PATH := "res://CombatCore/MainDuelScene.tscn"
-const TURN_BASED_SCENE_PATH := "res://CombatCore/TurnBased/TurnBasedDuelScene.tscn"
 
 var combat_mode := COMBAT_REALTIME
 var screen_noise_enabled := false
@@ -70,14 +68,6 @@ func set_hud_scale(value: float) -> void:
 		return
 	hud_scale = sanitized
 	_commit_change()
-
-
-func get_combat_scene_path() -> String:
-	return (
-		TURN_BASED_SCENE_PATH
-		if combat_mode == COMBAT_TURN_BASED
-		else REALTIME_SCENE_PATH
-	)
 
 
 func get_combat_mode_label() -> String:

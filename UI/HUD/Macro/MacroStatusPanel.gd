@@ -88,15 +88,16 @@ func set_panel_scale(scale_value: float) -> void:
 	scale = Vector2.ONE * scale_value
 
 func _bind_vital_rows() -> void:
-	for key in [
-		"blood",
-		"stance",
-		"hunger",
-		"thirst",
-		"fatigue",
-		"temperature",
-	]:
-		var prefix: String = str(key).capitalize()
+	var prefixes := {
+		"blood": "Blood",
+		"pain": "Stance",
+		"hunger": "Hunger",
+		"thirst": "Thirst",
+		"fatigue": "Fatigue",
+		"temperature": "Temperature",
+	}
+	for key in prefixes:
+		var prefix: String = prefixes[key]
 		_vital_rows[key] = {
 			"icon": get_node("%" + prefix + "Icon") as TextureRect,
 			"label": get_node("%" + prefix + "Label") as Label,
@@ -114,7 +115,7 @@ func _apply_assets() -> void:
 	%LocationIcon.texture = HUDAssetLibrary.status_icon("location")
 	%TimeIcon.texture = HUDAssetLibrary.status_icon("time")
 	_apply_vital_icon("blood", "blood", "blood")
-	_apply_vital_icon("stance", "stance", "stance")
+	_apply_vital_icon("pain", "stance", "stance")
 	_apply_vital_icon("hunger", "hunger", "warning")
 	_apply_vital_icon("thirst", "thirst", "health")
 	_apply_vital_icon("fatigue", "fatigue", "stance")
@@ -168,7 +169,7 @@ func _render_compact() -> void:
 		int(clock.get("minute", 0)),
 	]
 	_update_vital("blood", float(_snapshot.get("blood", 0.0)), "BLOOD")
-	_update_vital("stance", float(_snapshot.get("stance", 0.0)), "STANCE")
+	_update_vital("pain", float(_snapshot.get("pain", 0.0)), "PAIN")
 	_update_vital("hunger", float(_snapshot.get("hunger", 0.0)), "HUNGER")
 	_update_vital("thirst", float(_snapshot.get("thirst", 0.0)), "THIRST")
 	_update_vital("fatigue", float(_snapshot.get("fatigue", 0.0)), "FATIGUE", true)
@@ -223,8 +224,10 @@ func _warning_text() -> String:
 		warnings.append("DEHYDRATED")
 	if float(_snapshot.get("fatigue", 0.0)) >= 9.0:
 		warnings.append("EXHAUSTED")
-	if float(_snapshot.get("stance", 0.0)) <= 3.0:
-		warnings.append("STANCE BREAK")
+	if float(_snapshot.get("bleeding_rate", 0.0)) > 0.0:
+		warnings.append("BLEED %.2f/TICK" % float(_snapshot.get("bleeding_rate", 0.0)))
+	if float(_snapshot.get("pain", 0.0)) >= 8.0:
+		warnings.append("SEVERE PAIN")
 	if warnings.is_empty():
 		return "BODY SIGNAL STABLE"
 	return " / ".join(warnings)

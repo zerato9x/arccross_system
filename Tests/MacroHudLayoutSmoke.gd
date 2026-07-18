@@ -52,8 +52,8 @@ func _run() -> void:
 
 	hud.toggle_health_panel()
 	await process_frame
-	if health.get_node("%PreviewRoot").get_node_or_null("MacroStatusPanel") == null:
-		_fail("Health corner is not using MacroStatusPanel as preview.")
+	if health.get_node("%PreviewRoot").get_node_or_null("FieldHealthPreview") == null:
+		_fail("Health corner is not using the authored FieldHealthHUD preview.")
 		return
 	if not health.is_expanded() or hud.get_layout_manager().get_expanded_count() != 1:
 		_fail("Health should expand without disturbing the other previews.")

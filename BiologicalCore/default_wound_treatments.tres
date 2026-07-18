@@ -1,0 +1,58 @@
+[gd_resource type="Resource" script_class="WoundTreatmentProfile" load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://BiologicalCore/WoundTreatmentProfile.gd" id="1_profile"]
+[ext_resource type="Script" path="res://BiologicalCore/WoundTreatmentDefinition.gd" id="2_definition"]
+
+[sub_resource type="Resource" id="Bruise"]
+script = ExtResource("2_definition")
+wound_type = 0
+care_label = "PROTECT AND MONITOR"
+instructions = "No consumable is required. Reduce exertion and monitor pain and integrity."
+required_effect = -1
+currently_treatable = false
+
+[sub_resource type="Resource" id="Laceration"]
+script = ExtResource("2_definition")
+wound_type = 1
+care_label = "CONTROL BLEEDING"
+instructions = "Apply direct pressure and dress the wound. Use a tourniquet only for severe limb bleeding."
+required_effect = 3
+recommended_item_ids = Array[String](["bandage", "dressingpack", "medkit", "tourniquet"])
+
+[sub_resource type="Resource" id="Puncture"]
+script = ExtResource("2_definition")
+wound_type = 2
+care_label = "PACK AND DRESS"
+instructions = "Control the channel bleed, cover the wound, and monitor contamination."
+required_effect = 3
+recommended_item_ids = Array[String](["dressingpack", "medkit", "bandage"])
+
+[sub_resource type="Resource" id="Gunshot"]
+script = ExtResource("2_definition")
+wound_type = 3
+care_label = "SEVERE HEMORRHAGE CONTROL"
+instructions = "Use the strongest available dressing. A tourniquet is preferred for uncontrolled limb bleeding."
+required_effect = 3
+recommended_item_ids = Array[String](["tourniquet", "dressingpack", "medkit", "bandage"])
+
+[sub_resource type="Resource" id="Fracture"]
+script = ExtResource("2_definition")
+wound_type = 4
+care_label = "IMMOBILIZE / SPLINT"
+instructions = "A splint is required to stabilize this fracture. The current item catalogue has no authored splint treatment."
+required_effect = -1
+recommended_item_ids = Array[String](["splint"])
+currently_treatable = false
+
+[sub_resource type="Resource" id="Burn"]
+script = ExtResource("2_definition")
+wound_type = 5
+care_label = "COOL AND COVER"
+instructions = "Use a sterile dressing and monitor contamination. Burn-specific recovery is not yet authored."
+required_effect = -1
+recommended_item_ids = Array[String](["burn_dressing", "medkit"])
+currently_treatable = false
+
+[resource]
+script = ExtResource("1_profile")
+definitions = Array[Resource]([SubResource("Bruise"), SubResource("Laceration"), SubResource("Puncture"), SubResource("Gunshot"), SubResource("Fracture"), SubResource("Burn")])

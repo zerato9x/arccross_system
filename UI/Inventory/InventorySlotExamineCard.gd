@@ -9,6 +9,7 @@ const VIEWPORT_PADDING := 8.0
 @onready var _name_label: Label = %NameLabel
 @onready var _meta_label: Label = %MetaLabel
 @onready var _description_label: Label = %DescriptionLabel
+@onready var _stats_label: Label = %StatsLabel
 
 
 func _ready() -> void:
@@ -44,6 +45,7 @@ func show_descriptor(descriptor: Dictionary) -> void:
 		"description",
 		"No field notes available."
 	))
+	_stats_label.text = _format_stats(descriptor)
 	visible = true
 	reset_size()
 	size = get_combined_minimum_size()
@@ -81,3 +83,33 @@ func _equipment_slot_name(slot: int) -> String:
 	if slot == GameEnums.EquipmentSlot.NONE:
 		return "CARRIED"
 	return _enum_name(GameEnums.EquipmentSlot, slot)
+
+
+func _format_stats(descriptor: Dictionary) -> String:
+	var lines := PackedStringArray()
+	lines.append("WEIGHT %.1f  //  BULK %.1f  //  THREAT %.1f" % [
+		float(descriptor.get("weight", 0.0)),
+		float(descriptor.get("bulk", 0.0)),
+		float(descriptor.get("threat", 0.0)),
+	])
+	lines.append("PROTECTION  BLUNT %.1f  /  SHARP %.1f  /  BALLISTIC %.1f" % [
+		float(descriptor.get("protection_blunt", 0.0)),
+		float(descriptor.get("protection_sharp", 0.0)),
+		float(descriptor.get("protection_ballistic", 0.0)),
+	])
+	var utility := PackedStringArray()
+	var capacity := int(descriptor.get("capacity_bonus", 0))
+	var insulation := float(descriptor.get("insulation", 0.0))
+	if capacity != 0:
+		utility.append("CAPACITY +%d" % capacity)
+	if insulation != 0.0:
+		utility.append("INSULATION %.1f" % insulation)
+	if not utility.is_empty():
+		lines.append("  //  ".join(utility))
+	if int(descriptor.get("item_type", GameEnums.ItemType.JUNK)) == GameEnums.ItemType.WEAPON:
+		lines.append("DAMAGE  FLESH %.1f  /  STANCE %.1f  //  PEN %.1f" % [
+			float(descriptor.get("flesh_damage", 0.0)),
+			float(descriptor.get("stance_damage", 0.0)),
+			float(descriptor.get("armor_penetration", 0.0)),
+		])
+	return "\n".join(lines)
