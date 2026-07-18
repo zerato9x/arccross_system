@@ -31,6 +31,17 @@ enum TraumaType {
 	BURNT 
 }
 
+## Persistent tissue injuries. TraumaType remains as a compact compatibility
+## summary for older combat/UI consumers; Wound records are authoritative.
+enum WoundType {
+	BRUISE,
+	LACERATION,
+	PUNCTURE,
+	GUNSHOT,
+	FRACTURE,
+	BURN
+}
+
 # ==========================================
 # 2. ITEMS & INVENTORY
 # ==========================================

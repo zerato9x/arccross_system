@@ -82,7 +82,13 @@ database, stat registry, or rule table.
 
 ### BiologicalCore
 
-- Owns anatomy, vitals, Morale, Stance, Trauma, and biological snapshots through explicit `BodyState` and `HumanoidState` resources.
+- Owns anatomy, systemic vitals, Morale, combat-local Stance, persistent Wounds,
+  and biological snapshots through explicit `Wound`, `BodyState`, and
+  `HumanoidState` resources.
+- Limb HP represents structural integrity. Per-limb Wounds represent injury
+  type, severity, pain, bleeding, contamination, and treatment. Blood loss and
+  motor penalties are derived from those records; `TraumaType` is only a compact
+  compatibility summary for older consumers.
 - Composes ItemCore through `InventorySystem`.
 - Supplies biological equipment restrictions to ItemCore through callbacks.
 
@@ -90,6 +96,9 @@ database, stat registry, or rule table.
 
 - Owns item definitions, Runtime Item Instances, loadouts, inventory rules, and
   equipment calculations.
+- Aggregates Weight, Bulk, Threat, Insulation, and damage-type protection for
+  neutral presentation snapshots. Protection is filtered by the struck body
+  region; Bulk contributes to encumbrance rather than damage resistance.
 - Keeps authored `.tres` resources immutable.
 - Stores mutable firearm and consumable state on unique runtime instances.
 - Authors weapon handling, damage, accuracy, range and falloff, exact
@@ -306,6 +315,16 @@ Stable surfaces for content mods (no orchestration code changes required):
 - **`MacroSnapshotBuilder`** — `build_inventory_snapshot()`, `build_limb_snapshot()`,
   `build_world_hud_snapshot()`, `build_hex_descriptor()`, `build_macro_activity_snapshot()`,
   `item_inventory_descriptor()` for neutral UI snapshots.
+- **`HealthHUDProfile`** — presentation-only Resources define visible systemic
+  metrics, transforms, warning thresholds, icon paths, and the seven body-region
+  cards. `FieldHealthHUD` renders these definitions from neutral snapshots and
+  never receives live biological or inventory objects.
+- **`WoundTreatmentProfile`** — BiologicalCore Resources map each wound type to
+  care instructions, required consumable effect, recommended item IDs, and
+  whether the current rules can resolve that treatment. WorldCore projects this
+  as neutral wound metadata; the paper-doll HUD never invents medical rules.
+- **`PresentationSceneRegistry`** — central presentation/combat scene and theme
+  paths keep SystemCore and CombatCore from importing concrete UI paths.
 - **`MacroPoiController`** — `build_session_snapshot()`, `preview_metrics()`,
   `resolve_search_outcome()`, `apply_camp_gear_selection()`, `get_camp_access()` for
   POI session data and neutral search/camp outcomes (applied by `MacroGameManager`).

@@ -71,8 +71,12 @@ func _on_combat_requested(request: Dictionary) -> void:
 	
 	var selected_scene := duel_scene
 	var settings := get_node_or_null("/root/GameSettings")
-	if settings != null and settings.has_method("get_combat_scene_path"):
-		var selected_path: String = settings.get_combat_scene_path()
+	if settings != null:
+		var selected_path := (
+			PresentationSceneRegistry.TURN_BASED_DUEL_SCENE
+			if settings.combat_mode == settings.COMBAT_TURN_BASED
+			else PresentationSceneRegistry.REALTIME_DUEL_SCENE
+		)
 		var loaded_scene := load(selected_path) as PackedScene
 		if loaded_scene != null:
 			selected_scene = loaded_scene

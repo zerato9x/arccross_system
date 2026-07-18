@@ -315,7 +315,10 @@ func _run() -> void:
 	var settings := root.get_node_or_null("GameSettings")
 	if settings == null:
 		return _fail("Expanded persistent GameSettings autoload is unavailable.")
-	if settings.REALTIME_SCENE_PATH == settings.TURN_BASED_SCENE_PATH:
+	if (
+		PresentationSceneRegistry.REALTIME_DUEL_SCENE
+		== PresentationSceneRegistry.TURN_BASED_DUEL_SCENE
+	):
 		return _fail("Combat settings route both choices to the same scene.")
 	print("[REALTIME_DUEL_SMOKE] PASS // pacing, telegraphs, AP, grid, melee, aim, traps, and separate turn mode")
 	quit(0)

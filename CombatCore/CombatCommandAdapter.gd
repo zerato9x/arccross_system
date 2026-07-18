@@ -538,6 +538,8 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"archetype": entity.definition.archetype_name,
 		"lane": lane_manager._find_entity_lane(entity),
 		"blood": entity.body.blood_level,
+		"pain": entity.body.get_total_pain(),
+		"bleeding_rate": entity.body.get_total_bleeding_rate(),
 		"limbs": _limb_snapshot(entity),
 		"morale": entity.current_morale,
 		"stance": entity.stance_points,
@@ -617,8 +619,23 @@ func _limb_snapshot(entity: HumanoidCore) -> Array:
 			],
 			"damage_type": damage_type_name,
 			"damage_type_index": damage_type,
+			"bleeding_rate": entity.body.get_limb_bleeding_rate(region),
+			"wounds": _wound_snapshot(entity.body, region),
 		})
 	return limbs
+
+
+func _wound_snapshot(body: HumanoidBody, region: int) -> Array:
+	var result: Array = []
+	for wound in body.get_wounds_for_limb(region):
+		if wound is Wound:
+			result.append({
+				"type": wound.display_name().to_upper(),
+				"severity": wound.severity,
+				"bleeding_rate": wound.active_bleeding_rate(),
+				"treated": wound.treated,
+			})
+	return result
 
 func _equipment_snapshot(entity: HumanoidCore) -> Array:
 	var equipment: Array = []

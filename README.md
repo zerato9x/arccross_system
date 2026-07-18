@@ -5,8 +5,10 @@ injury, equipment-driven progression, persistent hex exploration, and tactical
 combat.
 
 Its abstract mechanical language is anchored to twelve: Pillars use `1` to `12`,
-while depletable conditions such as Blood and Stance use `0` to `12`. Physical
-measurements retain meaningful units.
+while systemic reserves such as Blood and combat-local equilibrium such as
+Stance use `0` to `12`. Wounds persist as typed per-limb injuries with severity,
+pain, bleeding, contamination, and treatment state. Physical measurements
+retain meaningful units.
 
 ## Design Pillars
 
@@ -21,7 +23,7 @@ measurements retain meaningful units.
 
 ## Current Prototype
 
-Status updated on **July 17, 2026**.
+Status updated on **July 18, 2026**.
 
 ### Playable Today
 

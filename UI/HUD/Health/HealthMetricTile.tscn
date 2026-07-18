@@ -1,0 +1,61 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://UI/HUD/Health/HealthMetricTile.gd" id="1_script"]
+
+[node name="HealthMetricTile" type="PanelContainer"]
+custom_minimum_size = Vector2(220, 72)
+mouse_filter = 2
+script = ExtResource("1_script")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 7
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 7
+
+[node name="Row" type="HBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="MetricIcon" type="TextureRect" parent="Margin/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(46, 46)
+layout_mode = 2
+texture_filter = 1
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Readout" type="VBoxContainer" parent="Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="TopLine" type="HBoxContainer" parent="Margin/Row/Readout"]
+layout_mode = 2
+
+[node name="MetricName" type="Label" parent="Margin/Row/Readout/TopLine"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "METRIC"
+
+[node name="MetricValue" type="Label" parent="Margin/Row/Readout/TopLine"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "-- / 12"
+horizontal_alignment = 2
+
+[node name="MetricBar" type="ProgressBar" parent="Margin/Row/Readout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(146, 18)
+layout_mode = 2
+max_value = 12.0
+value = 8.0
+show_percentage = false
+
+[node name="MetricState" type="Label" parent="Margin/Row/Readout"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "STABLE"
+horizontal_alignment = 2

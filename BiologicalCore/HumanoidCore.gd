@@ -323,10 +323,11 @@ func _calculate_kinetic_burden() -> void:
 	
 	# 2. The Junk Penalty (Encumbrance)
 	var encumbrance_ratio: float = float(inventory.current_size) / float(max(1, inventory.current_max_capacity))
-	var weight_penalty: int = floor(encumbrance_ratio * 6.0)
+	var weight_penalty: int = floor(encumbrance_ratio * 4.0)
 	
-	# 3. The Iron Tax (Gear WEIGHT across all equipped items)
-	var gear_weight_penalty: int = floor(inventory.get_total_weight())
+	# 3. Equipped mass and bulk tax movement; neither stat is free armor.
+	var gear_weight_penalty: int = floor(inventory.get_total_weight() * 0.25)
+	var bulk_penalty: int = floor(inventory.get_total_bulk() * 0.25)
 	
 	# 4. The Survival Penalty (Hunger, Thirst, Fatigue)
 	var survival_penalty: int = 0
@@ -337,7 +338,7 @@ func _calculate_kinetic_burden() -> void:
 		survival_penalty += int(fatigue_ratio * 4.0)
 	if body.core_temperature < 34.0: survival_penalty += 2 # Shivering ruins coordination
 	
-	total_burden = trauma_penalty + weight_penalty + gear_weight_penalty + survival_penalty
+	total_burden = trauma_penalty + weight_penalty + gear_weight_penalty + bulk_penalty + survival_penalty
 	
 	var old_tier = kinetic_tier
 	if total_burden >= 9:
@@ -485,16 +486,19 @@ func apply_consumable_to_limb(
 	region: int,
 	combat_only: bool = false
 ) -> bool:
-	if not inventory.use_consumable(item, combat_only):
+	if item == null:
 		return false
 	match item.consumable_effect:
 		GameEnums.ConsumableEffect.STOP_BLEEDING:
-			if body.limb_trauma.get(region, GameEnums.TraumaType.NONE) == GameEnums.TraumaType.BLEEDING:
-				body.limb_trauma[region] = GameEnums.TraumaType.NONE
-				print(name, " applied [", item.display_name, "] to ", GameEnums.LimbRegion.keys()[region], ".")
-			else:
+			if not body.can_treat_bleeding(region):
 				return false
+			if not inventory.use_consumable(item, combat_only):
+				return false
+			body.treat_worst_bleed(region, item.consumable_potency)
+			print(name, " treated the worst bleed on ", GameEnums.LimbRegion.keys()[region], " with [", item.display_name, "].")
 		GameEnums.ConsumableEffect.RESTORE_BLOOD:
+			if not inventory.use_consumable(item, combat_only):
+				return false
 			body.blood_level = clamp(
 				body.blood_level + item.consumable_potency,
 				0.0,
@@ -502,18 +506,24 @@ func apply_consumable_to_limb(
 			)
 			body.blood_level_changed.emit(body.blood_level)
 		GameEnums.ConsumableEffect.RESTORE_HUNGER:
+			if not inventory.use_consumable(item, combat_only):
+				return false
 			body.hunger = clamp(
 				body.hunger + item.consumable_potency,
 				0.0,
 				GameEnums.SCALE_MAX
 			)
 		GameEnums.ConsumableEffect.RESTORE_THIRST:
+			if not inventory.use_consumable(item, combat_only):
+				return false
 			body.thirst = clamp(
 				body.thirst + item.consumable_potency,
 				0.0,
 				GameEnums.SCALE_MAX
 			)
 		GameEnums.ConsumableEffect.RESTORE_FATIGUE:
+			if not inventory.use_consumable(item, combat_only):
+				return false
 			body.fatigue = clamp(
 				body.fatigue - item.consumable_potency,
 				0.0,
@@ -526,6 +536,16 @@ func apply_consumable_to_limb(
 
 
 func use_consumable_item(item: ItemData, combat_only: bool = false) -> bool:
+	if item == null:
+		return false
+	if item.consumable_effect == GameEnums.ConsumableEffect.STOP_BLEEDING:
+		var has_treatable_bleed := false
+		for limb in body.limb_trauma.keys():
+			if body.can_treat_bleeding(limb):
+				has_treatable_bleed = true
+				break
+		if not has_treatable_bleed:
+			return false
 	if not inventory.use_consumable(item, combat_only):
 		return false
 	
@@ -553,12 +573,17 @@ func use_consumable_item(item: ItemData, combat_only: bool = false) -> bool:
 			)
 			print(name, " consumed [", item.display_name, "]. Fatigue reduced.")
 		GameEnums.ConsumableEffect.STOP_BLEEDING:
-			# Patch the worst bleed first
+			var target_limb := -1
+			var worst_rate := 0.0
 			for limb in body.limb_trauma.keys():
-				if body.limb_trauma[limb] == GameEnums.TraumaType.BLEEDING:
-					body.limb_trauma[limb] = GameEnums.TraumaType.NONE
-					print(name, " applied [", item.display_name, "] to stop bleeding on ", GameEnums.LimbRegion.keys()[limb], ".")
-					break
+				var rate := body.get_limb_bleeding_rate(limb)
+				if body.can_treat_bleeding(limb) and (target_limb < 0 or rate > worst_rate):
+					target_limb = limb
+					worst_rate = rate
+			if target_limb < 0:
+				return false
+			body.treat_worst_bleed(target_limb, item.consumable_potency)
+			print(name, " treated the worst active bleed on ", GameEnums.LimbRegion.keys()[target_limb], ".")
 		GameEnums.ConsumableEffect.RESTORE_BLOOD:
 			body.blood_level = clamp(
 				body.blood_level + item.consumable_potency,

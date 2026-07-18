@@ -1,0 +1,127 @@
+[gd_resource type="Resource" script_class="HealthHUDProfile" load_steps=18 format=3]
+
+[ext_resource type="Script" path="res://PresentationCore/HealthHUDProfile.gd" id="1_profile"]
+[ext_resource type="Script" path="res://PresentationCore/HealthMetricDefinition.gd" id="2_metric"]
+[ext_resource type="Script" path="res://PresentationCore/HealthRegionDefinition.gd" id="3_region"]
+
+[sub_resource type="Resource" id="MetricBlood"]
+script = ExtResource("2_metric")
+snapshot_key = &"blood"
+display_name = "BLOOD VOLUME"
+icon_path = "res://Asset/UI/HUD/icons/status/blood_32.png"
+fill_kind = &"blood"
+danger_below = 2.0
+caution_below = 5.0
+
+[sub_resource type="Resource" id="MetricPain"]
+script = ExtResource("2_metric")
+snapshot_key = &"pain"
+display_name = "PAIN LOAD"
+icon_path = "res://Asset/UI/HUD/icons/status/fracture_32.png"
+fill_kind = &"warning"
+danger_above = 9.0
+caution_above = 5.0
+
+[sub_resource type="Resource" id="MetricNutrition"]
+script = ExtResource("2_metric")
+snapshot_key = &"hunger"
+display_name = "NUTRITION"
+icon_path = "res://Asset/UI/HUD/icons/status/hunger_32.png"
+fill_kind = &"health"
+danger_below = 2.0
+caution_below = 5.0
+
+[sub_resource type="Resource" id="MetricHydration"]
+script = ExtResource("2_metric")
+snapshot_key = &"thirst"
+display_name = "HYDRATION"
+icon_path = "res://Asset/UI/HUD/icons/status/thirst_32.png"
+fill_kind = &"health"
+danger_below = 2.0
+caution_below = 5.0
+
+[sub_resource type="Resource" id="MetricRest"]
+script = ExtResource("2_metric")
+snapshot_key = &"fatigue"
+display_name = "REST RESERVE"
+icon_path = "res://Asset/UI/HUD/icons/status/fatigue_32.png"
+fill_kind = &"health"
+value_transform = 1
+danger_below = 2.0
+caution_below = 5.0
+
+[sub_resource type="Resource" id="MetricTemperature"]
+script = ExtResource("2_metric")
+snapshot_key = &"core_temperature"
+display_name = "CORE TEMP"
+icon_path = "res://Asset/UI/HUD/icons/status/temperature_32.png"
+fill_kind = &"health"
+value_transform = 2
+danger_below = 34.0
+danger_above = 40.0
+caution_below = 35.5
+caution_above = 38.5
+
+[sub_resource type="Resource" id="MetricInfection"]
+script = ExtResource("2_metric")
+snapshot_key = &"infection_risk"
+display_name = "CONTAMINATION"
+icon_path = "res://Asset/UI/HUD/icons/status/infection_32.png"
+fill_kind = &"warning"
+compact_visible = false
+danger_above = 9.0
+caution_above = 5.0
+
+[sub_resource type="Resource" id="RegionHead"]
+script = ExtResource("3_region")
+snapshot_region = &"HEAD"
+display_name = "HEAD"
+limb_region = 0
+icon_path = "res://Asset/UI/HUD/medical/limb_head_64.png"
+
+[sub_resource type="Resource" id="RegionUpperTorso"]
+script = ExtResource("3_region")
+snapshot_region = &"UPPER_TORSO"
+display_name = "UPPER TORSO"
+limb_region = 1
+icon_path = "res://Asset/UI/HUD/medical/limb_upper_torso_64.png"
+
+[sub_resource type="Resource" id="RegionLowerTorso"]
+script = ExtResource("3_region")
+snapshot_region = &"LOWER_TORSO"
+display_name = "LOWER TORSO"
+limb_region = 2
+icon_path = "res://Asset/UI/HUD/medical/limb_lower_torso_64.png"
+
+[sub_resource type="Resource" id="RegionLeftArm"]
+script = ExtResource("3_region")
+snapshot_region = &"LEFT_ARM"
+display_name = "LEFT ARM"
+limb_region = 3
+icon_path = "res://Asset/UI/HUD/medical/limb_left_arm_64.png"
+
+[sub_resource type="Resource" id="RegionRightArm"]
+script = ExtResource("3_region")
+snapshot_region = &"RIGHT_ARM"
+display_name = "RIGHT ARM"
+limb_region = 4
+icon_path = "res://Asset/UI/HUD/medical/limb_right_arm_64.png"
+
+[sub_resource type="Resource" id="RegionLeftLeg"]
+script = ExtResource("3_region")
+snapshot_region = &"LEFT_LEG"
+display_name = "LEFT LEG"
+limb_region = 5
+icon_path = "res://Asset/UI/HUD/medical/limb_left_leg_64.png"
+
+[sub_resource type="Resource" id="RegionRightLeg"]
+script = ExtResource("3_region")
+snapshot_region = &"RIGHT_LEG"
+display_name = "RIGHT LEG"
+limb_region = 6
+icon_path = "res://Asset/UI/HUD/medical/limb_right_leg_64.png"
+
+[resource]
+script = ExtResource("1_profile")
+metrics = Array[Resource]([SubResource("MetricBlood"), SubResource("MetricPain"), SubResource("MetricNutrition"), SubResource("MetricHydration"), SubResource("MetricRest"), SubResource("MetricTemperature"), SubResource("MetricInfection")])
+regions = Array[Resource]([SubResource("RegionHead"), SubResource("RegionUpperTorso"), SubResource("RegionLowerTorso"), SubResource("RegionLeftArm"), SubResource("RegionRightArm"), SubResource("RegionLeftLeg"), SubResource("RegionRightLeg")])

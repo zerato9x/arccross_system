@@ -1,0 +1,110 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://UI/HUD/Health/WoundRegionCard.gd" id="1_script"]
+[ext_resource type="Script" path="res://UI/HUD/Macro/LimbDropTarget.gd" id="2_drop"]
+
+[node name="WoundRegionCard" type="PanelContainer"]
+custom_minimum_size = Vector2(270, 120)
+script = ExtResource("1_script")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 9
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 9
+theme_override_constants/margin_bottom = 8
+
+[node name="Row" type="HBoxContainer" parent="Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 9
+
+[node name="LimbIcon" type="TextureRect" parent="Margin/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(64, 78)
+layout_mode = 2
+mouse_filter = 2
+texture_filter = 1
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Readout" type="VBoxContainer" parent="Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 3
+
+[node name="Header" type="HBoxContainer" parent="Margin/Row/Readout"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RegionLabel" type="Label" parent="Margin/Row/Readout/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+text = "REGION"
+
+[node name="TraumaIcon" type="TextureRect" parent="Margin/Row/Readout/Header"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+mouse_filter = 2
+texture_filter = 1
+expand_mode = 1
+stretch_mode = 5
+
+[node name="StateIcon" type="TextureRect" parent="Margin/Row/Readout/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+mouse_filter = 2
+texture_filter = 1
+expand_mode = 1
+stretch_mode = 5
+
+[node name="IntegrityLine" type="HBoxContainer" parent="Margin/Row/Readout"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="IntegrityBar" type="ProgressBar" parent="Margin/Row/Readout/IntegrityLine"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(112, 17)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+max_value = 12.0
+value = 12.0
+show_percentage = false
+
+[node name="IntegrityLabel" type="Label" parent="Margin/Row/Readout/IntegrityLine"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+text = "100%"
+
+[node name="WoundLabel" type="Label" parent="Margin/Row/Readout"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+text = "NO ACTIVE WOUND"
+text_overrun_behavior = 3
+
+[node name="TreatmentLabel" type="Label" parent="Margin/Row/Readout"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+text = "NO TREATMENT NEEDED"
+text_overrun_behavior = 3
+
+[node name="DropTarget" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_drop")

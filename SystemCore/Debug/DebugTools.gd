@@ -17,7 +17,6 @@ extends CanvasLayer
 
 const TOGGLE_KEYS := [KEY_QUOTELEFT, KEY_F3]
 const SCALE_MAX := 12.0
-const HUD_THEME_PATH := "res://UI/HUD/PocketInventoryTheme.tres"
 const ACCENT_COLOR := Color(0.937, 0.882, 0.741)   # warm HUD cream
 const OK_COLOR := Color(0.725, 0.867, 0.412)        # HUD lime
 const WARN_COLOR := Color(0.87, 0.45, 0.42)         # alert red
@@ -200,8 +199,8 @@ func _get_loot() -> Node:
 
 func _build_ui() -> void:
 	var hud_theme: Theme = null
-	if ResourceLoader.exists(HUD_THEME_PATH):
-		hud_theme = load(HUD_THEME_PATH) as Theme
+	if ResourceLoader.exists(PresentationSceneRegistry.POCKET_INVENTORY_THEME):
+		hud_theme = load(PresentationSceneRegistry.POCKET_INVENTORY_THEME) as Theme
 
 	_build_toggle_button(hud_theme)
 
