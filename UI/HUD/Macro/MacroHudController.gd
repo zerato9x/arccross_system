@@ -28,6 +28,7 @@ var _layout_manager := MacroHudLayoutManager.new()
 @onready var _screen_noise_toggle: CheckButton = %ScreenNoiseToggle
 @onready var _hud_scale_slider: HSlider = %HudScaleSlider
 @onready var _hud_scale_label: Label = %HudScaleLabel
+@onready var _combat_mode_option: OptionButton = %CombatModeOption
 @onready var _settings_close_button: Button = %SettingsCloseButton
 @onready var _settings_save_button: Button = %SettingsSaveButton
 @onready var _settings_load_button: Button = %SettingsLoadButton
@@ -75,11 +76,24 @@ func _ready() -> void:
 			PresentationSceneRegistry.MAIN_MENU_SCENE
 		)
 	)
+	_combat_mode_option.clear()
+	_combat_mode_option.add_item("Real-Time Duel", 0)
+	_combat_mode_option.add_item("Turn-Based Duel", 1)
+	_combat_mode_option.item_selected.connect(_on_combat_mode_selected)
 	if _save_load_menu:
 		_save_load_menu.menu_closed.connect(func(): _save_load_menu.visible = false)
 		_save_load_menu.slot_selected.connect(_on_save_load_slot_selected)
-	_screen_noise_toggle.toggled.connect(func(enabled): _screen_overlay.visible = enabled)
+	var settings := get_node_or_null("/root/GameSettings")
+	if settings != null:
+		_screen_noise_toggle.button_pressed = settings.screen_noise_enabled
+		_hud_scale_slider.value = settings.hud_scale
+		_combat_mode_option.select(
+			1 if settings.combat_mode == settings.COMBAT_TURN_BASED else 0
+		)
+	_screen_overlay.visible = _screen_noise_toggle.button_pressed
+	_screen_noise_toggle.toggled.connect(_on_screen_noise_toggled)
 	_hud_scale_slider.value_changed.connect(_set_hud_scale)
+	_set_hud_scale(_hud_scale_slider.value)
 	_update_scale_label()
 
 
@@ -196,7 +210,26 @@ func _set_hud_scale(value: float) -> void:
 	_hex_panel.scale = Vector2.ONE * value
 	_world_status.scale = Vector2.ONE * value
 	_settings_panel.scale = Vector2.ONE * value
+	var settings := get_node_or_null("/root/GameSettings")
+	if settings != null:
+		settings.set_hud_scale(value)
 	_update_scale_label()
+
+
+func _on_screen_noise_toggled(enabled: bool) -> void:
+	_screen_overlay.visible = enabled
+	var settings := get_node_or_null("/root/GameSettings")
+	if settings != null:
+		settings.set_screen_noise_enabled(enabled)
+
+
+func _on_combat_mode_selected(index: int) -> void:
+	var settings := get_node_or_null("/root/GameSettings")
+	if settings == null:
+		return
+	settings.set_combat_mode(
+		settings.COMBAT_TURN_BASED if index == 1 else settings.COMBAT_REALTIME
+	)
 
 
 func _update_scale_label() -> void:

@@ -41,13 +41,17 @@ Status updated on **July 17, 2026**:
 
 - **Phase 1** remains closed and verified. Do not expand the vertical-slice
   acceptance set silently; track new gameplay as phase work.
-- **Phase 2 combat HUD** (P2-01 through P2-04) is **complete** as of June 29,
-  2026. The bottom command deck, grouped legal actions, weapon cards, visible
-  AIMED SHOT limb choices, and `GunAnimationCatalog` effects are implemented
-  and covered by `CombatLaneHUDSmoke.gd`.
-- Remaining Phase 2 focus: token art coverage, presentation polish, and
-  authored content expansion — not combat HUD layout. Shield-specific BLOCK
-  rules are complete.
+- **Phase 2 real-time duel overhaul** (P2-09) replaced the historical P2-01
+  through P2-04 turn-command HUD. Combat now uses live AP regeneration,
+  timeline-driven actions, A/D movement, timed guard/parry, combos,
+  push/follow, blind/aimed fire, and duel-lock opponent telegraphs through
+  `RealtimeDuelHUD`.
+- The old turn-command implementation remains an independent comparison target
+  at `CombatCore/TurnBased/TurnBasedDuelScene.tscn`; use
+  `CombatCore/CombatModeComparison.tscn` to run either system from the same
+  standalone records.
+- Remaining Phase 2 focus: balance, animation and token coverage, presentation
+  polish, and authored content expansion.
 
 ### Systems Snapshot
 
@@ -55,8 +59,8 @@ Status updated on **July 17, 2026**:
   macro world, combat lane, and inventory Paper Doll.
 - Token runtime animation uses seventeen gameplay-relevant sheets; moving-attack
   variants remain source-only.
-- The revised Stance loop prevents routine pressure knockdowns and gives Felled
-  combatants an explicit all-AP GET UP turn.
+- The revised Stance loop modifies AP regeneration, allows heavy/finisher
+  knockdowns, and automatically begins interruptible recovery at `4 AP`.
 - Weapon definitions author handling, accuracy, range, distance falloff, exact
   ammunition feeds, cycling, loading aids, inventory and equipment sprites, and
   attachment compatibility.

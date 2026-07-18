@@ -4,14 +4,15 @@ class_name CombatLaneView
 signal slot_hovered(slot_data: Dictionary, global_position: Vector2)
 signal slot_unhovered
 
-const LANE_MOVE_DURATION_SECONDS := 2.0
+const DEFAULT_LANE_MOVE_DURATION_SECONDS := 1.2
+# Compatibility for the turn-based presentation smoke and older scene callers.
+const LANE_MOVE_DURATION_SECONDS := DEFAULT_LANE_MOVE_DURATION_SECONDS
 const MOTION_WAIT_FRAME_LIMIT := 210
 const TOKEN_PRESENTATION_FRAME_LIMIT := 240
 const FINAL_BLOW_SETTLE_FRACTION := 0.58
 const STAGE_GROUND_ASSET := "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png"
-const STAGE_WIDTH_FACTOR := 1.55
-const STAGE_HEIGHT_FACTOR := 1.24
 const STAGE_MIN_SIZE := Vector2(1680.0, 920.0)
+const CAMERA_BLEED_X_RATIO := 0.4
 
 var _snapshot: Dictionary = {}
 var _showing_melee_lock := false
@@ -29,6 +30,12 @@ var _slot_nodes: Array = []
 var _slot_data_by_index: Dictionary = {}
 var _hovered_slot_index := -1
 var _stage_size := Vector2(1280.0, 720.0)
+var _camera_bleed := Vector2.ZERO
+var _realtime_animation_speed_scale := 1.0
+var _lane_move_duration_seconds := DEFAULT_LANE_MOVE_DURATION_SECONDS
+var _player_realtime_target_lane := -1
+var _enemy_realtime_target_lane := -1
+var _duel_focus_slot := -1
 
 @onready var _slots_root: Node2D = %Slots
 @onready var _actor_root: Node2D = %ActorPawns
@@ -60,13 +67,76 @@ func _on_token_footstep(is_player: bool) -> void:
 
 func show_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
-	_showing_melee_lock = _find_lock_slot() >= 0
+	_duel_focus_slot = _find_lock_slot()
+	_showing_melee_lock = _duel_focus_slot >= 0
 	_sync_slots()
 	_sync_tokens()
-	_melee_lock_banner.visible = _showing_melee_lock
+	set_duel_focus(_showing_melee_lock, _duel_focus_slot)
+	# Lock state belongs in the responsive HUD. This fixed-width world label was
+	# mostly useful for demonstrating why fixed-width world labels are a bad idea.
+	_melee_lock_banner.visible = false
+
+func set_duel_focus(active: bool, lock_slot: int = -1) -> void:
+	_duel_focus_slot = lock_slot if active else -1
+	for slot in _slot_nodes:
+		if slot.has_method("set_duel_focus"):
+			slot.set_duel_focus(active, _duel_focus_slot)
+	_stage_grass.modulate = Color(0.62, 0.62, 0.62, 1.0) if active else Color.WHITE
+
+func get_duel_focus_slot() -> int:
+	return _duel_focus_slot
 
 func show_presentation_event(event: Dictionary) -> void:
 	play_presentation_event(event)
+
+func show_realtime_event(event: Dictionary) -> void:
+	var side := str(event.get("side", ""))
+	var token := _token_for_side(side)
+	if token == null:
+		return
+	match str(event.get("type", "")):
+		"action_timeline":
+			var animation := str(event.get("animation", ""))
+			var action := int(event.get("action", GameEnums.DuelActionType.NONE))
+			if action in [GameEnums.DuelActionType.MOVE, GameEnums.DuelActionType.FOLLOW]:
+				_start_realtime_move(
+					side,
+					int(event.get("to_lane", -1)),
+					maxf(0.2, float(event.get("duration", DEFAULT_LANE_MOVE_DURATION_SECONDS))),
+					animation
+				)
+			elif not animation.is_empty():
+				token.play_timed_one_shot(
+					animation,
+					_token_pose(_snapshot.get(side, {})),
+					maxf(0.2, float(event.get("duration", 1.0)))
+				)
+		"aim_started":
+			token.play_animation("CrouchIdle")
+		"parry":
+			token.play_timed_one_shot("StrafeRight" if side == "player" else "StrafeLeft", _token_pose(_snapshot.get(side, {})), 0.7)
+		"block":
+			token.play_timed_one_shot("StrafeLeft" if side == "player" else "StrafeRight", _token_pose(_snapshot.get(side, {})), 0.65)
+		"heavy_cancel":
+			token.play_timed_one_shot("StrafeLeft" if side == "player" else "StrafeRight", _token_pose(_snapshot.get(side, {})), 0.55)
+		"push":
+			_start_realtime_move(
+				str(event.get("target_side", "")),
+				int(event.get("to_lane", -1)),
+				maxf(0.35, float(event.get("move_duration", 0.67))),
+				"RunBackwards"
+			)
+		"damage":
+			if not bool(_snapshot.get(side, {}).get("is_dead", false)):
+				token.play_timed_one_shot("TakeDamage", _token_pose(_snapshot.get(side, {})), 0.65)
+
+func configure_realtime_pacing(pace_scale: float) -> void:
+	_realtime_animation_speed_scale = 1.0
+	_lane_move_duration_seconds = DEFAULT_LANE_MOVE_DURATION_SECONDS
+	if _player_token != null:
+		_player_token.set_animation_speed(_realtime_animation_speed_scale)
+	if _enemy_token != null:
+		_enemy_token.set_animation_speed(_realtime_animation_speed_scale)
 
 func play_presentation_event(event: Dictionary) -> void:
 	var side := str(event.get("side", ""))
@@ -109,10 +179,20 @@ func play_presentation_event(event: Dictionary) -> void:
 					await _wait_for_token_animation_finished(token, animation)
 
 func layout_for_viewport(viewport_size: Vector2) -> void:
-	_stage_size = Vector2(
-		maxf(STAGE_MIN_SIZE.x, viewport_size.x * STAGE_WIDTH_FACTOR),
-		maxf(STAGE_MIN_SIZE.y, viewport_size.y * STAGE_HEIGHT_FACTOR)
+	var safe_viewport := Vector2(
+		maxf(1.0, viewport_size.x),
+		maxf(1.0, viewport_size.y)
 	)
+	var stage_width := maxf(STAGE_MIN_SIZE.x, safe_viewport.x)
+	var stage_height_for_aspect := stage_width * safe_viewport.y / safe_viewport.x
+	_stage_size = Vector2(
+		stage_width,
+		maxf(STAGE_MIN_SIZE.y, stage_height_for_aspect)
+	)
+	# The gameplay lane still occupies the viewport-sized stage. Horizontal visual
+	# bleed lets the duel camera center a lock occurring near either territory edge
+	# instead of pinning the fighters against a screen corner.
+	_camera_bleed = Vector2(_stage_size.x * CAMERA_BLEED_X_RATIO, 0.0)
 	_resize_stage_backdrop(_stage_size)
 	var lane_y := _stage_size.y * 0.49
 	var usable_width := maxf(720.0, _stage_size.x - 180.0)
@@ -145,10 +225,21 @@ func get_slot_center_global(slot_index: int) -> Vector2:
 func get_stage_bounds_global() -> Rect2:
 	return Rect2(global_position, _stage_size)
 
+
+func get_camera_bounds_global() -> Rect2:
+	return Rect2(
+		global_position - _camera_bleed,
+		_stage_size + _camera_bleed * 2.0
+	)
+
+
+func get_stage_center_global() -> Vector2:
+	return global_position + _stage_size * 0.5
+
 func get_camera_min_zoom(viewport_size: Vector2) -> float:
 	if _stage_size.x <= 0.0 or _stage_size.y <= 0.0:
 		return 1.0
-	return maxf(
+	return minf(
 		viewport_size.x / _stage_size.x,
 		viewport_size.y / _stage_size.y
 	)
@@ -264,9 +355,10 @@ func _resize_stage_grass(viewport_size: Vector2) -> void:
 	var texture_size := _stage_grass.texture.get_size()
 	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
 		return
+	var camera_safe_size := viewport_size + _camera_bleed * 2.0
 	var scale_factor := maxf(
-		viewport_size.x / texture_size.x,
-		viewport_size.y / texture_size.y
+		camera_safe_size.x / texture_size.x,
+		camera_safe_size.y / texture_size.y
 	)
 	_stage_grass.position = viewport_size * 0.5
 	_stage_grass.scale = Vector2.ONE * scale_factor
@@ -320,8 +412,6 @@ func _sync_token(
 		if is_player
 		else HumanoidVisualCatalog.DIRECTION_LEFT
 	)
-	if not data.get("is_dead", false):
-		token.set_animation_speed(1.0)
 	var pose := _token_pose(data)
 	if data.get("is_dead", false):
 		token.play_animation("Die", false)
@@ -426,6 +516,13 @@ func _move_or_place_token(
 	is_player: bool
 ) -> void:
 	var previous_lane := _last_player_lane if is_player else _last_enemy_lane
+	var predicted_lane := (
+		_player_realtime_target_lane
+		if is_player
+		else _enemy_realtime_target_lane
+	)
+	if predicted_lane == lane and _token_is_moving(is_player):
+		return
 	if previous_lane < 0 or previous_lane == lane:
 		if not _token_is_moving(is_player):
 			token.position = target
@@ -447,7 +544,7 @@ func _move_or_place_token(
 		token,
 		"position",
 		target,
-		LANE_MOVE_DURATION_SECONDS
+		_lane_move_duration_seconds
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tween.finished.connect(_finish_token_move.bind(is_player))
 	if is_player:
@@ -456,7 +553,12 @@ func _move_or_place_token(
 		_enemy_move_tween = tween
 
 func _finish_token_move(is_player: bool) -> void:
+	if is_player:
+		_player_realtime_target_lane = -1
+	else:
+		_enemy_realtime_target_lane = -1
 	var token := _player_token if is_player else _enemy_token
+	token.set_animation_speed(1.0)
 	var side := "player" if is_player else "enemy"
 	var data: Dictionary = _snapshot.get(side, {})
 	var pose := _token_pose(data)
@@ -468,6 +570,39 @@ func _finish_token_move(is_player: bool) -> void:
 		token.play_one_shot("Taunt", pose)
 	else:
 		token.play_animation(pose)
+
+func _start_realtime_move(
+	side: String,
+	to_lane: int,
+	duration: float,
+	animation: String
+) -> void:
+	if to_lane < 0 or to_lane >= _slot_nodes.size():
+		return
+	var is_player := side == "player"
+	var token := _token_for_side(side)
+	if token == null:
+		return
+	var tween := _player_move_tween if is_player else _enemy_move_tween
+	if tween != null and tween.is_valid():
+		tween.kill()
+	var opponent_side := "enemy" if is_player else "player"
+	var opponent_lane := int(_snapshot.get(opponent_side, {}).get("lane", -1))
+	var shared_lane := opponent_lane == to_lane
+	var target := to_local(_slot_nodes[to_lane].get_actor_anchor(side, shared_lane))
+	token.set_animation_speed(0.72)
+	token.play_animation(animation if not animation.is_empty() else "Run")
+	if is_player:
+		_player_realtime_target_lane = to_lane
+	else:
+		_enemy_realtime_target_lane = to_lane
+	tween = create_tween()
+	tween.tween_property(token, "position", target, duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.finished.connect(_finish_token_move.bind(is_player))
+	if is_player:
+		_player_move_tween = tween
+	else:
+		_enemy_move_tween = tween
 
 func _token_is_moving(is_player: bool) -> bool:
 	var tween := _player_move_tween if is_player else _enemy_move_tween

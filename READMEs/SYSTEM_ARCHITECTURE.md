@@ -51,16 +51,32 @@ database, stat registry, or rule table.
 
 ### CombatCore
 
-- Owns encounter flow, lanes, turns, AI, AP costs, action legality, reactions,
-  and combat resolution.
+- Owns encounter flow, lanes, the fixed-step real-time duel clock, AI, AP
+  regeneration, fixed action costs, animation timelines, defense timing, and
+  combat resolution.
 - Validates firearm range and readiness before consuming ammunition, combines
   actor and weapon accuracy, and resolves successful shots against one Limb
   Region.
 - Applies ballistic Flesh Damage without Stance Damage. Ordinary Stance
   pressure floors at `1`; only explicit takedown-capable resolution may Fell.
-- `CombatRules` contains combat-private categories and tuning tables.
-- `CombatCommandAdapter` translates neutral player intent into owner-validated
-  calls.
+- `RealtimeDuelRuntime` accepts neutral `DuelIntent` values and owns the
+  authoritative windup, impact, recovery, AP, combo, aim, guard, and Felled
+  timelines.
+- `RealtimeDamageResolver` applies body, armor, Stance, shield, melee, and
+  firearm results without turn or presentation dependencies.
+- `RealtimeLaneController` commits timed movement, push, and follow operations
+  through `CombatLaneManager` without weakening its no-crossing invariant.
+- `DuelWeaponProfile` resources author fixed costs and timing markers; ItemCore
+  selects them through the neutral `realtime_profile_id` field.
+- `RealtimeDuelHUD` owns the permanent impact-marked intent timeline;
+  `DuelReadabilityEffects` owns short parry, block, feint, trip, and damage
+  popups. Neither resolves defense timing or alters outcomes.
+- The historical turn-based authority is preserved independently under
+  `CombatCore/TurnBased/TurnBasedDuelScene.tscn`, with its own
+  `CombatTurnManager`, `CombatResolutionEngine`, `CombatCommandAdapter`, AI,
+  and `CombatLaneHUD`. Production `MainDuelScene` does not run both authorities.
+- `CombatModeComparison.tscn` is a non-persistent laboratory launcher that feeds
+  identical records into either scene for direct comparison.
 - Returns only `GameEnums.CombatOutcome` and neutral runtime snapshots across
   the system boundary.
 
@@ -163,29 +179,24 @@ ambush_position: GameEnums.AmbushPosition
 
 ## Combat Interaction Boundary
 
-- `CombatLaneHUD` and `CombatLaneView` use a modular architecture composed of
-  `DuelUI` presentation elements, receiving neutral combat snapshots and
-  legal-action descriptors.
-- Combat presentation groups legal-action descriptors into player-facing command
-  groups: firearm, movement, melee, field, items, and reaction. The groups
-  organize owner-produced legality; they do not create legality.
-- The bottom command deck owns visual selection state, current group focus,
-  weapon cards, and short-lived weapon presentation effects resolved through
-  `GunAnimationCatalog`. CombatCore still owns AP, target, readiness, and
-  outcome validation.
-- Player commands contain an `ActionType` plus only the target or item IDs
-  required by that action.
-- `CombatCommandAdapter` revalidates commands before routing them to turn, lane,
-  inventory, biological, or resolution owners.
+- `RealtimeDuelHUD` translates A/D, mouse buttons, Space, and R into
+  `DuelIntent`; it never spends AP or resolves a hit.
+- `RealtimeDuelRuntime` revalidates every intent and emits neutral snapshots
+  plus timeline events. Each event carries the same duration and impact marker
+  consumed by animation, camera, audio, VFX, and damage resolution.
+- `CombatLaneView` remains the twelve-slot and layered-humanoid projection.
+  `RealtimeDuelHUD` supplies cached Paper Dolls and wound layers, complete
+  Blood/AP/Stance rails, current action phases, terrain, aim, combo, follow,
+  ammo, animated weapon cards, and feedback around it.
 - Combat snapshots expose weapon rounds, capacity, effective range, and cycle
   state; presentation does not infer firearm readiness. Static weapon sprites
   come from ItemCore item presentation paths, while `Asset/Guns_Animation/`
   may be resolved through a catalog for short-lived shoot, reload, empty, and
   cycle effects.
-- GET UP is an explicit all-AP command for Felled combatants. TAKE COVER applies
-  its owner-resolved Stance recovery through normal command routing.
-- GUARD ends the active turn and preserves unused AP as Reserved AP for eligible
-  reactions. An unresolved Reaction Window blocks turn advancement.
+- Felled recovery starts automatically at `4 AP`, remains interruptible until
+  its timeline completes, and grants a short anti-refell guard on success.
+- Space creates a timed defense event. The impact offset distinguishes parry
+  from block; no reaction popup or Reserved AP pool exists.
 - CombatCore emits outcomes and runtime snapshots. SystemCore applies those
   results to persistent world records.
 - Combat presentation never changes macro tokens, entity life state, AP costs,
@@ -309,8 +320,8 @@ Stable surfaces for content mods (no orchestration code changes required):
   deterministic_key)` returns `EntityRecord`.
 - **`EntityFactory`** — `record_to_humanoid_core(record, parent, unit_name)`,
   `humanoid_core_to_record(core)` for record hydration at domain boundaries.
-- **Combat boundary** — neutral snapshots and command payloads from
-  `CombatCommandAdapter`; outcomes as `GameEnums.CombatOutcome` plus runtime
+- **Combat boundary** — neutral snapshots and `DuelIntent` payloads through
+  `RealtimeDuelRuntime`; outcomes remain `GameEnums.CombatOutcome` plus runtime
   dicts.
 - **Content assets** — `ItemCore/Items/*.tres`, `ItemCore/LootProfiles/*.tres`,
   `BiologicalCore/*_def.tres`, `ItemCore/Loadouts/*.tres`.

@@ -20,6 +20,10 @@ func _initialize_lane() -> void:
 		_configure_lane_slot(slot)
 		lane_slots.append(slot)
 
+func configure_duel_territories(split_index: int = 6) -> void:
+	for slot in lane_slots:
+		slot.territory_side = "player" if slot.lane_index < split_index else "enemy"
+
 func _configure_lane_slot(slot: CombatLaneSlot) -> void:
 	match slot.lane_index:
 		0, 11:
@@ -366,6 +370,9 @@ func _try_trigger_trap(slot: CombatLaneSlot, entity: HumanoidCore) -> void:
 		or slot.current_cover != CombatRules.TileObject.TRAP
 	):
 		return
+	var entrant_side := str(entity.get_meta("duel_side", ""))
+	if not slot.trap_owner_side.is_empty() and entrant_side == slot.trap_owner_side:
+		return
 	slot.trap_armed = false
 	slot.current_cover = CombatRules.TileObject.NONE
 	slot.object_name = "None"
@@ -388,7 +395,8 @@ func _try_trigger_trap(slot: CombatLaneSlot, entity: HumanoidCore) -> void:
 func place_trap(
 	lane_index: int,
 	trap_item_id: String,
-	trap_damage: float = 2.5
+	trap_damage: float = 2.5,
+	owner_side: String = ""
 ) -> void:
 	if lane_index < 0 or lane_index >= lane_slots.size():
 		return
@@ -397,5 +405,6 @@ func place_trap(
 	slot.trap_armed = true
 	slot.trap_item_id = trap_item_id
 	slot.trap_damage = trap_damage
+	slot.trap_owner_side = owner_side
 	slot.object_name = "Set Trap"
 	slot.object_durability = 1.0

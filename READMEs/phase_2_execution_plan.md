@@ -17,6 +17,9 @@ Status updated on **July 17, 2026**:
   [July 13 changelog](CHANGELOG.md#july-13-2026).
 - Authored local-zone tooling **P2-08 is complete**. See
   [July 17 changelog](CHANGELOG.md#july-17-2026).
+- Real-time duel overhaul **P2-09 is implemented**. The previous turn manager,
+  command deck, Reserved AP reactions, and turn AI are no longer the production
+  combat path.
 - Remaining Phase 2 goals:
   - Expand humanoid token visual coverage per
     [HUMANOID_TOKEN_PIPELINE.md](HUMANOID_TOKEN_PIPELINE.md).
@@ -27,6 +30,25 @@ Status updated on **July 17, 2026**:
     completed authored-zone pipeline.
 
 ## Completed Workstreams
+
+P2-01 through P2-04 remain historical implementation records. Their command
+deck and turn/reaction surfaces were superseded by P2-09 in production, but the
+complete turn-based authority now remains isolated under `CombatCore/TurnBased/`
+for direct comparison through `CombatModeComparison.tscn`.
+
+### P2-09: Real-Time Duel Overhaul — Implemented July 17, 2026
+
+- `RealtimeDuelRuntime` replaces turns with fixed-step AP regeneration and
+  owner-validated action timelines.
+- A/D moves through the existing twelve-slot lane; terrain, no-crossing,
+  Melee Lock, territory, and hostile trap rules remain authoritative.
+- Mouse and Space provide contextual melee, blind/aimed fire, timed guard,
+  parry, push/follow, and heavy feint controls.
+- `RealtimeDuelAI` uses the same intent and timing surface as the player.
+- Default pacing is `1.6x` the original prototype timelines, with synchronized
+  token playback and opponent wind-up telegraphs during Melee Lock.
+- `RealtimeDuelHUD` replaces the grouped command deck with minimal live status,
+  aim, combo, follow, weapon, and feedback rails.
 
 ### P2-01: Combat HUD Command Deck — Verified June 29, 2026
 
@@ -155,7 +177,7 @@ The following plan shipped on **June 29, 2026**:
 
 ## Current Non-Goals
 
-- Rewriting combat legality.
+- Squad or multi-lane combat beyond the strict duel.
 - Reintroducing `CombatPanel`.
 - Implementing macro SNIPE.
 - Making every `Asset/Guns_Animation/` filename a permanent API.

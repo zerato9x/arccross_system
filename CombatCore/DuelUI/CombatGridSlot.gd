@@ -18,6 +18,8 @@ const COLOR_OBJECT_FALLBACK := Color(0.12, 0.105, 0.085, 0.82)
 var _slot_data: Dictionary = {}
 var _hovered := false
 var _texture_cache: Dictionary = {}
+var _duel_focus_active := false
+var _duel_focus_slot := -1
 
 @onready var _ground_sprite: Sprite2D = %GroundSprite
 @onready var _surface_sprite: Sprite2D = %SurfaceSprite
@@ -52,6 +54,15 @@ func set_slot_size(value: Vector2) -> void:
 func set_highlighted(value: bool) -> void:
 	_hovered = value
 	_refresh()
+
+func set_duel_focus(active: bool, lock_slot: int) -> void:
+	_duel_focus_active = active
+	_duel_focus_slot = lock_slot
+	modulate.a = 1.0 if not active or slot_index == lock_slot else 0.26
+	_hover_area.input_pickable = not active or slot_index == lock_slot
+
+func get_duel_focus_alpha() -> float:
+	return modulate.a
 
 func get_actor_anchor(side: String, shared_lane: bool = false) -> Vector2:
 	var offset := maxf(10.0, slot_size.x * 0.12)

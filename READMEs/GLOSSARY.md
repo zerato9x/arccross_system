@@ -152,46 +152,33 @@ describes a tool; Damage Type describes a hit.
 - **Combat Lane:** The twelve-slot linear tactical space.
 - **Encounter Context:** The reason and deployment condition for combat.
 - **Collider:** The entity that deliberately moved into the other entity and
-  therefore receives opening initiative.
+  therefore supplies encounter context and deployment pressure.
 - **Ambush Position** *(prototype):* A requested deployment band translated by
   CombatCore into lane indices.
-- **Action Point (AP):** A spendable combat resource.
+- **Action Point (AP):** A spendable real-time combat resource capped at `12`
+  and regenerated every quarter-second.
 - **Kinetic Burden:** Derived physical restriction from trauma, encumbrance,
   equipment, and survival crises.
-- **Kinetic Tier:** The Fluid, Labored, or Agonizing bracket that converts
-  Kinetic Burden into action-cost pressure.
+- **Kinetic Tier:** The Fluid, Labored, or Agonizing bracket that determines
+  base AP regeneration speed. It never changes an action's price.
 - **Stance Points:** Encounter-local physical equilibrium on the `0` to `12`
   scale. It resets at combat boundaries; wounds and systemic vitals do not.
 - **Stance State:** A Stance bracket: Planted (`7-12`), Stumbling (`1-6`), or
-  Felled (`0`). A Felled combatant must spend a HEAVY action to GET UP.
-- **Recovery Guard:** A one-cycle Stance floor applied after a combatant spends
-  a turn recovering from Felled. Incoming pressure may reduce them to `1`
-  Stance but cannot Fell them again before their next usable active turn.
+  Felled (`0`). It multiplies AP regeneration and controls defensive mobility.
+- **Recovery Guard:** A short anti-refell interval after the automatic real-time
+  get-up timeline succeeds.
 - **Melee Lock:** The derived situation in which hostile combatants occupy the
   same lane slot.
-- **Action Type:** A shared combat command name, independent of AP cost or
-  current legality.
-- **Action Category:** A CombatCore-private AP cost class.
-- **Action Group:** A command grouping attached to owner-validated action
-  descriptors so the UI can present firearm, movement, melee, field, item, and
-  reaction choices without recalculating legality.
-- **Combat Command Adapter:** The CombatCore boundary that creates snapshots,
-  validates player intent, spends AP, and routes accepted commands.
-- **Combat Interface:** The replaceable UI projection — currently
-  `CombatLaneHUD` — that displays legal actions and emits player intent.
-- **Bottom Command Deck:** The bottom-screen combat command
-  surface that combines action groups, weapon status, target choices, and
-  feedback.
-- **Weapon Card:** A combat HUD panel for the active weapon
-  sprite, rounds, capacity, range, and readiness state.
-- **Gun Animation Catalog:** A presentation-only resolver
-  that maps ranged weapon IDs to `Asset/Guns_Animation/` shoot, reload, empty,
-  cycle, casing, shell, and muzzle-flash textures.
-- **Reserved AP:** AP retained for eligible off-turn reactions.
-- **Guard:** The visible pass/reserve combat action. It ends the active turn and
-  banks remaining AP as Reserved AP for eligible reactions.
-- **Reaction Window:** A bounded opportunity to answer an action with a legal
-  reaction.
+- **Duel Intent:** A neutral real-time input request such as move, light,
+  heavy, aim, fire, guard, follow, or reload/cycle.
+- **Action Timeline:** CombatCore's authoritative windup, impact, commit, combo,
+  and recovery schedule shared with presentation.
+- **Combat Interface:** The replaceable `RealtimeDuelHUD` projection that shows
+  AP, Stance, weapons, aim, combo, and follow state while emitting Duel Intent.
+- **Guard:** One `Space`-triggered timed defense event. Early impact overlap
+  parries and later overlap blocks; it does not pause combat.
+- **Parry:** The narrow perfect-timing section of Guard that cancels a melee
+  impact, damages attacker Stance, and staggers the attacker.
 - **Combat Outcome:** The shared result emitted when combat ends.
 - **Damage Type:** The physical vector of an attack: Blunt, Sharp, or Ballistic.
 - **Flesh Damage:** Damage to anatomy and biological health.
@@ -205,22 +192,20 @@ describes a tool; Damage Type describes a hit.
 - **BREAK STANCE:** A braced melee Stance attack costing MINOR AP. It may Fell an
   already-Stumbling target but ordinary use cannot knock a Planted target
   directly to `0`. Its low cost enables stance-erosion combos.
-- **Grapple:** An opposed base-12 takedown check. Success fells the defender;
-  failure costs the initiator Stance.
+- **Grapple:** A retired turn-combat command. Real-time takedown pressure now
+  comes from heavy attacks, combo finishers, parries, hazards, and traps.
 - **CYCLE:** Cycle a firearm action after firing, or hand-load one compatible
   loose round when that weapon supports manual loading.
 - **RELOAD:** Load a firearm through its exact compatible magazine, clip, or
   speedloader.
-- **GET UP:** Spend HEAVY AP to rise from Felled with `6`
-  Stance and Recovery Guard. The remaining AP allows defensive actions
-  or an immediate counter.
-- **Push:** While Melee Locked, shove the opponent one lane away, stay in place,
-  and break the lock.
-- **Pull:** While Melee Locked, drag the opponent one lane toward the initiator's
-  rear and follow into that lane, preserving the lock.
-- **Deprecated Lock Actions:** `PUSH_FOLLOW`, `PULL_STAY`, and `DISENGAGE`
-  remain backend compatibility enum values only. They are not legal
-  player-facing actions.
+- **GET UP:** Automatic interruptible recovery that begins when a Felled
+  combatant reaches `4 AP`, restores `6` Stance, and grants Recovery Guard.
+- **Push:** Press `D` while Melee Locked to shove the opponent one lane away and
+  open a short Follow-or-shoot decision window.
+- **Follow:** Press `D` during the post-Push window to enter the opponent's new
+  slot and restore Melee Lock.
+- **Legacy Lock Actions:** `PULL`, `BREAK`, `DISENGAGE`, and the old displacement
+  enum variants remain reference code only; they are not real-time intents.
 - **Execute** *(planned trait action):* A finishing command reserved for a future
   trait unlock. It is disabled in the current demo rules.
 - **Grounded Strike:** A Strike against a Felled target automatically targets

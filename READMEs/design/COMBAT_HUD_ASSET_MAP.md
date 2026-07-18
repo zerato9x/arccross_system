@@ -1,13 +1,13 @@
 # Combat HUD Asset Map
 
-Phase 2 combat HUD work completed June 29, 2026. Ranged weapons use ItemCore
-presentation sprites for static weapon cards and `GunAnimationCatalog` for
-short weapon action effects. This map records the inspected sheets and the safe
-regions wired into the Godot HUD.
+The June 29 command-deck work is retained here as an asset inventory, but its
+turn menu is retired. The real-time HUD uses restrained panels and progress
+rails around `CombatLaneView`; weapon and projectile assets remain reusable.
 
 ## Current Runtime Surface
 
-- Main HUD owner: `CombatCore/CombatLaneHUD.gd`
+- Main HUD owner: `CombatCore/Realtime/RealtimeDuelHUD.gd`
+- Action/camera authority: `RealtimeDuelRuntime` timeline events
 - Reusable asset facade: `UI/HUD/HUDAssetLibrary.gd`
 - Runtime validation route: Godot MCP `filesystem_manage.reimport`, `script_manage.find_symbols`, `project_run`, and `editor_manage.game_eval`
 - Headless fallback: `Godot --headless --editor --quit --path <project_root>`
@@ -19,7 +19,7 @@ Root: `Asset/UI/revampedHUD/B&W_UI_ByAndrox_FREE/HUD/`
 
 | Sheet | Size | Useful Elements | Current Use |
 | --- | ---: | --- | --- |
-| `menu_transparent.png` | 304x128 | small menu/buttons/key prompts | action and group button states only |
+| `menu_transparent.png` | 304x128 | small menu/buttons/key prompts | historical command-deck regions; not active |
 | `charge_bars_transparent.png` | 468x230 | segmented meters, compact bars, circular pips | limb/body meter frames, combat log divider |
 | `counters_transparent.png` | 208x224 | hearts, shields, warning/skull/droplet/lightning counters | health condition icons |
 | `counters.png` | 208x224 | opaque counter variants | reserved for future manual HUD dressing |
@@ -53,4 +53,5 @@ The combat HUD should not use `Asset/UI/revampedHUD/Condition/`, `POCKET INVENTO
 - Use stable counter icons for health conditions. Do not animate Condition strips in the combat HUD.
 - Keep combat data readable: official frames decorate and clarify, they do not replace numeric AP, Blood, Stance, ammo, and limb values.
 - Use MCP `game_eval` to prove atlas source paths and runtime layout dimensions after UI changes.
-- Add smoke assertions for each official element wired into the HUD.
+- Add smoke assertions for each official element actually wired into the
+  real-time HUD; historical command-deck regions do not count as active use.

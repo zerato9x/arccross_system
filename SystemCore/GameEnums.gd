@@ -231,6 +231,43 @@ enum ActionType {
 }
 
 ## Specific tactical profiles defining how an entity behaves once inside the combat lane.
+## Real-time duel input intents. These deliberately do not reuse ActionType
+## values: the retired turn ledger and the real-time state machine are different
+## protocols, despite both involving people hitting each other.
+enum DuelIntent {
+	MOVE_AWAY,
+	MOVE_TOWARD,
+	LIGHT_ATTACK,
+	HEAVY_ATTACK,
+	AIM_START,
+	AIM_CANCEL,
+	FIRE,
+	GUARD,
+	RELOAD_OR_CYCLE,
+	FOLLOW,
+}
+
+## Authoritative real-time action identities used by runtime snapshots and
+## presentation events.
+enum DuelActionType {
+	NONE,
+	MOVE,
+	LIGHT_STRIKE,
+	HEAVY_STRIKE,
+	COMBO_FINISHER,
+	PUSH,
+	FOLLOW,
+	GUARD,
+	PARRY,
+	BLIND_FIRE,
+	AIMED_FIRE,
+	RELOAD,
+	CYCLE,
+	GET_UP,
+	STAGGER,
+	ESCAPE,
+}
+
 enum CombatTactic {
 	MARKSMAN,     # Heavily weights SHOOT and TAKE_COVER. Wants to maintain distance.
 	BRUTE,        # Heavily weights CHARGE, GRAPPLE, and PUSH. Wants to force Melee Locks.
