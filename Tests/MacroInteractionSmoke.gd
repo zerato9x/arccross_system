@@ -337,7 +337,7 @@ func _verify_failed_talk_deployment() -> bool:
 	arena.turn_manager.halt_loop()
 	arena.queue_free()
 	await process_frame
-	var duel_scene := load("res://CombatCore/MainDuelScene.tscn") as PackedScene
+	var duel_scene := load(PresentationSceneRegistry.TURN_BASED_DUEL_SCENE) as PackedScene
 	var enemy_initiated_arena = duel_scene.instantiate()
 	game_director.add_child(enemy_initiated_arena)
 	enemy_initiated_arena.setup_duel(
@@ -496,6 +496,10 @@ func _verify_threat_surrender_drops() -> bool:
 
 
 func _spawn_game() -> Node:
+	# Collision initiative assertions use CombatTurnManager.get_active_entity().
+	var settings := Engine.get_main_loop().root.get_node_or_null("GameSettings") as GameSettingsStore
+	if settings != null:
+		settings.combat_mode = GameSettingsStore.COMBAT_TURN_BASED
 	var main_scene := load("res://SystemCore/game_director.tscn") as PackedScene
 	if not main_scene:
 		_fail("Could not load the game director scene.")
