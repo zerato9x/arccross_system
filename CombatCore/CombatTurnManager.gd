@@ -34,6 +34,7 @@ const ACTION_CATEGORIES = {
 	GameEnums.ActionType.SHOOT: CombatRules.ActionCategory.MAJOR,
 	GameEnums.ActionType.AIMED_SHOT: CombatRules.ActionCategory.HEAVY,
 	GameEnums.ActionType.CYCLE: CombatRules.ActionCategory.QUICK,
+	GameEnums.ActionType.CLEAR_MALFUNCTION: CombatRules.ActionCategory.QUICK,
 	GameEnums.ActionType.RELOAD: CombatRules.ActionCategory.MINOR,
 	GameEnums.ActionType.OBJ_INTERACT: CombatRules.ActionCategory.MAJOR,
 	GameEnums.ActionType.USE_ITEM: CombatRules.ActionCategory.MINOR,

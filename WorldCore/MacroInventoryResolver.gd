@@ -15,12 +15,15 @@ static func resolve_action(
 	ground_take_callback: Callable,
 	ground_add_callback: Callable,
 	can_offer_equip_callback: Callable,
-	inventory_error_callback: Callable
+	inventory_error_callback: Callable,
+	action_payload: Dictionary = {}
 ) -> Dictionary:
 	var inventory := player_core.inventory
 	var message := ""
 	var ground_mutations: Array = []
 	var ground_restore: Array = []
+	var elapsed_minutes := 0
+	var neutral_action := {}
 
 	match action_id:
 		GameEnums.MACRO_INV_TAKE:
@@ -124,6 +127,29 @@ static func resolve_action(
 				)
 		GameEnums.MACRO_INV_INTERACT:
 			message = "That object is too large to carry. It remains on the ground."
+		GameEnums.MACRO_INV_REPAIR:
+			var target_id := str(action_payload.get("target_instance_id", instance_id))
+			var tool_id := str(action_payload.get("tool_instance_id", ""))
+			var material_id := str(action_payload.get("material_instance_id", ""))
+			var context := str(action_payload.get("repair_context", "field"))
+			var repair := inventory.repair_item(
+				inventory.find_item_by_instance_id(target_id),
+				inventory.find_item_by_instance_id(tool_id),
+				inventory.find_item_by_instance_id(material_id),
+				context,
+				float(action_payload.get("roll_override", -1.0))
+			)
+			message = str(repair.get("message", "The repair could not be completed."))
+			if bool(repair.get("attempted", false)):
+				elapsed_minutes = 30
+			neutral_action = {
+				"action_id": GameEnums.MACRO_INV_REPAIR,
+				"target_instance_id": target_id,
+				"tool_instance_id": tool_id,
+				"material_instance_id": material_id,
+				"repair_context": context,
+				"result": repair,
+			}
 		_:
 			message = "Unknown inventory command."
 
@@ -132,4 +158,6 @@ static func resolve_action(
 		"player_runtime": player_core.capture_runtime_state().to_dict(),
 		"ground_mutations": ground_mutations,
 		"ground_restore": ground_restore,
+		"elapsed_minutes": elapsed_minutes,
+		"neutral_action": neutral_action,
 	}

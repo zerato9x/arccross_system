@@ -39,7 +39,7 @@ func open_at(global_pos: Vector2, header: String, entries: Array) -> void:
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.text = "  %s" % str(entry.get("label", "Action"))
 		button.disabled = not bool(entry.get("enabled", true))
-		button.focus_mode = Control.FOCUS_NONE
+		button.focus_mode = Control.FOCUS_ALL
 		var captured: Dictionary = entry.duplicate(true)
 		button.pressed.connect(_on_action_pressed.bind(captured))
 		_actions_box.add_child(button)
@@ -63,6 +63,8 @@ func _present_at(global_pos: Vector2) -> void:
 	size = menu_size
 	global_position = _clamped_global_position(global_pos, menu_size)
 	visible = true
+	if _actions_box.get_child_count() > 0:
+		(_actions_box.get_child(0) as Control).grab_focus()
 	menu_presented.emit(Rect2(global_position, menu_size))
 
 
@@ -94,6 +96,10 @@ func _on_action_pressed(entry: Dictionary) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
+		return
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		close_menu()
+		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventMouseButton and event.pressed:
 		if not get_global_rect().has_point(event.global_position):

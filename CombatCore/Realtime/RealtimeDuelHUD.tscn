@@ -6,7 +6,7 @@
 [ext_resource type="Script" path="res://addons/cinematic_camera_2d/scripts/virtual_camera_2d.gd" id="4_virtual"]
 [ext_resource type="PackedScene" path="res://CombatCore/Realtime/DuelReadabilityEffects.tscn" id="5_effects"]
 [ext_resource type="PackedScene" path="res://CombatCore/Realtime/RealtimeActorPanel.tscn" id="6_actor"]
-[ext_resource type="PackedScene" path="res://CombatCore/Realtime/RealtimeWeaponCard.tscn" id="7_weapon"]
+[ext_resource type="PackedScene" path="res://UI/Inventory/CombatItemCard.tscn" id="7_weapon"]
 
 [sub_resource type="StyleBoxFlat" id="CenterPanel"]
 bg_color = Color(0.02, 0.028, 0.036, 0.95)

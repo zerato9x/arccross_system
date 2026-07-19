@@ -7,7 +7,13 @@ class_name ItemData
 @export_multiline var lore_description: String = "Cryptic three-sentence lore goes here."
 @export var item_type: GameEnums.ItemType = GameEnums.ItemType.JUNK
 @export var catalog_category: GameEnums.ItemCategory = GameEnums.ItemCategory.MISC
+@export var item_grade: GameEnums.ItemGrade = GameEnums.ItemGrade.CIVILIAN
 @export var tags: Array[String] = []
+
+@export_group("Condition & Repair")
+@export var condition_enabled: bool = true
+@export var repair_domain: GameEnums.RepairDomain = GameEnums.RepairDomain.NONE
+@export var maintenance_constraint: String = ""
 
 @export_group("Grid Math & Requirements")
 @export var size_cost: int = 1
@@ -111,6 +117,9 @@ var needs_cycling: bool = false
 var stack_count: int = 1
 ## Runtime rounds currently fitted into a magazine, clip, or speedloader.
 var loaded_rounds: int = 0
+## Persistent cross-mode state. Condition is a Base-12 meter; firearms may jam.
+var current_condition: float = GameEnums.SCALE_MAX
+var is_jammed: bool = false
 
 ## Helper: Is this item a ranged weapon?
 func is_ranged() -> bool:
@@ -135,7 +144,16 @@ func can_block_damage(damage_type: GameEnums.DamageType, limb_region: int = -1) 
 	)
 
 func is_ready_to_fire() -> bool:
-	return is_ranged() and current_magazine > 0 and not needs_cycling
+	return (
+		is_ranged()
+		and current_condition > 0.0
+		and not is_jammed
+		and current_magazine > 0
+		and not needs_cycling
+	)
+
+func has_active_function() -> bool:
+	return not condition_enabled or current_condition > 0.0
 
 func get_inventory_sprite_path() -> String:
 	if current_magazine == 0 and not unloaded_sprite_path.is_empty():
@@ -230,6 +248,8 @@ func create_runtime_instance() -> ItemData:
 		0,
 		magazine_capacity
 	)
+	instance.current_condition = GameEnums.SCALE_MAX
+	instance.is_jammed = false
 	return instance
 
 func to_runtime_state() -> Dictionary:
@@ -240,6 +260,8 @@ func to_runtime_state() -> Dictionary:
 		"needs_cycling": needs_cycling,
 		"stack_count": stack_count,
 		"loaded_rounds": loaded_rounds,
+		"current_condition": current_condition,
+		"is_jammed": is_jammed,
 		"definition": to_definition_state(),
 	}
 
@@ -250,7 +272,11 @@ func to_definition_state() -> Dictionary:
 		"lore_description": lore_description,
 		"item_type": item_type,
 		"catalog_category": catalog_category,
+		"item_grade": item_grade,
 		"tags": tags.duplicate(),
+		"condition_enabled": condition_enabled,
+		"repair_domain": repair_domain,
+		"maintenance_constraint": maintenance_constraint,
 		"size_cost": size_cost,
 		"item_size": item_size,
 		"capacity_bonus": capacity_bonus,
@@ -331,6 +357,13 @@ static func from_runtime_state(state: Dictionary) -> ItemData:
 		0,
 		item.magazine_capacity
 	)
+	# Missing keys are older saves: migrate them to pristine, functional gear.
+	item.current_condition = clampf(
+		float(state.get("current_condition", GameEnums.SCALE_MAX)),
+		0.0,
+		GameEnums.SCALE_MAX
+	)
+	item.is_jammed = bool(state.get("is_jammed", false))
 	return item
 
 func _apply_definition_state(state: Dictionary) -> void:

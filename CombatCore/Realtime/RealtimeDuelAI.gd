@@ -92,7 +92,8 @@ func _think() -> void:
 			runtime.request_intent(ai_core, GameEnums.DuelIntent.FIRE)
 		return
 
-	if firearm != null and (firearm.needs_cycling or firearm.current_magazine <= 0):
+	var readiness := ItemConditionRules.readiness_descriptor(firearm)
+	if firearm != null and str(readiness.get("reason", "")) in ["jammed", "cycle", "empty"]:
 		if runtime.request_intent(ai_core, GameEnums.DuelIntent.RELOAD_OR_CYCLE):
 			return
 

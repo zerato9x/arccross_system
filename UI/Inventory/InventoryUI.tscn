@@ -1,6 +1,8 @@
-[gd_scene load_steps=2 format=3 uid="uid://b72xqqy5yyt02"]
+[gd_scene load_steps=4 format=3 uid="uid://b72xqqy5yyt02"]
 
 [ext_resource type="Script" path="res://UI/Inventory/InventoryUI.gd" id="1_inventory"]
+[ext_resource type="PackedScene" path="res://UI/Inventory/PaperDollModel.tscn" id="2_paperdoll"]
+[ext_resource type="PackedScene" path="res://UI/Inventory/InventorySlot.tscn" id="3_slot"]
 
 [node name="InventoryUI" type="Control"]
 layout_mode = 3
@@ -11,3 +13,503 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 1
 script = ExtResource("1_inventory")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.031, 0.035, 0.027, 0.97)
+
+[node name="InventoryShell" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="InventoryShell"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 10
+
+[node name="RootVBox" type="VBoxContainer" parent="InventoryShell/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 9
+
+[node name="Header" type="HBoxContainer" parent="InventoryShell/Margin/RootVBox"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="TitleBox" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Header"]
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Title" type="Label" parent="InventoryShell/Margin/RootVBox/Header/TitleBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.839, 0.604, 0.263, 1)
+theme_override_font_sizes/font_size = 24
+text = "FIELD LOADOUT"
+
+[node name="LocationLabel" type="Label" parent="InventoryShell/Margin/RootVBox/Header/TitleBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.557, 0.545, 0.471, 1)
+theme_override_font_sizes/font_size = 11
+text = "HEX 0, 0"
+
+[node name="CapacityBox" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Header"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+
+[node name="CapacityLabel" type="Label" parent="InventoryShell/Margin/RootVBox/Header/CapacityBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "CAPACITY 0 / 0"
+horizontal_alignment = 2
+
+[node name="CapacityBar" type="ProgressBar" parent="InventoryShell/Margin/RootVBox/Header/CapacityBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+show_percentage = false
+
+[node name="LoadoutStatsLabel" type="Label" parent="InventoryShell/Margin/RootVBox/Header/CapacityBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.839, 0.604, 0.263, 1)
+theme_override_font_sizes/font_size = 10
+horizontal_alignment = 2
+
+[node name="CloseButton" type="Button" parent="InventoryShell/Margin/RootVBox/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 36)
+layout_mode = 2
+text = "CLOSE"
+
+[node name="Separator" type="HSeparator" parent="InventoryShell/Margin/RootVBox"]
+layout_mode = 2
+
+[node name="FilterRow" type="HFlowContainer" parent="InventoryShell/Margin/RootVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 4
+
+[node name="All" type="Button" parent="InventoryShell/Margin/RootVBox/FilterRow"]
+layout_mode = 2
+text = "ALL"
+metadata/filter_id = "all"
+[node name="Weapons" type="Button" parent="InventoryShell/Margin/RootVBox/FilterRow"]
+layout_mode = 2
+text = "WEAPONS"
+metadata/filter_id = "weapons"
+[node name="Armor" type="Button" parent="InventoryShell/Margin/RootVBox/FilterRow"]
+layout_mode = 2
+text = "ARMOR"
+metadata/filter_id = "armor"
+[node name="Aid" type="Button" parent="InventoryShell/Margin/RootVBox/FilterRow"]
+layout_mode = 2
+text = "AID"
+metadata/filter_id = "aid"
+[node name="Tools" type="Button" parent="InventoryShell/Margin/RootVBox/FilterRow"]
+layout_mode = 2
+text = "TOOLS"
+metadata/filter_id = "tools"
+[node name="Ammunition" type="Button" parent="InventoryShell/Margin/RootVBox/FilterRow"]
+layout_mode = 2
+text = "AMMUNITION"
+metadata/filter_id = "ammunition"
+[node name="MaterialsMisc" type="Button" parent="InventoryShell/Margin/RootVBox/FilterRow"]
+layout_mode = 2
+text = "MATERIALS / MISC"
+metadata/filter_id = "materials_misc"
+
+[node name="Content" type="HBoxContainer" parent="InventoryShell/Margin/RootVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="PaperDollPanel" type="PanelContainer" parent="InventoryShell/Margin/RootVBox/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(440, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.2
+
+[node name="Column" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel"]
+layout_mode = 2
+theme_override_constants/separation = 4
+[node name="Header" type="HBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column"]
+layout_mode = 2
+[node name="Title" type="Label" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "EQUIPMENT"
+[node name="Hint" type="Label" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/Header"]
+layout_mode = 2
+text = "LAYERED INNAWOODS PROJECTION"
+horizontal_alignment = 2
+[node name="PaperDollStage" type="Control" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column"]
+custom_minimum_size = Vector2(430, 440)
+layout_mode = 2
+size_flags_vertical = 3
+clip_contents = true
+
+[node name="StageBackdrop" type="ColorRect" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.035, 0.05, 0.055, 0.72)
+
+[node name="EquipmentStageLayout" type="HBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = -6.0
+offset_bottom = -6.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 7
+
+[node name="EquipmentSlots" type="Control" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(214, 0)
+layout_mode = 2
+
+[node name="RailLayout" type="HBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 6
+
+[node name="AnatomyRail" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout"]
+custom_minimum_size = Vector2(104, 0)
+layout_mode = 2
+theme_override_constants/separation = 4
+[node name="Title" type="Label" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/AnatomyRail"]
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.72, 0.64, 0.48, 1)
+theme_override_font_sizes/font_size = 10
+text = "ANATOMY LAYERS"
+horizontal_alignment = 1
+[node name="HeadSlot" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/AnatomyRail" instance=ExtResource("3_slot")]
+custom_minimum_size = Vector2(104, 46)
+layout_mode = 2
+equipment_slot = 10
+[node name="EyesSlot" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/AnatomyRail" instance=ExtResource("3_slot")]
+custom_minimum_size = Vector2(104, 46)
+layout_mode = 2
+equipment_slot = 11
+[node name="FaceSlot" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/AnatomyRail" instance=ExtResource("3_slot")]
+custom_minimum_size = Vector2(104, 46)
+layout_mode = 2
+equipment_slot = 12
+[node name="NeckSlot" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/AnatomyRail" instance=ExtResource("3_slot")]
+custom_minimum_size = Vector2(104, 46)
+layout_mode = 2
+equipment_slot = 13
+[node name="ArmsSlot" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/AnatomyRail" instance=ExtResource("3_slot")]
+custom_minimum_size = Vector2(104, 46)
+layout_mode = 2
+equipment_slot = 14
+[node name="LegsSlot" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/AnatomyRail" instance=ExtResource("3_slot")]
+custom_minimum_size = Vector2(104, 46)
+layout_mode = 2
+equipment_slot = 4
+[node name="FeetSlot" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/AnatomyRail" instance=ExtResource("3_slot")]
+custom_minimum_size = Vector2(104, 46)
+layout_mode = 2
+equipment_slot = 5
+[node name="InnerTorsoSlot" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/AnatomyRail" instance=ExtResource("3_slot")]
+custom_minimum_size = Vector2(104, 46)
+layout_mode = 2
+equipment_slot = 1
+
+[node name="CarryRail" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout"]
+custom_minimum_size = Vector2(104, 0)
+layout_mode = 2
+theme_override_constants/separation = 4
+[node name="Title" type="Label" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/CarryRail"]
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.72, 0.64, 0.48, 1)
+theme_override_font_sizes/font_size = 10
+text = "LOAD & CARRY"
+horizontal_alignment = 1
+[node name="OuterTorsoSlot" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/CarryRail" instance=ExtResource("3_slot")]
+custom_minimum_size = Vector2(104, 46)
+layout_mode = 2
+equipment_slot = 2
+[node name="VestSlot" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/CarryRail" instance=ExtResource("3_slot")]
+custom_minimum_size = Vector2(104, 46)
+layout_mode = 2
+equipment_slot = 9
+[node name="HandSlot" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/CarryRail" instance=ExtResource("3_slot")]
+custom_minimum_size = Vector2(104, 46)
+layout_mode = 2
+equipment_slot = 3
+[node name="OffhandSlot" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/CarryRail" instance=ExtResource("3_slot")]
+custom_minimum_size = Vector2(104, 46)
+layout_mode = 2
+equipment_slot = 15
+[node name="SlingSlot" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/CarryRail" instance=ExtResource("3_slot")]
+custom_minimum_size = Vector2(104, 46)
+layout_mode = 2
+equipment_slot = 7
+[node name="BeltSlot" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/CarryRail" instance=ExtResource("3_slot")]
+custom_minimum_size = Vector2(104, 46)
+layout_mode = 2
+equipment_slot = 8
+[node name="BackpackSlot" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/EquipmentSlots/RailLayout/CarryRail" instance=ExtResource("3_slot")]
+custom_minimum_size = Vector2(104, 46)
+layout_mode = 2
+equipment_slot = 6
+
+[node name="BodyProjection" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+[node name="ProjectionTitle" type="Label" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/BodyProjection"]
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.839, 0.604, 0.263, 1)
+theme_override_font_sizes/font_size = 10
+text = "INNAWOODS BODY PROJECTION"
+horizontal_alignment = 1
+[node name="ModelWell" type="Control" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/BodyProjection"]
+custom_minimum_size = Vector2(206, 0)
+layout_mode = 2
+size_flags_vertical = 3
+[node name="ModelBackdrop" type="ColorRect" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/BodyProjection/ModelWell"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.055, 0.07, 0.073, 0.9)
+[node name="PaperDollModel" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/BodyProjection/ModelWell" instance=ExtResource("2_paperdoll")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = -4.0
+offset_bottom = -4.0
+grow_horizontal = 2
+grow_vertical = 2
+[node name="PaperDollSummary" type="Label" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/BodyProjection"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.62, 0.64, 0.58, 1)
+theme_override_font_sizes/font_size = 10
+text = "0 / 15 SLOTS OCCUPIED"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ItemsPanel" type="PanelContainer" parent="InventoryShell/Margin/RootVBox/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(310, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.3
+[node name="Column" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/ItemsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 6
+[node name="InventoryHeader" type="HBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/ItemsPanel/Column"]
+layout_mode = 2
+[node name="Title" type="Label" parent="InventoryShell/Margin/RootVBox/Content/ItemsPanel/Column/InventoryHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "WORN CONTAINERS & CARRIED"
+[node name="BackpackCountLabel" type="Label" parent="InventoryShell/Margin/RootVBox/Content/ItemsPanel/Column/InventoryHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+[node name="CapacitySourcesLabel" type="Label" parent="InventoryShell/Margin/RootVBox/Content/ItemsPanel/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+[node name="CarriedScroll" type="ScrollContainer" parent="InventoryShell/Margin/RootVBox/Content/ItemsPanel/Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 220)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+[node name="DynamicCapacityGrids" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/ItemsPanel/Column/CarriedScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+[node name="GroundPanel" type="PanelContainer" parent="InventoryShell/Margin/RootVBox/Content/ItemsPanel/Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+[node name="GroundColumn" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/ItemsPanel/Column/GroundPanel"]
+layout_mode = 2
+[node name="GroundHeader" type="HBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/ItemsPanel/Column/GroundPanel/GroundColumn"]
+layout_mode = 2
+[node name="Title" type="Label" parent="InventoryShell/Margin/RootVBox/Content/ItemsPanel/Column/GroundPanel/GroundColumn/GroundHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "GROUND"
+[node name="GroundCountLabel" type="Label" parent="InventoryShell/Margin/RootVBox/Content/ItemsPanel/Column/GroundPanel/GroundColumn/GroundHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+[node name="GroundScroll" type="ScrollContainer" parent="InventoryShell/Margin/RootVBox/Content/ItemsPanel/Column/GroundPanel/GroundColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+[node name="GroundList" type="GridContainer" parent="InventoryShell/Margin/RootVBox/Content/ItemsPanel/Column/GroundPanel/GroundColumn/GroundScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+columns = 4
+
+[node name="InspectorPanel" type="PanelContainer" parent="InventoryShell/Margin/RootVBox/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(285, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 0.9
+[node name="Margin" type="MarginContainer" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 9
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 9
+[node name="InspectorColumn" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 5
+[node name="InspectorTitle" type="Label" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn"]
+layout_mode = 2
+text = "ITEM INSPECTOR"
+[node name="HoverIcon" type="TextureRect" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+[node name="HoverName" type="Label" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "SELECT AN ITEM"
+[node name="HoverMeta" type="Label" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+[node name="ConditionBar" type="ProgressBar" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+max_value = 12.0
+value = 12.0
+show_percentage = false
+[node name="InspectorScroll" type="ScrollContainer" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+[node name="InspectorText" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn/InspectorScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+[node name="HoverDescription" type="Label" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn/InspectorScroll/InspectorText"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+[node name="HoverStats" type="Label" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn/InspectorScroll/InspectorText"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+[node name="ComparisonLabel" type="Label" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "COMPARISON: select carried gear"
+autowrap_mode = 2
+[node name="RepairTray" type="HBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+[node name="Label" type="Label" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn/RepairTray"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "REPAIR: TARGET / TOOL / MATERIAL"
+[node name="RepairButton" type="Button" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn/RepairTray"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "REPAIR"
+disabled = true
+
+[node name="ActionBar" type="HBoxContainer" parent="InventoryShell/Margin/RootVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+[node name="Prompt" type="Label" parent="InventoryShell/Margin/RootVBox/ActionBar"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "SELECTED ITEM"
+[node name="PrimaryButton" type="Button" parent="InventoryShell/Margin/RootVBox/ActionBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(125, 0)
+layout_mode = 2
+text = "NO ACTION"
+disabled = true
+[node name="SecondaryButton" type="Button" parent="InventoryShell/Margin/RootVBox/ActionBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(125, 0)
+layout_mode = 2
+text = "NO ACTION"
+disabled = true
+[node name="SpillWarning" type="Label" parent="InventoryShell/Margin/RootVBox/ActionBar"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+text = "CAPACITY BREACH: EXCESS ITEMS WILL SPILL"
+horizontal_alignment = 2
+
+[node name="Footer" type="HBoxContainer" parent="InventoryShell/Margin/RootVBox"]
+layout_mode = 2
+[node name="FeedbackLabel" type="Label" parent="InventoryShell/Margin/RootVBox/Footer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+[node name="Controls" type="Label" parent="InventoryShell/Margin/RootVBox/Footer"]
+layout_mode = 2
+text = "LMB SELECT  |  RMB ACTIONS  |  ENTER SAFE ACTION  |  TAB REGION  |  SHIFT+F10 MENU  |  ESC BACK"
+horizontal_alignment = 2
+
+[node name="ConfirmDialog" type="ConfirmationDialog" parent="."]
+unique_name_in_owner = true
+title = "CONFIRM INVENTORY ACTION"
+dialog_text = "Commit this inventory action?"

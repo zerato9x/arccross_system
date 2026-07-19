@@ -26,11 +26,6 @@ func _run() -> void:
 	macro_map.debug_step_player_to(poi_coords)
 	await process_frame
 	var poi_hex := macro_map.world_generator.get_hex_at(poi_coords)
-	macro_map.debug_begin_poi_interaction(poi_coords, poi_hex)
-	await process_frame
-	if not macro_map.exploration_window.is_open():
-		_fail("Exploration window did not open for inventory actions.")
-		return
 
 	var player_core := macro_map.player_token.get_humanoid_core()
 	var coords := poi_coords
@@ -41,11 +36,16 @@ func _run() -> void:
 		return
 
 	world_state.add_ground_items(coords, [water_state, shirt_state])
-	macro_map.exploration_window.refresh_ground_items([water_state, shirt_state])
 	macro_map.open_inventory()
 	await process_frame
 	if not macro_map.inventory_panel.is_open():
 		_fail("The detached inventory panel did not open for ground loot.")
+		return
+	if not macro_map.inventory_panel.is_fullscreen():
+		_fail("The macro PACK route did not use fullscreen inventory presentation.")
+		return
+	if not (macro_map.inventory_panel.get_node("%PaperDollPanel") as Control).visible:
+		_fail("The live macro inventory route hid its paper doll.")
 		return
 
 	var snapshot := macro_map._build_inventory_snapshot()
@@ -62,6 +62,9 @@ func _run() -> void:
 		GameEnums.EquipmentSlot.NONE
 	)
 	await process_frame
+	if not macro_map.inventory_panel.is_fullscreen():
+		_fail("Inventory refresh downgraded the live panel after an item action.")
+		return
 	if _ground_has(world_state, coords, water_state.get("instance_id", "")):
 		_fail("Taking an item did not remove its ground record.")
 		return

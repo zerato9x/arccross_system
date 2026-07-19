@@ -662,7 +662,7 @@ func debug_sync_player_after_mutation() -> void:
 		player_token.refresh_token_pose()
 	var snapshot := _build_inventory_snapshot()
 	if inventory_panel and inventory_panel.is_open():
-		inventory_panel.open_loadout_panel(snapshot, "")
+		inventory_panel.refresh_snapshot(snapshot, "")
 	_refresh_exploration_ground()
 	_refresh_world_hud()
 
@@ -754,6 +754,7 @@ func _ready() -> void:
 		_inventory_home_layer = inventory_panel.get_parent() as CanvasLayer
 
 	if macro_hud:
+		macro_hud.inventory_requested.connect(_toggle_fullscreen_inventory)
 		macro_hud.hex_preview_expand_requested.connect(_expand_hex_at)
 		macro_hud.hex_preview_travel_requested.connect(_on_hex_preview_travel)
 		macro_hud.viewport_insets_changed.connect(_on_hud_viewport_insets_changed)
@@ -2285,8 +2286,21 @@ func queue_entity_collision(
 	return true
 
 func open_inventory() -> void:
-	if macro_hud:
-		macro_hud.toggle_inventory_panel()
+	_toggle_fullscreen_inventory()
+
+
+func _toggle_fullscreen_inventory() -> void:
+	if inventory_panel == null:
+		return
+	if inventory_panel.is_open():
+		inventory_panel.close_panel()
+		return
+	if (
+		_inventory_home_layer != null
+		and inventory_panel.get_parent() != _inventory_home_layer
+	):
+		inventory_panel.reparent(_inventory_home_layer)
+	inventory_panel.open_inventory(_build_inventory_snapshot())
 
 
 func _on_hud_viewport_insets_changed(insets: Rect2i) -> void:
@@ -2394,7 +2408,8 @@ func _apply_macro_event_effects(effects: Dictionary) -> void:
 func resolve_inventory_action(
 	action_id: String,
 	instance_id: String,
-	equipment_slot: int
+	equipment_slot: int,
+	action_payload: Dictionary = {}
 ) -> void:
 	_last_inventory_error = ""
 	var player_core := player_token.get_humanoid_core()
@@ -2408,7 +2423,8 @@ func resolve_inventory_action(
 		_world_state.take_ground_item,
 		_world_state.add_ground_items,
 		_can_offer_equip,
-		_inventory_error_or
+		_inventory_error_or,
+		action_payload
 	)
 
 	for item_state in result.get("ground_restore", []):
@@ -2418,6 +2434,11 @@ func resolve_inventory_action(
 			coords,
 			result.get("ground_mutations", [])
 		)
+	var elapsed_minutes := int(result.get("elapsed_minutes", 0))
+	if elapsed_minutes > 0:
+		_world_state.advance_world_time(elapsed_minutes)
+		player_core.process_survival_time(elapsed_minutes, 15.0, 0.0)
+		result["player_runtime"] = player_core.capture_runtime_state().to_dict()
 
 	_world_state.update_player_runtime(
 		result.get("player_runtime", {}),
@@ -2426,7 +2447,7 @@ func resolve_inventory_action(
 	_emit_inventory_item_used(result)
 	var snapshot := _build_inventory_snapshot()
 	if inventory_panel and inventory_panel.is_open():
-		inventory_panel.open_loadout_panel(snapshot, "")
+		inventory_panel.refresh_snapshot(snapshot, "")
 	_refresh_exploration_ground()
 	_refresh_world_hud()
 

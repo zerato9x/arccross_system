@@ -14,7 +14,8 @@ signal poi_preview_requested(
 signal inventory_action_requested(
 	action_id: String,
 	instance_id: String,
-	equipment_slot: int
+	equipment_slot: int,
+	action_payload: Dictionary
 )
 signal interaction_closed
 signal node_map_requested
@@ -386,7 +387,8 @@ func _on_slot_context_menu_action(entry: Dictionary) -> void:
 			inventory_action_requested.emit(
 				str(entry.get("action_id", "")),
 				str(_context_slot.item_descriptor.get("instance_id", "")),
-				int(entry.get("equipment_slot", GameEnums.EquipmentSlot.NONE))
+				int(entry.get("equipment_slot", GameEnums.EquipmentSlot.NONE)),
+				{}
 			)
 		_SlotActionBuilder.KIND_EXPLORATION_ASSIGN:
 			_assign_gear_to_target(entry)
@@ -836,7 +838,8 @@ func _on_ground_slot_clicked(slot_node: InventorySlot, event: InputEventMouseBut
 		inventory_action_requested.emit(
 			GameEnums.MACRO_INV_TAKE,
 			str(slot_node.item_descriptor.get("instance_id", "")),
-			GameEnums.EquipmentSlot.NONE
+			GameEnums.EquipmentSlot.NONE,
+			{}
 		)
 
 func _selected_item_ids() -> Array:

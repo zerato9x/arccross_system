@@ -534,9 +534,128 @@ func get_protection_for(damage_type: GameEnums.DamageType, limb_region: int = -1
 	var total := 0.0
 	for slot in paper_doll.keys():
 		var item: ItemData = paper_doll.get(slot)
-		if item != null and (limb_region < 0 or _slot_covers_limb(int(slot), limb_region)):
+		if (
+			item != null
+			and item.has_active_function()
+			and (limb_region < 0 or _slot_covers_limb(int(slot), limb_region))
+		):
 			total += float(item.get(stat_name))
 	return total
+
+## Mutating combat query. Equipment is always evaluated in stable numeric slot
+## order so identical rolls yield identical records in either combat scheduler.
+func resolve_protection_event(
+	damage_type: GameEnums.DamageType,
+	limb_region: int = -1,
+	rolls: Array[float] = []
+) -> Dictionary:
+	var stat_name := ""
+	match damage_type:
+		GameEnums.DamageType.BLUNT:
+			stat_name = "protection_blunt"
+		GameEnums.DamageType.SHARP:
+			stat_name = "protection_sharp"
+		GameEnums.DamageType.BALLISTIC:
+			stat_name = "protection_ballistic"
+	var result := {"total_protection": 0.0, "item_outcomes": []}
+	if stat_name.is_empty():
+		return result
+
+	var slots: Array = paper_doll.keys()
+	slots.sort()
+	var roll_index := 0
+	for slot_value in slots:
+		var slot := int(slot_value)
+		var item: ItemData = paper_doll.get(slot)
+		if item == null or (limb_region >= 0 and not _slot_covers_limb(slot, limb_region)):
+			continue
+		var authored := float(item.get(stat_name))
+		if authored <= 0.0:
+			continue
+		var roll := -1.0
+		if roll_index < rolls.size():
+			roll = rolls[roll_index]
+		roll_index += 1
+		var outcome := ItemConditionRules.resolve_use(
+			item,
+			ItemConditionRules.EVENT_ARMOR,
+			roll
+		)
+		var contribution := authored * float(outcome.performance_multiplier)
+		outcome["equipment_slot"] = slot
+		outcome["authored_protection"] = authored
+		outcome["protection_contribution"] = contribution
+		result.item_outcomes.append(outcome)
+		result.total_protection += contribution
+	return result
+
+## Shared repair transaction. WorldCore owns combat gating and time passage;
+## ItemCore owns recipes, material consumption, tool wear, and condition caps.
+func repair_item(
+	target: ItemData,
+	tool: ItemData,
+	material: ItemData,
+	context: String,
+	roll_override: float = -1.0
+) -> Dictionary:
+	var result := {
+		"success": false,
+		"attempted": false,
+		"message": "The repair could not be completed.",
+		"condition_before": 0.0 if target == null else target.current_condition,
+		"condition_after": 0.0 if target == null else target.current_condition,
+		"tool_outcome": {},
+	}
+	if target == null or tool == null or material == null:
+		result.message = "The target, tool, and material are all required."
+		return result
+	if not get_all_items().has(target) or not get_all_items().has(tool) or not get_all_items().has(material):
+		result.message = "Every repair component must be in your inventory."
+		return result
+	if target == tool or target == material or tool == material:
+		result.message = "A repair needs three distinct item instances."
+		return result
+
+	var universal := tool.id == "pliers" and material.id == "ducttape"
+	var recipe_matches := false
+	match target.repair_domain:
+		GameEnums.RepairDomain.FIREARM:
+			recipe_matches = tool.id == "gun_cleaner" and material.id == "rag"
+		GameEnums.RepairDomain.TEXTILE:
+			recipe_matches = tool.id == "sewing_kit" and material.id == "rag"
+		GameEnums.RepairDomain.RIGID_MECHANICAL:
+			recipe_matches = tool.id == "multitool" and material.id == "bolts"
+	if not recipe_matches and not universal:
+		result.message = "Those components do not match this item's repair domain."
+		return result
+
+	var is_camp := context.to_lower() == "camp"
+	var cap := 6.0 if universal else (12.0 if is_camp else 8.0)
+	if target.item_grade == GameEnums.ItemGrade.UNIQUE and not is_camp:
+		cap = minf(cap, 6.0)
+	var amount := 4.0 if is_camp else 2.0
+	if target.current_condition >= cap:
+		result.message = "This repair cannot improve the item beyond its current condition."
+		return result
+
+	var tool_outcome := ItemConditionRules.resolve_use(
+		tool,
+		ItemConditionRules.EVENT_TOOL,
+		roll_override
+	)
+	result.attempted = true
+	result.tool_outcome = tool_outcome
+	# Materials and time are committed with the attempt, even when the worn tool
+	# fails. Otherwise repairs become a free reroll machine wearing a trench coat.
+	consume_item_units(material)
+	if bool(tool_outcome.faulted) or bool(tool_outcome.broke):
+		result.message = "%s failed during the repair attempt." % tool.display_name
+		return result
+	target.current_condition = minf(cap, target.current_condition + amount)
+	result.success = true
+	result.condition_after = target.current_condition
+	result.message = "Repaired %s to %.2f/12." % [target.display_name, target.current_condition]
+	return result
 
 
 func _slot_covers_limb(slot: int, limb: int) -> bool:
@@ -562,6 +681,8 @@ func get_active_weapon(requires_melee: bool) -> ItemData:
 	]:
 		var item: ItemData = paper_doll.get(slot)
 		if item == null or item.item_type != GameEnums.ItemType.WEAPON:
+			continue
+		if not item.has_active_function():
 			continue
 		if requires_melee and item.is_melee():
 			return item

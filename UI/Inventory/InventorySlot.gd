@@ -27,6 +27,8 @@ var _text_only_mode: bool = false
 @onready var slot_label: Label = %SlotLabel
 @onready var size_badge: Label = %SizeBadge
 @onready var reservation_label: Label = %ReservationLabel
+@onready var condition_rail: ProgressBar = %ConditionRail
+@onready var state_badge: Label = %StateBadge
 
 var _default_style: StyleBox
 var _hover_style: StyleBox
@@ -37,6 +39,7 @@ func _ready() -> void:
 	mouse_entered.connect(_on_mouse_entered)
 	mouse_exited.connect(_on_mouse_exited)
 	_build_styles()
+	HUDAssetLibrary.apply_progress_bar(condition_rail, "stance")
 	if empty_texture:
 		empty_background.texture = empty_texture
 	slot_label.text = _configured_label
@@ -151,6 +154,8 @@ func _update_visuals() -> void:
 	icon_rect.visible = false
 	size_badge.visible = false
 	reservation_label.visible = false
+	condition_rail.visible = false
+	state_badge.visible = false
 
 	if is_reservation:
 		empty_background.visible = not _text_only_mode
@@ -171,6 +176,28 @@ func _update_visuals() -> void:
 		elif item_size > 1:
 			size_badge.text = "%du" % item_size
 			size_badge.visible = true
+
+		if bool(item_descriptor.get("condition_enabled", false)):
+			var condition := clampf(
+				float(item_descriptor.get("current_condition", 12.0)),
+				0.0,
+				12.0
+			)
+			condition_rail.value = condition
+			condition_rail.visible = true
+			var band := str(item_descriptor.get(
+				"condition_band",
+				ItemConditionRules.condition_band(condition)
+			))
+			if bool(item_descriptor.get("is_jammed", false)):
+				state_badge.text = "JAM"
+				state_badge.visible = true
+			elif condition <= 0.0:
+				state_badge.text = "BROKEN"
+				state_badge.visible = true
+			elif band in [ItemConditionRules.CONDITION_DAMAGED, ItemConditionRules.CONDITION_CRITICAL]:
+				state_badge.text = band.to_upper()
+				state_badge.visible = true
 
 	slot_label.visible = (
 		not slot_label.text.is_empty()

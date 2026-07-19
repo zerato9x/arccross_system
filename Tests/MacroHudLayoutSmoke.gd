@@ -71,18 +71,61 @@ func _run() -> void:
 
 	hud.toggle_inventory_panel()
 	await process_frame
-	if not health.is_expanded() or not inventory.is_expanded():
-		_fail("Opening inventory should keep health open and expand inventory too.")
+	if not health.is_expanded() or inventory.is_expanded():
+		_fail("Inventory should open as a modal without expanding its corner preview.")
 		return
-	if hud.get_layout_manager().get_expanded_count() != 2:
-		_fail("Layout manager should allow health and inventory to coexist.")
+	if hud.get_layout_manager().get_expanded_count() != 1:
+		_fail("Fullscreen inventory must not reserve a second corner inset.")
 		return
-	if not _assert_panel_size(vp, inventory, "inventory"):
+	if not macro_map.inventory_panel.is_fullscreen():
+		_fail("PACK did not open the authored fullscreen inventory route.")
 		return
-	if not _assert_rect_inside_viewport(inventory.get_global_rect(), vp, "inventory"):
+	if not (macro_map.inventory_panel.get_node("%PaperDollPanel") as Control).visible:
+		_fail("Fullscreen PACK route hid the Innawoods paper-doll region.")
 		return
-	if not _assert_rects_do_not_overlap(health.get_global_rect(), inventory.get_global_rect(), "health/inventory"):
+	if not (macro_map.inventory_panel.get_node("%InspectorPanel") as Control).visible:
+		_fail("Fullscreen PACK route hid the persistent item inspector.")
 		return
+	var authored_slots := macro_map.inventory_panel.get_node("%EquipmentSlots").find_children(
+		"*", "InventorySlot", true, false
+	)
+	if authored_slots.size() != 15:
+		_fail("Fullscreen PACK route did not expose all 15 equipment slots.")
+		return
+	var inventory_layer := macro_map.inventory_panel.get_parent() as CanvasLayer
+	if inventory_layer == null or inventory_layer.layer <= hud.layer:
+		_fail(
+			"Fullscreen inventory did not render above the macro HUD "
+			+ "(inventory layer %s, HUD layer %s, parent %s)."
+			% [
+				str(inventory_layer.layer if inventory_layer else -1),
+				str(hud.layer),
+				str(macro_map.inventory_panel.get_parent()),
+			]
+		)
+		return
+	root.size = Vector2i(2860, 1734)
+	await process_frame
+	await process_frame
+	var ultrawide_vp := Vector2(2860, 1734)
+	var inventory_shell := macro_map.inventory_panel.get_node("%InventoryShell") as Control
+	if not _assert_rect_inside_viewport(
+		inventory_shell.get_global_rect(), ultrawide_vp, "ultrawide inventory shell"
+	):
+		return
+	var paper_width := (macro_map.inventory_panel.get_node("%PaperDollPanel") as Control).size.x
+	var items_width := (macro_map.inventory_panel.get_node("%ItemsPanel") as Control).size.x
+	var inspector_width := (macro_map.inventory_panel.get_node("%InspectorPanel") as Control).size.x
+	if paper_width < 700.0 or items_width < 760.0 or inspector_width < 520.0:
+		_fail(
+			"2860px inventory did not distribute space across all three regions "
+			+ "(paper %.1f, items %.1f, inspector %.1f)."
+			% [paper_width, items_width, inspector_width]
+		)
+		return
+	root.size = Vector2i(1280, 720)
+	await process_frame
+	await process_frame
 	if inventory.get_node("%PreviewRoot").get_node_or_null("MacroInventoryPreview") == null:
 		_fail("Inventory corner is not using MacroInventoryPreview.")
 		return
@@ -95,6 +138,11 @@ func _run() -> void:
 		return
 	if not _rects_close(world_status_rect, world_status.get_global_rect(), 2.0):
 		_fail("World status panel shifted while a work surface expanded.")
+		return
+	macro_map.open_inventory()
+	await process_frame
+	if macro_map.inventory_panel.is_open():
+		_fail("Fullscreen inventory did not close through the shared toggle route.")
 		return
 
 	var camera := macro_map.get_node_or_null("Camera2D") as MacroCamera
@@ -116,12 +164,10 @@ func _run() -> void:
 	macro_map.debug_begin_poi_interaction(poi_coords, poi_hex)
 	await process_frame
 	await process_frame
-	if not health.is_expanded() or not inventory.is_expanded():
-		_fail("Opening hex exploration should leave health and inventory open too.")
+	if not health.is_expanded() or inventory.is_expanded():
+		_fail("Opening exploration disturbed the corner-preview/modal separation.")
 		return
 	if not _assert_panel_size(vp, health, "health"):
-		return
-	if not _assert_panel_size(vp, inventory, "inventory"):
 		return
 	if not macro_map.exploration_window.is_open():
 		_fail("Exploration window did not open on the exploration stage.")
@@ -159,8 +205,8 @@ func _run() -> void:
 
 	health.collapse()
 	await process_frame
-	if health.is_expanded() or not inventory.is_expanded():
-		_fail("Collapsing health should leave inventory open during exploration.")
+	if health.is_expanded() or inventory.is_expanded():
+		_fail("Corner panels did not return to preview state during exploration.")
 		return
 	if not world_status.visible:
 		_fail("World status panel disappeared during work-surface switching.")

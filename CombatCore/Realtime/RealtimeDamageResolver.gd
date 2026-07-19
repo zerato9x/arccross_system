@@ -38,7 +38,8 @@ func resolve_block(
 	attacker: HumanoidCore,
 	defender: HumanoidCore,
 	weapon: ItemData,
-	target_limb: int = -1
+	target_limb: int = -1,
+	weapon_condition_multiplier: float = 1.0
 ) -> Dictionary:
 	if defender == null or not defender.body.has_functional_arms():
 		return {"result": "guard_failed", "blocked": false}
@@ -64,14 +65,26 @@ func resolve_block(
 	)
 	var flesh := 0.5
 	var stance := 1.0
+	var shield_outcome := {}
 	if weapon != null and shield != null:
-		flesh = weapon.flesh_damage * shield.block_flesh_multiplier
-		stance = weapon.stance_damage * shield.block_stance_multiplier
+		shield_outcome = ItemConditionRules.resolve_use(
+			shield,
+			ItemConditionRules.EVENT_SHIELD
+		)
+		var shield_performance := float(shield_outcome.performance_multiplier)
+		var flesh_multiplier := 1.0 - (
+			(1.0 - shield.block_flesh_multiplier) * shield_performance
+		)
+		var stance_multiplier := 1.0 - (
+			(1.0 - shield.block_stance_multiplier) * shield_performance
+		)
+		flesh = weapon.flesh_damage * weapon_condition_multiplier * flesh_multiplier
+		stance = weapon.stance_damage * weapon_condition_multiplier * stance_multiplier
 	elif weapon != null and weapon.damage_type == GameEnums.DamageType.BLUNT:
-		flesh = weapon.flesh_damage * 0.25
-		stance = weapon.stance_damage * 0.5
+		flesh = weapon.flesh_damage * weapon_condition_multiplier * 0.25
+		stance = weapon.stance_damage * weapon_condition_multiplier * 0.5
 	elif weapon != null:
-		flesh = weapon.flesh_damage * 0.1
+		flesh = weapon.flesh_damage * weapon_condition_multiplier * 0.1
 		stance = 0.0
 	if incoming_type == GameEnums.DamageType.BALLISTIC:
 		stance = 0.0
@@ -95,6 +108,7 @@ func resolve_block(
 	)
 	event["blocked"] = true
 	event["result"] = "blocked"
+	event["shield_condition_outcome"] = shield_outcome
 	damage_resolved.emit(event)
 	return event
 
@@ -180,7 +194,11 @@ func _resolve_weapon_damage(
 ) -> Dictionary:
 	var raw_flesh := weapon.flesh_damage * flesh_multiplier
 	var raw_stance := weapon.stance_damage * stance_multiplier
-	var armor := defender.inventory.get_protection_for(weapon.damage_type, limb)
+	var armor_result := defender.inventory.resolve_protection_event(
+		weapon.damage_type,
+		limb
+	)
+	var armor := float(armor_result.total_protection)
 	var penetration_ratio := clampf(
 		weapon.armor_penetration / GameEnums.SCALE_MAX,
 		0.0,
@@ -215,6 +233,7 @@ func _resolve_weapon_damage(
 		source,
 		weapon.damage_type
 	)
+	event["armor_condition_outcomes"] = armor_result.item_outcomes
 	damage_resolved.emit(event)
 	return event
 
@@ -226,9 +245,13 @@ func _resolve_unarmed(
 	stance_multiplier: float,
 	source: String
 ) -> Dictionary:
+	var armor_result := defender.inventory.resolve_protection_event(
+		GameEnums.DamageType.BLUNT,
+		limb
+	)
 	var values := CombatRules.get_unarmed_damage(
 		attacker.definition.brawn,
-		defender.inventory.get_protection_for(GameEnums.DamageType.BLUNT, limb),
+		float(armor_result.total_protection),
 		0.0
 	)
 	var flesh := float(values.get("flesh", 0.25)) * flesh_multiplier
@@ -248,6 +271,7 @@ func _resolve_unarmed(
 		source,
 		GameEnums.DamageType.BLUNT
 	)
+	event["armor_condition_outcomes"] = armor_result.item_outcomes
 	damage_resolved.emit(event)
 	return event
 
@@ -273,7 +297,7 @@ func _event(
 func _blocking_shield(defender: HumanoidCore) -> ItemData:
 	for slot in [GameEnums.EquipmentSlot.HAND, GameEnums.EquipmentSlot.OFFHAND]:
 		var item: ItemData = defender.inventory.paper_doll.get(slot)
-		if item != null and item.is_blocking_shield():
+		if item != null and item.has_active_function() and item.is_blocking_shield():
 			return item
 	return null
 

@@ -2,6 +2,37 @@
 
 ## July 19, 2026
 
+### Inventory Overhaul And Identical Cross-Mode Item Mechanics
+
+- Added one ItemCore condition resolver used by both production real-time combat
+  and the supported future turn-based route. Identical starting records and
+  rolls now yield identical wear, fault, breakage, ammunition, malfunction,
+  armor, and shield outcomes; only scheduling remains mode-specific.
+- Added Base-12 condition bands, grade-scaled wear, firearm jams and contextual
+  clearing (`2.2s` real-time, Quick `1/2/3 AP` turn-based), mutating stable-slot
+  armor resolution, broken-item legality, and legacy save migration.
+- Rebalanced all **168** item Resources with grades, repair domains, concise
+  grounded field notes, differentiated authoring values, and stricter
+  Service/Carbon/Unique distribution through loadouts and Loot Profiles.
+- Added field and CAMP tool-plus-material repair through `MACRO_INV_REPAIR`.
+  Repairs consume one material, advance 30 minutes, wear the tool, and are not
+  exposed during combat.
+- Replaced the runtime-assembled inventory shell with an editor-authored,
+  responsive paper-doll/items/inspector layout. Added persistent comparison,
+  seven filters, hovered-pane scrolling, keyboard region navigation, preserved
+  focus/scroll/selection, context actions, and confirmation for destructive use.
+- Rebuilt the equipment region around a readable Innawoods body projection and
+  two authored anatomy/carry slot rails. All 15 equipment slots now remain
+  visible, expose per-item condition and malfunction state, and drive the same
+  layered clothing, armor, weapon, and wound projection used by the inspector.
+- Removed the obsolete macro corner-expansion route that embedded InventoryUI
+  into an 880x620 host and deliberately hid its paper doll and inspector. PACK,
+  the health-HUD shortcut, and keyboard inventory controls now open the same
+  high-layer fullscreen surface; live snapshot refreshes preserve that mode,
+  and the three regions scale proportionally through ultrawide resolutions.
+- Added one shared `CombatItemCard.tscn` to both combat HUDs plus focused catalog,
+  parity, persistence, repair, real-time, and turn-mode smoke coverage.
+
 ### Documentation Hygiene And Working Agreement
 
 - Synced root and `READMEs/` status to July 19: Field Health HUD, wound

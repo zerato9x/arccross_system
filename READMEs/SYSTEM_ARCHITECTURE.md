@@ -75,6 +75,12 @@ database, stat registry, or rule table.
   `CombatCore/TurnBased/TurnBasedDuelScene.tscn`, with its own
   `CombatTurnManager`, `CombatResolutionEngine`, `CombatCommandAdapter`, AI,
   and `CombatLaneHUD`. Production `MainDuelScene` does not run both authorities.
+- Both combat authorities consume the same ItemCore resolver at firearm attempt,
+  melee impact, armor contribution, and shield block. A shared neutral outcome
+  controls wear, typed faults, contribution, breakage, and firearm malfunction;
+  mode-specific attack modifiers may be applied only afterward.
+- Both HUDs host `UI/Inventory/CombatItemCard.tscn` without independently
+  reinterpreting condition, fault chance, ammunition, readiness, or malfunction.
 - `CombatModeComparison.tscn` is a non-persistent laboratory launcher that feeds
   identical records into either scene for direct comparison.
 - Returns only `GameEnums.CombatOutcome` and neutral runtime snapshots across
@@ -101,6 +107,9 @@ database, stat registry, or rule table.
   region; Bulk contributes to encumbrance rather than damage resistance.
 - Keeps authored `.tres` resources immutable.
 - Stores mutable firearm and consumable state on unique runtime instances.
+- Owns grade-scaled condition wear, malfunction state, stable per-item protection
+  resolution, active-function disabling at condition zero, and tool/material
+  repair recipes. These rules do not import either combat scheduler.
 - Authors weapon handling, damage, accuracy, range and falloff, exact
   ammunition feeds, loading aids, cycling, inventory/unloaded/equipped sprite
   paths, and attachment compatibility.
@@ -131,6 +140,8 @@ instance_id: String
 template_path: String
 current_magazine: int
 needs_cycling: bool
+current_condition: float
+is_jammed: bool
 definition: Dictionary
 ```
 
@@ -313,7 +324,8 @@ Stable surfaces for content mods (no orchestration code changes required):
   `needs_cycling`, `definition` (neutral descriptor subset).
 - **`GameEnums` macro inventory command IDs** — `MACRO_INV_TAKE`, `MACRO_INV_DROP`,
   `MACRO_INV_EQUIP`, `MACRO_INV_UNEQUIP`, `MACRO_INV_CONSUME`, `MACRO_INV_MOVE`,
-  `MACRO_INV_LOAD_MAGAZINE`, `MACRO_INV_INTERACT`.
+  `MACRO_INV_LOAD_MAGAZINE`, `MACRO_INV_INTERACT`, `MACRO_INV_REPAIR`. Repair
+  intent uses a neutral payload containing target, tool, material, and context.
 - **`GameEnums` macro hex command IDs** — `MACRO_HEX_SCAN`, `MACRO_HEX_TRAVEL`,
   `MACRO_HEX_ACT`.
 - **`GameEnums` NPC macro purpose strings** — `NPC_PURPOSE_SCAVENGE`, `PATROL`,

@@ -20,7 +20,8 @@ signal poi_preview_requested(
 signal inventory_action_requested(
 	action_id: String,
 	instance_id: String,
-	equipment_slot: int
+	equipment_slot: int,
+	action_payload: Dictionary
 )
 signal interaction_closed
 signal node_map_requested
@@ -101,7 +102,7 @@ func bind_exploration_window(window: MacroExplorationWindow) -> void:
 		func(a, ids, opt): poi_preview_requested.emit(a, ids, opt)
 	)
 	_exploration_window.inventory_action_requested.connect(
-		func(aid, iid, slot): inventory_action_requested.emit(aid, iid, slot)
+		func(aid, iid, slot, payload): inventory_action_requested.emit(aid, iid, slot, payload)
 	)
 	_exploration_window.interaction_closed.connect(_on_poi_closed)
 	_exploration_window.node_map_requested.connect(node_map_requested.emit)

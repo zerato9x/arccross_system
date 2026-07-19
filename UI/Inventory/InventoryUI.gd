@@ -4,7 +4,8 @@ class_name InventoryUI
 signal inventory_action_requested(
 	action_id: String,
 	instance_id: String,
-	equipment_slot: int
+	equipment_slot: int,
+	action_payload: Dictionary
 )
 signal inventory_closed
 
@@ -16,6 +17,7 @@ const ACTION_CONSUME := GameEnums.MACRO_INV_CONSUME
 const ACTION_MOVE := GameEnums.MACRO_INV_MOVE
 const ACTION_LOAD_MAGAZINE := GameEnums.MACRO_INV_LOAD_MAGAZINE
 const ACTION_INTERACT := GameEnums.MACRO_INV_INTERACT
+const ACTION_REPAIR := GameEnums.MACRO_INV_REPAIR
 
 enum PresentationMode {
 	FULLSCREEN,
@@ -152,28 +154,97 @@ var _hover_name: Label
 var _hover_meta: Label
 var _hover_description: Label
 var _hover_stats: Label
+var _condition_bar: ProgressBar
+var _comparison_label: Label
+var _filter_row: HFlowContainer
+var _carried_scroll: ScrollContainer
+var _ground_scroll: ScrollContainer
+var _confirm_dialog: ConfirmationDialog
+var _repair_button: Button
+var _pending_confirm: Callable
+var _active_filter := "all"
 var _header_close_button: Button
 var _context_menu_slot: InventorySlot
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_build_interface()
+	_bind_authored_interface()
 	close_panel(false)
 
 func _process(_delta: float) -> void:
-	if not visible or not _hover_card.visible:
-		return
-	var viewport_size := get_viewport_rect().size
-	var card_size := _hover_card.size
-	var target := get_viewport().get_mouse_position() + Vector2(18, 18)
-	if target.x + card_size.x > viewport_size.x - 8.0:
-		target.x -= card_size.x + 36.0
-	if target.y + card_size.y > viewport_size.y - 8.0:
-		target.y = viewport_size.y - card_size.y - 8.0
-	_hover_card.position = Vector2(
-		clampf(target.x, 8.0, maxf(8.0, viewport_size.x - card_size.x - 8.0)),
-		clampf(target.y, 8.0, maxf(8.0, viewport_size.y - card_size.y - 8.0))
-	)
+	pass
+
+func _bind_authored_interface() -> void:
+	_backdrop = %Backdrop
+	_shell = %InventoryShell
+	_ground_panel = %GroundPanel
+	_location_label = %LocationLabel
+	_capacity_label = %CapacityLabel
+	_capacity_bar = %CapacityBar
+	_capacity_sources_label = %CapacitySourcesLabel
+	_loadout_stats_label = %LoadoutStatsLabel
+	_backpack_count_label = %BackpackCountLabel
+	_ground_count_label = %GroundCountLabel
+	_feedback_label = %FeedbackLabel
+	_spill_warning = %SpillWarning
+	_primary_button = %PrimaryButton
+	_secondary_button = %SecondaryButton
+	_hover_card = %InspectorPanel
+	_hover_icon = %HoverIcon
+	_hover_name = %HoverName
+	_hover_meta = %HoverMeta
+	_hover_description = %HoverDescription
+	_hover_stats = %HoverStats
+	_condition_bar = %ConditionBar
+	_comparison_label = %ComparisonLabel
+	_filter_row = %FilterRow
+	_carried_scroll = %CarriedScroll
+	_ground_scroll = %GroundScroll
+	_confirm_dialog = %ConfirmDialog
+	_repair_button = %RepairButton
+	_header_close_button = %CloseButton
+	dynamic_capacity_grids = %DynamicCapacityGrids
+	ground_list = %GroundList
+	paperdoll_model = %PaperDollModel
+
+	HUDAssetLibrary.apply_panel(_shell, "neutral")
+	HUDAssetLibrary.apply_panel(%PaperDollPanel, "neutral")
+	HUDAssetLibrary.apply_panel(%ItemsPanel, "neutral")
+	HUDAssetLibrary.apply_panel(_ground_panel, "neutral")
+	HUDAssetLibrary.apply_panel(_hover_card, "warning")
+	HUDAssetLibrary.apply_progress_bar(_capacity_bar, "health")
+	HUDAssetLibrary.apply_progress_bar(_condition_bar, "stance")
+	for button in [_primary_button, _secondary_button, _header_close_button, %RepairButton]:
+		HUDAssetLibrary.apply_button(button)
+	_primary_button.pressed.connect(_activate_selected_primary)
+	_secondary_button.pressed.connect(_activate_selected_secondary)
+	_header_close_button.pressed.connect(close_panel)
+	_confirm_dialog.confirmed.connect(_commit_pending_confirmation)
+	_repair_button.pressed.connect(_activate_repair_tray)
+	for child in _filter_row.get_children():
+		if child is Button:
+			var button := child as Button
+			button.toggle_mode = true
+			HUDAssetLibrary.apply_button(button)
+			button.pressed.connect(_set_filter.bind(str(button.get_meta("filter_id", "all"))))
+	_active_filter = "all"
+	if _filter_row.get_child_count() > 0:
+		(_filter_row.get_child(0) as Button).button_pressed = true
+
+	equipment_slots_ui.clear()
+	for node in %EquipmentSlots.find_children("*", "InventorySlot", true, false):
+		var slot_ui := node as InventorySlot
+		var slot := int(slot_ui.equipment_slot)
+		if slot == GameEnums.EquipmentSlot.NONE or not EQUIPMENT_LAYOUT.has(slot):
+			continue
+		slot_ui.configure(
+			InventorySlot.SOURCE_EQUIPMENT,
+			slot,
+			str(EQUIPMENT_LAYOUT[slot]["label"])
+		)
+		_bind_slot_signals(slot_ui)
+		equipment_slots_ui[slot] = slot_ui
+	_reset_inspector()
 
 func open_inventory(snapshot: Dictionary, feedback: String = "", show_ground: bool = true) -> void:
 	_presentation_mode = PresentationMode.FULLSCREEN
@@ -216,14 +287,25 @@ func is_embedded() -> bool:
 func is_side_panel() -> bool:
 	return visible and _presentation_mode == PresentationMode.SIDE_PANEL
 
+func is_fullscreen() -> bool:
+	return visible and _presentation_mode == PresentationMode.FULLSCREEN
+
+func refresh_snapshot(snapshot: Dictionary, feedback: String = "") -> void:
+	_snapshot = snapshot.duplicate(true)
+	_feedback = feedback
+	if visible:
+		_apply_presentation_layout()
+		_render()
+
 func close_panel(notify: bool = true) -> void:
 	visible = false
 	_presentation_mode = PresentationMode.FULLSCREEN
 	_show_ground_in_side_panel = true
-	_hover_card.visible = false
+	_hover_card.visible = true
 	_snapshot.clear()
 	_feedback = ""
 	_selected_slot = null
+	_reset_inspector()
 	_apply_presentation_layout()
 	if notify:
 		inventory_closed.emit()
@@ -243,7 +325,11 @@ func show_item_details(descriptor: Dictionary) -> void:
 		else null
 	)
 	_hover_name.text = str(descriptor.get("name", "Unknown Item")).to_upper()
-	_hover_meta.text = "%s  |  %s" % [
+	_hover_meta.text = "%s  |  %s  |  %s" % [
+		_enum_name(GameEnums.ItemGrade, int(descriptor.get(
+			"item_grade",
+			GameEnums.ItemGrade.CIVILIAN
+		))),
 		_enum_name(GameEnums.ItemCategory, int(descriptor.get(
 			"catalog_category",
 			GameEnums.ItemCategory.MISC
@@ -258,12 +344,49 @@ func show_item_details(descriptor: Dictionary) -> void:
 		"No field notes available."
 	))
 	_hover_stats.text = _format_item_stats(descriptor)
+	_condition_bar.visible = bool(descriptor.get("condition_enabled", true))
+	_condition_bar.value = float(descriptor.get("current_condition", 12.0))
+	_comparison_label.text = _comparison_text(descriptor)
 	_hover_card.visible = true
-	_hover_card.reset_size()
-	_hover_card.size = _hover_card.get_combined_minimum_size()
 
 func hide_item_details() -> void:
-	_hover_card.visible = false
+	pass
+
+func _reset_inspector() -> void:
+	_hover_icon.texture = null
+	_hover_name.text = "SELECT AN ITEM"
+	_hover_meta.text = "GRADE  |  CATEGORY  |  LOCATION"
+	_hover_description.text = "Field notes, exact mechanics, comparison deltas, and repair options remain here."
+	_hover_stats.text = "Condition and contribution details appear after selection."
+	_condition_bar.value = 0.0
+	_condition_bar.visible = false
+	_comparison_label.text = "COMPARISON: select carried gear"
+
+func _comparison_text(descriptor: Dictionary) -> String:
+	var equipped: Dictionary = {}
+	var preferred := int(descriptor.get("preferred_equipment_slot", GameEnums.EquipmentSlot.NONE))
+	for candidate: Dictionary in _snapshot.get("equipment", []):
+		if int(candidate.get("equipment_slot", GameEnums.EquipmentSlot.NONE)) == preferred:
+			equipped = candidate
+			break
+	if equipped.is_empty() or equipped.get("instance_id", "") == descriptor.get("instance_id", ""):
+		return "COMPARISON: no different equipped item in the relevant slot"
+	return "VS %s  |  Flesh %+.1f  Stance %+.1f  Pen %+.1f  Prot %+.1f  Weight %+.1f  Bulk %+.1f" % [
+		str(equipped.get("name", "EQUIPPED")).to_upper(),
+		float(descriptor.get("flesh_damage", 0.0)) - float(equipped.get("flesh_damage", 0.0)),
+		float(descriptor.get("stance_damage", 0.0)) - float(equipped.get("stance_damage", 0.0)),
+		float(descriptor.get("armor_penetration", 0.0)) - float(equipped.get("armor_penetration", 0.0)),
+		_total_protection(descriptor) - _total_protection(equipped),
+		float(descriptor.get("weight", 0.0)) - float(equipped.get("weight", 0.0)),
+		float(descriptor.get("bulk", 0.0)) - float(equipped.get("bulk", 0.0)),
+	]
+
+func _total_protection(descriptor: Dictionary) -> float:
+	return (
+		float(descriptor.get("protection_blunt", 0.0))
+		+ float(descriptor.get("protection_sharp", 0.0))
+		+ float(descriptor.get("protection_ballistic", 0.0))
+	)
 
 func _build_interface() -> void:
 	_backdrop = ColorRect.new()
@@ -328,6 +451,8 @@ func _apply_presentation_layout() -> void:
 			_ground_panel.visible = _show_ground_in_side_panel
 		if _header_close_button:
 			_header_close_button.visible = true
+		%PaperDollPanel.visible = false
+		%InspectorPanel.visible = true
 		if canvas_layer:
 			canvas_layer.layer = 21
 	elif _presentation_mode == PresentationMode.EMBEDDED:
@@ -337,6 +462,8 @@ func _apply_presentation_layout() -> void:
 			_ground_panel.visible = false
 		if _header_close_button:
 			_header_close_button.visible = false
+		%PaperDollPanel.visible = false
+		%InspectorPanel.visible = false
 		if canvas_layer:
 			canvas_layer.layer = 8
 	else:
@@ -351,8 +478,10 @@ func _apply_presentation_layout() -> void:
 			_ground_panel.visible = true
 		if _header_close_button:
 			_header_close_button.visible = true
+		%PaperDollPanel.visible = true
+		%InspectorPanel.visible = true
 		if canvas_layer:
-			canvas_layer.layer = 1
+			canvas_layer.layer = 20
 
 func _fit_shell_to_embedded_host() -> void:
 	_shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -654,6 +783,12 @@ func _build_hover_card() -> void:
 	text_column.add_child(_hover_stats)
 
 func _render() -> void:
+	var selected_id := ""
+	if is_instance_valid(_selected_slot) and _selected_slot.has_item():
+		selected_id = str(_selected_slot.item_descriptor.get("instance_id", ""))
+	var carried_scroll := _carried_scroll.scroll_vertical
+	var ground_scroll := _ground_scroll.scroll_vertical
+	_selected_slot = null
 	var current := int(_snapshot.get("current_capacity", 0))
 	var maximum := int(_snapshot.get("maximum_capacity", 0))
 	var coords: Vector2i = _snapshot.get("coords", Vector2i.ZERO)
@@ -711,6 +846,11 @@ func _render() -> void:
 		))
 		if equipment_slots_ui.has(slot):
 			equipment_slots_ui[slot].set_item(descriptor)
+	%PaperDollSummary.text = "%d / %d SLOTS OCCUPIED  //  %s" % [
+		equipment.size(),
+		equipment_slots_ui.size(),
+		str(loadout.get("kinetic_tier", "FLUID")),
+	]
 
 	_render_backpack(
 		_snapshot.get("containers", []),
@@ -721,7 +861,50 @@ func _render() -> void:
 		_render_ground(_snapshot.get("ground", []))
 	else:
 		_render_ground(_snapshot.get("ground", []) if _show_ground_in_side_panel else [])
-	_clear_selection()
+	_restore_selection_and_scroll(selected_id, carried_scroll, ground_scroll)
+
+func _restore_selection_and_scroll(
+	selected_id: String,
+	carried_scroll: int,
+	ground_scroll: int
+) -> void:
+	for slot: InventorySlot in _all_navigable_slots():
+		if str(slot.item_descriptor.get("instance_id", "")) == selected_id:
+			_select_slot(slot)
+			break
+	_carried_scroll.set_deferred("scroll_vertical", carried_scroll)
+	_ground_scroll.set_deferred("scroll_vertical", ground_scroll)
+
+func _set_filter(filter_id: String) -> void:
+	_active_filter = filter_id
+	for child in _filter_row.get_children():
+		if child is Button:
+			(child as Button).button_pressed = str(child.get_meta("filter_id", "all")) == filter_id
+	_render()
+
+func _matches_filter(descriptor: Dictionary) -> bool:
+	if _active_filter == "all":
+		return true
+	var item_type := int(descriptor.get("item_type", GameEnums.ItemType.JUNK))
+	var category := int(descriptor.get("catalog_category", GameEnums.ItemCategory.MISC))
+	match _active_filter:
+		"weapons":
+			return item_type == GameEnums.ItemType.WEAPON
+		"armor":
+			return item_type == GameEnums.ItemType.ARMOR
+		"aid":
+			return category == GameEnums.ItemCategory.MEDICINE
+		"tools":
+			return item_type == GameEnums.ItemType.TOOL
+		"ammunition":
+			return item_type == GameEnums.ItemType.AMMUNITION
+		"materials_misc":
+			return item_type in [
+				GameEnums.ItemType.MATERIAL,
+				GameEnums.ItemType.JUNK,
+				GameEnums.ItemType.ATTACHMENT,
+			]
+	return true
 
 func _render_backpack(
 	containers: Array,
@@ -776,6 +959,8 @@ func _render_backpack(
 		var occupied_units := 0
 		var items: Array = container.get("items", [])
 		for descriptor: Dictionary in items:
+			if not _matches_filter(descriptor):
+				continue
 			var item_slot := _make_slot(
 				grid,
 				InventorySlot.SOURCE_BACKPACK,
@@ -832,6 +1017,8 @@ func _render_ground(items: Array) -> void:
 
 	var index := 0
 	for descriptor: Dictionary in items:
+		if not _matches_filter(descriptor):
+			continue
 		var slot := _make_slot(
 			ground_list,
 			InventorySlot.SOURCE_GROUND,
@@ -865,19 +1052,26 @@ func _make_slot(
 	parent.add_child(slot)
 	slot.configure(source_kind, index, label, null, container_slot)
 	slot.set_text_only_mode(_presentation_mode == PresentationMode.SIDE_PANEL)
+	_bind_slot_signals(slot)
+	return slot
+
+func _bind_slot_signals(slot: InventorySlot) -> void:
 	slot.slot_clicked.connect(_on_slot_clicked)
 	slot.item_dropped.connect(_on_item_dropped)
 	slot.item_hovered.connect(_on_slot_hovered)
 	slot.item_unhovered.connect(_on_slot_unhovered)
-	return slot
+	slot.focus_mode = Control.FOCUS_ALL
+	slot.focus_entered.connect(_select_slot.bind(slot))
 
 func _on_slot_clicked(
 	slot: InventorySlot,
 	event: InputEventMouseButton
 ) -> void:
+	if event.button_index not in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
+		return
 	_select_slot(slot)
-	if event.double_click:
-		_execute_primary(slot)
+	if event.double_click and event.button_index == MOUSE_BUTTON_LEFT:
+		_execute_safe_default(slot)
 	elif event.button_index == MOUSE_BUTTON_RIGHT:
 		_open_slot_context_menu(slot, event.global_position)
 
@@ -931,20 +1125,23 @@ func _on_item_dropped(
 			inventory_action_requested.emit(
 				ACTION_EQUIP,
 				instance_id,
-				to_slot.equipment_slot
+				to_slot.equipment_slot,
+				{}
 			)
 		InventorySlot.SOURCE_BACKPACK:
 			if from_slot.source_kind == InventorySlot.SOURCE_EQUIPMENT:
 				inventory_action_requested.emit(
 					ACTION_UNEQUIP,
 					instance_id,
-					from_slot.equipment_slot
+					from_slot.equipment_slot,
+					{}
 				)
 			elif from_slot.source_kind == InventorySlot.SOURCE_GROUND:
 				inventory_action_requested.emit(
 					ACTION_TAKE,
 					instance_id,
-					to_slot.container_slot
+					to_slot.container_slot,
+					{}
 				)
 			elif (
 				from_slot.source_kind == InventorySlot.SOURCE_BACKPACK
@@ -953,13 +1150,18 @@ func _on_item_dropped(
 				inventory_action_requested.emit(
 					ACTION_MOVE,
 					instance_id,
-					to_slot.container_slot
+					to_slot.container_slot,
+					{}
 				)
 		InventorySlot.SOURCE_GROUND:
-			inventory_action_requested.emit(
+			_request_confirmation(
+				"Drop %s?" % str(descriptor.get("name", "item")),
+				Callable(self, "_emit_inventory_action").bind(
 				ACTION_DROP,
 				instance_id,
-				GameEnums.EquipmentSlot.NONE
+				GameEnums.EquipmentSlot.NONE,
+				{}
+				)
 			)
 
 func _select_slot(slot: InventorySlot) -> void:
@@ -968,6 +1170,7 @@ func _select_slot(slot: InventorySlot) -> void:
 		return
 	_selected_slot = slot
 	slot.set_selected(true)
+	show_item_details(slot.item_descriptor)
 	_refresh_action_buttons()
 
 func _clear_selection() -> void:
@@ -981,6 +1184,7 @@ func _refresh_action_buttons() -> void:
 	_primary_button.text = "NO ACTION"
 	_secondary_button.disabled = true
 	_secondary_button.text = "NO ACTION"
+	_repair_button.disabled = true
 	if not is_instance_valid(_selected_slot) or not _selected_slot.has_item():
 		return
 
@@ -1010,6 +1214,7 @@ func _refresh_action_buttons() -> void:
 				_primary_button.disabled = false
 			_secondary_button.text = "DROP"
 			_secondary_button.disabled = false
+	_refresh_repair_button()
 
 func _activate_selected_primary() -> void:
 	if is_instance_valid(_selected_slot):
@@ -1068,11 +1273,206 @@ func _execute_inventory_action(
 ) -> void:
 	if action_id.is_empty() or not slot.has_item():
 		return
-	inventory_action_requested.emit(
+	var instance_id := str(slot.item_descriptor.get("instance_id", ""))
+	if action_id in [ACTION_CONSUME, ACTION_DROP]:
+		_request_confirmation(
+			"%s %s?" % [action_id.capitalize(), str(slot.item_descriptor.get("name", "item"))],
+			Callable(self, "_emit_inventory_action").bind(
+				action_id,
+				instance_id,
+				equipment_slot,
+				{}
+			)
+		)
+		return
+	_emit_inventory_action(
 		action_id,
-		str(slot.item_descriptor.get("instance_id", "")),
-		equipment_slot
+		instance_id,
+		equipment_slot,
+		{}
 	)
+
+func _emit_inventory_action(
+	action_id: String,
+	instance_id: String,
+	equipment_slot: int,
+	payload: Dictionary
+) -> void:
+	inventory_action_requested.emit(action_id, instance_id, equipment_slot, payload)
+
+func request_repair(
+	target_instance_id: String,
+	tool_instance_id: String,
+	material_instance_id: String,
+	repair_context: String = "field"
+) -> void:
+	var payload := {
+			"target_instance_id": target_instance_id,
+			"tool_instance_id": tool_instance_id,
+			"material_instance_id": material_instance_id,
+			"repair_context": repair_context,
+		}
+	_request_confirmation(
+		"Commit a 30 minute %s repair?" % repair_context,
+		Callable(self, "_emit_inventory_action").bind(
+			ACTION_REPAIR,
+			target_instance_id,
+			GameEnums.EquipmentSlot.NONE,
+			payload
+		)
+	)
+
+func _request_confirmation(prompt: String, callback: Callable) -> void:
+	_pending_confirm = callback
+	_confirm_dialog.dialog_text = prompt
+	_confirm_dialog.popup_centered()
+
+func _commit_pending_confirmation() -> void:
+	if _pending_confirm.is_valid():
+		_pending_confirm.call()
+	_pending_confirm = Callable()
+
+func _execute_safe_default(slot: InventorySlot) -> void:
+	if not slot.has_item():
+		return
+	match slot.source_kind:
+		InventorySlot.SOURCE_EQUIPMENT:
+			_execute_inventory_action(ACTION_UNEQUIP, slot, slot.equipment_slot)
+		InventorySlot.SOURCE_GROUND:
+			if slot.item_descriptor.get("can_pick_up", true):
+				_execute_inventory_action(ACTION_TAKE, slot, GameEnums.EquipmentSlot.NONE)
+		InventorySlot.SOURCE_BACKPACK:
+			if slot.item_descriptor.get("can_equip", false):
+				_execute_inventory_action(
+					ACTION_EQUIP,
+					slot,
+					int(slot.item_descriptor.get("preferred_equipment_slot", GameEnums.EquipmentSlot.NONE))
+				)
+
+func _refresh_repair_button() -> void:
+	_repair_button.disabled = true
+	_repair_button.text = "REPAIR"
+	if not is_instance_valid(_selected_slot) or not _selected_slot.has_item():
+		return
+	var target := _selected_slot.item_descriptor
+	if (
+		not bool(target.get("condition_enabled", true))
+		or float(target.get("current_condition", 12.0)) >= 12.0
+	):
+		return
+	var pair := _repair_pair_for(target)
+	if pair.is_empty():
+		_repair_button.text = "MISSING PARTS"
+		return
+	_repair_button.disabled = false
+	_repair_button.text = "REPAIR +2"
+
+func _activate_repair_tray() -> void:
+	if not is_instance_valid(_selected_slot):
+		return
+	var pair := _repair_pair_for(_selected_slot.item_descriptor)
+	if pair.is_empty():
+		return
+	request_repair(
+		str(_selected_slot.item_descriptor.get("instance_id", "")),
+		str(pair.tool.get("instance_id", "")),
+		str(pair.material.get("instance_id", "")),
+		"field"
+	)
+
+func _repair_pair_for(target: Dictionary) -> Dictionary:
+	var recipes := {
+		GameEnums.RepairDomain.FIREARM: ["gun_cleaner", "rag"],
+		GameEnums.RepairDomain.TEXTILE: ["sewing_kit", "rag"],
+		GameEnums.RepairDomain.RIGID_MECHANICAL: ["multitool", "bolts"],
+	}
+	var recipe: Array = recipes.get(int(target.get("repair_domain", GameEnums.RepairDomain.NONE)), [])
+	var tool := _find_carried_descriptor(str(recipe[0])) if recipe.size() == 2 else {}
+	var material := _find_carried_descriptor(str(recipe[1])) if recipe.size() == 2 else {}
+	if tool.is_empty() or material.is_empty():
+		tool = _find_carried_descriptor("pliers")
+		material = _find_carried_descriptor("ducttape")
+	if tool.is_empty() or material.is_empty():
+		return {}
+	return {"tool": tool, "material": material}
+
+func _find_carried_descriptor(item_id: String) -> Dictionary:
+	for descriptor: Dictionary in _snapshot.get("equipment", []):
+		if str(descriptor.get("item_id", "")) == item_id:
+			return descriptor
+	for descriptor: Dictionary in _snapshot.get("backpack", []):
+		if str(descriptor.get("item_id", "")) == item_id:
+			return descriptor
+	return {}
+
+func _all_navigable_slots() -> Array[InventorySlot]:
+	var slots: Array[InventorySlot] = []
+	for slot: InventorySlot in equipment_slots_ui.values():
+		if not slot.is_reservation:
+			slots.append(slot)
+	for slot: InventorySlot in backpack_slots_ui:
+		if not slot.is_reservation:
+			slots.append(slot)
+	for slot: InventorySlot in ground_slots_ui:
+		if not slot.is_reservation:
+			slots.append(slot)
+	return slots
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not visible or not event is InputEventKey or not event.pressed or event.echo:
+		return
+	var key := event as InputEventKey
+	if key.keycode == KEY_ESCAPE:
+		if _confirm_dialog.visible:
+			_confirm_dialog.hide()
+			_pending_confirm = Callable()
+		else:
+			close_panel()
+		get_viewport().set_input_as_handled()
+		return
+	if key.keycode == KEY_F10 and key.shift_pressed and is_instance_valid(_selected_slot):
+		_open_slot_context_menu(_selected_slot, _selected_slot.global_position)
+		get_viewport().set_input_as_handled()
+		return
+	if key.keycode in [KEY_ENTER, KEY_KP_ENTER] and is_instance_valid(_selected_slot):
+		_execute_safe_default(_selected_slot)
+		get_viewport().set_input_as_handled()
+		return
+	if key.keycode == KEY_TAB:
+		_focus_next_region(key.shift_pressed)
+		get_viewport().set_input_as_handled()
+		return
+	if key.keycode in [KEY_LEFT, KEY_UP, KEY_RIGHT, KEY_DOWN]:
+		_focus_adjacent_slot(-1 if key.keycode in [KEY_LEFT, KEY_UP] else 1)
+		get_viewport().set_input_as_handled()
+
+func _focus_adjacent_slot(direction: int) -> void:
+	var slots := _all_navigable_slots()
+	if slots.is_empty():
+		return
+	var current := slots.find(get_viewport().gui_get_focus_owner())
+	var next := 0 if current < 0 else posmod(current + direction, slots.size())
+	slots[next].grab_focus()
+
+func _focus_next_region(reverse: bool) -> void:
+	var regions: Array = [
+		Array(equipment_slots_ui.values()),
+		backpack_slots_ui,
+		ground_slots_ui,
+	]
+	var focused := get_viewport().gui_get_focus_owner()
+	var region_index := 0
+	for index in range(regions.size()):
+		if focused in regions[index]:
+			region_index = index
+			break
+	var direction := -1 if reverse else 1
+	for offset in range(1, regions.size() + 1):
+		var candidate_region: Array = regions[posmod(region_index + direction * offset, regions.size())]
+		for candidate in candidate_region:
+			if candidate is InventorySlot and not candidate.is_reservation:
+				candidate.grab_focus()
+				return
 
 func _execute_secondary(slot: InventorySlot) -> void:
 	if not slot.has_item():
@@ -1089,6 +1489,14 @@ func _execute_secondary(slot: InventorySlot) -> void:
 
 func _format_item_stats(descriptor: Dictionary) -> String:
 	var lines := PackedStringArray()
+	if bool(descriptor.get("condition_enabled", true)):
+		lines.append("Condition %.2f / 12  |  %s  |  Fault %.2f%%" % [
+			float(descriptor.get("current_condition", 12.0)),
+			str(descriptor.get("condition_band", "Fine")),
+			float(descriptor.get("fault_chance", 0.0)) * 100.0,
+		])
+		if bool(descriptor.get("is_jammed", false)):
+			lines.append("MALFUNCTION: JAMMED")
 	lines.append("Size %s  |  %d units  |  Weight %.1f  |  Bulk %.1f" % [
 		_enum_name(GameEnums.ItemSize, int(descriptor.get(
 			"item_size",

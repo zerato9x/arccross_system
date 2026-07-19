@@ -24,7 +24,8 @@ signal poi_preview_requested(
 signal exploration_inventory_action_requested(
 	action_id: String,
 	instance_id: String,
-	equipment_slot: int
+	equipment_slot: int,
+	action_payload: Dictionary
 )
 signal exploration_interaction_closed
 signal node_map_requested
@@ -77,7 +78,8 @@ func _ready() -> void:
 		func(insets: Rect2i): viewport_insets_changed.emit(insets)
 	)
 	_health_panel.medical_action_requested.connect(medical_action_requested.emit)
-	_health_panel.inventory_requested.connect(toggle_inventory_panel)
+	_health_panel.inventory_requested.connect(inventory_requested.emit)
+	_inventory_panel.fullscreen_requested.connect(inventory_requested.emit)
 	_health_panel.settings_requested.connect(_open_settings)
 	_hex_panel.expand_requested_hex.connect(hex_preview_expand_requested.emit)
 	_hex_panel.travel_requested_hex.connect(hex_preview_travel_requested.emit)
@@ -151,7 +153,7 @@ func toggle_health_panel() -> void:
 
 
 func toggle_inventory_panel() -> void:
-	_inventory_panel.toggle_expanded()
+	inventory_requested.emit()
 
 
 func expand_hex_panel() -> void:

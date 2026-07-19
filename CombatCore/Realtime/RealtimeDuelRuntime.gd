@@ -327,7 +327,7 @@ func _resolve_action_impact(entity: HumanoidCore, state: Dictionary) -> void:
 			_resolve_follow(entity, state)
 		GameEnums.DuelActionType.BLIND_FIRE, GameEnums.DuelActionType.AIMED_FIRE:
 			_resolve_shot_impact(entity, state, data)
-		GameEnums.DuelActionType.RELOAD, GameEnums.DuelActionType.CYCLE:
+		GameEnums.DuelActionType.RELOAD, GameEnums.DuelActionType.CYCLE, GameEnums.DuelActionType.CLEAR_MALFUNCTION:
 			_resolve_firearm_service(
 				entity,
 				int(state.get("action", GameEnums.DuelActionType.NONE)),
@@ -498,6 +498,26 @@ func _start_shot(entity: HumanoidCore, state: Dictionary, aimed: bool) -> bool:
 		return false
 	var aim_progress := float(state.get("aim_progress", 0.0)) if aimed else 0.0
 	_cancel_aim(state)
+	var condition_outcome := ItemConditionRules.resolve_use(
+		weapon,
+		ItemConditionRules.EVENT_FIREARM
+	)
+	if bool(condition_outcome.faulted):
+		_start_action(entity, state, {
+			"action": GameEnums.DuelActionType.MALFUNCTION,
+			"duration": profile.blind_duration,
+			"impact_time": profile.blind_impact_time,
+			"animation": profile.firearm_animation,
+			"weapon": weapon,
+			"condition_outcome": condition_outcome,
+		})
+		presentation_event.emit({
+			"type": "malfunction",
+			"side": _side(entity),
+			"item": _weapon_snapshot(weapon),
+			"condition_outcome": condition_outcome,
+		})
+		return true
 	weapon.current_magazine -= 1
 	weapon.needs_cycling = weapon.requires_cycle_after_shot
 	_start_action(entity, state, {
@@ -514,6 +534,19 @@ func _start_reload_or_cycle(entity: HumanoidCore, state: Dictionary) -> bool:
 	var weapon := entity.inventory.get_active_weapon(false)
 	if weapon == null:
 		return _reject(entity, "NO_FIREARM", "No firearm is equipped.")
+	if weapon.current_condition <= 0.0:
+		return _reject(entity, "BROKEN", "The firearm is broken and cannot be serviced in combat.")
+	if weapon.is_jammed:
+		if not _spend_ap(state, 2.0):
+			return false
+		_start_action(entity, state, {
+			"action": GameEnums.DuelActionType.CLEAR_MALFUNCTION,
+			"duration": 2.2,
+			"impact_time": 2.2,
+			"animation": "Taunt",
+			"weapon": weapon,
+		})
+		return true
 	if weapon.needs_cycling or weapon.cycle_loads_one_round:
 		if not _can_cycle(entity, weapon):
 			return _reject(entity, "NEED_CYCLE", "The weapon cannot cycle without ammunition.")
@@ -582,6 +615,15 @@ func _resolve_melee_impact(entity: HumanoidCore, state: Dictionary, data: Dictio
 	if defender == null or defender.is_dead or not _is_melee_locked(entity):
 		_break_combo(state)
 		return
+	var weapon := data.get("weapon") as ItemData
+	var condition_multiplier := 1.0
+	var condition_outcome := {}
+	if weapon != null:
+		condition_outcome = ItemConditionRules.resolve_use(
+			weapon,
+			ItemConditionRules.EVENT_MELEE
+		)
+		condition_multiplier = float(condition_outcome.performance_multiplier)
 	var defense := _melee_defense(defender, entity)
 	if defense == "parry":
 		entity.apply_stance_damage(3.0, true)
@@ -590,18 +632,25 @@ func _resolve_melee_impact(entity: HumanoidCore, state: Dictionary, data: Dictio
 		presentation_event.emit({"type": "parry", "side": _side(defender), "target_side": _side(entity)})
 		return
 	if defense == "block":
-		damage_resolver.resolve_block(entity, defender, data.get("weapon") as ItemData)
+		damage_resolver.resolve_block(
+			entity,
+			defender,
+			weapon,
+			-1,
+			condition_multiplier
+		)
 		_advance_combo(state, int(state.get("action", 0)))
 		presentation_event.emit({"type": "block", "side": _side(defender), "target_side": _side(entity)})
 		return
 	var event := damage_resolver.resolve_melee(
 		entity,
 		defender,
-		data.get("weapon") as ItemData,
-		float(data.get("flesh_multiplier", 1.0)),
-		float(data.get("stance_multiplier", 1.0)),
+		weapon,
+		float(data.get("flesh_multiplier", 1.0)) * condition_multiplier,
+		float(data.get("stance_multiplier", 1.0)) * condition_multiplier,
 		str(data.get("source", "melee"))
 	)
+	event["item_condition_outcome"] = condition_outcome
 	_advance_combo(state, int(state.get("action", 0)))
 	_emit_damage_presentation(event)
 
@@ -802,6 +851,8 @@ func _can_cycle(entity: HumanoidCore, weapon: ItemData) -> bool:
 	)
 
 func _resolve_firearm_service(entity: HumanoidCore, action: int, weapon: ItemData) -> bool:
+	if action == GameEnums.DuelActionType.CLEAR_MALFUNCTION:
+		return ItemConditionRules.clear_malfunction(weapon)
 	if action == GameEnums.DuelActionType.CYCLE:
 		if weapon.needs_cycling:
 			weapon.needs_cycling = false
@@ -841,6 +892,10 @@ func _is_busy(state: Dictionary) -> bool:
 func _validate_ready_firearm(entity: HumanoidCore, weapon: ItemData) -> bool:
 	if weapon == null:
 		return _reject(entity, "NO_FIREARM", "No firearm is equipped.")
+	if weapon.current_condition <= 0.0:
+		return _reject(entity, "BROKEN", "The firearm is broken.")
+	if weapon.is_jammed:
+		return _reject(entity, "MALFUNCTION", "Press R to clear the malfunction.")
 	if weapon.needs_cycling:
 		return _reject(entity, "NEED_CYCLE", "Press R to cycle the weapon.")
 	if weapon.current_magazine <= 0:
@@ -898,6 +953,10 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		descriptor["current_magazine"] = item.current_magazine
 		descriptor["loaded_rounds"] = item.loaded_rounds
 		descriptor["needs_cycling"] = item.needs_cycling
+		descriptor["current_condition"] = item.current_condition
+		descriptor["condition_band"] = ItemConditionRules.condition_band(item.current_condition)
+		descriptor["fault_chance"] = ItemConditionRules.fault_chance(item.current_condition)
+		descriptor["is_jammed"] = item.is_jammed
 		equipment.append(descriptor)
 	return {
 		"name": entity.name,
@@ -943,6 +1002,11 @@ func _weapon_snapshot(weapon: ItemData) -> Dictionary:
 	data["instance_id"] = weapon.instance_id
 	data["current_magazine"] = weapon.current_magazine
 	data["needs_cycling"] = weapon.needs_cycling
+	data["current_condition"] = weapon.current_condition
+	data["condition_band"] = ItemConditionRules.condition_band(weapon.current_condition)
+	data["fault_chance"] = ItemConditionRules.fault_chance(weapon.current_condition)
+	data["is_jammed"] = weapon.is_jammed
+	data["readiness"] = ItemConditionRules.readiness_descriptor(weapon)
 	data["sprite_path"] = weapon.get_inventory_sprite_path()
 	return data
 

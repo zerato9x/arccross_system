@@ -8,6 +8,9 @@ const GUN_CATALOG := preload("res://CombatCore/DuelUI/GunAnimationCatalog.gd")
 @onready var state_label: Label = %StateLabel
 @onready var weapon_image: TextureRect = %WeaponImage
 @onready var effect_image: TextureRect = %EffectImage
+@onready var grade_label: Label = get_node_or_null("%GradeLabel") as Label
+@onready var condition_bar: ProgressBar = get_node_or_null("%ConditionBar") as ProgressBar
+@onready var detail_label: Label = get_node_or_null("%DetailLabel") as Label
 
 var _weapon: Dictionary = {}
 var _base_atlas: AtlasTexture
@@ -30,6 +33,9 @@ func show_actor_weapon(actor: Dictionary) -> void:
 	var ranged: Dictionary = actor.get("ranged_weapon", {})
 	var melee: Dictionary = actor.get("melee_weapon", {})
 	var next_weapon: Dictionary = ranged if not ranged.is_empty() else melee
+	show_descriptor(next_weapon, not ranged.is_empty())
+
+func show_descriptor(next_weapon: Dictionary, is_ranged_weapon: bool = false) -> void:
 	var next_signature := "%s|%s" % [
 		str(next_weapon.get("id", "")),
 		str(next_weapon.get("sprite_path", "")),
@@ -42,14 +48,40 @@ func show_actor_weapon(actor: Dictionary) -> void:
 		ammo_label.text = ""
 		state_label.text = "READY"
 		weapon_image.texture = null
+		if grade_label:
+			grade_label.text = "NO ITEM"
+		if condition_bar:
+			condition_bar.value = 0.0
+		if detail_label:
+			detail_label.text = ""
 		return
 	weapon_name.text = str(_weapon.get("display_name", _weapon.get("id", "WEAPON"))).to_upper()
-	if not ranged.is_empty():
+	var grade := int(_weapon.get("item_grade", GameEnums.ItemGrade.CIVILIAN))
+	var grade_name := (
+		str(GameEnums.ItemGrade.keys()[grade])
+		if grade >= 0 and grade < GameEnums.ItemGrade.keys().size()
+		else "CIVILIAN"
+	)
+	var condition := float(_weapon.get("current_condition", 12.0))
+	if grade_label:
+		grade_label.text = "%s // %s" % [
+			grade_name,
+			str(_weapon.get("condition_band", ItemConditionRules.condition_band(condition))).to_upper(),
+		]
+	if condition_bar:
+		condition_bar.value = condition
+	if detail_label:
+		detail_label.text = "RANGE %d // FAULT %.2f%%" % [
+			int(_weapon.get("effective_range", 0)),
+			float(_weapon.get("fault_chance", ItemConditionRules.fault_chance(condition))) * 100.0,
+		]
+	if is_ranged_weapon:
 		ammo_label.text = "%02d / %02d" % [
 			int(_weapon.get("current_magazine", 0)),
 			int(_weapon.get("max_magazine", 0)),
 		]
-		state_label.text = "CYCLE" if bool(_weapon.get("needs_cycling", false)) else ("EMPTY" if int(_weapon.get("current_magazine", 0)) <= 0 else "READY")
+		var readiness: Dictionary = _weapon.get("readiness", {})
+		state_label.text = str(readiness.get("reason", "ready")).to_upper()
 	else:
 		ammo_label.text = "MELEE"
 		state_label.text = "READY"
@@ -67,6 +99,10 @@ func play_action(action: int, duration: float) -> void:
 			effect = GUN_CATALOG.EFFECT_RELOAD
 		GameEnums.DuelActionType.CYCLE:
 			effect = GUN_CATALOG.EFFECT_CYCLE
+		GameEnums.DuelActionType.CLEAR_MALFUNCTION:
+			effect = GUN_CATALOG.EFFECT_RELOAD
+		GameEnums.DuelActionType.MALFUNCTION:
+			effect = GUN_CATALOG.EFFECT_SHOOT
 	if effect.is_empty():
 		return
 	_play_effect(effect, maxf(0.4, duration))

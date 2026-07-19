@@ -44,6 +44,12 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 	if weapon == null or not weapon.is_ranged():
 		print("ERROR: ", attacker.name, " tried to shoot someone without a gun.")
 		return
+	if weapon.current_condition <= 0.0:
+		print("DENIED: ", attacker.name, "'s ", weapon.display_name, " is broken.")
+		return
+	if weapon.is_jammed:
+		print("DENIED: ", attacker.name, "'s ", weapon.display_name, " is jammed.")
+		return
 
 	var attacker_idx: int = _find_entity_index(attacker)
 	var distance: int = absi(attacker_idx - target_idx)
@@ -73,6 +79,23 @@ func _execute_shot(attacker: HumanoidCore, target_idx: int, is_aimed: bool, targ
 	action_started.emit(attacker, action_type)
 	_emit_first_strike(action_type)
 	_emit_combat_action(attacker, action_type, weapon.weapon_type, weapon.id)
+	var condition_outcome := ItemConditionRules.resolve_use(
+		weapon,
+		ItemConditionRules.EVENT_FIREARM
+	)
+	if bool(condition_outcome.faulted):
+		print("[MALFUNCTION] ", weapon.display_name, " jammed; ammunition retained.")
+		_emit_shot_event(
+			attacker,
+			null,
+			action_type,
+			attacker_idx,
+			target_idx,
+			"malfunction",
+			target_limb,
+			{"item_condition_outcome": condition_outcome}
+		)
+		return
 	weapon.current_magazine -= 1
 	weapon.needs_cycling = weapon.requires_cycle_after_shot
 	var action_name := (
@@ -466,6 +489,20 @@ func execute_cycle(entity: HumanoidCore) -> bool:
 	)
 	return true
 
+func execute_clear_malfunction(entity: HumanoidCore) -> bool:
+	var weapon: ItemData = entity.inventory.get_active_weapon(false)
+	if not ItemConditionRules.clear_malfunction(weapon):
+		return false
+	action_started.emit(entity, GameEnums.ActionType.CLEAR_MALFUNCTION)
+	_emit_combat_action(
+		entity,
+		GameEnums.ActionType.CLEAR_MALFUNCTION,
+		weapon.weapon_type,
+		weapon.id
+	)
+	print("[CLEAR MALFUNCTION] ", entity.name, " clears ", weapon.display_name, ".")
+	return true
+
 
 
 # ---------------------------------------------------------
@@ -474,6 +511,8 @@ func execute_cycle(entity: HumanoidCore) -> bool:
 
 func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> void:
 	var weapon: ItemData = attacker.inventory.get_active_weapon(true) # Melee context
+	var condition_multiplier := 1.0
+	var condition_resolved := false
 	
 	# Open BLOCK / DODGE reaction window for defender
 	var chosen_reaction = -1
@@ -498,9 +537,20 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 				print("[STRIKE ABORTED] Dodge succeeded!")
 				return
 		elif chosen_reaction == GameEnums.ActionType.BLOCK:
-			if resolve_block(defender, attacker, weapon):
+			if weapon != null:
+				condition_multiplier = float(ItemConditionRules.resolve_use(
+					weapon,
+					ItemConditionRules.EVENT_MELEE
+				).performance_multiplier)
+				condition_resolved = true
+			if resolve_block(defender, attacker, weapon, -1, condition_multiplier):
 				print("[STRIKE BLOCKED] Block succeeded, mitigated damage applied.")
 				return
+	if weapon != null and not condition_resolved:
+		condition_multiplier = float(ItemConditionRules.resolve_use(
+			weapon,
+			ItemConditionRules.EVENT_MELEE
+		).performance_multiplier)
 	
 	action_started.emit(attacker, GameEnums.ActionType.STRIKE)
 	_emit_first_strike(GameEnums.ActionType.STRIKE)
@@ -540,13 +590,18 @@ func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> voi
 			grounded_bonus,
 			attacker,
 			GameEnums.ActionType.STRIKE,
-			damage_source
+			damage_source,
+			condition_multiplier
 		)
 	else:
 		# Unarmed strike — Brawn matters, and clothing finally does something.
+		var armor_result := defender.inventory.resolve_protection_event(
+			GameEnums.DamageType.BLUNT,
+			target_limb
+		)
 		var unarmed := CombatRules.get_unarmed_damage(
 			attacker.definition.brawn,
-			defender.inventory.get_protection_for(GameEnums.DamageType.BLUNT, target_limb),
+			float(armor_result.total_protection),
 			0.0
 		)
 		var flesh_damage := float(unarmed.get("flesh", 0.1)) * grounded_bonus
@@ -954,7 +1009,8 @@ func resolve_block(
 	defender: HumanoidCore,
 	attacker: HumanoidCore,
 	weapon: ItemData,
-	target_limb: int = -1
+	target_limb: int = -1,
+	weapon_condition_multiplier: float = 1.0
 ) -> bool:
 	if not defender.body.has_functional_arms():
 		print("[BLOCK FAILED] ", defender.name, " cannot block — arms are shattered.")
@@ -983,19 +1039,30 @@ func resolve_block(
 	)
 	
 	if shield != null and weapon != null:
-		final_stance = weapon.stance_damage * shield.block_stance_multiplier
-		final_flesh = weapon.flesh_damage * shield.block_flesh_multiplier
+		var shield_outcome := ItemConditionRules.resolve_use(
+			shield,
+			ItemConditionRules.EVENT_SHIELD
+		)
+		var shield_performance := float(shield_outcome.performance_multiplier)
+		var stance_multiplier := 1.0 - (
+			(1.0 - shield.block_stance_multiplier) * shield_performance
+		)
+		var flesh_multiplier := 1.0 - (
+			(1.0 - shield.block_flesh_multiplier) * shield_performance
+		)
+		final_stance = weapon.stance_damage * weapon_condition_multiplier * stance_multiplier
+		final_flesh = weapon.flesh_damage * weapon_condition_multiplier * flesh_multiplier
 	elif weapon:
 		if weapon.damage_type == GameEnums.DamageType.BLUNT:
-			final_stance = weapon.stance_damage * 0.5
-			final_flesh = weapon.flesh_damage * 0.25
+			final_stance = weapon.stance_damage * weapon_condition_multiplier * 0.5
+			final_flesh = weapon.flesh_damage * weapon_condition_multiplier * 0.25
 		elif weapon.damage_type == GameEnums.DamageType.SHARP:
 			final_stance = 0.0
-			final_flesh = weapon.flesh_damage * 0.10
+			final_flesh = weapon.flesh_damage * weapon_condition_multiplier * 0.10
 		else:
 			# Ballistic or other types
 			final_stance = 0.0
-			final_flesh = weapon.flesh_damage * 0.25
+			final_flesh = weapon.flesh_damage * weapon_condition_multiplier * 0.25
 	else:
 		# Unarmed block
 		final_stance = 1.0
@@ -1044,7 +1111,7 @@ func _get_blocking_shield(defender: HumanoidCore) -> ItemData:
 		return null
 	for slot in [GameEnums.EquipmentSlot.HAND, GameEnums.EquipmentSlot.OFFHAND]:
 		var item: ItemData = defender.inventory.paper_doll.get(slot)
-		if item != null and item.is_blocking_shield():
+		if item != null and item.has_active_function() and item.is_blocking_shield():
 			return item
 	return null
 
@@ -1172,20 +1239,25 @@ func _resolve_damage(
 	damage_multiplier: float = 1.0,
 	attacker: HumanoidCore = null,
 	action_type: int = -1,
-	source: String = "weapon"
+	source: String = "weapon",
+	item_performance_multiplier: float = 1.0
 ) -> Dictionary:
-	var raw_flesh: float = weapon.flesh_damage * damage_multiplier
-	var raw_stance: float = weapon.stance_damage
-	var penetration: float = weapon.armor_penetration
+	var raw_flesh: float = weapon.flesh_damage * item_performance_multiplier * damage_multiplier
+	var raw_stance: float = weapon.stance_damage * item_performance_multiplier
+	var penetration: float = weapon.armor_penetration * item_performance_multiplier
 	var damage_type: GameEnums.DamageType = weapon.damage_type
 	if source == "grounded" and damage_type == GameEnums.DamageType.BLUNT:
-		raw_flesh += weapon.stance_damage * 0.5
+		raw_flesh += weapon.stance_damage * item_performance_multiplier * 0.5
 	
 	if damage_type == GameEnums.DamageType.BALLISTIC:
 		raw_stance = 0.0
 	
 	# 1. Get the victim's armor protection for this damage type
-	var armor_value: float = victim.inventory.get_protection_for(damage_type, hit_location)
+	var armor_result := victim.inventory.resolve_protection_event(
+		damage_type,
+		hit_location
+	)
+	var armor_value: float = float(armor_result.total_protection)
 	var total_defense: float = armor_value
 	
 	# 3. Penetration is authored on 0-12 and becomes a ratio only for this formula.
@@ -1242,6 +1314,7 @@ func _resolve_damage(
 		0.0,
 		damage_type
 	)
+	event["armor_condition_outcomes"] = armor_result.item_outcomes
 	damage_applied.emit(victim)
 	return event
 

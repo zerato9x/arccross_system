@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://dd8xqqy5yy123" path="res://UI/Inventory/PaperDollModel.tscn" id="7_paper_doll"]
 [ext_resource type="Script" uid="uid://ds2dy44dqbcef" path="res://addons/cinematic_camera_2d/scripts/virtual_camera_2d.gd" id="8_virtual_camera"]
 [ext_resource type="AudioStream" uid="uid://byvi8ysnojuyv" path="res://SoundCore/Sound/sfx/universfield-fatal-body-fall-thud-352716.mp3" id="9_impact"]
+[ext_resource type="PackedScene" path="res://UI/Inventory/CombatItemCard.tscn" id="10_item_card"]
 
 [node name="CombatLaneHUD" type="Node2D" unique_id=1163430543]
 script = ExtResource("1_lane_hud")
@@ -546,6 +547,11 @@ autowrap_mode = 3
 [node name="WeaponEffectSprite" type="Sprite2D" parent="WeaponCard" unique_id=534929697]
 visible = false
 z_index = 4
+
+[node name="SharedItemCard" parent="WeaponCard" instance=ExtResource("10_item_card")]
+unique_name_in_owner = true
+z_index = 8
+mouse_filter = 2
 
 [node name="ActionGroupTabs" type="Node2D" parent="." unique_id=1821710689]
 unique_name_in_owner = true

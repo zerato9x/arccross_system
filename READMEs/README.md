@@ -46,7 +46,12 @@ Status updated on **July 19, 2026**:
 - **Phase 2 real-time duel overhaul** (P2-09) is production combat.
   Turn-based remains an independent comparison target at
   `CombatCore/TurnBased/TurnBasedDuelScene.tscn` via
-  `CombatCore/CombatModeComparison.tscn`.
+  `CombatCore/CombatModeComparison.tscn`. Item condition, ammunition,
+  malfunction, armor, shield, and persistence mechanics are identical across
+  both modes; only scheduling differs.
+- **Inventory overhaul** (P2-11) ships the rebalanced 168-item catalog,
+  condition and repair contracts, authored three-region Inventory HUD, and one
+  reusable combat item card hosted by both combat presentations.
 - **Macro exploration / Node Web / health / collision** pillars through July 19
   are shipped. See [Changelog](CHANGELOG.md) dated July 16–19.
 - Remaining Phase 2 focus: balance, animation and token coverage, presentation
@@ -68,8 +73,9 @@ Status updated on **July 19, 2026**:
   ammunition feeds, cycling, loading aids, inventory and equipment sprites, and
   attachment compatibility.
 - Ballistic attacks deal localized Flesh Damage with zero Stance Damage.
-- The static Innawoods inventory set supplies **168** categorized item
-  Resources. `LootCatalog` is the single runtime registry.
+- The static Innawoods inventory set supplies **168** rebalanced, graded item
+  Resources with grounded field notes and repair domains. `LootCatalog` is the
+  single runtime registry.
 - Macro node zones retain deterministic seeded generation as a fallback, while
   the authored pipeline stores painted terrain, water, gameplay layers,
   decorations, and placement sockets in `AuthoredWorldMap` resources.

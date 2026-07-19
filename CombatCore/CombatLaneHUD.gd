@@ -163,6 +163,7 @@ var _enemy_melee_card: Dictionary = {}
 @onready var _weapon_name_label: Label = $WeaponCard/WeaponNameLabel
 @onready var _weapon_state_label: Label = $WeaponCard/WeaponStateLabel
 @onready var _weapon_detail_label: Label = $WeaponCard/WeaponDetailLabel
+@onready var _shared_item_card: RealtimeWeaponCard = %SharedItemCard
 @onready var _group_tab_root: Node2D = %ActionGroupTabs
 @onready var _command_context_box: Polygon2D = %CommandContextBox
 @onready var _command_context_border: Line2D = %CommandContextBorder
@@ -799,6 +800,12 @@ func _layout_weapon_card(viewport_size: Vector2, ui_scale: Vector2) -> void:
 	_weapon_state_label.size = Vector2(_weapon_card_rect.size.x - 20.0, 20.0)
 	_weapon_detail_label.position = Vector2(12.0, _weapon_card_rect.size.y - 22.0)
 	_weapon_detail_label.size = Vector2(_weapon_card_rect.size.x - 20.0, 20.0)
+	if _shared_item_card:
+		_shared_item_card.position = Vector2.ZERO
+		_shared_item_card.scale = Vector2(
+			_weapon_card_rect.size.x / 360.0,
+			_weapon_card_rect.size.y / 150.0
+		)
 
 func _layout_top_hud(viewport_size: Vector2, ui_scale: Vector2) -> void:
 	_layout_top_status_side(
@@ -1273,6 +1280,16 @@ func _setup_weapon_card() -> void:
 	_weapon_panel_box.color = Color(0.055, 0.05, 0.04, 0.94)
 	_weapon_panel_border.default_color = Color(COLOR_ACTION_BORDER, 0.78)
 	_weapon_panel_border.width = 1.0
+	for legacy_visual in [
+		_weapon_panel_box,
+		_weapon_panel_border,
+		_weapon_sprite,
+		_weapon_effect_sprite,
+		_weapon_name_label,
+		_weapon_state_label,
+		_weapon_detail_label,
+	]:
+		legacy_visual.modulate.a = 0.0
 
 func _setup_group_tabs() -> void:
 	pass
@@ -2627,6 +2644,11 @@ func _render_weapon_card() -> void:
 			else "MELEE // UNARMED"
 		)
 	_weapon_detail_label.text = detail_text
+	if _shared_item_card:
+		_shared_item_card.show_descriptor(
+			weapon,
+			not locked_in_melee and not weapon.is_empty()
+		)
 	var effect := (
 		_weapon_preview_effect
 		if not _weapon_preview_effect.is_empty()

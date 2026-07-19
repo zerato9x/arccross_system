@@ -6,9 +6,13 @@
 script = ExtResource("1_itemdata")
 id = "arc_core_component_north"
 display_name = "North Core Regulator"
-lore_description = "A dense pre-collapse regulator keyed to the northern arm gateway. It is useless as ordinary salvage and irreplaceable to the Central Core."
+lore_description = "A dense pre-collapse regulator keyed to the northern arm gateway. Useless as ordinary salvage; irreplaceable to the Central Core."
 item_type = 0
 catalog_category = 0
+item_grade = 4
+condition_enabled = false
+repair_domain = 0
+maintenance_constraint = "Authored quest source only; it cannot enter ordinary loot profiles."
 tags = Array[String](["meta_quest", "core_component", "unique"])
 size_cost = 2
 max_stack_size = 1

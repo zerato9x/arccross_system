@@ -77,6 +77,7 @@ const MACRO_INV_CONSUME := "consume"
 const MACRO_INV_MOVE := "move"
 const MACRO_INV_LOAD_MAGAZINE := "load_magazine"
 const MACRO_INV_INTERACT := "interact"
+const MACRO_INV_REPAIR := "repair"
 
 ## World HUD hex command IDs (intent from presentation).
 const MACRO_HEX_SCAN := "scan"
@@ -131,6 +132,13 @@ enum ItemCategory {
 	OUTER_TORSO,
 	ATTACHMENT
 }
+
+## Authoring provenance and maintenance burden. Grades do not silently inflate
+## combat stats; they only affect wear unless an item explicitly authors more.
+enum ItemGrade { IMPROVISED, CIVILIAN, SERVICE, CARBON, UNIQUE }
+
+## Repair recipe family. IMPROVISED is the weak universal field repair path.
+enum RepairDomain { NONE, FIREARM, TEXTILE, RIGID_MECHANICAL, IMPROVISED }
 
 ## Specific metabolic or trauma effect a consumable item applies on use.
 enum ConsumableEffect {
@@ -238,7 +246,10 @@ enum ActionType {
 	BLOCK,          # 3 AP: Absorb a STRIKE. Requires shield or functional arm.
 	DODGE,          # 3 AP: Evade ranged or melee attacks. Uses Finesse. Disabled if legs destroyed.
 	STAY,           # 0 AP: After successful PUSH — initiator holds position, lock breaks.
-	FOLLOW          # 0 AP: After successful PUSH — initiator follows into vacated slot, lock holds.
+	FOLLOW,         # 0 AP: After successful PUSH — initiator follows into vacated slot, lock holds.
+
+	# Appended for save/replay ordinal compatibility.
+	CLEAR_MALFUNCTION # Quick: 1/2/3 AP by Kinetic tier. Non-duel firearm service.
 }
 
 ## Specific tactical profiles defining how an entity behaves once inside the combat lane.
@@ -277,6 +288,8 @@ enum DuelActionType {
 	GET_UP,
 	STAGGER,
 	ESCAPE,
+	MALFUNCTION,
+	CLEAR_MALFUNCTION,
 }
 
 enum CombatTactic {

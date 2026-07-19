@@ -38,8 +38,10 @@ Launch from `UI/MainMenu.tscn` into a persistent macro run:
    TALK (Threat / Ceasefire → Ask / Trade placeholder) or AMBUSH with opponent
    summary and combat-grid preview.
 5. Fight persistent enemies in readable, lethal real-time 1v1 lane duels.
-6. Manage inventory, equipment, firearm loading, and wound treatment via the
-   authored Field Health HUD and inventory corner.
+6. Manage equipment through the authored three-region Inventory HUD: its
+   Innawoods body projection, anatomy/carry slot rails, condition states,
+   comparisons, firearm readiness, grounded field notes, and tool-plus-material
+   repair; treat wounds through the Field Health HUD.
 7. Save and reload with `F5` / `F9` or the main-menu and in-game slot UI.
 8. Cross radius-12 local zones through directional rims and choose only
    graph-connected destinations in the eight-sector, four-arm Node Web. Hover
@@ -60,8 +62,10 @@ profile.
   Field Health HUD, entity-collision Event HUD path, and domain-boundary
   cleanup via `PresentationSceneRegistry`.
 - Production combat runs through a dedicated real-time duel state machine. The
-  historical turn-based rules remain isolated in
-  `CombatCore/TurnBased/TurnBasedDuelScene.tscn` for comparison.
+  independent turn-based route remains a supported future mode at
+  `CombatCore/TurnBased/TurnBasedDuelScene.tscn`; both consume the same ItemCore
+  condition, malfunction, ammunition, protection, shield, and persistence
+  contract. Only their AP scheduling and mode-specific modifiers differ.
 - Active follow-up work targets balance, animation/token coverage, authored
   zone presets, inventory/hex presentation polish, and content expansion —
   **on the live foundations**, not via a total architecture rewrite. See
@@ -80,9 +84,16 @@ profile.
   aid, capacity, and cycling rules.
 - Persistent per-limb Wound records drive hemorrhage, pain, and treatment.
   Macro survival UI is `FieldHealthHUD` driven by `HealthHUDProfile` snapshots.
-- The static Innawoods inventory set maps into **168** categorized item
-  Resources. Supported equipped visuals drive layered Humanoid Tokens in the
-  macro world and combat lane.
+- The static Innawoods inventory set maps into **168** rebalanced Resources with
+  authored grade, repair domain, condition participation, grounded field note,
+  and differentiated stats. Supported equipped visuals drive layered Humanoid
+  Tokens in the macro world and combat lane.
+- Runtime items persist condition (`0-12`) and firearm malfunctions. SEARCH,
+  CAMP, firearm attempts, melee impacts, armor, and shields resolve wear and
+  typed faults through one combat-independent ItemCore contract. Broken gear
+  keeps its physical burden and storage while losing active functionality.
+- Field and CAMP repairs consume an authored material, take 30 world minutes,
+  wear the selected tool, and remain unavailable in either combat mode.
 - Item definitions are shared Resources loaded once by `LootCatalog`; items do
   not require individual scripts or scene nodes.
 - Macro local zones use seeded generation as a fallback, while

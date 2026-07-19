@@ -86,6 +86,7 @@ func _evaluate_tactics() -> int:
 		GameEnums.ActionType.AIMED_SHOT: _score_aimed_shot(),
 		GameEnums.ActionType.RELOAD: _score_reload(),
 		GameEnums.ActionType.CYCLE: _score_cycle(),
+		GameEnums.ActionType.CLEAR_MALFUNCTION: _score_clear_malfunction(),
 		GameEnums.ActionType.MOVE_FORWARD: _score_advance(),
 		GameEnums.ActionType.CHARGE: _score_charge(),
 		GameEnums.ActionType.MOVE_BACKWARD: _score_retreat(),
@@ -205,7 +206,7 @@ func _score_reload() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.RELOAD): return 0.0
 	if _is_self_locked(): return 0.0
 	var weapon = ai_core.inventory.get_active_weapon(false) # Ranged context
-	if weapon != null and weapon.current_magazine <= 0 and _can_reload_weapon(weapon):
+	if weapon != null and not weapon.is_jammed and weapon.current_magazine <= 0 and _can_reload_weapon(weapon):
 		return 0.98
 	return 0.0
 
@@ -213,9 +214,20 @@ func _score_cycle() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.CYCLE): return 0.0
 	if _is_self_locked(): return 0.0
 	var weapon = ai_core.inventory.get_active_weapon(false) # Ranged context
-	if weapon != null and _can_cycle_weapon(weapon):
+	if weapon != null and not weapon.is_jammed and _can_cycle_weapon(weapon):
 		return 1.0 if weapon.needs_cycling else 0.95
 	return 0.0
+
+func _score_clear_malfunction() -> float:
+	if _is_self_locked():
+		return 0.0
+	if turn_manager.current_ap_pool < turn_manager.get_action_cost(
+		ai_core,
+		GameEnums.ActionType.CLEAR_MALFUNCTION
+	):
+		return 0.0
+	var weapon := ai_core.inventory.get_active_weapon(false)
+	return 1.25 if weapon != null and weapon.is_jammed and weapon.current_condition > 0.0 else 0.0
 
 func _score_advance() -> float:
 	var ap_cost = turn_manager.get_action_cost(ai_core, GameEnums.ActionType.MOVE_FORWARD)
@@ -391,6 +403,10 @@ func _execute_action(action: int) -> void:
 		GameEnums.ActionType.CYCLE:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.CYCLE):
 				resolution_engine.execute_cycle(ai_core)
+
+		GameEnums.ActionType.CLEAR_MALFUNCTION:
+			if turn_manager.request_action(ai_core, GameEnums.ActionType.CLEAR_MALFUNCTION):
+				resolution_engine.execute_clear_malfunction(ai_core)
 
 		GameEnums.ActionType.MOVE_FORWARD:
 			var my_idx = _get_lane_idx(ai_core)

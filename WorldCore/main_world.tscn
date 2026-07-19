@@ -87,5 +87,6 @@ zoom_smooth_speed = 9.0
 [node name="MacroHudShell" parent="." unique_id=1334210933 instance=ExtResource("32_macro_hud")]
 
 [node name="InventoryPanel" type="CanvasLayer" parent="." unique_id=661175097]
+layer = 20
 
 [node name="InventoryUI" parent="InventoryPanel" unique_id=515846596 instance=ExtResource("34_inventory_panel")]

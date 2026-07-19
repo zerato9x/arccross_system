@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="LootProfile" load_steps=8 format=3]
+[gd_resource type="Resource" script_class="LootProfile" load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://ItemCore/LootProfile.gd" id="1_profile"]
 [ext_resource type="Script" path="res://ItemCore/LootEntry.gd" id="2_entry"]
@@ -33,7 +33,12 @@ script = ExtResource("2_entry")
 item_id = "multitool"
 weight = 2.0
 
+[sub_resource type="Resource" id="Entry_service_pistol"]
+script = ExtResource("2_entry")
+item_id = "service_pistol"
+weight = 0.25
+
 [resource]
 script = ExtResource("1_profile")
 profile_id = "loot_relay_shelter"
-entries = Array[ExtResource("2_entry")]([SubResource("Entry_water"), SubResource("Entry_ration"), SubResource("Entry_blood"), SubResource("Entry_scrap"), SubResource("Entry_crowbar"), SubResource("Entry_lockpick")])
+entries = Array[ExtResource("2_entry")]([SubResource("Entry_water"), SubResource("Entry_ration"), SubResource("Entry_blood"), SubResource("Entry_scrap"), SubResource("Entry_crowbar"), SubResource("Entry_lockpick"), SubResource("Entry_service_pistol")])

@@ -1,18 +1,39 @@
-[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://dbj2gmxxnnecx"]
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
 
-[ext_resource type="Script" uid="uid://jbxk0eeleei8" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
 
 [resource]
 script = ExtResource("1_itemdata")
 id = "service_pistol_magazine"
 display_name = "Service Pistol Magazine"
-lore_description = "Field catalog entry for Service Pistol Magazine."
+lore_description = "Service Pistol Magazine: Counted ammunition component. Feed compatibility is exact; almost fitting is how stoppages become tragedies."
 item_type = 5
 catalog_category = 8
+item_grade = 2
+condition_enabled = false
+repair_domain = 0
+maintenance_constraint = ""
 tags = Array[String](["weapon"])
 size_cost = 0
+max_stack_size = 1
 target_slot = 9
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Pistol/service_pistol_magazine.png"
-weight = 0.2
-accepted_ammunition_id = "pistol_round"
+weapon_type = 0
+flesh_damage = 0.0
+stance_damage = 0.0
+armor_penetration = 0.0
+accuracy_rating = 6.0
+protection_blunt = 0.0
+protection_sharp = 0.0
+protection_ballistic = 0.0
+bulk = 0.0
+weight = 0.14
+interaction_roles = Array[int]([])
+search_loot_bonus = 0.0
+search_safety_bonus = 0.0
+search_sneak_bonus = 0.0
+camp_shelter_bonus = 0.0
+camp_alertness_bonus = 0.0
+consumable_potency = 0.0
 magazine_capacity = 8
+accepted_ammunition_id = "pistol_round"

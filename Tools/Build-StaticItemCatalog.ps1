@@ -9,6 +9,7 @@ $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $AssetRoot = Join-Path $ProjectRoot 'Asset\Innawoods_Asset'
 $OutputRoot = Join-Path $ProjectRoot 'ItemCore\Items'
 $ItemScriptPath = 'res://ItemCore/ItemData.gd'
+$ProtectedAuthoredResources = @('arc_core_component_north.tres')
 
 $ItemType = @{
     Junk = 0; Weapon = 1; Armor = 2; Consumable = 3
@@ -31,6 +32,8 @@ $WeaponClass = @{ None = 0; Blunt = 1; Blade = 2; Pistol = 3; Rifle = 4; Shotgun
 $DamageType = @{ Blunt = 0; Sharp = 1; Ballistic = 2 }
 $ConsumableEffect = @{ Hunger = 0; Thirst = 1; Fatigue = 2; Bleeding = 3; Blood = 4 }
 $InteractionRole = @{ Search = 1; Camp = 2 }
+$ItemGrade = @{ Improvised = 0; Civilian = 1; Service = 2; Carbon = 3; Unique = 4 }
+$RepairDomain = @{ None = 0; Firearm = 1; Textile = 2; RigidMechanical = 3; Improvised = 4 }
 
 function Convert-ToId([string]$Value) {
     return $Value.ToLowerInvariant().Replace('-', '_').Replace(' ', '_')
@@ -66,11 +69,32 @@ function New-Item([string]$Id, [string]$SpritePath) {
         lore_description = "Field catalog entry for $(Convert-ToDisplayName $Id)."
         item_type = $ItemType.Junk
         catalog_category = $Category.Misc
+        item_grade = $ItemGrade.Civilian
+        condition_enabled = $false
+        repair_domain = $RepairDomain.None
+        maintenance_constraint = ''
         tags = @()
         size_cost = 1
+        max_stack_size = 1
         target_slot = $Slot.None
         inventory_sprite_path = $SpritePath
+        weapon_type = $WeaponClass.None
+        flesh_damage = 0.0
+        stance_damage = 0.0
+        armor_penetration = 0.0
+        accuracy_rating = 6.0
+        protection_blunt = 0.0
+        protection_sharp = 0.0
+        protection_ballistic = 0.0
+        bulk = 0.0
         weight = 0.2
+        interaction_roles = @()
+        search_loot_bonus = 0.0
+        search_safety_bonus = 0.0
+        search_sneak_bonus = 0.0
+        camp_shelter_bonus = 0.0
+        camp_alertness_bonus = 0.0
+        consumable_potency = 0.0
     }
 }
 
@@ -78,6 +102,121 @@ function Set-Values([System.Collections.IDictionary]$Item, [System.Collections.I
     foreach ($key in $Values.Keys) {
         $Item[$key] = $Values[$key]
     }
+}
+
+function Get-StableVariant([string]$Id, [int]$Modulo = 3) {
+    $sum = 0
+    foreach ($character in $Id.ToCharArray()) { $sum += [int]$character }
+    return $sum % $Modulo
+}
+
+function Get-AuthoredGrade([string]$Id) {
+    if ($Id.StartsWith('unique_') -or $Id -like '*arcborn*' -or $Id -like 'arc_core_*') {
+        return $ItemGrade.Unique
+    }
+    if ($Id -like '*carbon*') { return $ItemGrade.Carbon }
+    if ($Id -like '*makeshift*' -or $Id -in @('rebar', 'rag', 'ducttape', 'scrap')) {
+        return $ItemGrade.Improvised
+    }
+    if ($Id -like '*service*' -or $Id -in @('ak47', 'shotgun', 'trap_heavy')) {
+        return $ItemGrade.Service
+    }
+    return $ItemGrade.Civilian
+}
+
+function Add-InventoryOverhaulValues([System.Collections.IDictionary]$Item) {
+    $grade = Get-AuthoredGrade $Item.id
+    $variant = Get-StableVariant $Item.id 4
+    $Item.item_grade = $grade
+
+    $functional = $Item.item_type -in @($ItemType.Weapon, $ItemType.Armor, $ItemType.Tool)
+    $Item.condition_enabled = $functional
+    if ($Item.catalog_category -eq $Category.Firearm) {
+        $Item.repair_domain = $RepairDomain.Firearm
+    }
+    elseif ($Item.item_type -eq $ItemType.Armor) {
+        $rigidWords = @('armor', 'armour', 'helmet', 'shield', 'metal', 'carbon', 'arcborn')
+        $isRigid = $false
+        foreach ($word in $rigidWords) {
+            if ($Item.id -like "*$word*") { $isRigid = $true; break }
+        }
+        $Item.repair_domain = $(if ($isRigid) { $RepairDomain.RigidMechanical } else { $RepairDomain.Textile })
+    }
+    elseif ($Item.item_type -in @($ItemType.Weapon, $ItemType.Tool)) {
+        $Item.repair_domain = $RepairDomain.RigidMechanical
+    }
+
+    if ($grade -eq $ItemGrade.Unique) {
+        $Item.maintenance_constraint = 'Unique components: field repairs cannot restore condition above 6.'
+    }
+
+    # Explicit authoring budgets: grades guide these written values, but runtime
+    # combat never applies a hidden grade stat multiplier.
+    if ($Item.item_type -eq $ItemType.Armor) {
+        $existingProtection = [double]$Item.protection_blunt + [double]$Item.protection_sharp + [double]$Item.protection_ballistic
+        if ($existingProtection -le 0.0) {
+            $budget = @(0.75, 1.0, 1.45, 1.8, 2.1)[$grade]
+            $Item.protection_blunt = [Math]::Round($budget + (0.25 * ($variant % 2)), 2)
+            $Item.protection_sharp = [Math]::Round($budget + (0.25 * (($variant + 1) % 3)), 2)
+            $Item.protection_ballistic = [Math]::Round([Math]::Max(0.0, $budget - 0.75 + (0.25 * $variant)), 2)
+            $Item.bulk = [Math]::Round(0.35 + (0.25 * $variant), 2)
+            $Item.weight = [Math]::Round(0.4 + (0.3 * $variant), 2)
+        }
+    }
+    elseif ($Item.item_type -eq $ItemType.Tool -and @($Item.interaction_roles).Count -eq 0) {
+        if ($Item.catalog_category -in @($Category.Camping, $Category.Traps)) {
+            $Item.interaction_roles = @($InteractionRole.Camp)
+            $Item.camp_shelter_bonus = 1.0 + $variant
+            $Item.camp_alertness_bonus = [Math]::Max(0.0, $variant - 1.0)
+        }
+        else {
+            $Item.interaction_roles = @($InteractionRole.Search)
+            $Item.search_loot_bonus = 1.0 + $variant
+            $Item.search_safety_bonus = [Math]::Max(0.0, $variant - 1.0)
+            $Item.search_sneak_bonus = $(if ($variant -eq 0) { 1.0 } else { 0.0 })
+        }
+        $Item.weight = [Math]::Round(0.2 + (0.2 * $variant), 2)
+    }
+    elseif ($Item.item_type -eq $ItemType.Consumable) {
+        if ([double]$Item.consumable_potency -le 3.0) {
+            $Item.consumable_potency = 2.0 + $variant
+        }
+        $Item.max_stack_size = 6
+    }
+    elseif ($Item.item_type -in @($ItemType.Material, $ItemType.Ammunition)) {
+        $Item.max_stack_size = $(
+            if ($Item.item_type -eq $ItemType.Ammunition -and -not (Test-LoadingAid $Item.id)) { 24 }
+            elseif ($Item.item_type -eq $ItemType.Material) { 12 }
+            else { 1 }
+        )
+        $Item.weight = [Math]::Round([Math]::Max(0.02, [double]$Item.weight - (0.03 * $variant)), 2)
+    }
+
+    if ($Item.item_type -eq $ItemType.Weapon -and $Item.catalog_category -eq $Category.MeleeWeapon) {
+        if ($Item.weapon_type -eq $WeaponClass.Blade) {
+            $Item.flesh_damage = [Math]::Round(4.0 + (0.6 * $variant), 2)
+            $Item.armor_penetration = [Math]::Round(2.0 + (0.5 * $variant), 2)
+            $Item.accuracy_rating = 6.0 + ($variant % 3)
+        }
+        else {
+            $Item.flesh_damage = [Math]::Round(1.0 + (0.4 * $variant), 2)
+            $Item.stance_damage = [Math]::Round(3.0 + (0.8 * $variant), 2)
+            $Item.accuracy_rating = 5.0 + ($variant % 4)
+        }
+    }
+
+    $gradeName = @('Improvised', 'Civilian', 'Service', 'Carbon', 'Unique')[$grade]
+    switch ($Item.item_type) {
+        $ItemType.Weapon { $note = "$gradeName weapon. Check the working surfaces before trusting it; range and impact are listed, not implied." }
+        $ItemType.Armor { $note = "$gradeName protective gear. Coverage matters more than the label, and damaged layers stop earning their keep." }
+        $ItemType.Consumable { $note = "Sealed field supply. Use it for the listed effect; once opened, the unit is spent." }
+        $ItemType.Tool { $note = "$gradeName field tool. Useful in its listed SEARCH, CAMP, or repair role until wear makes the attempt unreliable." }
+        $ItemType.Ammunition { $note = "Counted ammunition component. Feed compatibility is exact; almost fitting is how stoppages become tragedies." }
+        $ItemType.Material { $note = "Repair stock for field work. Keep it dry, counted, and paired with the correct tool." }
+        $ItemType.Attachment { $note = "Authored weapon component. Compatibility is exact and the part has no useful role on the wrong platform." }
+        default { $note = "Carried field object. It still costs storage even when it offers no active function." }
+    }
+    $Item.lore_description = "$($Item.display_name): $note"
 }
 
 function Test-OverlayName([string]$Stem) {
@@ -270,7 +409,7 @@ $FirearmOverrides = @{
         magazine_id = 'service_pistol_magazine'
     }
     revolver = @{
-        display_name = 'Service Revolver'; flesh_damage = 7.0; armor_penetration = 6.0
+        display_name = 'Civilian Revolver'; flesh_damage = 7.0; armor_penetration = 6.0
         accuracy_rating = 6.0; effective_range = 6; optimal_range = 4
         bulk = 0.7; weight = 1.2; threat = 6.0; max_magazine = 6
         starting_magazine = 6; ammunition_id = 'pistol_round'
@@ -614,6 +753,7 @@ foreach ($file in Get-ChildItem -LiteralPath $generalRoot -Recurse -File -Filter
     $item.tags = @($file.Directory.Name.ToLowerInvariant())
     Add-GeneralDefaults $item $file.Directory.Name
     if ($CoreOverrides.ContainsKey($id)) { Set-Values $item $CoreOverrides[$id] }
+    Add-InventoryOverhaulValues $item
     $definitions.Add($item)
 }
 
@@ -631,6 +771,7 @@ foreach ($file in $equipmentFiles) {
     $overlays = @(Get-MatchingOverlays $file $equipmentFiles $id)
     if ($overlays.Count -gt 0) { $item.equipped_sprite_paths = $overlays }
     if ($CoreOverrides.ContainsKey($id)) { Set-Values $item $CoreOverrides[$id] }
+    Add-InventoryOverhaulValues $item
     $definitions.Add($item)
 }
 
@@ -661,6 +802,7 @@ foreach ($file in $weaponFiles) {
     if ($FirearmOverrides.ContainsKey($id)) { Set-Values $item $FirearmOverrides[$id] }
     if ($MeleeOverrides.ContainsKey($id)) { Set-Values $item $MeleeOverrides[$id] }
     Add-SpecialWeaponValues $item
+    Add-InventoryOverhaulValues $item
     $definitions.Add($item)
 }
 
@@ -683,6 +825,7 @@ if (-not $resolvedOutput.StartsWith($ProjectRoot, [StringComparison]::OrdinalIgn
 
 if ($Rebuild) {
     Get-ChildItem -LiteralPath $resolvedOutput -File -Filter '*.tres' | ForEach-Object {
+        if ($_.Name -in $ProtectedAuthoredResources) { return }
         Remove-Item -LiteralPath $_.FullName -Force
     }
 }

@@ -292,6 +292,10 @@ func _execute_player_action(
 			if not turn_manager.request_action(player_core, action):
 				return false
 			return resolution_engine.execute_cycle(player_core)
+		GameEnums.ActionType.CLEAR_MALFUNCTION:
+			if not turn_manager.request_action(player_core, action):
+				return false
+			return resolution_engine.execute_clear_malfunction(player_core)
 		GameEnums.ActionType.USE_ITEM:
 			var item := player_core.inventory.find_item_by_instance_id(
 				item_instance_id
@@ -415,18 +419,25 @@ func _build_legal_actions() -> Array:
 
 		var ranged: ItemData = player_core.inventory.get_active_weapon(false)
 		var ranged_distance: int = absi(enemy_lane - player_lane)
-		if ranged and _ranged_weapon_ready(ranged, ranged_distance):
-			_add_action(actions, GameEnums.ActionType.SHOOT, "SHOOT")
+		if ranged and ranged.is_jammed and ranged.current_condition > 0.0:
 			_add_action(
 				actions,
-				GameEnums.ActionType.AIMED_SHOT,
-				"AIMED SHOT",
-				AIMED_LIMBS
+				GameEnums.ActionType.CLEAR_MALFUNCTION,
+				"CLEAR MALFUNCTION"
 			)
-		if ranged and _can_reload(ranged):
-			_add_action(actions, GameEnums.ActionType.RELOAD, "RELOAD")
-		if ranged and _can_cycle(ranged):
-			_add_action(actions, GameEnums.ActionType.CYCLE, "CYCLE")
+		elif ranged and ranged.current_condition > 0.0:
+			if _ranged_weapon_ready(ranged, ranged_distance):
+				_add_action(actions, GameEnums.ActionType.SHOOT, "SHOOT")
+				_add_action(
+					actions,
+					GameEnums.ActionType.AIMED_SHOT,
+					"AIMED SHOT",
+					AIMED_LIMBS
+				)
+			if _can_reload(ranged):
+				_add_action(actions, GameEnums.ActionType.RELOAD, "RELOAD")
+			if _can_cycle(ranged):
+				_add_action(actions, GameEnums.ActionType.CYCLE, "CYCLE")
 		if slot.current_cover != CombatRules.TileObject.NONE:
 			_add_action(actions, GameEnums.ActionType.TAKE_COVER, "TAKE COVER")
 	else:
@@ -479,7 +490,7 @@ func _action_group_for(action: int, item_instance_id: String) -> String:
 	match action:
 		GameEnums.ActionType.SHOOT, GameEnums.ActionType.AIMED_SHOT:
 			return ACTION_GROUP_FIREARM
-		GameEnums.ActionType.RELOAD, GameEnums.ActionType.CYCLE:
+		GameEnums.ActionType.RELOAD, GameEnums.ActionType.CYCLE, GameEnums.ActionType.CLEAR_MALFUNCTION:
 			return ACTION_GROUP_FIREARM
 		GameEnums.ActionType.GET_UP, GameEnums.ActionType.MOVE_FORWARD:
 			return ACTION_GROUP_MOVEMENT
@@ -524,6 +535,11 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		weapon_descriptor["current_magazine"] = weapon.current_magazine
 		weapon_descriptor["loaded_rounds"] = weapon.loaded_rounds
 		weapon_descriptor["needs_cycling"] = weapon.needs_cycling
+		weapon_descriptor["current_condition"] = weapon.current_condition
+		weapon_descriptor["condition_band"] = ItemConditionRules.condition_band(weapon.current_condition)
+		weapon_descriptor["fault_chance"] = ItemConditionRules.fault_chance(weapon.current_condition)
+		weapon_descriptor["is_jammed"] = weapon.is_jammed
+		weapon_descriptor["readiness"] = ItemConditionRules.readiness_descriptor(weapon)
 		weapon_descriptor["sprite_path"] = weapon_sprite_path
 		if weapon.is_ranged():
 			weapon_detail = " %02d/%02d R%02d%s" % [
@@ -575,6 +591,11 @@ func _weapon_slot_snapshot(entity: HumanoidCore, melee: bool) -> Dictionary:
 	descriptor["current_magazine"] = weapon.current_magazine
 	descriptor["loaded_rounds"] = weapon.loaded_rounds
 	descriptor["needs_cycling"] = weapon.needs_cycling
+	descriptor["current_condition"] = weapon.current_condition
+	descriptor["condition_band"] = ItemConditionRules.condition_band(weapon.current_condition)
+	descriptor["fault_chance"] = ItemConditionRules.fault_chance(weapon.current_condition)
+	descriptor["is_jammed"] = weapon.is_jammed
+	descriptor["readiness"] = ItemConditionRules.readiness_descriptor(weapon)
 	descriptor["sprite_path"] = weapon.get_inventory_sprite_path()
 	descriptor["state"] = _weapon_state_label(weapon)
 	descriptor["slot_label"] = "MELEE" if melee else "RANGED"
@@ -583,6 +604,10 @@ func _weapon_slot_snapshot(entity: HumanoidCore, melee: bool) -> Dictionary:
 func _weapon_state_label(weapon: ItemData) -> String:
 	if weapon == null:
 		return "UNARMED"
+	if weapon.current_condition <= 0.0:
+		return "BROKEN"
+	if weapon.is_jammed:
+		return "JAMMED"
 	if not weapon.is_ranged():
 		return "READY"
 	if weapon.current_magazine <= 0:
@@ -918,7 +943,7 @@ func _audio_weapon_for_action(
 	match action:
 		GameEnums.ActionType.SHOOT, GameEnums.ActionType.AIMED_SHOT:
 			return entity.inventory.get_active_weapon(false)
-		GameEnums.ActionType.RELOAD, GameEnums.ActionType.CYCLE:
+		GameEnums.ActionType.RELOAD, GameEnums.ActionType.CYCLE, GameEnums.ActionType.CLEAR_MALFUNCTION:
 			return entity.inventory.get_active_weapon(false)
 		GameEnums.ActionType.STRIKE, GameEnums.ActionType.BLOCK:
 			return entity.inventory.get_active_weapon(true)

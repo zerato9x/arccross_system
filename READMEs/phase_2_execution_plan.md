@@ -23,6 +23,10 @@ Status updated on **July 19, 2026**:
   command deck, Reserved AP reactions, and turn AI are no longer the production
   combat path.
 - Wound / item-stat overhaul and Field Health HUD shipped **July 18–19**.
+- Inventory condition, catalog, repair, and authored-HUD overhaul **P2-11 is
+  implemented**. Real-time remains the production route; the independent
+  turn-based route is a supported future mode consuming identical ItemCore
+  outcomes and persistent records. Scheduling is intentionally not unified.
 - Macro exploration window, trap-to-combat loop, and entity-collision Event HUD
   path (Threat / Ceasefire / Ask / Trade placeholder) are live; do not revive
   `MacroInteractionPanel`.
@@ -32,8 +36,9 @@ Status updated on **July 19, 2026**:
   - Polish macro and combat presentation using the HUD asset packs, after
     locking one HUD direction against current `MacroHudShell` +
     `FieldHealthHUD` (stale remake/repair plans are not executable as written).
-  - Finish inventory and hex presentation features on `InventorySystem` /
-    `MacroExplorationStage` / `MacroExplorationWindow`.
+  - Continue hex presentation work on `MacroExplorationStage` /
+    `MacroExplorationWindow`; inventory's P2-11 foundation is complete, with
+    later balance tuning expected from playtest evidence.
   - Expand authored content, loadouts, and loot profiles without breaking the
     owner-validated rule boundaries.
   - Paint and assign a real preset library for campaign node profiles using the
@@ -41,6 +46,28 @@ Status updated on **July 19, 2026**:
   - Economy / TRADE UI remains deferred beyond the placeholder.
 
 ## Completed Workstreams
+
+### P2-11: Identical Cross-Mode Item Mechanics — Implemented July 19, 2026
+
+- `ItemConditionRules` owns Base-12 condition bands, grade-scaled wear, typed
+  fault outcomes, firearm jams, and deterministic malfunction clearing.
+- Real-time and turn-based combat call the shared resolver at the same semantic
+  item events and persist the same condition, ammunition, and malfunction state.
+  Their clocks, AP presentation, movement, attack selection, and AI remain
+  independent by design.
+- Armor resolves per item in stable equipment-slot order; broken equipment
+  retains Weight, Bulk, Size, and Capacity but contributes no active function.
+- All 168 current items now author grade, repair domain, grounded field notes,
+  and differentiated stats. Loot/loadout distribution keeps Service uncommon,
+  Carbon rare, and Unique tied to explicit sources.
+- The editor-authored Inventory HUD provides an Innawoods layered body
+  projection, 15 anatomy/carry equipment slots with condition state, grouped
+  carried/ground items, a persistent inspector/comparison surface, filters,
+  safe keyboard and pointer behavior, confirmation for destructive actions,
+  and field/CAMP repair.
+- `CombatItemCard.tscn` is hosted unchanged by both combat HUDs.
+- Focused parity, catalog, inventory, real-time, and turn-mode smokes cover the
+  shared contract without pretending seconds and discrete AP are equivalent.
 
 P2-01 through P2-04 remain historical implementation records. Their command
 deck and turn/reaction surfaces were superseded by P2-09 in production, but the

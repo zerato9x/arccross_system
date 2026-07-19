@@ -1,6 +1,8 @@
 extends MacroCornerPanel
 class_name MacroInventoryCornerPanel
 
+signal fullscreen_requested
+
 @export var inventory_ui: InventoryUI
 
 var _preview_panel: MacroInventoryPreview
@@ -28,7 +30,7 @@ func _install_preview_ui() -> void:
 		push_error("MacroInventoryCornerPanel requires MacroInventoryPreview under PreviewRoot.")
 		return
 	_preview_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_preview_panel.open_requested.connect(expand)
+	_preview_panel.open_requested.connect(fullscreen_requested.emit)
 
 
 func _render_preview() -> void:
@@ -37,19 +39,16 @@ func _render_preview() -> void:
 
 
 func _render_expanded() -> void:
-	if inventory_ui == null:
-		return
-	var host := %ExpandedRoot
-	if host:
-		inventory_ui.open_embedded_panel(host, _snapshot)
+	# Inventory is a fullscreen work surface. The corner owns only its preview;
+	# embedding the three-region inventory here crushes and hides its authored UI.
+	fullscreen_requested.emit()
 
 
 func _set_state(state: PanelState) -> void:
+	if state == PanelState.EXPANDED:
+		fullscreen_requested.emit()
+		return
 	super._set_state(state)
-	if state == PanelState.PREVIEW and inventory_ui and inventory_ui.is_open():
-		inventory_ui.close_panel(false)
-	elif state == PanelState.EXPANDED:
-		_render_expanded()
 
 
 func _is_primary_action_click(global_pos: Vector2) -> bool:
