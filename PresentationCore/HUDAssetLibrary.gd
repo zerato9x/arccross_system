@@ -1,11 +1,15 @@
 extends RefCounted
 
-const COLOR_TEXT := Color("#e2d6b8")
-const COLOR_MUTED := Color("#8b8572")
-const COLOR_NORMAL := Color("#c2aa78")
-const COLOR_CAUTION := Color("#d19a3d")
-const COLOR_CRITICAL := Color("#b94b3e")
-const COLOR_ANOMALY := Color("#8f6958")
+const COLOR_TEXT := Color("#e4dfcf")
+const COLOR_MUTED := Color("#7c8882")
+const COLOR_INFO := Color("#39c8c6")
+const COLOR_TRAVEL := Color("#4e91c7")
+const COLOR_DISCOVERY := Color("#79b86a")
+const COLOR_SUCCESS := Color("#8bcf78")
+const COLOR_CAUTION := Color("#d3a13d")
+const COLOR_CRITICAL := Color("#d55749")
+const COLOR_ANOMALY := Color("#b35bb8")
+const COLOR_NORMAL := COLOR_INFO
 const COLOR_PANEL := Color("#0b0d0b")
 const COLOR_PANEL_ALT := Color("#151711")
 const COLOR_PANEL_WARM := Color("#201b13")
@@ -93,28 +97,33 @@ static func menu_icon(name: String) -> Texture2D:
 	return status_icon(name)
 
 static func panel_style(kind: String = "neutral") -> StyleBox:
-	# Macro chrome: black fills + dark grey borders (no crimson/warm-red panels).
+	# Shared survival-computer chrome. Semantic color belongs to borders and
+	# signals; the world remains readable through the black work surfaces.
 	var background := Color(0, 0, 0, 1.0)
-	var border := COLOR_BORDER_DARK
+	var border := Color("#174446")
 	var alpha := 0.88
 	match kind:
-		"warning":
+		"warning", "caution":
 			background = Color(0, 0, 0, 1.0)
-			border = Color("#5a5648")
+			border = COLOR_CAUTION.darkened(0.48)
 			alpha = 0.90
-		"critical":
+		"critical", "danger":
 			background = Color(0, 0, 0, 1.0)
-			border = Color("#4a4a44")
+			border = COLOR_CRITICAL.darkened(0.42)
 			alpha = 0.92
 		"anomaly":
 			background = Color(0, 0, 0, 1.0)
-			border = Color("#45423c")
+			border = COLOR_ANOMALY.darkened(0.46)
 			alpha = 0.90
+		"travel":
+			border = COLOR_TRAVEL.darkened(0.48)
+		"discovery", "success":
+			border = COLOR_DISCOVERY.darkened(0.48)
 	return _pixel_panel_style(background, border, 1, 8.0, alpha)
 
 static func button_style(state: String = "normal") -> StyleBox:
 	var background := Color("#171912")
-	var border := COLOR_BORDER_DARK
+	var border := Color("#23494a")
 	match state:
 		"hover":
 			background = Color("#242317")
@@ -141,6 +150,10 @@ static func bar_fill_style(kind: String = "health") -> StyleBox:
 			fill = Color("#c9c1a2")
 		"anomaly":
 			fill = COLOR_ANOMALY
+		"travel":
+			fill = COLOR_TRAVEL
+		"discovery", "success":
+			fill = COLOR_DISCOVERY
 	return _pixel_panel_style(fill, fill.darkened(0.32), 0, 0.0, 1.0)
 
 static func apply_panel(panel: PanelContainer, kind: String = "neutral") -> void:
@@ -188,11 +201,23 @@ static func apply_label(label: Label, role: String = "body") -> void:
 		"title":
 			label.add_theme_color_override("font_color", COLOR_NORMAL)
 			label.add_theme_font_size_override("font_size", 22)
-		"warning":
+		"warning", "caution":
 			label.add_theme_color_override("font_color", COLOR_CAUTION)
 			label.add_theme_font_size_override("font_size", 11)
-		"critical":
+		"critical", "danger":
 			label.add_theme_color_override("font_color", COLOR_CRITICAL)
+			label.add_theme_font_size_override("font_size", 11)
+		"travel":
+			label.add_theme_color_override("font_color", COLOR_TRAVEL)
+			label.add_theme_font_size_override("font_size", 11)
+		"discovery", "success":
+			label.add_theme_color_override("font_color", COLOR_DISCOVERY)
+			label.add_theme_font_size_override("font_size", 11)
+		"anomaly":
+			label.add_theme_color_override("font_color", COLOR_ANOMALY)
+			label.add_theme_font_size_override("font_size", 11)
+		"info", "world":
+			label.add_theme_color_override("font_color", COLOR_INFO)
 			label.add_theme_font_size_override("font_size", 11)
 		"muted":
 			label.add_theme_color_override("font_color", COLOR_MUTED)
@@ -255,6 +280,41 @@ static func pixel_border_color(kind: String = "neutral") -> Color:
 		"anomaly":
 			return Color("#45423c")
 	return COLOR_BORDER_DARK
+
+
+static func semantic_color(kind: String = "world") -> Color:
+	match kind.to_lower():
+		"travel":
+			return COLOR_TRAVEL
+		"discovery":
+			return COLOR_DISCOVERY
+		"success":
+			return COLOR_SUCCESS
+		"warning", "caution":
+			return COLOR_CAUTION
+		"critical", "danger":
+			return COLOR_CRITICAL
+		"anomaly":
+			return COLOR_ANOMALY
+		"system":
+			return COLOR_MUTED
+	return COLOR_INFO
+
+
+static func log_row_style(kind: String, latest: bool = false) -> StyleBoxFlat:
+	var accent := semantic_color(kind)
+	var style := _pixel_panel_style(
+		Color("#080c0c"),
+		accent.darkened(0.55 if latest else 0.72),
+		1,
+		5.0,
+		0.84 if latest else 0.62
+	)
+	style.content_margin_left = 6.0
+	style.content_margin_right = 6.0
+	style.content_margin_top = 4.0
+	style.content_margin_bottom = 4.0
+	return style
 
 static func _pixel_panel_style(
 	background: Color,

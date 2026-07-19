@@ -77,6 +77,9 @@ func _ready() -> void:
 	_layout_manager.viewport_insets_changed.connect(
 		func(insets: Rect2i): viewport_insets_changed.emit(insets)
 	)
+	_layout_manager.expanded_count_changed.connect(
+		func(count: int): _world_status.set_work_surface_active(count > 0)
+	)
 	_health_panel.medical_action_requested.connect(medical_action_requested.emit)
 	_health_panel.inventory_requested.connect(inventory_requested.emit)
 	_inventory_panel.fullscreen_requested.connect(inventory_requested.emit)
@@ -168,8 +171,8 @@ func dock_hex_session(session: Dictionary) -> void:
 	present_poi(session)
 
 
-func append_exploration_log(message: String) -> void:
-	_world_status.append_log(message)
+func append_exploration_log(message: String, kind: String = "") -> void:
+	_world_status.append_log(message, kind)
 
 
 func present_travel_beat(session: Dictionary) -> void:
@@ -182,7 +185,7 @@ func present_travel_beat(session: Dictionary) -> void:
 		if not first_line.is_empty():
 			line = "%s — %s" % [title, first_line] if not title.is_empty() else first_line
 	if not line.is_empty():
-		append_exploration_log(line)
+		append_exploration_log(line, "travel")
 
 
 func present_poi(session: Dictionary, inventory_snapshot: Dictionary = {}) -> void:
@@ -272,10 +275,11 @@ func _on_save_load_slot_selected(slot: int) -> void:
 
 
 func _set_hud_scale(value: float) -> void:
-	_health_panel.scale = Vector2.ONE * value
-	_inventory_panel.scale = Vector2.ONE * value
-	_hex_panel.scale = Vector2.ONE * value
-	_world_status.scale = Vector2.ONE * value
+	_health_panel.set_hud_scale(value)
+	_inventory_panel.set_hud_scale(value)
+	_hex_panel.set_hud_scale(value)
+	_world_status.set_hud_scale(value)
+	_settings_panel.pivot_offset = _settings_panel.size * 0.5
 	_settings_panel.scale = Vector2.ONE * value
 	var settings := get_node_or_null("/root/GameSettings")
 	if settings != null:

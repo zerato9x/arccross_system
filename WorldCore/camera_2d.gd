@@ -55,17 +55,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func set_viewport_insets(insets: Rect2i) -> void:
-	## Frame the playfield clear of HUD chrome.
-	## Rect2i encodes (left, top, right, bottom) margins in pixels.
-	var size := get_viewport_rect().size
-	if size.x <= 0.0 or size.y <= 0.0:
-		return
-	var z := maxf(zoom.x, 0.01)
-	_hud_offset = Vector2(
-		(float(insets.position.x) - float(insets.size.x)) * 0.5 / z,
-		(float(insets.position.y) - float(insets.size.y)) * 0.5 / z
-	)
+func set_viewport_insets(_insets: Rect2i) -> void:
+	## Work surfaces are transient overlays. Opening medical, inventory, or map
+	## UI must never reframe the world underneath the player's cursor.
+	## Insets remain useful to the HUD layout manager, but the camera deliberately
+	## ignores them and keeps one stable spatial reference.
+	_hud_offset = Vector2.ZERO
 
 
 func begin_travel_look_ahead(from_world: Vector2, to_world: Vector2) -> void:

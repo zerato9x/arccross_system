@@ -13,7 +13,7 @@ var _flash_tween: Tween
 func _ready() -> void:
 	panel_id = "health"
 	panel_corner = PanelCorner.TOP_LEFT
-	preview_size = Vector2(482.0, 390.0)
+	preview_size = Vector2(548.0, 418.0)
 	expanded_min_size = Vector2(760.0, 520.0)
 	expanded_max_size = Vector2(960.0, 660.0)
 	super._ready()
@@ -58,8 +58,8 @@ func _set_emergency_flash(active: bool, _emergencies: Array) -> void:
 	if not active or _emergency_overlay == null:
 		return
 	_flash_tween = create_tween().set_loops()
-	_flash_tween.tween_property(_emergency_overlay, "modulate:a", 0.15, 0.45)
-	_flash_tween.tween_property(_emergency_overlay, "modulate:a", 0.55, 0.45)
+	_flash_tween.tween_property(_emergency_overlay, "modulate:a", 0.18, 0.8)
+	_flash_tween.tween_property(_emergency_overlay, "modulate:a", 0.48, 0.8)
 
 
 func _set_state(state: PanelState) -> void:

@@ -1,17 +1,18 @@
 [gd_scene format=3 uid="uid://dvwgktmev06j3"]
 
 [ext_resource type="Script" uid="uid://cimnkoibgovi8" path="res://UI/HUD/Macro/MacroWorldStatusPanel.gd" id="1_status"]
-[ext_resource type="PackedScene" uid="uid://b8pocketclock01" path="res://UI/HUD/Macro/PocketClockDisplay.tscn" id="3_clock_scene"]
+[ext_resource type="Texture2D" uid="uid://bsjdgd577lfwj" path="res://Asset/UI/HUD/icons/status/world_signal_128.png" id="2_signal"]
 
 [node name="MacroWorldStatusPanel" type="Control" unique_id=1062311896]
+custom_minimum_size = Vector2(420, 316)
 layout_mode = 3
 anchors_preset = 3
 anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -320.0
-offset_top = -268.0
+offset_left = -434.0
+offset_top = -330.0
 offset_right = -14.0
 offset_bottom = -14.0
 grow_horizontal = 0
@@ -29,46 +30,136 @@ grow_vertical = 2
 
 [node name="Margin" type="MarginContainer" parent="Frame" unique_id=626708566]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
 
 [node name="Column" type="VBoxContainer" parent="Frame/Margin" unique_id=176835274]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 7
 
-[node name="Top" type="HBoxContainer" parent="Frame/Margin/Column" unique_id=54476669]
+[node name="AccentTop" type="ColorRect" parent="Frame/Margin/Column" unique_id=1058152320]
+custom_minimum_size = Vector2(0, 2)
 layout_mode = 2
-theme_override_constants/separation = 8
+mouse_filter = 2
+color = Color(0.223529, 0.784314, 0.776471, 1)
 
-[node name="PocketClock" parent="Frame/Margin/Column/Top" instance=ExtResource("3_clock_scene")]
+[node name="Header" type="HBoxContainer" parent="Frame/Margin/Column" unique_id=840071938]
+layout_mode = 2
+theme_override_constants/separation = 9
+
+[node name="WorldSignalIcon" type="TextureRect" parent="Frame/Margin/Column/Header" unique_id=1388499532]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 56)
 layout_mode = 2
-
-[node name="DayIcon" type="TextureRect" parent="Frame/Margin/Column/Top" unique_id=1290488893]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(56, 40)
-layout_mode = 2
+texture = ExtResource("2_signal")
 expand_mode = 1
 stretch_mode = 5
-texture_filter = 0
 
-[node name="TextColumn" type="VBoxContainer" parent="Frame/Margin/Column/Top" unique_id=401281231]
+[node name="HeaderText" type="VBoxContainer" parent="Frame/Margin/Column/Header" unique_id=827554861]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_constants/separation = 2
 
-[node name="DayLabel" type="Label" parent="Frame/Margin/Column/Top/TextColumn" unique_id=546775949]
+[node name="WorldLogEyebrow" type="Label" parent="Frame/Margin/Column/Header/HeaderText" unique_id=1492953719]
+unique_name_in_owner = true
+layout_mode = 2
+text = "WORLD SIGNAL // LIVE FEED"
+
+[node name="PhaseLabel" type="Label" parent="Frame/Margin/Column/Header/HeaderText" unique_id=272579692]
+unique_name_in_owner = true
+layout_mode = 2
+text = "NIGHT LIGHT // SECTOR LINK"
+
+[node name="SignalRow" type="HBoxContainer" parent="Frame/Margin/Column/Header/HeaderText" unique_id=448300246]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="SignalPulse" type="ColorRect" parent="Frame/Margin/Column/Header/HeaderText/SignalRow" unique_id=1330548326]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(8, 8)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.223529, 0.784314, 0.776471, 1)
+
+[node name="SignalLabel" type="Label" parent="Frame/Margin/Column/Header/HeaderText/SignalRow" unique_id=1011726606]
+unique_name_in_owner = true
+layout_mode = 2
+text = "SECTOR CHANNEL // ONLINE"
+
+[node name="ClockStack" type="VBoxContainer" parent="Frame/Margin/Column/Header" unique_id=2018914669]
+custom_minimum_size = Vector2(86, 0)
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="TimeLabel" type="Label" parent="Frame/Margin/Column/Header/ClockStack" unique_id=784654450]
+unique_name_in_owner = true
+layout_mode = 2
+text = "00:00"
+horizontal_alignment = 2
+
+[node name="DayLabel" type="Label" parent="Frame/Margin/Column/Header/ClockStack" unique_id=1452951486]
 unique_name_in_owner = true
 layout_mode = 2
 text = "DAY 001"
+horizontal_alignment = 2
 
-[node name="CalendarLabel" type="Label" parent="Frame/Margin/Column/Top/TextColumn" unique_id=516117194]
+[node name="CalendarLabel" type="Label" parent="Frame/Margin/Column/Header/ClockStack" unique_id=1899172068]
 unique_name_in_owner = true
 layout_mode = 2
 text = "JAN 0001"
+horizontal_alignment = 2
+
+[node name="HeaderRule" type="ColorRect" parent="Frame/Margin/Column" unique_id=1399415983]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 1)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.0862745, 0.266667, 0.27451, 1)
+
+[node name="LogHeader" type="HBoxContainer" parent="Frame/Margin/Column" unique_id=1058274728]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="LogTitle" type="Label" parent="Frame/Margin/Column/LogHeader" unique_id=364349162]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "WORLD LOG // CHRONOLOGICAL STREAM"
+
+[node name="Legend" type="Label" parent="Frame/Margin/Column/LogHeader" unique_id=1044221702]
+unique_name_in_owner = true
+layout_mode = 2
+text = "LIVE"
+horizontal_alignment = 2
+
+[node name="LogFrame" type="PanelContainer" parent="Frame/Margin/Column" unique_id=1598993377]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 142)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="LogMargin" type="MarginContainer" parent="Frame/Margin/Column/LogFrame" unique_id=1015558016]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="LogScroll" type="ScrollContainer" parent="Frame/Margin/Column/LogFrame/LogMargin" unique_id=255519606]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="LogList" type="VBoxContainer" parent="Frame/Margin/Column/LogFrame/LogMargin/LogScroll" unique_id=591699010]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
 
 [node name="ButtonRow" type="HBoxContainer" parent="Frame/Margin/Column" unique_id=163022250]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 6
 
@@ -77,24 +168,11 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Node Map"
+text = "NODE MAP"
 
 [node name="SettingsButton" type="Button" parent="Frame/Margin/Column/ButtonRow" unique_id=163022251]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Settings"
-
-[node name="LogScroll" type="ScrollContainer" parent="Frame/Margin/Column"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 88)
-layout_mode = 2
-size_flags_vertical = 3
-horizontal_scroll_mode = 0
-
-[node name="LogList" type="VBoxContainer" parent="Frame/Margin/Column/LogScroll"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 3
+text = "SETTINGS"

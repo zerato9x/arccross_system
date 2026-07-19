@@ -35,6 +35,7 @@ var _authored_offset_top := 0.0
 var _authored_offset_right := 0.0
 var _authored_offset_bottom := 0.0
 var _expanded_available_override := Vector2.ZERO
+var _state_tween: Tween
 
 @onready var _preview_root: Control = %PreviewRoot
 @onready var _expanded_root: Control = %ExpandedRoot
@@ -50,6 +51,9 @@ func _ready() -> void:
 		HUDAssetLibrary.apply_button(_close_button)
 	if _expanded_root:
 		_expanded_root.visible = false
+		_expanded_root.clip_contents = true
+	if _preview_root:
+		_preview_root.clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_apply_layout()
 	get_viewport().size_changed.connect(_apply_layout)
@@ -114,6 +118,11 @@ func expanded_size_for_viewport(viewport_size: Vector2) -> Vector2:
 	return _expanded_size_for_viewport(viewport_size)
 
 
+func set_hud_scale(value: float) -> void:
+	_update_scale_pivot()
+	scale = Vector2.ONE * value
+
+
 func _set_state(state: PanelState) -> void:
 	_state = state
 	if _preview_root:
@@ -123,6 +132,7 @@ func _set_state(state: PanelState) -> void:
 	if _close_button:
 		_close_button.visible = state == PanelState.EXPANDED and can_expand
 	_apply_layout()
+	_play_state_transition(_expanded_root if state == PanelState.EXPANDED else _preview_root)
 	state_changed.emit(panel_id, state)
 
 
@@ -141,6 +151,29 @@ func _apply_layout() -> void:
 		else:
 			size = preview_size
 			_set_corner_anchors()
+	_update_scale_pivot()
+
+
+func _update_scale_pivot() -> void:
+	match panel_corner:
+		PanelCorner.TOP_LEFT:
+			pivot_offset = Vector2.ZERO
+		PanelCorner.BOTTOM_LEFT:
+			pivot_offset = Vector2(0.0, size.y)
+		PanelCorner.TOP_RIGHT:
+			pivot_offset = Vector2(size.x, 0.0)
+		PanelCorner.BOTTOM_RIGHT:
+			pivot_offset = size
+
+
+func _play_state_transition(active_root: Control) -> void:
+	if active_root == null:
+		return
+	if _state_tween:
+		_state_tween.kill()
+	active_root.modulate.a = 0.52
+	_state_tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_state_tween.tween_property(active_root, "modulate:a", 1.0, 0.14)
 
 
 func _expanded_size_for_viewport(viewport_size: Vector2) -> Vector2:

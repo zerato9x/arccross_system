@@ -43,15 +43,29 @@ func _run() -> void:
 	if world_status == null:
 		_fail("World status panel missing.")
 		return
+	var camera := macro_map.get_node_or_null("Camera2D") as MacroCamera
+	if camera == null:
+		_fail("Macro camera missing.")
+		return
 	if not world_status.visible:
 		_fail("World status panel should remain visible as the fixed anchor.")
 		return
+	if world_status.get_node_or_null("%WorldSignalIcon") == null:
+		_fail("World status panel is missing the original world-signal emblem.")
+		return
+	if world_status.get_node_or_null("%PocketClock") != null:
+		_fail("World status panel still contains the retired pocket-clock asset path.")
+		return
 
 	var vp: Vector2 = hud.get_viewport().get_visible_rect().size
-	var world_status_rect := world_status.get_global_rect()
-
 	hud.toggle_health_panel()
 	await process_frame
+	if camera.get("_hud_offset") != Vector2.ZERO:
+		_fail("Opening health changed the macro camera framing offset.")
+		return
+	if not world_status.is_work_surface_compact():
+		_fail("World Signal Log did not fold clear of the medical work surface.")
+		return
 	if health.get_node("%PreviewRoot").get_node_or_null("FieldHealthPreview") == null:
 		_fail("Health corner is not using the authored FieldHealthHUD preview.")
 		return
@@ -67,6 +81,9 @@ func _run() -> void:
 	if not _assert_panel_size(vp, health, "health"):
 		return
 	if not _assert_rect_inside_viewport(health.get_global_rect(), vp, "health"):
+		return
+	if health.get_global_rect().intersects(world_status.get_global_rect()):
+		_fail("Expanded health overlaps the compact World Signal Log.")
 		return
 
 	hud.toggle_inventory_panel()
@@ -136,18 +153,13 @@ func _run() -> void:
 	if insets == Rect2i():
 		_fail("Viewport insets should be non-zero with expanded panels.")
 		return
-	if not _rects_close(world_status_rect, world_status.get_global_rect(), 2.0):
-		_fail("World status panel shifted while a work surface expanded.")
+	if not world_status.is_work_surface_compact():
+		_fail("World status panel unexpectedly unfolded over an active work surface.")
 		return
 	macro_map.open_inventory()
 	await process_frame
 	if macro_map.inventory_panel.is_open():
 		_fail("Fullscreen inventory did not close through the shared toggle route.")
-		return
-
-	var camera := macro_map.get_node_or_null("Camera2D") as MacroCamera
-	if camera == null:
-		_fail("Macro camera missing.")
 		return
 
 	var poi_coords := Vector2i(4, 0)
@@ -210,6 +222,9 @@ func _run() -> void:
 		return
 	if not world_status.visible:
 		_fail("World status panel disappeared during work-surface switching.")
+		return
+	if world_status.is_work_surface_compact():
+		_fail("World Signal Log did not restore after the medical surface closed.")
 		return
 	if not macro_map.exploration_window.is_open():
 		_fail("Closing health should not dismiss stage exploration.")

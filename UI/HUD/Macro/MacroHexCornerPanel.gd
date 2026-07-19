@@ -11,7 +11,7 @@ var _preview_panel: MacroHexPreviewPanel
 func _ready() -> void:
 	panel_id = "hex"
 	panel_corner = PanelCorner.TOP_RIGHT
-	preview_size = Vector2(326.0, 360.0)
+	preview_size = Vector2(362.0, 360.0)
 	expand_width_ratio = 0.42
 	expand_height_ratio = 0.50
 	expanded_min_size = Vector2(1080.0, 640.0)

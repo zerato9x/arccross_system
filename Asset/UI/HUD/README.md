@@ -40,11 +40,30 @@ and `Asset/Guns_Animation/`.
 
 ## Palette Roles
 
-- Teal: normal systems, location, health, interaction.
-- Amber: action points, warnings, reload/cycle, caution.
-- Crimson: blood, trauma, break, critical danger.
-- Magenta: anomaly, infection, Red Mist style exceptional states.
-- Dim white: disabled, fatigue, pass, low-emphasis labels.
+- Cyan/teal: world information, normal systems, health, interaction.
+- Blue: travel, routes, navigation, and movement between world nodes.
+- Green: discoveries, secured outcomes, recovery, and safe nodes.
+- Amber: action points, warnings, reload/cycle, and caution.
+- Crimson: blood, trauma, break, hostile events, and critical danger.
+- Magenta: anomaly, infection, Red Mist, and impossible-state signals.
+- Dim bone-white: disabled, fatigue, pass, metadata, and low-emphasis labels.
+
+These roles are presentation contracts, not decoration. The World Signal Log
+uses the same category names and colors that the node-map overhaul should use,
+so route, discovery, danger, and anomaly information never changes meaning
+between HUD surfaces.
+
+## World Signal Log
+
+`UI/HUD/Macro/MacroWorldStatusPanel.tscn` owns the bottom-right world feed.
+It no longer uses the third-party pocket-clock frame, digit folders, or the
+time-and-weather atlas. Time, phase, calendar, signal state, and categorized
+log rows are native Control nodes styled through `HUDAssetLibrary`.
+
+`icons/status/world_signal_128.png` is the original Arccross emblem generated
+for this panel: a cyan hex compass/world node with restrained amber waypoints.
+Keep it as the stable world/navigation mark; do not stretch it into panel
+chrome or reuse it as a generic warning icon.
 
 ## Regeneration
 

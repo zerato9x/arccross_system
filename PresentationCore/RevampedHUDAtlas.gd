@@ -4,15 +4,6 @@ class_name RevampedHUDAtlas
 # Widget-only helper for the revamped art pack. Corner panel chrome belongs to
 # HUDAssetLibrary; do not apply these atlas panels to resizable HUD shells.
 const UI_ATLAS := REVAMPED_ROOT + "UI Assets pack_v.1_st/UI.png"
-const TIME_WEATHER_ATLAS := REVAMPED_ROOT + "UI assets pack 2/Time & weather.png"
-const CLOCK_FRAME := (
-	REVAMPED_ROOT
-	+ "POCKET INVENTORY (MAIN)/Sprites/Content/Clock/0.png"
-)
-const CLOCK_DIGIT_ROOT := (
-	REVAMPED_ROOT
-	+ "POCKET INVENTORY (MAIN)/Sprites/Content/Clock/Clock Digits/"
-)
 const CONDITION_ROOT := REVAMPED_ROOT + "Condition/"
 
 const UI_PANEL_CORNER := Rect2(16.0, 16.0, 32.0, 32.0)
@@ -28,19 +19,6 @@ const UI_ICON_DROPLET := Rect2(209.0, 18.0, 14.0, 14.0)
 const UI_INVENTORY_SLOT := Rect2(1056.0, 16.0, 32.0, 32.0)
 const UI_BUTTON_IDLE := Rect2(288.0, 16.0, 48.0, 24.0)
 const UI_BUTTON_HOVER := Rect2(352.0, 17.0, 48.0, 24.0)
-
-const TIME_SQUARE_GRID_ORIGIN := Vector2(168.0, 0.0)
-const TIME_SQUARE_CELL := Vector2(84.0, 55.0)
-const TIME_SQUARE_COLS := 2
-
-const TIME_PHASES := [
-	"dawn",
-	"morning",
-	"midday",
-	"afternoon",
-	"dusk",
-	"night",
-]
 
 const CONDITION_FILES := {
 	"fine": "ConditionFine.png",
@@ -189,51 +167,6 @@ static func emergency_condition_icon(emergency: String) -> Texture2D:
 		"HEALING":
 			return condition_icon("healing")
 	return condition_icon("fine")
-
-
-static func time_of_day_phase(hour: int) -> String:
-	if hour < 5:
-		return "night"
-	if hour < 7:
-		return "dawn"
-	if hour < 11:
-		return "morning"
-	if hour < 14:
-		return "midday"
-	if hour < 17:
-		return "afternoon"
-	if hour < 20:
-		return "dusk"
-	return "night"
-
-
-static func time_of_day_icon(phase: String) -> Texture2D:
-	var index := TIME_PHASES.find(phase)
-	if index < 0:
-		index = 0
-	var col := index % TIME_SQUARE_COLS
-	var row := index / TIME_SQUARE_COLS
-	var origin := TIME_SQUARE_GRID_ORIGIN + Vector2(
-		float(col) * TIME_SQUARE_CELL.x,
-		float(row) * TIME_SQUARE_CELL.y
-	)
-	return atlas_region(
-		TIME_WEATHER_ATLAS,
-		Rect2(origin, TIME_SQUARE_CELL)
-	)
-
-
-static func clock_frame_texture() -> Texture2D:
-	return atlas_texture(CLOCK_FRAME)
-
-
-static func clock_digit(slot: int, digit: int) -> Texture2D:
-	var safe_slot := clampi(slot, 0, 9)
-	var safe_digit := clampi(digit, 0, 9)
-	var path: String = (
-		CLOCK_DIGIT_ROOT + str(safe_slot) + "/" + str(safe_digit) + ".png"
-	)
-	return atlas_texture(path)
 
 
 static func apply_revamped_label(label: Label, role: String = "body") -> void:
