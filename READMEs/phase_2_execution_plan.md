@@ -7,7 +7,7 @@ domain cores validate and mutate authoritative state.
 
 ## Current Phase 2 Focus
 
-Status updated on **July 17, 2026**:
+Status updated on **July 19, 2026**:
 
 - Phase 1 remains closed and verified in
   [phase_1_execution_plan.md](phase_1_execution_plan.md).
@@ -15,19 +15,30 @@ Status updated on **July 17, 2026**:
   [June 29 changelog](CHANGELOG.md#june-29-2026).
 - Shield-specific BLOCK workstream **P2-06 is complete**. See
   [July 13 changelog](CHANGELOG.md#july-13-2026).
+- Directional Node Web / Meta world overhaul shipped **July 16**. See
+  [July 16 changelog](CHANGELOG.md#july-16-2026).
 - Authored local-zone tooling **P2-08 is complete**. See
   [July 17 changelog](CHANGELOG.md#july-17-2026).
 - Real-time duel overhaul **P2-09 is implemented**. The previous turn manager,
   command deck, Reserved AP reactions, and turn AI are no longer the production
   combat path.
-- Remaining Phase 2 goals:
+- Wound / item-stat overhaul and Field Health HUD shipped **July 18–19**.
+- Macro exploration window, trap-to-combat loop, and entity-collision Event HUD
+  path (Threat / Ceasefire / Ask / Trade placeholder) are live; do not revive
+  `MacroInteractionPanel`.
+- Remaining Phase 2 goals (continue on live foundations — no total rewrite):
   - Expand humanoid token visual coverage per
     [HUMANOID_TOKEN_PIPELINE.md](HUMANOID_TOKEN_PIPELINE.md).
-  - Polish macro and combat presentation using the HUD asset packs.
+  - Polish macro and combat presentation using the HUD asset packs, after
+    locking one HUD direction against current `MacroHudShell` +
+    `FieldHealthHUD` (stale remake/repair plans are not executable as written).
+  - Finish inventory and hex presentation features on `InventorySystem` /
+    `MacroExplorationStage` / `MacroExplorationWindow`.
   - Expand authored content, loadouts, and loot profiles without breaking the
     owner-validated rule boundaries.
   - Paint and assign a real preset library for campaign node profiles using the
     completed authored-zone pipeline.
+  - Economy / TRADE UI remains deferred beyond the placeholder.
 
 ## Completed Workstreams
 
@@ -133,6 +144,22 @@ Acceptance criteria:
 - Wire remaining regions from `Asset/UI/HUD/` and
   `design/COMBAT_HUD_ASSET_MAP.md` where they improve readability.
 - Preserve presentation boundaries: no gameplay legality in UI scripts.
+- Rewrite or supersede `.cursor/plans/macro_hud_clean_remake.plan.md` and
+  `.cursor/plans/macro_hud_corner_repair.plan.md` before executing either;
+  both reference deleted scenes (`WorldHUD`, `MacroStatusPanel`,
+  `MedicalMonitor`) and contradict each other.
+
+### P2-10: Macro Exploration Window And Collision HUD — Shipped July 16–19
+
+Implementation record:
+
+- `MacroExplorationWindow` hosts landmark SEARCH/CAMP with drag-drop and camp
+  trap persistence; Act-to-enter pacing replaces auto-open on step.
+- `MacroExplorationStage` hosts travel beats, narrative events, and entity
+  collision sessions previously planned as a separate `MacroEventHud`.
+- `MacroEntityCollisionResolver` builds Talk / Ambush / Ask / Trade-placeholder
+  sessions; ROB is removed.
+- Field Health cutover retired `MacroStatusPanel` / `MedicalMonitor` dual paths.
 
 ### P2-08: Authored Local-Zone Pipeline — Verified July 17, 2026
 

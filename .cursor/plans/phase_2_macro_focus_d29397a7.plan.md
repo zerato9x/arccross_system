@@ -1,6 +1,6 @@
 ---
 name: Phase 2 Macro Focus
-overview: "Revised Phase 2 scope: ship the hub + 8-wedge macro map and a windowed Neo Scavenger-style exploration interaction HUD (SEARCH/CAMP with drag-drop, visuals, full trap-to-combat loop). Defer Pocket Map always-on UI and UI Assets pack v1 chrome until core macro gameplay feels right."
+overview: "COMPLETED / historical. Hub+wedge catalogs, MacroExplorationWindow SEARCH/CAMP, traps, and smoke coverage shipped. Pocket Map / UI pack chrome remain deferred to Phase 2.5. Later Node Web overhaul (July 16) supersedes infinite-wedge as the campaign model."
 todos:
   - id: mw-01-tile-pipeline
     content: "MW-01: Biome-pack tile catalog + hub core (impassable centralcore) + 8 compass wedge procedural generation"
@@ -29,7 +29,11 @@ todos:
 isProject: false
 ---
 
-# Phase 2 — Macro Map + Exploration HUD (Revised)
+# Phase 2 — Macro Map + Exploration HUD (COMPLETED)
+
+> **July 19, 2026:** Historical. Exploration window and trap loop remain live.
+> Campaign travel is the July 16 directional Node Web, not infinite wedges.
+> Deferred Pocket Map / UI pack chrome stay Phase 2.5.
 
 ## Scope decision
 

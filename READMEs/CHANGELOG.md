@@ -2,6 +2,19 @@
 
 ## July 19, 2026
 
+### Documentation Hygiene And Working Agreement
+
+- Synced root and `READMEs/` status to July 19: Field Health HUD, wound
+  records, exploration window, entity-collision Event HUD path, item count
+  **168**, and deferred Pocket Map / TRADE economy.
+- Updated glossary macro interaction terms (Threat / Ceasefire / Ask; ROB
+  retired) and documented live hosts `MacroExplorationStage` /
+  `MacroExplorationWindow` / `FieldHealthHUD`.
+- Recorded Phase 2 workstream **P2-10** for shipped exploration/collision HUD
+  work; marked conflicting Macro HUD remake/repair plans as stale.
+- Confirmed working agreement: continue features on live foundations; do not
+  pause for a total architecture rewrite.
+
 ### Authored Field Health HUD And Boundary Cleanup
 
 - Replaced the macro health corner's legacy `MacroStatusPanel` and scripted

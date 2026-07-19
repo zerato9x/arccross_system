@@ -18,7 +18,7 @@ of restating it.
 
 ## Current Implementation
 
-Status updated on **July 17, 2026**:
+Status updated on **July 19, 2026**:
 
 ### Playable Loop
 
@@ -27,12 +27,14 @@ Status updated on **July 17, 2026**:
 - New Game seeds `DEMO_WASTELAND_01` and restores the player from persistent
   records. Continue loads one of three JSON save slots with day and timestamp
   metadata.
-- Macro play covers hex movement, fog of war, proximity loading, SEARCH/CAMP,
-  TALK/AMBUSH, inventory, and world-time biology.
-- Macro zones use center-plus-12-ring geometry and directional boundary travel
-  through a 22-node four-arm web. Permanent Meta nodes survive characters;
-  seeded random nodes and ordinary runtime state do not.
-- Hostile entity collision suspends macro input and opens `CombatCore/MainDuelScene`.
+- Macro play covers hex movement, fog of war, proximity loading, SEARCH/CAMP
+  via `MacroExplorationWindow`, TALK/AMBUSH via the shared exploration/event
+  stage, inventory, Field Health treatment, and world-time biology.
+- Macro zones use radius-12 geometry and directional boundary travel through a
+  22-node four-arm web. Permanent Meta nodes survive characters; seeded random
+  nodes and ordinary runtime state do not.
+- Entity collision opens the exploration/event stage first (Talk / Ambush /
+  Ask / Trade placeholder). Combat entry loads `CombatCore/MainDuelScene`.
 - Combat outcomes return to the macro map with persistent injury, ammunition,
   loot, and entity life state intact.
 - Defeat shows `DefeatPanel` with new-run and load-save actions.
@@ -41,17 +43,15 @@ Status updated on **July 17, 2026**:
 
 - **Phase 1** remains closed and verified. Do not expand the vertical-slice
   acceptance set silently; track new gameplay as phase work.
-- **Phase 2 real-time duel overhaul** (P2-09) replaced the historical P2-01
-  through P2-04 turn-command HUD. Combat now uses live AP regeneration,
-  timeline-driven actions, A/D movement, timed guard/parry, combos,
-  push/follow, blind/aimed fire, and duel-lock opponent telegraphs through
-  `RealtimeDuelHUD`.
-- The old turn-command implementation remains an independent comparison target
-  at `CombatCore/TurnBased/TurnBasedDuelScene.tscn`; use
-  `CombatCore/CombatModeComparison.tscn` to run either system from the same
-  standalone records.
+- **Phase 2 real-time duel overhaul** (P2-09) is production combat.
+  Turn-based remains an independent comparison target at
+  `CombatCore/TurnBased/TurnBasedDuelScene.tscn` via
+  `CombatCore/CombatModeComparison.tscn`.
+- **Macro exploration / Node Web / health / collision** pillars through July 19
+  are shipped. See [Changelog](CHANGELOG.md) dated July 16–19.
 - Remaining Phase 2 focus: balance, animation and token coverage, presentation
-  polish, and authored content expansion.
+  polish, authored zone preset library, and content expansion **on the live
+  foundations** (no total architecture rewrite pause).
 
 ### Systems Snapshot
 
@@ -59,20 +59,17 @@ Status updated on **July 17, 2026**:
   macro world, combat lane, and inventory Paper Doll.
 - Token runtime animation uses seventeen gameplay-relevant sheets; moving-attack
   variants remain source-only.
+- Persistent Wound records own hemorrhage and treatment; Stance stays
+  combat-local. Macro health presentation is `FieldHealthHUD` +
+  `HealthHUDProfile`.
 - The revised Stance loop modifies AP regeneration, allows heavy/finisher
   knockdowns, and automatically begins interruptible recovery at `4 AP`.
 - Weapon definitions author handling, accuracy, range, distance falloff, exact
   ammunition feeds, cycling, loading aids, inventory and equipment sprites, and
   attachment compatibility.
 - Ballistic attacks deal localized Flesh Damage with zero Stance Damage.
-- Exact pistol magazines, revolver speedloading and hand-loading, rifle feeds,
-  manual cycling, and shell-by-shell shotgun behavior are covered by automated
-  checks.
-- The static Innawoods inventory set supplies **167** categorized item Resources.
-  Loadouts, loot, enemy generation, persistence, and inventory tests use those
-  IDs.
-- `LootCatalog` is the single runtime registry. The offline catalog builder
-  adds missing definitions without overwriting later Inspector edits.
+- The static Innawoods inventory set supplies **168** categorized item
+  Resources. `LootCatalog` is the single runtime registry.
 - Macro node zones retain deterministic seeded generation as a fallback, while
   the authored pipeline stores painted terrain, water, gameplay layers,
   decorations, and placement sockets in `AuthoredWorldMap` resources.
@@ -85,27 +82,32 @@ Status updated on **July 17, 2026**:
   plus categorized SFX through `GameEventBus`.
 - Core state is decoupled into `BodyState`, `HumanoidState`, `InventoryState`,
   `EntityRecord`, and `HexRecord`.
-- Automated smoke scripts cover the vertical slice and focused system contracts.
-  The current broad HUD/interface runners still contain teardown and timing
-  failures recorded during the July 13 gameplay-loop audit.
+- Automated smoke scripts cover the vertical slice and focused system contracts
+  (including wounds, field health, exploration window, and domain boundaries).
 
 ### Known Gaps
 
 - Service-rifle scope data is present, but macro **SNIPE** remains unimplemented.
 - **EXECUTE** is disabled pending a trait-unlock system.
-- Shield items now author BLOCK damage-type coverage, protected Limb Regions,
-  and distinct mitigation values.
 - Token art coverage remains incomplete for rigs, face and eye equipment, several
   armor regions, and unsupported weapons.
-- Squad combat, full narrative dialogue, and balance tuning beyond deadlock
+- TRADE after Ceasefire is a placeholder pending economy work.
+- Squad combat, deep narrative dialogue, and balance tuning beyond deadlock
   prevention remain out of scope.
 - Hand-painted preset coverage is still incomplete. The authoring contract is
   implemented; assigning finished presets across campaign profiles is content
-  work rather than secretly completed by the template scene.
+  work.
+- Pocket Map / full pocket-device chrome is deferred (Phase 2.5).
 
-See the [June 29 changelog](CHANGELOG.md#june-29-2026) for the combat HUD
-completion record and [Phase 2 Execution Plan](phase_2_execution_plan.md) for
-remaining workstreams.
+See [Changelog](CHANGELOG.md) for July 16–19 overhaul records and
+[Phase 2 Execution Plan](phase_2_execution_plan.md) for remaining workstreams.
+
+### Working Agreement
+
+Finish inventory, hex exploration, and related features on the current
+domain/presentation stack. Prefer incremental Resource conversion when a
+feature needs it. Do not execute the stale conflicting Macro HUD remake/repair
+plans without rewriting them against `MacroHudShell` + `FieldHealthHUD`.
 
 ## Design Direction
 

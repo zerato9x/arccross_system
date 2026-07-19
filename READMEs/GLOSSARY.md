@@ -139,8 +139,9 @@ Damage Type describes an attack vector. Trauma describes a resulting condition.
 - **Loadout:** Item definitions used to create initial Runtime Item Instances.
 - **Spill:** Capacity overflow converted into persistent ground items instead of
   deleted inventory.
-- **Inventory Interface** *(prototype):* A replaceable UI projection that
-  displays neutral inventory snapshots and emits item commands.
+- **Inventory Interface:** The replaceable UI projection (`InventoryUI`, macro
+  inventory corner, exploration session strip) that displays neutral inventory
+  snapshots and emits item commands. Pocket-device chrome remains deferred.
 
 Size Cost governs storage; Weight contributes to physical burden. Weapon Class
 describes a tool; Damage Type describes a hit.
@@ -153,8 +154,8 @@ describes a tool; Damage Type describes a hit.
 - **Encounter Context:** The reason and deployment condition for combat.
 - **Collider:** The entity that deliberately moved into the other entity and
   therefore supplies encounter context and deployment pressure.
-- **Ambush Position** *(prototype):* A requested deployment band translated by
-  CombatCore into lane indices.
+- **Ambush Position:** A requested deployment band (FAR / STANDARD / CLOSE)
+  translated by CombatCore into lane indices.
 - **Action Point (AP):** A spendable real-time combat resource capped at `12`
   and regenerated every quarter-second.
 - **Kinetic Burden:** Derived physical restriction from trauma, encumbrance,
@@ -292,14 +293,18 @@ describes a tool; Damage Type describes a hit.
 See [System Architecture](SYSTEM_ARCHITECTURE.md) for dependency and ownership
 rules.
 
-## Prototype Macro Interactions
+## Macro Interactions
 
-- **Macro Interaction** *(prototype):* A world-layer decision triggered by a POI
-  or entity collision.
-- **SEARCH** *(prototype):* A POI action using Loot, Safety, Sneak, selected
-  tools, a Loot Profile, and persistent depletion.
-- **CAMP** *(prototype):* A POI action using Sleep, Shelter, Healing,
-  Concealment, Alertness, installed gear, and elapsed biological time.
+Live presentation hosts: `MacroExplorationStage` (events, collision sessions,
+travel beats) and `MacroExplorationWindow` (SEARCH/CAMP). Domain validation
+stays in WorldCore resolvers.
+
+- **Macro Interaction:** A world-layer decision triggered by a landmark POI or
+  entity collision.
+- **SEARCH:** A POI action using Loot, Safety, Sneak, selected tools, a Loot
+  Profile, and persistent depletion.
+- **CAMP:** A POI action using Sleep, Shelter, Healing, Concealment, Alertness,
+  installed gear (including traps), and elapsed biological time.
 - **Loot:** Expected ability to find useful items.
 - **Safety:** Expected protection from environmental injury.
 - **Sneak:** Expected ability to avoid attracting attention.
@@ -308,12 +313,17 @@ rules.
 - **Healing:** Recovery support.
 - **Concealment:** Protection from discovery.
 - **Alertness:** Ability to detect an approaching entity.
-- **TALK** *(prototype):* An entity-collision branch offering Threat, Rob, and
-  Ceasefire.
-- **AMBUSH** *(prototype):* An entity-collision branch offering deployment
-  choice while preserving collider initiative.
-- **Entity World Status** *(prototype):* The current combined hostility and
-  presence category. It should be split before expansion.
+- **TALK:** An entity-collision branch offering Threat or Ceasefire. Threat
+  success drops non-clothes loot and flees; Ceasefire success opens Ask / Trade
+  (Trade remains a placeholder pending economy). ROB is retired.
+- **AMBUSH:** An entity-collision branch offering deployment choice with
+  opponent summary and combat-grid preview while preserving collider initiative.
+- **Entity World Status:** The current combined hostility and presence category
+  (including CEASEFIRE for peaceful sessions). Further splits can wait until
+  economy / faction work needs them.
+- **Field Health HUD:** Authored macro survival presentation driven by
+  `HealthHUDProfile` and neutral health snapshots; not a second medical rules
+  engine.
 
 SEARCH and CAMP metric names originated in the NEO Scavenger reference and are
 not final ARCCROSS terminology.

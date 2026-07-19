@@ -168,9 +168,14 @@ ambush_position: GameEnums.AmbushPosition
 
 ## Macro Interaction Boundary
 
-- WorldCore produces SEARCH, CAMP, TALK, AMBUSH, and inventory snapshots.
-- Macro HUDs display those snapshots and emit stable command IDs, shared enum
-  values, and Runtime Item Instance IDs.
+- WorldCore produces SEARCH, CAMP, TALK, AMBUSH, health, and inventory snapshots.
+- Macro presentation hosts are `MacroHudController` with corner panels,
+  `MacroExplorationStage` (events, entity-collision sessions, travel beats),
+  and `MacroExplorationWindow` (SEARCH/CAMP). They display snapshots and emit
+  stable command IDs, shared enum values, and Runtime Item Instance IDs.
+- `FieldHealthHUD` renders `HealthHUDProfile`-authored metrics from neutral
+  health snapshots only; it never reaches live `HumanoidBody` or
+  `InventorySystem` objects.
 - WorldCore revalidates every command against the authoritative player,
   coordinate, inventory, hex, and encounter state.
 - `RuntimeStateStore` performs atomic record changes. BiologicalCore and
@@ -180,9 +185,10 @@ ambush_position: GameEnums.AmbushPosition
 - SEARCH selects a Loot Profile and places generated Runtime Item Instances in
   persistent ground inventory.
 - CAMP moves installed gear from player inventory to the Hex Record; it never
-  duplicates items.
-- TALK changes persistent relationship or world status only after owner-side
-  resolution.
+  duplicates items. Camp traps persist on the Hex and can feed combat setup.
+- TALK resolves Threat / Ceasefire (and Ask / Trade placeholder) only after
+  owner-side resolution via `MacroEntityCollisionResolver` and related
+  resolvers. ROB is not part of the live tree.
 - AMBUSH submits a deployment band. CombatCore chooses actual lane indices.
 - The collider receives opening initiative.
 

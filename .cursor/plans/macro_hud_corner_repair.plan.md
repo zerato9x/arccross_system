@@ -1,41 +1,45 @@
 ---
 name: Macro HUD Corner Repair
-overview: "Repair the broken 4-corner macro HUD by anchoring on the proven old frame scenes (MacroStatusPanel, MacroHexPreviewPanel) and only layering revamped inner widgets (bars, icons, clock). Stop using atlas textures as panel chrome."
+overview: "STALE — do not execute as written. Contradicts macro_hud_clean_remake; references deleted MacroStatusPanel/MedicalMonitor. FieldHealthHUD and MacroHudShell are live. Rewrite against current shell before any chrome work."
 todos:
   - id: repair-01-freeze-design
     content: "Lock visual rule: HUDAssetLibrary frames outside, RevampedHUDAtlas widgets inside only"
-    status: pending
+    status: cancelled
   - id: repair-02-shell-layout
     content: "Rebuild MacroHudShell.tscn with editor-placed anchors matching old offsets (not runtime-only math)"
-    status: pending
+    status: cancelled
   - id: repair-03-health-corner
     content: "Replace MacroHealthCornerPanel preview with MacroStatusPanel.tscn instance + expand slot for MedicalMonitor"
-    status: pending
+    status: cancelled
   - id: repair-04-hex-corner
     content: "Replace MacroHexCornerPanel preview with MacroHexPreviewPanel.tscn + dock MacroExplorationWindow on expand"
-    status: pending
+    status: cancelled
   - id: repair-05-inventory-corner
     content: "Fix inventory: compact preview strip; expanded panel hosts InventoryUI without double-framing"
-    status: pending
+    status: cancelled
   - id: repair-06-world-status
     content: "World status: old frame + PocketClockDisplay + time-of-day icon; remove script/scene offset conflict"
-    status: pending
+    status: cancelled
   - id: repair-07-atlas-cleanup
     content: "RevampedHUDAtlas: remove apply_revamped_panel from runtime paths; document widget-only API"
-    status: pending
+    status: cancelled
   - id: repair-08-wiring
     content: "Rewire MacroHudController + MacroGameManager; delete dead corner programmatic UI"
-    status: pending
+    status: cancelled
   - id: repair-09-camera-insets
     content: "Validate viewport inset math against real panel rects at 2548×1368 and 1920×1080"
-    status: pending
+    status: cancelled
   - id: repair-10-tests
     content: "Add visual smoke checklist + MacroHudLayoutSmoke fixes; run via game_director boot"
-    status: pending
+    status: cancelled
 isProject: false
 ---
 
-# Macro HUD Corner Repair Plan
+# Macro HUD Corner Repair Plan (STALE)
+
+> **July 19, 2026:** Historical only. Health corner no longer uses
+> `MacroStatusPanel` / `MedicalMonitor`. Do not resume these todos; write a
+> fresh plan against `MacroHudShell` + `FieldHealthHUD` if chrome work resumes.
 
 ## Problem summary
 

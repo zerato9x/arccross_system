@@ -1,44 +1,48 @@
 ---
 name: Macro HUD Clean Remake
-overview: "Scrap the layered-on-old-system approach. Delete legacy HUD DNA, rebuild four independent corner panels from the macromap target layout using revamped UI.png assets only. Preview → click → 32%×50% expand. World status stays compact. Camera recenters in remaining viewport."
+overview: "STALE — do not execute as written. WorldHUD, MacroStatusPanel, and MedicalMonitor are already deleted; FieldHealthHUD and MacroHudShell are live. Contradicts macro_hud_corner_repair. Rewrite against current shell before any chrome work."
 todos:
   - id: remake-00-delete-legacy
     content: "Delete WorldHUD.tscn, revamped_HUD.tscn, MacroStatusPanel DetailedView subtree, and any orphan references"
-    status: pending
+    status: cancelled
   - id: remake-01-atlas-contract
     content: "Finalize RevampedHUDAtlas as single styling source — frames, bars, buttons, slots from UI.png; document all regions"
-    status: pending
+    status: cancelled
   - id: remake-02-shell-scaffold
     content: "Rebuild MacroHudShell with four corner anchors only — no side pillars, no floating MED/INV/MENU bar"
-    status: pending
+    status: cancelled
   - id: remake-03-corner-host
     content: "Rewrite MacroCornerPanel — fixed preview chip + sibling expand overlay at exactly 32%×50%"
-    status: pending
+    status: cancelled
   - id: remake-04-health
     content: "Health top-left preview + MedicalMonitor expand with Condition icons and emergency flash"
-    status: pending
+    status: cancelled
   - id: remake-05-inventory
     content: "Inventory bottom-left preview + InventoryUI expand restyled to UI.png"
-    status: pending
+    status: cancelled
   - id: remake-06-hex
     content: "Hex top-right preview + MacroExplorationWindow docked expand"
-    status: pending
+    status: cancelled
   - id: remake-07-world-status
     content: "World status bottom-right — PocketClock + 6 time squares + calendar; never expands"
-    status: pending
+    status: cancelled
   - id: remake-08-cross-panel
     content: "Drag/drop and RMB context menu between health, inventory, hex panels"
-    status: pending
+    status: cancelled
   - id: remake-09-camera
     content: "Implement MacroCamera.set_viewport_insets — center player in playable rect when panels open"
-    status: pending
+    status: cancelled
   - id: remake-10-verify
     content: "Visual pass vs macromap_mockup — must NOT show side pillars or top-center sky widget"
-    status: pending
+    status: cancelled
 isProject: false
 ---
 
-# Macro HUD — Clean Remake Plan
+# Macro HUD — Clean Remake Plan (STALE)
+
+> **July 19, 2026:** Historical only. Legacy scenes this plan deletes are already
+> gone. Health uses `FieldHealthHUD`. Do not resume these todos; write a fresh
+> plan against `MacroHudShell` + current corners if chrome work resumes.
 
 ## What went wrong (and why you're right)
 

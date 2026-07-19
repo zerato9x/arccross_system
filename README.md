@@ -23,20 +23,25 @@ retain meaningful units.
 
 ## Current Prototype
 
-Status updated on **July 18, 2026**.
+Status updated on **July 19, 2026**.
 
 ### Playable Today
 
 Launch from `UI/MainMenu.tscn` into a persistent macro run:
 
 1. Start a new world or continue from one of three save slots.
-2. Explore seeded radius-12 local zones with fog of war, POIs, and
+2. Explore seeded radius-12 local zones with fog of war, landmark POIs, and
    purpose-driven NPC activity.
-3. Fight persistent enemies in readable, lethal real-time 1v1 lane duels when colliding on
-   the macro map.
-4. Manage inventory, equipment, firearm loading, SEARCH, and CAMP.
-5. Save and reload with `F5` / `F9` or the main-menu and in-game slot UI.
-6. Cross radius-12 local zones through directional rims and choose only
+3. Open SEARCH/CAMP through `MacroExplorationWindow` (Act at landmarks; no
+   auto-open on step).
+4. Resolve entity collisions through the shared exploration/event stage:
+   TALK (Threat / Ceasefire → Ask / Trade placeholder) or AMBUSH with opponent
+   summary and combat-grid preview.
+5. Fight persistent enemies in readable, lethal real-time 1v1 lane duels.
+6. Manage inventory, equipment, firearm loading, and wound treatment via the
+   authored Field Health HUD and inventory corner.
+7. Save and reload with `F5` / `F9` or the main-menu and in-game slot UI.
+8. Cross radius-12 local zones through directional rims and choose only
    graph-connected destinations in the eight-sector, four-arm Node Web. Hover
    the non-playable radius-13 route band to inspect the destination first.
 
@@ -50,15 +55,16 @@ profile.
 - **Phase 1** is closed and verified. The persistent vertical slice — macro
   movement, combat, inventory, SEARCH/CAMP, and JSON persistence — remains the
   regression baseline.
-- Production combat runs through a dedicated real-time duel state machine with
-  regenerating AP, paced A/D grid movement, timed guard/parry, enemy action
-  telegraphs, weapon combos, contextual push/follow, blind fire, and held aimed
-  fire. Both combatants retain always-visible Paper Dolls, Limb wounds, Trauma,
-  full vitals, and animated gun-sheet presentation. The historical turn-based rules remain isolated in
-  `CombatCore/TurnBased/TurnBasedDuelScene.tscn` for comparison rather than
-  contaminating the production runtime with a mode flag.
-- Active Phase 2 follow-up work targets balance, animation coverage, content,
-  and presentation polish. See
+- **Phase 2 shipped pillars** (through July 19): real-time duel authority,
+  directional Node Web, exploration window + trap loop, persistent wounds,
+  Field Health HUD, entity-collision Event HUD path, and domain-boundary
+  cleanup via `PresentationSceneRegistry`.
+- Production combat runs through a dedicated real-time duel state machine. The
+  historical turn-based rules remain isolated in
+  `CombatCore/TurnBased/TurnBasedDuelScene.tscn` for comparison.
+- Active follow-up work targets balance, animation/token coverage, authored
+  zone presets, inventory/hex presentation polish, and content expansion —
+  **on the live foundations**, not via a total architecture rewrite. See
   [Phase 2 Execution Plan](READMEs/phase_2_execution_plan.md).
 
 ### Core Systems
@@ -71,9 +77,10 @@ profile.
 - Ballistic hits deal no Stance Damage. A successful shot applies the weapon's
   authored Flesh Damage directly to one Limb Region.
 - Firearms enforce authored range, accuracy, ammunition, magazine or loading
-  aid, capacity, and cycling rules. The current roster includes pistols,
-  revolvers, rifles, and a distance-sensitive shotgun.
-- The static Innawoods inventory set maps into **167** categorized item
+  aid, capacity, and cycling rules.
+- Persistent per-limb Wound records drive hemorrhage, pain, and treatment.
+  Macro survival UI is `FieldHealthHUD` driven by `HealthHUDProfile` snapshots.
+- The static Innawoods inventory set maps into **168** categorized item
   Resources. Supported equipped visuals drive layered Humanoid Tokens in the
   macro world and combat lane.
 - Item definitions are shared Resources loaded once by `LootCatalog`; items do
@@ -94,7 +101,8 @@ profile.
 - `CombatCore/CombatModeComparison.tscn` runs both combat authorities against
   identical standalone records (`F1` real-time, `F2` turn-based).
 - Automated smoke scripts cover the vertical slice, real-time duel rules,
-  weapon data, inventory, save/load, macro interactions, and shield rules.
+  weapon data, inventory, save/load, macro interactions, wounds, field health,
+  and shield rules.
 
 ### Known Gaps
 
@@ -106,9 +114,19 @@ profile.
 - Humanoid token art coverage remains incomplete for several rigs, face/eye
   equipment, and unsupported weapons.
 - Gameplay remains 1v1; squad combat infrastructure is not player-facing.
+- TRADE after Ceasefire is a placeholder pending an economy pass.
 - The authored-zone toolchain is complete, but campaign profiles still need a
   real library of hand-painted presets; unassigned random nodes retain the
   seeded procedural fallback.
+- Pocket Map / full pocket-device HUD chrome remains deferred (Phase 2.5).
+
+## Working Agreement (July 19)
+
+The data-driven domain architecture is the live foundation for inventory and
+hex exploration. Prefer finishing features on that stack over a total cleanup
+or rewrite. Convert catalogs to authored Resources incrementally when a feature
+needs them. Conflicting stale Macro HUD remake/repair plans must not be
+executed blindly against the current `MacroHudShell` + `FieldHealthHUD`.
 
 ## Item Authoring
 
