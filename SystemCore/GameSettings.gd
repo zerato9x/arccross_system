@@ -10,6 +10,7 @@ const COMBAT_TURN_BASED := "turn_based"
 var combat_mode := COMBAT_REALTIME
 var screen_noise_enabled := false
 var hud_scale := 1.0
+var hud_scheme := HUDAssetLibrary.DEFAULT_SCHEME
 
 
 func _ready() -> void:
@@ -19,6 +20,7 @@ func _ready() -> void:
 func load_settings() -> void:
 	var config := ConfigFile.new()
 	if config.load(SETTINGS_PATH) != OK:
+		_apply_hud_scheme(false)
 		settings_changed.emit(get_snapshot())
 		return
 	combat_mode = _sanitize_combat_mode(
@@ -32,6 +34,10 @@ func load_settings() -> void:
 		0.85,
 		1.25
 	)
+	hud_scheme = _sanitize_hud_scheme(
+		str(config.get_value("presentation", "hud_scheme", HUDAssetLibrary.DEFAULT_SCHEME))
+	)
+	_apply_hud_scheme(false)
 	settings_changed.emit(get_snapshot())
 
 
@@ -40,6 +46,7 @@ func save_settings() -> bool:
 	config.set_value("combat", "mode", combat_mode)
 	config.set_value("presentation", "screen_noise", screen_noise_enabled)
 	config.set_value("presentation", "hud_scale", hud_scale)
+	config.set_value("presentation", "hud_scheme", hud_scheme)
 	var error := config.save(SETTINGS_PATH)
 	if error != OK:
 		push_error("[GameSettings] Could not save settings: %s" % error_string(error))
@@ -70,8 +77,21 @@ func set_hud_scale(value: float) -> void:
 	_commit_change()
 
 
+func set_hud_scheme(scheme_id: String) -> void:
+	var sanitized := _sanitize_hud_scheme(scheme_id)
+	if hud_scheme == sanitized:
+		return
+	hud_scheme = sanitized
+	_apply_hud_scheme(true)
+	_commit_change()
+
+
 func get_combat_mode_label() -> String:
 	return "TURN-BASED" if combat_mode == COMBAT_TURN_BASED else "REAL-TIME"
+
+
+func get_hud_scheme_label() -> String:
+	return HUDAssetLibrary.scheme_label(hud_scheme)
 
 
 func get_snapshot() -> Dictionary:
@@ -80,11 +100,21 @@ func get_snapshot() -> Dictionary:
 		"combat_mode_label": get_combat_mode_label(),
 		"screen_noise_enabled": screen_noise_enabled,
 		"hud_scale": hud_scale,
+		"hud_scheme": hud_scheme,
+		"hud_scheme_label": get_hud_scheme_label(),
 	}
 
 
 func _sanitize_combat_mode(mode: String) -> String:
 	return COMBAT_TURN_BASED if mode == COMBAT_TURN_BASED else COMBAT_REALTIME
+
+
+func _sanitize_hud_scheme(scheme_id: String) -> String:
+	return HUDAssetLibrary.sanitize_scheme_id(scheme_id)
+
+
+func _apply_hud_scheme(notify_library: bool) -> void:
+	HUDAssetLibrary.apply_scheme(hud_scheme, notify_library)
 
 
 func _commit_change() -> void:

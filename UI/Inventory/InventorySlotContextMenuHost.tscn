@@ -2,12 +2,9 @@
 
 [ext_resource type="Script" path="res://UI/Inventory/InventorySlotContextMenuHost.gd" id="1_host"]
 [ext_resource type="PackedScene" path="res://UI/Inventory/InventorySlotContextMenu.tscn" id="2_menu"]
-[ext_resource type="PackedScene" path="res://UI/Inventory/InventorySlotExamineCard.tscn" id="3_examine"]
 
 [node name="InventorySlotContextMenuHost" type="CanvasLayer"]
 layer = 128
 script = ExtResource("1_host")
 
 [node name="InventorySlotContextMenu" parent="." instance=ExtResource("2_menu")]
-
-[node name="InventorySlotExamineCard" parent="." instance=ExtResource("3_examine")]

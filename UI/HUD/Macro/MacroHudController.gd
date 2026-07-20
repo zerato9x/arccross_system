@@ -47,6 +47,7 @@ var _layout_manager := MacroHudLayoutManager.new()
 @onready var _hud_scale_slider: HSlider = %HudScaleSlider
 @onready var _hud_scale_label: Label = %HudScaleLabel
 @onready var _combat_mode_option: OptionButton = %CombatModeOption
+@onready var _hud_scheme_option: OptionButton = %HudSchemeOption
 @onready var _settings_close_button: Button = %SettingsCloseButton
 @onready var _settings_save_button: Button = %SettingsSaveButton
 @onready var _settings_load_button: Button = %SettingsLoadButton
@@ -59,17 +60,8 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_settings_panel.visible = false
-	_screen_overlay.visible = false
-	_screen_overlay.texture = HUDAssetLibrary.texture(
-		"res://Asset/UI/HUD/overlays/scanline_tile_16.png"
-	)
-	_screen_overlay.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
-	HUDAssetLibrary.apply_panel(_settings_panel, "anomaly")
-	HUDAssetLibrary.apply_button(_settings_close_button)
-	HUDAssetLibrary.apply_button(_settings_save_button)
-	HUDAssetLibrary.apply_button(_settings_load_button)
-	HUDAssetLibrary.apply_button(_settings_menu_button)
-	HUDAssetLibrary.apply_label(_hud_scale_label, "muted")
+	_configure_scanline_overlay()
+	_restyle_settings_chrome()
 	_layout_manager.register_panel("health", _health_panel)
 	_layout_manager.register_panel("inventory", _inventory_panel)
 	_layout_manager.register_panel("hex", _hex_panel)
@@ -110,6 +102,8 @@ func _ready() -> void:
 	_combat_mode_option.add_item("Real-Time Duel", 0)
 	_combat_mode_option.add_item("Turn-Based Duel", 1)
 	_combat_mode_option.item_selected.connect(_on_combat_mode_selected)
+	_populate_hud_scheme_option()
+	_hud_scheme_option.item_selected.connect(_on_hud_scheme_selected)
 	if _save_load_menu:
 		_save_load_menu.menu_closed.connect(func(): _save_load_menu.visible = false)
 		_save_load_menu.slot_selected.connect(_on_save_load_slot_selected)
@@ -120,11 +114,13 @@ func _ready() -> void:
 		_combat_mode_option.select(
 			1 if settings.combat_mode == settings.COMBAT_TURN_BASED else 0
 		)
+		_select_hud_scheme(settings.hud_scheme)
 	_screen_overlay.visible = _screen_noise_toggle.button_pressed
 	_screen_noise_toggle.toggled.connect(_on_screen_noise_toggled)
 	_hud_scale_slider.value_changed.connect(_set_hud_scale)
 	_set_hud_scale(_hud_scale_slider.value)
 	_update_scale_label()
+	HUDAssetLibrary.connect_scheme_changed(_on_hud_scheme_changed)
 
 
 func get_layout_manager() -> MacroHudLayoutManager:
@@ -294,6 +290,25 @@ func _on_screen_noise_toggled(enabled: bool) -> void:
 		settings.set_screen_noise_enabled(enabled)
 
 
+func _configure_scanline_overlay() -> void:
+	_screen_overlay.visible = false
+	_screen_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_screen_overlay.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_screen_overlay.stretch_mode = TextureRect.STRETCH_SCALE
+	var image := Image.create(2, 2, false, Image.FORMAT_RGBA8)
+	image.fill(Color.WHITE)
+	_screen_overlay.texture = ImageTexture.create_from_image(image)
+	var material := ShaderMaterial.new()
+	var shader := load("res://PresentationCore/Shaders/scanline_overlay.gdshader") as Shader
+	if shader != null:
+		material.shader = shader
+		material.set_shader_parameter("strength", 0.11)
+		material.set_shader_parameter("line_density", 170.0)
+		material.set_shader_parameter("scroll_speed", 0.12)
+		material.set_shader_parameter("tint", Color(0.06, 0.09, 0.05, 1.0))
+	_screen_overlay.material = material
+
+
 func _on_combat_mode_selected(index: int) -> void:
 	var settings := get_node_or_null("/root/GameSettings")
 	if settings == null:
@@ -301,6 +316,53 @@ func _on_combat_mode_selected(index: int) -> void:
 	settings.set_combat_mode(
 		settings.COMBAT_TURN_BASED if index == 1 else settings.COMBAT_REALTIME
 	)
+
+
+func _populate_hud_scheme_option() -> void:
+	_hud_scheme_option.clear()
+	for scheme_id in HUDAssetLibrary.scheme_ids():
+		_hud_scheme_option.add_item(HUDAssetLibrary.scheme_label(scheme_id))
+		_hud_scheme_option.set_item_metadata(
+			_hud_scheme_option.item_count - 1,
+			scheme_id
+		)
+
+
+func _select_hud_scheme(scheme_id: String) -> void:
+	var sanitized := HUDAssetLibrary.sanitize_scheme_id(scheme_id)
+	for index in range(_hud_scheme_option.item_count):
+		if str(_hud_scheme_option.get_item_metadata(index)) == sanitized:
+			_hud_scheme_option.select(index)
+			return
+	_hud_scheme_option.select(0)
+
+
+func _on_hud_scheme_selected(index: int) -> void:
+	var settings := get_node_or_null("/root/GameSettings")
+	if settings == null:
+		return
+	settings.set_hud_scheme(str(_hud_scheme_option.get_item_metadata(index)))
+
+
+func _on_hud_scheme_changed(_scheme_id: String) -> void:
+	_restyle_settings_chrome()
+	if _world_status and _world_status.has_method("restyle"):
+		_world_status.restyle()
+	if _hex_panel and _hex_panel.has_method("restyle_scheme"):
+		_hex_panel.restyle_scheme()
+	if not _snapshot.is_empty():
+		refresh(_snapshot)
+
+
+func _restyle_settings_chrome() -> void:
+	HUDAssetLibrary.apply_panel(_settings_panel, "anomaly")
+	HUDAssetLibrary.apply_button(_settings_close_button, "pass")
+	HUDAssetLibrary.apply_button(_settings_save_button, "save")
+	HUDAssetLibrary.apply_button(_settings_load_button, "load")
+	HUDAssetLibrary.apply_button(_settings_menu_button, "map")
+	HUDAssetLibrary.apply_label(_hud_scale_label, "muted")
+	HUDAssetLibrary.apply_option_button(_combat_mode_option)
+	HUDAssetLibrary.apply_option_button(_hud_scheme_option)
 
 
 func _update_scale_label() -> void:

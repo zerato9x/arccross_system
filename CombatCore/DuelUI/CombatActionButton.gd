@@ -98,12 +98,12 @@ func _apply_geometry() -> void:
 
 func _refresh() -> void:
 	var state := "disabled" if not _enabled else ("hover" if _hovered else "normal")
-	_frame_sprite.texture = null
-	_frame_sprite.visible = false
+	_frame_sprite.texture = HUDAssetLibrary.button_texture(state)
+	_frame_sprite.visible = _frame_sprite.texture != null
 	_scale_frame_sprite()
 	_refresh_icon()
-	_box.visible = true
-	_border.visible = true
+	_box.visible = _frame_sprite.texture == null
+	_border.visible = _frame_sprite.texture == null
 	_box.color = Color(
 		COLOR_DISABLED if not _enabled else (COLOR_HOVER if _hovered else COLOR_NORMAL),
 		0.96
@@ -198,8 +198,11 @@ func _emit_target_focus() -> void:
 	target_limb_focused.emit(get_target_limb())
 
 func _set_hovered(value: bool) -> void:
+	var became_hovered := value and not _hovered
 	_hovered = value
 	_refresh()
+	if became_hovered and _enabled and _frame_sprite.visible:
+		HudMotion.flash_modulate(self, _frame_sprite, Color(1.15, 1.1, 0.95, 1.0), Color.WHITE, 0.12)
 	if _target_limbs.is_empty():
 		return
 	if _hovered:

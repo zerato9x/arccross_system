@@ -24,6 +24,7 @@ func _ready() -> void:
 	HUDAssetLibrary.apply_button(_open_button, "inventory")
 	_open_button.text = "Open Pack"
 	_open_button.pressed.connect(open_requested.emit)
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 
 func apply_snapshot(snapshot: Dictionary) -> void:
@@ -49,7 +50,10 @@ func _equipment_by_slot(equipment: Array) -> Dictionary:
 func _make_equipment_tile(slot_config: Dictionary, equipment_by_slot: Dictionary) -> Control:
 	var frame := PanelContainer.new()
 	frame.custom_minimum_size = Vector2(54, 42)
-	HUDAssetLibrary.apply_panel(frame, "neutral")
+	frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var item: Dictionary = equipment_by_slot.get(int(slot_config["slot"]), {})
+	var filled := not item.is_empty()
+	frame.add_theme_stylebox_override("panel", HUDAssetLibrary.macro_slot_style(filled))
 	var column := VBoxContainer.new()
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
 	frame.add_child(column)
@@ -57,7 +61,7 @@ func _make_equipment_tile(slot_config: Dictionary, equipment_by_slot: Dictionary
 	icon.custom_minimum_size = Vector2(26, 24)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var item: Dictionary = equipment_by_slot.get(int(slot_config["slot"]), {})
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var sprite_path := str(item.get("sprite_path", ""))
 	if not sprite_path.is_empty() and ResourceLoader.exists(sprite_path):
 		icon.texture = load(sprite_path) as Texture2D
@@ -68,4 +72,6 @@ func _make_equipment_tile(slot_config: Dictionary, equipment_by_slot: Dictionary
 	label.add_theme_font_size_override("font_size", 8)
 	HUDAssetLibrary.apply_label(label, "muted")
 	column.add_child(label)
+	if filled:
+		HudMotion.fade_in(self, frame, 0.16, 0.35)
 	return frame

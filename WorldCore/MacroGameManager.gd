@@ -21,6 +21,8 @@ signal campaign_nodes_unlocked(node_ids: Array)
 @export var node_map_system_scene: PackedScene
 @export var node_map_medical_scene: PackedScene
 
+@onready var vision_vignette: VisionVignetteOverlay = $VisionVignette
+
 var exploration_window: MacroExplorationWindow
 ## Fullscreen Node Map System (independent of MacroHudShell).
 var node_map_system: CanvasLayer
@@ -780,6 +782,10 @@ func _ready() -> void:
 		_bootstrap_world()
 
 
+func _process(_delta: float) -> void:
+	_update_vision_soft_focus()
+
+
 func _bootstrap_world() -> void:
 	if _world_bootstrapped or _world_state == null:
 		return
@@ -1356,15 +1362,44 @@ func _refresh_map_visuals(center_coords: Vector2i, repaint_zone: bool = false) -
 	if map_visualizer == null:
 		return []
 	var newly_explored := _update_fog_of_war(center_coords)
+	var animate_fog := true
 	if world_generator != null and world_generator.zone_bounds_enabled:
 		if repaint_zone or map_visualizer.rendered_cells.is_empty():
 			map_visualizer.render_zone()
-		map_visualizer.apply_fog(_visible_hexes)
+			animate_fog = false
+		map_visualizer.apply_fog(_visible_hexes, animate_fog)
 	else:
 		map_visualizer.render_radius(center_coords, 3)
-		map_visualizer.apply_fog(_visible_hexes)
+		map_visualizer.apply_fog(_visible_hexes, animate_fog)
 	_refresh_enemy_visibility()
+	_update_vision_soft_focus()
 	return newly_explored
+
+
+## Soft screen-space vision disk around the player. Follows camera/zoom.
+func _update_vision_soft_focus() -> void:
+	if vision_vignette == null or player_token == null or map_visualizer == null:
+		return
+	var viewport := get_viewport()
+	if viewport == null:
+		return
+	var vp_size := viewport.get_visible_rect().size
+	if vp_size.x < 1.0 or vp_size.y < 1.0:
+		return
+	var canvas := viewport.get_canvas_transform()
+	var focus_world := player_token.global_position
+	var focus_px: Vector2 = canvas * focus_world
+	var center_hex := map_visualizer.map_to_local(player_token.current_hex_coords)
+	var neighbor_hex := map_visualizer.map_to_local(
+		player_token.current_hex_coords + Vector2i(1, 0)
+	)
+	var pitch_px := ((canvas * neighbor_hex) - (canvas * center_hex)).length()
+	pitch_px = maxf(pitch_px, 24.0)
+	# Clear through the inner vision rings; soft band feathers across the
+	# outermost visible hexes into fog so the radius edge reads circular.
+	var inner_px := pitch_px * maxf(float(vision_radius) - 0.35, 0.9)
+	var soft_px := pitch_px * 1.35
+	vision_vignette.set_vision_disk(focus_px, inner_px, soft_px)
 
 
 func _refresh_enemy_visibility() -> void:
@@ -2378,16 +2413,33 @@ func _build_macro_event_context(
 
 
 func _player_context_list(key: String) -> Array[String]:
-	var metadata := {}
 	var player_definition := player_token.get_humanoid_core().definition
-	if player_definition != null and player_definition.has_meta("macro_context"):
-		metadata = player_definition.get_meta("macro_context")
-	if metadata is Dictionary and metadata.has(key):
-		var values: Array[String] = []
-		for value in metadata.get(key, []):
-			values.append(str(value))
-		return values
+	if player_definition != null:
+		match key:
+			"occupations":
+				if not player_definition.occupation_id.is_empty():
+					return [player_definition.occupation_id]
+			"traits":
+				return _packed_string_values(player_definition.trait_ids)
+			"flaws":
+				return _packed_string_values(player_definition.flaw_ids)
+		if player_definition.has_meta("macro_context"):
+			var metadata = player_definition.get_meta("macro_context")
+			if metadata is Dictionary and metadata.has(key):
+				var values: Array[String] = []
+				for value in metadata.get(key, []):
+					values.append(str(value))
+				return values
 	return []
+
+
+func _packed_string_values(values: PackedStringArray) -> Array[String]:
+	var result: Array[String] = []
+	for value in values:
+		var text := str(value)
+		if not text.is_empty():
+			result.append(text)
+	return result
 
 
 func _apply_macro_event_effects(effects: Dictionary) -> void:

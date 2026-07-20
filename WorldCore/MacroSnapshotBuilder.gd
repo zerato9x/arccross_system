@@ -181,6 +181,7 @@ static func build_inventory_snapshot(
 		"current_capacity": inventory.current_size,
 		"maximum_capacity": inventory.current_max_capacity,
 		"capacity_breakdown": capacity_breakdown,
+		"character": build_character_snapshot(player_core),
 		"loadout_stats": {
 			"weight": inventory.get_total_weight(),
 			"bulk": inventory.get_total_bulk(),
@@ -198,6 +199,32 @@ static func build_inventory_snapshot(
 		"limbs": build_limb_snapshot(player_core.body),
 		"backpack": backpack,
 		"ground": ground,
+	}
+
+
+static func build_character_snapshot(player_core: HumanoidCore) -> Dictionary:
+	if player_core == null or player_core.definition == null:
+		return {
+			"archetype_name": "Unknown",
+			"brawn": 6,
+			"finesse": 6,
+			"fortitude": 6,
+			"will": 6,
+			"occupation": {},
+			"traits": [],
+			"flaws": [],
+		}
+	var definition := player_core.definition
+	var occupations := IdentityCatalog.occupation_descriptors(definition.occupation_id)
+	return {
+		"archetype_name": definition.archetype_name,
+		"brawn": definition.brawn,
+		"finesse": definition.finesse,
+		"fortitude": definition.fortitude,
+		"will": definition.will,
+		"occupation": occupations[0] if not occupations.is_empty() else {},
+		"traits": IdentityCatalog.trait_descriptors(definition.trait_ids),
+		"flaws": IdentityCatalog.flaw_descriptors(definition.flaw_ids),
 	}
 
 

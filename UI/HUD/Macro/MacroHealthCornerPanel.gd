@@ -8,6 +8,7 @@ signal medical_action_requested(instance_id: String, limb_region: int)
 var _preview_hud: FieldHealthHUD
 var _detail_hud: FieldHealthHUD
 var _flash_tween: Tween
+var _vignette: TextureRect
 
 
 func _ready() -> void:
@@ -18,6 +19,7 @@ func _ready() -> void:
 	expanded_max_size = Vector2(960.0, 660.0)
 	super._ready()
 	_install_health_huds()
+	_install_vignette()
 
 
 func _install_health_huds() -> void:
@@ -37,6 +39,21 @@ func _install_health_huds() -> void:
 	)
 
 
+func _install_vignette() -> void:
+	if _emergency_overlay == null or _vignette != null:
+		return
+	_vignette = TextureRect.new()
+	_vignette.name = "EmergencyVignette"
+	_vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_vignette.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_vignette.stretch_mode = TextureRect.STRETCH_SCALE
+	_vignette.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_vignette.modulate.a = 0.55
+	_vignette.visible = false
+	_emergency_overlay.add_child(_vignette)
+
+
 func _render_preview() -> void:
 	if _snapshot.is_empty():
 		return
@@ -51,15 +68,26 @@ func _render_expanded() -> void:
 		_detail_hud.apply_snapshot(_snapshot)
 
 
-func _set_emergency_flash(active: bool, _emergencies: Array) -> void:
-	set_emergency_active(active)
-	if _flash_tween:
-		_flash_tween.kill()
+func _set_emergency_flash(active: bool, emergencies: Array) -> void:
+	var tint := Color(HUDAssetLibrary.COLOR_CRITICAL.r, HUDAssetLibrary.COLOR_CRITICAL.g, HUDAssetLibrary.COLOR_CRITICAL.b, 0.28)
+	var vignette_kind := "critical"
+	for entry in emergencies:
+		var token := str(entry).to_lower()
+		if token.contains("anomaly"):
+			vignette_kind = "anomaly"
+			tint = Color(HUDAssetLibrary.COLOR_ANOMALY.r, HUDAssetLibrary.COLOR_ANOMALY.g, HUDAssetLibrary.COLOR_ANOMALY.b, 0.28)
+			break
+		if token.contains("warn") or token.contains("infection"):
+			vignette_kind = "warning"
+			tint = Color(HUDAssetLibrary.COLOR_CAUTION.r, HUDAssetLibrary.COLOR_CAUTION.g, HUDAssetLibrary.COLOR_CAUTION.b, 0.24)
+	set_emergency_active(active, tint)
+	if _vignette:
+		_vignette.texture = HUDAssetLibrary.vignette_texture(vignette_kind)
+		_vignette.visible = active
+	HudMotion.kill(_flash_tween)
 	if not active or _emergency_overlay == null:
 		return
-	_flash_tween = create_tween().set_loops()
-	_flash_tween.tween_property(_emergency_overlay, "modulate:a", 0.18, 0.8)
-	_flash_tween.tween_property(_emergency_overlay, "modulate:a", 0.48, 0.8)
+	_flash_tween = HudMotion.severity_breathe(self, _emergency_overlay, vignette_kind, 0.75)
 
 
 func _set_state(state: PanelState) -> void:

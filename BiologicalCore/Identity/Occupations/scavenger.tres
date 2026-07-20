@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="OccupationDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://BiologicalCore/Identity/OccupationDefinition.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = "scavenger"
+display_name = "Scavenger"
+summary = "Reads scrap, locks, and abandoned gear for usable openings."
+grants_capability_ids = PackedStringArray("search_tooling")

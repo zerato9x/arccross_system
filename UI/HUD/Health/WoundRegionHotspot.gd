@@ -8,9 +8,12 @@ signal item_dropped(instance_id: String, limb_region: int)
 const STATE_STABLE := "res://Asset/UI/HUD/medical/state_stable_32.png"
 const STATE_DAMAGED := "res://Asset/UI/HUD/medical/state_damaged_32.png"
 const STATE_CRITICAL := "res://Asset/UI/HUD/medical/state_critical_32.png"
+const ANIMATED_METER_SCENE := preload("res://UI/HUD/Widgets/AnimatedMeter.tscn")
 
 var _definition: HealthRegionDefinition
 var _region_key := ""
+var _last_state_path := ""
+var _meter: AnimatedMeter
 
 @onready var _limb_icon: TextureRect = %LimbIcon
 @onready var _state_icon: TextureRect = %StateIcon
@@ -22,13 +25,31 @@ var _region_key := ""
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	HUDAssetLibrary.apply_panel(self)
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	HUDAssetLibrary.apply_inset_panel(self)
 	HUDAssetLibrary.apply_label(_region_label, "muted")
 	HUDAssetLibrary.apply_label(_wound_count, "warning")
 	_region_label.add_theme_font_size_override("font_size", 11)
 	_wound_count.add_theme_font_size_override("font_size", 11)
-	HUDAssetLibrary.apply_progress_bar(_integrity_bar)
+	_install_meter()
 	mouse_entered.connect(func(): region_hovered.emit(_region_key))
+
+
+func _install_meter() -> void:
+	if _integrity_bar == null or _meter != null:
+		return
+	var parent := _integrity_bar.get_parent()
+	var index := _integrity_bar.get_index()
+	_meter = ANIMATED_METER_SCENE.instantiate() as AnimatedMeter
+	_meter.name = "IntegrityBar"
+	_meter.unique_name_in_owner = true
+	_meter.custom_minimum_size = _integrity_bar.custom_minimum_size
+	_meter.size_flags_horizontal = _integrity_bar.size_flags_horizontal
+	parent.add_child(_meter)
+	parent.move_child(_meter, index)
+	_integrity_bar.queue_free()
+	_integrity_bar = _meter
+	_meter.configure("health")
 
 
 func configure(definition: HealthRegionDefinition) -> void:
@@ -38,6 +59,7 @@ func configure(definition: HealthRegionDefinition) -> void:
 		await ready
 	_region_label.text = definition.display_name
 	_limb_icon.texture = HUDAssetLibrary.official_texture(definition.icon_path)
+	_limb_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	tooltip_text = "%s // hover for details // right-click for treatment" % definition.display_name
 
 
@@ -46,8 +68,12 @@ func apply_limb_snapshot(limb: Dictionary) -> void:
 	var maximum := maxf(1.0, float(limb.get("maximum", 12.0)))
 	var ratio := clampf(current / maximum, 0.0, 1.0)
 	var wounds: Array = limb.get("wounds", [])
-	_integrity_bar.max_value = maximum
-	_integrity_bar.value = current
+	if _meter:
+		_meter.max_value = maximum
+		_meter.set_meter_value(current, true)
+	else:
+		_integrity_bar.max_value = maximum
+		_integrity_bar.value = current
 	_wound_count.visible = not wounds.is_empty()
 	_wound_count.text = "%dW" % wounds.size()
 	var state_path := STATE_STABLE
@@ -59,7 +85,13 @@ func apply_limb_snapshot(limb: Dictionary) -> void:
 		state_path = STATE_DAMAGED
 		panel_kind = "warning"
 	_state_icon.texture = HUDAssetLibrary.official_texture(state_path)
-	HUDAssetLibrary.apply_panel(self, panel_kind)
+	_state_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	HUDAssetLibrary.apply_inset_panel(self, panel_kind)
+	if state_path != _last_state_path and not _last_state_path.is_empty():
+		HudMotion.severity_flash(self, self, panel_kind if panel_kind != "neutral" else "warning")
+		if panel_kind == "critical":
+			HudMotion.micro_shake(self, self, 2.5, 0.18)
+	_last_state_path = state_path
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -96,4 +128,3 @@ func _drop_data(_at_position: Vector2, data: Variant) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_DRAG_END and is_instance_valid(_drop_highlight):
 		_drop_highlight.visible = false
-

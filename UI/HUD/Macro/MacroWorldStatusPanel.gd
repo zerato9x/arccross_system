@@ -8,6 +8,8 @@ const MAX_LOG_LINES := 12
 const PANEL_SIZE := Vector2(420.0, 316.0)
 const COMPACT_SIZE := Vector2(420.0, 96.0)
 const SCREEN_MARGIN := 14.0
+const DIGIT_CLOCK_SCENE := preload("res://UI/HUD/Widgets/DigitClock.tscn")
+const SIGNAL_WIDGET_SCENE := preload("res://UI/HUD/Widgets/SignalStrengthWidget.tscn")
 const LOG_KIND_TOKENS := {
 	"world": "WORLD",
 	"travel": "ROUTE",
@@ -21,11 +23,11 @@ const LOG_KIND_TOKENS := {
 
 var _snapshot: Dictionary = {}
 var _log_entries: Array[Dictionary] = []
-var _signal_tween: Tween
-var _clock_tween: Tween
 var _last_clock_text := ""
 var _work_surface_active := false
 var _layout_tween: Tween
+var _digit_clock: DigitClock
+var _signal_widget: SignalStrengthWidget
 
 @onready var _frame: PanelContainer = %Frame
 @onready var _eyebrow_label: Label = %WorldLogEyebrow
@@ -44,14 +46,32 @@ var _layout_tween: Tween
 @onready var _log_scroll: ScrollContainer = %LogScroll
 @onready var _log_list: VBoxContainer = %LogList
 @onready var _button_row: HBoxContainer = %ButtonRow
+@onready var _clock_stack: VBoxContainer = %ClockStack
+@onready var _signal_row: HBoxContainer = %SignalRow
 
 
 func _ready() -> void:
 	custom_minimum_size = PANEL_SIZE
 	size = PANEL_SIZE
 	pivot_offset = size
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_apply_base_styles()
+	_node_map_button.text = "NODE MAP"
+	_settings_button.text = "SETTINGS"
+	HUDAssetLibrary.apply_button(_settings_button, "settings")
+	HUDAssetLibrary.apply_button(_node_map_button, "map")
+	_settings_button.custom_minimum_size = HUDAssetLibrary.macro_button_minimum_size()
+	_node_map_button.custom_minimum_size = HUDAssetLibrary.macro_button_minimum_size()
+	_settings_button.pressed.connect(func(): settings_requested.emit())
+	_node_map_button.pressed.connect(func(): node_map_requested.emit())
+	_install_visual_widgets()
+	if _log_entries.is_empty():
+		append_log("World channel synchronized.", "system")
+
+
+func _apply_base_styles() -> void:
 	HUDAssetLibrary.apply_panel(_frame, "neutral")
-	HUDAssetLibrary.apply_panel(_log_frame, "neutral")
+	HUDAssetLibrary.apply_inset_panel(_log_frame, "neutral")
 	HUDAssetLibrary.apply_label(_eyebrow_label, "info")
 	HUDAssetLibrary.apply_label(_phase_label, "muted")
 	HUDAssetLibrary.apply_label(_time_label, "title")
@@ -61,17 +81,32 @@ func _ready() -> void:
 	HUDAssetLibrary.apply_label(_log_title, "info")
 	HUDAssetLibrary.apply_label(_legend, "success")
 	_time_label.add_theme_font_size_override("font_size", 24)
-	_node_map_button.text = "NODE MAP"
-	_settings_button.text = "SETTINGS"
+
+
+func restyle() -> void:
+	_apply_base_styles()
 	HUDAssetLibrary.apply_button(_settings_button, "settings")
 	HUDAssetLibrary.apply_button(_node_map_button, "map")
-	_settings_button.custom_minimum_size = HUDAssetLibrary.macro_button_minimum_size()
-	_node_map_button.custom_minimum_size = HUDAssetLibrary.macro_button_minimum_size()
-	_settings_button.pressed.connect(func(): settings_requested.emit())
-	_node_map_button.pressed.connect(func(): node_map_requested.emit())
-	_start_signal_pulse()
-	if _log_entries.is_empty():
-		append_log("World channel synchronized.", "system")
+	if not _snapshot.is_empty():
+		apply_snapshot(_snapshot)
+	_render_log()
+
+
+func _install_visual_widgets() -> void:
+	if _clock_stack != null and _digit_clock == null:
+		_digit_clock = DIGIT_CLOCK_SCENE.instantiate() as DigitClock
+		_digit_clock.name = "DigitClock"
+		_clock_stack.add_child(_digit_clock)
+		_clock_stack.move_child(_digit_clock, 0)
+		if _time_label:
+			_time_label.visible = false
+	if _signal_row != null and _signal_widget == null:
+		_signal_widget = SIGNAL_WIDGET_SCENE.instantiate() as SignalStrengthWidget
+		_signal_widget.name = "SignalStrength"
+		_signal_row.add_child(_signal_widget)
+		_signal_row.move_child(_signal_widget, 0)
+		if _signal_pulse:
+			_signal_pulse.visible = false
 
 
 func set_hud_scale(value: float) -> void:
@@ -94,11 +129,9 @@ func set_work_surface_active(active: bool) -> void:
 	offset_right = -SCREEN_MARGIN
 	size = target_size
 	pivot_offset = size
-	if _layout_tween:
-		_layout_tween.kill()
+	HudMotion.kill(_layout_tween)
 	_frame.modulate.a = 0.58
-	_layout_tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	_layout_tween.tween_property(_frame, "modulate:a", 1.0, 0.16)
+	_layout_tween = HudMotion.fade_in(self, _frame, 0.16, 0.58)
 
 
 func is_work_surface_compact() -> bool:
@@ -112,18 +145,30 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	var hour := int(clock.get("hour", 0))
 	var minute := int(clock.get("minute", 0))
 	var clock_text := "%02d:%02d" % [hour, minute]
-	if _time_label:
+	if _digit_clock:
+		_digit_clock.set_clock_text(clock_text, not _last_clock_text.is_empty())
+	elif _time_label:
 		_time_label.text = clock_text
 		if not _last_clock_text.is_empty() and _last_clock_text != clock_text:
-			_animate_clock_tick()
+			HudMotion.flash_modulate(
+				self,
+				_time_label,
+				HUDAssetLibrary.COLOR_INFO.lightened(0.28),
+				Color.WHITE,
+				0.22
+			)
 	_last_clock_text = clock_text
 	var phase := _phase_for_hour(hour)
 	var phase_color := _phase_color(phase)
+	var signal_kind := _signal_kind_for_phase(phase)
 	if _phase_label:
 		_phase_label.text = "%s LIGHT // SECTOR LINK" % phase.to_upper()
 		_phase_label.add_theme_color_override("font_color", phase_color)
-	if _signal_pulse:
+	if _signal_widget:
+		_signal_widget.set_signal(_signal_level_for_phase(phase), signal_kind)
+	elif _signal_pulse:
 		_signal_pulse.color = phase_color
+	_update_signal_label(signal_kind)
 	if _day_label:
 		_day_label.text = "DAY %03d" % int(calendar.get("day", clock.get("day", 1)))
 	if _calendar_label:
@@ -131,6 +176,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 			_month_name(int(calendar.get("month", 1))),
 			int(calendar.get("year", 1)),
 		]
+	_apply_frame_severity(signal_kind)
 
 
 func append_log(message: String, kind: String = "") -> void:
@@ -201,13 +247,13 @@ func _render_log() -> void:
 		body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		body.text = str(entry.get("message", ""))
-		HUDAssetLibrary.apply_label(body, "body" if latest else "muted")
+		HUDAssetLibrary.apply_label(body, kind if latest else "muted")
+		if latest:
+			body.add_theme_font_size_override("font_size", 12)
 		line.add_child(body)
 		_log_list.add_child(row)
 		if latest:
-			row.modulate.a = 0.0
-			var tween := row.create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-			tween.tween_property(row, "modulate:a", 1.0, 0.18)
+			HudMotion.slide_fade_in(self, row, 0.18, 8.0)
 	call_deferred("_scroll_log_to_end")
 
 
@@ -217,24 +263,40 @@ func _scroll_log_to_end() -> void:
 	_log_scroll.scroll_vertical = int(_log_scroll.get_v_scroll_bar().max_value)
 
 
-func _start_signal_pulse() -> void:
-	if _signal_pulse == null:
-		return
-	if _signal_tween:
-		_signal_tween.kill()
-	_signal_tween = create_tween().set_loops()
-	_signal_tween.tween_property(_signal_pulse, "modulate:a", 0.35, 0.9)
-	_signal_tween.tween_property(_signal_pulse, "modulate:a", 1.0, 0.9)
+func _apply_frame_severity(kind: String) -> void:
+	var panel_kind := "neutral"
+	match kind:
+		"warning", "caution":
+			panel_kind = "warning"
+		"critical", "danger":
+			panel_kind = "critical"
+		"anomaly":
+			panel_kind = "anomaly"
+		"travel":
+			panel_kind = "neutral"
+	HUDAssetLibrary.apply_panel(_frame, panel_kind)
 
 
-func _animate_clock_tick() -> void:
-	if _time_label == null:
+func _update_signal_label(kind: String) -> void:
+	if _signal_label == null:
 		return
-	if _clock_tween:
-		_clock_tween.kill()
-	_time_label.modulate = HUDAssetLibrary.COLOR_INFO.lightened(0.28)
-	_clock_tween = create_tween()
-	_clock_tween.tween_property(_time_label, "modulate", Color.WHITE, 0.22)
+	var role := "info"
+	var copy := "SECTOR CHANNEL // ONLINE"
+	match kind:
+		"warning", "caution":
+			role = "caution"
+			copy = "SECTOR CHANNEL // DEGRADED"
+		"travel":
+			role = "travel"
+			copy = "SECTOR CHANNEL // NIGHT LINK"
+		"critical", "danger":
+			role = "critical"
+			copy = "SECTOR CHANNEL // CRITICAL"
+		"anomaly":
+			role = "anomaly"
+			copy = "SECTOR CHANNEL // ANOMALY"
+	_signal_label.text = copy
+	HUDAssetLibrary.apply_label(_signal_label, role)
 
 
 func _current_stamp() -> String:
@@ -296,6 +358,24 @@ func _phase_color(phase: String) -> Color:
 		"night":
 			return HUDAssetLibrary.COLOR_TRAVEL
 	return HUDAssetLibrary.COLOR_INFO
+
+
+func _signal_kind_for_phase(phase: String) -> String:
+	match phase:
+		"dawn", "dusk":
+			return "warning"
+		"night":
+			return "travel"
+	return "normal"
+
+
+func _signal_level_for_phase(phase: String) -> int:
+	match phase:
+		"night":
+			return 2
+		"dawn", "dusk":
+			return 3
+	return 4
 
 
 func _month_name(month: int) -> String:

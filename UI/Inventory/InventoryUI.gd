@@ -29,6 +29,12 @@ const SLOT_SCENE := preload("res://UI/Inventory/InventorySlot.tscn")
 const PAPERDOLL_SCENE := preload("res://UI/Inventory/PaperDollModel.tscn")
 const SLOT_ACTION_BUILDER := preload("res://UI/Inventory/InventorySlotActionBuilder.gd")
 const CONTEXT_MENU_HOST := preload("res://UI/Inventory/InventorySlotContextMenuHost.gd")
+const STAT_GAUGE_SCENE := preload("res://UI/Inventory/StatGaugeRow.tscn")
+const EFFECT_CHIP_SCENE := preload("res://UI/Inventory/EffectChip.tscn")
+
+const WEIGHT_DISPLAY_MAX := 24.0
+const BULK_DISPLAY_MAX := 24.0
+const PROTECTION_DISPLAY_MAX := 12.0
 
 const COLOR_BACKDROP := Color("#080907")
 const COLOR_PANEL := Color("#11140f")
@@ -155,6 +161,8 @@ var _hover_meta: Label
 var _hover_description: Label
 var _hover_stats: Label
 var _condition_bar: ProgressBar
+var _stat_gauge_list: VBoxContainer
+var _effect_chip_row: HFlowContainer
 var _comparison_label: Label
 var _filter_row: HFlowContainer
 var _carried_scroll: ScrollContainer
@@ -165,6 +173,10 @@ var _pending_confirm: Callable
 var _active_filter := "all"
 var _header_close_button: Button
 var _context_menu_slot: InventorySlot
+var _archetype_label: Label
+var _pillar_list: VBoxContainer
+var _loadout_gauge_list: VBoxContainer
+var _identity_chip_row: HFlowContainer
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -196,6 +208,8 @@ func _bind_authored_interface() -> void:
 	_hover_description = %HoverDescription
 	_hover_stats = %HoverStats
 	_condition_bar = %ConditionBar
+	_stat_gauge_list = %StatGaugeList
+	_effect_chip_row = %EffectChipRow
 	_comparison_label = %ComparisonLabel
 	_filter_row = %FilterRow
 	_carried_scroll = %CarriedScroll
@@ -203,6 +217,10 @@ func _bind_authored_interface() -> void:
 	_confirm_dialog = %ConfirmDialog
 	_repair_button = %RepairButton
 	_header_close_button = %CloseButton
+	_archetype_label = %ArchetypeLabel
+	_pillar_list = %PillarList
+	_loadout_gauge_list = %LoadoutGaugeList
+	_identity_chip_row = %IdentityChipRow
 	dynamic_capacity_grids = %DynamicCapacityGrids
 	ground_list = %GroundList
 	paperdoll_model = %PaperDollModel
@@ -212,10 +230,18 @@ func _bind_authored_interface() -> void:
 	HUDAssetLibrary.apply_panel(%ItemsPanel, "neutral")
 	HUDAssetLibrary.apply_panel(_ground_panel, "neutral")
 	HUDAssetLibrary.apply_panel(_hover_card, "warning")
+	if _backdrop != null:
+		_backdrop.color = Color(COLOR_BACKDROP, 0.92)
 	HUDAssetLibrary.apply_progress_bar(_capacity_bar, "health")
 	HUDAssetLibrary.apply_progress_bar(_condition_bar, "stance")
+	_condition_bar.visible = false
+	_shell.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_capacity_bar.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	if _hover_stats != null:
+		_hover_stats.visible = false
 	for button in [_primary_button, _secondary_button, _header_close_button, %RepairButton]:
 		HUDAssetLibrary.apply_button(button)
+	HUDAssetLibrary.apply_button(_header_close_button, "pass")
 	_primary_button.pressed.connect(_activate_selected_primary)
 	_secondary_button.pressed.connect(_activate_selected_secondary)
 	_header_close_button.pressed.connect(close_panel)
@@ -315,9 +341,10 @@ func is_open() -> bool:
 
 func show_item_details(descriptor: Dictionary) -> void:
 	if descriptor.is_empty():
-		_hover_card.visible = false
+		_reset_inspector()
 		return
 
+	_hover_card.visible = true
 	var sprite_path := str(descriptor.get("sprite_path", ""))
 	_hover_icon.texture = (
 		load(sprite_path) as Texture2D
@@ -343,24 +370,32 @@ func show_item_details(descriptor: Dictionary) -> void:
 		"description",
 		"No field notes available."
 	))
-	_hover_stats.text = _format_item_stats(descriptor)
-	_condition_bar.visible = bool(descriptor.get("condition_enabled", true))
-	_condition_bar.value = float(descriptor.get("current_condition", 12.0))
+	_populate_item_stat_gauges(descriptor)
+	_populate_item_effect_chips(descriptor)
+	_condition_bar.visible = false
 	_comparison_label.text = _comparison_text(descriptor)
-	_hover_card.visible = true
 
 func hide_item_details() -> void:
-	pass
+	if is_instance_valid(_selected_slot) and _selected_slot.has_item():
+		show_item_details(_selected_slot.item_descriptor)
+		return
+	_reset_inspector()
 
 func _reset_inspector() -> void:
 	_hover_icon.texture = null
 	_hover_name.text = "SELECT AN ITEM"
 	_hover_meta.text = "GRADE  |  CATEGORY  |  LOCATION"
-	_hover_description.text = "Field notes, exact mechanics, comparison deltas, and repair options remain here."
-	_hover_stats.text = "Condition and contribution details appear after selection."
+	_hover_description.text = "Field notes and contribution details appear after selection."
+	if _hover_stats != null:
+		_hover_stats.text = ""
+		_hover_stats.visible = false
 	_condition_bar.value = 0.0
 	_condition_bar.visible = false
 	_comparison_label.text = "COMPARISON: select carried gear"
+	if _stat_gauge_list != null:
+		_clear_container(_stat_gauge_list)
+	if _effect_chip_row != null:
+		_clear_container(_effect_chip_row)
 
 func _comparison_text(descriptor: Dictionary) -> String:
 	var equipped: Dictionary = {}
@@ -391,7 +426,7 @@ func _total_protection(descriptor: Dictionary) -> float:
 func _build_interface() -> void:
 	_backdrop = ColorRect.new()
 	_backdrop.name = "Backdrop"
-	_backdrop.color = Color(COLOR_BACKDROP, 0.97)
+	_backdrop.color = Color(COLOR_BACKDROP, 0.92)
 	_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_backdrop)
 
@@ -800,29 +835,16 @@ func _render() -> void:
 	)
 	_capacity_label.text = "CAPACITY %d / %d" % [current, maximum]
 	_capacity_bar.max_value = maxf(1.0, float(maximum))
-	_capacity_bar.value = float(current)
-	_capacity_bar.add_theme_stylebox_override(
-		"fill",
-		HUDAssetLibrary.bar_fill_style(
-			"critical" if current > maximum else "health"
-		)
-	)
+	var capacity_fill := "critical" if current > maximum else "health"
+	HUDAssetLibrary.apply_progress_bar(_capacity_bar, capacity_fill)
+	HudMotion.lerp_progress(self, _capacity_bar, float(current), HudMotion.PANEL_ENTER_SEC)
+	if current > maximum:
+		HudMotion.severity_flash(self, _capacity_bar, "critical")
 	_spill_warning.visible = current > maximum
 	_feedback_label.text = _feedback
 	var loadout: Dictionary = _snapshot.get("loadout_stats", {})
-	_loadout_stats_label.text = (
-		"WT %.1f  BULK %.1f  THREAT %.1f  INS %.1f\nPROTECTION  B %.1f / S %.1f / R %.1f  // %s"
-		% [
-			float(loadout.get("weight", 0.0)),
-			float(loadout.get("bulk", 0.0)),
-			float(loadout.get("threat", 0.0)),
-			float(loadout.get("insulation", 0.0)),
-			float(loadout.get("protection_blunt", 0.0)),
-			float(loadout.get("protection_sharp", 0.0)),
-			float(loadout.get("protection_ballistic", 0.0)),
-			str(loadout.get("kinetic_tier", "FLUID")),
-		]
-	)
+	_loadout_stats_label.text = "KINETIC %s" % str(loadout.get("kinetic_tier", "FLUID"))
+	_render_character_strip(loadout)
 
 	var breakdown: Array = _snapshot.get("capacity_breakdown", [])
 	var sources: PackedStringArray = []
@@ -846,7 +868,7 @@ func _render() -> void:
 		))
 		if equipment_slots_ui.has(slot):
 			equipment_slots_ui[slot].set_item(descriptor)
-	%PaperDollSummary.text = "%d / %d SLOTS OCCUPIED  //  %s" % [
+	%PaperDollSummary.text = "%d / %d SLOTS  //  %s" % [
 		equipment.size(),
 		equipment_slots_ui.size(),
 		str(loadout.get("kinetic_tier", "FLUID")),
@@ -1487,7 +1509,445 @@ func _execute_secondary(slot: InventorySlot) -> void:
 		InventorySlot.SOURCE_GROUND:
 			_execute_primary(slot)
 
+func _render_character_strip(loadout: Dictionary) -> void:
+	if _pillar_list == null or _loadout_gauge_list == null or _identity_chip_row == null:
+		return
+	var character: Dictionary = _snapshot.get("character", {})
+	if _archetype_label != null:
+		_archetype_label.text = str(character.get("archetype_name", "Unknown")).to_upper()
+	_clear_container(_pillar_list)
+	_add_stat_gauge(
+		_pillar_list,
+		"Brawn",
+		float(character.get("brawn", 6)),
+		12.0,
+		"%d / 12" % int(character.get("brawn", 6)),
+		"health",
+		HUDAssetLibrary.condition_icon("stable")
+	)
+	_add_stat_gauge(
+		_pillar_list,
+		"Finesse",
+		float(character.get("finesse", 6)),
+		12.0,
+		"%d / 12" % int(character.get("finesse", 6)),
+		"stance",
+		HUDAssetLibrary.condition_icon("precaution_y")
+	)
+	_add_stat_gauge(
+		_pillar_list,
+		"Fortitude",
+		float(character.get("fortitude", 6)),
+		12.0,
+		"%d / 12" % int(character.get("fortitude", 6)),
+		"health",
+		HUDAssetLibrary.condition_icon("healing")
+	)
+	_add_stat_gauge(
+		_pillar_list,
+		"Will",
+		float(character.get("will", 6)),
+		12.0,
+		"%d / 12" % int(character.get("will", 6)),
+		"stance",
+		HUDAssetLibrary.condition_icon("precaution_o")
+	)
+
+	_clear_container(_loadout_gauge_list)
+	_add_stat_gauge(
+		_loadout_gauge_list,
+		"Weight",
+		float(loadout.get("weight", 0.0)),
+		WEIGHT_DISPLAY_MAX,
+		"%.1f" % float(loadout.get("weight", 0.0)),
+		"warning",
+		HUDAssetLibrary.condition_icon("precaution_y")
+	)
+	_add_stat_gauge(
+		_loadout_gauge_list,
+		"Bulk",
+		float(loadout.get("bulk", 0.0)),
+		BULK_DISPLAY_MAX,
+		"%.1f" % float(loadout.get("bulk", 0.0)),
+		"warning",
+		HUDAssetLibrary.condition_icon("precaution_y")
+	)
+	_add_stat_gauge(
+		_loadout_gauge_list,
+		"Threat",
+		float(loadout.get("threat", 0.0)),
+		12.0,
+		"%.1f / 12" % float(loadout.get("threat", 0.0)),
+		"critical",
+		HUDAssetLibrary.condition_icon("danger")
+	)
+	var insulation := float(loadout.get("insulation", 0.0))
+	if insulation != 0.0:
+		_add_stat_gauge(
+			_loadout_gauge_list,
+			"Insul",
+			insulation,
+			12.0,
+			"%.1f / 12" % insulation,
+			"stance",
+			HUDAssetLibrary.condition_icon("precaution_o")
+		)
+	_add_stat_gauge(
+		_loadout_gauge_list,
+		"Prot B",
+		float(loadout.get("protection_blunt", 0.0)),
+		PROTECTION_DISPLAY_MAX,
+		"%.1f" % float(loadout.get("protection_blunt", 0.0)),
+		"health",
+		HUDAssetLibrary.condition_icon("precaution_y")
+	)
+	_add_stat_gauge(
+		_loadout_gauge_list,
+		"Prot S",
+		float(loadout.get("protection_sharp", 0.0)),
+		PROTECTION_DISPLAY_MAX,
+		"%.1f" % float(loadout.get("protection_sharp", 0.0)),
+		"health",
+		HUDAssetLibrary.condition_icon("precaution_y")
+	)
+	_add_stat_gauge(
+		_loadout_gauge_list,
+		"Prot R",
+		float(loadout.get("protection_ballistic", 0.0)),
+		PROTECTION_DISPLAY_MAX,
+		"%.1f" % float(loadout.get("protection_ballistic", 0.0)),
+		"health",
+		HUDAssetLibrary.condition_icon("precaution_y")
+	)
+
+	_clear_container(_identity_chip_row)
+	var occupation: Dictionary = character.get("occupation", {})
+	if occupation.is_empty():
+		_add_effect_chip(_identity_chip_row, "Occupation", "NONE", null, "neutral")
+	else:
+		_add_effect_chip(
+			_identity_chip_row,
+			str(occupation.get("display_name", "Occupation")),
+			"",
+			HUDAssetLibrary.condition_icon("stable"),
+			"warning"
+		)
+	var bonus_key := "trai" + "ts"
+	var bonus_list: Array = character.get(bonus_key, [])
+	if bonus_list.is_empty():
+		_add_effect_chip(_identity_chip_row, "Bonus", "NONE", null, "neutral")
+	else:
+		for entry in bonus_list:
+			if typeof(entry) != TYPE_DICTIONARY:
+				continue
+			var chip_data: Dictionary = entry
+			_add_effect_chip(
+				_identity_chip_row,
+				str(chip_data.get("display_name", "Bonus")),
+				"",
+				HUDAssetLibrary.condition_icon("healing"),
+				"neutral"
+			)
+	var penalty_list: Array = character.get("flaws", [])
+	if penalty_list.is_empty():
+		_add_effect_chip(_identity_chip_row, "Flaw", "NONE", null, "neutral")
+	else:
+		for entry in penalty_list:
+			if typeof(entry) != TYPE_DICTIONARY:
+				continue
+			var chip_data: Dictionary = entry
+			_add_effect_chip(
+				_identity_chip_row,
+				str(chip_data.get("display_name", "Flaw")),
+				"",
+				HUDAssetLibrary.condition_icon("danger"),
+				"critical"
+			)
+
+
+func _populate_item_stat_gauges(descriptor: Dictionary) -> void:
+	_clear_container(_stat_gauge_list)
+	if bool(descriptor.get("condition_enabled", true)):
+		var condition := float(descriptor.get("current_condition", 12.0))
+		var band := str(descriptor.get("condition_band", "Fine"))
+		_add_stat_gauge(
+			_stat_gauge_list,
+			"Condition",
+			condition,
+			12.0,
+			"%.1f / 12  %s" % [condition, band.to_upper()],
+			"stance",
+			HUDAssetLibrary.condition_icon("stable")
+		)
+	_add_stat_gauge(
+		_stat_gauge_list,
+		"Weight",
+		float(descriptor.get("weight", 0.0)),
+		WEIGHT_DISPLAY_MAX,
+		"%.1f" % float(descriptor.get("weight", 0.0)),
+		"warning",
+		HUDAssetLibrary.condition_icon("precaution_y")
+	)
+	_add_stat_gauge(
+		_stat_gauge_list,
+		"Bulk",
+		float(descriptor.get("bulk", 0.0)),
+		BULK_DISPLAY_MAX,
+		"%.1f" % float(descriptor.get("bulk", 0.0)),
+		"warning",
+		HUDAssetLibrary.condition_icon("precaution_y")
+	)
+	var threat := float(descriptor.get("threat", 0.0))
+	if threat != 0.0:
+		_add_stat_gauge(
+			_stat_gauge_list,
+			"Threat",
+			threat,
+			12.0,
+			"%.1f / 12" % threat,
+			"critical",
+			HUDAssetLibrary.condition_icon("danger")
+		)
+	var insulation := float(descriptor.get("insulation", 0.0))
+	if insulation != 0.0:
+		_add_stat_gauge(
+			_stat_gauge_list,
+			"Insul",
+			insulation,
+			12.0,
+			"%.1f / 12" % insulation,
+			"stance",
+			HUDAssetLibrary.condition_icon("precaution_o")
+		)
+
+	var item_type := int(descriptor.get("item_type", GameEnums.ItemType.JUNK))
+	if item_type == GameEnums.ItemType.WEAPON:
+		_add_stat_gauge(
+			_stat_gauge_list,
+			"Flesh",
+			float(descriptor.get("flesh_damage", 0.0)),
+			12.0,
+			"%.1f" % float(descriptor.get("flesh_damage", 0.0)),
+			"critical",
+			HUDAssetLibrary.condition_icon("danger")
+		)
+		_add_stat_gauge(
+			_stat_gauge_list,
+			"Stance",
+			float(descriptor.get("stance_damage", 0.0)),
+			12.0,
+			"%.1f" % float(descriptor.get("stance_damage", 0.0)),
+			"stance",
+			HUDAssetLibrary.condition_icon("healing")
+		)
+		_add_stat_gauge(
+			_stat_gauge_list,
+			"Pen",
+			float(descriptor.get("armor_penetration", 0.0)),
+			12.0,
+			"%.1f" % float(descriptor.get("armor_penetration", 0.0)),
+			"warning",
+			HUDAssetLibrary.condition_icon("precaution_y")
+		)
+		_add_stat_gauge(
+			_stat_gauge_list,
+			"Accuracy",
+			float(descriptor.get("accuracy_rating", 0.0)),
+			12.0,
+			"%.1f / 12" % float(descriptor.get("accuracy_rating", 0.0)),
+			"health",
+			HUDAssetLibrary.condition_icon("stable")
+		)
+		var optimal := int(descriptor.get("optimal_range", 0))
+		var effective := int(descriptor.get("effective_range", 0))
+		_add_stat_gauge(
+			_stat_gauge_list,
+			"Range",
+			float(effective),
+			12.0,
+			"%d-%d" % [optimal, effective],
+			"travel",
+			HUDAssetLibrary.condition_icon("precaution_o")
+		)
+		var max_magazine := int(descriptor.get("max_magazine", 0))
+		if max_magazine <= 0:
+			max_magazine = int(descriptor.get("magazine_capacity", 0))
+		if max_magazine > 0:
+			var loaded := int(descriptor.get("current_magazine", descriptor.get("loaded_rounds", 0)))
+			_add_stat_gauge(
+				_stat_gauge_list,
+				"Loaded",
+				float(loaded),
+				float(max_magazine),
+				"%d / %d" % [loaded, max_magazine],
+				"stance",
+				HUDAssetLibrary.condition_icon("healing")
+			)
+
+	var protection_blunt := float(descriptor.get("protection_blunt", 0.0))
+	var protection_sharp := float(descriptor.get("protection_sharp", 0.0))
+	var protection_ballistic := float(descriptor.get("protection_ballistic", 0.0))
+	if protection_blunt + protection_sharp + protection_ballistic > 0.0:
+		_add_stat_gauge(
+			_stat_gauge_list,
+			"Prot B",
+			protection_blunt,
+			PROTECTION_DISPLAY_MAX,
+			"%.1f" % protection_blunt,
+			"health",
+			HUDAssetLibrary.condition_icon("precaution_y")
+		)
+		_add_stat_gauge(
+			_stat_gauge_list,
+			"Prot S",
+			protection_sharp,
+			PROTECTION_DISPLAY_MAX,
+			"%.1f" % protection_sharp,
+			"health",
+			HUDAssetLibrary.condition_icon("precaution_y")
+		)
+		_add_stat_gauge(
+			_stat_gauge_list,
+			"Prot R",
+			protection_ballistic,
+			PROTECTION_DISPLAY_MAX,
+			"%.1f" % protection_ballistic,
+			"health",
+			HUDAssetLibrary.condition_icon("precaution_y")
+		)
+
+	if item_type == GameEnums.ItemType.CONSUMABLE:
+		_add_stat_gauge(
+			_stat_gauge_list,
+			"Potency",
+			float(descriptor.get("consumable_potency", 0.0)),
+			12.0,
+			"%.1f / 12" % float(descriptor.get("consumable_potency", 0.0)),
+			"health",
+			HUDAssetLibrary.condition_icon("healing")
+		)
+
+
+func _populate_item_effect_chips(descriptor: Dictionary) -> void:
+	_clear_container(_effect_chip_row)
+	var capacity_bonus := int(descriptor.get("capacity_bonus", 0))
+	if capacity_bonus != 0:
+		_add_effect_chip(
+			_effect_chip_row,
+			"Capacity",
+			"%+d" % capacity_bonus,
+			HUDAssetLibrary.condition_icon("stable"),
+			"warning"
+		)
+	if bool(descriptor.get("is_jammed", false)):
+		_add_effect_chip(
+			_effect_chip_row,
+			"Jammed",
+			"",
+			HUDAssetLibrary.condition_icon("danger"),
+			"critical"
+		)
+	var fault := float(descriptor.get("fault_chance", 0.0))
+	if fault > 0.0:
+		_add_effect_chip(
+			_effect_chip_row,
+			"Fault",
+			"%.0f%%" % (fault * 100.0),
+			HUDAssetLibrary.condition_icon("danger"),
+			"critical"
+		)
+
+	var item_type := int(descriptor.get("item_type", GameEnums.ItemType.JUNK))
+	if item_type == GameEnums.ItemType.CONSUMABLE:
+		_add_effect_chip(
+			_effect_chip_row,
+			_enum_name(GameEnums.ConsumableEffect, int(descriptor.get(
+				"consumable_effect",
+				GameEnums.ConsumableEffect.RESTORE_HUNGER
+			))),
+			"",
+			HUDAssetLibrary.condition_icon("healing"),
+			"neutral"
+		)
+
+	var effect_specs := [
+		{"key": "search_loot_bonus", "label": "Search Loot", "icon": "stable"},
+		{"key": "search_safety_bonus", "label": "Search Safe", "icon": "precaution_y"},
+		{"key": "search_sneak_bonus", "label": "Sneak", "icon": "precaution_o"},
+		{"key": "camp_sleep_bonus", "label": "Camp Sleep", "icon": "healing"},
+		{"key": "camp_shelter_bonus", "label": "Shelter", "icon": "precaution_y"},
+		{"key": "camp_healing_bonus", "label": "Camp Heal", "icon": "healing"},
+		{"key": "camp_concealment_bonus", "label": "Conceal", "icon": "precaution_o"},
+		{"key": "camp_alertness_bonus", "label": "Alert", "icon": "danger"},
+	]
+	for spec: Dictionary in effect_specs:
+		var amount := float(descriptor.get(str(spec["key"]), 0.0))
+		if amount == 0.0:
+			continue
+		_add_effect_chip(
+			_effect_chip_row,
+			str(spec["label"]),
+			"%+.1f" % amount,
+			HUDAssetLibrary.condition_icon(str(spec["icon"])),
+			"warning" if amount > 0.0 else "critical"
+		)
+
+	var stack_limit := int(descriptor.get("stack_limit", 1))
+	if stack_limit > 1:
+		_add_effect_chip(
+			_effect_chip_row,
+			"Stack",
+			"%d / %d" % [
+				int(descriptor.get("stack_count", 1)),
+				stack_limit,
+			],
+			HUDAssetLibrary.condition_icon("stable"),
+			"neutral"
+		)
+	_add_effect_chip(
+		_effect_chip_row,
+		"Size",
+		_enum_name(GameEnums.ItemSize, int(descriptor.get(
+			"item_size",
+			GameEnums.ItemSize.SMALL
+		))),
+		null,
+		"neutral"
+	)
+
+
+func _add_stat_gauge(
+	container: Node,
+	display_name: String,
+	value: float,
+	max_value: float,
+	value_text: String,
+	fill_kind: String,
+	icon: Texture2D
+) -> void:
+	if container == null:
+		return
+	var row := STAT_GAUGE_SCENE.instantiate() as StatGaugeRow
+	container.add_child(row)
+	row.configure(display_name, value, max_value, value_text, fill_kind, icon)
+
+
+func _add_effect_chip(
+	container: Node,
+	display_name: String,
+	value_text: String,
+	icon: Texture2D,
+	tone: String
+) -> void:
+	if container == null:
+		return
+	var chip := EFFECT_CHIP_SCENE.instantiate() as EffectChip
+	container.add_child(chip)
+	chip.configure(display_name, value_text, icon, tone)
+
+
 func _format_item_stats(descriptor: Dictionary) -> String:
+	# Legacy text path retained for smoke tests / debug dumps.
 	var lines := PackedStringArray()
 	if bool(descriptor.get("condition_enabled", true)):
 		lines.append("Condition %.2f / 12  |  %s  |  Fault %.2f%%" % [

@@ -93,19 +93,19 @@ func _build_styles() -> void:
 	_selected_style = HUDAssetLibrary.pocket_slot_style(true)
 	if _default_style == null:
 		_default_style = _slot_style(
-			Color("#151c22"),
+			Color(0.06, 0.09, 0.10, 0.94),
 			Color("#3a4852"),
 			1
 		)
 	if _hover_style == null:
 		_hover_style = _slot_style(
-			Color("#1d2930"),
+			Color(0.10, 0.13, 0.14, 0.96),
 			Color("#b99e7a"),
 			2
 		)
 	if _selected_style == null:
 		_selected_style = _slot_style(
-			Color("#302616"),
+			Color(0.16, 0.13, 0.08, 0.96),
 			Color("#d6a652"),
 			2
 		)

@@ -9,21 +9,23 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "Asset" / "UI" / "HUD"
 
+# Keep in sync with PresentationCore/HUDAssetLibrary.gd amber scheme (default).
+# Cyan scheme remains selectable at runtime via GameSettings.hud_scheme.
 PALETTE = {
     "transparent": (0, 0, 0, 0),
-    "back": (4, 8, 10, 214),
-    "back_dark": (1, 3, 5, 236),
-    "grid": (30, 72, 76, 100),
-    "teal": (72, 222, 220, 255),
-    "teal_dim": (32, 122, 130, 255),
-    "teal_ghost": (72, 222, 220, 76),
-    "white": (214, 230, 220, 255),
-    "white_dim": (126, 150, 145, 255),
-    "amber": (244, 181, 64, 255),
+    "back": (11, 13, 11, 214),
+    "back_dark": (21, 23, 17, 236),
+    "grid": (90, 74, 40, 90),
+    "teal": (214, 154, 67, 255),  # #d69a43 amber info/normal
+    "teal_dim": (138, 96, 34, 255),
+    "teal_ghost": (214, 154, 67, 76),
+    "white": (232, 220, 192, 255),  # #e8dcc0 text
+    "white_dim": (142, 139, 120, 255),  # #8e8b78 muted
+    "amber": (224, 178, 74, 255),  # #e0b24a caution
     "amber_dim": (138, 96, 34, 255),
-    "crimson": (230, 58, 70, 255),
+    "crimson": (185, 73, 62, 255),  # #b9493e critical
     "crimson_dim": (126, 28, 38, 255),
-    "magenta": (217, 74, 214, 255),
+    "magenta": (179, 91, 184, 255),  # #b35bb8 anomaly
     "black": (0, 0, 0, 255),
 }
 
@@ -65,13 +67,15 @@ def draw_corner_brackets(draw: ImageDraw.ImageDraw, size: tuple[int, int], color
 
 
 def panel(path: str, accent: tuple[int, int, int, int], size: tuple[int, int] = (64, 64)) -> None:
+    """Solid cyber plate: dark teal fill, faint grid, crisp border + brackets."""
     img = canvas(size)
     draw = ImageDraw.Draw(img)
     width, height = size
-    draw.rectangle((3, 3, width - 4, height - 4), fill=PALETTE["back"], outline=PALETTE["back_dark"], width=1)
-    draw_grid(draw, size, PALETTE["grid"])
-    draw.rectangle((5, 5, width - 6, height - 6), outline=accent, width=2)
-    draw.rectangle((9, 9, width - 10, height - 10), outline=(*accent[:3], 58), width=1)
+    # Solid plate fill — faint grid stays local to the 64px asset (sprites),
+    # not something we nine-slice across fullscreen inventory shells.
+    draw.rectangle((5, 5, width - 6, height - 6), fill=(4, 10, 12, 245), outline=accent, width=2)
+    draw_grid(draw, size, (30, 72, 76, 40))
+    draw.rectangle((9, 9, width - 10, height - 10), outline=(*accent[:3], 70), width=1)
     draw_corner_brackets(draw, size, accent)
     save(img, path)
 
@@ -409,7 +413,101 @@ def main() -> None:
 
     controls()
     overlays()
+    anim_assets()
     preview()
+
+
+def _digit_glyph(digit: int) -> list[str]:
+    glyphs = {
+        0: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
+        1: ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
+        2: ["01110", "10001", "00001", "00110", "01000", "10000", "11111"],
+        3: ["01110", "10001", "00001", "00110", "00001", "10001", "01110"],
+        4: ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
+        5: ["11111", "10000", "11110", "00001", "00001", "10001", "01110"],
+        6: ["01110", "10000", "11110", "10001", "10001", "10001", "01110"],
+        7: ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
+        8: ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
+        9: ["01110", "10001", "10001", "01111", "00001", "00001", "01110"],
+    }
+    return glyphs[digit]
+
+
+def clock_digit(path: str, digit: int, color: tuple[int, int, int, int] = PALETTE["teal"]) -> None:
+    img = canvas((12, 16))
+    draw = ImageDraw.Draw(img)
+    draw.rectangle((0, 0, 11, 15), fill=(2, 7, 8, 160), outline=(*color[:3], 90), width=1)
+    glyph = _digit_glyph(digit)
+    for row, pattern in enumerate(glyph):
+        for col, bit in enumerate(pattern):
+            if bit == "1":
+                x = 3 + col
+                y = 4 + row
+                draw.point((x, y), fill=color)
+                draw.point((x, y + 1), fill=(*color[:3], 120))
+    save(img, path)
+
+
+def clock_colon(path: str, color: tuple[int, int, int, int] = PALETTE["teal"]) -> None:
+    img = canvas((6, 16))
+    draw = ImageDraw.Draw(img)
+    draw.rectangle((2, 5, 3, 6), fill=color)
+    draw.rectangle((2, 10, 3, 11), fill=color)
+    save(img, path)
+
+
+def signal_strength(path: str, level: int, color: tuple[int, int, int, int] = PALETTE["teal"]) -> None:
+    img = canvas((24, 16))
+    draw = ImageDraw.Draw(img)
+    draw.rectangle((0, 0, 23, 15), fill=(2, 7, 8, 140), outline=(*color[:3], 70), width=1)
+    heights = [4, 7, 10, 13]
+    for index, height in enumerate(heights):
+        x0 = 3 + index * 5
+        y0 = 14 - height
+        active = index < level
+        fill = color if active else (*color[:3], 40)
+        outline = color if active else (*color[:3], 70)
+        draw.rectangle((x0, y0, x0 + 3, 13), fill=fill, outline=outline, width=1)
+    save(img, path)
+
+
+def anim_icon_frames(name: str, frame_count: int, drawer: Callable[[ImageDraw.ImageDraw, int], None], color: tuple[int, int, int, int]) -> None:
+    for frame in range(frame_count):
+        img, draw = icon_base()
+        drawer(draw, frame)
+        draw_corner_brackets(draw, (32, 32), (*color[:3], 165))
+        save(img, f"anim/icons/{name}_{frame}.png")
+
+
+def anim_assets() -> None:
+    for digit in range(10):
+        clock_digit(f"anim/clock/digit_{digit}.png", digit)
+    clock_colon("anim/clock/colon.png")
+    for level in range(5):
+        signal_strength(f"anim/signal/signal_{level}.png", level)
+        signal_strength(f"anim/signal/signal_warn_{level}.png", level, PALETTE["amber"])
+        signal_strength(f"anim/signal/signal_danger_{level}.png", level, PALETTE["crimson"])
+        signal_strength(f"anim/signal/signal_anomaly_{level}.png", level, PALETTE["magenta"])
+
+    def bleed_drawer(draw: ImageDraw.ImageDraw, frame: int) -> None:
+        offset = frame * 2
+        draw_drop(draw, PALETTE["crimson"])
+        draw.ellipse((14, 22 + offset, 18, 26 + offset), fill=(*PALETTE["crimson"][:3], 160))
+
+    def heartbeat_drawer(draw: ImageDraw.ImageDraw, frame: int) -> None:
+        y_mid = 16
+        amp = [0, -3, 4, -2, 0][frame % 5]
+        points = [(5, y_mid), (10, y_mid), (13, y_mid + amp), (16, y_mid - amp * 2), (19, y_mid + amp), (22, y_mid), (27, y_mid)]
+        draw.line(points, fill=PALETTE["crimson"], width=2)
+
+    def anomaly_drawer(draw: ImageDraw.ImageDraw, frame: int) -> None:
+        shift = frame * 2
+        draw.arc((6 + shift % 3, 6, 26 - shift % 2, 26), 30, 310, fill=PALETTE["magenta"], width=2)
+        draw.arc((10, 10 + shift % 2, 22, 22), 210, 120, fill=PALETTE["magenta"], width=2)
+
+    anim_icon_frames("bleeding", 3, bleed_drawer, PALETTE["crimson"])
+    anim_icon_frames("heartbeat", 5, heartbeat_drawer, PALETTE["crimson"])
+    anim_icon_frames("anomaly", 4, anomaly_drawer, PALETTE["magenta"])
 
 
 if __name__ == "__main__":

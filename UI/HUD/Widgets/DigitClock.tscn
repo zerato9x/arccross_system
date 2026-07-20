@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://UI/HUD/Widgets/DigitClock.gd" id="1_script"]
+
+[node name="DigitClock" type="HBoxContainer"]
+theme_override_constants/separation = 2
+alignment = 2
+script = ExtResource("1_script")

@@ -131,7 +131,7 @@ func _ensure_player_readability() -> void:
 		Vector2(-32.0, 14.0),
 		Vector2(-32.0, -14.0),
 	])
-	_ground_ring.color = Color(0.98, 0.86, 0.28, 0.35)
+	_ground_ring.color = Color(0.98, 0.82, 0.28, 0.16)
 	_ground_ring.z_index = -1
 	add_child(_ground_ring)
 

@@ -22,7 +22,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.031, 0.035, 0.027, 0.97)
+color = Color(0.031, 0.035, 0.027, 0.92)
 
 [node name="InventoryShell" type="PanelContainer" parent="."]
 unique_name_in_owner = true
@@ -93,6 +93,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.839, 0.604, 0.263, 1)
 theme_override_font_sizes/font_size = 10
 horizontal_alignment = 2
+text = "KINETIC FLUID"
 
 [node name="CloseButton" type="Button" parent="InventoryShell/Margin/RootVBox/Header"]
 unique_name_in_owner = true
@@ -178,7 +179,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.035, 0.05, 0.055, 0.72)
+color = Color(0.035, 0.05, 0.055, 0.95)
 
 [node name="EquipmentStageLayout" type="HBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage"]
 layout_mode = 1
@@ -314,7 +315,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.055, 0.07, 0.073, 0.9)
+color = Color(0.055, 0.07, 0.073, 0.96)
 [node name="PaperDollModel" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/BodyProjection/ModelWell" instance=ExtResource("2_paperdoll")]
 unique_name_in_owner = true
 layout_mode = 1
@@ -329,13 +330,37 @@ grow_horizontal = 2
 grow_vertical = 2
 [node name="PaperDollSummary" type="Label" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/BodyProjection"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 34)
+custom_minimum_size = Vector2(0, 22)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.62, 0.64, 0.58, 1)
 theme_override_font_sizes/font_size = 10
 text = "0 / 15 SLOTS OCCUPIED"
 horizontal_alignment = 1
 vertical_alignment = 1
+[node name="CharacterStrip" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/BodyProjection"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+[node name="ArchetypeLabel" type="Label" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/BodyProjection/CharacterStrip"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.839, 0.604, 0.263, 1)
+theme_override_font_sizes/font_size = 11
+text = "PLAYER UNIT"
+horizontal_alignment = 1
+[node name="PillarList" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/BodyProjection/CharacterStrip"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 2
+[node name="LoadoutGaugeList" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/BodyProjection/CharacterStrip"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 2
+[node name="IdentityChipRow" type="HFlowContainer" parent="InventoryShell/Margin/RootVBox/Content/PaperDollPanel/Column/PaperDollStage/EquipmentStageLayout/BodyProjection/CharacterStrip"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
 
 [node name="ItemsPanel" type="PanelContainer" parent="InventoryShell/Margin/RootVBox/Content"]
 unique_name_in_owner = true
@@ -433,6 +458,7 @@ unique_name_in_owner = true
 layout_mode = 2
 [node name="ConditionBar" type="ProgressBar" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn"]
 unique_name_in_owner = true
+visible = false
 custom_minimum_size = Vector2(0, 16)
 layout_mode = 2
 max_value = 12.0
@@ -445,12 +471,23 @@ horizontal_scroll_mode = 0
 [node name="InspectorText" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn/InspectorScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_constants/separation = 6
 [node name="HoverDescription" type="Label" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn/InspectorScroll/InspectorText"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 2
+[node name="StatGaugeList" type="VBoxContainer" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn/InspectorScroll/InspectorText"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+[node name="EffectChipRow" type="HFlowContainer" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn/InspectorScroll/InspectorText"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
 [node name="HoverStats" type="Label" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn/InspectorScroll/InspectorText"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
 autowrap_mode = 2
 [node name="ComparisonLabel" type="Label" parent="InventoryShell/Margin/RootVBox/Content/InspectorPanel/Margin/InspectorColumn"]

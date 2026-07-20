@@ -61,22 +61,28 @@ func _run() -> void:
 		_fail("Torso armor still projected global protection onto the head.")
 		return
 
-	var card_scene := load("res://UI/Inventory/InventorySlotExamineCard.tscn") as PackedScene
-	var card := card_scene.instantiate() as InventorySlotExamineCard
+	var card_scene := load("res://UI/Inventory/StatGaugeRow.tscn") as PackedScene
+	var card := card_scene.instantiate() as StatGaugeRow
 	root.add_child(card)
 	await process_frame
-	card.show_descriptor({
-		"name": "Test Coat",
-		"weight": 2.0,
-		"bulk": 2.0,
-		"threat": 1.0,
-		"protection_blunt": 2.0,
-		"protection_sharp": 4.0,
-		"protection_ballistic": 1.0,
-	})
-	var stats := card.get_node("%StatsLabel") as Label
-	if stats == null or "THREAT 1.0" not in stats.text or "SHARP 4.0" not in stats.text:
-		_fail("Examine card still hid core item stats.")
+	card.configure(
+		"Threat",
+		1.0,
+		12.0,
+		"1.0 / 12",
+		"critical",
+		null
+	)
+	await process_frame
+	var value_label := card.get_node("%ValueLabel") as Label
+	var name_label := card.get_node("%NameLabel") as Label
+	if (
+		value_label == null
+		or name_label == null
+		or "1.0 / 12" not in value_label.text
+		or name_label.text != "THREAT"
+	):
+		_fail("Stat gauge row did not render core item stats.")
 		return
 
 	print("[TEST PASS] Wound and item overhaul.")

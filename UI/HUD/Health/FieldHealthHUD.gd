@@ -132,13 +132,17 @@ func _apply_typography() -> void:
 	_alert_label.add_theme_font_size_override("font_size", 12)
 	for summary in [_blood_summary, _wound_summary, _bleed_summary, _infection_summary]:
 		summary.add_theme_font_size_override("font_size", 13)
-	for button in [_details_button, _inventory_button, _settings_button]:
-		HUDAssetLibrary.apply_button(button)
+	HUDAssetLibrary.apply_button(_details_button, "search")
+	HUDAssetLibrary.apply_button(_inventory_button, "inventory")
+	HUDAssetLibrary.apply_button(_settings_button, "settings")
 	HUDAssetLibrary.apply_button(_treatment_close)
-	HUDAssetLibrary.apply_panel(_paper_doll_stage)
-	HUDAssetLibrary.apply_panel(_region_inspector)
-	HUDAssetLibrary.apply_panel(_treatment_tray, "warning")
+	HUDAssetLibrary.apply_inset_panel(_paper_doll_stage)
+	HUDAssetLibrary.apply_inset_panel(_region_inspector)
+	HUDAssetLibrary.apply_inset_panel(_treatment_tray, "warning")
 	HUDAssetLibrary.apply_progress_bar(_inspector_integrity_bar)
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_condition_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_detail_condition_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 
 func _build_from_profile() -> void:
@@ -229,13 +233,18 @@ func _show_region_details(region_key: String) -> void:
 		bleeding,
 	]
 	if wounds.is_empty():
-		_inspector_wounds.text = "[color=#8b8572]NO ACTIVE WOUNDS[/color]\nTissue integrity is the only regional concern."
+		_inspector_wounds.text = "%s\nTissue integrity is the only regional concern." % [
+			HUDAssetLibrary.bbcode("muted", "NO ACTIVE WOUNDS")
+		]
 		_inspector_treatment.text = "NO MEDICAL ITEM REQUIRED"
 		return
 	var lines: Array[String] = []
 	for index in range(wounds.size()):
 		var wound: Dictionary = wounds[index]
-		lines.append("[color=#d19a3d]%02d // %s[/color]" % [index + 1, str(wound.get("type", "WOUND"))])
+		lines.append(HUDAssetLibrary.bbcode(
+			"caution",
+			"%02d // %s" % [index + 1, str(wound.get("type", "WOUND"))]
+		))
 		lines.append("Severity %.1f  Pain %.1f  Bleed %.2f" % [
 			float(wound.get("severity", 0.0)),
 			float(wound.get("pain", 0.0)),
@@ -412,6 +421,7 @@ func _render_overview() -> void:
 		]
 		state_icon = STATE_DAMAGED
 		panel_kind = "warning"
+	var previous_condition := _condition_label.text if _condition_label else ""
 	_condition_icon.texture = HUDAssetLibrary.official_texture(state_icon)
 	_detail_condition_icon.texture = _condition_icon.texture
 	_condition_label.text = condition
@@ -427,6 +437,16 @@ func _render_overview() -> void:
 	_bleed_summary.text = "BLEED  %.2f / TURN" % bleeding
 	_infection_summary.text = "CONTAMINATION  %.1f / 12" % infection
 	HUDAssetLibrary.apply_panel(self, panel_kind)
+	HUDAssetLibrary.apply_label(_condition_label, "title")
+	HUDAssetLibrary.apply_label(_detail_condition_label, "title")
+	_condition_label.add_theme_font_size_override("font_size", 28)
+	_detail_condition_label.add_theme_font_size_override("font_size", 28)
+	if panel_kind == "critical":
+		_condition_label.add_theme_color_override("font_color", HUDAssetLibrary.COLOR_CRITICAL)
+		_detail_condition_label.add_theme_color_override("font_color", HUDAssetLibrary.COLOR_CRITICAL)
+	elif panel_kind == "warning":
+		_condition_label.add_theme_color_override("font_color", HUDAssetLibrary.COLOR_CAUTION)
+		_detail_condition_label.add_theme_color_override("font_color", HUDAssetLibrary.COLOR_CAUTION)
 	HUDAssetLibrary.apply_label(
 		_alert_label,
 		"critical" if panel_kind == "critical" else (
@@ -434,3 +454,24 @@ func _render_overview() -> void:
 		)
 	)
 	_alert_label.add_theme_font_size_override("font_size", 12)
+	HUDAssetLibrary.apply_label(
+		_blood_summary,
+		"critical" if blood <= 2.0 else ("warning" if blood <= 5.0 else "muted")
+	)
+	HUDAssetLibrary.apply_label(
+		_wound_summary,
+		"critical" if wound_count >= 3 else ("warning" if wound_count > 0 else "muted")
+	)
+	HUDAssetLibrary.apply_label(
+		_bleed_summary,
+		"critical" if bleeding >= 1.0 else ("warning" if bleeding > 0.0 else "muted")
+	)
+	HUDAssetLibrary.apply_label(
+		_infection_summary,
+		"anomaly" if infection >= 6.0 else ("warning" if infection >= 3.0 else "muted")
+	)
+	for summary in [_blood_summary, _wound_summary, _bleed_summary, _infection_summary]:
+		summary.add_theme_font_size_override("font_size", 13)
+	if previous_condition != "" and previous_condition != condition and panel_kind != "neutral":
+		HudMotion.severity_flash(self, _condition_icon, panel_kind)
+		HudMotion.severity_flash(self, _condition_label, panel_kind)

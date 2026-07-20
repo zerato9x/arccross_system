@@ -73,6 +73,7 @@ layout_mode = 2
 text = "NIGHT LIGHT // SECTOR LINK"
 
 [node name="SignalRow" type="HBoxContainer" parent="Frame/Margin/Column/Header/HeaderText" unique_id=448300246]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 6
 
@@ -89,6 +90,7 @@ layout_mode = 2
 text = "SECTOR CHANNEL // ONLINE"
 
 [node name="ClockStack" type="VBoxContainer" parent="Frame/Margin/Column/Header" unique_id=2018914669]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(86, 0)
 layout_mode = 2
 theme_override_constants/separation = 0

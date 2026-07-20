@@ -169,11 +169,8 @@ func _update_scale_pivot() -> void:
 func _play_state_transition(active_root: Control) -> void:
 	if active_root == null:
 		return
-	if _state_tween:
-		_state_tween.kill()
-	active_root.modulate.a = 0.52
-	_state_tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	_state_tween.tween_property(active_root, "modulate:a", 1.0, 0.14)
+	HudMotion.kill(_state_tween)
+	_state_tween = HudMotion.fade_in(self, active_root, HudMotion.RESPONSE_SEC, 0.52)
 
 
 func _expanded_size_for_viewport(viewport_size: Vector2) -> Vector2:

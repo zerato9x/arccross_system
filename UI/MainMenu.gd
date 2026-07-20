@@ -12,6 +12,7 @@ class_name MainMenu
 @onready var save_load_menu = %SaveLoadMenu
 @onready var settings_panel: Control = %SettingsPanel
 @onready var combat_mode_option: OptionButton = %CombatModeOption
+@onready var hud_scheme_option: OptionButton = %HudSchemeOption
 @onready var settings_close_button: Button = %SettingsCloseButton
 
 func _ready() -> void:
@@ -30,12 +31,15 @@ func _ready() -> void:
 	combat_mode_option.clear()
 	combat_mode_option.add_item("Real-Time Duel", 0)
 	combat_mode_option.add_item("Turn-Based Duel", 1)
+	_populate_hud_scheme_option()
 	var settings := get_node_or_null("/root/GameSettings")
 	if settings != null:
 		combat_mode_option.select(
 			1 if settings.combat_mode == settings.COMBAT_TURN_BASED else 0
 		)
+		_select_hud_scheme(settings.hud_scheme)
 	combat_mode_option.item_selected.connect(_on_combat_mode_selected)
+	hud_scheme_option.item_selected.connect(_on_hud_scheme_selected)
 	settings_panel.visible = false
 	
 	save_load_menu.visible = false
@@ -94,3 +98,37 @@ func _on_combat_mode_selected(index: int) -> void:
 	settings.set_combat_mode(
 		settings.COMBAT_TURN_BASED if index == 1 else settings.COMBAT_REALTIME
 	)
+
+
+func _populate_hud_scheme_option() -> void:
+	hud_scheme_option.clear()
+	for scheme_id in HUDAssetLibrary.scheme_ids():
+		hud_scheme_option.add_item(HUDAssetLibrary.scheme_label(scheme_id))
+		hud_scheme_option.set_item_metadata(
+			hud_scheme_option.item_count - 1,
+			scheme_id
+		)
+
+
+func _select_hud_scheme(scheme_id: String) -> void:
+	var sanitized := HUDAssetLibrary.sanitize_scheme_id(scheme_id)
+	for index in range(hud_scheme_option.item_count):
+		if str(hud_scheme_option.get_item_metadata(index)) == sanitized:
+			hud_scheme_option.select(index)
+			return
+	hud_scheme_option.select(0)
+
+
+func _on_hud_scheme_selected(index: int) -> void:
+	var settings := get_node_or_null("/root/GameSettings")
+	if settings == null:
+		return
+	settings.set_hud_scheme(str(hud_scheme_option.get_item_metadata(index)))
+	HUDAssetLibrary.apply_button(btn_new_game)
+	HUDAssetLibrary.apply_button(btn_continue)
+	HUDAssetLibrary.apply_button(btn_wave)
+	HUDAssetLibrary.apply_button(btn_settings)
+	HUDAssetLibrary.apply_button(btn_quit)
+	HUDAssetLibrary.apply_button(settings_close_button)
+	HUDAssetLibrary.apply_option_button(combat_mode_option)
+	HUDAssetLibrary.apply_option_button(hud_scheme_option)

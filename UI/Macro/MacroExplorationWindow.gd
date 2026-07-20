@@ -26,7 +26,6 @@ const _ContextMenuHost := preload("res://UI/Inventory/InventorySlotContextMenuHo
 const _PROP_SPRITE_SIZE := 170.0
 const _PROP_OUTLINE_PADDING := 4.0
 const _PROP_OUTLINE_WIDTH := 3
-const _PROP_OUTLINE_COLOR := Color("#f0c040")
 const _PROP_LOOTED_MODULATE := Color(0.42, 0.42, 0.42, 1.0)
 const _BACKGROUND_VERTICAL_SHIFT := -72.0
 
@@ -157,6 +156,10 @@ func present_as_stage_overlay(edge: float = 48.0) -> void:
 	_continue_button.text = "Leave (Esc)"
 
 
+func get_exploration_panel() -> PanelContainer:
+	return _panel
+
+
 func undock() -> void:
 	if _panel.get_parent() != self:
 		var panel_parent := _panel.get_parent()
@@ -261,16 +264,52 @@ func show_poi_preview(action: GameEnums.PoiAction, metrics: Dictionary) -> void:
 		child.queue_free()
 	for key in metrics.keys():
 		var row := HBoxContainer.new()
+		var metric_key := str(key)
 		var label := Label.new()
-		label.text = "%s: %.1f" % [str(key).to_upper(), float(metrics.get(key, 0.0))]
+		label.text = "%s: %.1f" % [metric_key.to_upper(), float(metrics.get(key, 0.0))]
+		HUDAssetLibrary.apply_label(label, _metric_label_role(metric_key, float(metrics.get(key, 0.0))))
 		var bar := ProgressBar.new()
 		bar.max_value = GameEnums.SCALE_MAX
 		bar.value = float(metrics.get(key, 0.0))
 		bar.custom_minimum_size = Vector2(200, 12)
-		HUDAssetLibrary.apply_progress_bar(bar, "health")
+		HUDAssetLibrary.apply_progress_bar(bar, _metric_fill_kind(metric_key))
 		row.add_child(label)
 		row.add_child(bar)
 		_metric_box.add_child(row)
+
+
+func _metric_fill_kind(metric_key: String) -> String:
+	var key := metric_key.to_lower()
+	if key in ["hazard", "risk", "danger", "threat"]:
+		return "warning"
+	if key in ["success", "yield", "loot", "find", "discovery"]:
+		return "discovery"
+	if key in ["cost", "exertion", "fatigue", "ap", "time"]:
+		return "ap"
+	if key in ["anomaly", "contamination", "infection"]:
+		return "anomaly"
+	if key in ["blood", "trauma", "damage"]:
+		return "critical"
+	return "health"
+
+
+func _metric_label_role(metric_key: String, value: float) -> String:
+	var key := metric_key.to_lower()
+	if key in ["hazard", "risk", "danger", "threat"]:
+		if value > 0.7:
+			return "critical"
+		if value > 0.3:
+			return "caution"
+		return "muted"
+	if key in ["success", "yield", "loot", "find", "discovery"]:
+		return "discovery"
+	if key in ["cost", "exertion", "fatigue", "ap", "time"]:
+		return "caution"
+	if key in ["anomaly", "contamination", "infection"]:
+		return "anomaly"
+	if key in ["blood", "trauma", "damage"]:
+		return "critical"
+	return "info"
 
 func _render_session() -> void:
 	_clear_right_panel()
@@ -606,7 +645,9 @@ func _build_prop_outline_style(selected: bool) -> StyleBoxFlat:
 	style.bg_color = Color.TRANSPARENT
 	style.set_corner_radius_all(4)
 	style.set_border_width_all(_PROP_OUTLINE_WIDTH)
-	style.border_color = _PROP_OUTLINE_COLOR if selected else Color.TRANSPARENT
+	style.border_color = (
+		HUDAssetLibrary.COLOR_INFO if selected else Color.TRANSPARENT
+	)
 	return style
 
 func _is_option_depleted(option_id: String) -> bool:
@@ -781,10 +822,14 @@ func _update_mode_visibility() -> void:
 	_interaction_box.visible = false
 	if _active_mode == GameEnums.PoiAction.SEARCH:
 		_search_frame_header.text = "Search"
+		HUDAssetLibrary.apply_label(_search_frame_header, "discovery")
 		_drop_hint.text = "Pick a structure, add tools, then scavenge."
+		HUDAssetLibrary.apply_label(_drop_hint, "muted")
 	else:
 		_search_frame_header.text = "Camp"
+		HUDAssetLibrary.apply_label(_search_frame_header, "caution")
 		_drop_hint.text = "Add shelter, camp gear, or traps before resting."
+		HUDAssetLibrary.apply_label(_drop_hint, "muted")
 
 func _update_mode_buttons() -> void:
 	var has_search := bool(_session.get("has_search", true))

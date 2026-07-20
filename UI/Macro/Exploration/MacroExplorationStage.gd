@@ -155,7 +155,7 @@ func present_poi(session: Dictionary, inventory_snapshot: Dictionary = {}) -> vo
 	_center.visible = false
 	_event_panel.visible = false
 	_dim.visible = true
-	_dim.modulate.a = 1.0
+	_dim.modulate.a = 0.0
 	_poi_host.visible = false
 	if _exploration_window == null:
 		push_error("[MacroExplorationStage] POI opened without exploration window.")
@@ -166,6 +166,15 @@ func present_poi(session: Dictionary, inventory_snapshot: Dictionary = {}) -> vo
 		edge = 18.0
 	_exploration_window.present_as_stage_overlay(edge)
 	_exploration_window.open_landmark(_session, inventory_snapshot)
+	_kill_open_tween()
+	_open_tween = create_tween()
+	_open_tween.tween_property(_dim, "modulate:a", 1.0, HudMotion.FEEDBACK_SEC)
+	if _exploration_window != null:
+		var poi_panel := _exploration_window.get_exploration_panel()
+		if poi_panel != null:
+			poi_panel.pivot_offset = poi_panel.size * 0.5
+			HudMotion.panel_enter(self, poi_panel, HudMotion.PANEL_ENTER_SEC)
+	_play_mode_fx()
 
 
 func show_result(result: Dictionary) -> void:
@@ -265,13 +274,43 @@ func _animate_modal_open() -> void:
 	_dim.modulate.a = 0.0
 	_event_panel.modulate.a = 0.0
 	_event_panel.scale = Vector2(0.94, 0.94)
+	_event_panel.pivot_offset = _event_panel.size * 0.5
 	_open_tween = create_tween()
 	_open_tween.set_parallel(true)
-	_open_tween.tween_property(_dim, "modulate:a", 1.0, 0.2)
-	_open_tween.tween_property(_event_panel, "modulate:a", 1.0, 0.22)
-	_open_tween.tween_property(_event_panel, "scale", Vector2.ONE, 0.28).set_trans(
+	_open_tween.tween_property(_dim, "modulate:a", 1.0, HudMotion.FEEDBACK_SEC)
+	_open_tween.tween_property(_event_panel, "modulate:a", 1.0, HudMotion.PANEL_ENTER_SEC)
+	_open_tween.tween_property(_event_panel, "scale", Vector2.ONE, HudMotion.PANEL_ENTER_SEC).set_trans(
 		Tween.TRANS_BACK
 	).set_ease(Tween.EASE_OUT)
+	_play_mode_fx()
+
+
+func _play_mode_fx() -> void:
+	if _fx_layer == null:
+		return
+	match _mode:
+		"poi":
+			_fx_layer.play_fx({
+				"kind": "discover",
+				"intensity": 0.55,
+				"palette": [HUDAssetLibrary.COLOR_TRAVEL, HUDAssetLibrary.COLOR_DISCOVERY],
+			})
+		"result":
+			var severity := str(_result.get("severity", _result.get("kind", "warning")))
+			var color := HUDAssetLibrary.semantic_color(severity)
+			_fx_layer.play_fx({
+				"kind": "loot" if severity in ["info", "discovery", "travel"] else "danger",
+				"intensity": 0.45,
+				"palette": [color, color.darkened(0.25)],
+			})
+		"collision", "event":
+			_fx_layer.play_fx({
+				"kind": "danger" if _mode == "collision" else "landmark",
+				"intensity": 0.4,
+				"palette": [HUDAssetLibrary.COLOR_CAUTION, HUDAssetLibrary.COLOR_CRITICAL],
+			})
+		_:
+			pass
 
 
 func _kill_open_tween() -> void:
@@ -338,6 +377,9 @@ func _render_result() -> void:
 	_title_label.text = str(_session.get("title", "EVENT"))
 	_body_label.text = str(_session.get("body", ""))
 	_result_title.text = str(_result.get("title", "RESULT"))
+	var result_role := _result_severity_role()
+	HUDAssetLibrary.apply_label(_result_title, result_role)
+	HUDAssetLibrary.apply_panel(_result_box, _panel_kind_for_role(result_role))
 	var effects: Dictionary = _result.get("effects", {})
 	_result_meta.text = _format_effects(effects)
 	_result_meta.visible = not _result_meta.text.is_empty()
@@ -345,6 +387,62 @@ func _render_result() -> void:
 	if _result.has("image_path"):
 		_apply_event_image(str(_result.get("image_path", "")))
 	_clear_grid_preview()
+
+
+func _result_severity_role() -> String:
+	var blob := " ".join(PackedStringArray([
+		str(_result.get("title", "")),
+		str(_result.get("body", "")),
+		str(_result.get("kind", "")),
+		str(_result.get("severity", "")),
+	])).to_lower()
+	for tag in _result.get("tags", _session.get("tags", [])):
+		blob += " " + str(tag).to_lower()
+	var effects: Dictionary = _result.get("effects", {})
+	for key in effects.keys():
+		blob += " " + str(key).to_lower()
+	if "anomaly" in blob or "mist" in blob or "impossible" in blob:
+		return "anomaly"
+	if (
+		"combat" in blob
+		or "wound" in blob
+		or "damage" in blob
+		or "bleed" in blob
+		or "death" in blob
+		or "hostile" in blob
+	):
+		return "critical"
+	if "loot" in blob or "discover" in blob or "find" in blob or "scavenge" in blob:
+		return "discovery"
+	if "heal" in blob or "secure" in blob or "safe" in blob or "clear" in blob or "success" in blob:
+		return "success"
+	return "caution"
+
+
+func _panel_kind_for_role(role: String) -> String:
+	match role:
+		"critical", "danger":
+			return "critical"
+		"warning", "caution":
+			return "warning"
+		"anomaly":
+			return "anomaly"
+	return "neutral"
+
+
+func _tag_role(tag: String) -> String:
+	var text := tag.to_lower()
+	if "anomaly" in text or "mist" in text:
+		return "anomaly"
+	if "combat" in text or "threat" in text or "ambush" in text or "hostile" in text:
+		return "critical" if "combat" in text or "ambush" in text else "warning"
+	if "travel" in text or "route" in text:
+		return "travel"
+	if "loot" in text or "discover" in text or "find" in text or "scavenge" in text:
+		return "discovery"
+	if "success" in text or "secure" in text or "safe" in text:
+		return "success"
+	return "muted"
 
 
 func _apply_event_image(path: String) -> void:
@@ -359,7 +457,8 @@ func _render_tags(tags: Array) -> void:
 	for tag in tags:
 		var chip := PanelContainer.new()
 		chip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-		HUDAssetLibrary.apply_panel(chip, "neutral")
+		var role := _tag_role(str(tag))
+		HUDAssetLibrary.apply_panel(chip, _panel_kind_for_role(role))
 		var margin := MarginContainer.new()
 		margin.add_theme_constant_override("margin_left", 7)
 		margin.add_theme_constant_override("margin_top", 3)
@@ -369,7 +468,7 @@ func _render_tags(tags: Array) -> void:
 		var label := Label.new()
 		label.text = str(tag)
 		label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-		HUDAssetLibrary.apply_label(label, "muted")
+		HUDAssetLibrary.apply_label(label, role)
 		margin.add_child(label)
 		_tag_row.add_child(chip)
 
@@ -386,7 +485,7 @@ func _render_choices(choices: Array) -> void:
 func _build_choice_row(choice: Dictionary, choice_number: int) -> Control:
 	var row := PanelContainer.new()
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	HUDAssetLibrary.apply_panel(row, "neutral" if bool(choice.get("enabled", true)) else "anomaly")
+	HUDAssetLibrary.apply_panel(row, "neutral")
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 8)
 	margin.add_theme_constant_override("margin_top", 6)
@@ -401,7 +500,26 @@ func _build_choice_row(choice: Dictionary, choice_number: int) -> Control:
 	button.disabled = not bool(choice.get("enabled", true))
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.custom_minimum_size = HUDAssetLibrary.macro_button_minimum_size()
-	HUDAssetLibrary.apply_button(button, _icon_for_choice(choice))
+	var choice_icon := _icon_for_choice(choice)
+	HUDAssetLibrary.apply_button(button, choice_icon)
+	var choice_label_role := _choice_label_role(choice)
+	if choice_label_role != "body":
+		button.add_theme_color_override(
+			"font_color",
+			HUDAssetLibrary.color_for_role(choice_label_role)
+		)
+		button.add_theme_color_override(
+			"font_hover_color",
+			HUDAssetLibrary.color_for_role(choice_label_role).lightened(0.12)
+		)
+		button.add_theme_color_override(
+			"font_pressed_color",
+			HUDAssetLibrary.color_for_role(choice_label_role)
+		)
+		button.add_theme_color_override(
+			"font_disabled_color",
+			HUDAssetLibrary.COLOR_MUTED
+		)
 	var choice_id := str(choice.get("id", ""))
 	_choice_ids.append(choice_id)
 	_choice_buttons.append(button)
@@ -434,12 +552,24 @@ func _build_choice_row(choice: Dictionary, choice_number: int) -> Control:
 	return row
 
 
+func _choice_label_role(choice: Dictionary) -> String:
+	var kind := str(choice.get("kind", "")).to_lower()
+	match kind:
+		"threat", "ambush", "force":
+			return "critical" if kind in ["ambush", "force"] else "warning"
+		"observe":
+			return "travel"
+		"talk", "trade", "ceasefire", "pass":
+			return "info"
+	return "body"
+
+
 func _add_chip(row: HFlowContainer, text: String, enabled: bool = true) -> void:
 	if text.is_empty():
 		return
 	var chip := PanelContainer.new()
 	chip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	HUDAssetLibrary.apply_panel(chip, "neutral" if enabled else "anomaly")
+	HUDAssetLibrary.apply_panel(chip, "neutral")
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 6)
 	margin.add_theme_constant_override("margin_top", 2)

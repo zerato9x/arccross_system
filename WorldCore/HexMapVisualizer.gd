@@ -31,14 +31,22 @@ const CATALOG_PATH := "res://Asset/MacroTileCatalog.tres"
 const TILESET_PATH := "res://Asset/MacroTileSet.tres"
 
 ## Fog uses black + transparency only (no map chroma tint).
+## Explored polygons must be exact-size: translucent oversize overlaps create
+## dark edge bands between known hexes.
 const FOG_VISIBLE_COLOR := Color(0, 0, 0, 0)
-const FOG_EXPLORED_COLOR := Color(0, 0, 0, 0.52)
+const FOG_EXPLORED_COLOR := Color(0, 0, 0, 0.38)
 const FOG_UNKNOWN_COLOR := Color(0, 0, 0, 0.94)
-const FOG_HEX_OVERSIZE := 1.05
+const FOG_HEX_OVERSIZE := 1.02
+const FOG_HEX_EXACT := 1.0
+const FOG_TRANSITION_SEC := 0.32
+const SELECTION_FILL_COLOR := Color(0.98, 0.82, 0.28, 0.045)
+const SELECTION_OUTLINE_COLOR := Color(0.98, 0.82, 0.28, 0.82)
+const SELECTION_INSET := 0.90
+const SELECTION_LINE_WIDTH := 7.0
 const BOUNDARY_PREVIEW_RADIUS := GameEnums.MACRO_ZONE_RADIUS + 1
-const BOUNDARY_LOCKED_COLOR := Color(0.07, 0.08, 0.07, 0.58)
-const BOUNDARY_ROUTE_COLOR := Color(0.55, 0.42, 0.12, 0.42)
-const BOUNDARY_HOVER_COLOR := Color(0.95, 0.72, 0.18, 0.72)
+const BOUNDARY_LOCKED_COLOR := Color(0.07, 0.08, 0.07, 0.42)
+const BOUNDARY_ROUTE_COLOR := Color(0.78, 0.58, 0.18, 0.16)
+const BOUNDARY_HOVER_COLOR := Color(0.95, 0.72, 0.18, 0.28)
 
 var rendered_cells: Dictionary = {}
 var poi_markers: Dictionary = {}
@@ -46,7 +54,11 @@ var shrub_sprites: Dictionary = {}
 var decor_sprites: Dictionary = {} # String key -> Sprite2D
 var fog_overlays: Dictionary = {} # Vector2i -> Polygon2D
 var fog_states: Dictionary = {} # Vector2i -> FogState
-var selection_marker: Polygon2D
+var fog_tweens: Dictionary = {} # Vector2i -> Tween
+var selection_marker: Node2D
+var selection_fill: Polygon2D
+var selection_outline: Line2D
+var selection_pulse: Tween
 var fog_root: Node2D
 var boundary_preview_root: Node2D
 var boundary_hover_label: Label
@@ -55,6 +67,8 @@ var boundary_preview_data: Dictionary = {} # direction -> destination summary
 var boundary_hover_coords := Vector2i(999999, 999999)
 var _zone_mode := false
 var _cached_fog_polygon: PackedVector2Array = PackedVector2Array()
+var _cached_exact_polygon: PackedVector2Array = PackedVector2Array()
+var _cached_selection_polygon: PackedVector2Array = PackedVector2Array()
 var _decor_texture_cache: Dictionary = {} # asset path -> Texture2D
 
 func _ready() -> void:
@@ -75,17 +89,16 @@ func _process(_delta: float) -> void:
 	update_boundary_hover(local_to_map(get_local_mouse_position()))
 
 
-## Pointy-top hex vertices from TileSet cell size, oversized so tiles never peek.
-func _hex_fog_polygon() -> PackedVector2Array:
-	if not _cached_fog_polygon.is_empty():
-		return _cached_fog_polygon
+## Pointy-top hex vertices from TileSet cell size.
+## oversize > 1 seals opaque unknown fog; exact 1.0 is required for translucent explored fog.
+func _hex_polygon(size_scale: float) -> PackedVector2Array:
 	var tile_px := Vector2(512.0, 512.0)
 	if tile_set != null:
 		tile_px = Vector2(tile_set.tile_size)
-	var half_w := tile_px.x * 0.5 * FOG_HEX_OVERSIZE
-	var half_h := tile_px.y * 0.5 * FOG_HEX_OVERSIZE
+	var half_w := tile_px.x * 0.5 * size_scale
+	var half_h := tile_px.y * 0.5 * size_scale
 	var quarter_h := half_h * 0.5
-	_cached_fog_polygon = PackedVector2Array([
+	return PackedVector2Array([
 		Vector2(0.0, -half_h),
 		Vector2(half_w, -quarter_h),
 		Vector2(half_w, quarter_h),
@@ -93,23 +106,65 @@ func _hex_fog_polygon() -> PackedVector2Array:
 		Vector2(-half_w, quarter_h),
 		Vector2(-half_w, -quarter_h),
 	])
+
+
+## Opaque unknown fog seal polygon (slightly oversized).
+func _hex_fog_polygon() -> PackedVector2Array:
+	if not _cached_fog_polygon.is_empty():
+		return _cached_fog_polygon
+	_cached_fog_polygon = _hex_polygon(FOG_HEX_OVERSIZE)
 	return _cached_fog_polygon
+
+
+## Exact-footprint polygon for translucent explored fog (no edge banding).
+func _hex_exact_polygon() -> PackedVector2Array:
+	if not _cached_exact_polygon.is_empty():
+		return _cached_exact_polygon
+	_cached_exact_polygon = _hex_polygon(FOG_HEX_EXACT)
+	return _cached_exact_polygon
+
+
+func _hex_selection_polygon() -> PackedVector2Array:
+	if not _cached_selection_polygon.is_empty():
+		return _cached_selection_polygon
+	_cached_selection_polygon = _hex_polygon(SELECTION_INSET)
+	return _cached_selection_polygon
 
 
 func _invalidate_fog_polygon_cache() -> void:
 	_cached_fog_polygon = PackedVector2Array()
+	_cached_exact_polygon = PackedVector2Array()
+	_cached_selection_polygon = PackedVector2Array()
 
 
 func _rebuild_fog_overlay_geometry() -> void:
 	_invalidate_fog_polygon_cache()
-	var poly := _hex_fog_polygon()
 	for coords in fog_overlays.keys():
 		var fog_poly := fog_overlays[coords] as Polygon2D
-		if is_instance_valid(fog_poly):
-			fog_poly.polygon = poly
-			fog_poly.position = map_to_local(coords)
-	if selection_marker != null and is_instance_valid(selection_marker):
-		selection_marker.polygon = poly
+		if not is_instance_valid(fog_poly):
+			continue
+		fog_poly.position = map_to_local(coords)
+		_set_fog_polygon_shape(fog_poly, int(fog_states.get(coords, FogState.UNKNOWN)))
+	_refresh_selection_geometry()
+
+
+func _set_fog_polygon_shape(poly: Polygon2D, state: int) -> void:
+	if poly == null:
+		return
+	# Only opaque unknown fog needs oversize; explored must stay exact.
+	if state == FogState.UNKNOWN:
+		poly.polygon = _hex_fog_polygon()
+	else:
+		poly.polygon = _hex_exact_polygon()
+
+
+func _fog_color_for_state(state: int) -> Color:
+	match state:
+		FogState.VISIBLE:
+			return FOG_VISIBLE_COLOR
+		FogState.EXPLORED:
+			return FOG_EXPLORED_COLOR
+	return FOG_UNKNOWN_COLOR
 
 
 func _load_generated_assets() -> void:
@@ -226,12 +281,12 @@ func _ensure_boundary_preview_polygon(coords: Vector2i) -> Polygon2D:
 		var existing := boundary_preview_polygons[coords] as Polygon2D
 		if is_instance_valid(existing):
 			existing.position = map_to_local(coords)
-			existing.polygon = _hex_fog_polygon()
+			existing.polygon = _hex_selection_polygon()
 			return existing
 	var polygon := Polygon2D.new()
 	polygon.name = "RoutePreview_%d_%d" % [coords.x, coords.y]
 	polygon.position = map_to_local(coords)
-	polygon.polygon = _hex_fog_polygon()
+	polygon.polygon = _hex_selection_polygon()
 	boundary_preview_root.add_child(polygon)
 	boundary_preview_polygons[coords] = polygon
 	return polygon
@@ -311,7 +366,7 @@ func render_radius(center_coords: Vector2i, radius: int) -> void:
 
 ## Apply explored / visible fog. visible_hexes: Dictionary Vector2i -> true.
 ## Explored is read from MacroHexData.is_explored on each rendered cell.
-func apply_fog(visible_hexes: Dictionary) -> void:
+func apply_fog(visible_hexes: Dictionary, animate: bool = true) -> void:
 	_ensure_fog_root()
 	for coords in rendered_cells.keys():
 		var state := FogState.UNKNOWN
@@ -319,8 +374,7 @@ func apply_fog(visible_hexes: Dictionary) -> void:
 			state = FogState.VISIBLE
 		elif _is_explored(coords):
 			state = FogState.EXPLORED
-		fog_states[coords] = state
-		_apply_fog_to_hex(coords, state)
+		_apply_fog_to_hex(coords, state, animate)
 	fog_applied.emit()
 
 
@@ -333,17 +387,72 @@ func show_selection(coords: Vector2i) -> void:
 	selection_marker.position = map_to_local(coords)
 	selection_marker.visible = true
 	selection_marker.z_index = 5
+	_start_selection_pulse()
+
+
+func hide_selection() -> void:
+	if selection_marker != null:
+		selection_marker.visible = false
+	_stop_selection_pulse()
+
 
 func _ensure_selection_marker() -> void:
-	if selection_marker != null:
+	if selection_marker != null and is_instance_valid(selection_marker):
+		_refresh_selection_geometry()
 		return
-	selection_marker = Polygon2D.new()
+	selection_marker = Node2D.new()
 	selection_marker.name = "HexSelectionMarker"
-	selection_marker.polygon = _hex_fog_polygon()
-	selection_marker.color = Color(0.98, 0.86, 0.28, 0.22)
 	selection_marker.z_index = 5
 	selection_marker.visible = false
+	selection_fill = Polygon2D.new()
+	selection_fill.name = "SelectionFill"
+	selection_fill.color = SELECTION_FILL_COLOR
+	selection_outline = Line2D.new()
+	selection_outline.name = "SelectionOutline"
+	selection_outline.width = SELECTION_LINE_WIDTH
+	selection_outline.default_color = SELECTION_OUTLINE_COLOR
+	selection_outline.joint_mode = Line2D.LINE_JOINT_ROUND
+	selection_outline.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	selection_outline.end_cap_mode = Line2D.LINE_CAP_ROUND
+	selection_outline.antialiased = true
+	selection_marker.add_child(selection_fill)
+	selection_marker.add_child(selection_outline)
 	add_child(selection_marker)
+	_refresh_selection_geometry()
+
+
+func _refresh_selection_geometry() -> void:
+	if selection_marker == null or not is_instance_valid(selection_marker):
+		return
+	var poly := _hex_selection_polygon()
+	if selection_fill != null:
+		selection_fill.polygon = poly
+		selection_fill.color = SELECTION_FILL_COLOR
+	if selection_outline != null:
+		var points := PackedVector2Array(poly)
+		if not points.is_empty():
+			points.append(points[0])
+		selection_outline.points = points
+		selection_outline.default_color = SELECTION_OUTLINE_COLOR
+		selection_outline.width = SELECTION_LINE_WIDTH
+
+
+func _start_selection_pulse() -> void:
+	_stop_selection_pulse()
+	if selection_outline == null:
+		return
+	selection_outline.modulate = Color(1, 1, 1, 1)
+	selection_pulse = create_tween().set_loops()
+	selection_pulse.tween_property(selection_outline, "modulate:a", 0.45, 0.55)
+	selection_pulse.tween_property(selection_outline, "modulate:a", 1.0, 0.55)
+
+
+func _stop_selection_pulse() -> void:
+	if selection_pulse != null and selection_pulse.is_valid():
+		selection_pulse.kill()
+	selection_pulse = null
+	if selection_outline != null:
+		selection_outline.modulate = Color(1, 1, 1, 1)
 
 func _paint_single_hex(coords: Vector2i) -> void:
 	var hex_data: MacroHexData = world_generator.get_hex_at(coords)
@@ -621,6 +730,7 @@ func _mark_poi_visually(coords: Vector2i, poi_name: String) -> void:
 		if is_instance_valid(existing):
 			existing.text = "[ " + poi_name + " ]"
 			existing.visible = true
+			_style_poi_label(existing)
 			return
 
 	var pixel_pos := map_to_local(coords)
@@ -628,8 +738,16 @@ func _mark_poi_visually(coords: Vector2i, poi_name: String) -> void:
 	label.text = "[ " + poi_name + " ]"
 	label.position = pixel_pos - Vector2(50, 10)
 	label.z_index = 4
+	_style_poi_label(label)
 	add_child(label)
 	poi_markers[coords] = label
+
+
+func _style_poi_label(label: Label) -> void:
+	if label == null:
+		return
+	HUDAssetLibrary.apply_label(label, "discovery")
+	label.add_theme_font_size_override("font_size", 11)
 
 
 func _hide_poi_marker(coords: Vector2i) -> void:
@@ -642,38 +760,73 @@ func _hide_poi_marker(coords: Vector2i) -> void:
 
 func _ensure_fog_overlay(coords: Vector2i) -> void:
 	_ensure_fog_root()
-	var poly_shape := _hex_fog_polygon()
 	if fog_overlays.has(coords):
 		var existing := fog_overlays[coords] as Polygon2D
 		if is_instance_valid(existing):
-			existing.polygon = poly_shape
 			existing.position = map_to_local(coords)
+			_set_fog_polygon_shape(existing, int(fog_states.get(coords, FogState.UNKNOWN)))
 			return
 	var poly := Polygon2D.new()
-	poly.polygon = poly_shape
+	poly.polygon = _hex_exact_polygon()
 	poly.position = map_to_local(coords)
 	poly.z_index = 0
 	fog_root.add_child(poly)
 	fog_overlays[coords] = poly
 
 
-func _apply_fog_to_hex(coords: Vector2i, state: int) -> void:
+func _kill_fog_tween(coords: Vector2i) -> void:
+	if not fog_tweens.has(coords):
+		return
+	var tween: Tween = fog_tweens[coords]
+	if tween != null and tween.is_valid():
+		tween.kill()
+	fog_tweens.erase(coords)
+
+
+func _apply_fog_to_hex(coords: Vector2i, state: int, animate: bool = true) -> void:
 	_ensure_fog_overlay(coords)
 	var poly := fog_overlays[coords] as Polygon2D
 	if not is_instance_valid(poly):
 		return
-	match state:
-		FogState.VISIBLE:
-			poly.color = FOG_VISIBLE_COLOR
-			poly.visible = false
-		FogState.EXPLORED:
-			poly.color = FOG_EXPLORED_COLOR
-			poly.visible = true
-		_:
-			poly.color = FOG_UNKNOWN_COLOR
-			poly.visible = true
-	# Re-apply layer hide/show for unknown vs known without full repaint cost
-	# when fog updates after initial zone paint.
+	var previous := int(fog_states.get(coords, FogState.UNKNOWN))
+	fog_states[coords] = state
+	_set_fog_polygon_shape(poly, state)
+	var target := _fog_color_for_state(state)
+	_kill_fog_tween(coords)
+	if not animate or previous == state:
+		poly.color = target
+		poly.visible = state != FogState.VISIBLE
+		if rendered_cells.has(coords):
+			_sync_detail_visibility(coords, state)
+		return
+
+	# Reveal / dim transitions: keep polygon visible while alpha tweens.
+	poly.visible = true
+	if previous == FogState.VISIBLE:
+		poly.color = Color(target.r, target.g, target.b, 0.0)
+	var from_alpha := poly.color.a
+	var to_alpha := target.a
+	var tween := create_tween()
+	fog_tweens[coords] = tween
+	tween.tween_method(
+		func(alpha: float) -> void:
+			if is_instance_valid(poly):
+				poly.color = Color(target.r, target.g, target.b, alpha),
+		from_alpha,
+		to_alpha,
+		FOG_TRANSITION_SEC
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.finished.connect(
+		func() -> void:
+			fog_tweens.erase(coords)
+			if not is_instance_valid(poly):
+				return
+			poly.color = target
+			poly.visible = state != FogState.VISIBLE
+			if rendered_cells.has(coords):
+				_sync_detail_visibility(coords, state)
+	)
+	# Detail layers update immediately so reveal doesn't wait for fog fade.
 	if rendered_cells.has(coords):
 		_sync_detail_visibility(coords, state)
 

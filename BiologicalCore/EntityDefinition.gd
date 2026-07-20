@@ -14,7 +14,12 @@ class_name EntityDefinition
 @export_range(1, 12) var brawn: int = 6     # 6 = Average
 @export_range(1, 12) var finesse: int = 6   
 @export_range(1, 12) var fortitude: int = 6 
-@export_range(1, 12) var will: int = 6      
+@export_range(1, 12) var will: int = 6
+
+@export_group("Background")
+@export var occupation_id: String = ""
+@export var trait_ids: PackedStringArray = []
+@export var flaw_ids: PackedStringArray = []
 
 @export_group("Combat Behavior")
 ## Determines the scoring multipliers and priorities in a firefight.
@@ -40,6 +45,9 @@ func to_state() -> Dictionary:
 		"finesse": finesse,
 		"fortitude": fortitude,
 		"will": will,
+		"occupation_id": occupation_id,
+		"trait_ids": Array(trait_ids),
+		"flaw_ids": Array(flaw_ids),
 		"combat_tactic": combat_tactic,
 		"arc_tier": arc_tier,
 		"max_arc_energy": max_arc_energy,
@@ -58,6 +66,9 @@ static func from_state(state: Dictionary) -> EntityDefinition:
 	definition.finesse = clampi(state.get("finesse", 6), 1, 12)
 	definition.fortitude = clampi(state.get("fortitude", 6), 1, 12)
 	definition.will = clampi(state.get("will", 6), 1, 12)
+	definition.occupation_id = str(state.get("occupation_id", ""))
+	definition.trait_ids = _string_array(state.get("trait_ids", []))
+	definition.flaw_ids = _string_array(state.get("flaw_ids", []))
 	definition.combat_tactic = state.get("combat_tactic", GameEnums.CombatTactic.BRUTE)
 	definition.arc_tier = state.get("arc_tier", GameEnums.ArcbornTier.NONE)
 	definition.max_arc_energy = clampf(
@@ -76,3 +87,15 @@ static func from_state(state: Dictionary) -> EntityDefinition:
 		definition.loadout = SpawnLoadout.from_state(loadout_state)
 
 	return definition
+
+
+static func _string_array(values: Variant) -> PackedStringArray:
+	var result: PackedStringArray = []
+	if values is PackedStringArray:
+		return values
+	if values is Array:
+		for value in values:
+			var text := str(value)
+			if not text.is_empty():
+				result.append(text)
+	return result

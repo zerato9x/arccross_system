@@ -283,11 +283,27 @@ func _verify_zone_and_fog() -> bool:
 	var tile_size := Vector2(512, 512)
 	if viz.tile_set != null:
 		tile_size = Vector2(viz.tile_set.tile_size)
+	var fog_exact := viz._hex_exact_polygon()
+	if fog_exact.size() != 6:
+		_fail("Exact fog polygon must be a hex (6 verts).")
+		return false
+	var exact_aabb := Rect2(fog_exact[0], Vector2.ZERO)
+	for point in fog_exact:
+		exact_aabb = exact_aabb.expand(point)
+	if absf(exact_aabb.size.x - tile_size.x) > 0.5 or absf(exact_aabb.size.y - tile_size.y) > 0.5:
+		_fail(
+			"Exact fog AABB %s must match tile footprint %s."
+			% [str(exact_aabb.size), str(tile_size)]
+		)
+		return false
 	if fog_aabb.size.x + 0.01 < tile_size.x or fog_aabb.size.y + 0.01 < tile_size.y:
 		_fail(
-			"Fog AABB %s smaller than tile footprint %s."
+			"Unknown fog AABB %s smaller than tile footprint %s."
 			% [str(fog_aabb.size), str(tile_size)]
 		)
+		return false
+	if fog_aabb.size.x <= exact_aabb.size.x or fog_aabb.size.y <= exact_aabb.size.y:
+		_fail("Unknown fog oversize must be larger than exact explored fog.")
 		return false
 
 	for fog_color in [

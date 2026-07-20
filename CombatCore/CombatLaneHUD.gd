@@ -370,6 +370,8 @@ func _apply_feedback(message: String) -> void:
 	_push_combat_log(message)
 	_render_command_context()
 	_render_feedback()
+	if _feedback_label != null and _feedback_label.visible:
+		HudMotion.soft_pop(self, _feedback_label, HudMotion.RESPONSE_SEC)
 
 func _apply_presentation_event(event: Dictionary) -> void:
 	_push_combat_log(_presentation_log_line(event))

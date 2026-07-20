@@ -23,12 +23,27 @@
     }
   },
   "palette": {
-    "normal": "#48dedc",
-    "caution": "#f4b540",
-    "critical": "#e63a46",
-    "anomaly": "#d94ad6",
-    "dim": "#7e9691",
-    "panel": "#04080ad6"
+    "scheme_default": "amber",
+    "normal": "#d69a43",
+    "caution": "#e0b24a",
+    "critical": "#b9493e",
+    "anomaly": "#b35bb8",
+    "dim": "#8e8b78",
+    "panel": "#0b0d0bd6",
+    "text": "#e8dcc0",
+    "travel": "#7a8fa8",
+    "discovery": "#79b86a",
+    "success": "#8bcf78",
+    "schemes": {
+      "amber": {
+        "normal": "#d69a43",
+        "caution": "#e0b24a"
+      },
+      "cyan": {
+        "normal": "#39c8c6",
+        "caution": "#d3a13d"
+      }
+    }
   },
   "groups": {
     "frames": [
@@ -130,6 +145,24 @@
       "overlays/warning_vignette_128x72.png",
       "overlays/critical_vignette_128x72.png",
       "overlays/anomaly_vignette_128x72.png"
+    ],
+    "anim": [
+      "anim/clock/digit_0.png",
+      "anim/clock/digit_1.png",
+      "anim/clock/digit_2.png",
+      "anim/clock/digit_3.png",
+      "anim/clock/digit_4.png",
+      "anim/clock/digit_5.png",
+      "anim/clock/digit_6.png",
+      "anim/clock/digit_7.png",
+      "anim/clock/digit_8.png",
+      "anim/clock/digit_9.png",
+      "anim/clock/colon.png",
+      "anim/signal/signal_0.png",
+      "anim/signal/signal_4.png",
+      "anim/icons/bleeding_0.png",
+      "anim/icons/heartbeat_0.png",
+      "anim/icons/anomaly_0.png"
     ]
   }
 }

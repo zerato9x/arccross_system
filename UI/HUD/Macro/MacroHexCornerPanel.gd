@@ -60,6 +60,13 @@ func dock_session(_session: Dictionary) -> void:
 	pass
 
 
+func restyle_scheme() -> void:
+	if _preview_panel and _preview_panel.has_method("restyle"):
+		_preview_panel.restyle()
+	if not _hex.is_empty() and _preview_panel:
+		_preview_panel.show_hex(_hex, _snapshot.get("selected_scene_descriptor", {}))
+
+
 func _is_primary_action_click(global_pos: Vector2) -> bool:
 	if _preview_panel and _preview_panel.get_global_rect().has_point(global_pos):
 		return true
