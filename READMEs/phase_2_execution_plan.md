@@ -2,8 +2,8 @@
 
 Phase 2 **systems foundations are closed**. This file is the historical
 implementation record for combat, inventory, Node Web, exploration/collision
-HUD, Field Health, and authored-zone tooling. Active Act 1 delivery lives in
-[design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
+  HUD, Field Health, and authored-zone tooling. Current combat direction lives in
+  [design/TURN_BASED_COMBAT_OVERHAUL.md](design/TURN_BASED_COMBAT_OVERHAUL.md).
 
 Phase 1 remains closed in
 [phase_1_execution_plan.md](phase_1_execution_plan.md). Presentation emits
@@ -13,29 +13,28 @@ intent; domain cores validate and mutate authoritative state.
 
 Status updated on **July 23, 2026**:
 
-- Combat HUD workstreams **P2-01 through P2-04 are complete** (historical
-  turn-based / pre–realtime command-deck record). Production combat UI is
-  `RealtimeDuelHUD`. See [June 29 changelog](CHANGELOG.md#june-29-2026).
+- Combat HUD workstreams **P2-01 through P2-04 are complete** and again form the
+  official turn-based presentation foundation. See
+  [June 29 changelog](CHANGELOG.md#june-29-2026).
 - Shield-specific BLOCK workstream **P2-06 is complete**. See
   [July 13 changelog](CHANGELOG.md#july-13-2026).
 - Directional Node Web / Meta world overhaul shipped **July 16**. See
   [July 16 changelog](CHANGELOG.md#july-16-2026).
 - Authored local-zone tooling **P2-08 is complete**. See
   [July 17 changelog](CHANGELOG.md#july-17-2026).
-- Real-time duel overhaul **P2-09 is implemented**. The previous turn manager,
-  command deck, Reserved AP reactions, and turn AI are no longer the production
-  combat path.
+- Real-time duel overhaul **P2-09 is implemented** and remains the optional
+  Settings mode.
 - Wound / item-stat overhaul and Field Health HUD shipped **July 18–19**.
 - Inventory condition, catalog, repair, and authored-HUD overhaul **P2-11 is
-  implemented**. Real-time remains the production route; the independent
-  turn-based route is a supported future mode consuming identical ItemCore
-  outcomes and persistent records. Scheduling is intentionally not unified.
+  implemented**. Turn-based is the official/default route; real-time remains
+  optional. Both consume the same ItemCore outcomes and persistent records,
+  while scheduling and balance are intentionally not unified.
 - Macro exploration window, trap-to-combat loop, and entity-collision Event HUD
   path (Threat / Ceasefire / Ask / Trade placeholder) are live; do not revive
   `MacroInteractionPanel`. Finished Macro HUD remake/repair plans were deleted.
-- **Active next:** Central Core Campaign Overhaul (not further Phase 2
-  foundation work). Residual Known Gaps (token coverage, TRADE, SNIPE, EXECUTE,
-  Pocket Map, preset library) stay deferred — see the docs index.
+- **Active next:** official turn-based combat overhaul. Central Core campaign
+  implementation is paused until the complete categorized asset folder is
+  available.
 
 ## Completed Workstreams
 
@@ -61,10 +60,10 @@ Status updated on **July 23, 2026**:
 - Focused parity, catalog, inventory, real-time, and turn-mode smokes cover the
   shared contract without pretending seconds and discrete AP are equivalent.
 
-P2-01 through P2-04 remain historical implementation records. Their command
-deck and turn/reaction surfaces were superseded by P2-09 in production, but the
-complete turn-based authority now remains isolated under `CombatCore/TurnBased/`
-for direct comparison through `CombatModeComparison.tscn`.
+P2-01 through P2-04 remain implementation records for the command deck and
+turn/reaction surfaces. The complete official authority stays isolated under
+`CombatCore/TurnBased/`; optional real-time remains independently selectable and
+both can be inspected through `CombatModeComparison.tscn`.
 
 ### P2-09: Real-Time Duel Overhaul — Implemented July 17, 2026
 
@@ -122,9 +121,8 @@ for direct comparison through `CombatModeComparison.tscn`.
 
 Token coverage (former P2-05), presentation chrome polish (former P2-07),
 authored preset library fill, TRADE economy, SNIPE, EXECUTE, and Pocket Map
-remain Known Gaps. Do not treat them as competing delivery tracks while
-[Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md) is
-active.
+remain Known Gaps. Central Core implementation is asset-blocked; see
+[Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
 ### P2-06: Shield-Specific BLOCK Rules — Verified July 13, 2026
 

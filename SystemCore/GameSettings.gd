@@ -6,8 +6,9 @@ signal settings_changed(snapshot: Dictionary)
 const SETTINGS_PATH := "user://arccross_settings.cfg"
 const COMBAT_REALTIME := "realtime"
 const COMBAT_TURN_BASED := "turn_based"
+const DEFAULT_COMBAT_MODE := COMBAT_TURN_BASED
 
-var combat_mode := COMBAT_REALTIME
+var combat_mode := DEFAULT_COMBAT_MODE
 var screen_noise_enabled := false
 var hud_scale := 1.0
 var hud_scheme := HUDAssetLibrary.DEFAULT_SCHEME
@@ -24,7 +25,7 @@ func load_settings() -> void:
 		settings_changed.emit(get_snapshot())
 		return
 	combat_mode = _sanitize_combat_mode(
-		str(config.get_value("combat", "mode", COMBAT_REALTIME))
+		str(config.get_value("combat", "mode", DEFAULT_COMBAT_MODE))
 	)
 	screen_noise_enabled = bool(
 		config.get_value("presentation", "screen_noise", false)
@@ -106,7 +107,9 @@ func get_snapshot() -> Dictionary:
 
 
 func _sanitize_combat_mode(mode: String) -> String:
-	return COMBAT_TURN_BASED if mode == COMBAT_TURN_BASED else COMBAT_REALTIME
+	if mode in [COMBAT_TURN_BASED, COMBAT_REALTIME]:
+		return mode
+	return DEFAULT_COMBAT_MODE
 
 
 func _sanitize_hud_scheme(scheme_id: String) -> String:

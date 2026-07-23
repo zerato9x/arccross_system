@@ -846,6 +846,18 @@ func execute_leverage_check(
 	attack_roll_override: int = -1,
 	defense_roll_override: int = -1
 ) -> bool:
+	var action := (
+		GameEnums.ActionType.PUSH_STAY
+		if is_push
+		else GameEnums.ActionType.PULL_FOLLOW
+	)
+	action_started.emit(initiator, action)
+	_emit_combat_action(
+		initiator,
+		action,
+		GameEnums.WeaponClass.NONE,
+		""
+	)
 	print("\n--- LEVERAGE CHECK (", ("PUSH" if is_push else "PULL"), ") ---")
 	
 	# FELLED = Automatic initiator success

@@ -14,8 +14,11 @@ of restating it.
 - [Humanoid Token Pipeline](HUMANOID_TOKEN_PIPELINE.md): layered sprite
   contract, current visual coverage, and runtime asset preparation.
 - [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md):
-  **active Act 1 build bible** — eviction → North tutorial, travel seals,
-  `S:\Asset\_Asset` sort, hex rules, phased IDE checklist.
+  authoritative Act 1 build bible; implementation is paused until the complete
+  categorized asset folder is available.
+- [Official Turn-Based Combat Overhaul](design/TURN_BASED_COMBAT_OVERHAUL.md):
+  **active combat contract** — official default, transaction lifecycle, AI,
+  impact cues, firearm-card playback, and independent mode balance.
 - [Macro World Overhaul](design/MACRO_WORLD_OVERHAUL.md): supporting Node Web
   lore alignment; defers to Central Core MD where Act 1 seals conflict.
 - [Phase 1 Execution Plan](phase_1_execution_plan.md): closed vertical-slice
@@ -55,11 +58,11 @@ Status updated on **July 23, 2026**:
   inventory/condition (P2-11), Node Web, exploration/collision HUD (P2-10),
   Field Health, authored-zone tooling (P2-08), shields (P2-06). Historical
   detail lives in [phase_2_execution_plan.md](phase_2_execution_plan.md).
-  P2-01–04 command-deck text is historical (turn-based / pre–realtime); production
-  combat UI is `RealtimeDuelHUD`.
-- **Active next:** [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
-  Phase 0 docs landed; Phases 1–9 are the build queue. Do not reopen finished
-  Macro HUD remake/repair or entity-collision plans.
+  The turn command deck is again the official combat UI; `RealtimeDuelHUD`
+  remains the optional mode.
+- **Active next:** [Official Turn-Based Combat Overhaul](design/TURN_BASED_COMBAT_OVERHAUL.md).
+- **Paused / asset-blocked:** [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
+  resumes after the complete categorized asset folder is available.
 
 ### Systems Snapshot
 
@@ -88,21 +91,24 @@ Status updated on **July 23, 2026**:
   `EntityRecord`, and `HexRecord`.
 - Automated smoke scripts cover the vertical slice and focused system contracts.
 
-### Known Gaps (deferred — not the active queue)
+### Known Gaps
 
 - Service-rifle scope data is present, but macro **SNIPE** remains unimplemented.
 - **EXECUTE** is disabled pending a trait-unlock system.
 - Token art coverage remains incomplete for rigs, face and eye equipment, several
   armor regions, and unsupported weapons.
 - TRADE after Ceasefire is a placeholder pending economy work.
-- Squad combat, deep narrative dialogue, and balance tuning remain out of Act 1
-  scope.
+- Squad combat and deep narrative dialogue remain out of current scope.
+- Turn-based archetype simulations and mode-local balance tuning remain active.
 - Hand-painted preset coverage across all campaign nodes is still incomplete.
 - Pocket Map / full pocket-device chrome is deferred (Phase 2.5).
 
 ## Remaining Work
 
-**Only active delivery track:**
+**Active delivery track:**
+[Official Turn-Based Combat Overhaul](design/TURN_BASED_COMBAT_OVERHAUL.md)
+
+**Queued after asset delivery:**
 [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
 
 1. Asset sort (Central + plains from S:/HEXIFY; hub PNG)

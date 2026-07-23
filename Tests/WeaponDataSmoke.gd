@@ -20,7 +20,7 @@ func _run() -> void:
 	var holder := Node.new()
 	root.add_child(holder)
 	var duel_scene := load(
-		"res://CombatCore/MainDuelScene.tscn"
+		"res://CombatCore/TurnBased/TurnBasedDuelScene.tscn"
 	) as PackedScene
 	if not duel_scene:
 		_fail("Could not load the combat scene.")

@@ -7,8 +7,10 @@ retired.
 
 ## Current Runtime Surface
 
-- Main HUD owner: `CombatCore/Realtime/RealtimeDuelHUD.gd` / `CombatCore/CombatLaneHUD.gd`
-- Action/camera authority: `RealtimeDuelRuntime` timeline events
+- Official HUD owner: `CombatCore/CombatLaneHUD.gd`
+- Optional HUD owner: `CombatCore/Realtime/RealtimeDuelHUD.gd`
+- Action/camera authority: turn action profiles or realtime timeline events,
+  depending on the selected mode
 - Reusable asset facade: `PresentationCore/HUDAssetLibrary.gd`
 - Asset root: `Asset/UI/HUD/` (frames, bars, icons, medical, menus, overlays, anim)
 - Manifest: `Asset/UI/HUD/hud_asset_manifest.json`
@@ -54,5 +56,6 @@ retired.
 - Use stable medical/status icons for health conditions. Do not animate Condition strips in the combat HUD.
 - Keep combat data readable: official frames decorate and clarify, they do not replace numeric AP, Blood, Stance, ammo, and limb values.
 - Use MCP `game_eval` to prove texture source paths and runtime layout dimensions after UI changes.
-- Add smoke assertions for each official element actually wired into the real-time HUD.
+- Add smoke assertions for each official element actually wired into the
+  turn-based HUD; keep separate optional realtime coverage.
 - Main-menu parallax packs live under `Asset/UI/Event_bg/` via `MenuParallaxCatalog`; they are menu-only, not event/collision art.

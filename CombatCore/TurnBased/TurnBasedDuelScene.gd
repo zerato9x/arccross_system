@@ -115,6 +115,26 @@ func setup_duel_procedural(
 	var record := mob_spawner.generate_mob_record(Vector2i.ZERO, enemy_faction, difficulty)
 	setup_duel_from_records(player_record, record.to_dict())
 
+
+func _fabricate_humanoid(
+	unit_name: String,
+	definition: EntityDefinition,
+	attach_ai: bool,
+	runtime_state: Dictionary = {}
+) -> HumanoidCore:
+	return EntityFactory.record_to_humanoid_core(
+		{
+			"definition": definition.to_state(),
+			"runtime": runtime_state,
+		},
+		self,
+		unit_name,
+		attach_ai,
+		lane_manager if attach_ai else null,
+		turn_manager if attach_ai else null,
+		resolution_engine if attach_ai else null
+	)
+
 func _begin_duel(encounter_setup: Dictionary) -> void:
 	if player_core == null or enemy_core == null:
 		push_error("Cannot begin turn-based duel without both combatants.")
@@ -139,6 +159,10 @@ func _begin_duel(encounter_setup: Dictionary) -> void:
 		turn_manager,
 		resolution_engine
 	)
+	command_adapter.set_presentation_gate(lane_hud)
+	var enemy_ai := enemy_core.get_node_or_null("CombatAIEvaluator")
+	if enemy_ai is CombatAIEvaluator:
+		enemy_ai.presentation_gate = lane_hud
 	encounter_builder.build_encounter(player_core, enemy_core, encounter_setup)
 	command_adapter.refresh_snapshot()
 	await combat_briefing.open_briefing({

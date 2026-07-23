@@ -1,6 +1,6 @@
 extends SceneTree
 
-const DUEL_SCENE := preload("res://CombatCore/MainDuelScene.tscn")
+const DUEL_SCENE := preload("res://CombatCore/TurnBased/TurnBasedDuelScene.tscn")
 const PLAYER_DEFINITION := preload("res://BiologicalCore/player_def.tres")
 
 const BATTLES_PER_MATCHUP := 6

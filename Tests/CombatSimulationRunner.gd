@@ -18,9 +18,11 @@ func _initialize() -> void:
 func _run_simulation() -> void:
 	print("--- STARTING COMBAT SIMULATION SYSTEM ---")
 	
-	var duel_scene_prefab := load("res://CombatCore/MainDuelScene.tscn") as PackedScene
+	var duel_scene_prefab := load(
+		"res://CombatCore/TurnBased/TurnBasedDuelScene.tscn"
+	) as PackedScene
 	if not duel_scene_prefab:
-		_fail("Could not load res://CombatCore/MainDuelScene.tscn")
+		_fail("Could not load the official turn-based duel scene.")
 		return
 		
 	var player_definition := load(PLAYER_DEF) as EntityDefinition

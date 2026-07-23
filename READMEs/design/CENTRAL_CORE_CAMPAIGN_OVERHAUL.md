@@ -6,6 +6,12 @@ Directional Node Web.
 
 **Where this conflicts with soft Act 1 language elsewhere, this file wins.**
 
+> **Implementation status — paused / asset-blocked (July 23, 2026):**
+> keep this document as the authoritative campaign contract, but do not begin
+> campaign scene/profile implementation until the complete categorized asset
+> folder is available to pull from. The active engineering track is the
+> [Official Turn-Based Combat Overhaul](TURN_BASED_COMBAT_OVERHAUL.md).
+
 | Owns | Defers to |
 | --- | --- |
 | Act 1 campaign flow, travel seals, tutorial beats, phased IDE checklist | — |

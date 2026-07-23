@@ -25,10 +25,17 @@ HUDs display owner-produced snapshots and emit intent through stable command or
 item IDs. Visual replacement must not require gameplay rewiring. The full rule
 is defined in [System Architecture](../SYSTEM_ARCHITECTURE.md).
 
-The combat HUD uses timeline events from `RealtimeDuelRuntime`, layered
-humanoid animations, ItemCore weapon state, projectile/blood effects, and
-cinematic camera profiles. The old Phase 2 bottom command deck is historical,
-not a second gameplay surface.
+The official `CombatLaneHUD` uses turn action profiles, layered humanoid
+animations, ItemCore weapon state, projectile/blood effects, and cinematic
+camera profiles. Its command deck is the primary gameplay surface. It uses the
+same `HUDAssetLibrary` semantic palette as the rest of the game, retains visible
+frames behind top summaries, and keeps action controls separate from the combat
+log at compact widths. At high resolutions it increases authored HUD density,
+with a cap, instead of leaving 1080p-sized typography stranded in a giant
+window. The battlefield may use a local readability tint for a dark source
+plate; a global shader should not dim or recolor the tactical UI.
+`RealtimeDuelHUD` remains the optional Settings presentation and uses
+`RealtimeDuelRuntime` timeline events.
 
 ## Macro Map
 

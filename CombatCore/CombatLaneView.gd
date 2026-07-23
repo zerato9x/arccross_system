@@ -13,6 +13,10 @@ const FINAL_BLOW_SETTLE_FRACTION := 0.58
 const STAGE_GROUND_ASSET := "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png"
 const STAGE_MIN_SIZE := Vector2(1680.0, 920.0)
 const CAMERA_BLEED_X_RATIO := 0.4
+# The source plains plate is deliberately muddy (about 0.23 average luminance).
+# Keep combat readable without involving the global shader stack.
+const STAGE_BASE_TINT := Color(1.42, 1.36, 1.20, 1.0)
+const STAGE_DUEL_FOCUS_TINT := Color(1.16, 1.12, 1.02, 1.0)
 
 var _snapshot: Dictionary = {}
 var _showing_melee_lock := false
@@ -48,6 +52,7 @@ var _duel_focus_slot := -1
 func _ready() -> void:
 	_collect_slots()
 	_stage_grass.texture = load(STAGE_GROUND_ASSET) as Texture2D
+	_stage_grass.modulate = STAGE_BASE_TINT
 	_player_token.visible = false
 	_enemy_token.visible = false
 	_melee_lock_banner.visible = false
@@ -81,7 +86,11 @@ func set_duel_focus(active: bool, lock_slot: int = -1) -> void:
 	for slot in _slot_nodes:
 		if slot.has_method("set_duel_focus"):
 			slot.set_duel_focus(active, _duel_focus_slot)
-	_stage_grass.modulate = Color(0.62, 0.62, 0.62, 1.0) if active else Color.WHITE
+	_stage_grass.modulate = (
+		STAGE_DUEL_FOCUS_TINT
+		if active
+		else STAGE_BASE_TINT
+	)
 
 func get_duel_focus_slot() -> int:
 	return _duel_focus_slot
@@ -175,8 +184,21 @@ func play_presentation_event(event: Dictionary) -> void:
 				int(event.get("action", -1))
 			)
 			if not animation.is_empty():
-				if token.play_one_shot(animation, _token_pose(data)):
-					await _wait_for_token_animation_finished(token, animation)
+				var duration := float(event.get(
+					"presentation_duration",
+					token.get_animation_duration(animation)
+				))
+				var cue_fraction := float(event.get("cue_fraction", 1.0))
+				if token.play_timed_one_shot(
+					animation,
+					_token_pose(data),
+					duration
+				):
+					await _wait_for_token_animation_cue(
+						token,
+						animation,
+						cue_fraction
+					)
 
 func layout_for_viewport(viewport_size: Vector2) -> void:
 	var safe_viewport := Vector2(
@@ -567,7 +589,10 @@ func _finish_token_move(is_player: bool) -> void:
 		and not _token_is_impaired(data)
 		and data.get("has_firearm", false)
 	):
-		token.play_one_shot("Taunt", pose)
+		# Keep the established ready-weapon beat, but fit it into a short,
+		# explicit recovery window instead of occupying the channel for the
+		# full 15-frame Taunt clip.
+		token.play_timed_one_shot("Taunt", pose, 0.58)
 	else:
 		token.play_animation(pose)
 

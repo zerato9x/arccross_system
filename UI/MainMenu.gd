@@ -29,13 +29,13 @@ func _ready() -> void:
 	btn_quit.pressed.connect(_on_quit)
 	settings_close_button.pressed.connect(func(): settings_panel.visible = false)
 	combat_mode_option.clear()
-	combat_mode_option.add_item("Real-Time Duel", 0)
-	combat_mode_option.add_item("Turn-Based Duel", 1)
+	combat_mode_option.add_item("Turn-Based Duel (Official)", 0)
+	combat_mode_option.add_item("Real-Time Duel (Optional)", 1)
 	_populate_hud_scheme_option()
 	var settings := get_node_or_null("/root/GameSettings")
 	if settings != null:
 		combat_mode_option.select(
-			1 if settings.combat_mode == settings.COMBAT_TURN_BASED else 0
+			0 if settings.combat_mode == settings.COMBAT_TURN_BASED else 1
 		)
 		_select_hud_scheme(settings.hud_scheme)
 	combat_mode_option.item_selected.connect(_on_combat_mode_selected)
@@ -96,7 +96,7 @@ func _on_combat_mode_selected(index: int) -> void:
 	if settings == null:
 		return
 	settings.set_combat_mode(
-		settings.COMBAT_TURN_BASED if index == 1 else settings.COMBAT_REALTIME
+		settings.COMBAT_TURN_BASED if index == 0 else settings.COMBAT_REALTIME
 	)
 
 

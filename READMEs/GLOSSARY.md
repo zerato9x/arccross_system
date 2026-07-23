@@ -178,8 +178,9 @@ describes a tool; Damage Type describes a hit.
   therefore supplies encounter context and deployment pressure.
 - **Ambush Position:** A requested deployment band (FAR / STANDARD / CLOSE)
   translated by CombatCore into lane indices.
-- **Action Point (AP):** A spendable real-time combat resource capped at `12`
-  and regenerated every quarter-second.
+- **Action Point (AP):** A spendable combat resource capped at `12`.
+  Turn-based grants a discrete pool each turn and may reserve leftovers for
+  reactions; optional real-time regenerates AP every quarter-second.
 - **Kinetic Burden:** Derived physical restriction from trauma, encumbrance,
   equipment, and survival crises.
 - **Kinetic Tier:** The Fluid, Labored, or Agonizing bracket that determines
@@ -196,8 +197,9 @@ describes a tool; Damage Type describes a hit.
   heavy, aim, fire, guard, follow, or reload/cycle.
 - **Action Timeline:** CombatCore's authoritative windup, impact, commit, combo,
   and recovery schedule shared with presentation.
-- **Combat Interface:** The replaceable `RealtimeDuelHUD` projection that shows
-  AP, Stance, weapons, aim, combo, and follow state while emitting Duel Intent.
+- **Combat Interface:** A replaceable presentation boundary.
+  `CombatLaneHUD` is the official turn-command interface;
+  `RealtimeDuelHUD` is the optional continuous-time interface.
 - **Guard:** One `Space`-triggered timed defense event. Early impact overlap
   parries and later overlap blocks; it does not pause combat.
 - **Parry:** The narrow perfect-timing section of Guard that cancels a melee
@@ -215,8 +217,8 @@ describes a tool; Damage Type describes a hit.
 - **BREAK STANCE:** A braced melee Stance attack costing MINOR AP. It may Fell an
   already-Stumbling target but ordinary use cannot knock a Planted target
   directly to `0`. Its low cost enables stance-erosion combos.
-- **Grapple:** A retired turn-combat command. Real-time takedown pressure now
-  comes from heavy attacks, combo finishers, parries, hazards, and traps.
+- **Grapple:** An official turn-based Melee Lock command. Optional real-time
+  uses heavy attacks, combo finishers, parries, hazards, and traps instead.
 - **CYCLE:** Cycle a firearm action after firing, or hand-load one compatible
   loose round when that weapon supports manual loading.
 - **RELOAD:** Load a firearm through its exact compatible magazine, clip, or

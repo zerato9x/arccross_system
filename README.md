@@ -37,7 +37,8 @@ Launch from `UI/MainMenu.tscn` into a persistent macro run (Godot **4.7**):
 4. Resolve entity collisions through the shared exploration/event stage:
    TALK (Threat / Ceasefire → Ask / Trade placeholder) or AMBUSH with opponent
    summary and combat-grid preview.
-5. Fight persistent enemies in readable, lethal real-time 1v1 lane duels.
+5. Fight persistent enemies in readable, lethal turn-based 1v1 lane duels.
+   Real-time combat is an optional Settings mode.
 6. Manage equipment through the authored three-region Inventory HUD: its
    Innawoods body projection, anatomy/carry slot rails, condition states,
    comparisons, firearm readiness, grounded field notes, and tool-plus-material
@@ -56,25 +57,24 @@ profile.
 
 - **Phase 1** is closed and verified. The persistent vertical slice remains the
   regression baseline.
-- **Phase 2 systems foundations are closed/shipped:** realtime duel authority,
+- **Phase 2 systems foundations are closed/shipped:** both duel authorities,
   inventory/condition/repair, directional Node Web, exploration window + trap
   loop, persistent wounds, Field Health HUD, entity-collision Event HUD path,
   authored-zone tooling.
-- Production combat runs through `RealtimeDuelRuntime`. The independent
-  turn-based route remains at `CombatCore/TurnBased/TurnBasedDuelScene.tscn`;
-  both share ItemCore condition, malfunction, ammunition, protection, shield,
-  and persistence. Only scheduling differs.
-- **Active next:** [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
-  — eviction, North Pointer Tutorial, Act 1 seals, Central look, asset sort from
-  `S:\Asset\_Asset`.
+- Official/default combat runs through
+  `CombatCore/TurnBased/TurnBasedDuelScene.tscn`. `RealtimeDuelRuntime` is the
+  optional Settings mode. Both share canonical ItemCore and persistent entity
+  state, while cadence, AI, timing, action costs, and balance remain independent.
+- **Active now:** [Official Turn-Based Combat Overhaul](READMEs/design/TURN_BASED_COMBAT_OVERHAUL.md).
+- **Asset-blocked:** [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
+  resumes when the complete categorized asset folder is available.
 
 ### Core Systems
 
 - Combat uses a twelve-slot lane, localized Limb Region damage, and
-  encounter-local Stance. AP regenerates continuously: Kinetic Burden supplies
-  the base rate and Stance supplies the live multiplier while action costs stay
-  fixed. Heavy attacks and finishers can Fell; recovery begins automatically
-  when enough AP returns.
+  encounter-local Stance. Official turn-based combat grants a discrete AP pool
+  per turn and banks leftover AP for reactions. Optional real-time combat
+  regenerates AP continuously and owns separate cadence/balance tuning.
 - Ballistic hits deal no Stance Damage. A successful shot applies the weapon's
   authored Flesh Damage directly to one Limb Region.
 - Firearms enforce authored range, accuracy, ammunition, magazine or loading
@@ -129,10 +129,11 @@ profile.
 
 ## Working Agreement (July 23)
 
-Phase 2 foundations stay live. The only active delivery track is
-[Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
-Do not resurrect finished Macro HUD remake/repair or entity-collision plans.
-Prefer incremental Resource conversion when a feature needs it.
+Phase 2 foundations stay live. The active delivery track is the
+[Official Turn-Based Combat Overhaul](READMEs/design/TURN_BASED_COMBAT_OVERHAUL.md).
+Central Core campaign implementation is paused pending the complete categorized
+asset folder. Do not resurrect finished Macro HUD remake/repair or
+entity-collision plans.
 
 ## Item Authoring
 
@@ -151,6 +152,7 @@ records authored data but does not rescue a beautifully painted dead end.
 ## Documentation
 
 - [Documentation index](READMEs/README.md)
+- [Official Turn-Based Combat Overhaul](READMEs/design/TURN_BASED_COMBAT_OVERHAUL.md)
 - [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
 - [Project glossary](READMEs/GLOSSARY.md)
 - [Canonical world specification](READMEs/CANONICAL_WORLD_SPECIFICATION.md)

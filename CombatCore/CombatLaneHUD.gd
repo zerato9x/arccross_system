@@ -74,16 +74,20 @@ const CAMERA_MODE_BULLET := "bullet"
 const CAMERA_MODE_FINAL := "final"
 const CAMERA_MODE_RESULTS := "results"
 const CONDITION_ANIMATION_FPS := 0.0
+const HUD_REFERENCE_SIZE := Vector2(1920.0, 1080.0)
+const HUD_MAX_DENSITY_SCALE := 1.45
 
 signal action_requested(action: int, target_limb: int, item_instance_id: String)
 signal pass_requested
 signal reaction_selected(reaction: int)
+signal presentation_queue_drained
 
 var _snapshot: Dictionary = {}
 var _reaction_prompt: Dictionary = {}
 var _feedback := ""
 var _font: SystemFont
 var _last_viewport_size := Vector2.ZERO
+var _hud_density_scale := 1.0
 var _action_buttons: Array = []
 var _group_buttons: Array = []
 var _selected_action_group := ACTION_GROUP_FIREARM
@@ -216,6 +220,7 @@ var _camera_profiles: Dictionary = {}
 func _ready() -> void:
 	_font = SystemFont.new()
 	_font.font_names = PackedStringArray(["Consolas", "Courier New", "monospace"])
+	HUDAssetLibrary.connect_scheme_changed(_apply_standardized_hud_theme)
 	_bind_legacy_labels()
 	_setup_duel_layout_shell()
 	_setup_portrait_tokens()
@@ -226,11 +231,15 @@ func _ready() -> void:
 	_lane_view.slot_unhovered.connect(_on_lane_slot_unhovered)
 	_grid_hover_card.hide_card()
 	_setup_action_panel()
+	_apply_standardized_hud_theme()
 	_combat_camera.enabled = true
 	_combat_camera.make_current()
 	_feedback_label.visible = false
 	visible = false
 	set_process(true)
+
+func _exit_tree() -> void:
+	HUDAssetLibrary.disconnect_scheme_changed(_apply_standardized_hud_theme)
 
 func _process(delta: float) -> void:
 	if not visible:
@@ -288,6 +297,14 @@ func show_feedback(message: String) -> void:
 func show_presentation_event(event: Dictionary) -> void:
 	_presentation_queue.append({ "type": "presentation", "data": event.duplicate(true) })
 	_try_process_queue()
+
+
+func wait_for_presentation_idle() -> void:
+	# Always yield once so events emitted in the current resolution stack can
+	# enter the queue before we decide it is empty.
+	await get_tree().process_frame
+	while _is_processing_queue or not _presentation_queue.is_empty():
+		await get_tree().process_frame
 
 func show_resolve_screen(resolve: Dictionary) -> void:
 	visible = true
@@ -347,6 +364,7 @@ func _process_queue() -> void:
 				await _apply_presentation_event(item.get("data", {}))
 				await get_tree().create_timer(_presentation_delay(item.get("data", {}))).timeout
 	_is_processing_queue = false
+	presentation_queue_drained.emit()
 
 func _apply_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot
@@ -532,6 +550,11 @@ func _preview_weapon_event(event: Dictionary) -> void:
 	_weapon_animation_time = 0.0
 	_weapon_animation_playing = true
 	_render_weapon_card()
+	if _shared_item_card:
+		_shared_item_card.play_turn_action(
+			int(event.get("action", -1)),
+			float(event.get("presentation_duration", 0.62))
+		)
 
 func _weapon_effect_for_action(action: int) -> String:
 	match action:
@@ -543,6 +566,8 @@ func _weapon_effect_for_action(action: int) -> String:
 			return GUN_ANIMATION_CATALOG.EFFECT_RELOAD
 		GameEnums.ActionType.CYCLE:
 			return GUN_ANIMATION_CATALOG.EFFECT_CYCLE
+		GameEnums.ActionType.CLEAR_MALFUNCTION:
+			return GUN_ANIMATION_CATALOG.EFFECT_RELOAD
 	return ""
 
 func get_snapshot() -> Dictionary:
@@ -552,22 +577,37 @@ func is_showing_melee_lock() -> bool:
 	return _lane_view != null and _lane_view.is_showing_melee_lock()
 
 func _layout_for_viewport(viewport_size: Vector2) -> void:
+	var next_density := clampf(
+		minf(
+			viewport_size.x / HUD_REFERENCE_SIZE.x,
+			viewport_size.y / HUD_REFERENCE_SIZE.y
+		),
+		1.0,
+		HUD_MAX_DENSITY_SCALE
+	)
+	if not is_equal_approx(next_density, _hud_density_scale):
+		_hud_density_scale = next_density
+		_apply_standardized_hud_theme()
 	_lane_view.layout_for_viewport(viewport_size)
 	_layout_screen_hud(viewport_size)
 
 func _layout_screen_hud(viewport_size: Vector2) -> void:
 	var ui_scale := Vector2.ONE / _camera_zoom_value()
+	var content_scale := ui_scale * _hud_density_scale
 	_calculate_duel_layout(viewport_size)
 	_layout_duel_shell(viewport_size, ui_scale)
 	_layout_resolve_screen(viewport_size, ui_scale)
 
-	var context_scale := minf(1.0, _top_info_rect.size.x / 430.0)
+	var context_scale := minf(
+		1.0,
+		_top_info_rect.size.x / (430.0 * _hud_density_scale)
+	)
 	var context_position := _top_info_rect.position
 	_context_board.global_position = _screen_to_world(
 		context_position,
 		viewport_size
 	)
-	_context_board.scale = ui_scale * context_scale
+	_context_board.scale = content_scale * context_scale
 	var action_panel_screen_position := _action_rect.position
 	var action_panel_size := _action_rect.size
 	_set_box(_action_panel_box, action_panel_size)
@@ -582,7 +622,8 @@ func _layout_screen_hud(viewport_size: Vector2) -> void:
 	# tiny region across the whole command deck turns it into white scanline soup.
 	_action_panel_frame.visible = false
 	_action_title_label.global_position = _screen_to_world(
-		action_panel_screen_position + Vector2(14.0, 10.0),
+		action_panel_screen_position
+			+ Vector2(14.0, 10.0) * _hud_density_scale,
 		viewport_size
 	)
 	_action_button_root.global_position = _screen_to_world(
@@ -595,19 +636,23 @@ func _layout_screen_hud(viewport_size: Vector2) -> void:
 		action_panel_size.x / 64.0,
 		action_panel_size.y / 64.0
 	) * ui_scale
-	_action_title_label.scale = ui_scale
-	_action_button_root.scale = ui_scale
+	_action_title_label.scale = content_scale
+	_action_button_root.scale = content_scale
 	_layout_weapon_card(viewport_size, ui_scale)
 	_layout_group_tabs(viewport_size, ui_scale)
 	_layout_command_context(viewport_size, ui_scale)
 	_feedback_label.global_position = _screen_to_world(
-		_command_context_rect.position + Vector2(12.0, 46.0),
+		_command_context_rect.position
+			+ Vector2(12.0, 46.0) * _hud_density_scale,
 		viewport_size
 	)
-	_feedback_label.scale = ui_scale
+	_feedback_label.scale = content_scale
 	_feedback_label.size = Vector2(
-		_command_context_rect.size.x - 24.0,
-		maxf(80.0, _command_context_rect.size.y - 58.0)
+		_command_context_rect.size.x / _hud_density_scale - 24.0,
+		maxf(
+			80.0,
+			_command_context_rect.size.y / _hud_density_scale - 58.0
+		)
 	)
 	_layout_body_status_panel(
 		_player_command_rail,
@@ -647,18 +692,29 @@ func _layout_screen_hud(viewport_size: Vector2) -> void:
 	_sync_duel_portraits(viewport_size)
 
 func _calculate_duel_layout(viewport_size: Vector2) -> void:
-	var margin := maxf(18.0, viewport_size.x * 0.014)
+	var density := _hud_density_scale
+	var margin := maxf(18.0 * density, viewport_size.x * 0.014)
 	var grid_center_y := viewport_size.y * 0.49
 	var grid_height := clampf(viewport_size.y * 0.13, 82.0, 116.0)
 	var grid_top := grid_center_y - grid_height * 0.5
-	var side_width := minf(500.0, viewport_size.x * 0.25)
-	var top_width := minf(390.0, side_width)
-	var top_height := clampf(viewport_size.y * 0.09, 126.0, 152.0)
-	var bottom_height := clampf(viewport_size.y * 0.18, 190.0, 236.0)
+	# Leave the command deck enough room to keep two real action columns at
+	# 1280-wide viewports. The old quarter-screen side panels guaranteed overlap.
+	var side_width := minf(500.0 * density, viewport_size.x * 0.22)
+	var top_width := minf(390.0 * density, side_width)
+	var top_height := clampf(
+		viewport_size.y * 0.09,
+		126.0 * density,
+		152.0 * density
+	)
+	var bottom_height := clampf(
+		viewport_size.y * 0.18,
+		190.0 * density,
+		236.0 * density
+	)
 	var bottom_y := viewport_size.y - margin - bottom_height
-	var panel_gap := maxf(12.0, viewport_size.x * 0.008)
+	var panel_gap := maxf(12.0 * density, viewport_size.x * 0.008)
 	var action_width := maxf(
-		420.0,
+		420.0 * density,
 		viewport_size.x - margin * 2.0 - side_width * 2.0 - panel_gap * 2.0
 	)
 
@@ -681,80 +737,137 @@ func _calculate_duel_layout(viewport_size: Vector2) -> void:
 	)
 
 	var portrait_size := Vector2(
-		minf(150.0, side_width * 0.32),
-		maxf(138.0, bottom_height - 28.0)
+		minf(150.0 * density, side_width * 0.32),
+		maxf(138.0 * density, bottom_height - 28.0 * density)
 	)
 	_player_portrait_rect = Rect2(
 		Vector2(
 			_player_bottom_rect.position.x + side_width * 0.58,
-			_player_bottom_rect.position.y + 14.0
+			_player_bottom_rect.position.y + 14.0 * density
 		),
 		portrait_size
 	)
 	_enemy_portrait_rect = Rect2(
 		Vector2(
 			_enemy_bottom_rect.position.x + side_width * 0.58,
-			_enemy_bottom_rect.position.y + 14.0
+			_enemy_bottom_rect.position.y + 14.0 * density
 		),
 		portrait_size
 	)
 	_player_command_rect = Rect2(
 		Vector2(
-			_player_bottom_rect.position.x + maxf(24.0, side_width * 0.08),
-			_player_bottom_rect.position.y + 18.0
+			_player_bottom_rect.position.x
+				+ maxf(24.0 * density, side_width * 0.08),
+			_player_bottom_rect.position.y + 18.0 * density
 		),
-		Vector2(210.0, maxf(128.0, bottom_height - 36.0))
+		Vector2(
+			210.0 * density,
+			maxf(128.0 * density, bottom_height - 36.0 * density)
+		)
 	)
 	_enemy_status_rect = Rect2(
 		Vector2(
-			_enemy_bottom_rect.position.x + maxf(24.0, side_width * 0.08),
-			_enemy_bottom_rect.position.y + 24.0
+			_enemy_bottom_rect.position.x
+				+ maxf(24.0 * density, side_width * 0.08),
+			_enemy_bottom_rect.position.y + 24.0 * density
 		),
-		Vector2(210.0, maxf(124.0, bottom_height - 42.0))
+		Vector2(
+			210.0 * density,
+			maxf(124.0 * density, bottom_height - 42.0 * density)
+		)
 	)
 	_top_info_rect = Rect2(
 		Vector2(
-			viewport_size.x * 0.5 - 215.0,
+			viewport_size.x * 0.5 - 215.0 * density,
 			margin
 		),
-		Vector2(430.0, 132.0)
+		Vector2(430.0, 132.0) * density
 	)
-	var deck_padding := 16.0
-	var context_width := clampf(action_width * 0.34, 300.0, COMMAND_CONTEXT_SIZE.x)
-	var weapon_width := minf(WEAPON_CARD_SIZE.x, maxf(190.0, action_width * 0.18))
+	var deck_padding := 16.0 * density
+	var compact_command_deck := action_width < 900.0 * density
+	var context_width := clampf(
+		action_width * 0.34,
+		300.0 * density,
+		COMMAND_CONTEXT_SIZE.x * density
+	)
+	var weapon_width := minf(
+		WEAPON_CARD_SIZE.x * density,
+		maxf(190.0 * density, action_width * 0.18)
+	)
 	_weapon_card_rect = Rect2(
-		_action_rect.position + Vector2(deck_padding, 52.0),
-		Vector2(weapon_width, minf(WEAPON_CARD_SIZE.y, bottom_height - 68.0))
-	)
-	_command_context_rect = Rect2(
+		_action_rect.position + Vector2(deck_padding, 52.0 * density),
 		Vector2(
-			_action_rect.end.x - deck_padding - context_width,
-			_action_rect.position.y + 18.0
-		),
-		Vector2(context_width, minf(COMMAND_CONTEXT_SIZE.y, bottom_height - 36.0))
+			weapon_width,
+			minf(
+				WEAPON_CARD_SIZE.y * density,
+				bottom_height - 68.0 * density
+			)
+		)
 	)
-	var command_x := _weapon_card_rect.end.x + 18.0
+	_command_context_rect = (
+		Rect2(
+			Vector2(
+				viewport_size.x * 0.5 - 215.0 * density,
+				margin + 146.0 * density
+			),
+			Vector2(430.0, 118.0) * density
+		)
+		if compact_command_deck
+		else Rect2(
+			Vector2(
+				_action_rect.end.x - deck_padding - context_width,
+				_action_rect.position.y + 18.0 * density
+			),
+			Vector2(
+				context_width,
+				minf(
+					COMMAND_CONTEXT_SIZE.y * density,
+					bottom_height - 36.0 * density
+				)
+			)
+		)
+	)
+	var command_x := _weapon_card_rect.end.x + 18.0 * density
 	var command_width := maxf(
-		ACTION_BUTTON_SIZE.x * 2.0 + ACTION_BUTTON_GAP.x,
-		_command_context_rect.position.x - command_x - 18.0
+		(ACTION_BUTTON_SIZE.x * 2.0 + ACTION_BUTTON_GAP.x) * density,
+		(
+			_action_rect.end.x - deck_padding - command_x
+			if compact_command_deck
+			else (
+				_command_context_rect.position.x
+				- command_x
+				- 18.0 * density
+			)
+		)
 	)
 	_group_tabs_rect = Rect2(
-		Vector2(command_x, _action_rect.position.y + 48.0),
-		Vector2(command_width, GROUP_BUTTON_SIZE.y + 4.0)
+		Vector2(command_x, _action_rect.position.y + 48.0 * density),
+		Vector2(
+			command_width,
+			(GROUP_BUTTON_SIZE.y + 4.0) * density
+		)
 	)
 	_action_list_rect = Rect2(
-		Vector2(command_x, _group_tabs_rect.end.y + 12.0),
-		Vector2(command_width, maxf(92.0, _action_rect.end.y - _group_tabs_rect.end.y - 24.0))
+		Vector2(command_x, _group_tabs_rect.end.y + 12.0 * density),
+		Vector2(
+			command_width,
+			maxf(
+				92.0 * density,
+				_action_rect.end.y
+					- _group_tabs_rect.end.y
+					- 24.0 * density
+			)
+		)
 	)
 
 func _layout_duel_shell(viewport_size: Vector2, ui_scale: Vector2) -> void:
 	_duel_layout_shell.visible = not _snapshot.is_empty()
 	if not _duel_layout_shell.visible:
 		return
-	_player_top_panel_box.visible = false
-	_player_top_panel_border.visible = false
-	_enemy_top_panel_box.visible = false
-	_enemy_top_panel_border.visible = false
+	_player_top_panel_box.visible = true
+	_player_top_panel_border.visible = true
+	_enemy_top_panel_box.visible = true
+	_enemy_top_panel_border.visible = true
 	_place_panel(_player_top_panel_box, _player_top_panel_border, _player_top_rect, viewport_size, ui_scale)
 	_place_panel(_enemy_top_panel_box, _enemy_top_panel_border, _enemy_top_rect, viewport_size, ui_scale)
 	_place_panel(_player_bottom_panel_box, _player_bottom_panel_border, _player_bottom_rect, viewport_size, ui_scale)
@@ -788,25 +901,26 @@ func _layout_weapon_card(viewport_size: Vector2, ui_scale: Vector2) -> void:
 		_weapon_card_rect.position,
 		viewport_size
 	)
-	_weapon_panel_root.scale = ui_scale
-	_set_box(_weapon_panel_box, _weapon_card_rect.size)
-	_set_outline(_weapon_panel_border, _weapon_card_rect.size)
+	var logical_size := _weapon_card_rect.size / _hud_density_scale
+	_weapon_panel_root.scale = ui_scale * _hud_density_scale
+	_set_box(_weapon_panel_box, logical_size)
+	_set_outline(_weapon_panel_border, logical_size)
 	_weapon_sprite.position = Vector2(
-		_weapon_card_rect.size.x * 0.5,
-		_weapon_card_rect.size.y * 0.36
+		logical_size.x * 0.5,
+		logical_size.y * 0.36
 	)
 	_weapon_effect_sprite.position = _weapon_sprite.position
-	_weapon_name_label.position = Vector2(12.0, _weapon_card_rect.size.y - 66.0)
-	_weapon_name_label.size = Vector2(_weapon_card_rect.size.x - 20.0, 20.0)
-	_weapon_state_label.position = Vector2(12.0, _weapon_card_rect.size.y - 44.0)
-	_weapon_state_label.size = Vector2(_weapon_card_rect.size.x - 20.0, 20.0)
-	_weapon_detail_label.position = Vector2(12.0, _weapon_card_rect.size.y - 22.0)
-	_weapon_detail_label.size = Vector2(_weapon_card_rect.size.x - 20.0, 20.0)
+	_weapon_name_label.position = Vector2(12.0, logical_size.y - 66.0)
+	_weapon_name_label.size = Vector2(logical_size.x - 20.0, 20.0)
+	_weapon_state_label.position = Vector2(12.0, logical_size.y - 44.0)
+	_weapon_state_label.size = Vector2(logical_size.x - 20.0, 20.0)
+	_weapon_detail_label.position = Vector2(12.0, logical_size.y - 22.0)
+	_weapon_detail_label.size = Vector2(logical_size.x - 20.0, 20.0)
 	if _shared_item_card:
 		_shared_item_card.position = Vector2.ZERO
 		_shared_item_card.scale = Vector2(
-			_weapon_card_rect.size.x / 360.0,
-			_weapon_card_rect.size.y / 150.0
+			logical_size.x / 360.0,
+			logical_size.y / 150.0
 		)
 
 func _layout_top_hud(viewport_size: Vector2, ui_scale: Vector2) -> void:
@@ -850,20 +964,36 @@ func _layout_top_status_side(
 	if not visible_side:
 		return
 	status_label.global_position = _screen_to_world(
-		rect.position + Vector2(14.0, 10.0),
+		rect.position + Vector2(14.0, 10.0) * _hud_density_scale,
 		viewport_size
 	)
-	status_label.scale = ui_scale
-	status_label.size = Vector2(rect.size.x - 28.0, 56.0)
-	var card_gap := 8.0
-	var card_width := minf(
-		TOP_WEAPON_CARD_SIZE.x,
-		(rect.size.x - 28.0 - card_gap) * 0.5
+	status_label.scale = ui_scale * _hud_density_scale
+	status_label.size = Vector2(
+		rect.size.x / _hud_density_scale - 28.0,
+		56.0
 	)
-	var card_height := minf(TOP_WEAPON_CARD_SIZE.y, maxf(48.0, rect.size.y - 88.0))
-	var card_y := rect.position.y + 76.0
+	var card_gap := 8.0 * _hud_density_scale
+	var card_width := minf(
+		TOP_WEAPON_CARD_SIZE.x * _hud_density_scale,
+		(
+			rect.size.x
+			- 28.0 * _hud_density_scale
+			- card_gap
+		) * 0.5
+	)
+	var card_height := minf(
+		TOP_WEAPON_CARD_SIZE.y * _hud_density_scale,
+		maxf(
+			48.0 * _hud_density_scale,
+			rect.size.y - 88.0 * _hud_density_scale
+		)
+	)
+	var card_y := rect.position.y + 76.0 * _hud_density_scale
 	var left_rect := Rect2(
-		Vector2(rect.position.x + 14.0, card_y),
+		Vector2(
+			rect.position.x + 14.0 * _hud_density_scale,
+			card_y
+		),
 		Vector2(card_width, card_height)
 	)
 	var right_rect := Rect2(
@@ -883,28 +1013,37 @@ func _layout_top_weapon_card(
 	if root == null:
 		return
 	root.global_position = _screen_to_world(rect.position, viewport_size)
-	root.scale = ui_scale
+	root.scale = ui_scale * _hud_density_scale
+	var logical_size := rect.size / _hud_density_scale
 	var box := card.get("box") as Polygon2D
 	if box:
-		box.visible = false
+		box.visible = true
+		_set_box(box, logical_size)
 	var border := card.get("border") as Line2D
 	if border:
-		border.visible = false
+		border.visible = true
+		_set_outline(border, logical_size)
 	var sprite := card.get("sprite") as Sprite2D
 	if sprite:
-		sprite.position = Vector2(24.0, rect.size.y * 0.5)
+		sprite.position = Vector2(24.0, logical_size.y * 0.5)
 	var title := card.get("title") as Label
 	if title:
 		title.position = Vector2(9.0, 6.0)
-		title.size = Vector2(rect.size.x - 18.0, 16.0)
+		title.size = Vector2(logical_size.x - 18.0, 16.0)
 	var name_label := card.get("name") as Label
 	if name_label:
 		name_label.position = Vector2(52.0, 20.0)
-		name_label.size = Vector2(maxf(44.0, rect.size.x - 58.0), 16.0)
+		name_label.size = Vector2(
+			maxf(44.0, logical_size.x - 58.0),
+			16.0
+		)
 	var detail := card.get("detail") as Label
 	if detail:
 		detail.position = Vector2(52.0, 36.0)
-		detail.size = Vector2(maxf(44.0, rect.size.x - 58.0), rect.size.y - 36.0)
+		detail.size = Vector2(
+			maxf(44.0, logical_size.x - 58.0),
+			logical_size.y - 36.0
+		)
 
 func _set_weapon_card_visible(card: Dictionary, visible_card: bool) -> void:
 	var root := card.get("root") as Node2D
@@ -921,7 +1060,7 @@ func _layout_group_tabs(viewport_size: Vector2, ui_scale: Vector2) -> void:
 		_group_tabs_rect.position,
 		viewport_size
 	)
-	_group_tab_root.scale = ui_scale
+	_group_tab_root.scale = ui_scale * _hud_density_scale
 
 func _layout_command_context(viewport_size: Vector2, ui_scale: Vector2) -> void:
 	var visible_context := not _snapshot.is_empty()
@@ -942,21 +1081,26 @@ func _layout_command_context(viewport_size: Vector2, ui_scale: Vector2) -> void:
 	_command_context_border.scale = ui_scale
 	_layout_meter_frame(
 		_command_context_rule,
-		Vector2(_command_context_rect.size.x - 24.0, 8.0),
+		Vector2(
+			_command_context_rect.size.x / _hud_density_scale - 24.0,
+			8.0
+		),
 		Color(0.86, 0.82, 0.72, 0.42)
 	)
 	_command_context_rule.global_position = _screen_to_world(
-		_command_context_rect.position + Vector2(12.0, 36.0),
+		_command_context_rect.position
+			+ Vector2(12.0, 36.0) * _hud_density_scale,
 		viewport_size
 	)
-	_command_context_rule.scale *= ui_scale
+	_command_context_rule.scale *= ui_scale * _hud_density_scale
 	_command_context_label.global_position = _screen_to_world(
-		_command_context_rect.position + Vector2(12.0, 10.0),
+		_command_context_rect.position
+			+ Vector2(12.0, 10.0) * _hud_density_scale,
 		viewport_size
 	)
-	_command_context_label.scale = ui_scale
+	_command_context_label.scale = ui_scale * _hud_density_scale
 	_command_context_label.size = Vector2(
-		_command_context_rect.size.x - 24.0,
+		_command_context_rect.size.x / _hud_density_scale - 24.0,
 		32.0
 	)
 
@@ -1021,7 +1165,7 @@ func _layout_body_status_panel(
 	if root == null:
 		return
 	root.global_position = _screen_to_world(rect.position, viewport_size)
-	root.scale = ui_scale
+	root.scale = ui_scale * _hud_density_scale
 	root.visible = not data.is_empty()
 	if not root.visible:
 		return
@@ -1109,10 +1253,14 @@ func _layout_condition_token(
 	if not sprite.visible:
 		return
 	sprite.global_position = _screen_to_world(
-		rect.position + Vector2(rect.size.x - 20.0, 20.0),
+		rect.position
+			+ Vector2(
+				rect.size.x - 20.0 * _hud_density_scale,
+				20.0 * _hud_density_scale
+			),
 		viewport_size
 	)
-	sprite.scale = ui_scale * 1.55
+	sprite.scale = ui_scale * 1.55 * _hud_density_scale
 	sprite.z_index = 54
 	_apply_condition_frame(sprite, data)
 
@@ -1305,8 +1453,13 @@ func _setup_command_context() -> void:
 func _make_deck_label(label_name: String, parent: Node, font_size: int) -> Label:
 	var label := Label.new()
 	label.name = label_name
-	label.add_theme_color_override("font_color", Color(0.86, 0.82, 0.72, 1.0))
+	label.add_theme_color_override("font_color", HUDAssetLibrary.COLOR_TEXT)
 	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_constant_override("outline_size", 1)
+	label.add_theme_color_override(
+		"font_outline_color",
+		Color(HUDAssetLibrary.COLOR_PANEL, 0.92)
+	)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(label)
 	return label
@@ -1362,9 +1515,122 @@ func _configure_top_weapon_cards() -> void:
 		_enemy_ranged_card,
 		_enemy_melee_card,
 	]:
-		(card.get("box") as Polygon2D).color = Color(0.048, 0.044, 0.036, 0.92)
-		(card.get("border") as Line2D).default_color = Color(COLOR_ACTION_BORDER, 0.68)
+		(card.get("box") as Polygon2D).color = Color(
+			HUDAssetLibrary.COLOR_PANEL_ALT,
+			0.94
+		)
+		(card.get("border") as Line2D).default_color = Color(
+			HUDAssetLibrary.COLOR_BORDER,
+			0.92
+		)
 		(card.get("border") as Line2D).width = 1.0
+
+func _apply_standardized_hud_theme(_scheme_id: String = "") -> void:
+	var panel_fill := Color(HUDAssetLibrary.COLOR_PANEL, 0.94)
+	var inset_fill := Color(HUDAssetLibrary.COLOR_PANEL_ALT, 0.94)
+	var border_color := Color(HUDAssetLibrary.COLOR_BORDER, 0.92)
+
+	for polygon in [
+		_player_top_panel_box,
+		_enemy_top_panel_box,
+		_player_bottom_panel_box,
+		_enemy_bottom_panel_box,
+	]:
+		if polygon:
+			polygon.color = panel_fill
+	for line in [
+		_player_top_panel_border,
+		_enemy_top_panel_border,
+		_player_bottom_panel_border,
+		_enemy_bottom_panel_border,
+	]:
+		if line:
+			line.default_color = border_color
+
+	_action_panel_box.color = panel_fill
+	_action_panel_border.default_color = Color(
+		HUDAssetLibrary.COLOR_INFO,
+		0.94
+	)
+	_weapon_panel_box.color = inset_fill
+	_weapon_panel_border.default_color = border_color
+	_command_context_box.color = inset_fill
+	_command_context_border.default_color = border_color
+	_equipment_hover_box.color = Color(HUDAssetLibrary.COLOR_PANEL, 0.98)
+	_equipment_hover_border.default_color = Color(
+		HUDAssetLibrary.COLOR_CAUTION,
+		0.94
+	)
+	_resolve_panel_box.color = Color(HUDAssetLibrary.COLOR_PANEL, 0.98)
+	_resolve_panel_border.default_color = Color(
+		HUDAssetLibrary.COLOR_CAUTION,
+		0.96
+	)
+	_player_portrait_plate.color = Color(
+		HUDAssetLibrary.COLOR_TRAVEL,
+		0.62
+	)
+	_enemy_portrait_plate.color = Color(
+		HUDAssetLibrary.COLOR_CRITICAL,
+		0.62
+	)
+	_player_portrait_border.default_color = Color(
+		HUDAssetLibrary.COLOR_TRAVEL,
+		0.92
+	)
+	_enemy_portrait_border.default_color = Color(
+		HUDAssetLibrary.COLOR_CRITICAL,
+		0.92
+	)
+	_configure_top_weapon_cards()
+
+	_apply_combat_label(_action_title_label, 13, "info")
+	_apply_combat_label(_command_context_label, 12, "body")
+	_apply_combat_label(_feedback_label, 11, "muted")
+	_apply_combat_label(_player_status_label, 13, "body")
+	_apply_combat_label(_enemy_status_label, 13, "body")
+	_apply_combat_label(_player_top_label, 15, "body")
+	_apply_combat_label(_enemy_top_label, 15, "body")
+	_apply_combat_label(_weapon_name_label, 13, "body")
+	_apply_combat_label(_weapon_state_label, 12, "info")
+	_apply_combat_label(_weapon_detail_label, 11, "muted")
+	_apply_combat_label(_equipment_hover_label, 11, "body")
+	_apply_combat_label(_resolve_title_label, 20, "warning")
+	_apply_combat_label(_resolve_body_label, 12, "body")
+
+	for card in [
+		_player_ranged_card,
+		_player_melee_card,
+		_enemy_ranged_card,
+		_enemy_melee_card,
+	]:
+		_apply_combat_label(card.get("title") as Label, 10, "muted")
+		_apply_combat_label(card.get("name") as Label, 11, "body")
+		_apply_combat_label(card.get("detail") as Label, 10, "muted")
+
+	for row in _player_status_rows + _enemy_status_rows:
+		_apply_combat_label(row.get("label") as Label, 11, "body")
+
+func _apply_combat_label(
+	label: Label,
+	font_size: int,
+	role: String
+) -> void:
+	if label == null:
+		return
+	label.add_theme_font_override("font", _font)
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override(
+		"font_color",
+		HUDAssetLibrary.COLOR_TEXT
+		if role == "body"
+		else HUDAssetLibrary.color_for_role(role)
+	)
+	label.add_theme_constant_override("outline_size", 1)
+	label.add_theme_color_override(
+		"font_outline_color",
+		Color(HUDAssetLibrary.COLOR_PANEL, 0.94)
+	)
 
 func _setup_equipment_hover_card() -> void:
 	_equipment_hover_box.color = Color(0.045, 0.04, 0.032, 0.96)
@@ -1423,14 +1689,15 @@ func _layout_resolve_screen(viewport_size: Vector2, ui_scale: Vector2) -> void:
 	if not _resolve_active:
 		return
 	var panel_position := Vector2(
-		viewport_size.x * 0.5 - RESULT_PANEL_SIZE.x * 0.5,
-		maxf(22.0, viewport_size.y * 0.10)
+		viewport_size.x * 0.5
+			- RESULT_PANEL_SIZE.x * _hud_density_scale * 0.5,
+		maxf(22.0 * _hud_density_scale, viewport_size.y * 0.10)
 	)
 	_resolve_screen_root.global_position = _screen_to_world(
 		panel_position,
 		viewport_size
 	)
-	_resolve_screen_root.scale = ui_scale
+	_resolve_screen_root.scale = ui_scale * _hud_density_scale
 
 func _update_resolve_text(resolve: Dictionary, show_results: bool) -> void:
 	if _resolve_title_label == null or _resolve_body_label == null:
@@ -1630,9 +1897,10 @@ func _add_group_button(
 	_group_buttons.append(button)
 
 func _group_button_columns() -> int:
+	var logical_width := _group_tabs_rect.size.x / _hud_density_scale
 	var fit := int(
 		floor(
-			(_group_tabs_rect.size.x + 8.0)
+			(logical_width + 8.0)
 			/ (GROUP_BUTTON_SIZE.x + 8.0)
 		)
 	)
@@ -1881,9 +2149,10 @@ func _add_button(payload: Dictionary, text: String, index: int) -> void:
 	_action_buttons.append(button)
 
 func _action_button_columns() -> int:
+	var logical_width := _action_list_rect.size.x / _hud_density_scale
 	var fit := int(
 		floor(
-			(_action_list_rect.size.x + ACTION_BUTTON_GAP.x)
+			(logical_width + ACTION_BUTTON_GAP.x)
 			/ (ACTION_BUTTON_SIZE.x + ACTION_BUTTON_GAP.x)
 		)
 	)
@@ -2234,6 +2503,10 @@ func _play_shot_event(event: Dictionary) -> void:
 			PROJECTILE_FADE_SECONDS
 		)
 		await fade.finished
+	if is_instance_valid(trail):
+		_drop_projectile_node(trail)
+	if is_instance_valid(bullet):
+		_drop_projectile_node(bullet)
 	_has_camera_focus_override = false
 	_camera_transition_speed_override = -1.0
 	if not event.get("was_killed", false):
@@ -2343,6 +2616,7 @@ func _play_blood_vfx(position: Vector2, event: Dictionary) -> void:
 		if texture:
 			sprite.texture = texture
 		await get_tree().create_timer(1.0 / BLOOD_FPS).timeout
+	_drop_projectile_node(sprite)
 
 func _blood_variant(event: Dictionary) -> int:
 	var seed := (
@@ -2454,6 +2728,7 @@ func _sync_portrait_model(
 	if not model.visible:
 		return
 	var model_size := rect.size * 2.18
+	model.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	model.size = model_size
 	model.clip_contents = true
 	model.scale = (
@@ -2508,12 +2783,16 @@ func _update_health_equipment_hover() -> void:
 		_set_equipment_hover_visible(false)
 		return
 	var equipment: Array = data.get("equipment", [])
-	var box_size := Vector2(
+	var logical_box_size := Vector2(
 		320.0,
 		clampf(106.0 + float(equipment.size()) * 16.0, 132.0, 260.0)
 	)
+	var box_size := logical_box_size * _hud_density_scale
 	var viewport_size := get_viewport_rect().size
-	var screen_position := mouse_position + Vector2(18.0, 18.0)
+	var screen_position := (
+		mouse_position
+		+ Vector2(18.0, 18.0) * _hud_density_scale
+	)
 	screen_position.x = clampf(
 		screen_position.x,
 		12.0,
@@ -2533,13 +2812,17 @@ func _update_health_equipment_hover() -> void:
 	)
 	_equipment_hover_border.global_position = _equipment_hover_box.global_position
 	_equipment_hover_label.global_position = _screen_to_world(
-		screen_position + Vector2(12.0, 10.0),
+		screen_position
+			+ Vector2(12.0, 10.0) * _hud_density_scale,
 		viewport_size
 	)
 	_equipment_hover_box.scale = ui_scale
 	_equipment_hover_border.scale = ui_scale
-	_equipment_hover_label.scale = ui_scale
-	_equipment_hover_label.size = Vector2(box_size.x - 24.0, box_size.y - 20.0)
+	_equipment_hover_label.scale = ui_scale * _hud_density_scale
+	_equipment_hover_label.size = Vector2(
+		logical_box_size.x - 24.0,
+		logical_box_size.y - 20.0
+	)
 	_equipment_hover_label.text = _equipment_hover_text(data, heading)
 	_set_equipment_hover_visible(true)
 

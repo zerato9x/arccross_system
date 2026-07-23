@@ -2,6 +2,46 @@
 
 ## July 23, 2026
 
+### Official Turn-Based Combat Overhaul
+
+- Made turn-based combat the official/default Settings mode; retained real-time
+  as an optional independently balanced authority over the same canonical item,
+  entity, wound, ammunition, condition, and persistence state.
+- Added transactional action resolution so AP exhaustion cannot advance the
+  turn before rules and queued presentation finish.
+- Reworked turn AI to await attacks, prevent overlapping decision loops, cap
+  actions, reserve reaction AP, and stop treating AIMED SHOT as an automatic
+  score winner.
+- Added turn-owned action duration/cue profiles and synchronized actor windup,
+  projectile/impact presentation, and firearm-card sheet playback.
+- Traced the dim combat stage in live Godot to the naturally dark plains plate,
+  not an active shader or overlay; added a combat-local readability tint while
+  preserving a softer Melee Lock focus grade.
+- Fixed fractional firearm-card atlas row sampling, shortened the post-movement
+  ready-weapon recovery, and added live/debug frame reporting.
+- Standardized the turn HUD on `HUDAssetLibrary` colors and typography, restored
+  the missing top panel/weapon-card frames, and made the 1280-wide command deck
+  keep its action controls and combat log in separate regions.
+- Added capped viewport-density scaling so the turn HUD remains readable at the
+  live 2860x1734 Steam window without double-scaling weapon cards or overlapping
+  the battlefield and command regions.
+- Reclaimed projectile trails, bullets, and blood sprites when their authored
+  presentation ends instead of retaining hidden VFX nodes for the rest of the
+  duel.
+- Restored the authored BLOCK tags, coverage, and bleed-through values that the
+  July 20 bulk item rewrite accidentally stripped from both shield resources.
+- Corrected combat portrait anchors so repeated HUD refreshes no longer flood
+  Godot's runtime log with invalid size/anchor warnings.
+- Removed the dead `RevampedHUDAtlas` script left behind after the retired
+  `Asset/UI/revampedHUD` purge.
+- Live Godot 4.7.1 MCP validation observed a 10-frame revolver action, locked
+  resolution through queue drain, a clean three-decision AI turn, and a real
+  hit transitioning from two active projectile nodes to zero after impact.
+- The larger AI behavior overhaul is explicitly deferred; the current pass is
+  presentation, animation, and interface polish only.
+- Marked Central Core campaign implementation paused until the complete
+  categorized asset folder is available.
+
 ### Documentation Sync And Central Core Master Spec
 
 - Authored `READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md` as the active Act 1

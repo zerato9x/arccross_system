@@ -1,13 +1,23 @@
 extends Node
 class_name CombatAIEvaluator
 
+const TURN_BALANCE := preload(
+	"res://CombatCore/TurnBased/TurnBasedCombatBalance.gd"
+)
+const MAX_ACTIONS_PER_TURN := 6
+const DECISION_PAUSE_SECONDS := 0.08
+
 @export var ai_core: HumanoidCore
 @export var lane_manager: CombatLaneManager
 @export var turn_manager: CombatTurnManager
 @export var resolution_engine: CombatResolutionEngine
 
 var target_core: HumanoidCore
+var presentation_gate: Node
 var _forward_direction: int = -1
+var _decision_in_progress := false
+var _turn_generation := 0
+var _actions_this_turn := 0
 
 func _ready() -> void:
 	# Wake the AI up when the clock says it's their turn
@@ -20,6 +30,8 @@ func _ready() -> void:
 func _on_turn_started(entity: HumanoidCore) -> void:
 	if entity != ai_core:
 		return # Not my turn. Back to sleep.
+	_turn_generation += 1
+	_actions_this_turn = 0
 		
 	# Find the player (Prototype logic: just grab the other guy in the array)
 	for combatant in turn_manager.combatants:
@@ -36,43 +48,87 @@ func _on_turn_started(entity: HumanoidCore) -> void:
 		if ai_core.is_fleeing:
 			print("[AI] ", ai_core.name, " decided this fight isn't worth dying for.")
 	
-	_process_action_loop()
+	call_deferred("_process_action_loop", _turn_generation)
 
 # ---------------------------------------------------------
 # THE COGNITIVE LOOP (Active Turn)
 # ---------------------------------------------------------
 
-func _process_action_loop() -> void:
-	# The AI keeps thinking and acting until it runs out of AP or ends its turn
-	if ai_core.is_dead or turn_manager.current_ap_pool <= 0:
+func _process_action_loop(generation: int = -1) -> void:
+	if generation < 0:
+		generation = _turn_generation
+	if _decision_in_progress or generation != _turn_generation:
 		return
-		
-	if turn_manager.get_active_entity() != ai_core:
-		return
-		
-	if turn_manager._reaction_pending:
-		return # Wait for reaction window to close
-		
-	var best_action: int = _evaluate_tactics()
-	
-	if best_action == -1:
-		turn_manager.pass_turn(ai_core)
-		return
-		
-	var initial_ap = turn_manager.current_ap_pool
-		
-	# Attempt to execute the highest scoring idea
-	_execute_action(best_action)
-	
-	if initial_ap == turn_manager.current_ap_pool and not turn_manager._reaction_pending:
-		print("[AI] Failsafe: Action ", best_action, " failed to consume AP. Passing turn.")
-		turn_manager.pass_turn(ai_core)
-	else:
-		if turn_manager.current_ap_pool > 0 and not turn_manager._reaction_pending and turn_manager.get_active_entity() == ai_core:
-			await get_tree().create_timer(1.2).timeout
-			# Double check state hasn't changed during the wait
-			if turn_manager.current_ap_pool > 0 and not turn_manager._reaction_pending and turn_manager.get_active_entity() == ai_core:
-				_process_action_loop()
+	_decision_in_progress = true
+
+	while _can_continue_turn(generation):
+		if _actions_this_turn >= MAX_ACTIONS_PER_TURN:
+			print("[AI] Action budget reached; reserving the remaining AP.")
+			turn_manager.pass_turn(ai_core)
+			break
+		if _should_guard_remaining_ap():
+			print("[AI] ", ai_core.name, " guards AP for a reaction.")
+			turn_manager.pass_turn(ai_core)
+			break
+
+		var best_action := _evaluate_tactics()
+		if best_action == -1:
+			turn_manager.pass_turn(ai_core)
+			break
+
+		var initial_ap := turn_manager.current_ap_pool
+		var succeeded := await _execute_action(best_action)
+		_actions_this_turn += 1
+		if (
+			not succeeded
+			or (
+				initial_ap == turn_manager.current_ap_pool
+				and not turn_manager._reaction_pending
+			)
+		):
+			print(
+				"[AI] Failsafe: Action ",
+				best_action,
+				" did not complete cleanly. Passing turn."
+			)
+			turn_manager.pass_turn(ai_core)
+			break
+		if not _can_continue_turn(generation):
+			break
+		await get_tree().create_timer(
+			maxf(DECISION_PAUSE_SECONDS, TURN_BALANCE.recovery(best_action))
+		).timeout
+
+	_decision_in_progress = false
+
+
+func _can_continue_turn(generation: int) -> bool:
+	return (
+		generation == _turn_generation
+		and ai_core != null
+		and not ai_core.is_dead
+		and turn_manager != null
+		and turn_manager.get_active_entity() == ai_core
+		and turn_manager.current_ap_pool > 0
+		and not turn_manager._reaction_pending
+	)
+
+
+func _should_guard_remaining_ap() -> bool:
+	if ai_core.is_fleeing or _is_in_survival_crisis():
+		return false
+	if target_core == null or target_core.is_dead:
+		return true
+	var reserve := turn_manager.get_action_cost(
+		ai_core,
+		GameEnums.ActionType.DODGE
+	)
+	if _is_self_locked():
+		reserve = mini(
+			reserve,
+			turn_manager.get_action_cost(ai_core, GameEnums.ActionType.BLOCK)
+		)
+	return _actions_this_turn > 0 and turn_manager.current_ap_pool <= reserve
 
 func _evaluate_tactics() -> int:
 	if ai_core.current_stance == GameEnums.StanceState.FELLED:
@@ -200,7 +256,18 @@ func _score_aimed_shot() -> float:
 	if not weapon.is_ready_to_fire() or distance > weapon.effective_range:
 		return 0.0
 	if my_idx == target_idx: return 0.1
-	return 0.9 - (distance * 0.015)
+	var head_ratio: float = (
+		target_core.body.limb_hp[GameEnums.LimbRegion.HEAD]
+		/ maxf(
+			0.01,
+			target_core.body.get_limb_max(GameEnums.LimbRegion.HEAD)
+		)
+	)
+	if head_ratio <= 0.45 or target_core.current_stance != GameEnums.StanceState.PLANTED:
+		return 1.05 - (distance * 0.015)
+	# Routine fire is the default. Aimed shots are deliberate finishers, not the
+	# universal answer simply because their old score happened to be 0.1 higher.
+	return 0.68 - (distance * 0.01)
 
 func _score_reload() -> float:
 	if turn_manager.current_ap_pool < turn_manager.get_action_cost(ai_core, GameEnums.ActionType.RELOAD): return 0.0
@@ -367,7 +434,7 @@ func _score_take_cover() -> float:
 # EXECUTION ROUTER (Active Turn)
 # ---------------------------------------------------------
 
-func _execute_action(action: int) -> void:
+func _execute_action(action: int) -> bool:
 	var action_label: String = (
 		GameEnums.ActionType.keys()[action]
 		if action >= 0 and action < GameEnums.ActionType.keys().size()
@@ -377,36 +444,46 @@ func _execute_action(action: int) -> void:
 		"[Combat] ", ai_core.name, " executes ", action_label,
 		" (AP left ", turn_manager.current_ap_pool, ")."
 	)
+	if not turn_manager.begin_action_resolution(ai_core):
+		return false
+	var succeeded := false
 	match action:
 		GameEnums.ActionType.GET_UP:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.GET_UP):
-				resolution_engine.execute_get_up(ai_core)
+				succeeded = resolution_engine.execute_get_up(ai_core)
 
 		GameEnums.ActionType.STRIKE:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.STRIKE):
-				resolution_engine.execute_melee_strike(ai_core, target_core)
+				await resolution_engine.execute_melee_strike(ai_core, target_core)
+				succeeded = true
 
 		GameEnums.ActionType.SHOOT:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.SHOOT):
 				var target_idx = _get_lane_idx(target_core)
-				resolution_engine.execute_ranged_strike(ai_core, target_idx)
+				await resolution_engine.execute_ranged_strike(ai_core, target_idx)
+				succeeded = true
 				
 		GameEnums.ActionType.AIMED_SHOT:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.AIMED_SHOT):
 				var target_idx = _get_lane_idx(target_core)
-				resolution_engine.execute_aimed_shot(ai_core, target_idx, GameEnums.LimbRegion.HEAD)
+				await resolution_engine.execute_aimed_shot(
+					ai_core,
+					target_idx,
+					GameEnums.LimbRegion.HEAD
+				)
+				succeeded = true
 				
 		GameEnums.ActionType.RELOAD:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.RELOAD):
-				resolution_engine.execute_reload(ai_core)
+				succeeded = resolution_engine.execute_reload(ai_core)
 				
 		GameEnums.ActionType.CYCLE:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.CYCLE):
-				resolution_engine.execute_cycle(ai_core)
+				succeeded = resolution_engine.execute_cycle(ai_core)
 
 		GameEnums.ActionType.CLEAR_MALFUNCTION:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.CLEAR_MALFUNCTION):
-				resolution_engine.execute_clear_malfunction(ai_core)
+				succeeded = resolution_engine.execute_clear_malfunction(ai_core)
 
 		GameEnums.ActionType.MOVE_FORWARD:
 			var my_idx = _get_lane_idx(ai_core)
@@ -419,6 +496,7 @@ func _execute_action(action: int) -> void:
 			):
 				if lane_manager.move_entity(ai_core, my_idx, my_idx + forward_dir):
 					resolution_engine.check_hazard_trip(ai_core, lane_manager.lane_slots[my_idx + forward_dir], false)
+					succeeded = true
 
 		GameEnums.ActionType.CHARGE:
 			var my_idx = _get_lane_idx(ai_core)
@@ -430,6 +508,7 @@ func _execute_action(action: int) -> void:
 			if lane_manager.can_move_entity_to(ai_core, my_idx, destination) and turn_manager.request_action(ai_core, GameEnums.ActionType.CHARGE):
 				if lane_manager.move_entity(ai_core, my_idx, destination, true):
 					resolution_engine.check_hazard_trip(ai_core, lane_manager.lane_slots[destination], true)
+					succeeded = true
 
 		GameEnums.ActionType.MOVE_BACKWARD:
 			var my_idx = _get_lane_idx(ai_core)
@@ -439,26 +518,27 @@ func _execute_action(action: int) -> void:
 					print(ai_core.name, " hunkers down in the Escape Zone! (Must survive 1 turn to flee)")
 					ai_core.is_escaping = true
 					turn_manager.pass_turn(ai_core)
-					return
+					succeeded = true
 			var forward_dir = _direction_toward_target()
 			
-			if _is_self_locked():
-				return
-			else:
+			if not succeeded and not _is_self_locked():
 				if lane_manager.can_move_entity_to(ai_core, my_idx, my_idx - forward_dir) and turn_manager.request_action(ai_core, GameEnums.ActionType.MOVE_BACKWARD):
 					if lane_manager.move_entity(ai_core, my_idx, my_idx - forward_dir):
 						resolution_engine.check_hazard_trip(ai_core, lane_manager.lane_slots[my_idx - forward_dir], false)
+						succeeded = true
 
 		GameEnums.ActionType.GRAPPLE:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.GRAPPLE):
-				resolution_engine.execute_grapple(ai_core, target_core)
+				succeeded = resolution_engine.execute_grapple(ai_core, target_core)
 
 		GameEnums.ActionType.BREAK:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.BREAK):
 				resolution_engine.execute_break(ai_core, target_core)
+				succeeded = true
 
 		GameEnums.ActionType.PUSH_STAY:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.PUSH_STAY):
+				succeeded = true
 				if resolution_engine.execute_leverage_check(ai_core, target_core, true):
 					lane_manager.resolve_displacement(
 						ai_core,
@@ -470,6 +550,7 @@ func _execute_action(action: int) -> void:
 
 		GameEnums.ActionType.PULL_FOLLOW:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.PULL_FOLLOW):
+				succeeded = true
 				if resolution_engine.execute_leverage_check(ai_core, target_core, false):
 					lane_manager.resolve_displacement(
 						ai_core,
@@ -482,6 +563,20 @@ func _execute_action(action: int) -> void:
 		GameEnums.ActionType.TAKE_COVER:
 			if turn_manager.request_action(ai_core, GameEnums.ActionType.TAKE_COVER):
 				resolution_engine.execute_take_cover(ai_core)
+				succeeded = true
+
+	await _wait_for_presentation_gate()
+	turn_manager.end_action_resolution(ai_core)
+	return succeeded
+
+
+func _wait_for_presentation_gate() -> void:
+	if (
+		presentation_gate != null
+		and is_instance_valid(presentation_gate)
+		and presentation_gate.has_method("wait_for_presentation_idle")
+	):
+		await presentation_gate.wait_for_presentation_idle()
 
 
 # ---------------------------------------------------------
@@ -489,12 +584,12 @@ func _execute_action(action: int) -> void:
 # ---------------------------------------------------------
 
 func _on_reaction_resolved(defender: HumanoidCore, chosen_reaction: int, success: bool) -> void:
-	if turn_manager.get_active_entity() == ai_core:
-		call_deferred("_process_action_loop")
+	if turn_manager.get_active_entity() == ai_core and not _decision_in_progress:
+		call_deferred("_process_action_loop", _turn_generation)
 
 func _on_displacement_choice_resolved(initiator: HumanoidCore, chose_follow: bool) -> void:
-	if turn_manager.get_active_entity() == ai_core:
-		call_deferred("_process_action_loop")
+	if turn_manager.get_active_entity() == ai_core and not _decision_in_progress:
+		call_deferred("_process_action_loop", _turn_generation)
 
 func _on_reaction_window_opened(defender: HumanoidCore, attacker: HumanoidCore, trigger_action: GameEnums.ActionType, available_reactions: Array) -> void:
 	if defender != ai_core:

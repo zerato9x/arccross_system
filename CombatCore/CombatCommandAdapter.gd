@@ -1,6 +1,10 @@
 extends Node
 class_name CombatCommandAdapter
 
+const TURN_BALANCE := preload(
+	"res://CombatCore/TurnBased/TurnBasedCombatBalance.gd"
+)
+
 signal snapshot_changed(snapshot: Dictionary)
 signal reaction_requested(prompt: Dictionary)
 signal command_feedback(message: String)
@@ -11,6 +15,7 @@ var enemy_core: HumanoidCore
 var lane_manager: CombatLaneManager
 var turn_manager: CombatTurnManager
 var resolution_engine: CombatResolutionEngine
+var presentation_gate: Node
 
 var _action_in_progress: bool = false
 var _available_reactions: Array = []
@@ -100,6 +105,10 @@ func configure(
 		):
 			inventory.equipment_changed.connect(_on_equipment_changed)
 
+
+func set_presentation_gate(gate: Node) -> void:
+	presentation_gate = gate
+
 func refresh_snapshot() -> void:
 	if not player_core or not enemy_core or not turn_manager or not lane_manager:
 		return
@@ -155,12 +164,19 @@ func request_player_action(
 		return
 
 	_action_in_progress = true
+	if not turn_manager.begin_action_resolution(player_core):
+		_action_in_progress = false
+		command_feedback.emit("The previous action is still resolving.")
+		refresh_snapshot()
+		return
 	refresh_snapshot()
 	var succeeded := await _execute_player_action(
 		action,
 		target_limb,
 		item_instance_id
 	)
+	await _wait_for_presentation_gate()
+	turn_manager.end_action_resolution(player_core)
 	_action_in_progress = false
 	if not succeeded:
 		command_feedback.emit("The action could not be completed.")
@@ -333,7 +349,6 @@ func _execute_player_action(
 		GameEnums.ActionType.PUSH_STAY:
 			if not turn_manager.request_action(player_core, action):
 				return false
-			_emit_presentation_action(player_core, action)
 			if resolution_engine.execute_leverage_check(
 				player_core,
 				enemy_core,
@@ -350,7 +365,6 @@ func _execute_player_action(
 		GameEnums.ActionType.PULL_FOLLOW:
 			if not turn_manager.request_action(player_core, action):
 				return false
-			_emit_presentation_action(player_core, action)
 			if resolution_engine.execute_leverage_check(
 				player_core,
 				enemy_core,
@@ -918,8 +932,21 @@ func _emit_presentation_action(
 		"type": "action",
 		"action": action,
 	}
+	var timing := TURN_BALANCE.presentation_profile(action)
+	presentation["presentation_duration"] = float(timing.duration)
+	presentation["cue_fraction"] = float(timing.cue_fraction)
+	presentation["recovery_seconds"] = float(timing.recovery)
 	_add_weapon_audio_fields(presentation, entity, action)
 	presentation_event.emit(presentation)
+
+
+func _wait_for_presentation_gate() -> void:
+	if (
+		presentation_gate != null
+		and is_instance_valid(presentation_gate)
+		and presentation_gate.has_method("wait_for_presentation_idle")
+	):
+		await presentation_gate.wait_for_presentation_idle()
 
 func _add_weapon_audio_fields(
 	presentation: Dictionary,

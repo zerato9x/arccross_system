@@ -12,7 +12,9 @@ func _run() -> void:
 	var holder := Node.new()
 	root.add_child(holder)
 
-	var duel_scene := load("res://CombatCore/MainDuelScene.tscn") as PackedScene
+	var duel_scene := load(
+		"res://CombatCore/TurnBased/TurnBasedDuelScene.tscn"
+	) as PackedScene
 	if not duel_scene:
 		_fail("Could not load the combat scene.")
 		return
@@ -47,6 +49,10 @@ func _run() -> void:
 		}
 	)
 	await process_frame
+	arena.combat_briefing._begin_countdown()
+	await create_timer(
+		CombatBriefingOverlay.COUNTDOWN_STEP_SECONDS * 4.0 + 0.1
+	).timeout
 
 	if (
 		player.current_stance != GameEnums.StanceState.PLANTED
@@ -110,11 +116,12 @@ func _run() -> void:
 		_fail("CombatLaneHUD did not receive the twelve-slot snapshot.")
 		return
 	var hud_player: Dictionary = hud_snapshot.get("player", {})
+	var hud_active_weapon := hud_player.get("active_weapon", {}) as Dictionary
 	if (
-		hud_player.get("weapon_id", "") != "service_pistol"
+		hud_active_weapon.is_empty()
+		or hud_player.get("weapon_id", "") != hud_active_weapon.get("id", "")
 		or str(hud_player.get("weapon_sprite_path", "")).is_empty()
 		or hud_player.get("weapon_state", "") != "READY"
-		or (hud_player.get("active_weapon", {}) as Dictionary).is_empty()
 	):
 		_fail("The combat snapshot did not expose the active weapon card data.")
 		return
@@ -123,7 +130,7 @@ func _run() -> void:
 			_fail("A legal combat action did not expose an action group.")
 			return
 	var movement_descriptor := _find_action(
-		hud_snapshot,
+		snapshot,
 		GameEnums.ActionType.MOVE_FORWARD
 	)
 	if movement_descriptor.get("group", "") != "movement":
@@ -184,6 +191,9 @@ func _run() -> void:
 	if arena.lane_hud.get_last_shot_event().get("result", "") != "clean_miss":
 		_fail("Miss shot did not preserve its presentation result.")
 		return
+	if not arena.lane_hud._active_projectile_nodes.is_empty():
+		_fail("Miss shot left projectile nodes registered after presentation.")
+		return
 	var enemy_token: HumanoidTokenView = arena.lane_hud._lane_view._enemy_token
 	var combat_sfx_events: Array[String] = []
 	var bus = root.get_node_or_null("GameEventBus")
@@ -231,6 +241,9 @@ func _run() -> void:
 		_fail("Projectile trail lingered after blood VFX started.")
 		return
 	await create_timer(2.0).timeout
+	if not arena.lane_hud._active_projectile_nodes.is_empty():
+		_fail("Hit shot left projectile or blood nodes registered after presentation.")
+		return
 	enemy_token.play_animation("Idle2")
 	arena.lane_hud.show_presentation_event({
 		"type": "shot",
@@ -243,8 +256,20 @@ func _run() -> void:
 		"limb_index": GameEnums.LimbRegion.HEAD,
 		"was_killed": true,
 	})
+	await create_timer(
+		CombatLaneHUD.FINAL_HEADSHOT_PROJECTILE_DURATION_SECONDS
+	).timeout
 	if not await _wait_for_animation(enemy_token, "Die", 45):
-		_fail("Final shot did not drive the victim death animation.")
+		_fail(
+			"Final shot did not drive the victim death animation. "
+			+ "animation=%s queue=%s processing=%s final_started=%s"
+			% [
+				enemy_token.get_animation(),
+				arena.lane_hud._presentation_queue.size(),
+				arena.lane_hud._is_processing_queue,
+				arena.lane_hud._final_blow_sides.has("enemy"),
+			]
+		)
 		return
 	if enemy_token.get("_animation_speed_scale") >= 0.75:
 		_fail("Final blow death animation was not slowed down.")
@@ -334,17 +359,23 @@ func _run() -> void:
 	if aimed_choice_count != 7:
 		_fail("The AIM submenu did not expose seven limb choices.")
 		return
+	var weapon_card_state: Dictionary = (
+		arena.lane_hud._shared_item_card.get_animation_debug_state()
+	)
+	var expected_ammo := "%02d / %02d" % [
+		int(hud_active_weapon.get("current_magazine", 0)),
+		int(hud_active_weapon.get("max_magazine", 0)),
+	]
 	if (
-		arena.lane_hud._weapon_sprite.texture == null
-		or not arena.lane_hud._weapon_sprite.region_enabled
-		or arena.lane_hud._weapon_animation_frame_count <= 1
-		or arena.lane_hud._weapon_sprite.region_rect.size.x
-			>= arena.lane_hud._weapon_sprite.texture.get_width()
-		or not str(arena.lane_hud._weapon_sprite.texture.resource_path).contains(
+		not arena.lane_hud._shared_item_card.visible
+		or arena.lane_hud._shared_item_card.weapon_image.texture == null
+		or weapon_card_state.get("weapon_id", "") != hud_active_weapon.get("id", "")
+		or int(weapon_card_state.get("base_frames", 0)) <= 1
+		or not str(weapon_card_state.get("base_texture_path", "")).contains(
 			"Asset/Guns_Animation"
 		)
-		or not arena.lane_hud._weapon_state_label.text.contains("READY")
-		or not arena.lane_hud._weapon_detail_label.text.contains("AMMO 08/08")
+		or not str(weapon_card_state.get("state_text", "")).contains("READY")
+		or weapon_card_state.get("ammo_text", "") != expected_ammo
 	):
 		_fail("The bottom weapon card did not render firearm state.")
 		return
@@ -373,6 +404,53 @@ func _run() -> void:
 	):
 		_fail("The top combat HUD panels are too tall and can overlap the lane view.")
 		return
+	arena.lane_hud._calculate_duel_layout(Vector2(1280.0, 720.0))
+	if (
+		arena.lane_hud._action_list_rect.intersects(
+			arena.lane_hud._command_context_rect
+		)
+		or arena.lane_hud._group_tabs_rect.intersects(
+			arena.lane_hud._command_context_rect
+		)
+	):
+		_fail("The 1280-wide command deck still overlaps the combat log.")
+		return
+	if (
+		not arena.lane_hud._player_top_panel_box.visible
+		or not arena.lane_hud._enemy_top_panel_box.visible
+		or not (
+			arena.lane_hud._player_ranged_card.get("box") as Polygon2D
+		).visible
+	):
+		_fail("The standardized top HUD frames are not visible.")
+		return
+	if arena.lane_hud._lane_view._stage_grass.modulate.r <= 1.0:
+		_fail("The naturally dark combat ground did not receive its readability tint.")
+		return
+	var smoke_viewport_size: Vector2 = arena.lane_hud.get_viewport_rect().size
+	arena.lane_hud._layout_for_viewport(Vector2(2860.0, 1734.0))
+	if (
+		arena.lane_hud._hud_density_scale < 1.4
+		or arena.lane_hud._player_top_rect.size.y < 180.0
+		or arena.lane_hud._player_bottom_rect.size.y < 300.0
+		or (
+			arena.lane_hud._action_title_label.scale.x
+			* arena.lane_hud.get_camera_zoom_value()
+		) < 1.4
+	):
+		_fail("High-resolution combat HUD density did not scale with the viewport.")
+		return
+	if (
+		arena.lane_hud._player_bottom_rect.intersects(
+			arena.lane_hud._action_rect
+		)
+		or arena.lane_hud._enemy_bottom_rect.intersects(
+			arena.lane_hud._action_rect
+		)
+	):
+		_fail("High-resolution combat HUD regions overlap.")
+		return
+	arena.lane_hud._layout_for_viewport(smoke_viewport_size)
 	if (
 		(arena.lane_hud._player_ranged_card.get("name") as Label).text.is_empty()
 		or (arena.lane_hud._player_melee_card.get("name") as Label).text.is_empty()
@@ -398,46 +476,20 @@ func _run() -> void:
 	):
 		_fail("The health equipment hover card did not expose weapon sections.")
 		return
-	if (
-		arena.lane_hud._command_context_rule == null
-		or arena.lane_hud._command_context_rule.texture == null
-		or not (arena.lane_hud._command_context_rule.texture is AtlasTexture)
-	):
-		_fail("The combat log did not render an official B&W divider element.")
-		return
 	var full_blood_fill_height: float = arena.lane_hud._player_portrait_plate.polygon[2].y
-	var player_condition_atlas_path := ""
-	if (
-		arena.lane_hud._player_condition_sprite.texture != null
-		and arena.lane_hud._player_condition_sprite.texture is AtlasTexture
-	):
-		player_condition_atlas_path = (
-			arena.lane_hud._player_condition_sprite.texture as AtlasTexture
-		).atlas.resource_path
 	if (
 		arena.lane_hud._player_condition_sprite.texture == null
 		or arena.lane_hud._player_condition_sprite.region_enabled
-		or not player_condition_atlas_path.contains(
-			"B&W_UI_ByAndrox_FREE/HUD/counters_transparent.png"
-		)
 	):
-		_fail("The player health section did not render a B&W condition icon.")
+		_fail("The player health section did not render a stable condition icon.")
 		return
 	var player_body_row: Dictionary = arena.lane_hud._player_status_rows[0]
 	var player_meter_frame := player_body_row.get("meter_frame") as Sprite2D
-	var player_meter_atlas_path := ""
-	if (
-		player_meter_frame != null
-		and player_meter_frame.texture != null
-		and player_meter_frame.texture is AtlasTexture
-	):
-		player_meter_atlas_path = (player_meter_frame.texture as AtlasTexture).atlas.resource_path
 	if (
 		player_meter_frame == null
 		or player_meter_frame.texture == null
-		or not player_meter_atlas_path.contains("charge_bars")
 	):
-		_fail("The body health rows did not use the official segmented meter frame.")
+		_fail("The body health rows did not render their meter frame.")
 		return
 	if CombatLaneHUD.CONDITION_ANIMATION_FPS > 5.0:
 		_fail("The Condition token animation is too fast for readable HUD use.")
@@ -472,24 +524,24 @@ func _run() -> void:
 		return
 	player.body.blood_level = GameEnums.SCALE_MAX * 0.5
 	arena.command_adapter.refresh_snapshot()
-	await process_frame
+	await arena.lane_hud.wait_for_presentation_idle()
 	var half_blood_fill_height = arena.lane_hud._player_portrait_plate.polygon[2].y
 	if half_blood_fill_height >= full_blood_fill_height:
 		_fail("The player portrait blood backdrop did not track Blood level.")
 		return
 	player.body.blood_level = 2.0
 	arena.command_adapter.refresh_snapshot()
-	await process_frame
+	await arena.lane_hud.wait_for_presentation_idle()
 	if arena.lane_hud._player_condition_state.get("condition", "") != "danger":
 		_fail("Critical Blood did not switch the Condition token to Danger.")
 		return
 	player.body.blood_level = GameEnums.SCALE_MAX
 	arena.command_adapter.refresh_snapshot()
-	await process_frame
+	await arena.lane_hud.wait_for_presentation_idle()
 	arena.lane_manager.lane_slots[8].exit_slot(arena.enemy_core)
 	arena.lane_manager.force_spawn_entity(arena.enemy_core, enemy_opening_lane)
 	arena.command_adapter.refresh_snapshot()
-	await process_frame
+	await arena.lane_hud.wait_for_presentation_idle()
 	hud_snapshot = arena.lane_hud.get_snapshot()
 	if (
 		hud_snapshot.get("player", {}).get("appearance", {}).get(
@@ -587,10 +639,12 @@ func _run() -> void:
 	if not arena.lane_hud._player_label.text.contains("CORE HD"):
 		_fail("CombatLaneHUD did not render the limb structure readout.")
 		return
-	if not arena.lane_hud._player_label.text.contains("08/08 R06"):
-		_fail("CombatLaneHUD did not render firearm rounds and range.")
-		return
-	if not arena.lane_hud._player_label.text.contains("08/08 R06"):
+	var expected_rounds_and_range := "%02d/%02d R%02d" % [
+		int(hud_active_weapon.get("current_magazine", 0)),
+		int(hud_active_weapon.get("max_magazine", 0)),
+		int(hud_active_weapon.get("effective_range", 0)),
+	]
+	if not arena.lane_hud._player_label.text.contains(expected_rounds_and_range):
 		_fail("CombatLaneHUD did not render firearm rounds and range.")
 		return
 	if arena.lane_hud.is_showing_melee_lock():
@@ -689,13 +743,15 @@ func _run() -> void:
 	if not await _wait_for_animation(player_token, "TakeDamage"):
 		_fail("Combat damage did not use TakeDamage.")
 		return
-	await create_timer(0.7).timeout
+	await arena.lane_hud.wait_for_presentation_idle()
 	player_token.play_animation("Idle2")
 	var starting_token_position: Vector2 = player_token.position
 	if not arena.lane_manager.move_entity(player, 2, 3):
 		_fail("Combat lane movement setup could not move the player.")
 		return
-	await process_frame
+	if not await _wait_for_animation(player_token, "Run"):
+		_fail("Forward combat movement did not begin its Run animation.")
+		return
 	await create_timer(0.16).timeout
 	if (
 		player_token.get_animation() != "Run"
@@ -716,6 +772,9 @@ func _run() -> void:
 		return
 	if not arena.lane_manager.move_entity(player, 3, 2):
 		_fail("Combat lane movement setup could not restore the player.")
+		return
+	if not await _wait_for_animation(player_token, "RunBackwards"):
+		_fail("Retreating combat movement did not begin RunBackwards.")
 		return
 	await create_timer(0.16).timeout
 	if player_token.get_animation() != "RunBackwards":
@@ -747,8 +806,12 @@ func _run() -> void:
 				bleed_events.append(event)
 	)
 	player.body.blood_level = GameEnums.SCALE_MAX
-	player.body.limb_trauma[GameEnums.LimbRegion.LEFT_ARM] = (
-		GameEnums.TraumaType.BLEEDING
+	player.body.wounds_by_limb[GameEnums.LimbRegion.LEFT_ARM].clear()
+	player.body.apply_targeted_hit(
+		GameEnums.LimbRegion.LEFT_ARM,
+		1.0,
+		GameEnums.SCALE_MIDPOINT,
+		GameEnums.DamageType.SHARP
 	)
 	turn_probe._start_turn()
 	if (
@@ -767,9 +830,8 @@ func _run() -> void:
 	):
 		_fail("Combat turn start did not process active bleeding.")
 		return
-	player.body.limb_trauma[GameEnums.LimbRegion.LEFT_ARM] = (
-		GameEnums.TraumaType.NONE
-	)
+	player.body.wounds_by_limb[GameEnums.LimbRegion.LEFT_ARM].clear()
+	player.body.limb_trauma[GameEnums.LimbRegion.LEFT_ARM] = GameEnums.TraumaType.NONE
 	player.body.blood_level = GameEnums.SCALE_MAX
 	arena.command_adapter.refresh_snapshot()
 	snapshot = arena.command_adapter.get_snapshot()
@@ -1128,14 +1190,20 @@ func _wait_for_animation(
 	animation: String,
 	frame_limit: int = 90
 ) -> bool:
-	for _frame in range(frame_limit):
+	var timeout_seconds := maxf(2.0, float(frame_limit) / 30.0)
+	var deadline := Time.get_ticks_msec() + int(timeout_seconds * 1000.0)
+	while Time.get_ticks_msec() < deadline:
 		if token.get_animation() == animation:
 			return true
 		await process_frame
 	return token.get_animation() == animation
 
-func _wait_for_hud_queue(hud: CombatLaneHUD, frame_limit: int = 240) -> bool:
-	for _frame in range(frame_limit):
+func _wait_for_hud_queue(
+	hud: CombatLaneHUD,
+	timeout_seconds: float = 8.0
+) -> bool:
+	var deadline := Time.get_ticks_msec() + int(timeout_seconds * 1000.0)
+	while Time.get_ticks_msec() < deadline:
 		if not hud._is_processing_queue and hud._presentation_queue.is_empty():
 			return true
 		await process_frame

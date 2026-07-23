@@ -1,7 +1,45 @@
-# ARCCROSS Real-Time Duel UI Specification
+# ARCCROSS Combat UI Specification
 
-The combat UI projects `RealtimeDuelRuntime` snapshots and emits `DuelIntent`.
-It does not calculate AP, legality, hit timing, defense, targets, or outcomes.
+Turn-based is the official/default interface; real-time is optional in Settings.
+Both UIs project owner-produced state and emit intent. Neither calculates AP,
+legality, hit timing, defense, targets, or outcomes.
+
+## Official turn-based interface
+
+- `CombatLaneHUD` projects `CombatCommandAdapter` snapshots and emits typed
+  turn commands.
+- The grouped command deck, reaction prompt, twelve-slot lane, Paper Dolls,
+  wounds, Blood, Stance, AP, weapon readiness, ammunition, and combat log remain
+  visible.
+- An accepted action holds the turn transaction until its complete presentation
+  queue drains.
+- `TurnBasedCombatBalance` supplies action duration and cue fraction. Actor
+  windup and weapon-card sheet playback use that profile; projectile or melee
+  impact presentation begins at the cue.
+- Firearm card playback must traverse the full source sheet over the authored
+  duration. A static first frame pretending to be animation fails acceptance.
+- Firearm atlas rows and columns use integer frame coordinates; fractional
+  texture regions fail acceptance.
+- Top status and weapon summaries use visible panel/card frames rather than
+  unsupported text floating over the battlefield.
+- At 1280-wide and narrower layouts, the combat log leaves the bottom command
+  deck so two action columns remain unobstructed.
+- Above the 1920x1080 reference, authored HUD content and spacing scale with the
+  viewport up to `1.45x`; logical weapon-card coordinates must not be scaled
+  twice.
+- Combat colors, borders, labels, buttons, item cards, and condition bars use
+  `HUDAssetLibrary` semantic roles. Mode-specific layout does not justify a
+  second unrelated palette.
+- Projectile, trail, and blood presentation nodes must be removed from both the
+  scene and the active VFX registry when their animation completes.
+- Stage readability is corrected locally at the battlefield texture. Global
+  post-processing and briefing shades must not be used to compensate for a
+  dark source plate.
+
+## Optional real-time interface
+
+`RealtimeDuelHUD` projects `RealtimeDuelRuntime` snapshots and emits
+`DuelIntent`.
 
 ## Always Visible
 

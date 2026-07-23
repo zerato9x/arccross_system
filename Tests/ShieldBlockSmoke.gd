@@ -4,7 +4,9 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	var duel_scene := load("res://CombatCore/MainDuelScene.tscn") as PackedScene
+	var duel_scene := load(
+		"res://CombatCore/TurnBased/TurnBasedDuelScene.tscn"
+	) as PackedScene
 	if duel_scene == null:
 		_fail("Could not load the duel scene.")
 		return

@@ -111,6 +111,13 @@ var is_halted: bool = false
 ## Prevents double-deferrals of _end_turn if an action hits 0 AP and triggers a pass simultaneously.
 var _is_turn_ending: bool = false
 
+## Actions are transactions: AP may be committed immediately, but the active
+## turn cannot advance until resolution and its presentation have completed.
+var _action_resolution_depth: int = 0
+var _end_turn_requested: bool = false
+var _action_resolution_owner: HumanoidCore
+var _action_request_committed: bool = false
+
 # Lane reference for ActionGroup validation
 var lane_manager: CombatLaneManager
 
@@ -120,6 +127,10 @@ var lane_manager: CombatLaneManager
 
 func initialize_duel(combatant_array: Array[HumanoidCore], initiator: HumanoidCore = null) -> void:
 	combatants = combatant_array.duplicate()
+	_action_resolution_depth = 0
+	_end_turn_requested = false
+	_action_resolution_owner = null
+	_action_request_committed = false
 	if initiator and combatants.has(initiator):
 		combatants.erase(initiator)
 		combatants.push_front(initiator)
@@ -156,6 +167,7 @@ func _start_turn() -> void:
 	if is_halted: return
 	
 	_is_turn_ending = false
+	_end_turn_requested = false
 	
 	if combatants.size() == 0: return
 	
@@ -217,6 +229,15 @@ func _start_turn() -> void:
 
 ## The overarching Game Loop must call this BEFORE executing any physical logic
 func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
+	if (
+		_action_resolution_depth > 0
+		and (
+			entity != _action_resolution_owner
+			or _action_request_committed
+		)
+	):
+		print("DENIED: Another action transaction is already resolving.")
+		return false
 	if _reaction_pending:
 		print("DENIED: A reaction window is active. Resolve it first.")
 		return false
@@ -301,6 +322,8 @@ func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
 		
 	# Transaction Approved
 	current_ap_pool -= ap_cost
+	if _action_resolution_depth > 0:
+		_action_request_committed = true
 	print("APPROVED: ", entity.name, " performed [", action, "]. Remaining AP: ", current_ap_pool)
 	ap_spent.emit(entity, current_ap_pool)
 	
@@ -309,6 +332,35 @@ func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
 		_trigger_end_turn()
 		
 	return true
+
+
+func begin_action_resolution(entity: HumanoidCore) -> bool:
+	if entity == null or get_active_entity() != entity:
+		return false
+	if _action_resolution_depth > 0:
+		print("DENIED: The active action has not finished resolving.")
+		return false
+	_action_resolution_depth = 1
+	_action_resolution_owner = entity
+	_action_request_committed = false
+	return true
+
+
+func end_action_resolution(entity: HumanoidCore) -> void:
+	if _action_resolution_depth <= 0:
+		return
+	if entity != null and get_active_entity() != entity and not is_halted:
+		push_warning("Action transaction owner changed before resolution completed.")
+	_action_resolution_depth = 0
+	_action_resolution_owner = null
+	_action_request_committed = false
+	if _end_turn_requested or current_ap_pool <= 0:
+		_end_turn_requested = false
+		_trigger_end_turn()
+
+
+func is_action_resolving() -> bool:
+	return _action_resolution_depth > 0
 
 # ---------------------------------------------------------
 # REACTION WINDOW SYSTEM (Off-Turn Defensive Actions)
@@ -454,11 +506,25 @@ func pass_turn(entity: HumanoidCore) -> void:
 		_trigger_end_turn()
 
 func _trigger_end_turn() -> void:
+	if is_halted:
+		_end_turn_requested = false
+		return
+	if _action_resolution_depth > 0:
+		_end_turn_requested = true
+		return
 	if _is_turn_ending: return
 	_is_turn_ending = true
 	call_deferred("_end_turn")
 
 func _end_turn() -> void:
+	if is_halted:
+		_end_turn_requested = false
+		_is_turn_ending = false
+		return
+	if _action_resolution_depth > 0:
+		_end_turn_requested = true
+		_is_turn_ending = false
+		return
 	if _reaction_pending:
 		_is_turn_ending = false
 		return

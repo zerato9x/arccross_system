@@ -54,9 +54,8 @@ database, stat registry, or rule table.
 
 ### CombatCore
 
-- Owns encounter flow, lanes, the fixed-step real-time duel clock, AI, AP
-  regeneration, fixed action costs, animation timelines, defense timing, and
-  combat resolution.
+- Owns encounter flow, lanes, two independently balanced combat schedulers, AI,
+  AP, action timing, defense windows, and combat resolution.
 - Validates firearm range and readiness before consuming ammunition, combines
   actor and weapon accuracy, and resolves successful shots against one Limb
   Region.
@@ -74,14 +73,18 @@ database, stat registry, or rule table.
 - `RealtimeDuelHUD` owns the permanent impact-marked intent timeline;
   `DuelReadabilityEffects` owns short parry, block, feint, trip, and damage
   popups. Neither resolves defense timing or alters outcomes.
-- The historical turn-based authority is preserved independently under
+- The official/default turn-based authority lives under
   `CombatCore/TurnBased/TurnBasedDuelScene.tscn`, with its own
   `CombatTurnManager`, `CombatResolutionEngine`, `CombatCommandAdapter`, AI,
-  and `CombatLaneHUD`. Production `MainDuelScene` does not run both authorities.
+  `TurnBasedCombatBalance`, and `CombatLaneHUD`. Accepted actions hold a
+  transaction barrier through resolution and queued presentation.
+- `RealtimeDuelRuntime` is the optional Settings authority. Production
+  `MainDuelScene` selects one mode and never runs both authorities.
 - Both combat authorities consume the same ItemCore resolver at firearm attempt,
   melee impact, armor contribution, and shield block. A shared neutral outcome
   controls wear, typed faults, contribution, breakage, and firearm malfunction;
-  mode-specific attack modifiers may be applied only afterward.
+  mode-specific cadence, AI weights, action economy, and attack modifiers are
+  applied only in the owning combat layer.
 - Both HUDs host `UI/Inventory/CombatItemCard.tscn` without independently
   reinterpreting condition, fault chance, ammunition, readiness, or malfunction.
 - `CombatModeComparison.tscn` is a non-persistent laboratory launcher that feeds

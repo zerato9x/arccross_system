@@ -24,10 +24,32 @@ var _effect_frame_size := Vector2i.ONE
 var _animation_elapsed := 0.0
 var _animation_duration := 0.0
 var _visual_signature := ""
+var _current_base_frame := 0
+var _current_effect_frame := 0
 
 func _ready() -> void:
+	HUDAssetLibrary.connect_scheme_changed(_apply_standard_theme)
+	_apply_standard_theme()
 	set_process(false)
 	effect_image.visible = false
+
+func _exit_tree() -> void:
+	HUDAssetLibrary.disconnect_scheme_changed(_apply_standard_theme)
+
+func _apply_standard_theme(_scheme_id: String = "") -> void:
+	HUDAssetLibrary.apply_panel(self, "neutral")
+	HUDAssetLibrary.apply_label(weapon_name, "title")
+	HUDAssetLibrary.apply_label(ammo_label, "warning")
+	HUDAssetLibrary.apply_label(state_label, "info")
+	weapon_name.add_theme_font_size_override("font_size", 17)
+	ammo_label.add_theme_font_size_override("font_size", 22)
+	state_label.add_theme_font_size_override("font_size", 15)
+	if grade_label:
+		HUDAssetLibrary.apply_label(grade_label, "muted")
+	if detail_label:
+		HUDAssetLibrary.apply_label(detail_label, "body")
+	if condition_bar:
+		HUDAssetLibrary.apply_progress_bar(condition_bar, "health")
 
 func show_actor_weapon(actor: Dictionary) -> void:
 	var ranged: Dictionary = actor.get("ranged_weapon", {})
@@ -44,6 +66,12 @@ func show_descriptor(next_weapon: Dictionary, is_ranged_weapon: bool = false) ->
 	_visual_signature = next_signature
 	_weapon = next_weapon
 	if _weapon.is_empty():
+		_animation_duration = 0.0
+		_animation_elapsed = 0.0
+		_base_atlas = null
+		_effect_atlas = null
+		effect_image.visible = false
+		set_process(false)
 		weapon_name.text = "UNARMED"
 		ammo_label.text = ""
 		state_label.text = "READY"
@@ -107,6 +135,45 @@ func play_action(action: int, duration: float) -> void:
 		return
 	_play_effect(effect, maxf(0.4, duration))
 
+
+func play_turn_action(action: int, duration: float) -> void:
+	if _weapon.is_empty() or not GUN_CATALOG.has_weapon(str(_weapon.get("id", ""))):
+		return
+	var effect := ""
+	match action:
+		GameEnums.ActionType.SHOOT:
+			effect = GUN_CATALOG.EFFECT_SHOOT
+		GameEnums.ActionType.AIMED_SHOT:
+			effect = GUN_CATALOG.EFFECT_AIM
+		GameEnums.ActionType.RELOAD, GameEnums.ActionType.CLEAR_MALFUNCTION:
+			effect = GUN_CATALOG.EFFECT_RELOAD
+		GameEnums.ActionType.CYCLE:
+			effect = GUN_CATALOG.EFFECT_CYCLE
+	if not effect.is_empty():
+		_play_effect(effect, maxf(0.4, duration))
+
+
+func get_animation_debug_state() -> Dictionary:
+	return {
+		"weapon_id": str(_weapon.get("id", "")),
+		"playing": _animation_duration > 0.0,
+		"duration": _animation_duration,
+		"elapsed": _animation_elapsed,
+		"base_frames": _frame_count,
+		"effect_frames": _effect_frame_count if _effect_atlas != null else 0,
+		"base_frame": _current_base_frame,
+		"effect_frame": _current_effect_frame if _effect_atlas != null else -1,
+		"base_columns": _base_columns,
+		"effect_columns": _effect_columns if _effect_atlas != null else 0,
+		"base_texture_path": (
+			_base_atlas.atlas.resource_path
+			if _base_atlas != null and _base_atlas.atlas != null
+			else ""
+		),
+		"ammo_text": ammo_label.text if ammo_label != null else "",
+		"state_text": state_label.text if state_label != null else "",
+	}
+
 func _show_static_weapon() -> void:
 	var weapon_id := str(_weapon.get("id", ""))
 	if GUN_CATALOG.has_weapon(weapon_id):
@@ -142,6 +209,9 @@ func _process(delta: float) -> void:
 
 func _configure_base(texture: Texture2D, spec: Dictionary) -> void:
 	if texture == null:
+		_base_atlas = null
+		_frame_count = 1
+		_base_columns = 1
 		weapon_image.texture = null
 		return
 	_frame_size = _frame_size_for(texture, spec)
@@ -156,6 +226,8 @@ func _configure_effect(texture: Texture2D, spec: Dictionary) -> void:
 	if texture == null:
 		effect_image.visible = false
 		_effect_atlas = null
+		_effect_frame_count = 1
+		_effect_columns = 1
 		return
 	_effect_frame_size = _frame_size_for(texture, spec)
 	_effect_columns = maxi(1, int(texture.get_width()) / _effect_frame_size.x)
@@ -175,15 +247,31 @@ func _frame_size_for(texture: Texture2D, spec: Dictionary) -> Vector2i:
 func _apply_base_frame(frame: int) -> void:
 	if _base_atlas == null:
 		return
+	var clamped_frame := clampi(frame, 0, maxi(0, _frame_count - 1))
+	var row := int(floor(float(clamped_frame) / float(_base_columns)))
+	_current_base_frame = clamped_frame
 	_base_atlas.region = Rect2(
-		Vector2((frame % _base_columns) * _frame_size.x, (frame / _base_columns) * _frame_size.y),
+		Vector2(
+			(clamped_frame % _base_columns) * _frame_size.x,
+			row * _frame_size.y
+		),
 		Vector2(_frame_size)
 	)
 
 func _apply_effect_frame(frame: int) -> void:
 	if _effect_atlas == null:
 		return
+	var clamped_frame := clampi(
+		frame,
+		0,
+		maxi(0, _effect_frame_count - 1)
+	)
+	var row := int(floor(float(clamped_frame) / float(_effect_columns)))
+	_current_effect_frame = clamped_frame
 	_effect_atlas.region = Rect2(
-		Vector2((frame % _effect_columns) * _effect_frame_size.x, (frame / _effect_columns) * _effect_frame_size.y),
+		Vector2(
+			(clamped_frame % _effect_columns) * _effect_frame_size.x,
+			row * _effect_frame_size.y
+		),
 		Vector2(_effect_frame_size)
 	)

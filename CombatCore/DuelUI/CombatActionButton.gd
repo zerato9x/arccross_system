@@ -30,11 +30,18 @@ var _target_limb_index := 0
 @onready var _collision: CollisionShape2D = %CollisionShape2D
 
 func _ready() -> void:
+	HUDAssetLibrary.connect_scheme_changed(_on_hud_scheme_changed)
 	_area.input_pickable = true
 	_area.mouse_entered.connect(_set_hovered.bind(true))
 	_area.mouse_exited.connect(_set_hovered.bind(false))
 	_area.input_event.connect(_on_input_event)
 	_apply_geometry()
+	_refresh()
+
+func _exit_tree() -> void:
+	HUDAssetLibrary.disconnect_scheme_changed(_on_hud_scheme_changed)
+
+func _on_hud_scheme_changed(_scheme_id: String = "") -> void:
 	_refresh()
 
 func set_button_size(value: Vector2) -> void:
@@ -105,12 +112,26 @@ func _refresh() -> void:
 	_box.visible = _frame_sprite.texture == null
 	_border.visible = _frame_sprite.texture == null
 	_box.color = Color(
-		COLOR_DISABLED if not _enabled else (COLOR_HOVER if _hovered else COLOR_NORMAL),
+		HUDAssetLibrary.COLOR_PANEL
+		if not _enabled
+		else (
+			HUDAssetLibrary.COLOR_PANEL_WARM
+			if _hovered
+			else HUDAssetLibrary.COLOR_PANEL_ALT
+		),
 		0.96
 	)
-	_border.default_color = COLOR_BORDER_HOVER if _hovered and _enabled else COLOR_BORDER
+	_border.default_color = (
+		HUDAssetLibrary.COLOR_CAUTION
+		if _hovered and _enabled
+		else HUDAssetLibrary.COLOR_BORDER
+	)
 	_border.width = 1.0
-	_label.modulate = COLOR_TEXT if _enabled else COLOR_MUTED
+	_label.modulate = (
+		HUDAssetLibrary.COLOR_TEXT
+		if _enabled
+		else HUDAssetLibrary.COLOR_MUTED
+	)
 	_label.text = _display_text()
 
 func _scale_frame_sprite() -> void:
