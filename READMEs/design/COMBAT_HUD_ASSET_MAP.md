@@ -1,57 +1,58 @@
 # Combat HUD Asset Map
 
-The June 29 command-deck work is retained here as an asset inventory, but its
-turn menu is retired. The real-time HUD uses restrained panels and progress
-rails around `CombatLaneView`; weapon and projectile assets remain reusable.
+Canonical combat / macro chrome lives under `Asset/UI/HUD/` and is consumed
+through `PresentationCore/HUDAssetLibrary.gd`. The old `revampedHUD` packs
+(including B&W Androx, Pocket Inventory, Condition strips, and Gore UI) are
+retired.
 
 ## Current Runtime Surface
 
-- Main HUD owner: `CombatCore/Realtime/RealtimeDuelHUD.gd`
+- Main HUD owner: `CombatCore/Realtime/RealtimeDuelHUD.gd` / `CombatCore/CombatLaneHUD.gd`
 - Action/camera authority: `RealtimeDuelRuntime` timeline events
-- Reusable asset facade: `UI/HUD/HUDAssetLibrary.gd`
+- Reusable asset facade: `PresentationCore/HUDAssetLibrary.gd`
+- Asset root: `Asset/UI/HUD/` (frames, bars, icons, medical, menus, overlays, anim)
+- Manifest: `Asset/UI/HUD/hud_asset_manifest.json`
+- Builder: `Tools/Build-HUDAssets.py`
 - Runtime validation route: Godot MCP `filesystem_manage.reimport`, `script_manage.find_symbols`, `project_run`, and `editor_manage.game_eval`
 - Headless fallback: `Godot --headless --editor --quit --path <project_root>`
-- Known limitation: focused standalone combat HUD smoke can hit Godot 4.6 `signal 11`; use MCP live probes for visual/runtime confirmation when available.
 
-## Official B&W HUD Pack
+## Official HUD Kit (Asset/UI/HUD)
 
-Root: `Asset/UI/revampedHUD/B&W_UI_ByAndrox_FREE/HUD/`
+| Group | Path | Use |
+| --- | --- | --- |
+| Frames | `frames/panel_*.png`, `frames/button_*.png` | Panel chrome, buttons |
+| Bars | `bars/bar_frame*.png`, `bars/bar_fill_*.png` | Meters, combat log divider |
+| Status icons | `icons/status/*_32.png` | Macro / inventory / combat status |
+| Combat icons | `icons/combat/*_32.png` | Action affordances |
+| Medical | `medical/state_*.png`, `medical/limb_*.png` | Condition tokens, limb plates |
+| Clock / signal | `anim/clock/*`, `anim/signal/*` | World status widgets |
 
-| Sheet | Size | Useful Elements | Current Use |
-| --- | ---: | --- | --- |
-| `menu_transparent.png` | 304x128 | small menu/buttons/key prompts | historical command-deck regions; not active |
-| `charge_bars_transparent.png` | 468x230 | segmented meters, compact bars, circular pips | limb/body meter frames, combat log divider |
-| `counters_transparent.png` | 208x224 | hearts, shields, warning/skull/droplet/lightning counters | health condition icons |
-| `counters.png` | 208x224 | opaque counter variants | reserved for future manual HUD dressing |
-| `inventory_transparent.png` | 160x96 | small slot grids and item holders | reserved for later manual asset insertion |
-| `selection.png` / `selection_icons.png` | 96x96 | arrows, locks, plus/minus, selection glyphs | candidate for action-group icons and targeting indicators |
+### Condition mapping (`HUDAssetLibrary.condition_icon`)
 
-### Wired Atlas Regions
+| Condition | Texture |
+| --- | --- |
+| `fine` / `stable` | `medical/state_stable_32.png` |
+| `damaged` | `medical/state_damaged_32.png` |
+| `danger` | `medical/state_critical_32.png` |
+| `healing` | `icons/status/ap_32.png` |
+| `infected` | `icons/status/infection_32.png` |
+| `precaution_o` | `icons/status/blood_32.png` |
+| `precaution_y` | `icons/status/warning_32.png` |
 
-| Name | Sheet | Region | Use |
-| --- | --- | --- | --- |
-| `BW_BUTTON_IDLE_REGION` | `menu_transparent.png` | `Rect2(226, 13, 74, 17)` | idle action/group button frame |
-| `BW_BUTTON_HOVER_REGION` | `menu_transparent.png` | `Rect2(226, 39, 74, 17)` | hover/pressed action/group button frame |
-| `BW_SEGMENTED_METER_REGION` | `charge_bars_transparent.png` | `Rect2(176, 55, 48, 9)` | limb/body meter frame |
-| `BW_COMPACT_METER_REGION` | `charge_bars_transparent.png` | `Rect2(416, 24, 32, 8)` | combat log header divider |
-| `BW_ICON_HEART_REGION` | `counters_transparent.png` | `Rect2(146, 18, 12, 12)` | stable/fine condition |
-| `BW_ICON_SHIELD_REGION` | `counters_transparent.png` | `Rect2(146, 67, 12, 14)` | warning condition |
-| `BW_ICON_DROPLET_REGION` | `counters_transparent.png` | `Rect2(18, 145, 14, 15)` | bleeding condition |
-| `BW_ICON_SKULL_REGION` | `counters_transparent.png` | `Rect2(17, 193, 14, 15)` | danger/infected condition |
-| `BW_ICON_LIGHTNING_REGION` | `counters_transparent.png` | `Rect2(68, 193, 52, 15)` | guarded/recovery condition |
+### Meter frames
 
-## Excluded HUD Assets
-
-The combat HUD should not use `Asset/UI/revampedHUD/Condition/`, `POCKET INVENTORY (MAIN)`, or `2D Gore UI` as default HUD chrome. The Condition strips read as flicker in the health section, and the pocket-holder/UI-button art reads like keyboard prompts when stretched into frames. Keep the simple drawn GUI for structure until manual asset insertion is ready.
+| Kind | Texture |
+| --- | --- |
+| Segmented body meters | `bars/bar_frame_96x12.png` |
+| Compact / log divider | `bars/bar_frame_thin_96x8.png` |
 
 ## Implementation Rules
 
+- Do not reintroduce `Asset/UI/revampedHUD/**` as runtime chrome.
 - Do not stretch tiny atlas regions across full-screen panels.
-- Do not use `menu_transparent.png` button/spacebar regions as structural frames.
-- Use only `B&W_UI_ByAndrox_FREE` assets for combat HUD icons, button states, and meter ornamentation.
-- Keep structure as simple drawn panels and progress bars; do not reintroduce pocket holder frames.
-- Use stable counter icons for health conditions. Do not animate Condition strips in the combat HUD.
+- Keep structure as simple drawn panels and progress bars; decorate with HUD kit textures via `HUDAssetLibrary`.
+- Use stable medical/status icons for health conditions. Do not animate Condition strips in the combat HUD.
 - Keep combat data readable: official frames decorate and clarify, they do not replace numeric AP, Blood, Stance, ammo, and limb values.
-- Use MCP `game_eval` to prove atlas source paths and runtime layout dimensions after UI changes.
-- Add smoke assertions for each official element actually wired into the
-  real-time HUD; historical command-deck regions do not count as active use.
+- Use MCP `game_eval` to prove texture source paths and runtime layout dimensions after UI changes.
+- Add smoke assertions for each official element actually wired into the real-time HUD.
+- Main-menu parallax packs live under `Asset/UI/Event_bg/` via `MenuParallaxCatalog`; they are menu-only, not event/collision art.

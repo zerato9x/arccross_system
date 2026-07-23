@@ -57,16 +57,21 @@ not a second gameplay surface.
 - Use a body silhouette to make equipment location readable.
 - Spill warnings must identify what changed and where displaced items went.
 
-## Medical Monitor
+## Field Health HUD
 
-![Medical monitor reference](mockups/medical_monitor.png)
+Live host: `FieldHealthHUD` driven by `HealthHUDProfile` snapshots from
+`MacroSnapshotBuilder`. Presentation does not reach live `HumanoidBody` or
+WorldCore state. (Mockup `medical_monitor.png` is historical reference only.)
 
+- Compact view: six vital tiles plus condition banner; detailed view adds
+  systemic readouts and regional wound cards.
 - Present local limb structure separately from systemic Blood, fatigue,
   temperature, hunger, and thirst.
 - Color communicates severity; labels and values remain available without color.
 - A damaged region may flash or shake briefly when updated.
 - Crisis effects should identify bleeding, exhaustion, hypothermia, or Red Mist
   corruption rather than applying an undifferentiated vignette.
+- Treatment tray uses carried medical items; unsupported care is labeled honestly.
 
 ## Loot And Encounters
 

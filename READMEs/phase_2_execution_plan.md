@@ -1,18 +1,21 @@
 # ARCCROSS Phase 2 Execution Plan
 
-Phase 2 begins after the verified Phase 1 vertical slice. Phase 2 expands
-presentation, combat readability, authored content, and player-facing systems
-without weakening the existing ownership rule: presentation emits intent, while
-domain cores validate and mutate authoritative state.
+Phase 2 **systems foundations are closed**. This file is the historical
+implementation record for combat, inventory, Node Web, exploration/collision
+HUD, Field Health, and authored-zone tooling. Active Act 1 delivery lives in
+[design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
-## Current Phase 2 Focus
+Phase 1 remains closed in
+[phase_1_execution_plan.md](phase_1_execution_plan.md). Presentation emits
+intent; domain cores validate and mutate authoritative state.
 
-Status updated on **July 19, 2026**:
+## Status
 
-- Phase 1 remains closed and verified in
-  [phase_1_execution_plan.md](phase_1_execution_plan.md).
-- Combat HUD workstreams **P2-01 through P2-04 are complete**. See
-  [June 29 changelog](CHANGELOG.md#june-29-2026).
+Status updated on **July 23, 2026**:
+
+- Combat HUD workstreams **P2-01 through P2-04 are complete** (historical
+  turn-based / pre–realtime command-deck record). Production combat UI is
+  `RealtimeDuelHUD`. See [June 29 changelog](CHANGELOG.md#june-29-2026).
 - Shield-specific BLOCK workstream **P2-06 is complete**. See
   [July 13 changelog](CHANGELOG.md#july-13-2026).
 - Directional Node Web / Meta world overhaul shipped **July 16**. See
@@ -29,21 +32,10 @@ Status updated on **July 19, 2026**:
   outcomes and persistent records. Scheduling is intentionally not unified.
 - Macro exploration window, trap-to-combat loop, and entity-collision Event HUD
   path (Threat / Ceasefire / Ask / Trade placeholder) are live; do not revive
-  `MacroInteractionPanel`.
-- Remaining Phase 2 goals (continue on live foundations — no total rewrite):
-  - Expand humanoid token visual coverage per
-    [HUMANOID_TOKEN_PIPELINE.md](HUMANOID_TOKEN_PIPELINE.md).
-  - Polish macro and combat presentation using the HUD asset packs, after
-    locking one HUD direction against current `MacroHudShell` +
-    `FieldHealthHUD` (stale remake/repair plans are not executable as written).
-  - Continue hex presentation work on `MacroExplorationStage` /
-    `MacroExplorationWindow`; inventory's P2-11 foundation is complete, with
-    later balance tuning expected from playtest evidence.
-  - Expand authored content, loadouts, and loot profiles without breaking the
-    owner-validated rule boundaries.
-  - Paint and assign a real preset library for campaign node profiles using the
-    completed authored-zone pipeline.
-  - Economy / TRADE UI remains deferred beyond the placeholder.
+  `MacroInteractionPanel`. Finished Macro HUD remake/repair plans were deleted.
+- **Active next:** Central Core Campaign Overhaul (not further Phase 2
+  foundation work). Residual Known Gaps (token coverage, TRADE, SNIPE, EXECUTE,
+  Pocket Map, preset library) stay deferred — see the docs index.
 
 ## Completed Workstreams
 
@@ -126,19 +118,13 @@ for direct comparison through `CombatModeComparison.tscn`.
   loot spill, defeat, and escape paths.
 - `WeaponDataSmoke.gd` remains the firearm rules source of truth.
 
-## Remaining Phase 2 Workstreams
+## Deferred / Residual (not active)
 
-### P2-05: Token Visual Coverage
-
-Goal: close the largest gaps in humanoid Entity Projection artwork.
-
-Acceptance criteria:
-
-- Add priority layers listed in
-  [HUMANOID_TOKEN_PIPELINE.md](HUMANOID_TOKEN_PIPELINE.md): vests/chest rigs,
-  face/eye equipment, arm/leg armor, and remaining player-facing weapons.
-- Every new visual maps through `HumanoidVisualCatalog` and passes
-  `PersistentPlayerSmoke.gd` and `CombatLaneHUDSmoke.gd`.
+Token coverage (former P2-05), presentation chrome polish (former P2-07),
+authored preset library fill, TRADE economy, SNIPE, EXECUTE, and Pocket Map
+remain Known Gaps. Do not treat them as competing delivery tracks while
+[Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md) is
+active.
 
 ### P2-06: Shield-Specific BLOCK Rules — Verified July 13, 2026
 
@@ -162,19 +148,11 @@ Implementation record:
 - `ShieldBlockSmoke.gd` verifies reaction availability, coverage, mitigation,
   AIMED SHOT reaction parity, and serialization.
 
-### P2-07: Presentation Polish
+### P2-07: Presentation Polish — Deferred
 
-Goal: align macro and combat HUDs with the authored asset packs.
-
-Acceptance criteria:
-
-- Wire remaining regions from `Asset/UI/HUD/` and
-  `design/COMBAT_HUD_ASSET_MAP.md` where they improve readability.
-- Preserve presentation boundaries: no gameplay legality in UI scripts.
-- Rewrite or supersede `.cursor/plans/macro_hud_clean_remake.plan.md` and
-  `.cursor/plans/macro_hud_corner_repair.plan.md` before executing either;
-  both reference deleted scenes (`WorldHUD`, `MacroStatusPanel`,
-  `MedicalMonitor`) and contradict each other.
+Former goal: align macro and combat HUDs with authored asset packs on live
+`MacroHudShell` + `FieldHealthHUD`. Stale remake/repair plans were deleted.
+Not the active queue.
 
 ### P2-10: Macro Exploration Window And Collision HUD — Shipped July 16–19
 
@@ -206,7 +184,8 @@ Implementation record:
 - Live Godot evaluation verified 469 entries, three water cells, three
   decorations, eight arrivals, eight exits, and three content sockets.
 
-Remaining content work:
+Remaining content work (deferred to Central Core / later content passes — not
+a competing Phase 2 track):
 
 - Duplicate the template into finished biome/layout presets.
 - Assign those baked resources to campaign node profiles.

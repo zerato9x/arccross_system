@@ -41,6 +41,28 @@ Unmarked terms are established. Terms still in motion are labeled
 - **Route Preview Ring:** The non-playable radius-13 band outside a local zone.
   Hovering it shows the eligible destination for that boundary sector; clicking
   it from an adjacent radius-12 rim cell opens directional travel.
+- **Eviction (Era 9):** Canonical opening beat where Central triage casts the
+  player out for insufficient resources. After eviction, Central stays locked
+  for that character until all four regional Cores are reassembled (endgame).
+  See Canonical World Specification and Central Core Campaign Overhaul.
+- **North Spine (Act 1):** The first campaign highway — Central fringe plus
+  `north_random_1..3`, north gateway, and north arm core. E/S/W arms are grey
+  and non-traversable in Act 1 (rim travel and Node Map both sealed).
+- **North Pointer Tutorial:** One-shot Act 1 beat after eviction: an NPC or
+  scripted event points the player North, opens the Node Map, and highlights
+  `central_core → north_random_1` with a focus animation. Sets Meta flag
+  `tutorial_north_pointed`. See Central Core Campaign Overhaul.
+- **Act 1 Arm Seal:** Hard travel refuse for East/South/West routes and their
+  `*_random_1` teases after eviction. Visible on the Node Map as grey locked
+  nodes/edges; does not open side-arm play.
+- **Zone Composition Plan** *(planned):* Deterministic pass that assigns
+  budgeted visual roles across a 469-cell zone (rings, trails, clusters) before
+  decoration fill.
+- **Hex Dressing Template** *(planned):* Per-hex visual recipe with locked FRAME
+  anchors and swappable CORE pools so layout stays coherent while interiors vary.
+- **Regional Dialect:** Arm- or profile-specific art, landmark, and environmental
+  copy bias (Central admin remnant, North frontier scraps, East war debris,
+  South Guild logistics, West mining/steel) without cosmic exposition.
 
 ## Character Identity
 
@@ -246,6 +268,9 @@ describes a tool; Damage Type describes a hit.
   coordinate.
 - **World Time:** Authoritative elapsed run time shared by movement, SEARCH,
   CAMP, combat, and biological processing.
+- **Core Restore:** Meta work that reseats a regional Core / unseals its gateway
+  and may apply permanent terraform-style patches to that arm. Spoken as
+  infrastructure recovery. Four restores gate Central re-entry after eviction.
 
 ## Architecture
 

@@ -1,9 +1,12 @@
 # ARCCROSS System Architecture
 
-Canonical terminology is defined in [GLOSSARY.md](GLOSSARY.md). Delivery status
-belongs in [phase_2_execution_plan.md](phase_2_execution_plan.md) (Phase 2
-combat HUD and shield rules complete; token coverage remains open). The closed
-Phase 1 record remains in [phase_1_execution_plan.md](phase_1_execution_plan.md).
+Canonical terminology is defined in [GLOSSARY.md](GLOSSARY.md). Phase 2 systems
+foundations are closed; historical detail lives in
+[phase_2_execution_plan.md](phase_2_execution_plan.md). Active Act 1 delivery
+belongs in
+[design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
+The closed Phase 1 record remains in
+[phase_1_execution_plan.md](phase_1_execution_plan.md).
 
 ## Core Invariants
 

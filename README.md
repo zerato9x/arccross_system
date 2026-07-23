@@ -23,11 +23,11 @@ retain meaningful units.
 
 ## Current Prototype
 
-Status updated on **July 19, 2026**.
+Status updated on **July 23, 2026**.
 
 ### Playable Today
 
-Launch from `UI/MainMenu.tscn` into a persistent macro run:
+Launch from `UI/MainMenu.tscn` into a persistent macro run (Godot **4.7**):
 
 1. Start a new world or continue from one of three save slots.
 2. Explore seeded radius-12 local zones with fog of war, landmark POIs, and
@@ -43,9 +43,9 @@ Launch from `UI/MainMenu.tscn` into a persistent macro run:
    comparisons, firearm readiness, grounded field notes, and tool-plus-material
    repair; treat wounds through the Field Health HUD.
 7. Save and reload with `F5` / `F9` or the main-menu and in-game slot UI.
-8. Cross radius-12 local zones through directional rims and choose only
-   graph-connected destinations in the eight-sector, four-arm Node Web. Hover
-   the non-playable radius-13 route band to inspect the destination first.
+8. Cross radius-12 local zones through directional rims and the Node Web. **Act 1
+   content** opens the North spine after eviction; E/S/W stay sealed — see
+   [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
 Characters and their run-local worlds are disposable. Permanent Meta nodes,
 completed Meta Events, gateway state, structural mutations, and arm-core
@@ -54,22 +54,19 @@ profile.
 
 ### Phase Status
 
-- **Phase 1** is closed and verified. The persistent vertical slice — macro
-  movement, combat, inventory, SEARCH/CAMP, and JSON persistence — remains the
+- **Phase 1** is closed and verified. The persistent vertical slice remains the
   regression baseline.
-- **Phase 2 shipped pillars** (through July 19): real-time duel authority,
-  directional Node Web, exploration window + trap loop, persistent wounds,
-  Field Health HUD, entity-collision Event HUD path, and domain-boundary
-  cleanup via `PresentationSceneRegistry`.
-- Production combat runs through a dedicated real-time duel state machine. The
-  independent turn-based route remains a supported future mode at
-  `CombatCore/TurnBased/TurnBasedDuelScene.tscn`; both consume the same ItemCore
-  condition, malfunction, ammunition, protection, shield, and persistence
-  contract. Only their AP scheduling and mode-specific modifiers differ.
-- Active follow-up work targets balance, animation/token coverage, authored
-  zone presets, inventory/hex presentation polish, and content expansion —
-  **on the live foundations**, not via a total architecture rewrite. See
-  [Phase 2 Execution Plan](READMEs/phase_2_execution_plan.md).
+- **Phase 2 systems foundations are closed/shipped:** realtime duel authority,
+  inventory/condition/repair, directional Node Web, exploration window + trap
+  loop, persistent wounds, Field Health HUD, entity-collision Event HUD path,
+  authored-zone tooling.
+- Production combat runs through `RealtimeDuelRuntime`. The independent
+  turn-based route remains at `CombatCore/TurnBased/TurnBasedDuelScene.tscn`;
+  both share ItemCore condition, malfunction, ammunition, protection, shield,
+  and persistence. Only scheduling differs.
+- **Active next:** [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
+  — eviction, North Pointer Tutorial, Act 1 seals, Central look, asset sort from
+  `S:\Asset\_Asset`.
 
 ### Core Systems
 
@@ -105,15 +102,14 @@ profile.
   POIs, variable POIs, encounters, quest objects, water, and freeform props.
 - Macro NPC projection is capped for readability and surfaces purpose signals
   through the world HUD.
+- Identity catalog wiring includes occupations, traits, and flaws.
 - An integrated Audio Conductor handles synchronized music and categorized SFX.
 - Core biological and system states live in explicit resource classes
   (`BodyState`, `HumanoidState`, `InventoryState`, `EntityRecord`,
   `HexRecord`).
 - `CombatCore/CombatModeComparison.tscn` runs both combat authorities against
   identical standalone records (`F1` real-time, `F2` turn-based).
-- Automated smoke scripts cover the vertical slice, real-time duel rules,
-  weapon data, inventory, save/load, macro interactions, wounds, field health,
-  and shield rules.
+- Automated smoke scripts cover the vertical slice and focused system contracts.
 
 ### Known Gaps
 
@@ -131,13 +127,12 @@ profile.
   seeded procedural fallback.
 - Pocket Map / full pocket-device HUD chrome remains deferred (Phase 2.5).
 
-## Working Agreement (July 19)
+## Working Agreement (July 23)
 
-The data-driven domain architecture is the live foundation for inventory and
-hex exploration. Prefer finishing features on that stack over a total cleanup
-or rewrite. Convert catalogs to authored Resources incrementally when a feature
-needs them. Conflicting stale Macro HUD remake/repair plans must not be
-executed blindly against the current `MacroHudShell` + `FieldHealthHUD`.
+Phase 2 foundations stay live. The only active delivery track is
+[Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
+Do not resurrect finished Macro HUD remake/repair or entity-collision plans.
+Prefer incremental Resource conversion when a feature needs it.
 
 ## Item Authoring
 
@@ -156,7 +151,10 @@ records authored data but does not rescue a beautifully painted dead end.
 ## Documentation
 
 - [Documentation index](READMEs/README.md)
+- [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
 - [Project glossary](READMEs/GLOSSARY.md)
+- [Canonical world specification](READMEs/CANONICAL_WORLD_SPECIFICATION.md)
+- [Macro world overhaul](READMEs/design/MACRO_WORLD_OVERHAUL.md)
 - [System architecture](READMEs/SYSTEM_ARCHITECTURE.md)
 - [Phase 1 execution plan](READMEs/phase_1_execution_plan.md)
 - [Phase 2 execution plan](READMEs/phase_2_execution_plan.md)

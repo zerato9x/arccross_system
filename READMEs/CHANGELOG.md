@@ -1,5 +1,40 @@
 # ARCCROSS Changelog
 
+## July 23, 2026
+
+### Documentation Sync And Central Core Master Spec
+
+- Authored `READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md` as the active Act 1
+  build bible: eviction → North Pointer Tutorial, hard E/S/W seals, systems file
+  map, `S:\Asset\_Asset` → biome sort contract, hex structure rules, and phased
+  IDE checklist 0–9.
+- Synced root `README.md` and `READMEs/README.md` to July 23: Phase 2 systems
+  foundations closed/shipped; Central Core is the only active delivery track.
+- Pointed `MACRO_WORLD_OVERHAUL.md`, glossary, architecture, and hex dressing
+  docs at the Central Core MD; removed Act 1 “thin E/S/W wander” soft language.
+- Deleted finished/stale repo plans: Macro HUD remake/repair, entity collision
+  overhaul, Phase 2 macro focus, and the HUD/world-log/camera standardization
+  plan (not the next queue).
+- Replaced Visual Direction “Medical Monitor” with live `FieldHealthHUD`.
+- Recorded July 20 realities not previously status-synced: Godot 4.7, Identity /
+  Flaw catalog wiring, and HUD anim assets under `Asset/UI/HUD/anim/`.
+
+## July 21, 2026
+
+### Canonical World Spec And Macro Overhaul Docs
+
+- Restored `READMEs/CANONICAL_WORLD_SPECIFICATION.md` as the world bible,
+  including the Era 9 **eviction** contract: Central at capacity casts the
+  player out; Central stays locked until all four regional Cores are restored
+  (endgame systems deferred).
+- Added `READMEs/design/MACRO_WORLD_OVERHAUL.md` for Act 1 Central + North spine
+  shipping scope, soft local wander, sealed E/S/W arms, and composition plan.
+- Added `READMEs/design/HEX_DRESSING_TEMPLATES.md` for fixed-frame / swap-core
+  hex visual generation across radius-12 (469-cell) zones.
+- Linked the new contracts from `READMEs/README.md` and extended `GLOSSARY.md`
+  (Eviction, North Spine, Zone Composition Plan, Hex Dressing Template,
+  Regional Dialect, Core Restore).
+
 ## July 19, 2026
 
 ### Inventory Overhaul And Identical Cross-Mode Item Mechanics
