@@ -56,8 +56,8 @@ func _ready() -> void:
 	pivot_offset = size
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_apply_base_styles()
-	_node_map_button.text = "NODE MAP"
-	_settings_button.text = "SETTINGS"
+	_node_map_button.text = "NODE MAP [P]"
+	_settings_button.text = "SETTINGS [O]"
 	HUDAssetLibrary.apply_button(_settings_button, "settings")
 	HUDAssetLibrary.apply_button(_node_map_button, "map")
 	_settings_button.custom_minimum_size = HUDAssetLibrary.macro_button_minimum_size()
@@ -81,10 +81,13 @@ func _apply_base_styles() -> void:
 	HUDAssetLibrary.apply_label(_log_title, "info")
 	HUDAssetLibrary.apply_label(_legend, "success")
 	_time_label.add_theme_font_size_override("font_size", 24)
+	HUDAssetLibrary.apply_soft_edge(_frame, 0.20)
 
 
 func restyle() -> void:
 	_apply_base_styles()
+	_node_map_button.text = "NODE MAP [P]"
+	_settings_button.text = "SETTINGS [O]"
 	HUDAssetLibrary.apply_button(_settings_button, "settings")
 	HUDAssetLibrary.apply_button(_node_map_button, "map")
 	if not _snapshot.is_empty():
@@ -158,7 +161,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 				0.22
 			)
 	_last_clock_text = clock_text
-	var phase := _phase_for_hour(hour)
+	var phase := GameTimeRules.phase_for_hour(hour)
 	var phase_color := _phase_color(phase)
 	var signal_kind := _signal_kind_for_phase(phase)
 	if _phase_label:
@@ -335,23 +338,10 @@ func _contains_any(text: String, needles: Array[String]) -> bool:
 	return false
 
 
-func _phase_for_hour(hour: int) -> String:
-	if hour < 5:
-		return "night"
-	if hour < 7:
-		return "dawn"
-	if hour < 11:
-		return "morning"
-	if hour < 14:
-		return "midday"
-	if hour < 17:
-		return "afternoon"
-	if hour < 20:
-		return "dusk"
-	return "night"
-
-
 func _phase_color(phase: String) -> Color:
+	var lighting: Dictionary = GameTimeRules.lighting_for_phase(phase)
+	if lighting.has("accent_color"):
+		return lighting["accent_color"] as Color
 	match phase:
 		"dawn", "dusk":
 			return HUDAssetLibrary.COLOR_CAUTION

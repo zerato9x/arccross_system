@@ -24,6 +24,16 @@ func _ready() -> void:
 		HUDAssetLibrary.apply_label(_body, "body")
 
 
+func restyle() -> void:
+	if _panel:
+		HUDAssetLibrary.apply_panel(_panel, "neutral")
+		HUDAssetLibrary.apply_soft_edge(_panel, 0.16)
+	if _title:
+		HUDAssetLibrary.apply_label(_title, "title")
+	if _body:
+		HUDAssetLibrary.apply_label(_body, "body")
+
+
 func present(session: Dictionary) -> void:
 	_cancel_auto()
 	_blocking = bool(session.get("blocking", false))

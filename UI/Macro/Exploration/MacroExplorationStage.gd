@@ -87,6 +87,23 @@ func _ready() -> void:
 	_update_layout_for_viewport()
 
 
+func restyle() -> void:
+	HUDAssetLibrary.apply_panel(_event_panel, "warning")
+	HUDAssetLibrary.apply_panel(_result_box, "neutral")
+	HUDAssetLibrary.apply_label(_title_label, "title")
+	HUDAssetLibrary.apply_label(_body_label, "body")
+	HUDAssetLibrary.apply_label(_result_title, "warning")
+	HUDAssetLibrary.apply_label(_result_meta, "muted")
+	HUDAssetLibrary.apply_label(_result_body, "body")
+	HUDAssetLibrary.apply_button(_continue_button, "pass")
+	HUDAssetLibrary.apply_button(_close_button, "pass")
+	HUDAssetLibrary.apply_soft_edge(_event_panel, 0.18)
+	if _exploration_window != null and _exploration_window.has_method("restyle"):
+		_exploration_window.restyle()
+	if _travel != null and _travel.has_method("restyle"):
+		_travel.restyle()
+
+
 func bind_exploration_window(window: MacroExplorationWindow) -> void:
 	if _exploration_window == window:
 		return
@@ -137,6 +154,8 @@ func present_session(session: Dictionary) -> void:
 	_update_layout_for_viewport()
 	_render_event()
 	_animate_modal_open()
+	if bool(_session.get("walk_in", false)) or _mode == "collision":
+		_play_collision_walk_in()
 
 
 func open_event(session: Dictionary) -> void:
@@ -360,12 +379,36 @@ func _render_event() -> void:
 	_continue_button.visible = false
 	_close_button.visible = bool(_session.get("can_close", false))
 	_title_label.text = str(_session.get("title", "EVENT"))
-	_body_label.text = str(_session.get("body", ""))
+	var body := str(_session.get("body", ""))
+	if bool(_session.get("place_presence", false)):
+		var meet := str(_session.get("meet_label", ""))
+		if not meet.is_empty():
+			body = "%s\n\n%s" % [meet, body]
+	_body_label.text = body
 	_apply_event_image(str(_session.get("image_path", "")))
 	_render_grid_preview(_session.get("grid_preview", {}))
 	_render_tags(_session.get("tags", []))
 	_render_choices(_session.get("choices", []))
 	_focus_first_enabled_choice()
+
+
+func _play_collision_walk_in() -> void:
+	if _image_frame == null:
+		return
+	_image_frame.modulate.a = 0.35
+	_image_frame.scale = Vector2(1.04, 1.04)
+	_image_frame.pivot_offset = _image_frame.size * 0.5
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(_image_frame, "modulate:a", 1.0, 0.45)
+	tween.tween_property(_image_frame, "scale", Vector2.ONE, 0.45).set_trans(
+		Tween.TRANS_SINE
+	).set_ease(Tween.EASE_OUT)
+	_fx_layer.play_fx({
+		"kind": "landmark",
+		"intensity": 0.55,
+		"palette": [HUDAssetLibrary.COLOR_CAUTION, HUDAssetLibrary.COLOR_TRAVEL],
+	})
 
 
 func _render_result() -> void:

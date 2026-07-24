@@ -15,8 +15,9 @@ Directional Node Web.
 | Owns | Defers to |
 | --- | --- |
 | Act 1 campaign flow, travel seals, tutorial beats, phased IDE checklist | — |
-| `S:\Asset\_Asset` → biome pack sort + hex structure enforcement | — |
-| Lore tone / eras / eviction framing | [Canonical World Specification](../CANONICAL_WORLD_SPECIFICATION.md) |
+| `S:\Asset\_Asset` sort identity (packs, Golbanc default, theme ramp) | [Hex World Asset Overhaul](HEX_WORLD_ASSET_OVERHAUL.md) |
+| Lore tone / eviction framing | [Canonical World Specification](../CANONICAL_WORLD_SPECIFICATION.md) |
+| **Official era chronology** | [World Timeline Codex](../WORLD_TIMELINE_CODEX.md) |
 | Domain ownership / presentation boundaries | [System Architecture](../SYSTEM_ARCHITECTURE.md) |
 | FRAME/CORE dressing schema detail | [Hex Dressing Templates](HEX_DRESSING_TEMPLATES.md) |
 | Supporting Node Web lore alignment | [Macro World Overhaul](MACRO_WORLD_OVERHAUL.md) |
@@ -28,7 +29,8 @@ phases in order; do not reopen finished Phase 2 foundation plans.
 
 ## Non-goals
 
-- Player-facing cosmic exposition (Marks, Primal Civilization, full Core purpose)
+- Player-facing cosmic exposition (Marks, Primal Civilization, The
+  Transcendence, full Core purpose)
 - Baking roads, pipes, or power lines into terrain-base hex PNGs
 - Shipping four full arms in Act 1
 - Treating Central as free midgame home after eviction
@@ -110,36 +112,29 @@ Presentation emits intent only. Travel legality and Meta flags live in WorldCore
 
 ## Asset pipeline — `S:\Asset\_Asset` → project biomes
 
-Agents must follow this sort contract. Prefer HEXIFY variants when both raw and
-HEXIFY exist.
+**Authoritative pack roles, Era 8 Golbanc default, alpha homestead→theme ramp,
+dialect profiles, and promote phases:**
+[Hex World Asset Overhaul](HEX_WORLD_ASSET_OVERHAUL.md).
 
-| Source pack (S:) | Target biome pack | Dialect use |
+That file **supersedes** the older pack→biome table that lived here. Summary
+for Act 1 agents:
+
+| Priority promote | Pool | Use |
 | --- | --- | --- |
-| Brutalist Metropole, Archology South, `central_core*` hubs | `biome_centralcore` | Central admin / dense hub |
-| Hercynian Lowlands, Golbanc Homestead | `biome_plains` | North approaches / wastes |
-| Gallian Ice Field | `biome_snow` (new pack) | Far-north / cold rim |
-| Arid Badlands | `biome_arid` (new, later) | East/West tease stubs |
-| Exo-Lunar Desolation, Gloria Station | special / scrap pools | West scrap / Meta sites later |
-| Starlight Menagerie | vehicles/props (non-hex) | Combat/world props, not terrain hexes |
-| `HEXIFY/*` | preferred hex-ready duplicates | Prefer over raw |
-| `S:\Asset\_Asset\_BIOMES\*` | merge into matching `res://Asset/HexTiles/_BIOMES/` | Already-sorted staging |
+| Brutalist / hub | `central` / `biome_centralcore` | Central hub |
+| Golbanc | `default_era8` | Homestead starters on arm approaches |
+| `_BIOMES/biomes_snow` | `north` | North theme ramp toward Core |
+| Gloria crates / Menagerie barricades | `shared_props` | FRAME props |
 
-### Folder taxonomy (enforced under each `biome_*`)
-
-- `HEX/` — terrain-only base hexes (512² preferred; catalog via
-  [`Tools/Build-HexTileSet.gd`](../../Tools/Build-HexTileSet.gd))
-- `Infrastructure/` — roads, pipes, power lines, tanks, poles (OVERLAY / FRAME)
-- `Structures/` — CORE building footprints
-- `Colony Infrastructure/` — shared camp/colony props (or fold into Infrastructure)
-- `flora/`, `Rocks/`, `remnants/`, `water_*` as applicable
-- Hub specials at biome root only if multi-hex landmark stamps
-  (e.g. `central_core_hub_main.png`)
+Prefer HEXIFY when duplicate exists. Folder taxonomy under each pool: `HEX/`,
+`Infrastructure/`, `Structures/`, flora/rocks/remnants as needed. Rebuild via
+[`Tools/Build-HexTileSet.gd`](../../Tools/Build-HexTileSet.gd).
 
 ### Sort SOP
 
-1. Inventory S: pack → classify (terrain / overlay / structure / prop / discard)
+1. Inventory S: pack → classify (terrain / overlay / structure / prop / shelf)
 2. Prefer HEXIFY variants
-3. Copy into `res://Asset/HexTiles/_BIOMES/biome_<id>/...` with stable names
+3. Copy into `res://Asset/HexTiles/_BIOMES/<pool>/...` per Hex World Asset Overhaul
 4. Tag for dressing pools (CORE / FRAME / ACCENT / OVERLAY)
 5. Rebuild TileSet / catalog
 6. Smoke: same seed → same placement

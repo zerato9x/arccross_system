@@ -73,16 +73,18 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "OPEN BODY MAP"
+text = "BODY MAP [M]"
 
 [node name="InventoryButton" type="Button" parent="Margin/CompactRoot/CompactActions"]
 unique_name_in_owner = true
+visible = false
 custom_minimum_size = Vector2(60, 32)
 layout_mode = 2
 text = "PACK"
 
 [node name="SettingsButton" type="Button" parent="Margin/CompactRoot/CompactActions"]
 unique_name_in_owner = true
+visible = false
 custom_minimum_size = Vector2(60, 32)
 layout_mode = 2
 text = "SET"

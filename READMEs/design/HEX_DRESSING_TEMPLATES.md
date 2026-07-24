@@ -123,11 +123,13 @@ anchors, swapping search tables — separate from map dressing.
 
 ## Ship order
 
-1. Six to eight templates covering Central + north plains roles.
-2. Wire planner into `MacroZoneGenerator` after trails/landmarks.
+See [Hex World Asset Overhaul](HEX_WORLD_ASSET_OVERHAUL.md) Phases B–F.
+
+1. Six to eight templates covering Central + north homestead + north cold mid.
+2. Wire planner into `MacroZoneGenerator` after trails/landmarks (profile mix).
 3. Central ring recipe pass.
-4. North dialect pools.
-5. Road OVERLAY + single-hex exploration templates.
+4. North dialect pools (`north` + `default_era8`).
+5. Road OVERLAY + single-hex exploration templates (Phase F).
 
 ---
 

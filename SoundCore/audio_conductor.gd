@@ -214,12 +214,12 @@ func on_world_time_changed(hour: int) -> void:
 	if current_scene != AudioScene.MACRO_DAY and current_scene != AudioScene.MACRO_NIGHT:
 		return # Don't interrupt combat or game over
 
-	if hour >= 6 and hour < 18:
-		if current_scene != AudioScene.MACRO_DAY:
-			enter_scene(AudioScene.MACRO_DAY)
-	else:
+	if GameTimeRules.is_night_hour(hour):
 		if current_scene != AudioScene.MACRO_NIGHT:
 			enter_scene(AudioScene.MACRO_NIGHT)
+	else:
+		if current_scene != AudioScene.MACRO_DAY:
+			enter_scene(AudioScene.MACRO_DAY)
 
 # ---------------------------------------------------------
 # FIRST STRIKE TRANSITION (Special Combat)

@@ -73,9 +73,7 @@ func _ready() -> void:
 		func(count: int): _world_status.set_work_surface_active(count > 0)
 	)
 	_health_panel.medical_action_requested.connect(medical_action_requested.emit)
-	_health_panel.inventory_requested.connect(inventory_requested.emit)
 	_inventory_panel.fullscreen_requested.connect(inventory_requested.emit)
-	_health_panel.settings_requested.connect(_open_settings)
 	_hex_panel.expand_requested_hex.connect(hex_preview_expand_requested.emit)
 	_hex_panel.travel_requested_hex.connect(hex_preview_travel_requested.emit)
 	_world_status.settings_requested.connect(_open_settings)
@@ -91,6 +89,7 @@ func _ready() -> void:
 	_exploration_stage.interaction_closed.connect(exploration_interaction_closed.emit)
 	_exploration_stage.node_map_requested.connect(node_map_requested.emit)
 	_settings_close_button.pressed.connect(_close_settings)
+	_settings_close_button.text = "Close [Esc]"
 	_settings_save_button.pressed.connect(func(): _open_save_load("save"))
 	_settings_load_button.pressed.connect(func(): _open_save_load("load"))
 	_settings_menu_button.pressed.connect(
@@ -241,6 +240,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_I, KEY_TAB:
 			toggle_inventory_panel()
 			get_viewport().set_input_as_handled()
+		KEY_O:
+			if _settings_panel.visible:
+				_close_settings()
+			else:
+				_open_settings()
+			get_viewport().set_input_as_handled()
+		KEY_ESCAPE:
+			if _settings_panel.visible:
+				_close_settings()
+				get_viewport().set_input_as_handled()
 
 
 func _open_settings() -> void:
@@ -346,12 +355,33 @@ func _on_hud_scheme_selected(index: int) -> void:
 
 func _on_hud_scheme_changed(_scheme_id: String) -> void:
 	_restyle_settings_chrome()
-	if _world_status and _world_status.has_method("restyle"):
-		_world_status.restyle()
+	if _health_panel and _health_panel.has_method("restyle_scheme"):
+		_health_panel.restyle_scheme()
+	if _inventory_panel and _inventory_panel.has_method("restyle_scheme"):
+		_inventory_panel.restyle_scheme()
 	if _hex_panel and _hex_panel.has_method("restyle_scheme"):
 		_hex_panel.restyle_scheme()
+	if _world_status and _world_status.has_method("restyle"):
+		_world_status.restyle()
+	if _exploration_stage and _exploration_stage.has_method("restyle"):
+		_exploration_stage.restyle()
 	if not _snapshot.is_empty():
 		refresh(_snapshot)
+
+
+func apply_lighting_phase(phase: String) -> void:
+	_tune_scanline_for_phase(phase)
+
+
+func _tune_scanline_for_phase(phase: String) -> void:
+	if _screen_overlay == null or _screen_overlay.material == null:
+		return
+	var material := _screen_overlay.material as ShaderMaterial
+	if material == null:
+		return
+	# Night already darkens the map via vignette; keep scanline subtler so HUD stays crisp.
+	var strength := 0.07 if GameTimeRules.is_night_phase(phase) else 0.11
+	material.set_shader_parameter("strength", strength)
 
 
 func _restyle_settings_chrome() -> void:
@@ -363,6 +393,7 @@ func _restyle_settings_chrome() -> void:
 	HUDAssetLibrary.apply_label(_hud_scale_label, "muted")
 	HUDAssetLibrary.apply_option_button(_combat_mode_option)
 	HUDAssetLibrary.apply_option_button(_hud_scheme_option)
+	HUDAssetLibrary.apply_soft_edge(_settings_panel, 0.18)
 
 
 func _update_scale_label() -> void:

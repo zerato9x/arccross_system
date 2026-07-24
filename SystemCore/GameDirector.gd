@@ -244,10 +244,10 @@ func exit_to_main_menu() -> void:
 func _start_macro_audio() -> void:
 	var snapshot: Dictionary = _world_state.get_world_time_snapshot()
 	var hour: int = snapshot.get("hour", 8)
-	if hour >= 6 and hour < 18:
-		_emit_scene_audio("macro_day")
-	else:
+	if GameTimeRules.is_night_hour(hour):
 		_emit_scene_audio("macro_night")
+	else:
+		_emit_scene_audio("macro_day")
 
 func _on_world_time_advanced(_previous: int, current: int, _elapsed: int) -> void:
 	var snapshot: Dictionary = GameTimeRules.clock_snapshot(current)

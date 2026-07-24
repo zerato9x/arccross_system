@@ -4,6 +4,11 @@ Authoritative narrative and setting contract for lore implementation.
 Gameplay systems, UI, and content should treat this as the hidden world bible —
 not as player-facing exposition.
 
+**Chronology:** [World Timeline Codex](WORLD_TIMELINE_CODEX.md) is the
+**official** era timeline. It supersedes any older era bullets or Alpha
+narrative chronology in this file or elsewhere. This document owns factions,
+systems, eviction framing, and design principles — not competing dates.
+
 **Audience:** design and implementation. Players learn fragments only through
 environmental storytelling, artifacts, dialogue, dreams, and ruins.
 
@@ -11,12 +16,15 @@ environmental storytelling, artifacts, dialogue, dreams, and ruins.
 
 ## Core Premise
 
-ARCCROSS is a historical setting spanning nine eras. The player never controls
-legendary historical figures. The player always controls an ordinary Catalyst
-Agent whose seemingly insignificant actions unknowingly enable a Catalyst to
-change history.
+ARCCROSS is a historical setting spanning nine numbered eras plus Pre / Primal
+prehistory. The player never controls legendary historical figures. The player
+always controls an ordinary Catalyst Agent whose seemingly insignificant
+actions unknowingly enable a Catalyst to change history.
 
-The game is set in the **9th Era**.
+The game is set in **Era 9 — The Glitch**: after Era 8’s long decay,
+civilization concentrated into Central; fragments of past eras appear in the
+present. Chronology:
+[World Timeline Codex](WORLD_TIMELINE_CODEX.md).
 
 ---
 
@@ -25,11 +33,13 @@ The game is set in the **9th Era**.
 Every era contains:
 
 - **Catalyst** — Historical figure remembered by history.
-  Example: King Baric, 7th X Delta.
+  Example: King Baric (Era III), 7th X Delta (Eras VI–VII).
 - **Catalyst Agent** — Ordinary individual. POV character. Unaware of larger
   history. Makes logical decisions that unknowingly enable the Catalyst.
-- **Primal Consciousness** — Player identity. Possesses Catalyst Agents. Never
-  directly influences history. Only nudges agents into believable choices.
+- **Primal Consciousness** — Player identity. Refused The Transcendence, built
+  Arccross to endure, remains after the Mist wipe of Primal Civilization.
+  In play: never named; only nudges Catalyst Agents into believable choices.
+  See Codex Primal / Pre sections.
 
 ---
 
@@ -42,11 +52,15 @@ fragments.
 
 Never explicitly explain:
 
-- Primal Civilization
+- Primal Civilization / The Transcendence
+- Primal Consciousness as a named player identity
 - Complete Core purpose
 - Earth connection
 - Full chronology
 - True loop mechanics
+
+Official dates and era beats:
+[World Timeline Codex](WORLD_TIMELINE_CODEX.md).
 
 ---
 
@@ -75,73 +89,24 @@ Characters never explicitly explain it.
 
 ## Eras
 
-### Era 1
+**Authoritative chronology:** [World Timeline Codex](WORLD_TIMELINE_CODEX.md).
+The pocket summary below is orientation only; do not invent era beats that
+contradict the Codex.
 
-- Arc discovered in North.
-- Mark discovered.
-- North shares Mark with other nations to fight Machines.
-- Fear of Arcborn begins.
+| Era | Pocket |
+| --- | --- |
+| Pre / Primal | Transcendence; PC builds Arccross; Pre begins after Mist wipe |
+| I | Central opens; Automations; North shares Mark |
+| II | First Council; Guild logistics; Handle “liberation”; fear Arcborn |
+| III | Converter bureaucracy; Northern blast; crystal Warden founder |
+| IV | Dual rebuild; electricity; Passing reopens |
+| V | Industrial North frontier; Baricans; Man-Eater Gaps; Zeta |
+| VI | Peak kit; Warden 17; Delta; Passing sealed |
+| VII | Stagnation; West Core / Man-Eater seal; East Core falls |
+| VIII | Southern last empire; rare carbon; long decay |
+| IX | **The Glitch** (playable); Central concentration; eviction; repair |
 
-### Era 2
-
-- Governments weaponize Arcborn.
-- Handler Units created.
-- Arcborn become state assets.
-
-### Era 3
-
-- Expansion of Handler doctrine.
-
-### Era 4
-
-- Mature Handler civilization.
-
-### Era 5
-
-- Gaps first appear.
-- Man-Eater Mountain becomes unstable.
-
-### Era 6
-
-Peak civilization.
-
-Stable infrastructure. Converters. Trade. Wardens. SAP. Industrial expansion.
-
-Story focus: Warden Unit 17.
-
-Ends with Delta entering the North.
-
-### Era 7
-
-Delta destroys Crystal Valley.
-
-Western Core destroyed.
-
-Arcborn rebellion begins.
-
-Eastern Core destroyed.
-
-### Era 8
-
-Merchant Guild survives as final empire.
-
-Resources exhausted.
-
-Infrastructure collapses.
-
-Red Mist expands.
-
-Guild slowly dies.
-
-### Era 9
-
-Post-apocalypse.
-
-Only Central Core remains as a functioning civil seat.
-
-Player helps reassemble destroyed Cores.
-
-Each restored Core terraforms its region into its true historical aftermath.
+Era 9 playable framing continues in the eviction section below.
 
 ---
 
@@ -196,11 +161,12 @@ visible in memory, previews, and Meta install beats — until endgame unlock.
 
 Society is bureaucratic.
 
-Technology resembles Earth industrial eras.
+Technology resembles Earth industrial eras (Era 9 material culture is mostly
+rotting **Era VI peak** plus scarce Era VIII carbon — see Codex tech strata).
 
 Not fantasy.
 
-Not high sci-fi.
+Not high sci-fi utopia.
 
 Jobs exist.
 
@@ -210,7 +176,7 @@ Institutions dominate daily life.
 
 Tone:
 
-Ordinary workers living through historical collapse.
+Ordinary workers living through historical collapse / The Glitch.
 
 ---
 
@@ -270,7 +236,8 @@ Final specialization determined afterward.
 
 Natural Mark evolution.
 
-Exists only inside Crystal Valley.
+Associated with **Crystal Valley** (Barican seat from the Era V frontier age
+onward; see Codex).
 
 Allows owner to shape their own specialization.
 
@@ -282,19 +249,22 @@ Merchant Guild views Free Mark as existential threat.
 
 Human-operated control device.
 
+**First working Handle:** Era II South (Codex). Later ages turn it into
+institutional Handler Units (Era III+).
+
 Interfaces directly with Mark.
 
 Allows governments to control Arcborn.
 
 Destroying a Handler normally kills its owner.
 
-Delta survives.
+Delta survives destroying his own (Era VII).
 
 ---
 
 ## Xander Program
 
-Nine teams.
+Nine teams. Matures during Era VII stagnation on Era VI peak tech (Codex).
 
 | Teams | Region |
 | --- | --- |
@@ -322,141 +292,119 @@ Experimental Arcborn.
 
 Goal: create Arcborn capable of changing their own Mark.
 
-Initially loyal to Merchant Guild.
+Initially loyal to Merchant Guild / Master Trader property.
 
-Assigned to destroy Crystal Valley.
+### Era VI — Northern mission (Codex end of Era VI)
 
-Mission:
+Assigned to **stop deals with the Baricans** and **deny them legitimacy**
+(Crystal Valley is the Era V+ Barican keystone for Arc-snow extraction).
 
-- infiltrate Wardens
-- enter Crystal Valley
-- learn Free Mark
-- eliminate settlement
+Mission shape (interior chapters may expand later):
 
-Mission succeeds.
+- Break Guild–Barican secret arrangements
+- Deny Barican political legitimacy
+- Crystal Valley / northern operations as required to that end
 
-Gap outbreak destroys valley.
+**Outcome:** Mission “succeeds” in the ugliest way — **huge Gaps** tear the
+North; massive **Craven** hordes; humanity **reseals The Passing**. Last open
+sight of the northern land for the southern grid states.
 
-Refugees exterminated at The Passing.
+### Era VII — Aftermath and Western end (Codex Era VII)
 
 Returns changed.
 
 Later:
 
-- assassinates Master Trader
-- destroys own Handler
-- obtains Free Mark
-- begins Arcborn rebellion
+- Assassinates Master Trader
+- Destroys own Handler (survives)
+- Mutating Mark trends toward Free Mark
+- Begins / fuels Arcborn rebellion
 
 Western campaign:
 
-Recruits Zetans.
-
-Destroys Western Core.
-
-Sacrifices himself redirecting Core explosion.
-
-Explosion seals Man-Eater Mountain.
-
-Without sacrifice: entire western continent destroyed.
+- Recruits Zeta / Zetans
+- **Western Core** destroyed; detonation redirected
+- Sacrifices himself; explosion **seals Man-Eater Mountain**
+- Without sacrifice: western continent becomes volcanic wasteland
 
 ---
 
 ## King Baric
 
-Northern ruler.
+**Era III** Northern ruler (Codex).
 
-Believes Arcborn are sacred.
+Refuses Core-grid cooperation; Central marches north.
 
-Rejects Handler system.
+Dies in the Northern Core blast that terraforms the North and raises the
+mountain wall.
 
-Rejects negotiation with Centralists.
+**Barican Coalition** (Era V+) is named after him — memory-state, not his
+literal ongoing reign.
 
-Considers controlled Arcborn desecrated.
+Philosophy the Baricans inherit:
+
+- Arcborn treated as sacred / not livestock
+- Rejects Handler system
+- Rejects Centralist annexation of northern yield
 
 ---
 
 ## Merchant Guild
 
-True ruling power.
+True long-game power through logistics and bureaucracy.
 
-Economic empire.
-
-Operates through logistics and bureaucracy.
-
-South functions under Guild influence.
-
-Final surviving empire of Era 8.
-
+**Era II:** first roots; enables logistics; profits from East–West war; invents
+Handle path.  
+**Era III–V:** favor politics, puppets, secret Barican contracts / fabricated
+raids.  
+**Era VIII:** final surviving empire (Southern Core); slow starve.  
 Destroyed by collapse rather than conquest.
 
 ---
 
 ## Regions
 
+Dialect and history summaries for art/systems. Dates defer to Codex.
+
 ### North
 
-Arcborn treated as sacred.
-
-Crystal Valley.
-
-Free Mark.
-
-Eventually isolated forever.
+Era III blast → arctic / walled. Era IV rebuild under Warden founder. Era V
+frontier + **Crystal Valley** / Baricans. Era VI Passing sealed after Delta.
+Era 9: sealed-horror / Glitch fragments; Act 1 North spine approaches the scar.
 
 ### West
 
-Industrial mining civilization.
-
-Identity built around steel.
-
-Man-Eater Mountain.
-
-Zetans.
-
-Western Core.
+Extraction culture. Man-Eater Mountain. Era III Arcborn as mountain fodder.
+Era V Gaps in Man-Eater → **Zeta Corps**. Era VII Western Core destroyed;
+mountain sealed by Delta.
 
 ### East
 
-Heavy Arcborn oppression.
-
-Slavery.
-
-Servitude.
-
-Ends in civil war.
-
-Eastern Core destroyed.
+Era III Arcborn slavery under Handle. Precision / academy culture later.
+Era VII Eastern Core destroyed (Arcborn–Human war / Mist breach).
 
 ### South
 
-Transfers Arcborn into Central Handler system.
-
-Home of 7th X.
-
-Merchant Guild political influence.
+Guild home. Handle origin. Era VIII last empire / rare carbon tech.
 
 ### Central
 
-Administrative center.
-
-Forbidden birth identity.
-
-Exists through every era.
-
-Only remaining civilization seat during Era 9.
+Administrative seat through eras. Era 9 overcrowded remnant after inward
+flight; eviction origin. Only remaining functioning civil Core seat at open.
 
 ---
 
 ## Wardens
 
-Permanent northern assignment.
+**Origin (Codex):** Era III blast sole survivor (crystal tomb) leads Era IV
+northern rebuild; Era V absorbs Warden philosophy into bureaucracy — first
+**Warden Unit**.
 
-Equivalent to lifelong frontier service.
+Permanent northern / frontier assignment culture.
 
 Rarely return.
 
-Story focus: Warden Unit 17 (Catalyst Agent).
+Story focus: **Warden Unit 17** (Era VI Catalyst beat; interior TBD).
 
 ---
 
@@ -470,43 +418,23 @@ Operate among civilians.
 
 Receive better treatment than most Arcborn.
 
-During rebellion: many desert; many remain loyal. Reasons differ.
+During Era VII rebellion: many desert; many remain loyal. Reasons differ.
 
 ---
 
-## Zetans
+## Zetans / Zeta Corps
 
-Failed academy graduates.
+**Zeta Corps** founded end of Era V to combat Cravens after Man-Eater Gaps
+(Codex).
 
-Western Arcborn.
+Western mining / anti-Craven organization.
 
-Assigned to Man-Eater Mountain.
+Failed academy graduates and Western Arcborn often assigned to Man-Eater —
+disposable depth labor in doctrine and proverb.
 
-Function: disposable mining corps.
+Death-sentence reputation.
 
-Death sentence.
-
----
-
-## Man-Eater Mountain
-
-Largest mineral deposit.
-
-Foundation of Western industry.
-
-Immense cave system.
-
-Depth unknown.
-
-Contains expanding Gaps.
-
-Western civilization depends on it.
-
-Eventually sealed by Delta.
-
----
-
-## Zetan Squad Doctrine
+### Zetan Squad Doctrine
 
 Standard size: 5
 
@@ -525,6 +453,24 @@ Darkness is avoided.
 
 Never separate from tether.
 
+Saying (Codex / lore): *Feed the mountain men and you will get things to
+destroy more men.*
+
+---
+
+## Man-Eater Mountain
+
+Largest mineral deposit.
+
+Foundation of Western industry.
+
+Immense cave system. Depth unknown.
+
+Era V: Gaps discovered here — humanity realizes the crisis is not only
+northern.
+
+Era VII: sealed by Delta’s Western Core sacrifice.
+
 ---
 
 ## Earth Dreams
@@ -536,6 +482,9 @@ Examples: office worker, farmer, dog owner.
 Dreams are never explained.
 
 Purpose: emotional contrast. Ordinary life becomes mythical.
+
+Classified backdrop (Codex): Transcendence / Earth-familiar residue — never
+UI exposition.
 
 ---
 
@@ -550,6 +499,9 @@ Examples: Warden, Navigator, Zetan, Mechanic, Clerk.
 History remembers Catalysts.
 
 Story follows Catalyst Agents.
+
+Era 9 tone: bureaucracy refusing apocalypse; Glitch fragments without
+lectures.
 
 ---
 
@@ -576,6 +528,8 @@ Player should experience history from ground level.
 
 ## Cross-links
 
+- **Official chronology:**
+  [World Timeline Codex](WORLD_TIMELINE_CODEX.md)
 - Campaign / zone shipping scope:
   [Macro World Overhaul](design/MACRO_WORLD_OVERHAUL.md)
 - Hex visual generation language:

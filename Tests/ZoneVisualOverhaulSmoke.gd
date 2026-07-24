@@ -21,11 +21,20 @@ func _run() -> void:
 
 
 func _verify_time_rules() -> bool:
-	if GameTimeRules.MOVE_MINUTES != 45:
-		_fail("MOVE_MINUTES must be 45 for ~100 km² zones, got %d." % GameTimeRules.MOVE_MINUTES)
+	if GameTimeRules.MOVE_MINUTES != GameTimeRules.ACTION_MINUTES:
+		_fail(
+			"MOVE_MINUTES must equal ACTION_MINUTES (%d), got %d."
+			% [GameTimeRules.ACTION_MINUTES, GameTimeRules.MOVE_MINUTES]
+		)
 		return false
-	if GameTimeRules.ZONE_AREA_KM2 < 99.0 or GameTimeRules.HEX_AREA_KM2 <= 0.0:
-		_fail("Zone/hex area constants missing or invalid.")
+	if GameTimeRules.ACTION_MINUTES != 15:
+		_fail("ACTION_MINUTES must be 15 for four beats per hour.")
+		return false
+	if GameTimeRules.HEX_CENTER_DISTANCE_KM < 0.4 or GameTimeRules.HEX_CENTER_DISTANCE_KM > 0.5:
+		_fail("HEX_CENTER_DISTANCE_KM must sit near 0.45 km district pitch.")
+		return false
+	if GameTimeRules.HEX_AREA_KM2 <= 0.0 or GameTimeRules.ZONE_AREA_KM2 < 70.0:
+		_fail("Zone/hex area constants missing or invalid for retuned scale.")
 		return false
 	var plains := MacroHexData.new()
 	plains.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
@@ -50,12 +59,68 @@ func _verify_time_rules() -> bool:
 	):
 		_fail("Shallow river must be fordable but slower than plains.")
 		return false
-	if GameTimeRules.move_minutes_for_hex(plains) != 45:
-		_fail("Plains move minutes should be 45.")
+	if GameTimeRules.move_minutes_for_hex(plains) != 15:
+		_fail("Plains move minutes should be 15.")
 		return false
-	if GameTimeRules.move_minutes_for_hex(hills) != 90:
-		_fail("Hills move minutes should be 90.")
+	if GameTimeRules.move_minutes_for_hex(hills) != 30:
+		_fail("Hills move minutes should be 30.")
 		return false
+	if not _verify_lighting_phases():
+		return false
+	return true
+
+
+func _verify_lighting_phases() -> bool:
+	if GameTimeRules.phase_for_hour(3) != "night":
+		_fail("Hour 3 must be night.")
+		return false
+	if GameTimeRules.phase_for_hour(6) != "dawn":
+		_fail("Hour 6 must be dawn.")
+		return false
+	if GameTimeRules.phase_for_hour(12) != "midday":
+		_fail("Hour 12 must be midday.")
+		return false
+	if GameTimeRules.phase_for_hour(18) != "dusk":
+		_fail("Hour 18 must be dusk.")
+		return false
+	if GameTimeRules.phase_for_hour(22) != "night":
+		_fail("Hour 22 must be night.")
+		return false
+	if not GameTimeRules.is_night_hour(22):
+		_fail("is_night_hour(22) should be true.")
+		return false
+	if GameTimeRules.is_night_hour(12):
+		_fail("is_night_hour(12) should be false.")
+		return false
+	var night: Dictionary = GameTimeRules.lighting_for_phase("night")
+	var midday: Dictionary = GameTimeRules.lighting_for_phase("midday")
+	if float(night.get("strength", 0.0)) <= float(midday.get("strength", 1.0)):
+		_fail("Night lighting strength must exceed midday.")
+		return false
+	if float(night.get("vision_strength", 0.0)) <= float(midday.get("vision_strength", 1.0)):
+		_fail("Night vision_strength must exceed midday.")
+		return false
+	var night_color: Color = night.get("vignette_color", Color.BLACK)
+	var midday_color: Color = midday.get("vignette_color", Color.WHITE)
+	if night_color.b <= midday_color.b:
+		_fail("Night vignette should be cooler (higher blue) than midday.")
+		return false
+	var overlay := VisionVignetteOverlay.new()
+	overlay.apply_lighting_phase("night")
+	if overlay.get_lighting_phase() != "night":
+		_fail("VisionVignetteOverlay did not retain night phase.")
+		overlay.free()
+		return false
+	if overlay.strength <= float(midday.get("strength", 1.0)):
+		_fail("VisionVignetteOverlay night strength not applied.")
+		overlay.free()
+		return false
+	overlay.apply_lighting_phase("midday")
+	if overlay.get_lighting_phase() != "midday":
+		_fail("VisionVignetteOverlay did not switch to midday.")
+		overlay.free()
+		return false
+	overlay.free()
 	return true
 
 

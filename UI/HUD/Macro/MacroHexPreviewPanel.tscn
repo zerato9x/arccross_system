@@ -53,4 +53,4 @@ text = "Click to explore"
 [node name="PreviewExpandButton" type="Button" parent="Margin/Column"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Explore"
+text = "Explore [E]"

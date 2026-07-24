@@ -1,5 +1,17 @@
 # ARCCROSS Changelog
 
+## July 24, 2026
+
+### Hex World Asset Overhaul + Lore Cleanup
+
+- Authored `READMEs/design/HEX_WORLD_ASSET_OVERHAUL.md`: pack roles (theme vs
+  Golbanc Era 8 default), ecological extremes, alpha homestead→Core theme ramp,
+  NodeDialectProfile contract, promote phases A–F.
+- Pointed Central Core Campaign asset pipeline and Macro World / docs indexes
+  at that file; superseded older Golbanc→plains / Gallian-SKU sort table.
+- Authored `READMEs/WORLD_TIMELINE_CODEX.md` as official era chronology;
+  synced Canonical World Spec Delta/Baric/regions to Codex dates.
+
 ## July 23, 2026
 
 ### Official Turn-Based Combat Overhaul

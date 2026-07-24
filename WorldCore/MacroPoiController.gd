@@ -1,5 +1,7 @@
 extends RefCounted
 
+const SiteCatalog := preload("res://WorldCore/SiteCatalog.gd")
+
 ## POI session snapshots, preview metrics, and neutral search/camp outcomes.
 ## MacroGameManager applies returned mutations to RuntimeStateStore and UI.
 
@@ -389,29 +391,33 @@ static func build_landmark_search_options(
 
 
 static func format_slot_label(slot_id: String) -> String:
-	if slot_id == "sleep_spot":
-		return "Bedroll"
-	if slot_id.begins_with("trap_"):
-		return "Trap %d" % (int(slot_id.replace("trap_", "")) + 1)
-	if slot_id.begins_with("camp_gear_"):
-		return "Gear %d" % (int(slot_id.replace("camp_gear_", "")) + 1)
-	if slot_id.begins_with("tool_"):
-		return "Tool %d" % (int(slot_id.replace("tool_", "")) + 1)
-	return slot_id.replace("_", " ").capitalize()
+	match slot_id:
+		"sleep_spot", "sleep_assist":
+			return "Sleep with…"
+		"tool_assist", "tool_0":
+			return "Tool"
+		"camp_assist":
+			return "Bedroll / Gear"
+		"trap_assist", "trap_0":
+			return "Door Frame Trap"
+		"trap_1":
+			return "Brush Line Trap"
+		_:
+			if slot_id.begins_with("camp_gear_"):
+				return "Camp Gear"
+			if slot_id.begins_with("tool_"):
+				return "Tool"
+			return slot_id.replace("_", " ").capitalize()
 
 
 static func build_search_gear_slots() -> Array:
-	var slots: Array = []
-	for slot_index in range(3):
-		var slot_id := "tool_%d" % slot_index
-		slots.append({
-			"id": slot_id,
-			"label": format_slot_label(slot_id),
-			"accepted_roles": [GameEnums.InteractionItemRole.SEARCH_TOOL],
-			"assigned_instance_id": "",
-			"assigned_name": "",
-		})
-	return slots
+	return [{
+		"id": "tool_assist",
+		"label": format_slot_label("tool_assist"),
+		"accepted_roles": [GameEnums.InteractionItemRole.SEARCH_TOOL],
+		"assigned_instance_id": "",
+		"assigned_name": "",
+	}]
 
 
 static func build_search_drop_targets(
@@ -435,7 +441,7 @@ static func build_camp_drop_targets(hex_data: MacroHexData) -> Array:
 			assigned_id = str(hex_data.camp_item_states[gear_index].get("instance_id", ""))
 		targets.append({
 			"id": "camp_gear_%d" % gear_index,
-			"label": format_slot_label("camp_gear_%d" % gear_index),
+			"label": "Camp gear" if gear_index == 0 else "Extra gear %d" % (gear_index + 1),
 			"accepted_roles": [GameEnums.InteractionItemRole.CAMP_GEAR],
 			"assigned_instance_id": assigned_id,
 			"assigned_name": "",
@@ -454,6 +460,41 @@ static func build_camp_drop_targets(hex_data: MacroHexData) -> Array:
 			"assigned_name": "",
 			"anchor_id": str(trap_state.get("anchor_id", "door_frame")),
 			"lane_index": int(trap_state.get("lane_index", 8 + trap_index)),
+		})
+	return targets
+
+
+static func build_fixture_drop_targets(site: Dictionary, fixture_id: String) -> Array:
+	var fixture := SiteCatalog.fixture_by_id(site, fixture_id)
+	if fixture.is_empty():
+		return []
+	var verbs: Array = fixture.get("verbs", [])
+	var targets: Array = []
+	if SiteCatalog.VERB_SEARCH in verbs:
+		targets.append({
+			"id": "tool_assist",
+			"label": "Tool for %s" % str(fixture.get("label", "fixture")),
+			"accepted_roles": [GameEnums.InteractionItemRole.SEARCH_TOOL],
+			"assigned_instance_id": "",
+			"assigned_name": "",
+		})
+	if SiteCatalog.VERB_SLEEP in verbs:
+		targets.append({
+			"id": "sleep_assist",
+			"label": "Sleep with…",
+			"accepted_roles": [GameEnums.InteractionItemRole.CAMP_GEAR],
+			"assigned_instance_id": "",
+			"assigned_name": "",
+		})
+	if SiteCatalog.VERB_TRAP in verbs:
+		targets.append({
+			"id": "trap_assist",
+			"label": "Arm trap",
+			"accepted_roles": [GameEnums.InteractionItemRole.TRAP_GEAR],
+			"assigned_instance_id": "",
+			"assigned_name": "",
+			"anchor_id": str(fixture.get("id", "door_frame")),
+			"lane_index": 8,
 		})
 	return targets
 
@@ -481,19 +522,32 @@ static func build_landmark_session_snapshot(
 		inventory_has_tag,
 		inventory_has_role
 	)
+	var site := SiteCatalog.site_for_hex(
+		hex_data,
+		search_options,
+		camp_access,
+		world_seed,
+		coords
+	)
+	var default_fixture_id := _default_fixture_id(site)
+	var default_fixture := SiteCatalog.fixture_by_id(site, default_fixture_id)
 	return {
 		"poi_name": hex_data.poi_name,
 		"hex_label": hex_label,
 		"has_search": true,
+		"place_centric": true,
+		"site": site,
+		"selected_fixture_id": default_fixture_id,
 		"scene_descriptor": EventBgCatalog.build_scene_descriptor(
 			hex_data,
 			world_seed,
 			coords
 		),
 		"available_items": available_items,
-		"search_drop_targets": build_search_drop_targets(hex_data, search_options),
+		"search_drop_targets": build_fixture_drop_targets(site, default_fixture_id),
 		"search_gear_slots": build_search_gear_slots(),
 		"camp_drop_targets": build_camp_drop_targets(hex_data),
+		"fixture_drop_targets": build_fixture_drop_targets(site, default_fixture_id),
 		"ground_items": ground_items,
 		"search_options": search_options,
 		"searched_targets": hex_data.searched_targets.duplicate(),
@@ -502,10 +556,13 @@ static func build_landmark_session_snapshot(
 		"rest_in_progress": hex_data.rest_in_progress,
 		"sleep_anchor_label": PoiVisualCatalog.sleep_anchor_label(hex_data.sleep_anchor),
 		"world_time": world_time,
-		"selected_search_option_id": (
-			str(search_options[0].get("id", "primary_search"))
-			if not search_options.is_empty()
-			else "primary_search"
+		"selected_search_option_id": str(
+			default_fixture.get(
+				"search_option_id",
+				str(search_options[0].get("id", "primary_search"))
+				if not search_options.is_empty()
+				else "primary_search"
+			)
 		),
 	}
 
@@ -522,10 +579,15 @@ static func build_hex_session_snapshot(
 ) -> Dictionary:
 	const EventBgCatalog := preload("res://PresentationCore/EventBgCatalog.gd")
 	const WorldSectorCatalog := preload("res://WorldCore/WorldSectorCatalog.gd")
+	var site := SiteCatalog.site_for_hex(hex_data, [], camp_access, world_seed, coords)
+	var default_fixture_id := _default_fixture_id(site)
 	return {
 		"poi_name": hex_label if not hex_label.is_empty() else "WILDERNESS",
 		"hex_label": hex_label,
 		"has_search": false,
+		"place_centric": true,
+		"site": site,
+		"selected_fixture_id": default_fixture_id,
 		"scene_descriptor": {
 			"background_path": EventBgCatalog.resolve_background(hex_data),
 			"props": [],
@@ -535,6 +597,7 @@ static func build_hex_session_snapshot(
 		"search_drop_targets": [],
 		"search_gear_slots": [],
 		"camp_drop_targets": build_camp_drop_targets(hex_data),
+		"fixture_drop_targets": build_fixture_drop_targets(site, default_fixture_id),
 		"ground_items": ground_items,
 		"search_options": [],
 		"camp_allowed": camp_access.get("allowed", false),
@@ -543,6 +606,13 @@ static func build_hex_session_snapshot(
 		"world_time": world_time,
 		"selected_search_option_id": "",
 	}
+
+
+static func _default_fixture_id(site: Dictionary) -> String:
+	for fixture in site.get("fixtures", []):
+		if fixture is Dictionary and not str(fixture.get("id", "")).is_empty():
+			return str(fixture.get("id", ""))
+	return ""
 
 
 static func apply_sleep_gear_selection(

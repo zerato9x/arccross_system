@@ -24,10 +24,7 @@ const ENEMY_AMBUSH_LANE := 7
 const ORDINARY_PLAYER_LANE := 2
 const ORDINARY_ENEMY_LANE := 9
 
-const DEFAULT_IMAGE := (
-	"res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce1/"
-	+ "Bright/ground&houses.png"
-)
+const DEFAULT_IMAGE := EventBgCatalog.PLAINS_BG
 
 const SAMPLE_UNIQUE_DIALOGUE_ID := "sample_wasteland_broker"
 
@@ -388,6 +385,11 @@ static func _session(
 		"mode": mode,
 		"opponent": opponent.duplicate(true),
 		"grid_preview": grid_preview.duplicate(true),
+		"place_presence": true,
+		"walk_in": mode == MODE_ROOT,
+		"meet_label": "You and %s share this ground." % str(
+			opponent.get("name", "a stranger")
+		),
 	}
 
 
@@ -425,7 +427,7 @@ static func _grid_preview(
 
 static func _root_body(opponent: Dictionary) -> String:
 	return (
-		"You collide with %s.\n\n%s\n\n"
+		"You step into the open and meet %s on this ground.\n\n%s\n\n"
 		+ "Talk to negotiate, or Ambush to fight with a chosen approach."
 	) % [str(opponent.get("name", "Unknown")), _opponent_detail_block(opponent)]
 

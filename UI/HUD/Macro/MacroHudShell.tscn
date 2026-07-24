@@ -122,7 +122,7 @@ text = "Main Menu"
 [node name="SettingsCloseButton" type="Button" parent="Root/SettingsPanel/SettingsMargin/SettingsContent" unique_id=1873643694]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Close"
+text = "Close [Esc]"
 
 [node name="SaveLoadMenu" parent="Root" unique_id=1223507307 instance=ExtResource("4_saveload")]
 unique_name_in_owner = true

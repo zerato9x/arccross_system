@@ -23,6 +23,8 @@ signal node_map_requested
 const _InventorySlotScene := preload("res://UI/Inventory/InventorySlot.tscn")
 const _SlotActionBuilder := preload("res://UI/Inventory/InventorySlotActionBuilder.gd")
 const _ContextMenuHost := preload("res://UI/Inventory/InventorySlotContextMenuHost.gd")
+const _PoiController := preload("res://WorldCore/MacroPoiController.gd")
+const SiteCatalog := preload("res://WorldCore/SiteCatalog.gd")
 const _PROP_SPRITE_SIZE := 170.0
 const _PROP_OUTLINE_PADDING := 4.0
 const _PROP_OUTLINE_WIDTH := 3
@@ -60,10 +62,21 @@ const _BACKGROUND_VERTICAL_SHIFT := -72.0
 @onready var _rest_button: Button = %RestButton
 @onready var _stop_rest_button: Button = %StopRestButton
 @onready var _continue_button: Button = %ContinueButton
+@onready var _fixture_list: VBoxContainer = %FixtureList
+@onready var _verb_row: HBoxContainer = %VerbRow
+@onready var _interaction_header: Label = %InteractionHeader
+@onready var _token_layer: Control = %TokenLayer
+@onready var _actor_token: ColorRect = %ActorToken
+@onready var _progress_overlay: PanelContainer = %ProgressOverlay
+@onready var _progress_label: Label = %ProgressLabel
+@onready var _action_progress: ProgressBar = %ActionProgressBar
 
 var _session: Dictionary = {}
 var _active_mode := GameEnums.PoiAction.SEARCH
 var _selected_search_option_id := "primary_search"
+var _selected_fixture_id := ""
+var _pending_verb := ""
+var _action_busy := false
 var _search_drop_targets: Dictionary = {}
 var _camp_drop_targets: Dictionary = {}
 var _ground_slots: Array[InventorySlot] = []
@@ -72,6 +85,8 @@ var _prop_entries: Dictionary = {}
 var _showing_result := false
 var _context_drop_target: InteractionDropTarget
 var _context_slot: InventorySlot
+var _token_tween: Tween
+var _progress_tween: Tween
 
 func _ready() -> void:
 	_panel.visible = false
@@ -91,6 +106,9 @@ func _ready() -> void:
 	HUDAssetLibrary.apply_label(_drop_hint, "muted")
 	HUDAssetLibrary.apply_label(%CampDropHint as Label, "muted")
 	HUDAssetLibrary.apply_label(%GroundHeader as Label, "muted")
+	HUDAssetLibrary.apply_label(_progress_label, "info")
+	HUDAssetLibrary.apply_panel(_progress_overlay, "neutral")
+	HUDAssetLibrary.apply_progress_bar(_action_progress, "discovery")
 	HUDAssetLibrary.apply_button(_search_button)
 	HUDAssetLibrary.apply_button(_camp_button)
 	HUDAssetLibrary.apply_button(_node_map_button, "map")
@@ -100,18 +118,53 @@ func _ready() -> void:
 	HUDAssetLibrary.apply_button(_continue_button)
 	_search_button.text = "Search"
 	_camp_button.text = "Camp"
+	_mode_tabs.visible = false
 	_node_map_button.visible = false
 	_continue_button.visible = false
-	_search_button.pressed.connect(func(): _set_mode(GameEnums.PoiAction.SEARCH))
-	_camp_button.pressed.connect(func(): _set_mode(GameEnums.PoiAction.CAMP))
+	_progress_overlay.visible = false
 	_submit_button.pressed.connect(_submit_action)
-	_rest_button.pressed.connect(func(): _submit_action_for(GameEnums.PoiAction.REST))
+	_rest_button.pressed.connect(func(): _begin_fixture_verb(SiteCatalog.VERB_SLEEP))
 	_stop_rest_button.pressed.connect(func(): _submit_action_for(GameEnums.PoiAction.STOP_REST))
+	HUDAssetLibrary.apply_soft_edge(_panel, 0.18)
 	_continue_button.pressed.connect(_on_continue_pressed)
 	_scene_root.resized.connect(_rerender_prop_positions)
 	_scene_root.clip_contents = true
 	_apply_background_layout()
+	_place_token_at(Vector2(0.12, 0.78), false)
 	close_window(false)
+
+
+func restyle() -> void:
+	HUDAssetLibrary.apply_panel(_panel, "warning")
+	HUDAssetLibrary.apply_panel(_inventory_panel, "neutral")
+	HUDAssetLibrary.apply_panel(_search_frame, "neutral")
+	HUDAssetLibrary.apply_panel(_interaction_box, "neutral")
+	HUDAssetLibrary.apply_panel(%GroundBox as PanelContainer, "neutral")
+	HUDAssetLibrary.apply_panel(%PoiNamePlate as PanelContainer, "neutral")
+	HUDAssetLibrary.apply_label(_inventory_header, "muted")
+	HUDAssetLibrary.apply_label(_inventory_hint, "muted")
+	HUDAssetLibrary.apply_label(_poi_name_label, "title")
+	HUDAssetLibrary.apply_label(_title_label, "title")
+	HUDAssetLibrary.apply_label(_body_label, "body")
+	HUDAssetLibrary.apply_label(%InteractionHeader as Label, "muted")
+	HUDAssetLibrary.apply_label(_search_frame_header, "muted")
+	HUDAssetLibrary.apply_label(_drop_hint, "muted")
+	HUDAssetLibrary.apply_label(%CampDropHint as Label, "muted")
+	HUDAssetLibrary.apply_label(%GroundHeader as Label, "muted")
+	HUDAssetLibrary.apply_label(_progress_label, "info")
+	HUDAssetLibrary.apply_panel(_progress_overlay, "neutral")
+	HUDAssetLibrary.apply_progress_bar(_action_progress, "discovery")
+	HUDAssetLibrary.apply_button(_search_button)
+	HUDAssetLibrary.apply_button(_camp_button)
+	HUDAssetLibrary.apply_button(_node_map_button, "map")
+	HUDAssetLibrary.apply_button(_submit_button)
+	HUDAssetLibrary.apply_button(_rest_button)
+	HUDAssetLibrary.apply_button(_stop_rest_button)
+	HUDAssetLibrary.apply_button(_continue_button)
+	_search_button.text = "Search"
+	_camp_button.text = "Camp"
+	HUDAssetLibrary.apply_soft_edge(_panel, 0.18)
+
 
 var _dock_host: Control
 
@@ -189,16 +242,19 @@ func _apply_stage_overlay_layout() -> void:
 
 func open_landmark(session: Dictionary, _inventory_snapshot: Dictionary = {}) -> void:
 	_session = session.duplicate(true)
+	_selected_fixture_id = str(_session.get("selected_fixture_id", ""))
 	_selected_search_option_id = str(
 		_session.get("selected_search_option_id", "primary_search")
 	)
-	if not _session.get("has_search", true):
-		_active_mode = GameEnums.PoiAction.CAMP
-	else:
-		_active_mode = GameEnums.PoiAction.SEARCH
+	_pending_verb = ""
+	_action_busy = false
+	_active_mode = GameEnums.PoiAction.SEARCH
 	_panel.visible = true
+	_progress_overlay.visible = false
+	_place_token_at(Vector2(0.12, 0.78), false)
 	_render_session()
 	_request_preview()
+	_walk_token_to_selected_fixture()
 
 func show_result(title: String, message: String) -> void:
 	_showing_result = true
@@ -258,8 +314,6 @@ func refresh_ground_items(ground_items: Array) -> void:
 	_render_ground_items()
 
 func show_poi_preview(action: GameEnums.PoiAction, metrics: Dictionary) -> void:
-	if action != _active_mode:
-		return
 	for child in _metric_box.get_children():
 		child.queue_free()
 	for key in metrics.keys():
@@ -313,9 +367,12 @@ func _metric_label_role(metric_key: String, value: float) -> String:
 
 func _render_session() -> void:
 	_clear_right_panel()
-	_title_label.text = "Explore"
+	var site: Dictionary = _session.get("site", {})
+	_title_label.text = str(site.get("display_name", _session.get("poi_name", "Explore")))
 	_body_label.text = str(_session.get("scene_descriptor", {}).get("zone_name", ""))
+	_interaction_header.text = "Here"
 	_render_scene(_session.get("scene_descriptor", {}))
+	_render_fixture_browser()
 	_render_interaction_gear()
 	_render_search_options()
 	_render_drop_targets()
@@ -344,8 +401,9 @@ func _render_interaction_gear() -> void:
 		_inventory_grid.add_child(slot)
 		_inventory_slots.append(slot)
 		rendered += 1
+	_inventory_header.text = "Your kit"
 	_inventory_hint.text = (
-		"Drag gear into a slot, double-click to fill the next open slot, or right-click for actions."
+		"Drag onto the selected thing, double-click to fill, or right-click for actions."
 		if rendered > 0
 		else _empty_inventory_hint()
 	)
@@ -503,17 +561,20 @@ func _active_drop_targets() -> Array:
 	return drops
 
 func _empty_inventory_hint() -> String:
-	if _active_mode == GameEnums.PoiAction.SEARCH:
-		return "No search tools available."
-	return "No camp gear or traps available."
+	return "Drag a tool, bedroll, or trap onto the selected thing."
 
 func _current_role_filter() -> Array[int]:
-	if _active_mode == GameEnums.PoiAction.SEARCH:
-		return [GameEnums.InteractionItemRole.SEARCH_TOOL]
-	return [
-		GameEnums.InteractionItemRole.CAMP_GEAR,
-		GameEnums.InteractionItemRole.TRAP_GEAR,
-	]
+	var fixture := _selected_fixture()
+	var roles: Array[int] = []
+	for role in fixture.get("accepted_roles", []):
+		roles.append(int(role))
+	if roles.is_empty():
+		return [
+			GameEnums.InteractionItemRole.SEARCH_TOOL,
+			GameEnums.InteractionItemRole.CAMP_GEAR,
+			GameEnums.InteractionItemRole.TRAP_GEAR,
+		]
+	return roles
 
 func _descriptor_has_any_role(descriptor: Dictionary, roles: Array[int]) -> bool:
 	if roles.is_empty():
@@ -691,23 +752,14 @@ func _select_search_option(option_id: String) -> void:
 func _render_drop_targets() -> void:
 	_persist_drop_assignments()
 	_clear_drop_targets()
-	if _active_mode == GameEnums.PoiAction.SEARCH:
-		_render_search_drop_targets()
-	else:
-		_render_camp_drop_targets()
-
-func _render_search_drop_targets() -> void:
 	var targets: Array = _session.get(
-		"search_gear_slots",
+		"fixture_drop_targets",
 		_session.get("search_drop_targets", [])
 	)
+	if targets.is_empty():
+		targets = _session.get("camp_drop_targets", [])
 	for target in targets:
 		_add_drop_target(target, _search_drop_row, _search_drop_targets)
-
-func _render_camp_drop_targets() -> void:
-	var targets: Array = _session.get("camp_drop_targets", [])
-	for target in targets:
-		_add_drop_target(target, _search_drop_row, _camp_drop_targets)
 
 func _add_drop_target(
 	target: Variant,
@@ -793,17 +845,15 @@ func _clear_right_panel() -> void:
 	_clear_drop_targets()
 	for child in _search_options_row.get_children():
 		child.queue_free()
+	if _fixture_list:
+		for child in _fixture_list.get_children():
+			child.queue_free()
+	if _verb_row:
+		for child in _verb_row.get_children():
+			child.queue_free()
 	_prop_entries.clear()
 
 func _set_mode(mode: GameEnums.PoiAction) -> void:
-	if mode == GameEnums.PoiAction.SEARCH and not _session.get("has_search", true):
-		return
-	if mode == GameEnums.PoiAction.CAMP and not _session.get("camp_allowed", false):
-		show_result(
-			"CAMP UNAVAILABLE",
-			str(_session.get("camp_block_reason", "This location is unsafe."))
-		)
-		return
 	_active_mode = mode
 	_render_interaction_gear()
 	_render_drop_targets()
@@ -812,50 +862,42 @@ func _set_mode(mode: GameEnums.PoiAction) -> void:
 	_update_mode_visibility()
 	_request_preview()
 
+
 func _update_mode_visibility() -> void:
-	var has_search := bool(_session.get("has_search", true))
-	_search_button.visible = has_search
-	_search_frame.visible = (
-		_active_mode == GameEnums.PoiAction.CAMP
-		or (has_search and _active_mode == GameEnums.PoiAction.SEARCH)
-	)
-	_interaction_box.visible = false
-	if _active_mode == GameEnums.PoiAction.SEARCH:
-		_search_frame_header.text = "Search"
-		HUDAssetLibrary.apply_label(_search_frame_header, "discovery")
-		_drop_hint.text = "Pick a structure, add tools, then scavenge."
-		HUDAssetLibrary.apply_label(_drop_hint, "muted")
-	else:
-		_search_frame_header.text = "Camp"
-		HUDAssetLibrary.apply_label(_search_frame_header, "caution")
-		_drop_hint.text = "Add shelter, camp gear, or traps before resting."
-		HUDAssetLibrary.apply_label(_drop_hint, "muted")
+	_mode_tabs.visible = false
+	_search_frame.visible = true
+	_interaction_box.visible = true
+	_search_frame_header.text = "Outlook"
+	HUDAssetLibrary.apply_label(_search_frame_header, "discovery")
+	_drop_hint.text = "Select a thing in the place, then Search / Sleep / Trap."
+	HUDAssetLibrary.apply_label(_drop_hint, "muted")
+
 
 func _update_mode_buttons() -> void:
-	var has_search := bool(_session.get("has_search", true))
-	_search_button.disabled = not has_search or _active_mode == GameEnums.PoiAction.SEARCH
-	_camp_button.disabled = _active_mode == GameEnums.PoiAction.CAMP
+	_search_button.visible = false
+	_camp_button.visible = false
+
 
 func _update_rest_buttons() -> void:
 	var resting := bool(_session.get("rest_in_progress", false))
-	_rest_button.visible = _active_mode == GameEnums.PoiAction.CAMP and not resting
-	_stop_rest_button.visible = _active_mode == GameEnums.PoiAction.CAMP and resting
-	_submit_button.visible = (
-		_active_mode == GameEnums.PoiAction.SEARCH
-		and not _selected_search_option_id.is_empty()
-		and not _is_option_depleted(_selected_search_option_id)
-	)
-	_submit_button.text = "Scavenge"
-	_rest_button.text = "Rest"
+	var fixture := _selected_fixture()
+	var verbs: Array = fixture.get("verbs", [])
+	_rest_button.visible = false
+	_stop_rest_button.visible = resting
+	_submit_button.visible = false
 	_stop_rest_button.text = "Pack Up"
+	_render_verb_row(verbs, resting)
+
 
 func _on_item_dropped(_instance_id: String, _target_id: String) -> void:
 	_persist_drop_assignments()
 	_request_preview()
 
+
 func _on_item_cleared(_instance_id: String, _target_id: String) -> void:
 	_persist_drop_assignments()
 	_request_preview()
+
 
 func _persist_drop_assignments() -> void:
 	var assignments: Dictionary = {}
@@ -868,11 +910,13 @@ func _persist_drop_assignments() -> void:
 					assignments[child.target_id] = payload
 	_session["gear_assignments"] = assignments
 
+
 func _on_drop_target_context_menu_requested(
 	global_pos: Vector2,
 	drop: InteractionDropTarget
 ) -> void:
 	_open_drop_target_context_menu(drop, global_pos)
+
 
 func _on_ground_slot_clicked(slot_node: InventorySlot, event: InputEventMouseButton) -> void:
 	if not slot_node.has_item():
@@ -887,6 +931,194 @@ func _on_ground_slot_clicked(slot_node: InventorySlot, event: InputEventMouseBut
 			{}
 		)
 
+
+func _selected_fixture() -> Dictionary:
+	var site: Dictionary = _session.get("site", {})
+	return SiteCatalog.fixture_by_id(site, _selected_fixture_id)
+
+
+func _render_fixture_browser() -> void:
+	if _fixture_list == null:
+		return
+	for child in _fixture_list.get_children():
+		child.queue_free()
+	var site: Dictionary = _session.get("site", {})
+	var rooms: Array = site.get("rooms", [])
+	var searched: Array = _session.get("searched_targets", [])
+	for room in rooms:
+		if not room is Dictionary:
+			continue
+		if bool(room.get("deferred", false)):
+			continue
+		var room_id := str(room.get("id", ""))
+		var room_label := Label.new()
+		room_label.text = str(room.get("label", room_id)).to_upper()
+		HUDAssetLibrary.apply_label(room_label, "caution")
+		_fixture_list.add_child(room_label)
+		for fixture in SiteCatalog.fixtures_in_room(site, room_id):
+			if not fixture is Dictionary:
+				continue
+			var fixture_id := str(fixture.get("id", ""))
+			var option_id := str(fixture.get("search_option_id", ""))
+			var depleted := (
+				not option_id.is_empty() and searched.has(option_id)
+			)
+			var button := Button.new()
+			button.text = str(fixture.get("label", fixture_id))
+			if depleted:
+				button.text += " (looted)"
+			button.set_meta("fixture_id", fixture_id)
+			button.disabled = depleted and SiteCatalog.VERB_SEARCH in fixture.get("verbs", []) and fixture.get("verbs", []).size() == 1
+			button.toggle_mode = true
+			button.button_pressed = fixture_id == _selected_fixture_id
+			HUDAssetLibrary.apply_button(button)
+			button.pressed.connect(_on_fixture_pressed.bind(fixture_id))
+			_fixture_list.add_child(button)
+	if _selected_fixture_id.is_empty():
+		_selected_fixture_id = str(site.get("fixtures", [{}])[0].get("id", "")) if not site.get("fixtures", []).is_empty() else ""
+	_sync_fixture_selection()
+
+
+func _on_fixture_pressed(fixture_id: String) -> void:
+	_select_fixture(fixture_id)
+
+
+func _select_fixture(fixture_id: String) -> void:
+	_selected_fixture_id = fixture_id
+	_session["selected_fixture_id"] = fixture_id
+	var fixture := _selected_fixture()
+	var option_id := str(fixture.get("search_option_id", ""))
+	if not option_id.is_empty():
+		_selected_search_option_id = option_id
+		_session["selected_search_option_id"] = option_id
+	_session["fixture_drop_targets"] = _PoiController.build_fixture_drop_targets(
+		_session.get("site", {}),
+		fixture_id
+	)
+	_body_label.text = str(fixture.get("description", ""))
+	_sync_fixture_selection()
+	_render_interaction_gear()
+	_render_drop_targets()
+	_update_rest_buttons()
+	_walk_token_to_selected_fixture()
+	_request_preview()
+
+
+func _sync_fixture_selection() -> void:
+	if _fixture_list == null:
+		return
+	for child in _fixture_list.get_children():
+		if child is Button:
+			var button := child as Button
+			button.button_pressed = str(button.get_meta("fixture_id", "")) == _selected_fixture_id
+
+
+func _render_verb_row(verbs: Array, resting: bool) -> void:
+	if _verb_row == null:
+		return
+	for child in _verb_row.get_children():
+		child.queue_free()
+	if resting:
+		return
+	for verb in verbs:
+		var button := Button.new()
+		match str(verb):
+			SiteCatalog.VERB_SEARCH:
+				button.text = "Search"
+			SiteCatalog.VERB_SLEEP:
+				button.text = "Sleep here"
+			SiteCatalog.VERB_TRAP:
+				button.text = "Set trap"
+			_:
+				button.text = str(verb).capitalize()
+		HUDAssetLibrary.apply_button(button)
+		button.disabled = _action_busy
+		button.pressed.connect(_begin_fixture_verb.bind(str(verb)))
+		_verb_row.add_child(button)
+
+
+func _place_token_at(anchor: Vector2, animate: bool) -> void:
+	if _actor_token == null or _token_layer == null:
+		return
+	var target := Vector2(
+		anchor.x * maxf(_token_layer.size.x, 1.0) - _actor_token.size.x * 0.5,
+		anchor.y * maxf(_token_layer.size.y, 1.0) - _actor_token.size.y
+	)
+	if _token_tween != null and _token_tween.is_valid():
+		_token_tween.kill()
+	if animate:
+		_token_tween = create_tween()
+		_token_tween.tween_property(_actor_token, "position", target, 0.35).set_trans(
+			Tween.TRANS_SINE
+		).set_ease(Tween.EASE_OUT)
+	else:
+		_actor_token.position = target
+
+
+func _walk_token_to_selected_fixture() -> void:
+	var fixture := _selected_fixture()
+	var anchor: Vector2 = fixture.get("anchor", Vector2(0.5, 0.65))
+	if fixture.is_empty():
+		anchor = Vector2(0.12, 0.78)
+	_place_token_at(anchor, true)
+
+
+func _begin_fixture_verb(verb: String) -> void:
+	if _action_busy:
+		return
+	var fixture := _selected_fixture()
+	if fixture.is_empty():
+		return
+	if verb == SiteCatalog.VERB_SLEEP and not bool(_session.get("camp_allowed", false)):
+		show_result(
+			"SLEEP UNAVAILABLE",
+			str(_session.get("camp_block_reason", "This location is unsafe."))
+		)
+		return
+	_pending_verb = verb
+	_walk_token_to_selected_fixture()
+	var minutes := GameTimeRules.ACTION_MINUTES
+	var label := "Working…"
+	var action := GameEnums.PoiAction.SEARCH
+	match verb:
+		SiteCatalog.VERB_SEARCH:
+			minutes = int(fixture.get("minutes_search", GameTimeRules.SEARCH_MINUTES))
+			label = "Searching %s…" % str(fixture.get("label", "fixture"))
+			action = GameEnums.PoiAction.SEARCH
+			_active_mode = GameEnums.PoiAction.SEARCH
+			var option_id := str(fixture.get("search_option_id", ""))
+			if not option_id.is_empty():
+				_selected_search_option_id = option_id
+		SiteCatalog.VERB_SLEEP:
+			minutes = GameTimeRules.ACTION_MINUTES * 2
+			label = "Settling in to sleep…"
+			action = GameEnums.PoiAction.REST
+			_active_mode = GameEnums.PoiAction.CAMP
+		SiteCatalog.VERB_TRAP:
+			minutes = GameTimeRules.ACTION_MINUTES
+			label = "Arming trap…"
+			action = GameEnums.PoiAction.CAMP
+			_active_mode = GameEnums.PoiAction.CAMP
+	_play_action_progress(label, minutes, action)
+
+
+func _play_action_progress(label: String, minutes: int, action: GameEnums.PoiAction) -> void:
+	_action_busy = true
+	_progress_overlay.visible = true
+	_progress_label.text = "%s  ·  %d min" % [label, minutes]
+	_action_progress.value = 0.0
+	if _progress_tween != null and _progress_tween.is_valid():
+		_progress_tween.kill()
+	var duration := clampf(float(minutes) / 60.0, 0.45, 1.8)
+	_progress_tween = create_tween()
+	_progress_tween.tween_property(_action_progress, "value", 1.0, duration)
+	_progress_tween.tween_callback(func():
+		_progress_overlay.visible = false
+		_action_busy = false
+		_submit_action_for(action)
+	)
+
+
 func _selected_item_ids() -> Array:
 	var ids: Array = []
 	var containers: Array[Container] = [_search_drop_row, _camp_drop_grid]
@@ -899,7 +1131,9 @@ func _selected_item_ids() -> Array:
 	return ids
 
 func _request_preview() -> void:
-	if _active_mode == GameEnums.PoiAction.SEARCH:
+	var fixture := _selected_fixture()
+	var verbs: Array = fixture.get("verbs", [])
+	if SiteCatalog.VERB_SEARCH in verbs and not str(fixture.get("search_option_id", "")).is_empty():
 		poi_preview_requested.emit(
 			GameEnums.PoiAction.SEARCH,
 			_selected_item_ids(),
@@ -913,7 +1147,12 @@ func _request_preview() -> void:
 		)
 
 func _submit_action() -> void:
-	_submit_action_for(_active_mode)
+	if _pending_verb == SiteCatalog.VERB_SLEEP:
+		_submit_action_for(GameEnums.PoiAction.REST)
+	elif _pending_verb == SiteCatalog.VERB_TRAP:
+		_submit_action_for(GameEnums.PoiAction.CAMP)
+	else:
+		_submit_action_for(GameEnums.PoiAction.SEARCH)
 
 func _submit_action_for(action: GameEnums.PoiAction) -> void:
 	poi_action_submitted.emit(
@@ -926,3 +1165,4 @@ func _rerender_prop_positions() -> void:
 	if _session.is_empty():
 		return
 	_render_scene(_session.get("scene_descriptor", {}))
+	_walk_token_to_selected_fixture()

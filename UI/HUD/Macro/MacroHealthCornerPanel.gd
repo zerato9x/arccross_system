@@ -31,8 +31,7 @@ func _install_health_huds() -> void:
 	_preview_hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_detail_hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_preview_hud.details_requested.connect(expand)
-	_preview_hud.inventory_requested.connect(inventory_requested.emit)
-	_preview_hud.settings_requested.connect(settings_requested.emit)
+	# Inventory / settings are owned by inventory corner and world status panel.
 	_detail_hud.limb_treatment_requested.connect(
 		func(instance_id: String, region: int):
 			medical_action_requested.emit(instance_id, region)
@@ -88,6 +87,16 @@ func _set_emergency_flash(active: bool, emergencies: Array) -> void:
 	if not active or _emergency_overlay == null:
 		return
 	_flash_tween = HudMotion.severity_breathe(self, _emergency_overlay, vignette_kind, 0.75)
+
+
+func restyle_scheme() -> void:
+	super.restyle_scheme()
+	if _preview_hud and _preview_hud.has_method("restyle"):
+		_preview_hud.restyle()
+	if _detail_hud and _detail_hud.has_method("restyle"):
+		_detail_hud.restyle()
+	if not _snapshot.is_empty():
+		apply_snapshot(_snapshot)
 
 
 func _set_state(state: PanelState) -> void:

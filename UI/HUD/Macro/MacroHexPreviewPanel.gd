@@ -136,14 +136,14 @@ func _render(scene_descriptor: Dictionary) -> void:
 		_thumb.texture = null
 		_thumb.visible = false
 	if bool(_hex.get("can_interact", false)):
-		_hint_label.text = "Click to explore"
+		_hint_label.text = "Press E to explore"
 		HUDAssetLibrary.apply_label(_hint_label, "discovery")
-		_expand_button.text = "Explore"
+		_expand_button.text = "Explore [E]"
 		_expand_button.disabled = false
 	elif bool(_hex.get("can_travel", false)):
-		_hint_label.text = "Click to travel here"
+		_hint_label.text = "Press T to travel"
 		HUDAssetLibrary.apply_label(_hint_label, "travel")
-		_expand_button.text = "Travel"
+		_expand_button.text = "Travel [T]"
 		_expand_button.disabled = false
 	else:
 		_hint_label.text = "Hex selected"

@@ -361,7 +361,7 @@ static func panel_style(kind: String = "neutral") -> StyleBox:
 			border = COLOR_CAUTION
 			alpha = 0.97
 		"critical", "danger":
-			fill = Color(0.09, 0.03, 0.035, 1.0)
+			fill = Color(0.06, 0.025, 0.03, 1.0)
 			border = COLOR_CRITICAL
 			alpha = 0.97
 		"anomaly":
@@ -675,6 +675,34 @@ static func log_row_style(kind: String, latest: bool = false) -> StyleBoxFlat:
 	style.content_margin_top = 4.0
 	style.content_margin_bottom = 4.0
 	return style
+
+
+## Soft panel rim darkening — matches vision vignette family without atlas frames.
+const SOFT_EDGE_SHADER := "res://PresentationCore/Shaders/ui_soft_edge.gdshader"
+
+static func apply_soft_edge(host: Control, edge_strength: float = 0.22) -> void:
+	if host == null:
+		return
+	var rim := host.get_node_or_null("SoftEdgeRim") as ColorRect
+	if rim == null:
+		rim = ColorRect.new()
+		rim.name = "SoftEdgeRim"
+		rim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		rim.color = Color(1, 1, 1, 1)
+		host.add_child(rim)
+	var material := rim.material as ShaderMaterial
+	if material == null:
+		material = ShaderMaterial.new()
+		rim.material = material
+	var shader := load(SOFT_EDGE_SHADER) as Shader
+	if shader != null:
+		material.shader = shader
+	material.set_shader_parameter("edge_strength", edge_strength)
+	material.set_shader_parameter("edge_softness", 0.28)
+	material.set_shader_parameter("edge_color", Color(0.02, 0.03, 0.02, 1.0))
+	host.move_child(rim, host.get_child_count() - 1)
+
 
 static func _pixel_panel_style(
 	background: Color,

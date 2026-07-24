@@ -21,11 +21,15 @@ var _focus_px := Vector2.ZERO
 var _vision_inner_px := 420.0
 var _vision_soft_px := 220.0
 var _has_focus := false
+var _vignette_color := Color(0.015, 0.02, 0.015, 1.0)
+var _base_breathe_amount: float = 0.03
+var _lighting_phase: String = "morning"
 
 
 func _ready() -> void:
 	layer = 2
 	follow_viewport_enabled = false
+	_base_breathe_amount = breathe_amount
 	_root = Control.new()
 	_root.name = "VignetteRoot"
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -40,7 +44,7 @@ func _ready() -> void:
 	if shader != null:
 		_material.shader = shader
 	_rect.material = _material
-	_apply_params()
+	apply_lighting_phase(GameTimeRules.phase_for_hour(8))
 	_fit_to_viewport()
 	if not get_viewport().size_changed.is_connected(_fit_to_viewport):
 		get_viewport().size_changed.connect(_fit_to_viewport)
@@ -49,6 +53,27 @@ func _ready() -> void:
 
 func set_enabled(enabled: bool) -> void:
 	visible = enabled
+
+
+## Apply shared day/night lighting presets from GameTimeRules.
+func apply_lighting_phase(phase: String) -> void:
+	_lighting_phase = phase
+	var lighting: Dictionary = GameTimeRules.lighting_for_phase(phase)
+	_vignette_color = lighting.get("vignette_color", _vignette_color) as Color
+	strength = float(lighting.get("strength", strength))
+	vision_strength = float(lighting.get("vision_strength", vision_strength))
+	var breathe_scale := float(lighting.get("breathe_scale", 1.0))
+	breathe_amount = _base_breathe_amount * breathe_scale
+	_apply_params()
+	_start_breathe()
+
+
+func get_lighting_phase() -> String:
+	return _lighting_phase
+
+
+func get_vignette_color() -> Color:
+	return _vignette_color
 
 
 ## Push player-centered soft vision disk in screen pixels.
@@ -85,7 +110,7 @@ func _apply_params() -> void:
 	_material.set_shader_parameter("softness", softness)
 	_material.set_shader_parameter("inner", inner)
 	_material.set_shader_parameter("breathe", 0.0)
-	_material.set_shader_parameter("vignette_color", Color(0.015, 0.02, 0.015, 1.0))
+	_material.set_shader_parameter("vignette_color", _vignette_color)
 	_material.set_shader_parameter("viewport_size", size)
 	_material.set_shader_parameter("vision_strength", vision_strength)
 	if _has_focus:

@@ -491,6 +491,10 @@ func _run() -> void:
 	):
 		_fail("The body health rows did not render their meter frame.")
 		return
+	var player_meter_path := str(player_meter_frame.texture.resource_path)
+	if not player_meter_path.contains("Asset/UI/HUD/bars/"):
+		_fail("The body health meter frame must come from Asset/UI/HUD/bars.")
+		return
 	if CombatLaneHUD.CONDITION_ANIMATION_FPS > 5.0:
 		_fail("The Condition token animation is too fast for readable HUD use.")
 		return
@@ -516,11 +520,14 @@ func _run() -> void:
 	):
 		_fail("The Condition token did not hold a readable frame between animation steps.")
 		return
-	if (
-		arena.lane_hud._enemy_condition_sprite.texture == null
-		or arena.lane_hud._enemy_condition_sprite.region_enabled
-	):
+	if arena.lane_hud._enemy_condition_sprite.texture == null:
 		_fail("The enemy health section did not render a stable condition icon.")
+		return
+	var enemy_condition_path := str(
+		arena.lane_hud._enemy_condition_sprite.texture.resource_path
+	)
+	if not enemy_condition_path.contains("Asset/UI/HUD/"):
+		_fail("The enemy condition icon must come from Asset/UI/HUD.")
 		return
 	player.body.blood_level = GameEnums.SCALE_MAX * 0.5
 	arena.command_adapter.refresh_snapshot()

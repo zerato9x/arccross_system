@@ -61,6 +61,7 @@ func dock_session(_session: Dictionary) -> void:
 
 
 func restyle_scheme() -> void:
+	super.restyle_scheme()
 	if _preview_panel and _preview_panel.has_method("restyle"):
 		_preview_panel.restyle()
 	if not _hex.is_empty() and _preview_panel:

@@ -56,7 +56,15 @@ func _ready() -> void:
 		_preview_root.clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_apply_layout()
+	HUDAssetLibrary.apply_soft_edge(self, 0.20)
 	get_viewport().size_changed.connect(_apply_layout)
+
+
+## Scheme / chrome restyle hook for MacroHudController fan-out.
+func restyle_scheme() -> void:
+	if _close_button:
+		HUDAssetLibrary.apply_button(_close_button)
+	HUDAssetLibrary.apply_soft_edge(self, 0.20)
 
 
 func get_panel_state() -> PanelState:

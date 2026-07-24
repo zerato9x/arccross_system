@@ -70,8 +70,12 @@ func _ready() -> void:
 	_compact_root.visible = display_mode == DisplayMode.COMPACT
 	_detail_root.visible = display_mode == DisplayMode.DETAILED
 	_details_button.pressed.connect(details_requested.emit)
-	_inventory_button.pressed.connect(inventory_requested.emit)
-	_settings_button.pressed.connect(settings_requested.emit)
+	_details_button.text = "BODY MAP [M]"
+	# Pack and Settings live on inventory / world-log corners only (no duplicates).
+	if _inventory_button:
+		_inventory_button.visible = false
+	if _settings_button:
+		_settings_button.visible = false
 	_treatment_close.pressed.connect(_close_treatment)
 	resized.connect(_update_responsive_layout)
 	_update_responsive_layout()
@@ -86,9 +90,8 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 
 
 func is_action_button_at(global_position: Vector2) -> bool:
-	for button in [_details_button, _inventory_button, _settings_button]:
-		if button != null and button.visible and button.get_global_rect().has_point(global_position):
-			return true
+	if _details_button != null and _details_button.visible and _details_button.get_global_rect().has_point(global_position):
+		return true
 	return false
 
 
@@ -143,6 +146,16 @@ func _apply_typography() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_condition_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_detail_condition_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
+
+func restyle() -> void:
+	HUDAssetLibrary.apply_panel(self)
+	_apply_typography()
+	for tile in _metric_tiles:
+		if tile != null and tile.has_method("restyle"):
+			tile.restyle()
+		elif tile != null:
+			HUDAssetLibrary.apply_inset_panel(tile)
 
 
 func _build_from_profile() -> void:

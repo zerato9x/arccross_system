@@ -2,10 +2,7 @@ extends RefCounted
 class_name MacroEventResolver
 
 const EVENT_LOCKED_TREATMENT_ROOM = "locked_treatment_room"
-const DEFAULT_EVENT_IMAGE = (
-	"res://Asset/UI/Event_bg/apocalyptic_bg/PNG/Postapocalypce1/"
-	+ "Bright/ground&houses.png"
-)
+const DEFAULT_EVENT_IMAGE = EventBgCatalog.PLAINS_BG
 
 
 static func build_event_session(event_id, context):

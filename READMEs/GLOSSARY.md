@@ -45,6 +45,22 @@ Unmarked terms are established. Terms still in motion are labeled
   player out for insufficient resources. After eviction, Central stays locked
   for that character until all four regional Cores are reassembled (endgame).
   See Canonical World Specification and Central Core Campaign Overhaul.
+- **The Glitch (Era 9):** Playable-era condition where fragments of past eras
+  appear in the present (places, objects, documents, institutions, anomalies).
+  Not a default player-facing UI label. See
+  [World Timeline Codex](WORLD_TIMELINE_CODEX.md).
+- **The Transcendence:** Classified Primal species event. Primal Consciousness
+  refuses, builds Arccross, survives the following Red Mist wipe. Pre-Arccross
+  begins after. Never UI exposition. See Codex.
+- **The Passing:** Corridor between the North and the rest of the Arms.
+  Reopened in Era 4 for Arc-snow electricity; resealed at the end of Era 6
+  after Delta’s northern Gaps catastrophe. Later reused as geography and trauma.
+- **Arc Automations:** Era I hive machines clearing Core paths. Ended in Era I.
+  Not the same threat as Red Mist / Gaps / Cravens.
+- **Cravens:** Humans corrupted by Red Mist into mindless hostiles. Distinct
+  from Automations. Zeta Corps founded (Era V end) partly to fight them.
+- **World Timeline Codex:** Official era chronology. Supersedes older Alpha /
+  README era lists.
 - **North Spine (Act 1):** The first campaign highway — Central fringe plus
   `north_random_1..3`, north gateway, and north arm core. E/S/W arms are grey
   and non-traversable in Act 1 (rim travel and Node Map both sealed).

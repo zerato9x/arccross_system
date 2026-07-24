@@ -55,3 +55,11 @@ func _is_primary_action_click(global_pos: Vector2) -> bool:
 	if _preview_panel and _preview_panel.get_global_rect().has_point(global_pos):
 		return true
 	return false
+
+
+func restyle_scheme() -> void:
+	super.restyle_scheme()
+	if _preview_panel and _preview_panel.has_method("restyle"):
+		_preview_panel.restyle()
+	if not _snapshot.is_empty() and _preview_panel:
+		_preview_panel.apply_snapshot(_snapshot)

@@ -1,8 +1,11 @@
 extends Control
 class_name MainMenu
 
+const MenuParallaxCatalog := preload("res://PresentationCore/MenuParallaxCatalog.gd")
+
 @export_file("*.tscn") var game_scene_path: String
 @export_file("*.tscn") var wave_scene_path: String
+@export var parallax_scroll_speed: float = 20.0
 
 @onready var btn_new_game = %BtnNewGame
 @onready var btn_continue = %BtnContinue
@@ -14,8 +17,21 @@ class_name MainMenu
 @onready var combat_mode_option: OptionButton = %CombatModeOption
 @onready var hud_scheme_option: OptionButton = %HudSchemeOption
 @onready var settings_close_button: Button = %SettingsCloseButton
+@onready var _parallax_background: ParallaxBackground = %ParallaxBackground
+
+var _active_pack_dir: String = ""
+
 
 func _ready() -> void:
+	var viewport := get_viewport()
+	if viewport != null and not viewport.size_changed.is_connected(_on_viewport_size_changed):
+		viewport.size_changed.connect(_on_viewport_size_changed)
+	var game_settings := get_node_or_null("/root/GameSettings")
+	if game_settings != null and game_settings.has_signal("settings_changed"):
+		if not game_settings.settings_changed.is_connected(_on_settings_changed):
+			game_settings.settings_changed.connect(_on_settings_changed)
+	_rebuild_random_parallax()
+	call_deferred("_rescale_parallax_layers")
 	HUDAssetLibrary.apply_button(btn_new_game)
 	HUDAssetLibrary.apply_button(btn_continue)
 	HUDAssetLibrary.apply_button(btn_wave)
@@ -32,12 +48,11 @@ func _ready() -> void:
 	combat_mode_option.add_item("Turn-Based Duel (Official)", 0)
 	combat_mode_option.add_item("Real-Time Duel (Optional)", 1)
 	_populate_hud_scheme_option()
-	var settings := get_node_or_null("/root/GameSettings")
-	if settings != null:
+	if game_settings != null:
 		combat_mode_option.select(
-			0 if settings.combat_mode == settings.COMBAT_TURN_BASED else 1
+			0 if game_settings.combat_mode == game_settings.COMBAT_TURN_BASED else 1
 		)
-		_select_hud_scheme(settings.hud_scheme)
+		_select_hud_scheme(game_settings.hud_scheme)
 	combat_mode_option.item_selected.connect(_on_combat_mode_selected)
 	hud_scheme_option.item_selected.connect(_on_hud_scheme_selected)
 	settings_panel.visible = false
@@ -53,8 +68,80 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if %ParallaxBackground:
-		%ParallaxBackground.scroll_offset.x -= 20.0 * delta
+	if _parallax_background != null:
+		_parallax_background.scroll_offset.x -= parallax_scroll_speed * delta
+
+
+func _on_viewport_size_changed() -> void:
+	_rescale_parallax_layers()
+
+
+func _on_settings_changed(_snapshot: Dictionary) -> void:
+	_rescale_parallax_layers()
+
+
+func _menu_viewport_size() -> Vector2:
+	var viewport_size := get_viewport_rect().size
+	if viewport_size.x <= 1.0 or viewport_size.y <= 1.0:
+		return Vector2(1920.0, 1080.0)
+	return viewport_size
+
+
+func _presentation_scale() -> float:
+	var settings := get_node_or_null("/root/GameSettings")
+	if settings == null:
+		return 1.0
+	return clampf(float(settings.hud_scale), 0.85, 1.25)
+
+
+func _rebuild_random_parallax() -> void:
+	if _parallax_background == null:
+		return
+	for child in _parallax_background.get_children():
+		_parallax_background.remove_child(child)
+		child.free()
+	_active_pack_dir = MenuParallaxCatalog.pick_random_pack()
+	if _active_pack_dir.is_empty():
+		push_warning("[MainMenu] No Event_bg parallax packs found.")
+		return
+	var layers := MenuParallaxCatalog.layers_for_pack(_active_pack_dir)
+	for index in range(layers.size()):
+		var layer_info: Dictionary = layers[index]
+		var texture := load(str(layer_info.get("path", ""))) as Texture2D
+		if texture == null:
+			continue
+		var layer := ParallaxLayer.new()
+		layer.name = "Layer_%d" % index
+		layer.motion_scale = Vector2(float(layer_info.get("motion_scale", 1.0)), 1.0)
+		var sprite := Sprite2D.new()
+		sprite.centered = false
+		sprite.texture = texture
+		layer.add_child(sprite)
+		_parallax_background.add_child(layer)
+	_rescale_parallax_layers()
+
+
+func _rescale_parallax_layers() -> void:
+	if _parallax_background == null:
+		return
+	var viewport_size := _menu_viewport_size()
+	var presentation_scale := _presentation_scale()
+	for child in _parallax_background.get_children():
+		var layer := child as ParallaxLayer
+		if layer == null:
+			continue
+		for layer_child in layer.get_children():
+			var sprite := layer_child as Sprite2D
+			if sprite == null or sprite.texture == null:
+				continue
+			var texture := sprite.texture
+			var cover := maxf(
+				viewport_size.x / float(texture.get_width()),
+				viewport_size.y / float(texture.get_height())
+			) * presentation_scale
+			sprite.scale = Vector2(cover, cover)
+			layer.motion_mirroring = Vector2(float(texture.get_width()) * cover, 0.0)
+
 
 func _on_new_game() -> void:
 	var save_service = get_node_or_null("/root/SaveLoadService")

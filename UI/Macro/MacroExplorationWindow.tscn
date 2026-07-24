@@ -54,7 +54,7 @@ theme_override_constants/separation = 6
 [node name="InteractionInventoryHeader" type="Label" parent="ExplorationPanel/Margin/Content/InteractionInventoryPanel/InteractionInventoryMargin/InteractionInventoryColumn" unique_id=422988410]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Gear"
+text = "Your kit"
 
 [node name="InteractionInventoryHint" type="Label" parent="ExplorationPanel/Margin/Content/InteractionInventoryPanel/InteractionInventoryMargin/InteractionInventoryColumn" unique_id=1661537500]
 unique_name_in_owner = true
@@ -99,6 +99,66 @@ anchor_bottom = 1.0
 offset_bottom = -180.0
 grow_horizontal = 2
 grow_vertical = 2
+
+[node name="TokenLayer" type="Control" parent="ExplorationPanel/Margin/Content/SceneRoot" unique_id=1024499802]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_bottom = -180.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ActorToken" type="ColorRect" parent="ExplorationPanel/Margin/Content/SceneRoot/TokenLayer" unique_id=1024499803]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(18, 28)
+offset_right = 18.0
+offset_bottom = 28.0
+mouse_filter = 2
+color = Color(0.75, 0.82, 0.7, 0.95)
+
+[node name="ProgressOverlay" type="PanelContainer" parent="ExplorationPanel/Margin/Content/SceneRoot" unique_id=1024499804]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -140.0
+offset_top = -36.0
+offset_right = 140.0
+offset_bottom = 36.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ProgressMargin" type="MarginContainer" parent="ExplorationPanel/Margin/Content/SceneRoot/ProgressOverlay" unique_id=1024499805]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="ProgressColumn" type="VBoxContainer" parent="ExplorationPanel/Margin/Content/SceneRoot/ProgressOverlay/ProgressMargin" unique_id=1024499806]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ProgressLabel" type="Label" parent="ExplorationPanel/Margin/Content/SceneRoot/ProgressOverlay/ProgressMargin/ProgressColumn" unique_id=1024499807]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+text = "Working…"
+
+[node name="ActionProgressBar" type="ProgressBar" parent="ExplorationPanel/Margin/Content/SceneRoot/ProgressOverlay/ProgressMargin/ProgressColumn" unique_id=1024499808]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 14)
+layout_mode = 2
+max_value = 1.0
+show_percentage = false
 
 [node name="SearchFrame" type="PanelContainer" parent="ExplorationPanel/Margin/Content/SceneRoot" unique_id=1982736451]
 unique_name_in_owner = true
@@ -226,7 +286,25 @@ theme_override_constants/separation = 6
 [node name="InteractionHeader" type="Label" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=1237717785]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Camp"
+text = "Place"
+
+[node name="FixtureScroll" type="ScrollContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=1237717786]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 160)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="FixtureList" type="VBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn/FixtureScroll" unique_id=1237717787]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="VerbRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=1237717788]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
 
 [node name="CampDropRow" type="HBoxContainer" parent="ExplorationPanel/Margin/Content/RightPanel/InteractionBox/InteractionMargin/InteractionColumn" unique_id=644379013]
 unique_name_in_owner = true

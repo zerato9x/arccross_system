@@ -1,6 +1,9 @@
 extends RefCounted
 class_name EventBgCatalog
 
+## HexTiles ground plates for exploration / event / collision scenes.
+## Parallax Event_bg packs are main-menu only (see MenuParallaxCatalog).
+
 const PLAINS_BG := "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png"
 const MUD_BG := "res://Asset/HexTiles/_BIOMES/biome_plains/mud.png"
 

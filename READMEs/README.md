@@ -7,15 +7,22 @@ of restating it.
 
 - [Project Glossary](GLOSSARY.md): canonical terms and distinctions.
 - [Canonical World Specification](CANONICAL_WORLD_SPECIFICATION.md):
-  authoritative setting, eras, factions, Era 9 eviction framing, and narrative
+  authoritative setting, factions, Era 9 eviction framing, and narrative
   design principles (not player-facing exposition).
+- [World Timeline Codex](WORLD_TIMELINE_CODEX.md): **official** era chronology
+  (Pre → Era 9 Glitch). Supersedes older Alpha/README era lists. Not
+  player-facing.
 - [System Architecture](SYSTEM_ARCHITECTURE.md): ownership, dependencies,
   records, and presentation boundaries.
 - [Humanoid Token Pipeline](HUMANOID_TOKEN_PIPELINE.md): layered sprite
   contract, current visual coverage, and runtime asset preparation.
 - [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md):
-  authoritative Act 1 build bible; implementation is paused until the complete
-  categorized asset folder is available.
+  Act 1 build bible; implementation paused until categorized asset folders are
+  ready (asset pack identity:
+  [Hex World Asset Overhaul](design/HEX_WORLD_ASSET_OVERHAUL.md)).
+- [Hex World Asset Overhaul](design/HEX_WORLD_ASSET_OVERHAUL.md): official
+  S:→biome pool roles, Golbanc Era 8 default, alpha homestead→theme ramp,
+  dialect profiles, promote phases.
 - [Official Turn-Based Combat Overhaul](design/TURN_BASED_COMBAT_OVERHAUL.md):
   **active combat contract** — official default, transaction lifecycle, AI,
   impact cues, firearm-card playback, and independent mode balance.

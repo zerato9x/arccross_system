@@ -22,9 +22,20 @@ func _ready() -> void:
 	HUDAssetLibrary.apply_panel(self, "neutral")
 	HUDAssetLibrary.apply_label(_capacity_label, "muted")
 	HUDAssetLibrary.apply_button(_open_button, "inventory")
-	_open_button.text = "Open Pack"
+	_open_button.text = "PACK [I]"
 	_open_button.pressed.connect(open_requested.emit)
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	HUDAssetLibrary.apply_soft_edge(self, 0.18)
+
+
+func restyle() -> void:
+	HUDAssetLibrary.apply_panel(self, "neutral")
+	HUDAssetLibrary.apply_label(_capacity_label, "muted")
+	HUDAssetLibrary.apply_button(_open_button, "inventory")
+	_open_button.text = "PACK [I]"
+	HUDAssetLibrary.apply_soft_edge(self, 0.18)
+	if not _snapshot.is_empty():
+		apply_snapshot(_snapshot)
 
 
 func apply_snapshot(snapshot: Dictionary) -> void:

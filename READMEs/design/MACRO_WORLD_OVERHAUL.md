@@ -8,9 +8,12 @@ rules.
 — eviction → North tutorial, travel seals, asset sort, phased IDE checklist.
 Where Act 1 soft language here conflicts with that file, **Central Core wins**.
 
-**World bible:** [Canonical World Specification](../CANONICAL_WORLD_SPECIFICATION.md)
+**World bible:** [Canonical World Specification](../CANONICAL_WORLD_SPECIFICATION.md)  
+**Era chronology:** [World Timeline Codex](../WORLD_TIMELINE_CODEX.md)
 
-**Visual generation detail:** [Hex Dressing Templates](HEX_DRESSING_TEMPLATES.md)
+**Visual generation detail:** [Hex Dressing Templates](HEX_DRESSING_TEMPLATES.md)  
+**Asset packs → dialects / alpha homestead ramp:**
+[Hex World Asset Overhaul](HEX_WORLD_ASSET_OVERHAUL.md)
 
 ---
 
@@ -37,15 +40,18 @@ Do **not** return to infinite hub+wedge as the campaign model.
 | Approaches / wastes | `*_random_1..3` | Seeded zones; Act 1 fills **north** densely |
 | Meta component work | fetch branch (re-home to north spine for Act 1) | North Regulator remains the first restore loop |
 
-Regional dialects (art, landmarks, SiteCatalog copy) must match Era 9 scraps:
+Regional dialects (art, landmarks, SiteCatalog copy) must match Era 9
+**Glitch** scraps (past-era wreckage, not live rival capitals):
 
 - **Central** — administrative remnant, overcrowding, bureaucracy
-- **North** — isolation, sparse sacred aftermath, Warden-frontier scraps
-- **East** — civil-war debris, oppression ruins
-- **South** — Guild logistics leftovers
-- **West** — mining / steel / Zetan scrap
+- **North** — sealed-Passing aftermath, sparse sacred / Warden-frontier scraps
+- **East** — civil-war / oppression debris (Era VII East Core fall)
+- **South** — Guild logistics leftovers; rare carbon as scarce, not default
+- **West** — mining / steel / Man-Eater / Zeta scrap
 
-Never explain Marks, Primal Civilization, or full Core purpose in UI text.
+Never explain Marks, Primal Civilization, The Transcendence, or full Core
+purpose in UI text. Chronology:
+[World Timeline Codex](../WORLD_TIMELINE_CODEX.md).
 
 ---
 

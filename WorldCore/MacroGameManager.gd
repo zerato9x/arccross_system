@@ -100,8 +100,35 @@ func configure_services(
 	if world_generator:
 		world_generator.configure_services(world_state)
 	_ensure_campaign()
+	_connect_world_time_lighting()
 	if is_node_ready() and not _world_bootstrapped:
 		_bootstrap_world()
+
+
+func _connect_world_time_lighting() -> void:
+	if _world_state == null:
+		return
+	if not _world_state.world_time_advanced.is_connected(_on_world_time_advanced_lighting):
+		_world_state.world_time_advanced.connect(_on_world_time_advanced_lighting)
+	_apply_world_lighting_from_minutes(_world_state.world_time_minutes)
+
+
+func _on_world_time_advanced_lighting(
+	_previous: int,
+	current: int,
+	_elapsed: int
+) -> void:
+	_apply_world_lighting_from_minutes(current)
+
+
+func _apply_world_lighting_from_minutes(total_minutes: int) -> void:
+	if vision_vignette == null:
+		return
+	var clock: Dictionary = GameTimeRules.clock_snapshot(total_minutes)
+	var hour := int(clock.get("hour", 8))
+	vision_vignette.apply_lighting_phase(GameTimeRules.phase_for_hour(hour))
+	if macro_hud != null and macro_hud.has_method("apply_lighting_phase"):
+		macro_hud.apply_lighting_phase(GameTimeRules.phase_for_hour(hour))
 
 
 func _ensure_campaign() -> void:
@@ -780,6 +807,7 @@ func _ready() -> void:
 		
 	if not _world_bootstrapped:
 		_bootstrap_world()
+	_connect_world_time_lighting()
 
 
 func _process(_delta: float) -> void:
@@ -2614,6 +2642,13 @@ func _refresh_world_hud() -> void:
 		scene_descriptor["background_path"] = hex_data.water_sprite_path
 	snapshot["selected_scene_descriptor"] = scene_descriptor
 	macro_hud.refresh(snapshot)
+	var world_time: Dictionary = snapshot.get("world_time", {})
+	var hour := int(world_time.get("hour", 8))
+	var phase := GameTimeRules.phase_for_hour(hour)
+	if vision_vignette != null:
+		vision_vignette.apply_lighting_phase(phase)
+	if macro_hud.has_method("apply_lighting_phase"):
+		macro_hud.apply_lighting_phase(phase)
 	if is_node_map_open():
 		node_map_system.call("refresh", build_node_map_ui_snapshot())
 
