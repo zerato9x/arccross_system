@@ -42,6 +42,9 @@ var gateway_states: Dictionary = {} # gateway_id -> bool
 var core_states: Dictionary = {} # core_id -> neutral Dictionary
 var node_profile_patches: Dictionary = {} # node_id -> neutral Dictionary
 var permanent_node_hex_patches: Dictionary = {} # node_id -> Vector2i -> patch
+## After eviction, Central Core refuses re-entry until endgame unlock.
+## Defaults true so Route 1 guards diegetically hold the lock.
+var central_locked: bool = true
 
 var _last_save_error := ""
 var profile_path := SAVE_PATH
@@ -57,7 +60,20 @@ func get_meta_flags() -> Dictionary:
 	var flags := gateway_states.duplicate(true)
 	for event_id in completed_events.keys():
 		flags[str(event_id)] = bool(completed_events[event_id])
+	flags["central_locked"] = central_locked
 	return flags
+
+
+func is_central_locked() -> bool:
+	return central_locked
+
+
+func set_central_locked(locked: bool, save_after: bool = true) -> void:
+	if central_locked == locked:
+		return
+	central_locked = locked
+	if save_after:
+		save_profile()
 
 
 func is_event_completed(event_id: String) -> bool:
@@ -191,6 +207,7 @@ func reset_profile() -> void:
 	core_states.clear()
 	node_profile_patches.clear()
 	permanent_node_hex_patches.clear()
+	central_locked = true
 	save_profile()
 
 
@@ -219,6 +236,7 @@ func save_profile(path: String = "") -> bool:
 		"core_states": core_states.duplicate(true),
 		"node_profile_patches": node_profile_patches.duplicate(true),
 		"permanent_node_hex_patches": node_patch_entries,
+		"central_locked": central_locked,
 	}
 	file.store_string(JSON.stringify(_encode_variant(payload), "\t"))
 	file.close()
@@ -235,6 +253,7 @@ func load_profile(path: String = "") -> bool:
 	core_states.clear()
 	node_profile_patches.clear()
 	permanent_node_hex_patches.clear()
+	central_locked = true
 	if not FileAccess.file_exists(path):
 		_migrate_legacy_profile()
 		return true
@@ -256,6 +275,7 @@ func load_profile(path: String = "") -> bool:
 	gateway_states = data.get("gateway_states", {}).duplicate(true)
 	core_states = data.get("core_states", {}).duplicate(true)
 	node_profile_patches = data.get("node_profile_patches", {}).duplicate(true)
+	central_locked = bool(data.get("central_locked", true))
 	for node_entry in data.get("permanent_node_hex_patches", []):
 		if not node_entry is Dictionary:
 			continue

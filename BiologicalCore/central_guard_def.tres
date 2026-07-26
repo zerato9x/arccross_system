@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="EntityDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://BiologicalCore/EntityDefinition.gd" id="1_def"]
+[ext_resource type="Resource" path="res://ItemCore/Loadouts/central_guard_ak_loadout.tres" id="2_loadout"]
+
+[resource]
+script = ExtResource("1_def")
+archetype_name = "Central Guard"
+faction = 0
+agenda = 1
+dialogue_id = "central_guard"
+allows_trade = false
+blocks_ambush = true
+template_id = "central_guard"
+blocks_central_reentry = true
+combat_tactic = 0
+brawn = 7
+finesse = 7
+fortitude = 7
+will = 6
+occupation_id = ""
+max_arc_energy = 0.0
+red_mist_resistance = 0.0
+loadout = ExtResource("2_loadout")

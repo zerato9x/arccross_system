@@ -174,14 +174,24 @@ func _resolve_pack_layer(
 	layer_key,
 	visual_variant_hash: int
 ) -> int:
-	var pack_dict: Dictionary = pack_layer_ids.get(biome_pack, {})
-	if pack_dict.is_empty():
-		return -1
-	var layer_dict: Dictionary = pack_dict.get(layer_kind, {})
-	var ids := _get_packed_ids(layer_dict, layer_key)
-	if ids.is_empty() and layer_key is String:
-		ids = _get_packed_ids(layer_dict, str(layer_key))
-	return _resolve_from_ids(ids, visual_variant_hash)
+	var packs: Array[String] = [biome_pack]
+	if biome_pack == GameEnums.BIOME_PACK_NORTH:
+		packs.append(GameEnums.BIOME_PACK_DEFAULT_ERA8)
+		packs.append(GameEnums.BIOME_PACK_PLAINS)
+	elif biome_pack == GameEnums.BIOME_PACK_DEFAULT_ERA8:
+		packs.append(GameEnums.BIOME_PACK_PLAINS)
+	for pack_id in packs:
+		var pack_dict: Dictionary = pack_layer_ids.get(pack_id, {})
+		if pack_dict.is_empty():
+			continue
+		var layer_dict: Dictionary = pack_dict.get(layer_kind, {})
+		var ids := _get_packed_ids(layer_dict, layer_key)
+		if ids.is_empty() and layer_key is String:
+			ids = _get_packed_ids(layer_dict, str(layer_key))
+		var resolved := _resolve_from_ids(ids, visual_variant_hash)
+		if resolved >= 0:
+			return resolved
+	return -1
 
 func _get_packed_ids(source_dict: Dictionary, key) -> PackedInt32Array:
 	var value = source_dict.get(key, PackedInt32Array())

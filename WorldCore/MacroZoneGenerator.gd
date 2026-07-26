@@ -36,14 +36,29 @@ const DECOR_ROCK_PATHS := [
 	"res://Asset/HexTiles/_BIOMES/biome_plains/Rocks/Rocks Sz2 B.png",
 ]
 const RANDOM_STRUCTURE_PATHS := [
-	"res://Asset/HexTiles/_BIOMES/biome_plains/Structures/Homestead Building Size1 B-i shadow.png",
-	"res://Asset/HexTiles/_BIOMES/biome_plains/Structures/Cylindrical Tank A - Size 1 - Yellow.png",
+	"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size1 B-i shadow.png",
+	"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size1 A shadow.png",
+	"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size 2 - A.png",
+	"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Cylindrical Tank A - Size 1 - Yellow.png",
+	"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size 2 - A.png",
+	"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Cylindrical Tank A - Size 1 - Gray.png",
+]
+const RANDOM_NORTH_STRUCTURE_PATHS := [
+	"res://Asset/HexTiles/_BIOMES/biome_north/Structures/snowtrailer_1.png",
+	"res://Asset/HexTiles/_BIOMES/biome_north/Structures/snowtrailer_2.png",
+	"res://Asset/HexTiles/_BIOMES/biome_north/Structures/Industrial Building - Sz 2 - A.png",
 ]
 const RANDOM_REMNANT_PATHS := [
 	"res://Asset/HexTiles/_BIOMES/biome_plains/remnants/Rubble 1x1 A.png",
 	"res://Asset/HexTiles/_BIOMES/biome_plains/remnants/Rubble 1x1 B.png",
 	"res://Asset/HexTiles/_BIOMES/biome_plains/remnants/Rubble 1x1 C.png",
 	"res://Asset/HexTiles/_BIOMES/biome_plains/remnants/Rubble 1x1 D.png",
+]
+const DECOR_NORTH_ROCK_PATHS := [
+	"res://Asset/HexTiles/_BIOMES/biome_north/Rocks/Snowy Rocks - Sz 1 - A.png",
+	"res://Asset/HexTiles/_BIOMES/biome_north/Rocks/Snowy Rocks - Sz 1 - B.png",
+	"res://Asset/HexTiles/_BIOMES/biome_north/Rocks/Glacial Ice - Sz 1 - A.png",
+	"res://Asset/HexTiles/_BIOMES/biome_north/Rocks/Glacial Ice - Sz 2 - A.png",
 ]
 
 var master_seed: String = ""
@@ -58,6 +73,7 @@ var node_arm_direction: GameEnums.MacroArmDirection = GameEnums.MacroArmDirectio
 var node_arm_tier: int = 0
 var arrival_direction: GameEnums.MacroTravelDirection = GameEnums.MacroTravelDirection.SOUTH
 var connected_directions: Array[int] = []
+var _dialect_profile: Dictionary = {}
 
 var elevation_noise: FastNoiseLite
 var moisture_noise: FastNoiseLite
@@ -121,6 +137,7 @@ func generate_zone(
 	zone_kind = p_zone_kind
 	biome = p_biome
 	event_id = p_event_id
+	_dialect_profile = NodeDialectProfile.profile_for_node(node_id)
 	world_hex_cache.clear()
 	zone_decorations.clear()
 	trail_hexes.clear()
@@ -223,9 +240,9 @@ func _build_hub_hex(coords: Vector2i) -> MacroHexData:
 	var hex := MacroHexData.new()
 	hex.zone_id = "zone_hub"
 	hex.biome = GameEnums.GridBiome.PLAINS
-	hex.biome_pack = GameEnums.BIOME_PACK_PLAINS
+	hex.biome_pack = GameEnums.BIOME_PACK_CENTRALCORE
 	hex.region = GameEnums.MacroRegion.CENTRAL_HUB
-	hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
+	hex.terrain_tile = GameEnums.MacroTerrainTile.HUB_CONCRETE
 	hex.flora_layer = GameEnums.MacroFloraLayer.NONE
 	hex.rock_layer = GameEnums.MacroRockLayer.NONE
 	hex.structure_layer = GameEnums.MacroStructureLayer.NONE
@@ -239,7 +256,7 @@ func _build_hub_hex(coords: Vector2i) -> MacroHexData:
 	var hub_shrub := shrub_spawn_chance * 0.35
 	var saved := shrub_spawn_chance
 	shrub_spawn_chance = hub_shrub
-	_apply_shrub_variation(coords, hex)
+	# Hub concrete does not use plains shrub pass.
 	shrub_spawn_chance = saved
 	return hex
 
@@ -247,7 +264,8 @@ func _build_hub_hex(coords: Vector2i) -> MacroHexData:
 func _build_plains_rng_hex(coords: Vector2i) -> MacroHexData:
 	var hex := MacroHexData.new()
 	hex.zone_id = "zone_" + node_id
-	hex.biome_pack = GameEnums.BIOME_PACK_PLAINS
+	if _dialect_profile.is_empty():
+		_dialect_profile = NodeDialectProfile.profile_for_node(node_id)
 	match node_arm_tier:
 		1:
 			hex.region = GameEnums.MacroRegion.ARM_STAGE_1
@@ -292,16 +310,48 @@ func _build_plains_rng_hex(coords: Vector2i) -> MacroHexData:
 	_apply_shrub_variation(coords, hex)
 
 	var zone_seed := _zone_seed()
+	var dialect_rng := RandomNumberGenerator.new()
+	dialect_rng.seed = (zone_seed + ":dialect:" + str(coords)).hash()
+	var terrain_pack := NodeDialectProfile.pick_terrain_pack(
+		_dialect_profile,
+		dialect_rng.randf()
+	)
+	if (
+		terrain_pack == GameEnums.BIOME_PACK_NORTH
+		and hex.rock_layer != GameEnums.MacroRockLayer.ROCKS
+	):
+		hex.terrain_tile = GameEnums.MacroTerrainTile.SNOW_TRANSITION
+		hex.flora_layer = GameEnums.MacroFloraLayer.NONE
+		hex.biome_pack = GameEnums.BIOME_PACK_NORTH
+		# Snow suppresses plains forest/mud; keep rock language via north rocks.
+	else:
+		hex.biome_pack = GameEnums.BIOME_PACK_PLAINS
+
 	var rng := RandomNumberGenerator.new()
 	rng.seed = (zone_seed + ":layers:" + str(coords)).hash()
 	if hex.structure_layer == GameEnums.MacroStructureLayer.NONE and hex.landmark_id.is_empty():
 		var structure_roll := rng.randf()
 		if structure_roll < random_structure_chance:
 			hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
-			hex.structure_sprite_path = _pick_curated_layer_path(
-				RANDOM_STRUCTURE_PATHS,
-				rng
+			var structure_pack := NodeDialectProfile.pick_structure_pack(
+				_dialect_profile,
+				rng.randf()
 			)
+			if structure_pack == GameEnums.BIOME_PACK_NORTH:
+				hex.structure_sprite_path = _pick_curated_layer_path(
+					RANDOM_NORTH_STRUCTURE_PATHS,
+					rng
+				)
+				if hex.structure_sprite_path.is_empty():
+					hex.structure_sprite_path = _pick_curated_layer_path(
+						RANDOM_STRUCTURE_PATHS,
+						rng
+					)
+			else:
+				hex.structure_sprite_path = _pick_curated_layer_path(
+					RANDOM_STRUCTURE_PATHS,
+					rng
+				)
 		elif structure_roll < random_structure_chance + random_remnant_chance:
 			hex.structure_layer = GameEnums.MacroStructureLayer.REMNANTS
 			hex.structure_sprite_path = _pick_curated_layer_path(

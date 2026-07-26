@@ -239,6 +239,65 @@ func generate_mob_squad(faction: GameEnums.Faction, count: int, difficulty_bias:
 		squad.append(generate_mob(faction, difficulty_bias))
 	return squad
 
+
+const CENTRAL_GUARD_DEF_PATH := "res://BiologicalCore/central_guard_def.tres"
+const CENTRAL_GUARD_AK_LOADOUT_PATH := "res://ItemCore/Loadouts/central_guard_ak_loadout.tres"
+const CENTRAL_GUARD_KAR98_LOADOUT_PATH := "res://ItemCore/Loadouts/central_guard_kar98_loadout.tres"
+
+
+## Authored Central Guard record for Route 1 rim pairs.
+func generate_central_guard_record(
+	coords: Vector2i,
+	use_kar98: bool,
+	squad_id: String,
+	deterministic_key: String = ""
+) -> EntityRecord:
+	var base_def := load(CENTRAL_GUARD_DEF_PATH) as EntityDefinition
+	var definition := EntityDefinition.new()
+	if base_def != null:
+		definition = EntityDefinition.from_state(base_def.to_state())
+	else:
+		definition.archetype_name = "Central Guard"
+		definition.faction = GameEnums.Faction.UNALIGNED
+		definition.agenda = GameEnums.Agenda.BELLIGERENT
+		definition.combat_tactic = GameEnums.CombatTactic.MARKSMAN
+		definition.blocks_ambush = true
+		definition.template_id = "central_guard"
+		definition.blocks_central_reentry = true
+		definition.allows_trade = false
+		definition.dialogue_id = "central_guard"
+		definition.brawn = 7
+		definition.finesse = 7
+		definition.fortitude = 7
+		definition.will = 6
+
+	var loadout_path := (
+		CENTRAL_GUARD_KAR98_LOADOUT_PATH if use_kar98 else CENTRAL_GUARD_AK_LOADOUT_PATH
+	)
+	if ResourceLoader.exists(loadout_path):
+		definition.loadout = load(loadout_path) as SpawnLoadout
+
+	var record := EntityRecord.new()
+	record.entity_id = (
+		"entity_" + str(absi(deterministic_key.hash()))
+		if not deterministic_key.is_empty()
+		else "entity_" + str(ResourceUID.create_id())
+	)
+	record.kind = GameEnums.RuntimeEntityKind.NPC
+	record.life_state = GameEnums.EntityLifeState.ALIVE
+	record.world_status = GameEnums.EntityWorldStatus.HOSTILE
+	record.coords = coords
+	record.definition = definition.to_state()
+	record.runtime = {
+		"squad_id": squad_id,
+		"template_id": "central_guard",
+		"macro_purpose": GameEnums.NPC_PURPOSE_PATROL,
+		"macro_purpose_label": "Patrol",
+		"macro_origin_coords": coords,
+		"macro_target_coords": coords,
+	}
+	return record
+
 # ---------------------------------------------------------
 # NAME GENERATORS (Lore Flavor)
 # ---------------------------------------------------------

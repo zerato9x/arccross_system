@@ -2,6 +2,17 @@
 
 ## July 24, 2026
 
+### Alpha Hex Assets — Plains Homestead + North Snow
+
+- Promoted `biome_north` (116×512 snow hexes + rocks/structures) and
+  `default_era8` homestead structures from plains/Golbanc.
+- Added `NodeDialectProfile` + MacroZoneGenerator mix: four adjacent
+  `*_random_1` nodes stay homestead/plains; North spine ramps snow toward
+  `north_core`.
+- Extended `Build-HexTileSet` / `GameEnums` packs: `north`, `default_era8`.
+- Rebuilt `MacroTileSet` / catalog (**512** tile sources including north snow).
+- Smoke: `Tests/NodeDialectProfileSmoke.gd` OK.
+
 ### Hex World Asset Overhaul + Lore Cleanup
 
 - Authored `READMEs/design/HEX_WORLD_ASSET_OVERHAUL.md`: pack roles (theme vs

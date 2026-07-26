@@ -3,21 +3,21 @@ class_name PoiVisualCatalog
 
 const STRUCTURE_PATHS := {
 	"homestead_b": [
-		"res://Asset/HexTiles/_BIOMES/biome_plains/Structures/Homestead Building Size 2 - B-i.png",
-		"res://Asset/HexTiles/_BIOMES/biome_plains/Structures/Homestead Building Size 2 - B-ii.png",
-		"res://Asset/HexTiles/_BIOMES/biome_plains/Structures/Homestead Building Size1 B-i shadow.png",
+		"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size 2 - B-i.png",
+		"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size 2 - B-ii.png",
+		"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size1 B-i shadow.png",
 	],
 	"homestead_d": [
-		"res://Asset/HexTiles/_BIOMES/biome_plains/Structures/Homestead Building Size 2 - D.png",
-		"res://Asset/HexTiles/_BIOMES/biome_plains/Structures/Homestead Building Size 2 - B-ii.png",
+		"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size 2 - D.png",
+		"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size 2 - B-ii.png",
 	],
 	"shed_a": [
-		"res://Asset/HexTiles/_BIOMES/biome_plains/Structures/Homestead Building Size1 B-i shadow.png",
-		"res://Asset/HexTiles/_BIOMES/biome_plains/Structures/Homestead Building Size 2 - B-i.png",
+		"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size1 B-i shadow.png",
+		"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size 2 - B-i.png",
 	],
 	"warehouse_b": [
-		"res://Asset/HexTiles/_BIOMES/biome_plains/Structures/Cylindrical Tank A - Size 1 - Yellow.png",
-		"res://Asset/HexTiles/_BIOMES/biome_plains/Structures/Homestead Building Size 2 - D.png",
+		"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Cylindrical Tank A - Size 1 - Yellow.png",
+		"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size 2 - D.png",
 	],
 	"centralcore_city": [
 		"res://Asset/HexTiles/_BIOMES/biome_centralcore/Structures/Prefab Building - Size 2F.png",

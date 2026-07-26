@@ -294,6 +294,13 @@ static func build_opponent_summary(enemy_record: EntityRecord) -> Dictionary:
 	var archetype := str(definition.get("archetype_name", "Unknown"))
 	var dialogue_id := str(definition.get("dialogue_id", ""))
 	var allows_trade := bool(definition.get("allows_trade", true))
+	var blocks_ambush := bool(definition.get("blocks_ambush", false))
+	var blocks_central_reentry := bool(
+		definition.get("blocks_central_reentry", false)
+	)
+	var template_id := str(definition.get("template_id", ""))
+	if template_id.is_empty() and enemy_record != null:
+		template_id = str(enemy_record.runtime.get("template_id", ""))
 	var faction_name := _enum_key(
 		GameEnums.Faction.keys(),
 		int(definition.get("faction", GameEnums.Faction.UNALIGNED))
@@ -326,6 +333,10 @@ static func build_opponent_summary(enemy_record: EntityRecord) -> Dictionary:
 		tags.append("UNIQUE")
 	if not allows_trade:
 		tags.append("NO TRADE")
+	if blocks_ambush:
+		tags.append("NO AMBUSH")
+	if blocks_central_reentry:
+		tags.append("CENTRAL LOCK")
 	return {
 		"name": archetype,
 		"faction": faction_name,
@@ -339,8 +350,43 @@ static func build_opponent_summary(enemy_record: EntityRecord) -> Dictionary:
 		"armor": armor_label,
 		"dialogue_id": dialogue_id,
 		"allows_trade": allows_trade,
+		"blocks_ambush": blocks_ambush,
+		"blocks_central_reentry": blocks_central_reentry,
+		"template_id": template_id,
 		"tags": tags,
 	}
+
+
+static func ambush_denied_result(enemy_record: EntityRecord = null) -> Dictionary:
+	var line := ambush_denied_line(enemy_record)
+	return {
+		"title": "AMBUSH DENIED",
+		"body": line,
+		"effects": {},
+		"resume": MODE_ROOT,
+	}
+
+
+static func ambush_denied_line(enemy_record: EntityRecord = null) -> String:
+	var lines: Array[String] = [
+		"Ambush a posted pair in service kit? File denied. Stamp optional.",
+		"They already see you. The form for 'surprise' is out of stock.",
+		"Two rifles, one idea: you first. Application rejected.",
+		"Central edge security does not do 'sneaky.' Try paperwork.",
+		"You want the drop on people whose whole job is watching the drop. Cute.",
+	]
+	var seed_key := "ambush_deny"
+	if enemy_record != null:
+		seed_key = enemy_record.entity_id
+	var index := absi(seed_key.hash()) % lines.size()
+	return lines[index]
+
+
+static func central_reentry_refused_line() -> String:
+	return (
+		"Central Core stays sealed. The posted pair on the rim already filed "
+		+ "your eviction; walking back through them is not a travel option."
+	)
 
 
 static func ambush_player_lane(position: GameEnums.AmbushPosition) -> int:
@@ -472,7 +518,57 @@ static func _enum_key(keys: Array, value: int) -> String:
 static func _ask_profile(dialogue_id: String) -> Dictionary:
 	if dialogue_id == SAMPLE_UNIQUE_DIALOGUE_ID:
 		return _unique_sample_broker()
+	if dialogue_id == "central_guard":
+		return _central_guard_ask()
 	return _generic_ask()
+
+
+static func _central_guard_ask() -> Dictionary:
+	return {
+		"title": "ASK // CENTRAL GUARD",
+		"body": (
+			"Service kit. Posted pair. They talk like quota clerks who were "
+			+ "handed rifles and told the edge is the job."
+		),
+		"choices": [
+			{
+				"id": "ask_guard_central",
+				"label": "Ask about returning to Central",
+				"preview": "Probe the lock.",
+				"reason": "Available.",
+				"result_title": "CLOSED",
+				"result_body": (
+					"'Eviction stands.' One taps the helmet like a stamp. "
+					+ "'Central Core is not accepting walk-backs. Not today.'"
+				),
+				"effects": {"elapsed_minutes": 2, "exertion": 0.1},
+			},
+			{
+				"id": "ask_guard_orders",
+				"label": "Ask who posted them",
+				"preview": "Bureaucracy, not destiny.",
+				"reason": "Available.",
+				"result_title": "ORDERS",
+				"result_body": (
+					"'Logistics desk.' No names. No heroes. Just a rim shift "
+					+ "and enough rounds to make the paperwork stick."
+				),
+				"effects": {"elapsed_minutes": 2, "exertion": 0.1},
+			},
+			{
+				"id": "ask_guard_leave",
+				"label": "Ask them to stand aside",
+				"preview": "Request passage.",
+				"reason": "Available.",
+				"result_title": "DENIED",
+				"result_body": (
+					"They do not move. 'File a complaint with Central. "
+					+ "Oh wait — you can't.'"
+				),
+				"effects": {"elapsed_minutes": 1, "exertion": 0.05},
+			},
+		],
+	}
 
 
 static func _generic_ask() -> Dictionary:

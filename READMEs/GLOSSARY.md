@@ -44,7 +44,8 @@ Unmarked terms are established. Terms still in motion are labeled
 - **Eviction (Era 9):** Canonical opening beat where Central triage casts the
   player out for insufficient resources. After eviction, Central stays locked
   for that character until all four regional Cores are reassembled (endgame).
-  See Canonical World Specification and Central Core Campaign Overhaul.
+  See [Canonical World Specification](CANONICAL_WORLD_SPECIFICATION.md) and
+  [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 - **The Glitch (Era 9):** Playable-era condition where fragments of past eras
   appear in the present (places, objects, documents, institutions, anomalies).
   Not a default player-facing UI label. See
@@ -67,10 +68,12 @@ Unmarked terms are established. Terms still in motion are labeled
 - **North Pointer Tutorial:** One-shot Act 1 beat after eviction: an NPC or
   scripted event points the player North, opens the Node Map, and highlights
   `central_core → north_random_1` with a focus animation. Sets Meta flag
-  `tutorial_north_pointed`. See Central Core Campaign Overhaul.
+  `tutorial_north_pointed`. See
+  [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 - **Act 1 Arm Seal:** Hard travel refuse for East/South/West routes and their
   `*_random_1` teases after eviction. Visible on the Node Map as grey locked
-  nodes/edges; does not open side-arm play.
+  nodes/edges; does not open side-arm play. Detail:
+  [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 - **Zone Composition Plan** *(planned):* Deterministic pass that assigns
   budgeted visual roles across a 469-cell zone (rings, trails, clusters) before
   decoration fill.

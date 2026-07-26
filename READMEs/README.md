@@ -17,9 +17,8 @@ of restating it.
 - [Humanoid Token Pipeline](HUMANOID_TOKEN_PIPELINE.md): layered sprite
   contract, current visual coverage, and runtime asset preparation.
 - [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md):
-  Act 1 build bible; implementation paused until categorized asset folders are
-  ready (asset pack identity:
-  [Hex World Asset Overhaul](design/HEX_WORLD_ASSET_OVERHAUL.md)).
+  Act 1 build bible — eviction → North Pointer Tutorial, E/S/W travel seals,
+  hub stamp, hex taxonomy / sort SOP, phased IDE checklist (0–9).
 - [Hex World Asset Overhaul](design/HEX_WORLD_ASSET_OVERHAUL.md): official
   S:→biome pool roles, Golbanc Era 8 default, alpha homestead→theme ramp,
   dialect profiles, promote phases.
@@ -68,8 +67,8 @@ Status updated on **July 23, 2026**:
   The turn command deck is again the official combat UI; `RealtimeDuelHUD`
   remains the optional mode.
 - **Active next:** [Official Turn-Based Combat Overhaul](design/TURN_BASED_COMBAT_OVERHAUL.md).
-- **Paused / asset-blocked:** [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
-  resumes after the complete categorized asset folder is available.
+- **Queued Act 1 campaign:** [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
+  (Phase 0 docs landed; runtime starts at Phase 1 asset sort).
 
 ### Systems Snapshot
 
@@ -115,15 +114,15 @@ Status updated on **July 23, 2026**:
 **Active delivery track:**
 [Official Turn-Based Combat Overhaul](design/TURN_BASED_COMBAT_OVERHAUL.md)
 
-**Queued after asset delivery:**
+**Queued Act 1 campaign bible:**
 [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
 
-1. Asset sort (Central + plains from S:/HEXIFY; hub PNG)
-2. Act 1 travel seals (E/S/W grey; Central lock)
-3. Eviction + occupation flavor (scavenger first)
-4. North Pointer Tutorial + Node Map highlight
-5. Central look / dressing runtime / North spine content
-6. Roads/pipes/power overlays; later E/S/W chapters
+1. Phase 1 — Asset sort (Central + plains from S:/HEXIFY; hub PNG; taxonomy)
+2. Phase 2 — Act 1 travel seals (E/S/W grey; Central lock)
+3. Phase 3 — Eviction + occupation flavor (scavenger first)
+4. Phase 4 — North Pointer Tutorial + Node Map highlight
+5. Phases 5–7 — Central look / dressing runtime / North spine content
+6. Phases 8–9 — Roads/pipes/power overlays; later E/S/W chapters
 
 ## Design Direction
 

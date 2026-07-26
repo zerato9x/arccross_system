@@ -6,40 +6,42 @@ Directional Node Web.
 
 **Where this conflicts with soft Act 1 language elsewhere, this file wins.**
 
-> **Implementation status — paused / asset-blocked (July 23, 2026):**
-> keep this document as the authoritative campaign contract, but do not begin
-> campaign scene/profile implementation until the complete categorized asset
-> folder is available to pull from. The active engineering track is the
-> [Official Turn-Based Combat Overhaul](TURN_BASED_COMBAT_OVERHAUL.md).
-
 | Owns | Defers to |
 | --- | --- |
 | Act 1 campaign flow, travel seals, tutorial beats, phased IDE checklist | — |
-| `S:\Asset\_Asset` sort identity (packs, Golbanc default, theme ramp) | [Hex World Asset Overhaul](HEX_WORLD_ASSET_OVERHAUL.md) |
+| Folder taxonomy + sort SOP for hex biomes | — |
+| Pack → dialect / Golbanc default / theme ramp detail | [Hex World Asset Overhaul](HEX_WORLD_ASSET_OVERHAUL.md) |
 | Lore tone / eviction framing | [Canonical World Specification](../CANONICAL_WORLD_SPECIFICATION.md) |
-| **Official era chronology** | [World Timeline Codex](../WORLD_TIMELINE_CODEX.md) |
+| Official era chronology | [World Timeline Codex](../WORLD_TIMELINE_CODEX.md) |
 | Domain ownership / presentation boundaries | [System Architecture](../SYSTEM_ARCHITECTURE.md) |
 | FRAME/CORE dressing schema detail | [Hex Dressing Templates](HEX_DRESSING_TEMPLATES.md) |
 | Supporting Node Web lore alignment | [Macro World Overhaul](MACRO_WORLD_OVERHAUL.md) |
 
 No gameplay code is required to treat this file as the build queue. Implement
-phases in order; do not reopen finished Phase 2 foundation plans.
+phases in order. Do not reopen finished Phase 2 foundation plans.
 
 ---
 
-## Non-goals
+## 1. Purpose and ownership
+
+This file is the single IDE entry point for the Central Core / Act 1 overhaul.
+Agents should implement from here first; open sibling docs only for the deferred
+columns above.
+
+### Non-goals
 
 - Player-facing cosmic exposition (Marks, Primal Civilization, The
   Transcendence, full Core purpose)
 - Baking roads, pipes, or power lines into terrain-base hex PNGs
 - Shipping four full arms in Act 1
 - Treating Central as free midgame home after eviction
+- Optional thin E/S/W wander loops in Act 1
 - Rewriting Node Web radius, Meta persistence, or domain ownership
 - TRADE economy, SNIPE, EXECUTE, Pocket Map, squad combat (Known Gaps only)
 
 ---
 
-## Locked Act 1 contract
+## 2. Locked Act 1 contract
 
 ```mermaid
 flowchart TD
@@ -61,7 +63,8 @@ flowchart TD
 
 ### Hard rules
 
-- **Central hub art** (`Asset/HexTiles/_BIOMES/biome_centralcore/central_core_hub_main.png`)
+- **Central hub art**
+  (`Asset/HexTiles/_BIOMES/biome_centralcore/central_core_hub_main.png`)
   is the official Central Core city silhouette — visual authority, not a free
   midgame home.
 - After eviction, **Central is locked** for that character until all four
@@ -80,7 +83,7 @@ flowchart TD
 ### Eviction sequence (stub)
 
 Tone: paperwork and scarcity, not destiny. Logs/NPCs talk rations, quotas,
-sealed gates.
+sealed gates — never cosmology.
 
 | Beat | Intent |
 | --- | --- |
@@ -90,9 +93,67 @@ sealed gates.
 | North pointer | Tutorial NPC/event; sets Meta tutorial flags |
 | Node Map coach | One-shot open-map focus on `central_core → north_random_1` |
 
+#### Occupation flavor (exile text / kit only)
+
+| `occupation_id` | Exile flavor (stub) | Starting kit note |
+| --- | --- | --- |
+| `scavenger` | Quota shortfall / salvage surplus triage | Ship first |
+| *(TBD)* | Additional occupations later | Do not gate arm choice |
+
+### Post-eviction spawn rules
+
+1. Set Meta: `eviction_completed = true`, `central_locked = true`.
+2. Place player on Central fringe (rim / first-exit cell), **not** on the hub
+   CORE stamp hex.
+3. Refuse travel into `central_core` interior / re-entry while `central_locked`.
+4. Unlock for travel: `north_random_1` only among arm Route-1 nodes.
+5. Leave E/S/W Route-1 nodes **discovered or visible as teases** but sealed
+   (`act1_arm_seals`).
+
+### North Pointer Tutorial
+
+| Field | Spec |
+| --- | --- |
+| Trigger | First time player is on Central fringe after eviction and has not set `tutorial_north_pointed` |
+| Actor | NPC or scripted POI/event (paperwork / scarcity tone) |
+| Player outcome | Coach to open Node Map; does not auto-travel |
+| Meta flag | `tutorial_north_pointed = true` (one-shot; persist across save/load) |
+| Dialogue tone | Directions and survival tips; never destiny briefing |
+
+### Node Map tutorial animation
+
+| Step | Behavior |
+| --- | --- |
+| 1 | Open Node Map (coach / forced once) |
+| 2 | Camera tween / fit toward north edge |
+| 3 | Pulse highlight on edge `central_core → north_random_1` and both nodes |
+| 4 | Render E/S/W nodes and edges **grey / muted**; non-selectable for travel |
+| 5 | Badge or caption: next destination = North Route 1 |
+| 6 | Closing map does not repeat coach if `tutorial_north_pointed` |
+
+### Hard travel seals (Act 1)
+
+Owners: `MacroProgressController` (destination legality) + Meta flags +
+`NodeMapGraphView` (grey presentation).
+
+Refuse when any of:
+
+- Destination arm is East, South, or West while `act1_arm_seals` is active
+- Destination is `*_gateway` / `*_core` for E/S/W
+- Destination is any `east_random_*`, `south_random_*`, `west_random_*`
+- Destination is Central interior while `central_locked`
+- Inner-ring edges that would hop Central-adjacent Route-1 nodes into a sealed arm
+
+Allow:
+
+- Local wander inside current radius-12 zone
+- Central fringe ↔ `north_random_1` once tutorial has pointed North
+- North Route 1→2→3 unlock progression
+- North gateway / core only via existing Meta unseal rules
+
 ---
 
-## Systems file map
+## 3. Systems file map
 
 | File | Job |
 | --- | --- |
@@ -104,44 +165,69 @@ sealed gates.
 | [`UI/NodeMap/NodeMapSystem.gd`](../../UI/NodeMap/NodeMapSystem.gd) | Open-with-focus animation; tutorial coach |
 | [`BiologicalCore/Identity/OccupationDefinition.gd`](../../BiologicalCore/Identity/OccupationDefinition.gd) | Occupation + exile copy hooks |
 | [`WorldCore/MacroZoneGenerator.gd`](../../WorldCore/MacroZoneGenerator.gd) | Place `central_core_hub_main` as Central landmark CORE; dressing runtime |
+| [`WorldCore/HexMapVisualizer.gd`](../../WorldCore/HexMapVisualizer.gd) | Render hub stamp / biome pack visuals |
+| [`Tools/Build-HexTileSet.gd`](../../Tools/Build-HexTileSet.gd) | Rebuild TileSet + `MacroTileCatalog` after asset sort |
 
 Presentation emits intent only. Travel legality and Meta flags live in WorldCore
 / SystemCore owners.
 
+### Meta flags (Act 1)
+
+| Flag | Meaning |
+| --- | --- |
+| `eviction_completed` | Exile sequence finished this character/run contract |
+| `central_locked` | Refuse Central re-entry until four-Core endgame |
+| `tutorial_north_pointed` | North Pointer + Node Map coach done (one-shot) |
+| `act1_arm_seals` | E/S/W travel and Node Map selection sealed |
+| `gateway_north_unsealed` | Existing Meta restore flag (north climax) |
+
 ---
 
-## Asset pipeline — `S:\Asset\_Asset` → project biomes
+## 4. Asset pipeline — `S:\Asset\_Asset` → project biomes
 
-**Authoritative pack roles, Era 8 Golbanc default, alpha homestead→theme ramp,
-dialect profiles, and promote phases:**
-[Hex World Asset Overhaul](HEX_WORLD_ASSET_OVERHAUL.md).
+**Pack identity, Golbanc Era 8 default, and homestead→theme ramp** are owned by
+[Hex World Asset Overhaul](HEX_WORLD_ASSET_OVERHAUL.md). That file wins on pack
+→ dialect conflicts. Summary for Act 1 agents:
 
-That file **supersedes** the older pack→biome table that lived here. Summary
-for Act 1 agents:
-
-| Priority promote | Pool | Use |
+| Source on `S:\Asset\_Asset` | Target / pool | Dialect use |
 | --- | --- | --- |
-| Brutalist / hub | `central` / `biome_centralcore` | Central hub |
-| Golbanc | `default_era8` | Homestead starters on arm approaches |
-| `_BIOMES/biomes_snow` | `north` | North theme ramp toward Core |
-| Gloria crates / Menagerie barricades | `shared_props` | FRAME props |
+| Brutalist Metropole, `central_core*` hubs | `biome_centralcore` / `central` | Central admin / dense hub |
+| Archology South | `south` (later) | South dock / logistics tease |
+| Hercynian Lowlands | `east` (later); Act 1 plains-adjacent scraps OK | East wet lowlands |
+| Golbanc Homestead | `default_era8` → promote under plains / shared | Homestead starters on approaches |
+| Gallian Ice Field / `_BIOMES/biomes_snow` | `biome_snow` / `north` | Far-north / cold rim |
+| Arid Badlands | `west_basin` (later) | West tease stubs |
+| Exo-Lunar Desolation, Gloria Station | scrap / `shared_props` | West scrap / Meta sites later |
+| Starlight Menagerie | vehicles/props (non-hex terrain) | Combat/world props |
+| `HEXIFY/*` | Prefer over raw pack dupes | Hex-ready first |
+| `S:\Asset\_Asset\_BIOMES\*` | Merge into matching `res://Asset/HexTiles/_BIOMES/` | Already-sorted staging |
 
-Prefer HEXIFY when duplicate exists. Folder taxonomy under each pool: `HEX/`,
-`Infrastructure/`, `Structures/`, flora/rocks/remnants as needed. Rebuild via
-[`Tools/Build-HexTileSet.gd`](../../Tools/Build-HexTileSet.gd).
+### Folder taxonomy (enforced under each `biome_*`)
+
+| Folder | Contents |
+| --- | --- |
+| `HEX/` | Terrain-only base hexes (512² preferred; catalog via Build-HexTileSet) |
+| `Infrastructure/` | Roads, pipes, power lines, tanks, poles (OVERLAY / FRAME pools) |
+| `Structures/` | CORE building footprints |
+| `Colony Infrastructure/` | Shared camp/colony props (or fold into `Infrastructure/`) |
+| `flora/`, `Rocks/`, `remnants/`, `water_*` | As applicable per biome |
+| Biome root (rare) | Multi-hex landmark stamps only (e.g. `central_core_hub_main.png`) |
 
 ### Sort SOP
 
-1. Inventory S: pack → classify (terrain / overlay / structure / prop / shelf)
-2. Prefer HEXIFY variants
-3. Copy into `res://Asset/HexTiles/_BIOMES/<pool>/...` per Hex World Asset Overhaul
+1. Inventory S: pack → classify (terrain / overlay / structure / prop / discard)
+2. Prefer HEXIFY variants when both exist
+3. Copy into `res://Asset/HexTiles/_BIOMES/biome_<id>/...` with stable names
 4. Tag for dressing pools (CORE / FRAME / ACCENT / OVERLAY)
-5. Rebuild TileSet / catalog
+5. Rebuild TileSet / catalog (`Tools/Build-HexTileSet.gd`)
 6. Smoke: same seed → same placement
+
+Act 1 promote priority: Brutalist/hub → Golbanc → snow north ramp → shared
+props. Detail: Hex World Asset Overhaul.
 
 ---
 
-## Hex structure rules
+## 5. Hex structure rules
 
 Agent-checkable bullets (extends [Hex Dressing Templates](HEX_DRESSING_TEMPLATES.md)):
 
@@ -155,10 +241,11 @@ Agent-checkable bullets (extends [Hex Dressing Templates](HEX_DRESSING_TEMPLATES
   templates → light scatter
 - Footprint classes: `1x1_center`, `tall`, `wide`, multi-hex hub stamps
 - Majority of cells stay quiet so landmarks read
+- Templated hexes do not receive random-offset scatter on the same FRAME slots
 
 ---
 
-## Infrastructure generation backlog
+## 6. Infrastructure generation backlog
 
 Not Act 1 travel-seal blockers; schedule after seals and hub look:
 
@@ -170,7 +257,7 @@ Not Act 1 travel-seal blockers; schedule after seals and hub look:
 
 ---
 
-## Phased IDE build order
+## 7. Phased IDE build order
 
 ### Phase 0 — Docs (this pass)
 
@@ -252,7 +339,7 @@ Not Act 1 travel-seal blockers; schedule after seals and hub look:
 
 ---
 
-## Success criteria (Act 1)
+## 8. Success criteria (Act 1)
 
 - One agent can implement Act 1 without reading five other delivery plans first
 - After eviction tutorial, E/S/W cannot be traversed

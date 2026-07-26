@@ -52,6 +52,8 @@ static func build_macro_tile_assets() -> Dictionary:
 	catalog.pack_layer_ids = {
 		GameEnums.BIOME_PACK_PLAINS: {},
 		GameEnums.BIOME_PACK_CENTRALCORE: {},
+		GameEnums.BIOME_PACK_NORTH: {},
+		GameEnums.BIOME_PACK_DEFAULT_ERA8: {},
 	}
 	catalog.path_to_source_id = {}
 
@@ -84,6 +86,10 @@ static func _biome_pack_from_path(path: String) -> String:
 	var lowered := path.to_lower()
 	if "biome_centralcore" in lowered:
 		return GameEnums.BIOME_PACK_CENTRALCORE
+	if "biome_north" in lowered or "/snow_tiles/" in lowered:
+		return GameEnums.BIOME_PACK_NORTH
+	if "default_era8" in lowered:
+		return GameEnums.BIOME_PACK_DEFAULT_ERA8
 	return GameEnums.BIOME_PACK_PLAINS
 
 static func _categorize_tile(path: String, source_id: int, catalog: MacroTileCatalog) -> void:
@@ -92,7 +98,7 @@ static func _categorize_tile(path: String, source_id: int, catalog: MacroTileCat
 	
 	if "water_default" in lowered:
 		return
-	if lowered.ends_with("/bg_plains.png"):
+	if lowered.ends_with("/bg_plains.png") or lowered.ends_with("/bg_north.png"):
 		return
 	if lowered.ends_with("/mud.png"):
 		_add_to_catalog_array(
@@ -120,6 +126,21 @@ static func _categorize_tile(path: String, source_id: int, catalog: MacroTileCat
 			biome_pack,
 			"terrain",
 			GameEnums.MacroTerrainTile.HUB_CONCRETE,
+			source_id
+		)
+		return
+
+	if "snow_tiles" in lowered or "hex_snowy" in lowered or "ice field_hex" in lowered:
+		_add_to_catalog_array(
+			catalog.terrain_source_ids,
+			GameEnums.MacroTerrainTile.SNOW_TRANSITION,
+			source_id
+		)
+		_add_to_pack(
+			catalog,
+			biome_pack,
+			"terrain",
+			GameEnums.MacroTerrainTile.SNOW_TRANSITION,
 			source_id
 		)
 		return
@@ -225,14 +246,18 @@ static func _collect_all_tile_paths() -> PackedStringArray:
 
 static func _should_collect_tile_path(path: String) -> bool:
 	var lowered := path.to_lower()
-	if lowered.ends_with("/bg_plains.png"):
+	if lowered.ends_with("/bg_plains.png") or lowered.ends_with("/bg_north.png"):
 		return false
 	# mud.png is a ground terrain source for MUD_YELLOW.
 	return true
 
 static func _is_valid_tile_texture(texture: Texture2D, image_path: String) -> bool:
 	var lowered := image_path.to_lower()
-	if "grass_tiles" in lowered or "concrete_tiles" in lowered:
+	if (
+		"grass_tiles" in lowered
+		or "concrete_tiles" in lowered
+		or "snow_tiles" in lowered
+	):
 		var size := texture.get_size()
 		return int(size.x) == DEFAULT_TILE_SIZE.x and int(size.y) == DEFAULT_TILE_SIZE.y
 	return true

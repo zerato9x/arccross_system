@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://cpfc2cyt5tmx7"]
 
 [ext_resource type="Script" uid="uid://u6xgly272bsa" path="res://UI/Macro/MacroExplorationWindow.gd" id="1_dofyy"]
+[ext_resource type="PackedScene" uid="uid://bidwe2cg476w8" path="res://UI/Humanoid/HumanoidToken.tscn" id="2_8dpdc"]
 
 [node name="MacroExplorationWindow" type="CanvasLayer" unique_id=1252351330]
 layer = 22
@@ -111,13 +112,8 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="ActorToken" type="ColorRect" parent="ExplorationPanel/Margin/Content/SceneRoot/TokenLayer" unique_id=1024499803]
+[node name="ActorToken" parent="ExplorationPanel/Margin/Content/SceneRoot/TokenLayer" unique_id=680516095 instance=ExtResource("2_8dpdc")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(18, 28)
-offset_right = 18.0
-offset_bottom = 28.0
-mouse_filter = 2
-color = Color(0.75, 0.82, 0.7, 0.95)
 
 [node name="ProgressOverlay" type="PanelContainer" parent="ExplorationPanel/Margin/Content/SceneRoot" unique_id=1024499804]
 unique_name_in_owner = true
@@ -150,8 +146,8 @@ theme_override_constants/separation = 6
 [node name="ProgressLabel" type="Label" parent="ExplorationPanel/Margin/Content/SceneRoot/ProgressOverlay/ProgressMargin/ProgressColumn" unique_id=1024499807]
 unique_name_in_owner = true
 layout_mode = 2
-horizontal_alignment = 1
 text = "Working…"
+horizontal_alignment = 1
 
 [node name="ActionProgressBar" type="ProgressBar" parent="ExplorationPanel/Margin/Content/SceneRoot/ProgressOverlay/ProgressMargin/ProgressColumn" unique_id=1024499808]
 unique_name_in_owner = true

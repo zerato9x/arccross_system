@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="SpawnLoadout" load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/SpawnLoadout.gd" id="1_loadout"]
+[ext_resource type="Resource" path="res://ItemCore/Items/ak47.tres" id="2_weapon"]
+[ext_resource type="Resource" path="res://ItemCore/Items/shirt_service.tres" id="3_inner"]
+[ext_resource type="Resource" path="res://ItemCore/Items/armor_service.tres" id="4_outer"]
+[ext_resource type="Resource" path="res://ItemCore/Items/pants_service.tres" id="5_legs"]
+[ext_resource type="Resource" path="res://ItemCore/Items/boot_service.tres" id="6_boots"]
+[ext_resource type="Resource" path="res://ItemCore/Items/helmet_service.tres" id="7_helmet"]
+[ext_resource type="Resource" path="res://ItemCore/Items/webbing_service.tres" id="8_vest"]
+[ext_resource type="Resource" path="res://ItemCore/Items/ak47_magazine.tres" id="9_magazine"]
+[ext_resource type="Resource" path="res://ItemCore/Items/rifle_round.tres" id="10_round"]
+
+[resource]
+script = ExtResource("1_loadout")
+weapon = ExtResource("2_weapon")
+inner_torso = ExtResource("3_inner")
+outer_torso = ExtResource("4_outer")
+legs = ExtResource("5_legs")
+feet = ExtResource("6_boots")
+vest = ExtResource("8_vest")
+head = ExtResource("7_helmet")
+starting_items = [ExtResource("9_magazine"), ExtResource("10_round"), ExtResource("10_round"), ExtResource("10_round"), ExtResource("10_round"), ExtResource("10_round"), ExtResource("10_round"), ExtResource("10_round"), ExtResource("10_round"), ExtResource("10_round"), ExtResource("10_round"), ExtResource("10_round"), ExtResource("10_round")]

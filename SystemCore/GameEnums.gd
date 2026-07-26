@@ -408,6 +408,10 @@ enum MacroNodeRole {
 
 const BIOME_PACK_PLAINS := "plains"
 const BIOME_PACK_CENTRALCORE := "centralcore"
+## North Arm ice / snow theme (alpha North spine).
+const BIOME_PACK_NORTH := "north"
+## Era 8 homestead vernacular (Golbanc); used as structure fallback / starter mix.
+const BIOME_PACK_DEFAULT_ERA8 := "default_era8"
 const MACRO_ZONE_RADIUS := 12
 const MACRO_ZONE_CELL_COUNT := 1 + 3 * MACRO_ZONE_RADIUS * (MACRO_ZONE_RADIUS + 1)
 

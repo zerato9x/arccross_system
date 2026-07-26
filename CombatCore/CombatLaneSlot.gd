@@ -5,7 +5,7 @@ const PLAINS_GROUND_ASSET := "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plain
 const DIRT_ROAD_ASSET := "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/Dirt road 1 StraightA.png"
 const MUD_SURFACE_ASSET := "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/Earth Patch - Rough - Brown - 2x2.png"
 const CRATE_OBJECT_ASSET := "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/Homestead Crates Size1.png"
-const BARRICADE_OBJECT_ASSET := "res://Asset/HexTiles/_BIOMES/biome_plains/Structures/barricade 2A.png"
+const BARRICADE_OBJECT_ASSET := "res://Asset/HexTiles/_BIOMES/default_era8/Structures/barricade 2A.png"
 const ROCK_OBJECT_ASSET := "res://Asset/HexTiles/_BIOMES/biome_plains/Rocks/Rocks Sz1 A.png"
 const RUBBLE_OBJECT_ASSET := "res://Asset/HexTiles/_BIOMES/biome_plains/remnants/Rubble 1x1 A.png"
 

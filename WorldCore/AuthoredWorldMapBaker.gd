@@ -254,8 +254,13 @@ func _path_for_source_id(source_id: int) -> String:
 
 
 func _pack_for_path(path: String) -> String:
-	if path.to_lower().find("biome_centralcore") >= 0:
+	var lowered := path.to_lower()
+	if lowered.find("biome_centralcore") >= 0:
 		return GameEnums.BIOME_PACK_CENTRALCORE
+	if lowered.find("biome_north") >= 0 or lowered.find("snow_tiles") >= 0:
+		return GameEnums.BIOME_PACK_NORTH
+	if lowered.find("default_era8") >= 0:
+		return GameEnums.BIOME_PACK_DEFAULT_ERA8
 	return GameEnums.BIOME_PACK_PLAINS
 
 

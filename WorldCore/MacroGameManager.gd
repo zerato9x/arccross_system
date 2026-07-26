@@ -152,6 +152,12 @@ func enter_campaign_node(
 ) -> bool:
 	_ensure_campaign()
 	if not campaign.can_enter_node(node_id, exit_direction):
+		if (
+			node_id == MacroGraphGenerator.CENTRAL_ID
+			and campaign.active_node_id != MacroGraphGenerator.CENTRAL_ID
+		):
+			_last_macro_event = MacroEntityCollisionResolver.central_reentry_refused_line()
+			_macro_log(_last_macro_event)
 		return false
 	# Keep player inventory; unload tokens before zone swap.
 	_unload_all_enemy_tokens()
@@ -160,6 +166,7 @@ func enter_campaign_node(
 		return false
 	_pending_exit_direction = GameEnums.MacroTravelDirection.NONE
 	_apply_active_zone_to_world()
+	_ensure_central_rim_guards()
 	_ensure_meta_component_source()
 	return true
 
@@ -556,6 +563,156 @@ func _apply_active_zone_to_world() -> void:
 	refresh_proximity(start_coords)
 	_refresh_world_hud()
 	print(MacroMapDebug.print_campaign(campaign))
+
+
+## Posts one pair of Central Guards on the rim edge facing locked Central Core.
+func _ensure_central_rim_guards() -> void:
+	_ensure_campaign()
+	if campaign == null or mob_spawner == null:
+		return
+	var node_id := str(campaign.active_node_id)
+	if not _is_route_one_node(node_id):
+		return
+	if _has_central_guard_pair():
+		return
+
+	var toward_central := _central_facing_direction_for_route_one(node_id)
+	if toward_central == GameEnums.MacroTravelDirection.NONE:
+		return
+	var pair_coords := _pick_central_rim_pair_coords(toward_central)
+	if pair_coords.size() < 2:
+		push_warning(
+			"[MacroGameManager] Could not place Central Guard pair on %s rim."
+			% node_id
+		)
+		return
+
+	var squad_id := "central_guard_pair_%s" % node_id
+	var seed_base := "%s:%s:central_guard" % [_world_state.world_seed, node_id]
+	var variants := [false, true] # AK-47, then Kar98k
+	for i in range(2):
+		var coords: Vector2i = pair_coords[i]
+		var record := mob_spawner.generate_central_guard_record(
+			coords,
+			bool(variants[i]),
+			squad_id,
+			"%s:%d" % [seed_base, i]
+		)
+		_initialize_npc_runtime(record)
+		# Keep the pair posted on the rim; do not roam into patrol points.
+		record.runtime["macro_purpose"] = GameEnums.NPC_PURPOSE_PATROL
+		record.runtime["macro_origin_coords"] = coords
+		record.runtime["macro_target_coords"] = coords
+		var entity_id := _world_state.register_entity(record)
+		var hex_data := world_generator.get_hex_at(coords)
+		hex_data.encounter_entity_id = entity_id
+		hex_data.encounter_evaluated = true
+		_world_state.set_hex_record(coords, hex_data.to_state())
+		_spawn_enemy_token_from_record(record)
+		_macro_log(
+			"Posted Central Guard %s @%s facing Central."
+			% [entity_id, str(coords)]
+		)
+	_last_macro_event = (
+		"A posted pair in service kit holds the Central-facing rim."
+	)
+
+
+func _is_route_one_node(node_id: String) -> bool:
+	return (
+		node_id == "north_random_1"
+		or node_id == "east_random_1"
+		or node_id == "south_random_1"
+		or node_id == "west_random_1"
+	)
+
+
+func _central_facing_direction_for_route_one(node_id: String) -> int:
+	match node_id:
+		"north_random_1":
+			return GameEnums.MacroTravelDirection.SOUTH
+		"east_random_1":
+			return GameEnums.MacroTravelDirection.WEST
+		"south_random_1":
+			return GameEnums.MacroTravelDirection.NORTH
+		"west_random_1":
+			return GameEnums.MacroTravelDirection.EAST
+		_:
+			return GameEnums.MacroTravelDirection.NONE
+
+
+func _has_central_guard_pair() -> bool:
+	var count := 0
+	for entity in _world_state.entity_records.values():
+		if not (entity is EntityRecord):
+			continue
+		var record := entity as EntityRecord
+		if record.kind != GameEnums.RuntimeEntityKind.NPC:
+			continue
+		var template_id := str(record.definition.get("template_id", ""))
+		if template_id.is_empty():
+			template_id = str(record.runtime.get("template_id", ""))
+		if template_id == "central_guard":
+			count += 1
+	return count >= 2
+
+
+func _pick_central_rim_pair_coords(toward_central: int) -> Array[Vector2i]:
+	var radius := MacroZoneGenerator.ZONE_RADIUS
+	var primary := HexCoordUtils.rim_anchor(toward_central, radius)
+	var candidates: Array[Vector2i] = []
+	if _is_guard_spawn_hex(primary):
+		candidates.append(primary)
+	for neighbor in HexCoordUtils.AXIAL_DIRECTIONS:
+		var coords: Vector2i = primary + neighbor
+		if HexCoordUtils.distance_from_origin(coords) != radius:
+			continue
+		if not _is_guard_spawn_hex(coords):
+			continue
+		if not candidates.has(coords):
+			candidates.append(coords)
+	# Prefer hexes that still face Central strongly.
+	candidates.sort_custom(
+		func(a: Vector2i, b: Vector2i) -> bool:
+			var target := HexCoordUtils.travel_direction_vector(toward_central)
+			var score_a := HexCoordUtils.axial_to_visual_vector(a).normalized().dot(target)
+			var score_b := HexCoordUtils.axial_to_visual_vector(b).normalized().dot(target)
+			return score_a > score_b
+	)
+	var pair: Array[Vector2i] = []
+	for coords in candidates:
+		if pair.size() >= 2:
+			break
+		pair.append(coords)
+	if pair.size() >= 2:
+		return pair
+	# Fallback: walk the ring for any two passable rim hexes near primary.
+	for coords in HexCoordUtils.cells_in_ring(radius):
+		if HexCoordUtils.distance(primary, coords) > 2:
+			continue
+		if not _is_guard_spawn_hex(coords):
+			continue
+		if not pair.has(coords):
+			pair.append(coords)
+		if pair.size() >= 2:
+			break
+	return pair
+
+
+func _is_guard_spawn_hex(coords: Vector2i) -> bool:
+	var hex_data := world_generator.get_hex_at(coords)
+	if hex_data == null or not hex_data.is_passable():
+		return false
+	if _world_state.has_entity_at(coords):
+		return false
+	if active_enemies.has(coords):
+		return false
+	if (
+		player_token != null
+		and player_token.current_hex_coords == coords
+	):
+		return false
+	return true
 
 
 func _refresh_boundary_previews() -> void:
@@ -2048,6 +2205,23 @@ func resolve_entity_collision_choice(choice_id: String) -> void:
 				MacroEntityCollisionResolver.MODE_TALK
 			)
 		MacroEntityCollisionResolver.CHOICE_AMBUSH:
+			var ambush_enemy_id: String = _pending_interaction.get("enemy_id", "")
+			var ambush_record := _world_state.get_entity(ambush_enemy_id)
+			var ambush_opponent := MacroEntityCollisionResolver.build_opponent_summary(
+				ambush_record
+			)
+			if bool(ambush_opponent.get("blocks_ambush", false)):
+				var deny := MacroEntityCollisionResolver.ambush_denied_result(
+					ambush_record
+				)
+				_last_macro_event = str(deny.get("body", "Ambush denied."))
+				_macro_log(_last_macro_event)
+				_pending_interaction["resume_after_result"] = str(
+					deny.get("resume", MacroEntityCollisionResolver.MODE_ROOT)
+				)
+				if macro_hud:
+					macro_hud.show_event_result(deny)
+				return
 			_open_entity_collision_session(
 				MacroEntityCollisionResolver.MODE_AMBUSH
 			)

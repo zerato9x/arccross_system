@@ -115,7 +115,9 @@ Era 9 playable framing continues in the eviction section below.
 **Status:** canonical story framing for the first playable campaign arc.
 Systems that enforce Central lock / endgame return are **deferred** until the
 Central and North content spine exists; see
-[Macro World Overhaul](design/MACRO_WORLD_OVERHAUL.md).
+[Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
+(Act 1 build bible) and
+[Macro World Overhaul](design/MACRO_WORLD_OVERHAUL.md) (Node Web lore).
 
 ### Situation
 
@@ -151,9 +153,11 @@ paperwork — they are **selected for eviction**.
 ### Design implication
 
 Build Central as a dense, believable population seat first (art, districts,
-exploration detail). Playable Act 1 then lives primarily on the **North spine**
-and local wander, with Central treated as the place you were cast out of —
-visible in memory, previews, and Meta install beats — until endgame unlock.
+exploration detail). Playable Act 1 then lives on the **North spine** after the
+**North Pointer Tutorial**, with E/S/W arms grey and sealed. Central is the
+place you were cast out of — visible in memory, previews, and Meta install
+beats — until endgame unlock. Shipping checklist:
+[Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
 ---
 
@@ -530,7 +534,9 @@ Player should experience history from ground level.
 
 - **Official chronology:**
   [World Timeline Codex](WORLD_TIMELINE_CODEX.md)
-- Campaign / zone shipping scope:
+- Act 1 campaign build bible:
+  [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
+- Campaign / zone shipping lore:
   [Macro World Overhaul](design/MACRO_WORLD_OVERHAUL.md)
 - Hex visual generation language:
   [Hex Dressing Templates](design/HEX_DRESSING_TEMPLATES.md)

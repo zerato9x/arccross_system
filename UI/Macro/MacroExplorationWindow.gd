@@ -30,6 +30,10 @@ const _PROP_OUTLINE_PADDING := 4.0
 const _PROP_OUTLINE_WIDTH := 3
 const _PROP_LOOTED_MODULATE := Color(0.42, 0.42, 0.42, 1.0)
 const _BACKGROUND_VERTICAL_SHIFT := -72.0
+const _ACTOR_TOKEN_DISPLAY_SCALE := 0.55
+## Half-cell height (128/2) times display scale keeps feet on fixture anchors.
+const _ACTOR_TOKEN_FEET_Y_OFFSET := 64.0 * _ACTOR_TOKEN_DISPLAY_SCALE
+const _ACTOR_TOKEN_WALK_SECONDS := 0.35
 
 @onready var _panel: PanelContainer = %ExplorationPanel
 @onready var _content: HBoxContainer = %Content
@@ -66,7 +70,7 @@ const _BACKGROUND_VERTICAL_SHIFT := -72.0
 @onready var _verb_row: HBoxContainer = %VerbRow
 @onready var _interaction_header: Label = %InteractionHeader
 @onready var _token_layer: Control = %TokenLayer
-@onready var _actor_token: ColorRect = %ActorToken
+@onready var _actor_token: HumanoidTokenView = %ActorToken
 @onready var _progress_overlay: PanelContainer = %ProgressOverlay
 @onready var _progress_label: Label = %ProgressLabel
 @onready var _action_progress: ProgressBar = %ActionProgressBar
@@ -130,6 +134,9 @@ func _ready() -> void:
 	_scene_root.resized.connect(_rerender_prop_positions)
 	_scene_root.clip_contents = true
 	_apply_background_layout()
+	if _actor_token != null:
+		_actor_token.set_display_scale(_ACTOR_TOKEN_DISPLAY_SCALE)
+		_actor_token.play_animation("Idle")
 	_place_token_at(Vector2(0.12, 0.78), false)
 	close_window(false)
 
@@ -240,7 +247,7 @@ func _apply_stage_overlay_layout() -> void:
 	_right_panel.custom_minimum_size = Vector2(260.0, 0.0)
 
 
-func open_landmark(session: Dictionary, _inventory_snapshot: Dictionary = {}) -> void:
+func open_landmark(session: Dictionary, inventory_snapshot: Dictionary = {}) -> void:
 	_session = session.duplicate(true)
 	_selected_fixture_id = str(_session.get("selected_fixture_id", ""))
 	_selected_search_option_id = str(
@@ -251,10 +258,24 @@ func open_landmark(session: Dictionary, _inventory_snapshot: Dictionary = {}) ->
 	_active_mode = GameEnums.PoiAction.SEARCH
 	_panel.visible = true
 	_progress_overlay.visible = false
+	_bind_actor_token_appearance(inventory_snapshot)
 	_place_token_at(Vector2(0.12, 0.78), false)
 	_render_session()
 	_request_preview()
 	_walk_token_to_selected_fixture()
+
+
+func _bind_actor_token_appearance(inventory_snapshot: Dictionary) -> void:
+	if _actor_token == null:
+		return
+	_actor_token.set_display_scale(_ACTOR_TOKEN_DISPLAY_SCALE)
+	_actor_token.set_appearance(
+		HumanoidVisualCatalog.appearance_from_equipment_snapshot(
+			inventory_snapshot.get("equipment", [])
+		)
+	)
+	_actor_token.play_animation("Idle")
+
 
 func show_result(title: String, message: String) -> void:
 	_showing_result = true
@@ -1041,18 +1062,31 @@ func _place_token_at(anchor: Vector2, animate: bool) -> void:
 	if _actor_token == null or _token_layer == null:
 		return
 	var target := Vector2(
-		anchor.x * maxf(_token_layer.size.x, 1.0) - _actor_token.size.x * 0.5,
-		anchor.y * maxf(_token_layer.size.y, 1.0) - _actor_token.size.y
+		anchor.x * maxf(_token_layer.size.x, 1.0),
+		anchor.y * maxf(_token_layer.size.y, 1.0) - _ACTOR_TOKEN_FEET_Y_OFFSET
 	)
 	if _token_tween != null and _token_tween.is_valid():
 		_token_tween.kill()
+		_actor_token.play_animation("Idle", false)
 	if animate:
+		var move_delta := target - _actor_token.position
+		_actor_token.face_direction(move_delta)
+		_actor_token.play_animation("Walk")
 		_token_tween = create_tween()
-		_token_tween.tween_property(_actor_token, "position", target, 0.35).set_trans(
-			Tween.TRANS_SINE
-		).set_ease(Tween.EASE_OUT)
+		_token_tween.tween_property(
+			_actor_token,
+			"position",
+			target,
+			_ACTOR_TOKEN_WALK_SECONDS
+		).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		_token_tween.finished.connect(
+			func() -> void:
+				if _actor_token != null:
+					_actor_token.play_animation("Idle")
+		)
 	else:
 		_actor_token.position = target
+		_actor_token.play_animation("Idle", false)
 
 
 func _walk_token_to_selected_fixture() -> void:

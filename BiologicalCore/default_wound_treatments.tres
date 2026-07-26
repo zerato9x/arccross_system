@@ -1,14 +1,12 @@
-[gd_resource type="Resource" script_class="WoundTreatmentProfile" load_steps=9 format=3]
+[gd_resource type="Resource" script_class="WoundTreatmentProfile" format=3 uid="uid://b0iwng23dg8mx"]
 
-[ext_resource type="Script" path="res://BiologicalCore/WoundTreatmentProfile.gd" id="1_profile"]
-[ext_resource type="Script" path="res://BiologicalCore/WoundTreatmentDefinition.gd" id="2_definition"]
+[ext_resource type="Script" uid="uid://ck6jv635dnubh" path="res://BiologicalCore/WoundTreatmentProfile.gd" id="1_profile"]
+[ext_resource type="Script" uid="uid://cjn1v0bnjny64" path="res://BiologicalCore/WoundTreatmentDefinition.gd" id="2_definition"]
 
 [sub_resource type="Resource" id="Bruise"]
 script = ExtResource("2_definition")
-wound_type = 0
 care_label = "PROTECT AND MONITOR"
 instructions = "No consumable is required. Reduce exertion and monitor pain and integrity."
-required_effect = -1
 currently_treatable = false
 
 [sub_resource type="Resource" id="Laceration"]
@@ -40,7 +38,6 @@ script = ExtResource("2_definition")
 wound_type = 4
 care_label = "IMMOBILIZE / SPLINT"
 instructions = "A splint is required to stabilize this fracture. The current item catalogue has no authored splint treatment."
-required_effect = -1
 recommended_item_ids = Array[String](["splint"])
 currently_treatable = false
 
@@ -49,7 +46,6 @@ script = ExtResource("2_definition")
 wound_type = 5
 care_label = "COOL AND COVER"
 instructions = "Use a sterile dressing and monitor contamination. Burn-specific recovery is not yet authored."
-required_effect = -1
 recommended_item_ids = Array[String](["burn_dressing", "medkit"])
 currently_treatable = false
 

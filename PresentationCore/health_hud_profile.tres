@@ -1,8 +1,8 @@
-[gd_resource type="Resource" script_class="HealthHUDProfile" load_steps=18 format=3]
+[gd_resource type="Resource" script_class="HealthHUDProfile" format=3 uid="uid://cvf3g04p7klw"]
 
-[ext_resource type="Script" path="res://PresentationCore/HealthHUDProfile.gd" id="1_profile"]
-[ext_resource type="Script" path="res://PresentationCore/HealthMetricDefinition.gd" id="2_metric"]
-[ext_resource type="Script" path="res://PresentationCore/HealthRegionDefinition.gd" id="3_region"]
+[ext_resource type="Script" uid="uid://dbpv6j1kpyimy" path="res://PresentationCore/HealthHUDProfile.gd" id="1_profile"]
+[ext_resource type="Script" uid="uid://ttbo4csr8vxy" path="res://PresentationCore/HealthMetricDefinition.gd" id="2_metric"]
+[ext_resource type="Script" uid="uid://b65frm52b84bx" path="res://PresentationCore/HealthRegionDefinition.gd" id="3_region"]
 
 [sub_resource type="Resource" id="MetricBlood"]
 script = ExtResource("2_metric")
@@ -27,7 +27,6 @@ script = ExtResource("2_metric")
 snapshot_key = &"hunger"
 display_name = "NUTRITION"
 icon_path = "res://Asset/UI/HUD/icons/status/hunger_32.png"
-fill_kind = &"health"
 danger_below = 2.0
 caution_below = 5.0
 
@@ -36,7 +35,6 @@ script = ExtResource("2_metric")
 snapshot_key = &"thirst"
 display_name = "HYDRATION"
 icon_path = "res://Asset/UI/HUD/icons/status/thirst_32.png"
-fill_kind = &"health"
 danger_below = 2.0
 caution_below = 5.0
 
@@ -45,7 +43,6 @@ script = ExtResource("2_metric")
 snapshot_key = &"fatigue"
 display_name = "REST RESERVE"
 icon_path = "res://Asset/UI/HUD/icons/status/fatigue_32.png"
-fill_kind = &"health"
 value_transform = 1
 danger_below = 2.0
 caution_below = 5.0
@@ -55,7 +52,6 @@ script = ExtResource("2_metric")
 snapshot_key = &"core_temperature"
 display_name = "CORE TEMP"
 icon_path = "res://Asset/UI/HUD/icons/status/temperature_32.png"
-fill_kind = &"health"
 value_transform = 2
 danger_below = 34.0
 danger_above = 40.0
@@ -76,7 +72,6 @@ caution_above = 5.0
 script = ExtResource("3_region")
 snapshot_region = &"HEAD"
 display_name = "HEAD"
-limb_region = 0
 icon_path = "res://Asset/UI/HUD/medical/limb_head_64.png"
 
 [sub_resource type="Resource" id="RegionUpperTorso"]

@@ -162,8 +162,9 @@ permanent nodes — spoken as infrastructure recovery, not miracle lore.
 Phased IDE checklist (0–9) lives only in
 [Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
-Supporting docs (this file + bible + dressing) are landed. Runtime phases start
-at asset sort and Act 1 seals.
+Supporting docs (this file + bible + dressing) are landed. **Phase 0** of
+[Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md) is complete.
+Runtime phases start at asset sort and Act 1 seals.
 
 ---
 

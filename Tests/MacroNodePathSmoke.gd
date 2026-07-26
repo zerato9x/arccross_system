@@ -118,11 +118,20 @@ func _verify_run_snapshot_backtracking(
 		"id": "snapshot_probe",
 		"instance_id": "snapshot_probe_1",
 	}])
+	var meta := root.get_node_or_null("MetaProgression")
+	var prior_lock := true
+	if meta != null and meta.has_method("is_central_locked"):
+		prior_lock = bool(meta.is_central_locked())
+		meta.set_central_locked(false, false)
 	if not progress.enter_node(
 		MacroGraphGenerator.CENTRAL_ID,
 		GameEnums.MacroTravelDirection.SOUTH
 	):
+		if meta != null and meta.has_method("set_central_locked"):
+			meta.set_central_locked(prior_lock, false)
 		return _fail("Could not backtrack south to Central Core.")
+	if meta != null and meta.has_method("set_central_locked"):
+		meta.set_central_locked(prior_lock, false)
 	if not progress.enter_node(
 		"north_random_1",
 		GameEnums.MacroTravelDirection.NORTH

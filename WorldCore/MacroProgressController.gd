@@ -74,6 +74,12 @@ func get_directional_destinations(exit_direction: int) -> Array[String]:
 		var target := graph.get_node(target_id)
 		if target == null or not target.unlocked:
 			continue
+		if (
+			target_id == MacroGraphGenerator.CENTRAL_ID
+			and _is_central_locked()
+			and active_node_id != MacroGraphGenerator.CENTRAL_ID
+		):
+			continue
 		if not _edge_unlocked(edge):
 			continue
 		if not bool(edge.get("visible", true)) and not target.discovered:
@@ -91,11 +97,24 @@ func can_enter_node(
 	var node := graph.get_node(node_id)
 	if node == null or not node.unlocked:
 		return false
+	if (
+		node_id == MacroGraphGenerator.CENTRAL_ID
+		and _is_central_locked()
+		and not active_node_id.is_empty()
+		and active_node_id != MacroGraphGenerator.CENTRAL_ID
+	):
+		return false
 	if active_node_id.is_empty():
 		return node_id == graph.hub_id
 	if exit_direction == GameEnums.MacroTravelDirection.NONE:
 		return false
 	return get_directional_destinations(exit_direction).has(node_id)
+
+
+func _is_central_locked() -> bool:
+	if _meta_progress != null and _meta_progress.has_method("is_central_locked"):
+		return bool(_meta_progress.is_central_locked())
+	return bool(_meta_flags().get("central_locked", true))
 
 
 func enter_node(

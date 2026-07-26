@@ -206,20 +206,19 @@ SystemCore ([Central Core](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)).
 - Point Central Core asset table here; link from docs index  
 - **Done when:** agents use this file for pack identity  
 
-### Phase B — Alpha pools on disk
+## Phase B — Alpha pools on disk (Central + plains homestead + north snow)
 
-- Sort Golbanc → `default_era8/`  
-- Sort snow → `biome_north/`  
+- Sort Golbanc → `default_era8/` (homestead structures from plains)  
+- Sort snow → `biome_north/` (`HEX/snow_tiles`, Rocks, Structures)  
 - Harden `biome_centralcore/` taxonomy  
-- Copy Gloria crates + Menagerie barricades → `shared_props/`  
-- Rebuild catalog  
-- **Done when:** Godot loads central + default_era8 + north sources  
+- Rebuild catalog via `Tools/Build-HexTileSet.gd`  
+- **Done when:** Godot loads central + plains + default_era8 + north sources  
 
 ### Phase C — Dialect profiles + generator mix
 
-- Implement profile for `central_core` + full **North spine**  
-- `north_random_1` = homestead-dominant; deepen toward `north_core`  
-- Stub profiles for E/S/W (data only if arms sealed)  
+- `WorldCore/NodeDialectProfile.gd` — adjacent ring homestead; North snow ramp  
+- `MacroZoneGenerator` applies theme_weight → `SNOW_TRANSITION` / pack ids  
+- Stub E/S/W as plains homestead until those packs ship  
 - **Done when:** North approach reads Golbanc→snow ramp at fixed seed  
 
 ### Phase D — Dressing templates

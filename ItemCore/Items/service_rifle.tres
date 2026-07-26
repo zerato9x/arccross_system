@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1_itemdata")
 id = "service_rifle"
-display_name = "Service Rifle"
-lore_description = "Service Rifle: Service weapon. Check the working surfaces before trusting it; range and impact are listed, not implied."
+display_name = "Kar98k"
+lore_description = "Kar98k: Service bolt rifle. Check the working surfaces before trusting it; range and impact are listed, not implied."
 item_type = 1
 catalog_category = 10
 item_grade = 2

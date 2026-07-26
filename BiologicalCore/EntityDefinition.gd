@@ -9,6 +9,12 @@ class_name EntityDefinition
 @export var dialogue_id: String = ""
 ## When false, Ceasefire Trade stays locked.
 @export var allows_trade: bool = true
+## When true, AMBUSH opens a sarcastic denial instead of combat setup.
+@export var blocks_ambush: bool = false
+## Stable template key for authored NPC kinds (e.g. central_guard).
+@export var template_id: String = ""
+## When true, this NPC diegetically backs Central re-entry refusal.
+@export var blocks_central_reentry: bool = false
 # --- THE 12-POINT PILLARS ---
 @export_group("Core Attributes")
 @export_range(1, 12) var brawn: int = 6     # 6 = Average
@@ -41,6 +47,9 @@ func to_state() -> Dictionary:
 		"agenda": agenda,
 		"dialogue_id": dialogue_id,
 		"allows_trade": allows_trade,
+		"blocks_ambush": blocks_ambush,
+		"template_id": template_id,
+		"blocks_central_reentry": blocks_central_reentry,
 		"brawn": brawn,
 		"finesse": finesse,
 		"fortitude": fortitude,
@@ -62,6 +71,9 @@ static func from_state(state: Dictionary) -> EntityDefinition:
 	definition.agenda = state.get("agenda", GameEnums.Agenda.SURVIVALIST)
 	definition.dialogue_id = str(state.get("dialogue_id", ""))
 	definition.allows_trade = bool(state.get("allows_trade", true))
+	definition.blocks_ambush = bool(state.get("blocks_ambush", false))
+	definition.template_id = str(state.get("template_id", ""))
+	definition.blocks_central_reentry = bool(state.get("blocks_central_reentry", false))
 	definition.brawn = clampi(state.get("brawn", 6), 1, 12)
 	definition.finesse = clampi(state.get("finesse", 6), 1, 12)
 	definition.fortitude = clampi(state.get("fortitude", 6), 1, 12)
