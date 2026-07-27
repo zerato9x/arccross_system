@@ -291,8 +291,8 @@ func generate_central_guard_record(
 	record.runtime = {
 		"squad_id": squad_id,
 		"template_id": "central_guard",
-		"macro_purpose": GameEnums.NPC_PURPOSE_PATROL,
-		"macro_purpose_label": "Patrol",
+		"macro_purpose": GameEnums.NPC_PURPOSE_HOLD,
+		"macro_purpose_label": "Hold",
 		"macro_origin_coords": coords,
 		"macro_target_coords": coords,
 	}

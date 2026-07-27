@@ -9,8 +9,9 @@ layout.
 
 ## Visual Language
 
-- **Normal information:** cyan or desaturated teal.
-- **Caution:** amber.
+- **Normal information:** amber / warm terminal (`HUDAssetLibrary` Amber Terminal
+  default). Cyan Link remains an optional settings scheme.
+- **Caution:** brighter amber / caution yellow.
 - **Immediate danger:** crimson.
 - **Red Mist or anomalous effects:** magenta.
 - **Typography:** compact monospace labels with clear numeric hierarchy.
@@ -18,6 +19,12 @@ layout.
   that competes with decision-making.
 - **Texture:** scanlines, phosphor glow, fog, and distortion should remain subtle
   enough to preserve readability.
+
+## Canonical Visual References
+
+Live screenshots live under [`../Mockup/`](../Mockup/). Prefer those over the
+historical plates in [`mockups/`](mockups/), which are obsolete layout sketches
+only.
 
 ## Presentation Contract
 
@@ -39,21 +46,31 @@ plate; a global shader should not dim or recolor the tactical UI.
 
 ## Macro Map
 
-![Macro map reference](mockups/macro_map.png)
+![Macro map reference](../Mockup/Screenshot%202026-06-30%20000057.png)
+
+Historical plate (obsolete layout): ![legacy macro_map](mockups/macro_map.png)
 
 - Distinguish explored, visible, and unknown Hexes immediately.
 - Use a restrained Red Mist overlay for fog of war.
 - Movement feedback should communicate terrain cost and environmental danger.
 - POIs require silhouettes that remain recognizable at map scale.
+- Selected / hovered entities should surface an Innawoods paperdoll inspect when
+  present on the hex.
 
 ## Exploration HUD
 
-![Exploration HUD reference](mockups/gameplay_hud.png)
+![Exploration HUD reference](../Mockup/Screenshot%202026-06-30%20000148.png)
+
+Historical plate (obsolete layout): ![legacy gameplay_hud](mockups/gameplay_hud.png)
 
 - Keep location, time, immediate biology, and available interactions visible.
+- Always-on inventory preview hosts the Innawoods paperdoll plus key gear
+  condition (weapons, armor, light, pack).
 - Reserve full-screen flashes for severe trauma, collapse, or encounter
   transitions.
 - Present warnings as specific conditions, not generic danger decoration.
+- Collision / event screens use the opponent paperdoll as the face and place
+  player + contact tokens on the lane field preview.
 
 ## Inventory
 

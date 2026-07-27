@@ -123,6 +123,42 @@ func resolve_structure_id(
 	return _resolve_from_ids(get_structure_ids(structure), visual_variant_hash)
 
 
+## Resolve structure atlas id via structure_pack → default_era8 → plains.
+func get_structure_tile_id(
+	structure_layer: GameEnums.MacroStructureLayer,
+	visual_variant_hash: int,
+	structure_pack: String
+) -> int:
+	if structure_layer == GameEnums.MacroStructureLayer.NONE:
+		return -1
+	var pack := structure_pack.strip_edges()
+	if pack.is_empty():
+		pack = GameEnums.BIOME_PACK_DEFAULT_ERA8
+	var packs: Array[String] = [pack]
+	if pack != GameEnums.BIOME_PACK_DEFAULT_ERA8:
+		packs.append(GameEnums.BIOME_PACK_DEFAULT_ERA8)
+	if pack != GameEnums.BIOME_PACK_PLAINS:
+		packs.append(GameEnums.BIOME_PACK_PLAINS)
+	for pack_id in packs:
+		var packed: int = _resolve_pack_layer_direct(
+			pack_id,
+			"structure",
+			structure_layer,
+			visual_variant_hash
+		)
+		if packed >= 0:
+			return packed
+		packed = _resolve_pack_layer_direct(
+			pack_id,
+			"poi",
+			_structure_poi_key(structure_layer),
+			visual_variant_hash
+		)
+		if packed >= 0:
+			return packed
+	return resolve_structure_id(structure_layer, visual_variant_hash, pack)
+
+
 func resolve_asset_path(
 	asset_path: String,
 	visual_variant_hash: int
@@ -180,18 +216,48 @@ func _resolve_pack_layer(
 		packs.append(GameEnums.BIOME_PACK_PLAINS)
 	elif biome_pack == GameEnums.BIOME_PACK_DEFAULT_ERA8:
 		packs.append(GameEnums.BIOME_PACK_PLAINS)
+	elif (
+		layer_kind == "structure" or layer_kind == "poi"
+	) and biome_pack != GameEnums.BIOME_PACK_PLAINS:
+		# Stub / future theme packs (east/south/west_*) fall through vernacular.
+		packs.append(GameEnums.BIOME_PACK_DEFAULT_ERA8)
+		packs.append(GameEnums.BIOME_PACK_PLAINS)
+	elif biome_pack != GameEnums.BIOME_PACK_PLAINS and biome_pack != GameEnums.BIOME_PACK_CENTRALCORE:
+		packs.append(GameEnums.BIOME_PACK_PLAINS)
 	for pack_id in packs:
-		var pack_dict: Dictionary = pack_layer_ids.get(pack_id, {})
-		if pack_dict.is_empty():
-			continue
-		var layer_dict: Dictionary = pack_dict.get(layer_kind, {})
-		var ids := _get_packed_ids(layer_dict, layer_key)
-		if ids.is_empty() and layer_key is String:
-			ids = _get_packed_ids(layer_dict, str(layer_key))
-		var resolved := _resolve_from_ids(ids, visual_variant_hash)
+		var resolved := _resolve_pack_layer_direct(
+			pack_id,
+			layer_kind,
+			layer_key,
+			visual_variant_hash
+		)
 		if resolved >= 0:
 			return resolved
 	return -1
+
+
+func _resolve_pack_layer_direct(
+	pack_id: String,
+	layer_kind: String,
+	layer_key,
+	visual_variant_hash: int
+) -> int:
+	var pack_dict: Dictionary = pack_layer_ids.get(pack_id, {})
+	if pack_dict.is_empty():
+		return -1
+	var layer_dict: Dictionary = pack_dict.get(layer_kind, {})
+	var ids := _get_packed_ids(layer_dict, layer_key)
+	if ids.is_empty() and layer_key is String:
+		ids = _get_packed_ids(layer_dict, str(layer_key))
+	return _resolve_from_ids(ids, visual_variant_hash)
+
+
+func _structure_poi_key(structure: GameEnums.MacroStructureLayer) -> String:
+	if structure == GameEnums.MacroStructureLayer.REMNANTS:
+		return "remnants"
+	if structure == GameEnums.MacroStructureLayer.STRUCTURES:
+		return "structures"
+	return ""
 
 func _get_packed_ids(source_dict: Dictionary, key) -> PackedInt32Array:
 	var value = source_dict.get(key, PackedInt32Array())

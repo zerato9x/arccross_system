@@ -19,6 +19,8 @@ signal reaction_resolved(defender: HumanoidCore, chosen_reaction: GameEnums.Acti
 ## Emitted specifically for displacement follow-up choices (STAY/FOLLOW).
 signal displacement_choice_opened(initiator: HumanoidCore, displaced_entity: HumanoidCore)
 signal displacement_choice_resolved(initiator: HumanoidCore, chose_follow: bool)
+## Structured gate failures for HUD / AI / tests. Prefer this over print DENIED.
+signal action_denied(denial: Dictionary)
 
 # ---------------------------------------------------------
 # AP COST LEDGER (Spec-Accurate)
@@ -236,52 +238,89 @@ func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
 			or _action_request_committed
 		)
 	):
-		print("DENIED: Another action transaction is already resolving.")
-		return false
+		return _deny(
+			CombatActionDenial.CODE_BUSY,
+			"Another action transaction is already resolving.",
+			action,
+			entity
+		)
 	if _reaction_pending:
-		print("DENIED: A reaction window is active. Resolve it first.")
-		return false
+		return _deny(
+			CombatActionDenial.CODE_REACTION_PENDING,
+			"A reaction window is active. Resolve it first.",
+			action,
+			entity
+		)
 
 	if action in [
 		GameEnums.ActionType.PUSH_FOLLOW,
 		GameEnums.ActionType.PULL_STAY,
 		GameEnums.ActionType.DISENGAGE,
 	]:
-		print("DENIED: Deprecated lock action requested. Use PUSH or PULL.")
-		return false
+		return _deny(
+			CombatActionDenial.CODE_DEPRECATED,
+			"Deprecated lock action requested. Use PUSH or PULL.",
+			action,
+			entity
+		)
 
 	if action == GameEnums.ActionType.EXECUTE and not CombatRules.EXECUTE_ENABLED:
-		print("DENIED: EXECUTE is disabled until its trait unlock is implemented.")
-		return false
+		return _deny(
+			CombatActionDenial.CODE_FEATURE_LOCKED,
+			"EXECUTE is disabled until its trait unlock is implemented.",
+			action,
+			entity
+		)
 
 	if (
 		entity.current_stance == GameEnums.StanceState.FELLED
 		and action != GameEnums.ActionType.GET_UP
 	):
-		print("DENIED: ", entity.name, " is FELLED and must GET UP.")
-		return false
+		return _deny(
+			CombatActionDenial.CODE_STANCE,
+			"%s is FELLED and must GET UP." % entity.name,
+			action,
+			entity
+		)
 	if (
 		action == GameEnums.ActionType.GET_UP
 		and entity.current_stance != GameEnums.StanceState.FELLED
 	):
-		print("DENIED: GET UP requires the entity to be FELLED.")
-		return false
+		return _deny(
+			CombatActionDenial.CODE_STANCE,
+			"GET UP requires the entity to be FELLED.",
+			action,
+			entity
+		)
 	
 	if entity != combatants[active_entity_index]:
-		print("DENIED: It is not ", entity.name, "'s turn. Wait patiently.")
-		return false
+		return _deny(
+			CombatActionDenial.CODE_NOT_YOUR_TURN,
+			"It is not %s's turn. Wait patiently." % entity.name,
+			action,
+			entity
+		)
 		
 	if not ACTION_CATEGORIES.has(action):
 		push_error("The action [" + str(action) + "] does not exist in the timekeeper's ledger.")
-		return false
+		return _deny(
+			CombatActionDenial.CODE_UNKNOWN_ACTION,
+			"Unknown action requested.",
+			action,
+			entity
+		)
 	
 	# Reactions cannot be used during your own active turn via request_action
 	if (
 		CombatRules.ACTION_GROUPS.has(action)
 		and CombatRules.ACTION_GROUPS[action] == CombatRules.ActionGroup.REACTION
 	):
-		print("DENIED: [", action, "] is a reaction. It can only be triggered during an opponent's turn.")
-		return false
+		return _deny(
+			CombatActionDenial.CODE_REACTION_ONLY,
+			"[%s] is a reaction. It can only be triggered during an opponent's turn." % str(action),
+			action,
+			entity
+		)
 	
 	# ActionGroup enforcement: validate the action is legal for the entity's current spatial context
 	if lane_manager and CombatRules.ACTION_GROUPS.has(action):
@@ -292,33 +331,53 @@ func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
 		if required_group == CombatRules.ActionGroup.PRONE_WINDOW:
 			if action == GameEnums.ActionType.GET_UP or action == GameEnums.ActionType.TRIP:
 				if entity.current_stance != GameEnums.StanceState.FELLED:
-					print("DENIED: [", action, "] requires the entity to be FELLED.")
-					return false
+					return _deny(
+						CombatActionDenial.CODE_STANCE,
+						"[%s] requires the entity to be FELLED." % str(action),
+						action,
+						entity
+					)
 			elif action == GameEnums.ActionType.EXECUTE:
 				# EXECUTE requires the EXECUTIONER to be standing/stumbling and target to be FELLED in same slot
 				pass # Validation handled by resolution engine
 		
 		if required_group == CombatRules.ActionGroup.DUEL_LOCKED and not is_locked:
-			print("DENIED: [", action, "] requires a Melee Lock. ", entity.name, " is not engaged.")
-			return false
+			return _deny(
+				CombatActionDenial.CODE_MELEE_LOCK,
+				"[%s] requires a Melee Lock. %s is not engaged." % [str(action), entity.name],
+				action,
+				entity
+			)
 		if required_group == CombatRules.ActionGroup.NON_DUEL and is_locked:
 			# Movement and firearms are blocked while locked. Create space with PUSH first.
 			if action != GameEnums.ActionType.USE_ITEM:
-				print("DENIED: [", action, "] is not available during a Melee Lock. Push first.")
-				return false
+				return _deny(
+					CombatActionDenial.CODE_MELEE_LOCK,
+					"[%s] is not available during a Melee Lock. Push first." % str(action),
+					action,
+					entity
+				)
 		
 	var ap_cost: int = get_action_cost(entity, action)
 	
 	# Handle ALL AP cost actions (GET_UP, TRIP)
 	if ap_cost == COST_ALL_AP:
 		if current_ap_pool <= 0:
-			print("DENIED: [", action, "] requires AP but the pool is empty.")
-			return false
+			return _deny(
+				CombatActionDenial.CODE_EMPTY_AP,
+				"[%s] requires AP but the pool is empty." % str(action),
+				action,
+				entity
+			)
 		ap_cost = current_ap_pool # Consume everything
 	
 	if current_ap_pool < ap_cost:
-		print("DENIED: Insufficient AP for [", action, "]. Needs: ", ap_cost, " | Has: ", current_ap_pool)
-		return false
+		return _deny(
+			CombatActionDenial.CODE_INSUFFICIENT_AP,
+			"Insufficient AP for [%s]. Needs: %d | Has: %d" % [str(action), ap_cost, current_ap_pool],
+			action,
+			entity
+		)
 		
 	# Transaction Approved
 	current_ap_pool -= ap_cost
@@ -334,12 +393,28 @@ func request_action(entity: HumanoidCore, action: GameEnums.ActionType) -> bool:
 	return true
 
 
+func _deny(
+	code: String,
+	message: String,
+	action: int = -1,
+	entity: HumanoidCore = null
+) -> bool:
+	var actor_name: String = ""
+	if entity != null:
+		actor_name = str(entity.name)
+	var denial: Dictionary = CombatActionDenial.make(code, message, action, actor_name)
+	action_denied.emit(denial)
+	return false
+
+
 func begin_action_resolution(entity: HumanoidCore) -> bool:
 	if entity == null or get_active_entity() != entity:
 		return false
 	if _action_resolution_depth > 0:
-		print("DENIED: The active action has not finished resolving.")
-		return false
+		return _deny(
+			CombatActionDenial.CODE_BUSY,
+			"The active action has not finished resolving."
+		)
 	_action_resolution_depth = 1
 	_action_resolution_owner = entity
 	_action_request_committed = false

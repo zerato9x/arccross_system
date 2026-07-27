@@ -1,14 +1,20 @@
 extends SceneTree
 
+## Campaign path: MacroZoneGenerator → inject into HexWorldGenerator.
+## Does not assert legacy hub_core / wedge_* layout.
+
+const MASTER_SEED := "DETERMINISM_SMOKE"
 const SAMPLE_COORDS := [
 	Vector2i(0, 0),
-	Vector2i(12, -4),
-	Vector2i(-8, 15),
-	Vector2i(33, 21),
+	Vector2i(5, -2),
+	Vector2i(-4, 6),
+	Vector2i(8, 3),
 ]
+
 
 func _initialize() -> void:
 	call_deferred("_run")
+
 
 func _run() -> void:
 	if not _verify_tileset_geometry_and_catalog():
@@ -19,137 +25,156 @@ func _run() -> void:
 	root.add_child(world_state)
 
 	var generator := HexWorldGenerator.new()
-	generator.master_seed = "DETERMINISM_SMOKE"
-	generator.configure_seed(generator.master_seed)
+	generator.configure_services(world_state)
+	generator.configure_seed(MASTER_SEED)
 	root.add_child(generator)
 	await process_frame
-	if not _verify_macro_regions(generator):
-		return
 
-	for coords in SAMPLE_COORDS:
-		var first := generator.get_hex_at(coords)
-		var second := generator.get_hex_at(coords)
-		if first.visual_variant_hash != second.visual_variant_hash:
-			_fail(
-				"visual_variant_hash changed for "
-				+ str(coords)
-				+ " on repeated get_hex_at calls."
-			)
-			return
-		if first.biome != second.biome:
-			_fail("Biome changed for " + str(coords) + " on repeated calls.")
-			return
-		if first.terrain_tile != second.terrain_tile:
-			_fail("Terrain tile changed for " + str(coords) + " on repeated calls.")
-			return
-		if first.flora_layer != second.flora_layer:
-			_fail("Flora layer changed for " + str(coords) + " on repeated calls.")
-			return
-		if first.rock_layer != second.rock_layer:
-			_fail("Rock layer changed for " + str(coords) + " on repeated calls.")
-			return
-		if first.structure_layer != second.structure_layer:
-			_fail("Structure layer changed for " + str(coords) + " on repeated calls.")
-			return
-		if first.visual_variant_hash == 0:
-			_fail("visual_variant_hash was not assigned for " + str(coords) + ".")
-			return
-
-	generator.world_hex_cache.clear()
-	generator.configure_seed("DETERMINISM_SMOKE")
-	for coords in SAMPLE_COORDS:
-		var expected_hash := HexWorldGenerator.compute_visual_variant_hash(
-			coords,
-			"DETERMINISM_SMOKE"
-		)
-		var regenerated := generator.get_hex_at(coords)
-		if regenerated.visual_variant_hash != expected_hash:
-			_fail(
-				"visual_variant_hash drifted after cache clear for "
-				+ str(coords)
-				+ "."
-			)
-			return
-
-	var found_forest := false
-	var found_mud := false
-	var found_impassable_core := false
-	var found_wedge_landmark := false
-	for q in range(-32, 33):
-		for r in range(-32, 33):
-			var coords := Vector2i(q, r)
-			if maxi(abs(q), maxi(abs(r), abs(q + r))) > 32:
-				continue
-			var hex := generator.get_hex_at(coords)
-			found_forest = found_forest or (
-				hex.terrain_tile == GameEnums.MacroTerrainTile.FOREST_SPARSE
-				and hex.flora_layer == GameEnums.MacroFloraLayer.TREES
-			)
-			found_mud = found_mud or (
-				hex.terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW
-			)
-			found_impassable_core = found_impassable_core or (
-				hex.zone_id == "hub_core"
-				and hex.impassable
-				and not hex.is_passable()
-			)
-			found_wedge_landmark = found_wedge_landmark or (
-				hex.zone_id.begins_with("wedge_")
-				and hex.has_landmark()
-			)
-	if not found_forest:
-		_fail("No forest tile with tree flora was generated in the sample radius.")
+	if not _verify_injected_plains_zone(generator, world_state):
 		return
-	if not found_mud:
-		_fail("No mud tile was generated in the sample radius.")
-		return
-	if not found_impassable_core:
-		_fail("No impassable central-core hex was generated in the sample radius.")
-		return
-	if not found_wedge_landmark:
-		_fail("No wedge landmark POI was generated in the sample radius.")
+	if not _verify_injected_north_zone(generator, world_state):
 		return
 
 	print(
-		"[TEST PASS] Hex visual variant generation, TileSet geometry, and macro wedge layout are deterministic."
+		"[TEST PASS] Hex visual variant generation, TileSet geometry, and injected zone layout are deterministic."
 	)
 	quit(0)
 
-func _verify_macro_regions(generator: HexWorldGenerator) -> bool:
-	var hub := generator.get_hex_at(Vector2i.ZERO)
-	if (
-		hub.region != GameEnums.MacroRegion.CENTRAL_HUB
-		or not hub.is_poi
-		or hub.poi_id != "alpha_central_hub"
-		or hub.hazard_level != 0.0
-		or hub.impassable
-	):
-		return _fail("The alpha central hub was not generated as the enterable service POI.")
 
-	var core_neighbor := generator.get_hex_at(Vector2i(1, 0))
-	if not core_neighbor.impassable or core_neighbor.is_poi:
-		return _fail("Hub core neighbors were not impassable non-POI city hexes.")
+func _verify_injected_plains_zone(
+	generator: HexWorldGenerator,
+	world_state: RuntimeStateStore
+) -> bool:
+	var node := MacroNodeData.new()
+	node.id = "east_random_1"
+	node.zone_kind = GameEnums.MacroZoneKind.BIOME_RNG
+	node.biome = GameEnums.GridBiome.PLAINS
+	node.persistence = GameEnums.MacroNodePersistence.SEEDED_RANDOM
+	node.role = GameEnums.MacroNodeRole.RANDOM_ZONE
+	node.arm_direction = GameEnums.MacroArmDirection.EAST
+	node.arm_tier = 1
 
-	var border := generator.get_hex_at(Vector2i(3, 0))
-	if border.region != GameEnums.MacroRegion.HUB_BORDER or border.is_poi:
-		return _fail("The hub border was not a non-POI travel ring.")
+	if not _inject_node_zone(generator, world_state, node):
+		return false
 
-	var wedge := generator.get_hex_at(Vector2i(12, 0))
-	if not wedge.zone_id.begins_with("wedge_"):
-		return _fail("Far east hex did not resolve to a compass wedge zone.")
+	var zone_seed := MASTER_SEED + ":zone:" + node.id
+	for coords in SAMPLE_COORDS:
+		if not HexCoordUtils.is_in_radius(coords, GameEnums.MACRO_ZONE_RADIUS):
+			return _fail("Sample coord %s is outside zone radius." % str(coords))
+		var first := generator.get_hex_at(coords)
+		var second := generator.get_hex_at(coords)
+		if first.visual_variant_hash != second.visual_variant_hash:
+			return _fail(
+				"visual_variant_hash changed for %s on repeated get_hex_at." % str(coords)
+			)
+		if first.biome != second.biome:
+			return _fail("Biome changed for %s on repeated calls." % str(coords))
+		if first.terrain_tile != second.terrain_tile:
+			return _fail("Terrain tile changed for %s on repeated calls." % str(coords))
+		if first.flora_layer != second.flora_layer:
+			return _fail("Flora layer changed for %s on repeated calls." % str(coords))
+		if first.rock_layer != second.rock_layer:
+			return _fail("Rock layer changed for %s on repeated calls." % str(coords))
+		if first.structure_layer != second.structure_layer:
+			return _fail("Structure layer changed for %s on repeated calls." % str(coords))
+		if first.visual_variant_hash == 0:
+			return _fail("visual_variant_hash was not assigned for %s." % str(coords))
+		if first.zone_id.begins_with("wedge_") or first.zone_id == "hub_core":
+			return _fail(
+				"Injected plains cell %s leaked legacy hub/wedge zone_id %s."
+				% [str(coords), first.zone_id]
+			)
 
-	var shrub_count := 0
-	for q in range(-20, 21):
-		for r in range(-20, 21):
-			var coords := Vector2i(q, r)
-			if maxi(abs(q), maxi(abs(r), abs(q + r))) > 20:
-				continue
-			var hex := generator.get_hex_at(coords)
-			if hex.flora_layer == GameEnums.MacroFloraLayer.SHRUBS:
-				shrub_count += 1
-	if shrub_count == 0:
-		return _fail("Deterministic plains generation produced no sparse shrub decorations.")
+	generator.world_hex_cache.clear()
+	for coords in SAMPLE_COORDS:
+		var expected_hash := HexWorldGenerator.compute_visual_variant_hash(coords, zone_seed)
+		var regenerated := generator.get_hex_at(coords)
+		if regenerated.visual_variant_hash != expected_hash:
+			return _fail(
+				"visual_variant_hash drifted after cache clear for %s." % str(coords)
+			)
+
+	var found_forest := false
+	var found_mud := false
+	for coords in HexCoordUtils.cells_in_radius(GameEnums.MACRO_ZONE_RADIUS):
+		var hex := generator.get_hex_at(coords)
+		found_forest = found_forest or (
+			hex.terrain_tile == GameEnums.MacroTerrainTile.FOREST_SPARSE
+			and hex.flora_layer == GameEnums.MacroFloraLayer.TREES
+		)
+		found_mud = found_mud or (
+			hex.terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW
+		)
+	if not found_forest:
+		return _fail("No forest tile with tree flora in injected east_random_1 zone.")
+	if not found_mud:
+		return _fail("No mud tile in injected east_random_1 zone.")
 	return true
+
+
+func _verify_injected_north_zone(
+	generator: HexWorldGenerator,
+	world_state: RuntimeStateStore
+) -> bool:
+	var node := MacroNodeData.new()
+	node.id = "north_random_2"
+	node.zone_kind = GameEnums.MacroZoneKind.BIOME_RNG
+	node.biome = GameEnums.GridBiome.PLAINS
+	node.persistence = GameEnums.MacroNodePersistence.SEEDED_RANDOM
+	node.role = GameEnums.MacroNodeRole.RANDOM_ZONE
+	node.arm_direction = GameEnums.MacroArmDirection.NORTH
+	node.arm_tier = 2
+
+	if not _inject_node_zone(generator, world_state, node):
+		return false
+
+	var found_snow := false
+	for coords in HexCoordUtils.cells_in_radius(GameEnums.MACRO_ZONE_RADIUS):
+		var hex := generator.get_hex_at(coords)
+		if hex.terrain_tile == GameEnums.MacroTerrainTile.SNOW_TRANSITION:
+			found_snow = true
+			break
+		if hex.biome_pack == GameEnums.BIOME_PACK_NORTH:
+			found_snow = true
+			break
+	if not found_snow:
+		return _fail("No snow terrain/biome_pack in injected north_random_2 zone.")
+
+	var sample := Vector2i(3, -1)
+	var first := generator.get_hex_at(sample)
+	var second := generator.get_hex_at(sample)
+	if first.visual_variant_hash != second.visual_variant_hash or first.visual_variant_hash == 0:
+		return _fail("North injected visual_variant_hash unstable for %s." % str(sample))
+	return true
+
+
+func _inject_node_zone(
+	generator: HexWorldGenerator,
+	world_state: RuntimeStateStore,
+	node: MacroNodeData
+) -> bool:
+	world_state.hex_records.clear()
+
+	var zone := MacroZoneGenerator.new()
+	zone.configure_services(world_state)
+	zone.configure_seed(MASTER_SEED)
+	zone.generate_node_zone(
+		node,
+		GameEnums.MacroTravelDirection.SOUTH,
+		[GameEnums.MacroTravelDirection.SOUTH]
+	)
+	if zone.hex_count() <= 0:
+		return _fail("MacroZoneGenerator produced an empty zone for %s." % node.id)
+
+	generator.configure_seed(MASTER_SEED + ":node:" + node.id)
+	generator.enable_zone_bounds(MacroZoneGenerator.ZONE_RADIUS)
+	generator.inject_zone_hexes(zone.world_hex_cache)
+	generator.inject_zone_decorations(zone.zone_decorations)
+	for coords in zone.world_hex_cache.keys():
+		var hex: MacroHexData = zone.world_hex_cache[coords]
+		world_state.set_hex_record(coords, hex.to_state())
+	return true
+
 
 func _verify_tileset_geometry_and_catalog() -> bool:
 	var tile_set := load("res://Asset/MacroTileSet.tres") as TileSet
@@ -206,6 +231,7 @@ func _verify_tileset_geometry_and_catalog() -> bool:
 		return false
 	return true
 
+
 func _expect_min_count(ids: PackedInt32Array, minimum: int, label: String) -> bool:
 	if ids.size() < minimum:
 		return _fail(
@@ -214,6 +240,7 @@ func _expect_min_count(ids: PackedInt32Array, minimum: int, label: String) -> bo
 		)
 	return true
 
+
 func _expect_count(ids: PackedInt32Array, expected: int, label: String) -> bool:
 	if ids.size() != expected:
 		return _fail(
@@ -221,6 +248,7 @@ func _expect_count(ids: PackedInt32Array, expected: int, label: String) -> bool:
 			% [expected, label, ids.size()]
 		)
 	return true
+
 
 func _fail(message: String) -> bool:
 	push_error("[TEST FAIL] " + message)

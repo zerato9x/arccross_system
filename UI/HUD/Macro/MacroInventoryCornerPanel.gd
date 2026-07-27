@@ -11,7 +11,7 @@ var _preview_panel: MacroInventoryPreview
 func _ready() -> void:
 	panel_id = "inventory"
 	panel_corner = PanelCorner.BOTTOM_LEFT
-	preview_size = Vector2(322.0, 138.0)
+	preview_size = Vector2(420.0, 280.0)
 	expand_width_ratio = 0.36
 	expand_height_ratio = 0.48
 	expanded_min_size = Vector2(880.0, 620.0)

@@ -35,7 +35,8 @@ static func profile_for_node(node_id: String) -> Dictionary:
 			theme_pack if arm == "north" else GameEnums.BIOME_PACK_PLAINS,
 			GameEnums.BIOME_PACK_DEFAULT_ERA8,
 			theme_weight,
-			0.02
+			0.02,
+			theme_pack if arm != "north" else ""
 		)
 
 	# Non-north arms stay plains/homestead until those packs ship.
@@ -46,7 +47,8 @@ static func profile_for_node(node_id: String) -> Dictionary:
 			GameEnums.BIOME_PACK_PLAINS,
 			GameEnums.BIOME_PACK_DEFAULT_ERA8,
 			0.0,
-			0.02
+			0.02,
+			theme_pack
 		)
 
 	return _profile(
@@ -88,9 +90,10 @@ static func _profile(
 	theme_pool: String,
 	default_pool: String,
 	theme_weight: float,
-	glitch_rate: float
+	glitch_rate: float,
+	future_theme_pool: String = ""
 ) -> Dictionary:
-	return {
+	var profile := {
 		"arm": arm,
 		"ecology": ecology,
 		"theme_pool": theme_pool,
@@ -99,6 +102,9 @@ static func _profile(
 		"glitch_rate": clampf(glitch_rate, 0.0, 1.0),
 		"version": PROFILE_VERSION,
 	}
+	if not future_theme_pool.is_empty():
+		profile["future_theme_pool"] = future_theme_pool
+	return profile
 
 
 static func _arm_from_id(node_id: String) -> String:
@@ -144,6 +150,12 @@ static func _theme_pack_for_arm(arm: String) -> String:
 			return GameEnums.BIOME_PACK_NORTH
 		"central":
 			return GameEnums.BIOME_PACK_CENTRALCORE
+		"east":
+			return GameEnums.BIOME_PACK_EAST
+		"south":
+			return GameEnums.BIOME_PACK_SOUTH
+		"west":
+			return GameEnums.BIOME_PACK_WEST_BASIN
 		_:
 			return GameEnums.BIOME_PACK_PLAINS
 

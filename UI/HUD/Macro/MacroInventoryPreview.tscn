@@ -1,28 +1,62 @@
-[gd_scene load_steps=2 format=3 uid="uid://macro_inventory_preview"]
+[gd_scene load_steps=3 format=3 uid="uid://macro_inventory_preview"]
 
 [ext_resource type="Script" path="res://UI/HUD/Macro/MacroInventoryPreview.gd" id="1_preview"]
+[ext_resource type="PackedScene" path="res://UI/Inventory/PaperDollModel.tscn" id="2_doll"]
 
 [node name="MacroInventoryPreview" type="PanelContainer"]
-offset_right = 320.0
-offset_bottom = 128.0
+custom_minimum_size = Vector2(420, 268)
+offset_right = 420.0
+offset_bottom = 268.0
 script = ExtResource("1_preview")
 
 [node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 6
 
 [node name="Column" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="GearRow" type="HBoxContainer" parent="Margin/Column"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 32)
+[node name="BodyRow" type="HBoxContainer" parent="Margin/Column"]
 layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="PaperDollStage" type="Control" parent="Margin/Column/BodyRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(148, 176)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+clip_contents = true
+
+[node name="PaperDollModel" parent="Margin/Column/BodyRow/PaperDollStage" instance=ExtResource("2_doll")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="GearColumn" type="VBoxContainer" parent="Margin/Column/BodyRow"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 4
+
+[node name="GearHeader" type="Label" parent="Margin/Column/BodyRow/GearColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "LOADOUT"
+
+[node name="GearList" type="VBoxContainer" parent="Margin/Column/BodyRow/GearColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 3
 
 [node name="CapacityLabel" type="Label" parent="Margin/Column"]
 unique_name_in_owner = true
@@ -31,6 +65,6 @@ text = "Capacity 0 / 0"
 
 [node name="OpenInventoryButton" type="Button" parent="Margin/Column"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 30)
+custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
 text = "PACK [I]"

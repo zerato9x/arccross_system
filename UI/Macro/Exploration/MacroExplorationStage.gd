@@ -26,6 +26,9 @@ signal inventory_action_requested(
 signal interaction_closed
 signal node_map_requested
 
+const HUMAN_TOKEN_SCENE := preload("res://UI/Humanoid/HumanoidToken.tscn")
+const PAPER_DOLL_SCENE := preload("res://UI/Inventory/PaperDollModel.tscn")
+
 var _session: Dictionary = {}
 var _result: Dictionary = {}
 var _choice_buttons: Array[Button] = []
@@ -34,6 +37,10 @@ var _mode := ""
 var _blocking := false
 var _open_tween: Tween
 var _exploration_window: MacroExplorationWindow
+var _face_doll: PaperDollModel
+var _face_stage: Control
+var _face_bg: TextureRect
+var _field_tokens: Array[HumanoidTokenView] = []
 
 @onready var _root: Control = %Root
 @onready var _dim: ColorRect = %DimOverlay
@@ -219,6 +226,12 @@ func close_event(notify: bool = true) -> void:
 	_clear_choices()
 	_clear_tags()
 	_clear_grid_preview()
+	if _face_stage:
+		_face_stage.visible = false
+	if _face_bg:
+		_face_bg.texture = null
+	if _image_rect:
+		_image_rect.visible = true
 	_center.visible = false
 	_event_panel.visible = false
 	_dim.visible = false
@@ -384,22 +397,87 @@ func _render_event() -> void:
 			body = "%s\n\n%s" % [meet, body]
 	_body_label.text = body
 	_apply_event_image(str(_session.get("image_path", "")))
+	_apply_opponent_face(_session.get("opponent", {}))
 	_render_grid_preview(_session.get("grid_preview", {}))
 	_render_tags(_session.get("tags", []))
 	_render_choices(_session.get("choices", []))
 	_focus_first_enabled_choice()
 
 
-func _play_collision_walk_in() -> void:
-	if _image_frame == null:
+func _apply_opponent_face(opponent: Dictionary) -> void:
+	_ensure_face_stack()
+	if _face_stage == null or _face_doll == null:
 		return
-	_image_frame.modulate.a = 0.35
-	_image_frame.scale = Vector2(1.04, 1.04)
-	_image_frame.pivot_offset = _image_frame.size * 0.5
+	if opponent.is_empty():
+		_face_stage.visible = false
+		if _image_rect:
+			_image_rect.visible = true
+		return
+	_face_stage.visible = true
+	# Keep the exploration / hex plate under the paperdoll inside the same window.
+	if _image_rect:
+		_image_rect.visible = true
+		_sync_face_background_from_event_image()
+	var equipment: Array = opponent.get("equipment", [])
+	if equipment.is_empty():
+		equipment = PaperDollPresenter.equipment_from_entity_record(
+			opponent.get("record", {})
+		)
+	PaperDollPresenter.apply_to_doll(_face_doll, equipment)
+
+
+func _sync_face_background_from_event_image() -> void:
+	if _face_bg == null or _image_rect == null:
+		return
+	_face_bg.texture = _image_rect.texture
+	_face_bg.visible = _face_bg.texture != null
+	# Hide the raw EventImage once the stacked face window owns the plate.
+	_image_rect.visible = false
+
+
+func _ensure_face_stack() -> void:
+	if _face_stage != null:
+		return
+	var image_column := _image_rect.get_parent() as Control
+	if image_column == null:
+		return
+	_face_stage = Control.new()
+	_face_stage.name = "OpponentFaceStage"
+	_face_stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_face_stage.custom_minimum_size = Vector2(0, 280)
+	_face_stage.clip_contents = true
+	_face_stage.visible = false
+	image_column.add_child(_face_stage)
+	image_column.move_child(_face_stage, _image_rect.get_index())
+
+	_face_bg = TextureRect.new()
+	_face_bg.name = "OpponentFaceBg"
+	_face_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_face_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_face_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_face_bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_face_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_face_stage.add_child(_face_bg)
+
+	_face_doll = PAPER_DOLL_SCENE.instantiate() as PaperDollModel
+	_face_doll.name = "OpponentFaceDoll"
+	_face_stage.add_child(_face_doll)
+	_face_doll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_face_doll.set_backdrop_visible(false)
+	_face_doll.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+func _play_collision_walk_in() -> void:
+	var target := _face_stage if _face_stage != null and _face_stage.visible else _image_frame
+	if target == null:
+		return
+	target.modulate.a = 0.35
+	target.scale = Vector2(1.04, 1.04)
+	target.pivot_offset = target.size * 0.5
 	var tween := create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(_image_frame, "modulate:a", 1.0, 0.45)
-	tween.tween_property(_image_frame, "scale", Vector2.ONE, 0.45).set_trans(
+	tween.tween_property(target, "modulate:a", 1.0, 0.45)
+	tween.tween_property(target, "scale", Vector2.ONE, 0.45).set_trans(
 		Tween.TRANS_SINE
 	).set_ease(Tween.EASE_OUT)
 	_fx_layer.play_fx({
@@ -672,9 +750,17 @@ func _render_grid_preview(preview: Dictionary) -> void:
 	var lane_count := maxi(1, int(preview.get("lane_count", 12)))
 	var player_lane := int(preview.get("player_lane", -1))
 	var enemy_lane := int(preview.get("enemy_lane", -1))
+	var player_appearance: Dictionary = _session.get("player", {}).get(
+		"appearance",
+		{}
+	)
+	var enemy_appearance: Dictionary = _session.get("opponent", {}).get(
+		"appearance",
+		{}
+	)
 	for lane_index in range(1, lane_count + 1):
 		var cell := PanelContainer.new()
-		cell.custom_minimum_size = Vector2(28, 42)
+		cell.custom_minimum_size = Vector2(36, 72)
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var is_player := lane_index == player_lane
 		var is_enemy := lane_index == enemy_lane
@@ -689,31 +775,61 @@ func _render_grid_preview(preview: Dictionary) -> void:
 		column.add_theme_constant_override("separation", 2)
 		margin.add_child(column)
 		var index_label := Label.new()
-		index_label.text = str(lane_index)
+		index_label.text = "%02d" % lane_index
 		index_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		HUDAssetLibrary.apply_label(index_label, "muted")
 		column.add_child(index_label)
-		var marker := Label.new()
-		if is_player and is_enemy:
-			marker.text = "P/E"
-		elif is_player:
-			marker.text = "P"
-		elif is_enemy:
-			marker.text = "E"
+		if is_player or is_enemy:
+			var host := Control.new()
+			host.custom_minimum_size = Vector2(0, 48)
+			host.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			host.clip_contents = true
+			column.add_child(host)
+			var token := HUMAN_TOKEN_SCENE.instantiate() as HumanoidTokenView
+			host.add_child(token)
+			token.position = Vector2(18.0, 36.0)
+			token.set_display_scale(0.42)
+			var appearance := player_appearance if is_player else enemy_appearance
+			if appearance.is_empty():
+				appearance = HumanoidVisualCatalog.appearance_from_slot_item_ids({})
+			var anim := "Idle2" if is_enemy else "Idle"
+			var face_dir := Vector2.RIGHT if is_player else Vector2.LEFT
+			_bind_field_token(token, appearance, anim, face_dir)
+			_field_tokens.append(token)
 		else:
+			var marker := Label.new()
 			marker.text = "·"
-		marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		HUDAssetLibrary.apply_label(marker, "warning" if is_player or is_enemy else "muted")
-		column.add_child(marker)
+			marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			HUDAssetLibrary.apply_label(marker, "muted")
+			column.add_child(marker)
 		lane_row.add_child(cell)
 	var legend := Label.new()
-	legend.text = "P = player spawn   E = opponent spawn"
+	legend.text = "Field presence // player and contact tokens"
 	legend.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	HUDAssetLibrary.apply_label(legend, "muted")
 	_grid_preview_root.add_child(legend)
 
 
+func _bind_field_token(
+	token: HumanoidTokenView,
+	appearance: Dictionary,
+	animation: String,
+	face_dir: Vector2
+) -> void:
+	if token == null:
+		return
+	var apply := func():
+		token.set_appearance(appearance)
+		token.play_animation(animation, false)
+		token.face_direction(face_dir)
+	if token.is_node_ready():
+		apply.call()
+	else:
+		token.ready.connect(apply, CONNECT_ONE_SHOT)
+
+
 func _clear_grid_preview() -> void:
+	_field_tokens.clear()
 	if _grid_preview_root == null:
 		return
 	for child in _grid_preview_root.get_children():

@@ -153,6 +153,8 @@ func _verify_spawner_pair_records() -> bool:
 		return _fail("Squad id not stamped on guard A.")
 	if str(b.runtime.get("squad_id", "")) != "pair_n1":
 		return _fail("Squad id not stamped on guard B.")
+	if str(a.runtime.get("macro_purpose", "")) != GameEnums.NPC_PURPOSE_HOLD:
+		return _fail("Guards must spawn with hold purpose.")
 	if str(a.definition.get("template_id", "")) != "central_guard":
 		return _fail("template_id missing on definition state.")
 	var weapon_a := str(

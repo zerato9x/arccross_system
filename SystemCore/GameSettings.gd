@@ -4,10 +4,14 @@ class_name GameSettingsStore
 signal settings_changed(snapshot: Dictionary)
 
 const SETTINGS_PATH := "user://arccross_settings.cfg"
+## Real-time is retained for Combat Lab (WaveMode) tooling only.
+## Production macro combat always uses turn-based via GameDirector.
 const COMBAT_REALTIME := "realtime"
 const COMBAT_TURN_BASED := "turn_based"
 const DEFAULT_COMBAT_MODE := COMBAT_TURN_BASED
 
+## Persisted preference kept for lab/legacy settings files. GameDirector ignores
+## this and always launches the turn-based duel scene.
 var combat_mode := DEFAULT_COMBAT_MODE
 var screen_noise_enabled := false
 var hud_scale := 1.0

@@ -40,6 +40,13 @@ static func encounter_key(world_seed: String, coords: Vector2i) -> String:
 
 static func ensure_npc_purpose(record: EntityRecord) -> String:
 	var purpose := str(record.runtime.get("macro_purpose", ""))
+	# Posted Central Guards must never wander, even if an older save stamped patrol.
+	if _is_stationary_guard(record):
+		purpose = GameEnums.NPC_PURPOSE_HOLD
+		record.runtime["macro_purpose"] = purpose
+		record.runtime["macro_purpose_label"] = "Hold"
+		record.runtime["macro_target_coords"] = record.coords
+		return purpose
 	if not purpose.is_empty():
 		return purpose
 	var faction: GameEnums.Faction = record.definition.get(
@@ -58,6 +65,15 @@ static func ensure_npc_purpose(record: EntityRecord) -> String:
 	record.runtime["macro_purpose"] = purpose
 	record.runtime["macro_purpose_label"] = purpose.capitalize()
 	return purpose
+
+
+static func _is_stationary_guard(record: EntityRecord) -> bool:
+	if record == null:
+		return false
+	var template_id := str(record.definition.get("template_id", ""))
+	if template_id.is_empty():
+		template_id = str(record.runtime.get("template_id", ""))
+	return template_id == "central_guard"
 
 
 static func initialize_npc_runtime(
@@ -109,6 +125,8 @@ static func purpose_target_for(
 			target = patrol_target(record)
 		GameEnums.NPC_PURPOSE_HUNT:
 			target = player_coords
+		GameEnums.NPC_PURPOSE_HOLD:
+			target = record.coords
 		_:
 			target = roam_target(
 				record,
@@ -338,6 +356,10 @@ static func evaluate_npc_step(
 		return current_coords
 
 	var purpose := ensure_npc_purpose(record)
+	if purpose == GameEnums.NPC_PURPOSE_HOLD:
+		record.runtime["macro_target_coords"] = current_coords
+		return current_coords
+
 	var rng := RandomNumberGenerator.new()
 	rng.seed = (
 		world_seed

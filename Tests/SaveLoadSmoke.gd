@@ -72,7 +72,15 @@ func _prepare_and_save(game_director: GameDirector) -> bool:
 	hex_data.camp_rest_count = 1
 	hex_data.camp_item_states = [_runtime_item_state("tentkit")]
 
+	# Save/load verifies entity death persistence, not fog-gated spawn RNG.
+	# Central Core bootstrap often yields zero encounters (fog_gated_spawning,
+	# safe_start_radius, CENTRAL_HUB skips, ~2.5% base chance).
 	var enemy_records: Array = world_state.get_all_entity_records()
+	if enemy_records.is_empty():
+		if not macro_map.debug_spawn_enemy_near_player():
+			return _fail("Could not spawn a fixture enemy for the save round-trip.")
+		await process_frame
+		enemy_records = world_state.get_all_entity_records()
 	if enemy_records.is_empty():
 		return _fail("The save fixture generated no enemy records.")
 	var enemy_record: EntityRecord = enemy_records[0]
@@ -88,6 +96,7 @@ func _prepare_and_save(game_director: GameDirector) -> bool:
 
 	expected = {
 		"coords": save_coords,
+		"world_seed": world_state.world_seed,
 		"arm_hp": player_core.body.limb_hp[GameEnums.LimbRegion.LEFT_ARM],
 		"firearm_id": firearm.instance_id,
 		"carried_id": carried_instance.instance_id,
@@ -109,7 +118,7 @@ func _verify_restored_state(game_director: GameDirector) -> bool:
 	var player_core: HumanoidCore = macro_map.player_token.get_humanoid_core()
 	var save_coords: Vector2i = expected["coords"]
 
-	if world_state.world_seed != "DEMO_WASTELAND_01":
+	if world_state.world_seed != str(expected["world_seed"]):
 		return _fail("Reload did not restore the world seed.")
 	if world_state.world_time_minutes != int(expected["time"]):
 		return _fail("Reload did not restore authoritative world time.")

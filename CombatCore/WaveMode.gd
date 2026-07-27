@@ -1,6 +1,9 @@
 extends Node2D
 class_name WaveMode
 
+## COMBAT LAB — sole production entry point for real-time duels.
+## Macro/campaign combat always uses turn-based via GameDirector.
+
 const DUEL_SCENE := preload("res://CombatCore/MainDuelScene.tscn")
 const PLAYER_DEFINITION := preload("res://BiologicalCore/player_def.tres")
 const PROFILE_TEXTURE := preload("res://Asset/Innawoods_Asset/Humanoid/Body/Body_Nude.png")

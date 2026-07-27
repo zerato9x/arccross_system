@@ -155,6 +155,31 @@ func is_ready_to_fire() -> bool:
 func has_active_function() -> bool:
 	return not condition_enabled or current_condition > 0.0
 
+
+## Rough relative worth for macro barter. Prefer explicit threat / damage / protection
+## signals over a separate economy table until a full value catalog exists.
+func get_barter_value() -> float:
+	var value := 1.0
+	value += maxf(0.0, threat) * 1.5
+	value += maxf(0.0, flesh_damage) * 0.75
+	value += maxf(0.0, stance_damage) * 0.5
+	value += maxf(0.0, protection_blunt + protection_sharp + protection_ballistic) * 0.6
+	value += maxf(0.0, consumable_potency) * 0.4
+	value += maxf(0.0, float(max_magazine)) * 0.15
+	match item_type:
+		GameEnums.ItemType.WEAPON:
+			value += 4.0
+		GameEnums.ItemType.ARMOR:
+			value += 3.0
+		GameEnums.ItemType.CONSUMABLE:
+			value += 1.5
+		GameEnums.ItemType.AMMUNITION:
+			value += 1.0 + float(maxi(1, stack_count)) * 0.1
+		_:
+			value += 0.5
+	return value * maxf(0.25, float(maxi(1, stack_count)))
+
+
 func get_inventory_sprite_path() -> String:
 	if current_magazine == 0 and not unloaded_sprite_path.is_empty():
 		return unloaded_sprite_path

@@ -218,8 +218,11 @@ SystemCore ([Central Core](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)).
 
 - `WorldCore/NodeDialectProfile.gd` — adjacent ring homestead; North snow ramp  
 - `MacroZoneGenerator` applies theme_weight → `SNOW_TRANSITION` / pack ids  
-- Stub E/S/W as plains homestead until those packs ship  
+- Stub E/S/W as plains homestead until those packs ship (`future_theme_pool`)
+- `structure_pack` on hex records; catalog resolves vernacular structures
+- `HexWorldGenerator` facade: legacy hub/wedge off by default
 - **Done when:** North approach reads Golbanc→snow ramp at fixed seed  
+- **Status (2026-07-27):** Done — `MacroZoneDialectSmoke` snow_r1=53 vs snow_core=434
 
 ### Phase D — Dressing templates
 

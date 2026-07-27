@@ -67,12 +67,26 @@ const NPC_PURPOSE_PATROL := GameEnums.NPC_PURPOSE_PATROL
 const NPC_PURPOSE_HUNT := GameEnums.NPC_PURPOSE_HUNT
 const NPC_PURPOSE_ROAM := GameEnums.NPC_PURPOSE_ROAM
 
-var active_enemies: Dictionary = {} # Stores Vector2i -> MacroEnemy projections
+## Aliases director-owned token projections so existing call sites keep working.
+var active_enemies: Dictionary:
+	get:
+		return _get_proximity_director().active_enemies
+	set(value):
+		_get_proximity_director().active_enemies = value if value != null else {}
 var _visible_hexes: Dictionary = {} # Vector2i -> true for the current line of sight
 var _world_state: RuntimeStateStore
 var _loot_catalog: Node
 var _world_bootstrapped := false
-var _pending_interaction: Dictionary = {}
+var _interaction_state := MacroInteractionState.new()
+var _collision_coordinator: MacroCollisionCoordinator
+var _proximity_director: MacroProximityDirector
+## Aliases `_interaction_state.data` so existing call sites keep working while
+## collision coordinator shares the same MacroInteractionState instance.
+var _pending_interaction: Dictionary:
+	get:
+		return _interaction_state.data
+	set(value):
+		_interaction_state.data = value if value != null else {}
 var _last_inventory_error: String = ""
 var _selected_hex_coords: Vector2i = Vector2i.ZERO
 var _macro_turn_index := 0
@@ -80,6 +94,7 @@ var _last_macro_event := "Macro systems nominal."
 var _mutation_store: Node
 var _meta_progress: Node
 var _pending_exit_direction: GameEnums.MacroTravelDirection = GameEnums.MacroTravelDirection.NONE
+var _debug_console: MacroDebugConsole
 
 const HEX_NEIGHBORS = [
 	Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1), 
@@ -122,13 +137,7 @@ func _on_world_time_advanced_lighting(
 
 
 func _apply_world_lighting_from_minutes(total_minutes: int) -> void:
-	if vision_vignette == null:
-		return
-	var clock: Dictionary = GameTimeRules.clock_snapshot(total_minutes)
-	var hour := int(clock.get("hour", 8))
-	vision_vignette.apply_lighting_phase(GameTimeRules.phase_for_hour(hour))
-	if macro_hud != null and macro_hud.has_method("apply_lighting_phase"):
-		macro_hud.apply_lighting_phase(GameTimeRules.phase_for_hour(hour))
+	MacroWorldLighting.apply_from_minutes(total_minutes, vision_vignette, macro_hud)
 
 
 func _ensure_campaign() -> void:
@@ -235,134 +244,17 @@ func is_node_map_open() -> bool:
 ## Full graph + player presentation for the fullscreen Node Map System window.
 func build_node_map_ui_snapshot() -> Dictionary:
 	_ensure_campaign()
-	var next_ids: Array[String] = []
-	if _pending_exit_direction != GameEnums.MacroTravelDirection.NONE:
-		next_ids = campaign.get_directional_destinations(_pending_exit_direction)
-	var available := campaign.get_available_nodes()
-	var nodes: Array = []
-	var edges: Array = []
-	if campaign.graph != null:
-		for node_id in campaign.graph.node_ids_in_order():
-			var node := campaign.graph.get_node(node_id)
-			if node == null:
-				continue
-			if not _node_map_entry_visible(node_id):
-				continue
-			var entry := node.to_dict()
-			var can_enter := campaign.can_enter_node(node_id, _pending_exit_direction)
-			var is_active := node_id == campaign.active_node_id
-			var is_next := next_ids.has(node_id)
-			var enter_reason := ""
-			if _pending_exit_direction == GameEnums.MacroTravelDirection.NONE:
-				enter_reason = "Reach a zone rim and step outward to travel."
-			elif not can_enter:
-				enter_reason = "No unlocked connection in this exit direction."
-			elif is_active:
-				enter_reason = "Already present in this node's zone."
-				can_enter = false
-			entry["can_enter"] = can_enter
-			entry["enter_reason"] = enter_reason
-			entry["is_active"] = is_active
-			entry["is_next"] = is_next
-			entry["detail_hidden"] = not node.details_revealed
-			if not node.details_revealed:
-				entry["display_name"] = "Unknown Route"
-				entry["zone_profile_id"] = ""
-			entry["zone_flavor"] = _node_zone_flavor(node)
-			entry["objective_text"] = _node_objective_text(node)
-			nodes.append(entry)
-		for edge in campaign.graph.edges:
-			if not (edge is Dictionary):
-				continue
-			var from_id := str(edge.get("from", ""))
-			var to_id := str(edge.get("to", ""))
-			if (
-				bool(edge.get("visible", true))
-				and _node_map_entry_visible(from_id)
-				and _node_map_entry_visible(to_id)
-			):
-				var edge_entry: Dictionary = edge.duplicate(true)
-				edge_entry["eligible"] = (
-					from_id == campaign.active_node_id
-					and next_ids.has(to_id)
-					and int(edge.get("from_direction", 0)) == int(_pending_exit_direction)
-				)
-				edges.append(edge_entry)
-
-	var snapshot := {
-		"active_node_id": campaign.active_node_id if campaign != null else "",
-		"travel_mode": _pending_exit_direction != GameEnums.MacroTravelDirection.NONE,
-		"pending_exit_direction": int(_pending_exit_direction),
-		"available_nodes": available,
-		"next_nodes": next_ids,
-		"advance_hint": (
-			"Travel %s to an adjacent node." % GameEnums.MacroTravelDirection.keys()[_pending_exit_direction]
-			if not next_ids.is_empty()
-			else "Inspect the web, or leave the local map through a connected rim."
-		),
-		"can_advance": false,
-		"advance_reason": (
-			"Select an eligible connected node directly."
-		),
-		"nodes": nodes,
-		"edges": edges,
-	}
-
+	var hud_snapshot: Dictionary = {}
+	var inventory_snapshot: Dictionary = {}
 	if player_token != null:
-		var hud := _build_world_hud_snapshot()
-		var inventory_snapshot := _build_inventory_snapshot()
-		snapshot["blood"] = hud.get("blood", 0.0)
-		snapshot["pain"] = hud.get("pain", 0.0)
-		snapshot["bleeding_rate"] = hud.get("bleeding_rate", 0.0)
-		snapshot["wound_count"] = hud.get("wound_count", 0)
-		snapshot["infection_risk"] = hud.get("infection_risk", 0.0)
-		snapshot["hunger"] = hud.get("hunger", 0.0)
-		snapshot["thirst"] = hud.get("thirst", 0.0)
-		snapshot["fatigue"] = hud.get("fatigue", 0.0)
-		snapshot["morale"] = hud.get("morale", 0)
-		snapshot["emergencies"] = hud.get("emergencies", [])
-		snapshot["equipment"] = inventory_snapshot.get("equipment", [])
-		snapshot["current_capacity"] = inventory_snapshot.get("current_capacity", 0)
-		snapshot["maximum_capacity"] = inventory_snapshot.get("maximum_capacity", 0)
-		snapshot["loadout_stats"] = inventory_snapshot.get("loadout_stats", {})
-	return snapshot
-
-
-func _node_map_entry_visible(node_id: String) -> bool:
-	if campaign == null or campaign.graph == null:
-		return false
-	var node := campaign.graph.get_node(node_id)
-	if node == null:
-		return false
-	if node.id == MacroGraphGenerator.FETCH_BRANCH_ID and not node.discovered:
-		return false
-	return true
-
-
-func _node_zone_flavor(node: MacroNodeData) -> String:
-	if not node.details_revealed:
-		return "Unsurveyed route. Enter the zone to identify its properties."
-	if node.persistence == GameEnums.MacroNodePersistence.PERMANENT_META:
-		return "Permanent Meta node. Structural changes survive every character."
-	match node.zone_kind:
-		GameEnums.MacroZoneKind.UNIQUE_EVENT:
-			return "Authored hex-event site. Resolve the encounter to progress."
-		_:
-			var biome_name := "unknown"
-			var biome_keys := GameEnums.GridBiome.keys()
-			if node.biome >= 0 and node.biome < biome_keys.size():
-				biome_name = str(biome_keys[node.biome]).capitalize()
-			return "Seeded %s zone. Leave through a connected directional rim." % biome_name
-
-
-func _node_objective_text(node: MacroNodeData) -> String:
-	if node.role == GameEnums.MacroNodeRole.GATEWAY and not node.unlocked:
-		return "Sealed by Meta Progress."
-	if node.role == GameEnums.MacroNodeRole.CENTRAL_CORE:
-		return "Return recovered core components here."
-	if node.role == GameEnums.MacroNodeRole.META_BRANCH:
-		return "Recover the North Core Regulator."
-	return "Traverse the zone through a graph-connected rim."
+		hud_snapshot = _build_world_hud_snapshot()
+		inventory_snapshot = _build_inventory_snapshot()
+	return MacroNodeMapSnapshot.build(
+		campaign,
+		int(_pending_exit_direction),
+		hud_snapshot,
+		inventory_snapshot
+	)
 
 
 func _on_node_map_closed() -> void:
@@ -523,9 +415,7 @@ func _on_campaign_nodes_unlocked(node_ids: Array) -> void:
 
 
 func _unload_all_enemy_tokens() -> void:
-	var coords_list: Array = active_enemies.keys()
-	for coords in coords_list:
-		unload_enemy_token(coords)
+	_get_proximity_director().unload_all()
 
 
 func _apply_active_zone_to_world() -> void:
@@ -599,8 +489,9 @@ func _ensure_central_rim_guards() -> void:
 			"%s:%d" % [seed_base, i]
 		)
 		_initialize_npc_runtime(record)
-		# Keep the pair posted on the rim; do not roam into patrol points.
-		record.runtime["macro_purpose"] = GameEnums.NPC_PURPOSE_PATROL
+		# Posted rim pair: hold hex, never wander.
+		record.runtime["macro_purpose"] = GameEnums.NPC_PURPOSE_HOLD
+		record.runtime["macro_purpose_label"] = "Hold"
 		record.runtime["macro_origin_coords"] = coords
 		record.runtime["macro_target_coords"] = coords
 		var entity_id := _world_state.register_entity(record)
@@ -812,21 +703,31 @@ func debug_step_player_to(target_coords: Vector2i) -> void:
 ## Debug tooling: instantly relocate the player to any hex without walking,
 ## survival-time cost, or triggering pending interactions. Rebuilds fog,
 ## proximity tokens, and the HUD so the jump is fully reflected.
+func _get_debug_console() -> MacroDebugConsole:
+	if _debug_console == null:
+		_debug_console = MacroDebugConsole.new(self)
+	return _debug_console
+
+
+func _get_collision_coordinator() -> MacroCollisionCoordinator:
+	if _collision_coordinator == null:
+		_collision_coordinator = MacroCollisionCoordinator.new(
+			self,
+			_interaction_state
+		)
+	return _collision_coordinator
+
+
+func _get_proximity_director() -> MacroProximityDirector:
+	if _proximity_director == null:
+		_proximity_director = MacroProximityDirector.new(self)
+	else:
+		_proximity_director.sync_host_refs()
+	return _proximity_director
+
+
 func debug_teleport_player(target_coords: Vector2i) -> void:
-	if map_visualizer == null or player_token == null:
-		return
-	var pixel_pos := map_visualizer.map_to_local(target_coords)
-	player_token.snap_to_hex(target_coords, pixel_pos)
-	_world_state.update_player_runtime(
-		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
-		target_coords
-	)
-	_select_hex_for_hud(target_coords)
-	_mark_hex_explored(target_coords)
-	_refresh_map_visuals(target_coords, false)
-	refresh_proximity(target_coords)
-	_macro_log("Debug teleport to %s." % str(target_coords))
-	_refresh_world_hud()
+	_get_debug_console().teleport_player(target_coords)
 
 
 ## Debug tooling: persist the live player runtime into WorldState and rebuild
@@ -834,23 +735,7 @@ func debug_teleport_player(target_coords: Vector2i) -> void:
 ## HUD). Call this after directly mutating the HumanoidCore/body/inventory so
 ## the change becomes visible and save-safe.
 func debug_sync_player_after_mutation() -> void:
-	if player_token == null:
-		return
-	var core := player_token.get_humanoid_core()
-	_world_state.update_player_runtime(
-		core.capture_runtime_state().to_dict(),
-		player_token.current_hex_coords
-	)
-	if player_token.humanoid_token:
-		player_token.humanoid_token.refresh_from_record(
-			player_token.capture_runtime_record()
-		)
-		player_token.refresh_token_pose()
-	var snapshot := _build_inventory_snapshot()
-	if inventory_panel and inventory_panel.is_open():
-		inventory_panel.refresh_snapshot(snapshot, "")
-	_refresh_exploration_ground()
-	_refresh_world_hud()
+	_get_debug_console().sync_player_after_mutation()
 
 
 ## Debug tooling: spawn a procedural enemy on the first free, passable hex
@@ -859,18 +744,7 @@ func debug_spawn_enemy_near_player(
 	faction: GameEnums.Faction = GameEnums.Faction.SCAVENGER_CELL,
 	difficulty: int = 0
 ) -> bool:
-	if player_token == null or world_generator == null:
-		return false
-	for delta in HEX_NEIGHBORS:
-		var coords: Vector2i = player_token.current_hex_coords + delta
-		if not world_generator.get_hex_at(coords).is_passable():
-			continue
-		if _world_state.has_entity_at(coords):
-			continue
-		spawn_procedural_enemy(coords, faction, difficulty)
-		_refresh_world_hud()
-		return true
-	return false
+	return _get_debug_console().spawn_enemy_near_player(faction, difficulty)
 
 
 func debug_project_npc_token(record: EntityRecord) -> MacroEnemy:
@@ -1110,34 +984,7 @@ func _bind_authored_map_profile() -> void:
 
 ## Spawn a procedurally generated enemy at the given hex coordinates.
 func spawn_procedural_enemy(coords: Vector2i, faction: GameEnums.Faction, difficulty: int = 0) -> void:
-	if not enemy_token_scene:
-		push_error("Cannot spawn enemy. Assign the PackedScene in the Inspector.")
-		return
-	
-	if not mob_spawner:
-		push_error("Cannot spawn enemy. MobSpawner is not assigned.")
-		return
-	
-	if _world_state.has_entity_at(coords):
-		var existing := _world_state.get_entity_at(coords)
-		if existing != null and _world_state.is_entity_alive(existing.entity_id):
-			_spawn_enemy_token_from_record(existing)
-		return
-
-	var deterministic_key := _encounter_key(coords)
-	var record := mob_spawner.generate_mob_record(
-		coords,
-		faction,
-		difficulty,
-		deterministic_key
-	)
-	_initialize_npc_runtime(record)
-	_world_state.register_entity(record)
-	_macro_log(
-		"Procedural enemy %s (%s) requested @%s."
-		% [record.entity_id, GameEnums.Faction.keys()[faction], str(coords)]
-	)
-	_spawn_enemy_token_from_record(record)
+	_get_proximity_director().spawn_procedural_enemy(coords, faction, difficulty)
 
 # ---------------------------------------------------------
 # INPUT & MOVEMENT LOGIC
@@ -1308,9 +1155,8 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 	)
 
 	advance_macro_world(1)
-	# Campaign objectives resolve by reaching the marked hex — no separate
-	# "interact" action required for the north-path loop.
-	_try_resolve_campaign_objective_on_arrival(target_coords, hex_data)
+	# Campaign progress resolves via directional rim departure / node map — not
+	# a hard-coded objective hex on ordinary steps.
 	_refresh_world_hud()
 
 
@@ -1398,39 +1244,17 @@ func _try_begin_directional_exit(
 	return true
 
 
-## Complete the active RNG node when the player reaches its exit hex, or open
-## the unique hex-event when they reach the event site.
-func _try_resolve_campaign_objective_on_arrival(
-	_coords: Vector2i,
-	_hex_data: MacroHexData
-) -> void:
-	# Ordinary traversal is resolved by directional rim departure, not by a
-	# hard-coded northern objective hex.
-	return
-
-
-func _announce_objective_complete(node: MacroNodeData) -> void:
-	var next_ids := _next_incomplete_available_nodes()
-	var next_hint := "Leave through a connected rim to continue."
-	if next_ids.is_empty():
-		next_hint = "No route is eligible in the active rim sector."
-	else:
-		next_hint = "The active rim sector connects to %s." % next_ids[0]
-	_last_macro_event = "Objective complete: %s. %s" % [node.display_name, next_hint]
-	_macro_log(_last_macro_event)
+## Compatibility shim: unrestricted global node advancement is forbidden.
+func advance_to_next_node() -> bool:
+	_last_macro_event = "Global advance is disabled. Leave through a directional rim."
+	_refresh_world_hud()
+	return false
 
 
 func _next_incomplete_available_nodes() -> Array[String]:
 	if campaign == null:
 		return []
 	return campaign.get_directional_destinations(_pending_exit_direction)
-
-
-## Compatibility shim: unrestricted global node advancement is forbidden.
-func advance_to_next_node() -> bool:
-	_last_macro_event = "Global advance is disabled. Leave through a directional rim."
-	_refresh_world_hud()
-	return false
 
 
 func advance_macro_world(turns: int = 1, bypass_interaction_check: bool = false) -> void:
@@ -2194,155 +2018,27 @@ func resolve_macro_event_choice(choice_id: String) -> void:
 
 
 func resolve_entity_collision_choice(choice_id: String) -> void:
-	if (
-		_pending_interaction.get("type")
-		!= GameEnums.MacroInteractionType.ENTITY_COLLISION
-	):
-		return
-	match choice_id:
-		MacroEntityCollisionResolver.CHOICE_TALK:
-			_open_entity_collision_session(
-				MacroEntityCollisionResolver.MODE_TALK
-			)
-		MacroEntityCollisionResolver.CHOICE_AMBUSH:
-			var ambush_enemy_id: String = _pending_interaction.get("enemy_id", "")
-			var ambush_record := _world_state.get_entity(ambush_enemy_id)
-			var ambush_opponent := MacroEntityCollisionResolver.build_opponent_summary(
-				ambush_record
-			)
-			if bool(ambush_opponent.get("blocks_ambush", false)):
-				var deny := MacroEntityCollisionResolver.ambush_denied_result(
-					ambush_record
-				)
-				_last_macro_event = str(deny.get("body", "Ambush denied."))
-				_macro_log(_last_macro_event)
-				_pending_interaction["resume_after_result"] = str(
-					deny.get("resume", MacroEntityCollisionResolver.MODE_ROOT)
-				)
-				if macro_hud:
-					macro_hud.show_event_result(deny)
-				return
-			_open_entity_collision_session(
-				MacroEntityCollisionResolver.MODE_AMBUSH
-			)
-		MacroEntityCollisionResolver.CHOICE_BACK:
-			_resolve_entity_collision_back()
-		MacroEntityCollisionResolver.CHOICE_THREAT:
-			resolve_talk_action(GameEnums.TalkAction.THREAT)
-		MacroEntityCollisionResolver.CHOICE_CEASEFIRE:
-			resolve_talk_action(GameEnums.TalkAction.CEASEFIRE)
-		MacroEntityCollisionResolver.CHOICE_AMBUSH_FAR:
-			resolve_entity_ambush(GameEnums.AmbushPosition.FAR)
-		MacroEntityCollisionResolver.CHOICE_AMBUSH_STANDARD:
-			resolve_entity_ambush(GameEnums.AmbushPosition.STANDARD)
-		MacroEntityCollisionResolver.CHOICE_AMBUSH_CLOSE:
-			resolve_entity_ambush(GameEnums.AmbushPosition.CLOSE)
-		MacroEntityCollisionResolver.CHOICE_ASK:
-			_open_entity_collision_session(
-				MacroEntityCollisionResolver.MODE_ASK
-			)
-		MacroEntityCollisionResolver.CHOICE_TRADE:
-			_resolve_entity_collision_trade()
-		MacroEntityCollisionResolver.CHOICE_LEAVE:
-			_resolve_entity_collision_leave()
-		_:
-			if str(choice_id).begins_with("ask_"):
-				_resolve_entity_collision_ask(choice_id)
+	_get_collision_coordinator().resolve_choice(choice_id)
 
 
 func _resolve_entity_collision_back() -> void:
-	var mode := str(
-		_pending_interaction.get(
-			"collision_mode",
-			MacroEntityCollisionResolver.MODE_ROOT
-		)
-	)
-	if mode == MacroEntityCollisionResolver.MODE_ASK:
-		_open_entity_collision_session(
-			MacroEntityCollisionResolver.MODE_PEACEFUL
-		)
-		return
-	_open_entity_collision_session(MacroEntityCollisionResolver.MODE_ROOT)
+	_get_collision_coordinator().resolve_back()
 
 
 func _resolve_entity_collision_trade() -> void:
-	var enemy_id: String = _pending_interaction.get("enemy_id", "")
-	var enemy_record := _world_state.get_entity(enemy_id)
-	if enemy_record == null:
-		return
-	var opponent := MacroEntityCollisionResolver.build_opponent_summary(
-		enemy_record
-	)
-	if not bool(opponent.get("allows_trade", true)):
-		return
-	var result := MacroEntityCollisionResolver.trade_placeholder_result()
-	_pending_interaction["resume_after_result"] = str(
-		result.get("resume", MacroEntityCollisionResolver.MODE_PEACEFUL)
-	)
-	if macro_hud:
-		macro_hud.show_event_result(result)
+	_get_collision_coordinator().resolve_trade()
 
 
 func _resolve_entity_collision_ask(choice_id: String) -> void:
-	var enemy_id: String = _pending_interaction.get("enemy_id", "")
-	var enemy_record := _world_state.get_entity(enemy_id)
-	if enemy_record == null:
-		return
-	player_token.play_interaction()
-	var result := MacroEntityCollisionResolver.resolve_ask_choice(
-		enemy_record,
-		choice_id
-	)
-	_apply_macro_event_effects(result.get("effects", {}))
-	_pending_interaction["resume_after_result"] = str(
-		result.get("resume", MacroEntityCollisionResolver.MODE_ASK)
-	)
-	_refresh_world_hud()
-	if macro_hud:
-		macro_hud.show_event_result(result)
+	_get_collision_coordinator().resolve_ask(choice_id)
 
 
 func _resolve_entity_collision_leave() -> void:
-	var enemy_id: String = _pending_interaction.get("enemy_id", "")
-	if not enemy_id.is_empty():
-		_world_state.set_entity_world_status(
-			enemy_id,
-			GameEnums.EntityWorldStatus.CEASEFIRE
-		)
-	close_macro_interaction()
+	_get_collision_coordinator().resolve_leave()
 
 
 func _open_entity_collision_session(mode: String) -> void:
-	var enemy_id: String = _pending_interaction.get("enemy_id", "")
-	var enemy_record := _world_state.get_entity(enemy_id)
-	if enemy_record == null or macro_hud == null:
-		close_macro_interaction()
-		return
-	var session: Dictionary
-	match mode:
-		MacroEntityCollisionResolver.MODE_TALK:
-			session = MacroEntityCollisionResolver.build_talk_session(
-				enemy_record
-			)
-		MacroEntityCollisionResolver.MODE_AMBUSH:
-			session = MacroEntityCollisionResolver.build_ambush_session(
-				enemy_record
-			)
-		MacroEntityCollisionResolver.MODE_PEACEFUL:
-			session = MacroEntityCollisionResolver.build_peaceful_session(
-				enemy_record
-			)
-		MacroEntityCollisionResolver.MODE_ASK:
-			session = MacroEntityCollisionResolver.build_ask_session(
-				enemy_record
-			)
-		_:
-			session = MacroEntityCollisionResolver.build_root_session(
-				enemy_record
-			)
-	_pending_interaction["collision_mode"] = mode
-	_pending_interaction.erase("resume_after_result")
-	macro_hud.open_event(session)
+	_get_collision_coordinator().open_session(mode)
 
 
 func _begin_macro_event_from_poi(
@@ -2827,30 +2523,10 @@ func _refresh_world_hud() -> void:
 		node_map_system.call("refresh", build_node_map_ui_snapshot())
 
 func _can_offer_equip(item: ItemData) -> bool:
-	return (
-		not _allowed_equipment_slots(item).is_empty()
-		and (
-			item.item_type == GameEnums.ItemType.WEAPON
-			or item.item_type == GameEnums.ItemType.ARMOR
-		)
-	)
+	return MacroInventoryBridge.can_offer_equip(item)
 
 func _allowed_equipment_slots(item: ItemData) -> Array[int]:
-	if item.item_type == GameEnums.ItemType.WEAPON:
-		if item.requires_two_hands:
-			return [GameEnums.EquipmentSlot.HAND]
-		return [
-			GameEnums.EquipmentSlot.HAND,
-			GameEnums.EquipmentSlot.OFFHAND,
-		]
-	if (
-		item.item_type == GameEnums.ItemType.ARMOR
-		and item.target_slot == GameEnums.EquipmentSlot.HAND
-	):
-		return [GameEnums.EquipmentSlot.OFFHAND]
-	if item.target_slot != GameEnums.EquipmentSlot.NONE:
-		return [item.target_slot]
-	return []
+	return MacroInventoryBridge.allowed_equipment_slots(item)
 
 func _on_player_inventory_error(message: String) -> void:
 	_last_inventory_error = message
@@ -3217,30 +2893,29 @@ func _get_camp_access(
 
 
 func _find_inventory_item_by_instance_id(instance_id: String) -> ItemData:
-	return player_token.get_humanoid_core().inventory.find_item_by_instance_id(
+	return MacroInventoryBridge.find_item_by_instance_id(
+		player_token.get_humanoid_core().inventory,
 		instance_id
 	)
 
 
 func _inventory_has_any_item_id(item_ids: Array) -> bool:
-	for item in player_token.get_humanoid_core().inventory.get_all_items():
-		if item_ids.has(item.id):
-			return true
-	return false
+	return MacroInventoryBridge.has_any_item_id(
+		player_token.get_humanoid_core().inventory,
+		item_ids
+	)
 
 func _inventory_has_any_tag(tags: Array) -> bool:
-	for item in player_token.get_humanoid_core().inventory.get_all_items():
-		for tag in tags:
-			if item.tags.has(str(tag)):
-				return true
-	return false
+	return MacroInventoryBridge.has_any_tag(
+		player_token.get_humanoid_core().inventory,
+		tags
+	)
 
 func _inventory_has_any_role(roles: Array) -> bool:
-	for item in player_token.get_humanoid_core().inventory.get_all_items():
-		for role in roles:
-			if item.has_interaction_role(int(role)):
-				return true
-	return false
+	return MacroInventoryBridge.has_any_role(
+		player_token.get_humanoid_core().inventory,
+		roles
+	)
 
 
 func _hex_label(coords: Vector2i, hex_data: MacroHexData) -> String:
@@ -3354,21 +3029,36 @@ func _emit_inventory_item_used(result: Dictionary) -> void:
 
 
 func unload_enemy_token(coords: Vector2i) -> void:
-	if not active_enemies.has(coords):
-		return
-	var enemy: MacroEnemy = active_enemies[coords]
-	active_enemies.erase(coords)
-	_macro_log("Despawned token %s @%s." % [enemy.entity_id, str(coords)])
-	enemy.queue_free()
+	_get_proximity_director().unload_enemy_token(coords)
 
 func load_enemy_token(entity_id: String) -> MacroEnemy:
-	var record := _world_state.get_entity(entity_id)
-	if (
-		record == null
-		or not _world_state.is_entity_alive(entity_id)
-	):
-		return null
-	return _spawn_enemy_token_from_record(record)
+	return _get_proximity_director().load_enemy_token(entity_id)
+
+func _bind_enemy_inspect_signals(enemy: MacroEnemy) -> void:
+	if enemy == null:
+		return
+	if not enemy.entity_hovered.is_connected(_on_enemy_entity_hovered):
+		enemy.entity_hovered.connect(_on_enemy_entity_hovered)
+	if not enemy.entity_unhovered.is_connected(_on_enemy_entity_unhovered):
+		enemy.entity_unhovered.connect(_on_enemy_entity_unhovered)
+
+
+func _on_enemy_entity_hovered(entity_id: String, _coords: Vector2i) -> void:
+	if macro_hud == null or entity_id.is_empty():
+		return
+	if macro_hud.get_exploration_stage() != null and macro_hud.get_exploration_stage().is_open():
+		return
+	var record := _world_state.get_entity(entity_id) if _world_state else null
+	if record == null:
+		return
+	macro_hud.show_entity_inspect(
+		MacroEntityCollisionResolver.build_opponent_summary(record)
+	)
+
+
+func _on_enemy_entity_unhovered(_entity_id: String) -> void:
+	if macro_hud:
+		macro_hud.hide_entity_inspect()
 
 func add_ground_item_states(coords: Vector2i, item_states: Array) -> void:
 	_world_state.add_ground_items(coords, item_states)
@@ -3445,90 +3135,10 @@ func retreat_player_from_combat(
 	return true
 
 func refresh_proximity(center_coords: Vector2i) -> void:
-	var tokens_before := active_enemies.size()
-	_ensure_encounter_records(center_coords)
-
-	# Hysteresis: tokens are projected within active_radius but only torn down
-	# once they drift past the larger unload_radius. Using a single radius for
-	# both made tokens thrash (despawn/respawn) whenever the player stepped back
-	# and forth across the boundary.
-	for coords in active_enemies.keys().duplicate():
-		var token: MacroEnemy = active_enemies[coords]
-		var distance := _hex_distance(center_coords, coords)
-		var alive := _world_state.is_entity_alive(token.entity_id)
-		if distance > unload_radius or not alive:
-			_macro_log(
-				"Unload token %s @%s (dist %d, alive %s)."
-				% [token.entity_id, str(coords), distance, str(alive)]
-			)
-			unload_enemy_token(coords)
-
-	_trim_visible_npc_tokens(center_coords)
-
-	for record in _projection_candidates(center_coords):
-		if active_enemies.size() >= max_visible_npc_tokens:
-			break
-		_spawn_enemy_token_from_record(record)
-
-	_trim_visible_npc_tokens(center_coords)
-	if active_enemies.size() != tokens_before:
-		_macro_log(
-			"Proximity @%s: tokens %d -> %d (cap %d)."
-			% [
-				str(center_coords),
-				tokens_before,
-				active_enemies.size(),
-				max_visible_npc_tokens,
-			]
-		)
-
-func _projection_candidates(center_coords: Vector2i) -> Array:
-	return _NpcSimulator.projection_candidates(
-		_world_state.get_all_entity_records(),
-		center_coords,
-		active_radius,
-		Callable(_world_state, "is_entity_alive"),
-	)
-
-
-func _projection_score(record: EntityRecord, center_coords: Vector2i) -> float:
-	return _NpcSimulator.projection_score(record, center_coords)
-
-func _trim_visible_npc_tokens(center_coords: Vector2i) -> void:
-	var visible_coords := active_enemies.keys()
-	visible_coords.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-		var a_record := _world_state.get_entity(
-			(active_enemies[a] as MacroEnemy).entity_id
-		)
-		var b_record := _world_state.get_entity(
-			(active_enemies[b] as MacroEnemy).entity_id
-		)
-		if a_record == null or b_record == null:
-			return a_record != null
-		return _projection_score(a_record, center_coords) > _projection_score(b_record, center_coords)
-	)
-	while visible_coords.size() > max_visible_npc_tokens:
-		var coords_to_unload: Vector2i = visible_coords.pop_back()
-		unload_enemy_token(coords_to_unload)
+	_get_proximity_director().refresh_proximity(center_coords)
 
 func _force_project_npc_token(record: EntityRecord) -> MacroEnemy:
-	if record == null:
-		return null
-	if active_enemies.has(record.coords):
-		return active_enemies[record.coords]
-	if active_enemies.size() >= max_visible_npc_tokens:
-		_trim_visible_npc_tokens(player_token.current_hex_coords)
-	if active_enemies.size() >= max_visible_npc_tokens:
-		var farthest_coords := _farthest_visible_token_coords(player_token.current_hex_coords)
-		if active_enemies.has(farthest_coords):
-			unload_enemy_token(farthest_coords)
-	return _spawn_enemy_token_from_record(record)
-
-func _farthest_visible_token_coords(center_coords: Vector2i) -> Vector2i:
-	return _NpcSimulator.farthest_token_coords(
-		active_enemies.keys(),
-		center_coords
-	)
+	return _get_proximity_director().force_project_npc_token(record)
 
 func _advance_npc_macro_turn(allow_during_interaction: bool = false) -> bool:
 	if _pending_interaction.is_empty() == false and not allow_during_interaction:
@@ -3699,47 +3309,4 @@ func _encounter_key(coords: Vector2i) -> String:
 	return _NpcSimulator.encounter_key(_world_state.world_seed, coords)
 
 func _spawn_enemy_token_from_record(record: EntityRecord) -> MacroEnemy:
-	if not enemy_token_scene:
-		push_error("Cannot spawn enemy. Assign the PackedScene in the Inspector.")
-		return null
-
-	var entity_id: String = record.entity_id
-	if not _world_state.is_entity_alive(entity_id):
-		return null
-
-	var coords: Vector2i = record.coords
-	if active_enemies.has(coords):
-		var existing := active_enemies[coords] as MacroEnemy
-		# Same entity already projected here: reuse it. A DIFFERENT entity sharing
-		# the coord means the index desynced (e.g. a record relocated without its
-		# token); tear the stale token down so we never render the wrong identity.
-		if existing != null and existing.entity_id == entity_id:
-			_apply_enemy_visibility(existing, coords)
-			return existing
-		_macro_log(
-			"Replacing stale token at %s (%s -> %s)."
-			% [
-				str(coords),
-				str(existing.entity_id) if existing != null else "<null>",
-				entity_id,
-			]
-		)
-		unload_enemy_token(coords)
-
-	var enemy := enemy_token_scene.instantiate() as MacroEnemy
-	add_child(enemy)
-	enemy.setup_from_record(record.to_dict())
-	enemy.snap_to_hex(coords, map_visualizer.map_to_local(coords))
-	active_enemies[coords] = enemy
-	_apply_enemy_visibility(enemy, coords)
-
-	var definition_state: Dictionary = record.definition
-	_macro_log(
-		"Spawned token %s (%s) at hex %s."
-		% [
-			entity_id,
-			str(definition_state.get("archetype_name", "Unknown")),
-			str(coords),
-		]
-	)
-	return enemy
+	return _get_proximity_director().spawn_from_record(record)

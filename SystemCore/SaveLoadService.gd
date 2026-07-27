@@ -16,13 +16,38 @@ func load_from_slot(slot: int) -> bool:
 	var metadata := store.get_save_metadata(slot)
 	if not metadata.is_empty() and not bool(metadata.get("compatible", false)):
 		push_warning(
-			"[SaveLoadService] Legacy run save is incompatible with the "
-			+ "directional node-web overhaul. Starting a fresh character; "
-			+ "the separate Meta Progress profile is preserved."
+			"[SaveLoadService] Legacy run save is incompatible. "
+			+ "Call begin_fresh_run_from_incompatible_slot() after explicit UI confirm."
 		)
-		store.begin_new_world("DEMO_WASTELAND_01")
-		return true
+		return false
 	return store.load_from_slot(slot)
+
+
+## Explicit wipe path for incompatible legacy slots. Meta progression is preserved
+## because it lives in a separate profile file.
+func begin_fresh_run_from_incompatible_slot(slot: int, seed: String = "DEMO_WASTELAND_01") -> bool:
+	var store := _store()
+	if store == null:
+		return false
+	var metadata := store.get_save_metadata(slot)
+	if metadata.is_empty() or bool(metadata.get("compatible", false)):
+		return false
+	push_warning(
+		(
+			"[SaveLoadService] Starting a fresh character from incompatible slot %d; "
+			% slot
+		)
+		+ "Meta Progress profile is preserved."
+	)
+	store.begin_new_world(seed)
+	return true
+
+
+func is_slot_compatible(slot: int) -> bool:
+	var metadata := get_save_metadata(slot)
+	if metadata.is_empty():
+		return false
+	return bool(metadata.get("compatible", false))
 
 
 func has_save_file(path: String = RuntimeStateStore.DEFAULT_SAVE_PATH) -> bool:

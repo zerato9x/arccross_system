@@ -89,6 +89,8 @@ const NPC_PURPOSE_SCAVENGE := "scavenge"
 const NPC_PURPOSE_PATROL := "patrol"
 const NPC_PURPOSE_HUNT := "hunt"
 const NPC_PURPOSE_ROAM := "roam"
+## Posted / stationary NPCs (e.g. Central rim guards). Never step.
+const NPC_PURPOSE_HOLD := "hold"
 
 # Weapon Classifications
 enum WeaponClass { NONE, BLUNT, BLADE, PISTOL, RIFLE, SHOTGUN }
@@ -412,6 +414,12 @@ const BIOME_PACK_CENTRALCORE := "centralcore"
 const BIOME_PACK_NORTH := "north"
 ## Era 8 homestead vernacular (Golbanc); used as structure fallback / starter mix.
 const BIOME_PACK_DEFAULT_ERA8 := "default_era8"
+## Stub theme packs (folders may be absent; catalog falls back to plains).
+const BIOME_PACK_EAST := "east"
+const BIOME_PACK_SOUTH := "south"
+const BIOME_PACK_WEST_BASIN := "west_basin"
+const BIOME_PACK_WEST_DEEP := "west_deep"
+const BIOME_PACK_SHARED_PROPS := "shared_props"
 const MACRO_ZONE_RADIUS := 12
 const MACRO_ZONE_CELL_COUNT := 1 + 3 * MACRO_ZONE_RADIUS * (MACRO_ZONE_RADIUS + 1)
 

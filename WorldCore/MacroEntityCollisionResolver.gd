@@ -276,15 +276,119 @@ static func resolve_ask_choice(
 
 
 static func trade_placeholder_result() -> Dictionary:
+	## Kept for smoke compatibility name; resolves to the structured empty-trade result.
 	return {
-		"title": "TRADE UNAVAILABLE",
-		"body": (
-			"A trade screen will open here once the item value system exists. "
-			+ "For now, nothing changes hands."
-		),
+		"title": "NO DEAL",
+		"body": "Neither side has anything worth exchanging right now.",
 		"effects": {},
 		"resume": MODE_PEACEFUL,
 	}
+
+
+## Auto-barter one backpack offer for one enemy pack item using barter value.
+## Returns a result dictionary plus optional mutation payloads for MacroGameManager.
+static func resolve_trade(
+	player_core: HumanoidCore,
+	enemy_record: EntityRecord,
+	loot_catalog: Node
+) -> Dictionary:
+	if player_core == null or enemy_record == null or loot_catalog == null:
+		return trade_placeholder_result()
+	if not bool(enemy_record.definition.get("allows_trade", true)):
+		return {
+			"title": "NO DEAL",
+			"body": "They refuse to barter.",
+			"effects": {},
+			"resume": MODE_PEACEFUL,
+		}
+
+	var offer := _pick_player_trade_offer(player_core)
+	if offer == null:
+		return {
+			"title": "NO DEAL",
+			"body": "You have nothing portable to offer from your pack.",
+			"effects": {},
+			"resume": MODE_PEACEFUL,
+		}
+
+	var loadout: Dictionary = enemy_record.definition.get("loadout", {}).duplicate(true)
+	var starting_items: Array = loadout.get("starting_items", []).duplicate()
+	var trade_index := -1
+	var trade_path := ""
+	for index in range(starting_items.size()):
+		var path := str(starting_items[index])
+		if path.is_empty():
+			continue
+		trade_index = index
+		trade_path = path
+		break
+	if trade_index < 0 or trade_path.is_empty():
+		return {
+			"title": "NO DEAL",
+			"body": "Their pack is empty. Nothing changes hands.",
+			"effects": {},
+			"resume": MODE_PEACEFUL,
+		}
+
+	var received_state: Dictionary = loot_catalog.create_runtime_item_from_template_path(
+		trade_path
+	)
+	if received_state.is_empty():
+		return {
+			"title": "NO DEAL",
+			"body": "The offered goods fall apart before the swap completes.",
+			"effects": {},
+			"resume": MODE_PEACEFUL,
+		}
+	var received := ItemData.from_runtime_state(received_state)
+	var offer_value := offer.get_barter_value()
+	var received_value := received.get_barter_value()
+	if received_value > offer_value * 1.75:
+		return {
+			"title": "NO DEAL",
+			"body": (
+				"They eye your %s and shake their head. "
+				+ "Your offer is too thin for what they carry."
+			) % offer.display_name,
+			"effects": {},
+			"resume": MODE_PEACEFUL,
+		}
+
+	starting_items.remove_at(trade_index)
+	var offer_template := offer.template_path
+	if not offer_template.is_empty():
+		starting_items.append(offer_template)
+	loadout["starting_items"] = starting_items
+
+	return {
+		"title": "TRADE COMPLETE",
+		"body": (
+			"You hand over %s and take %s."
+			% [offer.display_name, received.display_name]
+		),
+		"effects": {},
+		"resume": MODE_PEACEFUL,
+		"remove_player_instance_id": offer.instance_id,
+		"received_item_state": received_state,
+		"kept_loadout": loadout,
+	}
+
+
+static func _pick_player_trade_offer(player_core: HumanoidCore) -> ItemData:
+	var best: ItemData = null
+	var best_value := INF
+	for item in player_core.inventory.backpack_array:
+		if item == null:
+			continue
+		if item.item_type == GameEnums.ItemType.WEAPON:
+			continue
+		if str(item.id).begins_with("tent") or item.item_type == GameEnums.ItemType.ARMOR:
+			continue
+		var value := item.get_barter_value()
+		if value < best_value:
+			best_value = value
+			best = item
+	return best
 
 
 static func build_opponent_summary(enemy_record: EntityRecord) -> Dictionary:
@@ -337,6 +441,10 @@ static func build_opponent_summary(enemy_record: EntityRecord) -> Dictionary:
 		tags.append("NO AMBUSH")
 	if blocks_central_reentry:
 		tags.append("CENTRAL LOCK")
+	var record_dict := {}
+	if enemy_record != null:
+		record_dict = enemy_record.to_dict()
+	var equipment: Array = PaperDollPresenter.equipment_from_entity_record(enemy_record)
 	return {
 		"name": archetype,
 		"faction": faction_name,
@@ -354,6 +462,11 @@ static func build_opponent_summary(enemy_record: EntityRecord) -> Dictionary:
 		"blocks_central_reentry": blocks_central_reentry,
 		"template_id": template_id,
 		"tags": tags,
+		"entity_id": str(record_dict.get("entity_id", "")),
+		"world_status": int(record_dict.get("world_status", GameEnums.EntityWorldStatus.HOSTILE)),
+		"equipment": equipment,
+		"appearance": HumanoidVisualCatalog.appearance_from_record(record_dict),
+		"record": record_dict,
 	}
 
 

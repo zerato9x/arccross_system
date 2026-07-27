@@ -21,24 +21,64 @@ func _run() -> void:
 
 	var plains_present := false
 	var numbered_present := false
+	var war_present := false
 	for pack_dir in packs:
 		var layers: Array = MenuParallaxCatalog.layers_for_pack(pack_dir)
 		if layers.is_empty():
 			_fail("Pack reported available but has no layers: %s" % pack_dir)
 			return
+		var paths: Array[String] = []
+		for layer in layers:
+			paths.append(str(layer.get("path", "")).get_file().to_lower())
 		if str(pack_dir).contains("Postapocalypce3"):
 			plains_present = true
-			var paths: Array[String] = []
-			for layer in layers:
-				paths.append(str(layer.get("path", "")).get_file().to_lower())
 			if not paths.has("sky.png"):
 				_fail("Postapocalypce3 pack missing sky.png layer.")
 				return
 			if paths.has("postapocalypse3.png"):
 				_fail("Composite postapocalypse3.png should be skipped.")
 				return
-		if str(pack_dir).contains("apocalyptic_bg_2") or str(pack_dir).contains("trees_forest"):
+		if str(pack_dir).contains("apocalyptic_bg_2") or str(pack_dir).contains("background 3"):
 			numbered_present = true
+		if str(pack_dir).contains("trees_forest"):
+			_fail("trees_forest packs must stay out of the menu pool: %s" % pack_dir)
+			return
+		if str(pack_dir).contains("war/War"):
+			war_present = true
+			if paths.has("war.png") or paths.has("war2.png") or paths.has("war3.png") or paths.has("war4.png"):
+				_fail("War composite ref should be skipped in %s." % pack_dir)
+				return
+			if not paths.has("sky.png"):
+				_fail("War pack missing sky.png: %s" % pack_dir)
+				return
+			var near_house := ""
+			if paths.has("houses1.png"):
+				near_house = "houses1.png"
+			elif paths.has("houses2.png"):
+				near_house = "houses2.png"
+			if not near_house.is_empty() and not _assert_before(paths, "sky.png", near_house, pack_dir):
+				return
+			if paths.has("houses4.png") and paths.has("houses1.png") \
+					and not _assert_before(paths, "houses4.png", "houses1.png", pack_dir):
+				return
+			if paths.has("houses4.png") and paths.has("houses2.png") \
+					and not _assert_before(paths, "houses4.png", "houses2.png", pack_dir):
+				return
+			if paths.has("houses4.png") and paths.has("houses3.png") \
+					and not _assert_before(paths, "houses4.png", "houses3.png", pack_dir):
+				return
+			if paths.has("fence.png") and not near_house.is_empty() \
+					and not _assert_before(paths, near_house, "fence.png", pack_dir):
+				return
+			if paths.has("wall.png") and not near_house.is_empty() \
+					and not _assert_before(paths, near_house, "wall.png", pack_dir):
+				return
+			if paths.has("wall.png") and paths.has("road.png") \
+					and not _assert_before(paths, "wall.png", "road.png", pack_dir):
+				return
+			if paths.has("trees.png") and paths.has("fence.png") \
+					and not _assert_before(paths, "fence.png", "trees.png", pack_dir):
+				return
 		var first_scale := float(layers[0].get("motion_scale", 1.0))
 		var last_scale := float(layers[layers.size() - 1].get("motion_scale", 0.0))
 		if first_scale > last_scale:
@@ -53,8 +93,11 @@ func _run() -> void:
 				_fail("Missing parallax texture: %s" % path)
 				return
 
-	if not plains_present or not numbered_present:
-		_fail("Catalog must include both named apocalyptic and numbered packs.")
+	if not plains_present or not numbered_present or not war_present:
+		_fail("Catalog must include named apocalyptic, numbered, and war packs.")
+		return
+	if DirAccess.open("res://Asset/UI/Event_bg/trees_forest") == null:
+		_fail("trees_forest assets should remain on disk for the duel-scene overhaul.")
 		return
 
 	var picked: String = MenuParallaxCatalog.pick_random_pack()
@@ -80,6 +123,26 @@ func _run() -> void:
 		% [packs.size(), picked]
 	)
 	quit(0)
+
+
+func _assert_before(
+	paths: Array[String],
+	earlier: String,
+	later: String,
+	pack_dir: String
+) -> bool:
+	var earlier_index := paths.find(earlier)
+	var later_index := paths.find(later)
+	if earlier_index < 0 or later_index < 0:
+		_fail("Missing expected war layers %s/%s in %s." % [earlier, later, pack_dir])
+		return false
+	if earlier_index >= later_index:
+		_fail(
+			"War layer order wrong in %s: %s should be behind %s (got %s)."
+			% [pack_dir, earlier, later, ", ".join(paths)]
+		)
+		return false
+	return true
 
 
 func _fail(message: String) -> void:

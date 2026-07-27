@@ -14,6 +14,7 @@ class_name HexRecord
 @export var arm_direction: GameEnums.MacroArmDirection = GameEnums.MacroArmDirection.NONE
 @export var zone_id: String = ""
 @export var biome_pack: String = GameEnums.BIOME_PACK_PLAINS
+@export var structure_pack: String = GameEnums.BIOME_PACK_DEFAULT_ERA8
 @export var landmark_id: String = ""
 @export var impassable: bool = false
 @export var terrain_sprite_path: String = ""
@@ -50,6 +51,7 @@ func to_dict() -> Dictionary:
 		"arm_direction": arm_direction,
 		"zone_id": zone_id,
 		"biome_pack": biome_pack,
+		"structure_pack": structure_pack,
 		"landmark_id": landmark_id,
 		"impassable": impassable,
 		"terrain_sprite_path": terrain_sprite_path,
@@ -108,6 +110,10 @@ static func from_dict(data: Dictionary) -> HexRecord:
 	)
 	record.zone_id = data.get("zone_id", "")
 	record.biome_pack = data.get("biome_pack", GameEnums.BIOME_PACK_PLAINS)
+	record.structure_pack = data.get(
+		"structure_pack",
+		GameEnums.BIOME_PACK_DEFAULT_ERA8
+	)
 	record.landmark_id = data.get("landmark_id", "")
 	record.impassable = data.get("impassable", false)
 	record.terrain_sprite_path = data.get("terrain_sprite_path", "")

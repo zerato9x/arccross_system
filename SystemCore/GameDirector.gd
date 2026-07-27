@@ -26,7 +26,15 @@ func _ready() -> void:
 	if not macro_map or not duel_scene:
 		push_error("Director is blind. Assign the Macro Map and Duel Scene in the inspector.")
 		return
-		
+	var player_token := macro_map.player_token
+	if player_token == null:
+		push_error("[DIRECTOR] Macro map has no player_token assigned.")
+		return
+	var player_core := player_token.get_humanoid_core()
+	if player_core == null:
+		push_error("[DIRECTOR] Player token has no HumanoidCore.")
+		return
+
 	macro_map.combat_requested.connect(_on_combat_requested)
 	macro_map.save_requested.connect(save_game)
 	macro_map.load_requested.connect(load_saved_run)
@@ -34,7 +42,7 @@ func _ready() -> void:
 	if defeat_panel:
 		defeat_panel.restart_requested.connect(restart_new_run)
 		defeat_panel.load_requested.connect(load_saved_run)
-	if macro_map.player_token.get_humanoid_core().is_dead:
+	if player_core.is_dead:
 		macro_map.hide()
 		macro_map.set_process_unhandled_input(false)
 		if defeat_panel:
@@ -73,19 +81,17 @@ func _on_combat_requested(request: Dictionary) -> void:
 	_combat_enemy_id = enemy_id
 	_combat_request = request.duplicate(true)
 	
+	# Production combat is always turn-based. Real-time lives only in WaveMode
+	# (COMBAT LAB) and the orphaned CombatModeComparison scene.
 	var selected_scene := duel_scene
-	var settings := get_node_or_null("/root/GameSettings")
-	if settings != null:
-		var selected_path := (
-			PresentationSceneRegistry.TURN_BASED_DUEL_SCENE
-			if settings.combat_mode == settings.COMBAT_TURN_BASED
-			else PresentationSceneRegistry.REALTIME_DUEL_SCENE
+	var loaded_scene := load(PresentationSceneRegistry.TURN_BASED_DUEL_SCENE) as PackedScene
+	if loaded_scene != null:
+		selected_scene = loaded_scene
+	else:
+		push_error(
+			"[DIRECTOR] Turn-based duel scene failed to load: "
+			+ PresentationSceneRegistry.TURN_BASED_DUEL_SCENE
 		)
-		var loaded_scene := load(selected_path) as PackedScene
-		if loaded_scene != null:
-			selected_scene = loaded_scene
-		else:
-			push_error("[DIRECTOR] Selected combat scene failed to load: " + selected_path)
 	_active_arena = selected_scene.instantiate()
 	add_child(_active_arena)
 	

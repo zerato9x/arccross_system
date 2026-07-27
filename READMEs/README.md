@@ -133,8 +133,9 @@ Status updated on **July 23, 2026**:
 - [Combat UI Specification](design/COMBAT_UI_SPECIFICATION.md): combat-specific
   layout and feedback.
 - [Combat HUD Asset Map](design/COMBAT_HUD_ASSET_MAP.md): wired HUD atlas regions.
-- [Mockup Images](design/mockups/): visual references, not implementation
-  contracts.
+- [Mockup Images](Mockup/): current visual references (screenshots).
+- [Legacy Mockup Plates](design/mockups/): historical sketches only — do not
+  drive new HUD work from these.
 
 ## Maintenance Rule
 

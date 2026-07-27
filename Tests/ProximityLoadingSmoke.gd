@@ -61,9 +61,22 @@ func _run() -> void:
 		_fail("Coordinate-stable mob generation produced a different definition.")
 		return
 
+	# Zone-inject worlds paint the full MACRO_ZONE_RADIUS disk at boot via
+	# render_zone(). That is intentional retention, not a proximity leak —
+	# do not count it against the chunked render_radius budget below.
+	var initial_cells := macro_map.map_visualizer.rendered_cells.size()
+	if initial_cells > GameEnums.MACRO_ZONE_CELL_COUNT:
+		_fail(
+			"Initial zone paint exceeded MACRO_ZONE_CELL_COUNT (%d > %d)."
+			% [initial_cells, GameEnums.MACRO_ZONE_CELL_COUNT]
+		)
+		return
+
 	var peak_tokens := macro_map.active_enemies.size()
-	var peak_cells := macro_map.map_visualizer.rendered_cells.size()
-	var peak_markers := macro_map.map_visualizer.poi_markers.size()
+	# Start at 0 so the boot-time zone paint does not inflate the retained-
+	# radius peak measured during the render_radius walk.
+	var peak_cells := 0
+	var peak_markers := 0
 
 	for step in range(1, 101):
 		var center := Vector2i(step, 0)

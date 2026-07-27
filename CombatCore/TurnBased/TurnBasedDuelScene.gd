@@ -31,6 +31,8 @@ func _ready() -> void:
 	command_adapter.presentation_event.connect(lane_hud.show_presentation_event)
 	command_adapter.reaction_requested.connect(lane_hud.show_reaction)
 	command_adapter.command_feedback.connect(lane_hud.show_feedback)
+	if not turn_manager.action_denied.is_connected(_on_action_denied):
+		turn_manager.action_denied.connect(_on_action_denied)
 	lane_hud.open_hud()
 
 	if get_parent() == get_tree().root and get_tree().current_scene == self:
@@ -281,3 +283,10 @@ func _dropped_item_names() -> Array[String]:
 			continue
 		names.append(item.display_name if not item.display_name.is_empty() else item.id)
 	return names
+
+
+func _on_action_denied(denial: Dictionary) -> void:
+	var message := str(denial.get("message", "")).strip_edges()
+	if message.is_empty():
+		return
+	lane_hud.show_feedback(message)

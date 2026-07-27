@@ -579,17 +579,31 @@ func _resolve_structure_source_id(hex_data: MacroHexData) -> int:
 			)
 			if asset_id >= 0:
 				return asset_id
+		var structure_pack := hex_data.structure_pack.strip_edges()
+		if not structure_pack.is_empty():
+			var pack_id := tile_catalog.get_structure_tile_id(
+				hex_data.structure_layer,
+				hex_data.visual_variant_hash,
+				structure_pack
+			)
+			if pack_id >= 0:
+				return pack_id
+		var resolve_pack := (
+			structure_pack
+			if not structure_pack.is_empty()
+			else hex_data.biome_pack
+		)
 		var id := tile_catalog.resolve_poi_id(
 			_structure_layer_key(hex_data.structure_layer),
 			hex_data.visual_variant_hash,
-			hex_data.biome_pack
+			resolve_pack
 		)
 		if id >= 0:
 			return id
 		return tile_catalog.resolve_structure_id(
 			hex_data.structure_layer,
 			hex_data.visual_variant_hash,
-			hex_data.biome_pack
+			resolve_pack
 		)
 	return -1
 

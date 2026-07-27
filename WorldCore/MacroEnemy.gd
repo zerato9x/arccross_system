@@ -1,7 +1,11 @@
 extends Node2D
 class_name MacroEnemy
 
+signal entity_hovered(entity_id: String, coords: Vector2i)
+signal entity_unhovered(entity_id: String)
+
 const WALK_DURATION_SECONDS := 2.0
+const HOVER_RADIUS := 36.0
 
 @onready var humanoid_token: HumanoidTokenView = $HumanoidTokenView
 
@@ -12,6 +16,7 @@ var _idle_animation := "Idle2"
 var _movement_tween: Tween
 var _movement_serial := 0
 var _movement_queue: Array[Vector2] = []
+var _hover_area: Area2D
 
 func _ready() -> void:
 	var placeholder := get_node_or_null("Sprite2D") as Sprite2D
@@ -26,6 +31,41 @@ func _ready() -> void:
 	z_index = 7
 	modulate = Color(1, 1, 1, 1)
 	humanoid_token.modulate = Color(1, 1, 1, 1)
+	_ensure_hover_area()
+
+
+func _ensure_hover_area() -> void:
+	_hover_area = get_node_or_null("HoverArea") as Area2D
+	if _hover_area == null:
+		_hover_area = Area2D.new()
+		_hover_area.name = "HoverArea"
+		_hover_area.monitoring = true
+		_hover_area.monitorable = false
+		_hover_area.input_pickable = true
+		add_child(_hover_area)
+		var shape := CollisionShape2D.new()
+		shape.name = "CollisionShape2D"
+		var circle := CircleShape2D.new()
+		circle.radius = HOVER_RADIUS
+		shape.shape = circle
+		shape.position = Vector2(0.0, -28.0)
+		_hover_area.add_child(shape)
+	if not _hover_area.mouse_entered.is_connected(_on_hover_entered):
+		_hover_area.mouse_entered.connect(_on_hover_entered)
+	if not _hover_area.mouse_exited.is_connected(_on_hover_exited):
+		_hover_area.mouse_exited.connect(_on_hover_exited)
+
+
+func _on_hover_entered() -> void:
+	if entity_id.is_empty():
+		return
+	entity_hovered.emit(entity_id, current_hex_coords)
+
+
+func _on_hover_exited() -> void:
+	if entity_id.is_empty():
+		return
+	entity_unhovered.emit(entity_id)
 
 func snap_to_hex(coords: Vector2i, pixel_position: Vector2) -> void:
 	current_hex_coords = coords

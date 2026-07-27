@@ -265,8 +265,8 @@ func _run() -> void:
 			+ "animation=%s queue=%s processing=%s final_started=%s"
 			% [
 				enemy_token.get_animation(),
-				arena.lane_hud._presentation_queue.size(),
-				arena.lane_hud._is_processing_queue,
+				arena.lane_hud._presentation_queue_controller._presentation_queue.size(),
+				arena.lane_hud._presentation_queue_controller._is_processing_queue,
 				arena.lane_hud._final_blow_sides.has("enemy"),
 			]
 		)
@@ -287,8 +287,8 @@ func _run() -> void:
 		_fail("The combat command deck is still too tall for the bottom strip.")
 		return
 	if (
-		arena.lane_hud._selected_action_group != "movement"
-		or arena.lane_hud._group_buttons.size() < 1
+		arena.lane_hud._action_rail.get_selected_action_group() != "movement"
+		or arena.lane_hud._action_rail._group_buttons.size() < 1
 	):
 		_fail("The out-of-range command deck did not default to movement.")
 		return
@@ -314,7 +314,7 @@ func _run() -> void:
 	if aimed_descriptor.get("target_limbs", []).size() != 7:
 		_fail("AIMED SHOT did not expose all visible Limb Region choices.")
 		return
-	if arena.lane_hud._selected_action_group != "firearm":
+	if arena.lane_hud._action_rail.get_selected_action_group() != "firearm":
 		_fail("The in-range command deck did not default to firearm actions.")
 		return
 	if not GUN_ANIMATION_CATALOG.has_weapon("service_pistol"):
@@ -328,7 +328,7 @@ func _run() -> void:
 		_fail(catalog_error)
 		return
 	var aimed_root_button: CombatActionButton = null
-	for button in arena.lane_hud._action_buttons:
+	for button in arena.lane_hud._action_rail._action_buttons:
 		var payload: Dictionary = button.get_payload()
 		var descriptor: Dictionary = payload.get("descriptor", {})
 		if descriptor.get("action", -1) == GameEnums.ActionType.AIMED_SHOT:
@@ -344,11 +344,11 @@ func _run() -> void:
 		return
 	aimed_root_button.activate()
 	await process_frame
-	if arena.lane_hud._command_menu_path != ["aim"]:
+	if arena.lane_hud._action_rail.get_command_menu_path() != ["aim"]:
 		_fail("The AIM submenu did not open from the firearm root.")
 		return
 	var aimed_choice_count := 0
-	for button in arena.lane_hud._action_buttons:
+	for button in arena.lane_hud._action_rail._action_buttons:
 		var payload: Dictionary = button.get_payload()
 		var descriptor: Dictionary = payload.get("descriptor", {})
 		if descriptor.get("action", -1) == GameEnums.ActionType.AIMED_SHOT:
@@ -483,7 +483,9 @@ func _run() -> void:
 	):
 		_fail("The player health section did not render a stable condition icon.")
 		return
-	var player_body_row: Dictionary = arena.lane_hud._player_status_rows[0]
+	var player_body_row: Dictionary = (
+		arena.lane_hud._body_status_presenter.player_status_rows[0]
+	)
 	var player_meter_frame := player_body_row.get("meter_frame") as Sprite2D
 	if (
 		player_meter_frame == null
@@ -495,22 +497,22 @@ func _run() -> void:
 	if not player_meter_path.contains("Asset/UI/HUD/bars/"):
 		_fail("The body health meter frame must come from Asset/UI/HUD/bars.")
 		return
-	if CombatLaneHUD.CONDITION_ANIMATION_FPS > 5.0:
+	if CombatBodyStatusPresenter.CONDITION_ANIMATION_FPS > 5.0:
 		_fail("The Condition token animation is too fast for readable HUD use.")
 		return
-	if CombatLaneHUD.CONDITION_ANIMATION_FPS != 0.0:
+	if CombatBodyStatusPresenter.CONDITION_ANIMATION_FPS != 0.0:
 		_fail("The Condition monitor should hold a stable frame during combat HUD display.")
 		return
 	var player_condition_data: Dictionary = arena.lane_hud.get_snapshot().get("player", {})
-	arena.lane_hud._condition_animation_time = 0.01
-	arena.lane_hud._apply_condition_frame(
+	arena.lane_hud._body_status_presenter._condition_animation_time = 0.01
+	arena.lane_hud._body_status_presenter._apply_condition_frame(
 		arena.lane_hud._player_condition_sprite,
 		player_condition_data
 	)
 	var steady_condition_texture = arena.lane_hud._player_condition_sprite.texture
 	var steady_condition_region = arena.lane_hud._player_condition_sprite.region_rect
-	arena.lane_hud._condition_animation_time = 0.10
-	arena.lane_hud._apply_condition_frame(
+	arena.lane_hud._body_status_presenter._condition_animation_time = 0.10
+	arena.lane_hud._body_status_presenter._apply_condition_frame(
 		arena.lane_hud._player_condition_sprite,
 		player_condition_data
 	)
@@ -539,7 +541,12 @@ func _run() -> void:
 	player.body.blood_level = 2.0
 	arena.command_adapter.refresh_snapshot()
 	await arena.lane_hud.wait_for_presentation_idle()
-	if arena.lane_hud._player_condition_state.get("condition", "") != "danger":
+	if (
+		arena.lane_hud._body_status_presenter._player_condition_state.get(
+			"condition",
+			""
+		) != "danger"
+	):
 		_fail("Critical Blood did not switch the Condition token to Danger.")
 		return
 	player.body.blood_level = GameEnums.SCALE_MAX
@@ -625,8 +632,8 @@ func _run() -> void:
 		_fail("The retired floating actor panels are still visible in duel layout.")
 		return
 	if (
-		arena.lane_hud._player_status_rows.size() != 7
-		or arena.lane_hud._enemy_status_rows.size() != 7
+		arena.lane_hud._body_status_presenter.player_status_rows.size() != 7
+		or arena.lane_hud._body_status_presenter.enemy_status_rows.size() != 7
 	):
 		_fail("The bottom duel body panels did not create seven limb bars.")
 		return
@@ -667,7 +674,7 @@ func _run() -> void:
 	player.body.limb_hp[GameEnums.LimbRegion.RIGHT_LEG] = 0.0
 	arena.command_adapter.refresh_snapshot()
 	await process_frame
-	var player_rows: Array = arena.lane_hud._player_status_rows
+	var player_rows: Array = arena.lane_hud._body_status_presenter.player_status_rows
 	var left_leg_fill := player_rows[5].get("fill") as Polygon2D
 	var right_leg_fill := player_rows[6].get("fill") as Polygon2D
 	var leg_wound := arena.lane_hud._player_portrait_model._decal_wound_nodes[
@@ -1067,9 +1074,9 @@ func _run() -> void:
 		if arena.turn_manager.current_ap_pool != deprecated_ap_before:
 			_fail("Rejected deprecated lock action still consumed AP.")
 			return
-	arena.lane_hud._selected_action_group = "melee"
-	arena.lane_hud._action_group_locked_by_user = true
-	arena.lane_hud._command_menu_path.clear()
+	arena.lane_hud._action_rail._selected_action_group = "melee"
+	arena.lane_hud._action_rail._action_group_locked_by_user = true
+	arena.lane_hud._action_rail._command_menu_path.clear()
 	arena.lane_hud._render_actions()
 	var push_root_button := _find_menu_button(arena.lane_hud, "push")
 	if push_root_button != null:
@@ -1211,10 +1218,10 @@ func _wait_for_hud_queue(
 ) -> bool:
 	var deadline := Time.get_ticks_msec() + int(timeout_seconds * 1000.0)
 	while Time.get_ticks_msec() < deadline:
-		if not hud._is_processing_queue and hud._presentation_queue.is_empty():
+		if not hud._presentation_queue_controller.is_busy():
 			return true
 		await process_frame
-	return not hud._is_processing_queue and hud._presentation_queue.is_empty()
+	return not hud._presentation_queue_controller.is_busy()
 
 func _snapshot_has_action(snapshot: Dictionary, action: int) -> bool:
 	return not _find_action(snapshot, action).is_empty()
@@ -1226,7 +1233,7 @@ func _find_action(snapshot: Dictionary, action: int) -> Dictionary:
 	return {}
 
 func _find_menu_button(hud: CombatLaneHUD, menu: String) -> CombatActionButton:
-	for button in hud._action_buttons:
+	for button in hud._action_rail._action_buttons:
 		var payload: Dictionary = button.get_payload()
 		if (
 			payload.get("mode", "") == "submenu"
@@ -1236,7 +1243,7 @@ func _find_menu_button(hud: CombatLaneHUD, menu: String) -> CombatActionButton:
 	return null
 
 func _find_action_button(hud: CombatLaneHUD, action: int) -> CombatActionButton:
-	for button in hud._action_buttons:
+	for button in hud._action_rail._action_buttons:
 		var payload: Dictionary = button.get_payload()
 		var descriptor: Dictionary = payload.get("descriptor", {})
 		if int(descriptor.get("action", -1)) == action:

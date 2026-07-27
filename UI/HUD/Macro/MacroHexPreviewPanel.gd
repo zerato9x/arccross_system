@@ -4,6 +4,8 @@ class_name MacroHexPreviewPanel
 signal expand_requested(coords: Vector2i)
 signal travel_requested(coords: Vector2i)
 
+const PAPER_DOLL_SCENE := preload("res://UI/Inventory/PaperDollModel.tscn")
+
 @onready var _title_label: Label = %PreviewTitleLabel
 @onready var _details_label: RichTextLabel = %PreviewDetailsLabel
 @onready var _hint_label: Label = %PreviewHintLabel
@@ -11,6 +13,10 @@ signal travel_requested(coords: Vector2i)
 @onready var _expand_button: Button = %PreviewExpandButton
 
 var _hex: Dictionary = {}
+var _entity_doll: PaperDollModel
+var _preview_stage: Control
+var _stage_bg: TextureRect
+
 
 func _ready() -> void:
 	restyle()
@@ -18,6 +24,7 @@ func _ready() -> void:
 	gui_input.connect(_on_gui_input)
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	visible = false
+	_ensure_preview_stage()
 
 
 func restyle() -> void:
@@ -27,6 +34,7 @@ func restyle() -> void:
 	HUDAssetLibrary.apply_label(_hint_label, "muted")
 	HUDAssetLibrary.apply_button(_expand_button, "warning")
 
+
 func show_hex(hex_descriptor: Dictionary, scene_descriptor: Dictionary = {}) -> void:
 	_hex = hex_descriptor.duplicate(true)
 	if _hex.is_empty():
@@ -35,8 +43,47 @@ func show_hex(hex_descriptor: Dictionary, scene_descriptor: Dictionary = {}) -> 
 	visible = true
 	_render(scene_descriptor)
 
+
 func get_hex_coords() -> Vector2i:
 	return _hex.get("coords", Vector2i.ZERO)
+
+
+func _ensure_preview_stage() -> void:
+	if _preview_stage != null:
+		return
+	var column := _thumb.get_parent() as VBoxContainer
+	if column == null:
+		return
+	_preview_stage = Control.new()
+	_preview_stage.name = "HexPreviewStage"
+	_preview_stage.custom_minimum_size = Vector2(0, 140)
+	_preview_stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_preview_stage.clip_contents = true
+	column.add_child(_preview_stage)
+	column.move_child(_preview_stage, _thumb.get_index())
+
+	_stage_bg = TextureRect.new()
+	_stage_bg.name = "HexExplorationBg"
+	_stage_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_stage_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_stage_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_stage_bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_stage_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_preview_stage.add_child(_stage_bg)
+
+	_entity_doll = PAPER_DOLL_SCENE.instantiate() as PaperDollModel
+	_entity_doll.name = "EntityPaperDoll"
+	_preview_stage.add_child(_entity_doll)
+	_entity_doll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_entity_doll.set_backdrop_visible(false)
+	_entity_doll.visible = false
+	_entity_doll.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# Authored thumb remains in the tree for unique-name stability, but the
+	# stacked stage owns the visible hex plate + optional paperdoll overlay.
+	_thumb.visible = false
+	_thumb.custom_minimum_size = Vector2.ZERO
+
 
 func _render(scene_descriptor: Dictionary) -> void:
 	var coords: Vector2i = _hex.get("coords", Vector2i.ZERO)
@@ -115,6 +162,7 @@ func _render(scene_descriptor: Dictionary) -> void:
 			"discovery",
 			"GROUND ITEMS " + str(_hex.get("ground_item_count", 0))
 		))
+	var inspect: Dictionary = _hex.get("entity_inspect", {})
 	if not str(_hex.get("entity_name", "")).is_empty():
 		lines.append(HUDAssetLibrary.bbcode(
 			_entity_role(),
@@ -124,17 +172,21 @@ func _render(scene_descriptor: Dictionary) -> void:
 				str(_hex.get("entity_status", "")),
 			]
 		))
+		if not inspect.is_empty():
+			lines.append(HUDAssetLibrary.bbcode(
+				"muted",
+				"%s // %s // WPN %s"
+				% [
+					str(inspect.get("faction", "?")),
+					str(inspect.get("agenda", "?")),
+					str(inspect.get("weapon", "NONE")),
+				]
+			))
 	if blocked:
 		lines.append(HUDAssetLibrary.bbcode("critical", "BLOCKED"))
 	_details_label.text = "\n".join(lines)
 
-	var bg_path := str(scene_descriptor.get("background_path", ""))
-	if not bg_path.is_empty() and ResourceLoader.exists(bg_path):
-		_thumb.texture = load(bg_path) as Texture2D
-		_thumb.visible = true
-	else:
-		_thumb.texture = null
-		_thumb.visible = false
+	_render_preview_stage(inspect, scene_descriptor)
 	if bool(_hex.get("can_interact", false)):
 		_hint_label.text = "Press E to explore"
 		HUDAssetLibrary.apply_label(_hint_label, "discovery")
@@ -151,6 +203,37 @@ func _render(scene_descriptor: Dictionary) -> void:
 		_expand_button.text = "Selected"
 		_expand_button.disabled = true
 
+
+func _render_preview_stage(inspect: Dictionary, scene_descriptor: Dictionary) -> void:
+	_ensure_preview_stage()
+	if _preview_stage == null or _stage_bg == null:
+		return
+	var bg_path := str(scene_descriptor.get("background_path", ""))
+	if not bg_path.is_empty() and ResourceLoader.exists(bg_path):
+		_stage_bg.texture = load(bg_path) as Texture2D
+	else:
+		_stage_bg.texture = null
+	_preview_stage.visible = (
+		_stage_bg.texture != null
+		or (not inspect.is_empty() and not str(_hex.get("entity_name", "")).is_empty())
+	)
+
+	var show_doll := (
+		not inspect.is_empty() and not str(_hex.get("entity_name", "")).is_empty()
+	)
+	if _entity_doll == null:
+		return
+	_entity_doll.visible = show_doll
+	if not show_doll:
+		return
+	var equipment: Array = inspect.get("equipment", [])
+	if equipment.is_empty():
+		equipment = PaperDollPresenter.equipment_from_entity_record(
+			inspect.get("record", {})
+		)
+	PaperDollPresenter.apply_to_doll(_entity_doll, equipment)
+
+
 func _poi_role() -> String:
 	var status := str(_hex.get("poi_status", _hex.get("entity_status", ""))).to_lower()
 	if bool(_hex.get("is_anomaly", false)) or "anomaly" in status or "mist" in status:
@@ -159,11 +242,13 @@ func _poi_role() -> String:
 		return "critical"
 	return "discovery"
 
+
 func _entity_role() -> String:
 	var status := str(_hex.get("entity_status", "")).to_lower()
 	if "friend" in status or "ally" in status or "clear" in status or "safe" in status:
 		return "info"
 	return "warning"
+
 
 func _on_expand_pressed() -> void:
 	var coords: Vector2i = _hex.get("coords", Vector2i.ZERO)
@@ -171,6 +256,7 @@ func _on_expand_pressed() -> void:
 		expand_requested.emit(coords)
 	elif bool(_hex.get("can_travel", false)):
 		travel_requested.emit(coords)
+
 
 func _on_gui_input(event: InputEvent) -> void:
 	if not event is InputEventMouseButton:

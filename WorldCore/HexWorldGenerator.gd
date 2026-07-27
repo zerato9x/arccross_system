@@ -11,6 +11,10 @@ class_name HexWorldGenerator
 @export var require_authored_map: bool = false
 
 @export_group("Macro Regions")
+## Legacy hub+wedge procedural world. Campaign play must inject MacroZoneGenerator
+## zones instead; keep this false except for old smokes/tools that still exercise
+## the pre-Node-Web layout.
+@export var enable_legacy_hub_wedge: bool = false
 @export_range(1, 6) var central_hub_radius: int = 2
 @export_range(3, 12) var hub_border_radius: int = 4
 
@@ -171,16 +175,24 @@ func _build_fresh_hex(coords: Vector2i) -> MacroHexData:
 		if require_authored_map:
 			return build_void_hex(coords)
 
-	var procedural_hex := MacroHexData.new()
-	_assign_zone_identity(coords, procedural_hex)
-	if procedural_hex.zone_id == "hub_core":
-		_apply_hub_core(coords, procedural_hex)
-	elif procedural_hex.zone_id == "hub_border":
-		_apply_hub_border(coords, procedural_hex)
-	else:
-		_generate_wedge_hex(coords, procedural_hex)
-	_apply_world_mutations(coords, procedural_hex)
-	return procedural_hex
+	# Campaign contract: inject MacroZoneGenerator output. Without inject (and
+	# without authored_map), fall back to unscoped plains — never invent a fake
+	# hub/wedge world unless explicitly opted in for legacy tools.
+	if enable_legacy_hub_wedge:
+		var procedural_hex := MacroHexData.new()
+		_assign_zone_identity(coords, procedural_hex)
+		if procedural_hex.zone_id == "hub_core":
+			_apply_hub_core(coords, procedural_hex)
+		elif procedural_hex.zone_id == "hub_border":
+			_apply_hub_border(coords, procedural_hex)
+		else:
+			_generate_wedge_hex(coords, procedural_hex)
+		_apply_world_mutations(coords, procedural_hex)
+		return procedural_hex
+
+	var unscoped := _build_unscoped_plains_hex(coords)
+	_apply_world_mutations(coords, unscoped)
+	return unscoped
 
 func _finalize_authored_hex(coords: Vector2i, hex: MacroHexData) -> void:
 	if hex.zone_id.is_empty():
@@ -200,6 +212,47 @@ func _apply_world_mutations(coords: Vector2i, hex: MacroHexData) -> void:
 	var record := hex.to_state()
 	_mutation_store.apply_patch_to_record(coords, record)
 	hex.apply_state(record)
+
+func _build_unscoped_plains_hex(coords: Vector2i) -> MacroHexData:
+	## Deterministic plains filler for debug get_hex_at without zone inject.
+	## No hub_core / hub_border / wedge_* ids and no wedge landmarks.
+	var hex := MacroHexData.new()
+	hex.zone_id = "unscoped"
+	hex.biome_pack = GameEnums.BIOME_PACK_PLAINS
+	hex.region = GameEnums.MacroRegion.WASTELAND
+	hex.biome = GameEnums.GridBiome.PLAINS
+	hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
+	hex.flora_layer = GameEnums.MacroFloraLayer.NONE
+	hex.rock_layer = GameEnums.MacroRockLayer.NONE
+	hex.structure_layer = GameEnums.MacroStructureLayer.NONE
+	hex.is_poi = false
+	hex.landmark_id = ""
+
+	var elevation: float = elevation_noise.get_noise_2dv(coords)
+	var moisture: float = moisture_noise.get_noise_2dv(coords)
+	if elevation > 0.62:
+		hex.rock_layer = GameEnums.MacroRockLayer.ROCKS
+	elif elevation > 0.38:
+		hex.rock_layer = GameEnums.MacroRockLayer.HILLS
+	if hex.rock_layer != GameEnums.MacroRockLayer.ROCKS:
+		if elevation < -0.30 or moisture < -0.30:
+			hex.terrain_tile = GameEnums.MacroTerrainTile.MUD_YELLOW
+		elif moisture > 0.32:
+			hex.terrain_tile = GameEnums.MacroTerrainTile.FOREST_SPARSE
+			hex.flora_layer = GameEnums.MacroFloraLayer.TREES
+
+	_apply_shrub_variation(coords, hex, 1.0)
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = (master_seed + ":unscoped:layers:" + str(coords)).hash()
+	if hex.structure_layer == GameEnums.MacroStructureLayer.NONE:
+		var structure_roll := rng.randf()
+		if structure_roll < random_structure_chance:
+			hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
+		elif structure_roll < random_structure_chance + random_remnant_chance:
+			hex.structure_layer = GameEnums.MacroStructureLayer.REMNANTS
+	return hex
+
 
 func _assign_zone_identity(coords: Vector2i, hex: MacroHexData) -> void:
 	var distance := _hex_distance(Vector2i.ZERO, coords)
@@ -346,6 +399,8 @@ func _apply_region_hazard(coords: Vector2i, hex: MacroHexData) -> void:
 			hex.hazard_level = 0.0
 		"hub_border":
 			hex.hazard_level = 1.0
+		"unscoped":
+			hex.hazard_level = clampf(2.0 + float(distance) * 0.08, 0.0, GameEnums.SCALE_MAX)
 		_:
 			var wedge_def := _SectorCatalog.wedge_definition(hex.zone_id)
 			hex.hazard_level = clampf(

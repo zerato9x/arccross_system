@@ -44,16 +44,14 @@ func _ready() -> void:
 	btn_settings.pressed.connect(func(): settings_panel.visible = true)
 	btn_quit.pressed.connect(_on_quit)
 	settings_close_button.pressed.connect(func(): settings_panel.visible = false)
-	combat_mode_option.clear()
-	combat_mode_option.add_item("Turn-Based Duel (Official)", 0)
-	combat_mode_option.add_item("Real-Time Duel (Optional)", 1)
+	# Real-time combat is Combat Lab only (WAVE // COMBAT LAB). Hide the obsolete
+	# production combat-mode toggle while keeping the node for scene compatibility.
+	if combat_mode_option != null:
+		combat_mode_option.visible = false
+		combat_mode_option.disabled = true
 	_populate_hud_scheme_option()
 	if game_settings != null:
-		combat_mode_option.select(
-			0 if game_settings.combat_mode == game_settings.COMBAT_TURN_BASED else 1
-		)
 		_select_hud_scheme(game_settings.hud_scheme)
-	combat_mode_option.item_selected.connect(_on_combat_mode_selected)
 	hud_scheme_option.item_selected.connect(_on_hud_scheme_selected)
 	settings_panel.visible = false
 	
@@ -161,7 +159,17 @@ func _on_wave() -> void:
 
 func _on_slot_selected(slot_index: int) -> void:
 	var save_service = get_node_or_null("/root/SaveLoadService")
-	if save_service and save_service.load_from_slot(slot_index):
+	if save_service == null:
+		return
+	if save_service.has_method("is_slot_compatible") and not save_service.is_slot_compatible(slot_index):
+		var meta: Dictionary = save_service.get_save_metadata(slot_index)
+		if meta.is_empty():
+			return
+		# Explicit fresh-run path for incompatible legacy slots (UI already warns).
+		if save_service.begin_fresh_run_from_incompatible_slot(slot_index):
+			_change_to_game_scene()
+		return
+	if save_service.load_from_slot(slot_index):
 		_change_to_game_scene()
 
 
@@ -176,15 +184,6 @@ func _on_save_load_closed() -> void:
 
 func _on_quit() -> void:
 	get_tree().quit()
-
-
-func _on_combat_mode_selected(index: int) -> void:
-	var settings := get_node_or_null("/root/GameSettings")
-	if settings == null:
-		return
-	settings.set_combat_mode(
-		settings.COMBAT_TURN_BASED if index == 0 else settings.COMBAT_REALTIME
-	)
 
 
 func _populate_hud_scheme_option() -> void:
@@ -217,5 +216,4 @@ func _on_hud_scheme_selected(index: int) -> void:
 	HUDAssetLibrary.apply_button(btn_settings)
 	HUDAssetLibrary.apply_button(btn_quit)
 	HUDAssetLibrary.apply_button(settings_close_button)
-	HUDAssetLibrary.apply_option_button(combat_mode_option)
 	HUDAssetLibrary.apply_option_button(hud_scheme_option)

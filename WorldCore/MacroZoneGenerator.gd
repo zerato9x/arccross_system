@@ -327,17 +327,27 @@ func _build_plains_rng_hex(coords: Vector2i) -> MacroHexData:
 	else:
 		hex.biome_pack = GameEnums.BIOME_PACK_PLAINS
 
+	# North snow hexes prefer north rock sprites when rock/hill layers are present.
+	if (
+		hex.biome_pack == GameEnums.BIOME_PACK_NORTH
+		and hex.rock_layer != GameEnums.MacroRockLayer.NONE
+		and hex.rock_sprite_path.is_empty()
+	):
+		var rock_rng := RandomNumberGenerator.new()
+		rock_rng.seed = (zone_seed + ":north_rock:" + str(coords)).hash()
+		hex.rock_sprite_path = _pick_curated_layer_path(DECOR_NORTH_ROCK_PATHS, rock_rng)
+
 	var rng := RandomNumberGenerator.new()
 	rng.seed = (zone_seed + ":layers:" + str(coords)).hash()
 	if hex.structure_layer == GameEnums.MacroStructureLayer.NONE and hex.landmark_id.is_empty():
 		var structure_roll := rng.randf()
 		if structure_roll < random_structure_chance:
 			hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
-			var structure_pack := NodeDialectProfile.pick_structure_pack(
+			hex.structure_pack = NodeDialectProfile.pick_structure_pack(
 				_dialect_profile,
 				rng.randf()
 			)
-			if structure_pack == GameEnums.BIOME_PACK_NORTH:
+			if hex.structure_pack == GameEnums.BIOME_PACK_NORTH:
 				hex.structure_sprite_path = _pick_curated_layer_path(
 					RANDOM_NORTH_STRUCTURE_PATHS,
 					rng
@@ -347,13 +357,16 @@ func _build_plains_rng_hex(coords: Vector2i) -> MacroHexData:
 						RANDOM_STRUCTURE_PATHS,
 						rng
 					)
+					hex.structure_pack = GameEnums.BIOME_PACK_DEFAULT_ERA8
 			else:
+				hex.structure_pack = GameEnums.BIOME_PACK_DEFAULT_ERA8
 				hex.structure_sprite_path = _pick_curated_layer_path(
 					RANDOM_STRUCTURE_PATHS,
 					rng
 				)
 		elif structure_roll < random_structure_chance + random_remnant_chance:
 			hex.structure_layer = GameEnums.MacroStructureLayer.REMNANTS
+			hex.structure_pack = GameEnums.BIOME_PACK_DEFAULT_ERA8
 			hex.structure_sprite_path = _pick_curated_layer_path(
 				RANDOM_REMNANT_PATHS,
 				rng
@@ -425,6 +438,7 @@ func _apply_landmark_to_hex(
 	hex.poi_name = str(landmark.get("poi_name", "Landmark"))
 	hex.sleep_anchor = str(landmark.get("sleep_anchor", "ground"))
 	hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
+	hex.structure_pack = GameEnums.BIOME_PACK_DEFAULT_ERA8
 	hex.structure_sprite_path = _PoiVisualCatalog.pick_structure_path(
 		hex.landmark_id,
 		zone_seed,
@@ -587,12 +601,21 @@ func _pick_cluster_decor_path(
 	if hex.flora_layer == GameEnums.MacroFloraLayer.TREES:
 		return DECOR_SHRUB_PATHS[rng.randi_range(0, DECOR_SHRUB_PATHS.size() - 1)]
 	if hex.rock_layer != GameEnums.MacroRockLayer.NONE:
+		var prefer_north_rocks := hex.biome_pack == GameEnums.BIOME_PACK_NORTH
+		if prefer_north_rocks and index < maxi(2, _cluster_size_for_rock_layer(hex.rock_layer) - 1):
+			var north_rock := _pick_curated_layer_path(DECOR_NORTH_ROCK_PATHS, rng)
+			if not north_rock.is_empty():
+				return north_rock
 		return (
 			DECOR_ROCK_PATHS[rng.randi_range(0, DECOR_ROCK_PATHS.size() - 1)]
 			if index < maxi(2, _cluster_size_for_rock_layer(hex.rock_layer) - 1)
 			else DECOR_SHRUB_PATHS[rng.randi_range(0, DECOR_SHRUB_PATHS.size() - 1)]
 		)
 	if rng.randf() < 0.14:
+		if hex.biome_pack == GameEnums.BIOME_PACK_NORTH:
+			var north_rock := _pick_curated_layer_path(DECOR_NORTH_ROCK_PATHS, rng)
+			if not north_rock.is_empty():
+				return north_rock
 		return DECOR_ROCK_PATHS[rng.randi_range(0, DECOR_ROCK_PATHS.size() - 1)]
 	if hex.structure_layer != GameEnums.MacroStructureLayer.NONE and rng.randf() < 0.65:
 		return DECOR_PROP_PATHS[rng.randi_range(0, DECOR_PROP_PATHS.size() - 1)]

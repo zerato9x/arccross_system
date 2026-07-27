@@ -11,6 +11,7 @@ class_name MacroHexData
 @export var arm_direction: GameEnums.MacroArmDirection = GameEnums.MacroArmDirection.NONE
 @export var zone_id: String = ""
 @export var biome_pack: String = GameEnums.BIOME_PACK_PLAINS
+@export var structure_pack: String = GameEnums.BIOME_PACK_DEFAULT_ERA8
 @export var landmark_id: String = ""
 @export var impassable: bool = false
 @export var terrain_sprite_path: String = ""
@@ -51,6 +52,7 @@ func to_state() -> HexRecord:
 	record.arm_direction = arm_direction
 	record.zone_id = zone_id
 	record.biome_pack = biome_pack
+	record.structure_pack = structure_pack
 	record.landmark_id = landmark_id
 	record.impassable = impassable
 	record.terrain_sprite_path = terrain_sprite_path
@@ -94,6 +96,7 @@ func apply_state(state) -> void:
 	arm_direction = source.arm_direction
 	zone_id = source.zone_id
 	biome_pack = source.biome_pack
+	structure_pack = source.structure_pack
 	landmark_id = source.landmark_id
 	impassable = source.impassable
 	terrain_sprite_path = source.terrain_sprite_path

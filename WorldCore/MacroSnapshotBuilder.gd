@@ -364,6 +364,12 @@ static func build_hex_descriptor(
 		entity_purpose = ensure_npc_purpose_callback.call(entity_record).capitalize()
 		hostile = is_entity_hostile_callback.call(entity_record.entity_id)
 
+	var entity_inspect := {}
+	if entity_record != null and not entity_name.is_empty():
+		entity_inspect = MacroEntityCollisionResolver.build_opponent_summary(
+			entity_record
+		)
+
 	var distance: int = hex_distance_callback.call(player_coords, coords)
 	var travel_minutes := GameTimeRules.move_minutes_for_hex(hex_data) if distance == 1 else 0
 	var travel_km := GameTimeRules.travel_distance_km(1) if distance == 1 else 0.0
@@ -411,6 +417,7 @@ static func build_hex_descriptor(
 		"entity_status": entity_status,
 		"entity_purpose": entity_purpose,
 		"hostile": hostile,
+		"entity_inspect": entity_inspect,
 		"feature_title": feature_title(hex_data),
 		"environment_summary": environment_summary(hex_data),
 		"movement_note": movement_note(hex_data),

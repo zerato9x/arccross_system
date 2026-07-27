@@ -1,0 +1,54 @@
+[gd_scene load_steps=3 format=3 uid="uid://macro_entity_inspect"]
+
+[ext_resource type="Script" path="res://UI/HUD/Macro/MacroEntityInspectCard.gd" id="1_card"]
+[ext_resource type="PackedScene" path="res://UI/Inventory/PaperDollModel.tscn" id="2_doll"]
+
+[node name="MacroEntityInspectCard" type="PanelContainer"]
+custom_minimum_size = Vector2(280, 320)
+offset_right = 280.0
+offset_bottom = 320.0
+mouse_filter = 2
+script = ExtResource("1_card")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="Column" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="InspectTitle" type="Label" parent="Margin/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "ENTITY"
+
+[node name="InspectPaperDollStage" type="Control" parent="Margin/Column"]
+custom_minimum_size = Vector2(0, 160)
+layout_mode = 2
+size_flags_vertical = 3
+clip_contents = true
+
+[node name="InspectPaperDoll" parent="Margin/Column/InspectPaperDollStage" instance=ExtResource("2_doll")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="InspectMeta" type="Label" parent="Margin/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+text = "No signal"
+
+[node name="InspectTags" type="Label" parent="Margin/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+text = ""

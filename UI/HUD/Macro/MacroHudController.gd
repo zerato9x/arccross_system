@@ -53,6 +53,7 @@ var _layout_manager := MacroHudLayoutManager.new()
 @onready var _settings_load_button: Button = %SettingsLoadButton
 @onready var _settings_menu_button: Button = %SettingsMenuButton
 @onready var _exploration_stage: MacroExplorationStage = %MacroExplorationStage
+@onready var _entity_inspect: MacroEntityInspectCard = %MacroEntityInspectCard
 
 
 func _ready() -> void:
@@ -97,10 +98,10 @@ func _ready() -> void:
 			PresentationSceneRegistry.MAIN_MENU_SCENE
 		)
 	)
-	_combat_mode_option.clear()
-	_combat_mode_option.add_item("Real-Time Duel", 0)
-	_combat_mode_option.add_item("Turn-Based Duel", 1)
-	_combat_mode_option.item_selected.connect(_on_combat_mode_selected)
+	# Production combat is turn-based only. Real-time stays in WAVE // COMBAT LAB.
+	if _combat_mode_option != null:
+		_combat_mode_option.visible = false
+		_combat_mode_option.disabled = true
 	_populate_hud_scheme_option()
 	_hud_scheme_option.item_selected.connect(_on_hud_scheme_selected)
 	if _save_load_menu:
@@ -110,9 +111,6 @@ func _ready() -> void:
 	if settings != null:
 		_screen_noise_toggle.button_pressed = settings.screen_noise_enabled
 		_hud_scale_slider.value = settings.hud_scale
-		_combat_mode_option.select(
-			1 if settings.combat_mode == settings.COMBAT_TURN_BASED else 0
-		)
 		_select_hud_scheme(settings.hud_scheme)
 	_screen_overlay.visible = _screen_noise_toggle.button_pressed
 	_screen_noise_toggle.toggled.connect(_on_screen_noise_toggled)
@@ -196,7 +194,21 @@ func get_exploration_stage() -> MacroExplorationStage:
 
 
 func open_event(session: Dictionary) -> void:
+	hide_entity_inspect()
 	_exploration_stage.open_event(session)
+
+
+func show_entity_inspect(payload: Dictionary) -> void:
+	if _exploration_stage != null and _exploration_stage.is_open():
+		return
+	if _entity_inspect == null:
+		return
+	_entity_inspect.show_entity(payload)
+
+
+func hide_entity_inspect() -> void:
+	if _entity_inspect:
+		_entity_inspect.hide_card()
 
 
 func show_event_result(result: Dictionary) -> void:
@@ -318,15 +330,6 @@ func _configure_scanline_overlay() -> void:
 	_screen_overlay.material = material
 
 
-func _on_combat_mode_selected(index: int) -> void:
-	var settings := get_node_or_null("/root/GameSettings")
-	if settings == null:
-		return
-	settings.set_combat_mode(
-		settings.COMBAT_TURN_BASED if index == 1 else settings.COMBAT_REALTIME
-	)
-
-
 func _populate_hud_scheme_option() -> void:
 	_hud_scheme_option.clear()
 	for scheme_id in HUDAssetLibrary.scheme_ids():
@@ -363,6 +366,8 @@ func _on_hud_scheme_changed(_scheme_id: String) -> void:
 		_hex_panel.restyle_scheme()
 	if _world_status and _world_status.has_method("restyle"):
 		_world_status.restyle()
+	if _entity_inspect and _entity_inspect.has_method("restyle"):
+		_entity_inspect.restyle()
 	if _exploration_stage and _exploration_stage.has_method("restyle"):
 		_exploration_stage.restyle()
 	if not _snapshot.is_empty():
@@ -391,7 +396,6 @@ func _restyle_settings_chrome() -> void:
 	HUDAssetLibrary.apply_button(_settings_load_button, "load")
 	HUDAssetLibrary.apply_button(_settings_menu_button, "map")
 	HUDAssetLibrary.apply_label(_hud_scale_label, "muted")
-	HUDAssetLibrary.apply_option_button(_combat_mode_option)
 	HUDAssetLibrary.apply_option_button(_hud_scheme_option)
 	HUDAssetLibrary.apply_soft_edge(_settings_panel, 0.18)
 

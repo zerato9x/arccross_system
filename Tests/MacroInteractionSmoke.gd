@@ -437,12 +437,12 @@ func _verify_ceasefire_ask_trade_tree() -> bool:
 	)
 	await process_frame
 	if not macro_map.macro_hud.is_event_open():
-		_fail("Trade placeholder did not open a result panel.")
+		_fail("Trade result did not open a result panel.")
 		return false
 	macro_map.macro_hud.close_event(true)
 	await process_frame
 	if not macro_map.macro_hud.is_event_open():
-		_fail("Trade placeholder continue did not resume the peaceful session.")
+		_fail("Trade continue did not resume the peaceful session.")
 		return false
 
 	macro_map.resolve_entity_collision_choice(
