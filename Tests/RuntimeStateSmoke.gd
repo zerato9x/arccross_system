@@ -68,8 +68,8 @@ func _run() -> void:
 	var duel_scene := load("res://CombatCore/MainDuelScene.tscn") as PackedScene
 	var first_arena = duel_scene.instantiate()
 	game_director.add_child(first_arena)
-	first_arena.setup_duel(
-		macro_map.player_token.get_humanoid_core(),
+	first_arena.setup_duel_from_records(
+		macro_map.player_token.capture_runtime_record(),
 		original_record.to_dict()
 	)
 	await process_frame
@@ -118,8 +118,8 @@ func _run() -> void:
 
 	var second_arena = duel_scene.instantiate()
 	game_director.add_child(second_arena)
-	second_arena.setup_duel(
-		macro_map.player_token.get_humanoid_core(),
+	second_arena.setup_duel_from_records(
+		macro_map.player_token.capture_runtime_record(),
 		world_state.get_entity(enemy_id).to_dict()
 	)
 	await process_frame

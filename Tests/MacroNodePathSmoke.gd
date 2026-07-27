@@ -31,8 +31,8 @@ func _run() -> void:
 
 
 func _verify_graph(graph: MacroMapGraph) -> bool:
-	if graph.nodes.size() != 22:
-		return _fail("Expected 22 nodes, got %d." % graph.nodes.size())
+	if graph.nodes.size() < 34 or graph.nodes.size() > 39:
+		return _fail("Expected the expanded 34-39 node North web, got %d." % graph.nodes.size())
 	if graph.get_node(MacroGraphGenerator.CENTRAL_ID) == null:
 		return _fail("Missing Central Core.")
 	for prefix in MacroGraphGenerator.ARM_PREFIXES:
