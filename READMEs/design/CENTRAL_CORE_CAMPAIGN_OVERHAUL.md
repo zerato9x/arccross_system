@@ -6,6 +6,41 @@ Directional Node Web.
 
 **Where this conflicts with soft Act 1 language elsewhere, this file wins.**
 
+## July 2026 opening and Node Web contract (supersedes older Act 1 notes below)
+
+The implemented opening no longer enters Central or forces a North-only first
+step. New Game opens a resource-driven guided sequence:
+
+1. Select exactly one occupation, one trait, and one flaw from the identity
+   catalog. These stable IDs provide presentation text, rule tags, and the
+   occupation's additions to the common starting loadout.
+2. Confirm the identity, then play the occupation-flavored guided eviction.
+3. Choose any of the four adjacent Route 1 nodes. The character enters that
+   node facing inward from Central; the run never enters Central first.
+
+The post-eviction Node Web is governed by
+[`WorldCore/campaign_graph.tres`](../../WorldCore/campaign_graph.tres):
+
+- All four `*_random_1` nodes and their inner-ring links are open.
+- The North Route 1 -> Route 2 -> Route 3 spine is open immediately.
+- East, South, and West Route 2/3, gateways, and Cores are visible but locked.
+- Central is visible but cannot be entered until all four regional Core states
+  have `restored = true`.
+- North Route 2 and Route 3 own deterministic interior clusters. Hidden nodes
+  and edges are absent from the map until a data-authored discovery trigger
+  reveals them; hidden branches are never required for main progression.
+
+Core restoration and structural changes remain profile-wide Meta state. A new
+character inherits restored Cores, while identity, chosen spawn, eviction, and
+the generated/revealed graph remain run-local state. The four-Core requirement
+is authored in
+[`SystemCore/central_unlock_milestone.tres`](../../SystemCore/central_unlock_milestone.tres).
+
+Any older section below that says only North Route 1 is selectable, that the
+inner ring is closed, that the player spawns on a Central fringe, or that an
+NPC North Pointer is required is retained only as historical planning context
+and is not an implementation requirement.
+
 | Owns | Defers to |
 | --- | --- |
 | Act 1 campaign flow, travel seals, tutorial beats, phased IDE checklist | — |

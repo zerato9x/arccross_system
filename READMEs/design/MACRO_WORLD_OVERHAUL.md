@@ -17,6 +17,30 @@ Where Act 1 soft language here conflicts with that file, **Central Core wins**.
 
 ---
 
+## Current opening topology (supersedes older Act 1 soft-seal text below)
+
+- New Game performs resource-backed identity selection and guided eviction,
+  then deploys directly to the player's choice of North, East, South, or West
+  Route 1. It does not bootstrap through `central_core`.
+- The four Route 1 nodes form an open traversable inner ring.
+- North Route 1 -> 2 -> 3 is open; East/South/West Route 2/3, gateways, and
+  regional Cores are visible but locked.
+- Central remains visible and locked until the data-defined milestone observes
+  all four persistent regional Core states as restored.
+- North Route 2/3 contain deterministic clustered interior nodes. Hidden nodes
+  and their stable-ID edges are excluded from the map until their declarative
+  discovery rules reveal them.
+- Every playable node, including cluster interiors, continues to use the same
+  bounded radius-12 local-zone runtime and snapshot lifecycle.
+
+The live topology contract is authored in
+[`WorldCore/campaign_graph.tres`](../../WorldCore/campaign_graph.tres), not in a
+UI controller. References below to 22 fixed nodes, a Central-fringe spawn,
+closed Route 1 ring links, or a North-only selectable start are historical and
+must not be used as current implementation guidance.
+
+---
+
 ## Architecture decision (locked)
 
 Keep the July 16 **Directional Node Web**:
