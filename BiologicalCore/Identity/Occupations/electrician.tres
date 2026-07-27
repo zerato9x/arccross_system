@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="OccupationDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://BiologicalCore/Identity/OccupationDefinition.gd" id="1_script"]
+[ext_resource type="Resource" path="res://ItemCore/Items/flashlight.tres" id="2_item"]
+
+[resource]
+script = ExtResource("1_script")
+id = "electrician"
+display_name = "Electrician"
+summary = "Reads damaged circuits, power routing, and improvised electrical systems."
+grants_capability_ids = PackedStringArray("electrician", "electrical_work")
+rule_tag_ids = PackedStringArray("grid_literate")
+exile_text = "The outage is entered under your authorization code. Your clearance is cut before the lights return."
+starting_items = Array[Resource]([ExtResource("2_item")])

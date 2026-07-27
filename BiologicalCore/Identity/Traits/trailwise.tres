@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="TraitDefinition" load_steps=2 format=3]
+[ext_resource type="Script" path="res://BiologicalCore/Identity/TraitDefinition.gd" id="1_script"]
+[resource]
+script = ExtResource("1_script")
+id = "trailwise"
+display_name = "Trailwise"
+summary = "Recognizes safe camps, useful tracks, and routes that survive bad weather."
+grants_capability_ids = PackedStringArray("fieldcraft")
+rule_tag_ids = PackedStringArray("trailwise")

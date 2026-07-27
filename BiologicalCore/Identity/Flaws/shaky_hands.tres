@@ -1,11 +1,8 @@
 [gd_resource type="Resource" script_class="FlawDefinition" load_steps=2 format=3]
-
 [ext_resource type="Script" path="res://BiologicalCore/Identity/FlawDefinition.gd" id="1_script"]
-
 [resource]
 script = ExtResource("1_script")
-id = "light_sleeper"
-display_name = "Light Sleeper"
-summary = "Rest recovers less cleanly when the perimeter is unsettled."
-grants_capability_ids = PackedStringArray()
-rule_tag_ids = PackedStringArray("restless_sleep")
+id = "shaky_hands"
+display_name = "Shaky Hands"
+summary = "Precision degrades when pressure and fatigue arrive together."
+rule_tag_ids = PackedStringArray("unsteady_aim")

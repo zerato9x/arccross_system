@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="IdentityCatalogData" load_steps=14 format=3]
+[ext_resource type="Script" path="res://BiologicalCore/Identity/IdentityCatalogData.gd" id="1_catalog"]
+[ext_resource type="Resource" path="res://BiologicalCore/Identity/Occupations/scavenger.tres" id="2_scavenger"]
+[ext_resource type="Resource" path="res://BiologicalCore/Identity/Occupations/mechanic.tres" id="3_mechanic"]
+[ext_resource type="Resource" path="res://BiologicalCore/Identity/Occupations/electrician.tres" id="4_electrician"]
+[ext_resource type="Resource" path="res://BiologicalCore/Identity/Occupations/field_medic.tres" id="5_medic"]
+[ext_resource type="Resource" path="res://BiologicalCore/Identity/Traits/field_sense.tres" id="6_field"]
+[ext_resource type="Resource" path="res://BiologicalCore/Identity/Traits/sure_hands.tres" id="7_hands"]
+[ext_resource type="Resource" path="res://BiologicalCore/Identity/Traits/trailwise.tres" id="8_trail"]
+[ext_resource type="Resource" path="res://BiologicalCore/Identity/Traits/hard_to_kill.tres" id="9_hard"]
+[ext_resource type="Resource" path="res://BiologicalCore/Identity/Flaws/light_sleeper.tres" id="10_sleep"]
+[ext_resource type="Resource" path="res://BiologicalCore/Identity/Flaws/bad_knee.tres" id="11_knee"]
+[ext_resource type="Resource" path="res://BiologicalCore/Identity/Flaws/shaky_hands.tres" id="12_shaky"]
+[ext_resource type="Resource" path="res://BiologicalCore/Identity/Flaws/conspicuous.tres" id="13_loud"]
+[resource]
+script = ExtResource("1_catalog")
+occupations = Array[Resource]([ExtResource("2_scavenger"), ExtResource("3_mechanic"), ExtResource("4_electrician"), ExtResource("5_medic")])
+traits = Array[Resource]([ExtResource("6_field"), ExtResource("7_hands"), ExtResource("8_trail"), ExtResource("9_hard")])
+flaws = Array[Resource]([ExtResource("10_sleep"), ExtResource("11_knee"), ExtResource("12_shaky"), ExtResource("13_loud")])

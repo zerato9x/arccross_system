@@ -5,3 +5,4 @@ class_name FlawDefinition
 @export var display_name: String = ""
 @export var summary: String = ""
 @export var grants_capability_ids: PackedStringArray = []
+@export var rule_tag_ids: PackedStringArray = []

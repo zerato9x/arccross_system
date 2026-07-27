@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="OccupationDefinition" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="OccupationDefinition" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://BiologicalCore/Identity/OccupationDefinition.gd" id="1_script"]
+[ext_resource type="Resource" path="res://ItemCore/Items/crowbar.tres" id="2_item"]
 
 [resource]
 script = ExtResource("1_script")
@@ -8,3 +9,6 @@ id = "scavenger"
 display_name = "Scavenger"
 summary = "Reads scrap, locks, and abandoned gear for usable openings."
 grants_capability_ids = PackedStringArray("search_tooling")
+rule_tag_ids = PackedStringArray("salvage_training")
+exile_text = "Your salvage quota is marked deficient. Central keeps the surplus and sends the worker outside the walls."
+starting_items = Array[Resource]([ExtResource("2_item")])

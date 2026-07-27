@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="CampaignMilestoneDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://SystemCore/CampaignMilestoneDefinition.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+id = "restore_all_regional_cores"
+required_core_ids = PackedStringArray("north_core", "east_core", "south_core", "west_core")
+required_state_key = "restored"
+completion_event_id = "central_reentry_unlocked"

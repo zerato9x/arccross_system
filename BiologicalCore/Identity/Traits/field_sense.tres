@@ -7,4 +7,5 @@ script = ExtResource("1_script")
 id = "field_sense"
 display_name = "Field Sense"
 summary = "Notices terrain pressure and approach angles before they close."
-grants_capability_ids = PackedStringArray()
+grants_capability_ids = PackedStringArray("survey_routes")
+rule_tag_ids = PackedStringArray("field_sense")

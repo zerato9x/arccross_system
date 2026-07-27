@@ -1,0 +1,69 @@
+[gd_resource type="Resource" script_class="CampaignGraphDefinition" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://WorldCore/CampaignGraphDefinition.gd" id="1_graph"]
+[ext_resource type="Script" path="res://WorldCore/CampaignArmDefinition.gd" id="2_arm"]
+[ext_resource type="Resource" path="res://SystemCore/central_unlock_milestone.tres" id="3_milestone"]
+
+[sub_resource type="Resource" id="NorthArm"]
+script = ExtResource("2_arm")
+prefix = "north"
+display_name = "North"
+axis = Vector2i(0, 1)
+arm_direction = 1
+outward_direction = 1
+inward_direction = 3
+initial_open_depth = 3
+author_interior_clusters = true
+route_2_min_nodes = 5
+route_2_max_nodes = 7
+route_2_min_hidden = 2
+route_2_max_hidden = 3
+route_3_min_nodes = 7
+route_3_max_nodes = 10
+route_3_min_hidden = 3
+route_3_max_hidden = 5
+
+[sub_resource type="Resource" id="EastArm"]
+script = ExtResource("2_arm")
+prefix = "east"
+display_name = "East"
+axis = Vector2i(1, 0)
+arm_direction = 2
+outward_direction = 2
+inward_direction = 4
+initial_open_depth = 1
+
+[sub_resource type="Resource" id="SouthArm"]
+script = ExtResource("2_arm")
+prefix = "south"
+display_name = "South"
+axis = Vector2i(0, -1)
+arm_direction = 3
+outward_direction = 3
+inward_direction = 1
+initial_open_depth = 1
+
+[sub_resource type="Resource" id="WestArm"]
+script = ExtResource("2_arm")
+prefix = "west"
+display_name = "West"
+axis = Vector2i(-1, 0)
+arm_direction = 4
+outward_direction = 4
+inward_direction = 2
+initial_open_depth = 1
+
+[resource]
+script = ExtResource("1_graph")
+central_node_id = "central_core"
+graph_spacing = 4
+arms = Array[Resource]([SubResource("NorthArm"), SubResource("EastArm"), SubResource("SouthArm"), SubResource("WestArm")])
+start_node_ids = PackedStringArray("north_random_1", "east_random_1", "south_random_1", "west_random_1")
+start_arrival_directions = {
+"north_random_1": 3,
+"east_random_1": 4,
+"south_random_1": 1,
+"west_random_1": 2
+}
+open_inner_ring = true
+central_unlock_milestone = ExtResource("3_milestone")

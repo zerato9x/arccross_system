@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="TraitDefinition" load_steps=2 format=3]
+[ext_resource type="Script" path="res://BiologicalCore/Identity/TraitDefinition.gd" id="1_script"]
+[resource]
+script = ExtResource("1_script")
+id = "hard_to_kill"
+display_name = "Hard to Kill"
+summary = "Stays functional through pain and exhaustion that would stop cleaner plans."
+grants_capability_ids = PackedStringArray("endurance")
+rule_tag_ids = PackedStringArray("hard_to_kill")

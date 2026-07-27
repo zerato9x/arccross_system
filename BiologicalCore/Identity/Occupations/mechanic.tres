@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="OccupationDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://BiologicalCore/Identity/OccupationDefinition.gd" id="1_script"]
+[ext_resource type="Resource" path="res://ItemCore/Items/multitool.tres" id="2_item"]
+
+[resource]
+script = ExtResource("1_script")
+id = "mechanic"
+display_name = "Mechanic"
+summary = "Keeps failing machines useful with field repairs and careful diagnosis."
+grants_capability_ids = PackedStringArray("mechanic", "repair_tooling")
+rule_tag_ids = PackedStringArray("machine_literate")
+exile_text = "Maintenance assigns the failure to your record, retains the parts, and revokes your access to Central workshops."
+starting_items = Array[Resource]([ExtResource("2_item")])

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="OccupationDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://BiologicalCore/Identity/OccupationDefinition.gd" id="1_script"]
+[ext_resource type="Resource" path="res://ItemCore/Items/medkit.tres" id="2_medkit"]
+[ext_resource type="Resource" path="res://ItemCore/Items/bandage.tres" id="3_bandage"]
+
+[resource]
+script = ExtResource("1_script")
+id = "field_medic"
+display_name = "Field Medic"
+summary = "Stabilizes trauma when supplies, time, and clean conditions are scarce."
+grants_capability_ids = PackedStringArray("field_medic", "medical_triage")
+rule_tag_ids = PackedStringArray("clinical_training")
+exile_text = "Triage closes your case as an unacceptable ration loss. The remaining medicine is deducted from your departure allotment."
+starting_items = Array[Resource]([ExtResource("2_medkit"), ExtResource("3_bandage")])
