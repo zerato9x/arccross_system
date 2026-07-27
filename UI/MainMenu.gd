@@ -4,6 +4,7 @@ class_name MainMenu
 const MenuParallaxCatalog := preload("res://PresentationCore/MenuParallaxCatalog.gd")
 
 @export_file("*.tscn") var game_scene_path: String
+@export_file("*.tscn") var intro_scene_path: String
 @export_file("*.tscn") var wave_scene_path: String
 @export var parallax_scroll_speed: float = 20.0
 
@@ -142,10 +143,10 @@ func _rescale_parallax_layers() -> void:
 
 
 func _on_new_game() -> void:
-	var save_service = get_node_or_null("/root/SaveLoadService")
-	if save_service:
-		save_service.begin_new_world("DEMO_WASTELAND_01")
-	_change_to_game_scene()
+	if intro_scene_path.is_empty():
+		push_error("[MainMenu] Missing intro_scene_path.")
+		return
+	get_tree().change_scene_to_file(intro_scene_path)
 
 func _on_continue() -> void:
 	save_load_menu.visible = true

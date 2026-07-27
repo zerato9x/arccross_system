@@ -320,6 +320,19 @@ static func build_landmark_search_options(
 	world_seed: String,
 	coords: Vector2i
 ) -> Array:
+	if hex_data.poi_id == "arm_core":
+		var restored := hex_data.searched_targets.has("restore_regional_core")
+		return [{
+			"id": "restore_regional_core",
+			"label": "Restore Regional Core",
+			"description": "Bring this regional infrastructure Core back into the network.",
+			"requirements": {},
+			"metric_modifiers": {"loot": 0.0, "safety": 0.0, "sneak": 0.0},
+			"priority": 0,
+			"locked": restored,
+			"depleted": restored,
+			"lock_reason": "This regional Core has already been restored." if restored else "",
+		}]
 	const PoiVisualCatalog := preload("res://PresentationCore/PoiVisualCatalog.gd")
 	var props := PoiVisualCatalog.build_prop_descriptors(
 		hex_data,

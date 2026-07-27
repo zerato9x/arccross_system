@@ -7,11 +7,13 @@ class_name MacroMapGraph
 @export var edges: Array = [] # Directional neutral edge dictionaries.
 @export var hub_id: String = ""
 @export var seed_value: String = ""
+@export var discovery_rules: Array = []
 
 
 func clear() -> void:
 	nodes.clear()
 	edges.clear()
+	discovery_rules.clear()
 	hub_id = ""
 	seed_value = ""
 
@@ -39,29 +41,35 @@ func add_edge(
 	arrival_direction: int = GameEnums.MacroTravelDirection.NONE,
 	unlock_flag: String = "",
 	visible: bool = true,
-	bidirectional: bool = false
+	bidirectional: bool = false,
+	edge_id: String = "",
+	revealed: bool = true
 ) -> void:
 	if from_id.is_empty() or to_id.is_empty():
 		return
 	if not _has_edge(from_id, to_id):
 		edges.append({
+			"id": edge_id if not edge_id.is_empty() else "%s__%s" % [from_id, to_id],
 			"from": from_id,
 			"to": to_id,
 			"from_direction": from_direction,
 			"arrival_direction": arrival_direction,
 			"unlock_flag": unlock_flag,
 			"visible": visible,
+			"revealed": revealed,
 		})
 	_ensure_neighbor(from_id, to_id)
 	if bidirectional:
 		if not _has_edge(to_id, from_id):
 			edges.append({
+				"id": "%s__%s" % [to_id, from_id],
 				"from": to_id,
 				"to": from_id,
 				"from_direction": arrival_direction,
 				"arrival_direction": from_direction,
 				"unlock_flag": unlock_flag,
 				"visible": visible,
+				"revealed": revealed,
 			})
 		_ensure_neighbor(to_id, from_id)
 
@@ -143,6 +151,7 @@ func to_dict() -> Dictionary:
 		"seed_value": seed_value,
 		"nodes": node_dicts,
 		"edges": edges.duplicate(true),
+		"discovery_rules": discovery_rules.duplicate(true),
 	}
 
 
@@ -150,6 +159,7 @@ static func from_dict(data: Dictionary) -> MacroMapGraph:
 	var graph := MacroMapGraph.new()
 	graph.hub_id = str(data.get("hub_id", ""))
 	graph.seed_value = str(data.get("seed_value", ""))
+	graph.discovery_rules = data.get("discovery_rules", []).duplicate(true)
 	var node_dicts: Dictionary = data.get("nodes", {})
 	for node_id in node_dicts.keys():
 		graph.add_node(MacroNodeData.from_dict(node_dicts[node_id]))
@@ -162,7 +172,9 @@ static func from_dict(data: Dictionary) -> MacroMapGraph:
 				int(edge.get("arrival_direction", GameEnums.MacroTravelDirection.NONE)),
 				str(edge.get("unlock_flag", "")),
 				bool(edge.get("visible", true)),
-				false
+				false,
+				str(edge.get("id", "")),
+				bool(edge.get("revealed", edge.get("visible", true)))
 			)
 	return graph
 

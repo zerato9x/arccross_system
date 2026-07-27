@@ -1,0 +1,152 @@
+[gd_scene format=3 uid="uid://b8lqrc1snope0"]
+
+[ext_resource type="Script" uid="uid://835asmbh1xhm" path="res://UI/Intro/NewRunIntro.gd" id="1_a3kfb"]
+[ext_resource type="Script" uid="uid://bw45xygkumwfd" path="res://UI/NodeMap/NodeMapGraphView.gd" id="2_yjvv0"]
+
+[node name="NewRunIntro" type="Control" unique_id=814554731]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_a3kfb")
+
+[node name="Backdrop" type="ColorRect" parent="." unique_id=476608150]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 1
+color = Color(0.03529412, 0.043137256, 0.039215688, 1)
+
+[node name="PageMargin" type="MarginContainer" parent="Backdrop" unique_id=990993751]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 48
+theme_override_constants/margin_top = 36
+theme_override_constants/margin_right = 48
+theme_override_constants/margin_bottom = 36
+
+[node name="Page" type="VBoxContainer" parent="Backdrop/PageMargin" unique_id=1376607077]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="TitleLabel" type="Label" parent="Backdrop/PageMargin/Page" unique_id=331443742]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "CENTRAL PERSONNEL RECORD"
+
+[node name="StepLabel" type="Label" parent="Backdrop/PageMargin/Page" unique_id=1367080844]
+modulate = Color(0.6117647, 0.64705884, 0.56078434, 1)
+layout_mode = 2
+text = "STEP 1 / 4"
+
+[node name="BodyLabel" type="Label" parent="Backdrop/PageMargin/Page" unique_id=35983256]
+layout_mode = 2
+text = "Opening flow body."
+autowrap_mode = 2
+
+[node name="ContentPanel" type="PanelContainer" parent="Backdrop/PageMargin/Page" unique_id=2031534938]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ContentMargin" type="MarginContainer" parent="Backdrop/PageMargin/Page/ContentPanel" unique_id=2129571046]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 20
+
+[node name="IdentityPanel" type="VBoxContainer" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin" unique_id=1868758106]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="OccupationLabel" type="Label" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/IdentityPanel" unique_id=1228441718]
+layout_mode = 2
+text = "OCCUPATION"
+
+[node name="OccupationOption" type="OptionButton" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/IdentityPanel" unique_id=610636414]
+layout_mode = 2
+
+[node name="OccupationSummary" type="Label" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/IdentityPanel" unique_id=650394915]
+layout_mode = 2
+autowrap_mode = 2
+
+[node name="TraitLabel" type="Label" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/IdentityPanel" unique_id=1339798743]
+layout_mode = 2
+text = "TRAIT"
+
+[node name="TraitOption" type="OptionButton" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/IdentityPanel" unique_id=766123448]
+layout_mode = 2
+
+[node name="TraitSummary" type="Label" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/IdentityPanel" unique_id=1660658823]
+layout_mode = 2
+autowrap_mode = 2
+
+[node name="FlawLabel" type="Label" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/IdentityPanel" unique_id=1799220475]
+layout_mode = 2
+text = "FLAW"
+
+[node name="FlawOption" type="OptionButton" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/IdentityPanel" unique_id=1792411430]
+layout_mode = 2
+
+[node name="FlawSummary" type="Label" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/IdentityPanel" unique_id=1594384264]
+layout_mode = 2
+autowrap_mode = 2
+
+[node name="MessagePanel" type="VBoxContainer" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin" unique_id=764323537]
+visible = false
+layout_mode = 2
+
+[node name="MessageText" type="RichTextLabel" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/MessagePanel" unique_id=189409109]
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
+[node name="DeparturePanel" type="HBoxContainer" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin" unique_id=1044901422]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="DepartureGraph" type="Control" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/DeparturePanel" unique_id=385831651]
+custom_minimum_size = Vector2(720, 300)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+script = ExtResource("2_yjvv0")
+
+[node name="DepartureSide" type="VBoxContainer" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/DeparturePanel" unique_id=1173039403]
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SelectedNodeLabel" type="Label" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/DeparturePanel/DepartureSide" unique_id=425475802]
+layout_mode = 2
+text = "Select a Route 1 node."
+autowrap_mode = 2
+
+[node name="RouteHintLabel" type="Label" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/DeparturePanel/DepartureSide" unique_id=1917812216]
+layout_mode = 2
+text = "North continues deeper. The inner ring remains open."
+autowrap_mode = 2
+
+[node name="ErrorLabel" type="Label" parent="Backdrop/PageMargin/Page" unique_id=1344630684]
+modulate = Color(0.8627451, 0.41960785, 0.37254903, 1)
+layout_mode = 2
+autowrap_mode = 2
+
+[node name="Actions" type="HBoxContainer" parent="Backdrop/PageMargin/Page" unique_id=2018366388]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="BackButton" type="Button" parent="Backdrop/PageMargin/Page/Actions" unique_id=927469834]
+layout_mode = 2
+text = "BACK"
+
+[node name="Spacer" type="Control" parent="Backdrop/PageMargin/Page/Actions" unique_id=1168027642]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="NextButton" type="Button" parent="Backdrop/PageMargin/Page/Actions" unique_id=567643033]
+layout_mode = 2
+text = "CONTINUE"

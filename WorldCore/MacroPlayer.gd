@@ -47,6 +47,23 @@ func capture_runtime_record() -> Dictionary:
 		"runtime": humanoid_core.capture_runtime_state().to_dict(),
 	}
 
+
+func initialize_new_definition(definition_state: Dictionary) -> bool:
+	if definition_state.is_empty() or humanoid_core == null:
+		return false
+	humanoid_core.inventory.drain_all_items()
+	definition = EntityDefinition.from_state(definition_state)
+	humanoid_core.definition = definition
+	humanoid_core.body.configure_structure(definition.fortitude)
+	humanoid_core.inventory.base_max_capacity = 0
+	if definition.loadout != null:
+		definition.loadout.apply_to(humanoid_core.inventory)
+	humanoid_core.inventory._recalculate_bounds()
+	if humanoid_token != null:
+		humanoid_token.refresh_from_record(capture_runtime_record())
+		refresh_token_pose()
+	return true
+
 func restore_runtime_record(record) -> void:
 	if record == null or (record is Dictionary and record.is_empty()):
 		return

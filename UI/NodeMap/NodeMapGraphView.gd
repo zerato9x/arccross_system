@@ -163,7 +163,8 @@ func _draw() -> void:
 			_layout[from_id],
 			_layout[to_id],
 			unlocked_edge,
-			bool(edge.get("eligible", false))
+			bool(edge.get("eligible", false)),
+			bool(edge.get("just_revealed", false))
 		)
 
 	for node in _nodes:
@@ -195,14 +196,15 @@ func _draw_edge(
 	from_pos: Vector2,
 	to_pos: Vector2,
 	unlocked_edge: bool,
-	eligible: bool = false
+	eligible: bool = false,
+	just_revealed: bool = false
 ) -> void:
 	var color := (
-		HUDAssetLibrary.COLOR_CAUTION if eligible else HUDAssetLibrary.COLOR_NORMAL
+		HUDAssetLibrary.COLOR_CAUTION if eligible or just_revealed else HUDAssetLibrary.COLOR_NORMAL
 		if unlocked_edge
 		else HUDAssetLibrary.COLOR_MUTED.darkened(0.25)
 	)
-	var width := (4.5 if eligible else 2.5) * _zoom
+	var width := (4.5 if eligible else 3.0 + sin(_pulse_t) if just_revealed else 2.5) * _zoom
 	if unlocked_edge:
 		draw_line(from_pos, to_pos, color, width)
 	else:
@@ -233,6 +235,7 @@ func _draw_node(node: Dictionary, pos: Vector2) -> void:
 	var completed := bool(node.get("traversed", false))
 	var selected := node_id == _selected_id
 	var hovered := node_id == _hovered_id
+	var just_revealed := bool(node.get("just_revealed", false))
 
 	var fill := HUDAssetLibrary.COLOR_PANEL_ALT
 	var border := HUDAssetLibrary.COLOR_BORDER
@@ -253,8 +256,10 @@ func _draw_node(node: Dictionary, pos: Vector2) -> void:
 		border = HUDAssetLibrary.COLOR_BORDER_DARK
 
 	var radius := NODE_RADIUS * _zoom
-	if is_active:
+	if is_active or just_revealed:
 		radius += (2.0 + sin(_pulse_t) * 2.0) * _zoom
+	if just_revealed:
+		border = HUDAssetLibrary.COLOR_CAUTION
 	if selected or hovered:
 		draw_circle(pos, radius + 5.0 * _zoom, Color(border.r, border.g, border.b, 0.28))
 	draw_circle(pos, radius, fill)

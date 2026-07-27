@@ -16,6 +16,8 @@ var last_arrival_direction: GameEnums.MacroTravelDirection = GameEnums.MacroTrav
 
 var _world_state: RuntimeStateStore
 var _meta_progress: Node
+var _player_capabilities: PackedStringArray = []
+var _newly_revealed_node_ids: PackedStringArray = []
 
 
 func configure(world_state: RuntimeStateStore) -> void:
@@ -27,6 +29,8 @@ func configure(world_state: RuntimeStateStore) -> void:
 
 
 func begin_campaign(seed_value: String) -> MacroMapGraph:
+	if _meta_progress != null and _meta_progress.has_method("evaluate_campaign_milestones"):
+		_meta_progress.evaluate_campaign_milestones()
 	world_seed = seed_value
 	graph = MacroGraphGenerator.generate_web(seed_value, _meta_flags())
 	_apply_meta_unlocks()
@@ -37,6 +41,10 @@ func begin_campaign(seed_value: String) -> MacroMapGraph:
 	zone_generator.configure_services(_world_state)
 	zone_generator.configure_seed(seed_value)
 	return graph
+
+
+func set_player_capabilities(capability_ids: PackedStringArray) -> void:
+	_player_capabilities = capability_ids.duplicate()
 
 
 func load_campaign(graph_data: Dictionary, p_active_node_id: String = "") -> void:
@@ -60,7 +68,11 @@ func get_available_nodes() -> Array[String]:
 		return result
 	for node_id in graph.node_ids_in_order():
 		var node := graph.get_node(node_id)
-		if node != null and node.unlocked:
+		if (
+			node != null
+			and node.unlocked
+			and (not node.hidden_until_discovered or node.discovered)
+		):
 			result.append(node_id)
 	return result
 
@@ -73,6 +85,8 @@ func get_directional_destinations(exit_direction: int) -> Array[String]:
 		var target_id := str(edge.get("to", ""))
 		var target := graph.get_node(target_id)
 		if target == null or not target.unlocked:
+			continue
+		if not bool(edge.get("revealed", edge.get("visible", true))):
 			continue
 		if (
 			target_id == MacroGraphGenerator.CENTRAL_ID
@@ -105,7 +119,7 @@ func can_enter_node(
 	):
 		return false
 	if active_node_id.is_empty():
-		return node_id == graph.hub_id
+		return node_id == graph.hub_id or MacroGraphGenerator.allowed_start_node_ids().has(node_id)
 	if exit_direction == GameEnums.MacroTravelDirection.NONE:
 		return false
 	return get_directional_destinations(exit_direction).has(node_id)
@@ -115,6 +129,10 @@ func _is_central_locked() -> bool:
 	if _meta_progress != null and _meta_progress.has_method("is_central_locked"):
 		return bool(_meta_progress.is_central_locked())
 	return bool(_meta_flags().get("central_locked", true))
+
+
+func is_central_locked() -> bool:
+	return _is_central_locked()
 
 
 func enter_node(
@@ -136,40 +154,110 @@ func enter_node(
 		)) as GameEnums.MacroTravelDirection
 		_mark_active_traversed()
 		_capture_active_node_runtime()
+	elif MacroGraphGenerator.allowed_start_node_ids().has(node_id):
+		arrival = MacroGraphGenerator.arrival_direction_for_start(node_id)
+	return _enter_node_unchecked(node, arrival)
+
+
+func enter_initial_node(node_id: String, arrival_direction: int) -> bool:
+	if graph == null or not active_node_id.is_empty():
+		return false
+	if not MacroGraphGenerator.allowed_start_node_ids().has(node_id):
+		return false
+	var node := graph.get_node(node_id)
+	if node == null or not node.unlocked:
+		return false
+	return _enter_node_unchecked(node, arrival_direction)
+
+
+func _enter_node_unchecked(node: MacroNodeData, arrival: int) -> bool:
 	_clear_local_zone_runtime()
 
 	node.discovered = true
 	node.details_revealed = true
-	active_node_id = node_id
+	active_node_id = node.id
 	last_arrival_direction = arrival
 	_generate_active_zone(node, arrival)
 
 	if _world_state != null:
-		_world_state.active_node_id = node_id
+		_world_state.active_node_id = node.id
 		_world_state.active_arrival_direction = int(arrival)
 		_world_state.campaign_graph = graph.to_dict()
-	node_entered.emit(node_id)
+	node_entered.emit(node.id)
+	apply_discovery_trigger("node_entered:%s" % node.id)
 	return true
 
 
 func reveal_fetch_branch() -> void:
-	if graph == null:
-		return
-	var branch := graph.get_node(MacroGraphGenerator.FETCH_BRANCH_ID)
-	if branch == null:
-		return
-	branch.discovered = true
-	branch.details_revealed = true
-	for edge in graph.edges:
-		if not edge is Dictionary:
+	reveal_nodes(PackedStringArray([MacroGraphGenerator.FETCH_BRANCH_ID]))
+
+
+func apply_discovery_trigger(trigger_id: String) -> PackedStringArray:
+	_newly_revealed_node_ids.clear()
+	if graph == null or trigger_id.is_empty():
+		return _newly_revealed_node_ids
+	for rule_value in graph.discovery_rules:
+		if not rule_value is Dictionary:
 			continue
-		if (
-			str(edge.get("from", "")) == MacroGraphGenerator.FETCH_BRANCH_ID
-			or str(edge.get("to", "")) == MacroGraphGenerator.FETCH_BRANCH_ID
-		):
-			edge["visible"] = true
-	if _world_state != null:
+		var rule: Dictionary = rule_value
+		if not Array(rule.get("trigger_ids", [])).has(trigger_id):
+			continue
+		if not _discovery_requirements_met(rule.get("requirements", {})):
+			continue
+		_reveal_rule(rule)
+	if _world_state != null and not _newly_revealed_node_ids.is_empty():
 		_world_state.campaign_graph = graph.to_dict()
+	return _newly_revealed_node_ids.duplicate()
+
+
+func reveal_nodes(node_ids: PackedStringArray) -> PackedStringArray:
+	_newly_revealed_node_ids.clear()
+	if graph == null:
+		return _newly_revealed_node_ids
+	for node_id in node_ids:
+		var node := graph.get_node(node_id)
+		if node == null:
+			continue
+		if not node.discovered:
+			node.discovered = true
+			_newly_revealed_node_ids.append(node.id)
+		for edge in graph.edges:
+			if edge is Dictionary and (
+				str(edge.get("from", "")) == node.id
+				or str(edge.get("to", "")) == node.id
+			):
+				edge["revealed"] = true
+	if _world_state != null and not _newly_revealed_node_ids.is_empty():
+		_world_state.campaign_graph = graph.to_dict()
+	return _newly_revealed_node_ids.duplicate()
+
+
+func consume_newly_revealed_node_ids() -> PackedStringArray:
+	var result := _newly_revealed_node_ids.duplicate()
+	_newly_revealed_node_ids.clear()
+	return result
+
+
+func _reveal_rule(rule: Dictionary) -> void:
+	for node_id_value in rule.get("reveal_node_ids", []):
+		var node := graph.get_node(str(node_id_value))
+		if node != null and not node.discovered:
+			node.discovered = true
+			_newly_revealed_node_ids.append(node.id)
+	var edge_ids: Array = rule.get("reveal_edge_ids", [])
+	for edge in graph.edges:
+		if edge is Dictionary and edge_ids.has(str(edge.get("id", ""))):
+			edge["revealed"] = true
+
+
+func _discovery_requirements_met(requirements: Dictionary) -> bool:
+	var any_capabilities: Array = requirements.get("any_capabilities", [])
+	if any_capabilities.is_empty():
+		return true
+	for capability_id in any_capabilities:
+		if _player_capabilities.has(str(capability_id)):
+			return true
+	return false
 
 
 func refresh_meta_unlocks() -> Array[String]:
@@ -242,6 +330,8 @@ func _connected_directions(node_id: String) -> Array[int]:
 	for edge in graph.edges:
 		if not edge is Dictionary or str(edge.get("from", "")) != node_id:
 			continue
+		if not bool(edge.get("revealed", edge.get("visible", true))):
+			continue
 		var direction := int(edge.get(
 			"from_direction", GameEnums.MacroTravelDirection.NONE
 		))
@@ -256,6 +346,7 @@ func _mark_active_traversed() -> void:
 		return
 	active.traversed = true
 	node_traversed.emit(active.id)
+	apply_discovery_trigger("node_traversed:%s" % active.id)
 
 
 func _capture_active_node_runtime() -> void:

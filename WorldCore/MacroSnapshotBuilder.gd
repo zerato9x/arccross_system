@@ -661,6 +661,8 @@ static func build_world_hud_snapshot(
 		"morale": player_core.current_morale,
 		"arc_energy": player_core.current_arc_energy,
 		"red_mist": player_core.red_mist_corruption,
+		"stance": player_core.stance_points,
+		"stance_state": GameEnums.StanceState.keys()[player_core.current_stance],
 		"current_capacity": inventory.current_size,
 		"maximum_capacity": inventory.current_max_capacity,
 		"medical_items": build_medical_item_snapshot(inventory),

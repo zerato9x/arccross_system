@@ -190,6 +190,20 @@ func evaluate_unlocks(player_progress: Dictionary = {}) -> Array[String]:
 	return campaign.evaluate_unlocks(player_progress)
 
 
+func apply_campaign_discovery_trigger(trigger_id: String) -> PackedStringArray:
+	_ensure_campaign()
+	var revealed := campaign.apply_discovery_trigger(trigger_id)
+	if revealed.is_empty():
+		return revealed
+	_last_macro_event = "Route intelligence revealed: %s" % ", ".join(revealed)
+	_macro_log(_last_macro_event)
+	if is_node_map_open():
+		node_map_system.call("refresh", build_node_map_ui_snapshot())
+	_refresh_boundary_previews()
+	_refresh_world_hud()
+	return revealed
+
+
 func debug_print_campaign_map() -> String:
 	_ensure_campaign()
 	return campaign.debug_print_map()
@@ -851,9 +865,45 @@ func _bootstrap_world() -> void:
 	_world_bootstrapped = true
 	if _world_state.consume_pending_loaded_world():
 		_initialize_loaded_world()
+	elif _world_state.has_pending_new_run_setup():
+		_initialize_new_run(_world_state.consume_pending_new_run_setup())
 	else:
 		_initialize_demo()
 	_refresh_world_hud()
+
+
+func _initialize_new_run(setup: Dictionary) -> void:
+	var definition_state: Dictionary = setup.get("definition", {})
+	var start_node_id := str(setup.get("start_node_id", ""))
+	var arrival_direction := int(setup.get(
+		"arrival_direction",
+		MacroGraphGenerator.arrival_direction_for_start(start_node_id)
+	))
+	if definition_state.is_empty() or start_node_id.is_empty():
+		push_error("[MacroGameManager] New-run setup is incomplete.")
+		_initialize_demo()
+		return
+	if not player_token.initialize_new_definition(definition_state):
+		push_error("[MacroGameManager] Could not apply the selected player identity.")
+		_initialize_demo()
+		return
+	_ensure_campaign()
+	_configure_campaign_player_capabilities(player_token.get_humanoid_core().definition)
+	campaign.begin_campaign(_world_state.world_seed)
+	world_generator.configure_services(_world_state)
+	world_generator.enable_zone_bounds(MacroZoneGenerator.ZONE_RADIUS)
+	_world_state.set_player_record(player_token.capture_runtime_record(), Vector2i.ZERO)
+	if _meta_progress != null and _meta_progress.has_method("apply_eviction_lock"):
+		_meta_progress.apply_eviction_lock()
+	_unload_all_enemy_tokens()
+	if not campaign.enter_initial_node(start_node_id, arrival_direction):
+		push_error("[MacroGameManager] Failed to enter selected start node: %s" % start_node_id)
+		return
+	_pending_exit_direction = GameEnums.MacroTravelDirection.NONE
+	_apply_active_zone_to_world()
+	_ensure_central_rim_guards()
+	_ensure_meta_component_source()
+	_macro_log("Eviction complete. Deployed to %s." % start_node_id)
 
 func _initialize_demo() -> void:
 	var seed := "ARCCROSS_DIRECTIONAL_WEB_01"
@@ -884,6 +934,7 @@ func _initialize_loaded_world() -> void:
 	world_generator.configure_services(_world_state)
 	world_generator.enable_zone_bounds(MacroZoneGenerator.ZONE_RADIUS)
 	player_token.restore_runtime_record(_world_state.player_record)
+	_configure_campaign_player_capabilities(player_token.get_humanoid_core().definition)
 
 	if not _world_state.campaign_graph.is_empty():
 		var loaded_coords := _world_state.player_coords
@@ -913,6 +964,16 @@ func _initialize_loaded_world() -> void:
 		"Loaded campaign node=%s at %s."
 		% [_world_state.active_node_id, str(player_token.current_hex_coords)]
 	)
+
+
+func _configure_campaign_player_capabilities(definition: EntityDefinition) -> void:
+	if campaign == null or definition == null:
+		return
+	campaign.set_player_capabilities(IdentityCatalog.capability_ids_for_selection(
+		definition.occupation_id,
+		definition.trait_ids,
+		definition.flaw_ids
+	))
 
 func synchronize_runtime_state() -> void:
 	_world_state.set_player_record(
@@ -1728,6 +1789,9 @@ func resolve_poi_action(
 		hex_data.poi_id
 	)
 	if action == GameEnums.PoiAction.SEARCH:
+		if selected_search_option_id == "restore_regional_core":
+			_resolve_regional_core_restoration(coords, hex_data)
+			return
 		if selected_search_option_id == "activate_core":
 			_resolve_core_activation(coords, hex_data)
 			return
@@ -2005,6 +2069,7 @@ func resolve_macro_event_choice(choice_id: String) -> void:
 	if result.has("choice_id"):
 		_complete_macro_event_source()
 	_apply_macro_event_effects(result.get("effects", {}))
+	apply_campaign_discovery_trigger("event_resolved:%s" % event_id)
 	_last_macro_event = "%s: %s" % [
 		str(_pending_interaction.get("event_id", "Macro event")),
 		str(result.get("title", "Resolved")),
@@ -2572,6 +2637,42 @@ func _resolve_core_activation(coords: Vector2i, hex_data: MacroHexData) -> void:
 	_refresh_world_hud()
 	core_activated.emit()
 
+
+func _resolve_regional_core_restoration(coords: Vector2i, hex_data: MacroHexData) -> void:
+	var active_node := campaign.get_active_node() if campaign != null else null
+	if (
+		active_node == null
+		or active_node.role != GameEnums.MacroNodeRole.ARM_CORE
+		or hex_data.poi_id != "arm_core"
+	):
+		_show_interaction_result("RESTORATION BLOCKED", "No regional Core is connected here.")
+		return
+	var core_id := active_node.id
+	var state: Dictionary = (
+		_meta_progress.get_core_state(core_id)
+		if _meta_progress != null and _meta_progress.has_method("get_core_state")
+		else {}
+	)
+	if bool(state.get("restored", false)):
+		_show_interaction_result("CORE STABLE", "This regional Core is already restored.")
+		return
+	_advance_survival_time(GameTimeRules.SEARCH_MINUTES, 1.5, coords)
+	state["restored"] = true
+	if _meta_progress != null and _meta_progress.has_method("set_core_state"):
+		_meta_progress.set_core_state(core_id, state)
+	if not hex_data.searched_targets.has("restore_regional_core"):
+		hex_data.searched_targets.append("restore_regional_core")
+	_world_state.set_hex_record(coords, hex_data.to_state())
+	campaign.refresh_meta_unlocks()
+	apply_campaign_discovery_trigger("core_restored:%s" % core_id)
+	close_macro_interaction()
+	_last_macro_event = "%s restored." % active_node.display_name
+	_refresh_world_hud()
+	_show_interaction_result(
+		"REGIONAL CORE RESTORED",
+		"%s is back in the infrastructure network." % active_node.display_name
+	)
+
 func _resolve_search(
 	coords: Vector2i,
 	hex_data: MacroHexData,
@@ -2634,6 +2735,10 @@ func _resolve_search(
 		)
 
 	_world_state.set_hex_record(coords, outcome.get("hex_state", {}))
+	if not selected_search_option_id.is_empty():
+		apply_campaign_discovery_trigger("poi_resolved:%s" % selected_search_option_id)
+	if not hex_data.poi_id.is_empty():
+		apply_campaign_discovery_trigger("poi_resolved:%s" % hex_data.poi_id)
 	_world_state.update_player_runtime(
 		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
 		coords

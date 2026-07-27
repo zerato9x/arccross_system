@@ -23,6 +23,10 @@ class_name MacroNodeData
 @export_range(0, 12) var arm_tier: int = 0
 @export var meta_event_id: String = ""
 @export var objective_id: String = "exit"
+## Route anchor that owns this flat-graph interior node.
+@export var region_id: String = ""
+## When true, neither this node nor its edges appear before discovery.
+@export var hidden_until_discovered: bool = false
 ## Unique-event nodes: MacroEventResolver event id.
 @export var event_id: String = ""
 ## Rule dicts evaluated by MacroProgressController.evaluate_unlocks.
@@ -49,6 +53,8 @@ func to_dict() -> Dictionary:
 		"arm_tier": arm_tier,
 		"meta_event_id": meta_event_id,
 		"objective_id": objective_id,
+		"region_id": region_id,
+		"hidden_until_discovered": hidden_until_discovered,
 		"event_id": event_id,
 		"unlock_rules": unlock_rules.duplicate(true),
 	}
@@ -85,6 +91,8 @@ static func from_dict(data: Dictionary) -> MacroNodeData:
 	node.arm_tier = int(data.get("arm_tier", 0))
 	node.meta_event_id = str(data.get("meta_event_id", ""))
 	node.objective_id = str(data.get("objective_id", "exit"))
+	node.region_id = str(data.get("region_id", ""))
+	node.hidden_until_discovered = bool(data.get("hidden_until_discovered", false))
 	node.event_id = str(data.get("event_id", ""))
 	node.unlock_rules = data.get("unlock_rules", []).duplicate(true)
 	return node

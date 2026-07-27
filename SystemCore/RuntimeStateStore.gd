@@ -14,7 +14,7 @@ signal save_completed(path: String)
 signal load_completed(path: String)
 signal persistence_failed(operation: String, message: String)
 
-const SAVE_VERSION: int = 6
+const SAVE_VERSION: int = 7
 const DEFAULT_SAVE_PATH: String = "user://arccross_run.json"
 const VARIANT_TYPE_KEY: String = "__arccross_type"
 
@@ -26,6 +26,8 @@ var player_record: EntityRecord = null
 var campaign_graph: Dictionary = {}
 var active_node_id: String = ""
 var active_arrival_direction: int = GameEnums.MacroTravelDirection.SOUTH
+## Character/run-owned opening state. Permanent infrastructure stays in MetaProgression.
+var run_flags: Dictionary = {}
 ## Run-local zone snapshots. Cleared with the disposable run and never written
 ## to the cross-run Meta Progress profile.
 var node_runtime_snapshots: Dictionary = {} # node_id -> neutral snapshot
@@ -36,6 +38,7 @@ var hex_records: Dictionary = {} # Vector2i -> HexRecord
 var ground_item_records: Dictionary = {} # Vector2i -> Array[Dictionary]
 
 var _pending_loaded_world: bool = false
+var _pending_new_run_setup: Dictionary = {}
 var _last_persistence_error: String = ""
 
 func _ready() -> void:
@@ -43,20 +46,38 @@ func _ready() -> void:
 		return
 	# Start waiting for MainMenu to load/start instead of autoloading.
 
-func begin_new_world(seed: String) -> void:
-	world_seed = seed
+func begin_new_world(seed_value: String, setup_state: Dictionary = {}) -> void:
+	world_seed = seed_value
 	world_time_minutes = GameTimeRules.STARTING_WORLD_MINUTES
 	player_coords = Vector2i.ZERO
 	player_record = null
 	campaign_graph = {}
 	active_node_id = ""
 	active_arrival_direction = GameEnums.MacroTravelDirection.SOUTH
+	run_flags.clear()
+	_pending_new_run_setup = setup_state.duplicate(true)
+	if not setup_state.is_empty():
+		run_flags = {
+			"eviction_completed": true,
+			"chosen_start_node_id": str(setup_state.get("start_node_id", "")),
+			"intro_version": int(setup_state.get("intro_version", 1)),
+		}
 	node_runtime_snapshots.clear()
 	entity_records.clear()
 	entity_ids_by_coords.clear()
 	hex_records.clear()
 	ground_item_records.clear()
 	_pending_loaded_world = false
+
+
+func has_pending_new_run_setup() -> bool:
+	return not _pending_new_run_setup.is_empty()
+
+
+func consume_pending_new_run_setup() -> Dictionary:
+	var setup := _pending_new_run_setup.duplicate(true)
+	_pending_new_run_setup.clear()
+	return setup
 
 func advance_world_time(elapsed_minutes: int) -> Dictionary:
 	var elapsed := maxi(0, elapsed_minutes)
@@ -437,6 +458,7 @@ func _capture_save_snapshot() -> Dictionary:
 		"campaign_graph": campaign_graph.duplicate(true),
 		"active_node_id": active_node_id,
 		"active_arrival_direction": active_arrival_direction,
+		"run_flags": run_flags.duplicate(true),
 		"node_runtime_snapshots": node_runtime_snapshots.duplicate(true),
 	}
 
@@ -460,6 +482,8 @@ func _restore_save_snapshot(snapshot: Dictionary) -> bool:
 		"active_arrival_direction",
 		GameEnums.MacroTravelDirection.SOUTH
 	))
+	run_flags = snapshot.get("run_flags", {}).duplicate(true)
+	_pending_new_run_setup.clear()
 	node_runtime_snapshots = snapshot.get("node_runtime_snapshots", {}).duplicate(true)
 
 	var player_data: Dictionary = snapshot.get("player_record", {})

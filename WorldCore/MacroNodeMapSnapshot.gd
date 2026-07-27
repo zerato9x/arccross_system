@@ -17,6 +17,7 @@ static func build(
 	if pending_exit_direction != GameEnums.MacroTravelDirection.NONE:
 		next_ids = campaign.get_directional_destinations(pending_exit_direction)
 	var available := campaign.get_available_nodes()
+	var newly_revealed := campaign.consume_newly_revealed_node_ids()
 	var nodes: Array = []
 	var edges: Array = []
 	if campaign.graph != null:
@@ -27,6 +28,10 @@ static func build(
 			if not entry_visible(campaign, node_id):
 				continue
 			var entry := node.to_dict()
+			var policy_locked := (
+				node.role == GameEnums.MacroNodeRole.CENTRAL_CORE
+				and campaign.is_central_locked()
+			)
 			var can_enter := campaign.can_enter_node(node_id, pending_exit_direction)
 			var is_active := node_id == campaign.active_node_id
 			var is_next := next_ids.has(node_id)
@@ -39,10 +44,12 @@ static func build(
 				enter_reason = "Already present in this node's zone."
 				can_enter = false
 			entry["can_enter"] = can_enter
+			entry["unlocked"] = node.unlocked and not policy_locked
 			entry["enter_reason"] = enter_reason
 			entry["is_active"] = is_active
 			entry["is_next"] = is_next
 			entry["detail_hidden"] = not node.details_revealed
+			entry["just_revealed"] = newly_revealed.has(node_id)
 			if not node.details_revealed:
 				entry["display_name"] = "Unknown Route"
 				entry["zone_profile_id"] = ""
@@ -56,10 +63,14 @@ static func build(
 			var to_id := str(edge.get("to", ""))
 			if (
 				bool(edge.get("visible", true))
+				and bool(edge.get("revealed", edge.get("visible", true)))
 				and entry_visible(campaign, from_id)
 				and entry_visible(campaign, to_id)
 			):
 				var edge_entry: Dictionary = edge.duplicate(true)
+				edge_entry["just_revealed"] = (
+					newly_revealed.has(from_id) or newly_revealed.has(to_id)
+				)
 				edge_entry["eligible"] = (
 					from_id == campaign.active_node_id
 					and next_ids.has(to_id)
@@ -95,6 +106,8 @@ static func build(
 		snapshot["hunger"] = hud_snapshot.get("hunger", 0.0)
 		snapshot["thirst"] = hud_snapshot.get("thirst", 0.0)
 		snapshot["fatigue"] = hud_snapshot.get("fatigue", 0.0)
+		snapshot["stance"] = hud_snapshot.get("stance", 0)
+		snapshot["stance_state"] = hud_snapshot.get("stance_state", "")
 		snapshot["morale"] = hud_snapshot.get("morale", 0)
 		snapshot["emergencies"] = hud_snapshot.get("emergencies", [])
 		snapshot["equipment"] = inventory_snapshot.get("equipment", [])
@@ -110,7 +123,7 @@ static func entry_visible(campaign: MacroProgressController, node_id: String) ->
 	var node := campaign.graph.get_node(node_id)
 	if node == null:
 		return false
-	if node.id == MacroGraphGenerator.FETCH_BRANCH_ID and not node.discovered:
+	if node.hidden_until_discovered and not node.discovered:
 		return false
 	return true
 

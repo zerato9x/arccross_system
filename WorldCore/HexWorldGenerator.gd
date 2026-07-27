@@ -142,7 +142,8 @@ func get_hex_at(coords: Vector2i) -> MacroHexData:
 				coords,
 				master_seed
 			)
-		_apply_region_hazard(coords, persistent_hex)
+		# Persisted records are authoritative. Reapplying regional defaults here
+		# changes injected campaign-zone values after a cache clear/save reload.
 		_world_state.set_hex_record(coords, persistent_hex.to_state())
 		world_hex_cache[coords] = persistent_hex
 		return persistent_hex

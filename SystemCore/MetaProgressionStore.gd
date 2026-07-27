@@ -7,11 +7,14 @@ class_name MetaProgressionStore
 signal profile_saved(path: String)
 signal meta_event_completed(event_id: String)
 signal gateway_state_changed(gateway_id: String, unsealed: bool)
+signal core_state_changed(core_id: String, state: Dictionary)
+signal campaign_milestone_completed(milestone_id: String)
 
 const SAVE_PATH := "user://arccross_meta_progression.json"
 const LEGACY_WORLD_PROFILE_PATH := "user://arccross_world_profile.json"
 const SAVE_VERSION := 1
 const VARIANT_TYPE_KEY := "__arccross_type"
+const CENTRAL_MILESTONE_PATH := "res://SystemCore/central_unlock_milestone.tres"
 const STRUCTURAL_FIELDS := [
 	"biome",
 	"terrain_tile",
@@ -54,6 +57,7 @@ func _ready() -> void:
 	if Engine.is_editor_hint() or OS.get_cmdline_args().has("--script"):
 		return
 	load_profile()
+	evaluate_campaign_milestones(false)
 
 
 func get_meta_flags() -> Dictionary:
@@ -113,7 +117,7 @@ func apply_effects(effects: Array, save_after: bool = true) -> void:
 			"set_core_state":
 				var core_id := str(effect.get("core_id", ""))
 				if not core_id.is_empty():
-					core_states[core_id] = effect.get("state", {}).duplicate(true)
+					set_core_state(core_id, effect.get("state", {}), false)
 	if save_after:
 		save_profile()
 
@@ -153,6 +157,41 @@ func get_node_profile_patch(node_id: String) -> Dictionary:
 
 func get_core_state(core_id: String) -> Dictionary:
 	return core_states.get(core_id, {}).duplicate(true)
+
+
+func set_core_state(core_id: String, state: Dictionary, save_after: bool = true) -> void:
+	if core_id.is_empty():
+		return
+	var next_state := state.duplicate(true)
+	if core_states.get(core_id, {}) == next_state:
+		return
+	core_states[core_id] = next_state
+	core_state_changed.emit(core_id, next_state.duplicate(true))
+	evaluate_campaign_milestones(false)
+	if save_after:
+		save_profile()
+
+
+func evaluate_campaign_milestones(save_after: bool = true) -> bool:
+	var milestone := load(CENTRAL_MILESTONE_PATH) as CampaignMilestoneDefinition
+	if milestone == null or not milestone.is_satisfied(core_states):
+		return false
+	var newly_completed := not bool(completed_events.get(milestone.completion_event_id, false))
+	central_locked = false
+	if not milestone.completion_event_id.is_empty():
+		completed_events[milestone.completion_event_id] = true
+	if newly_completed:
+		campaign_milestone_completed.emit(milestone.id)
+		meta_event_completed.emit(milestone.completion_event_id)
+	if save_after:
+		save_profile()
+	return newly_completed
+
+
+func apply_eviction_lock() -> void:
+	var milestone := load(CENTRAL_MILESTONE_PATH) as CampaignMilestoneDefinition
+	central_locked = not (milestone != null and milestone.is_satisfied(core_states))
+	save_profile()
 
 
 func apply_patch_to_record(node_id: String, coords: Vector2i, record: HexRecord) -> void:
@@ -288,6 +327,7 @@ func load_profile(path: String = "") -> bool:
 			if coords is Vector2i:
 				node_patches[coords] = hex_entry.get("patch", {}).duplicate(true)
 		permanent_node_hex_patches[node_id] = node_patches
+	evaluate_campaign_milestones(false)
 	return true
 
 

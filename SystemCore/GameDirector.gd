@@ -229,12 +229,10 @@ func restart_new_run() -> void:
 	get_tree().reload_current_scene()
 
 func _on_core_activated() -> void:
-	print("\n[DIRECTOR] Alpha Core activated. Endgame reached.")
-	macro_map.set_process_unhandled_input(false)
-	set_process_unhandled_input(false)
-	_emit_scene_audio("game_over")
-	if defeat_panel:
-		defeat_panel.open_victory_panel()
+	print("\n[DIRECTOR] Central infrastructure activation recorded.")
+	var meta_progress := get_node_or_null("/root/MetaProgression")
+	if meta_progress != null and meta_progress.has_method("evaluate_campaign_milestones"):
+		meta_progress.evaluate_campaign_milestones()
 
 func _on_player_defeat_preserve_mutations() -> void:
 	if macro_map:

@@ -9,6 +9,22 @@ func begin_new_world(seed: String) -> void:
 		store.begin_new_world(seed)
 
 
+func begin_new_world_from_setup(setup: NewRunSetup, allowed_start_node_ids: PackedStringArray) -> PackedStringArray:
+	if setup == null:
+		return PackedStringArray(["New run setup is missing."])
+	var failures := setup.validate(allowed_start_node_ids)
+	if not failures.is_empty():
+		return failures
+	var setup_state := setup.to_state()
+	if Dictionary(setup_state.get("definition", {})).is_empty():
+		return PackedStringArray(["Could not build the player definition."])
+	var store := _store()
+	if store == null:
+		return PackedStringArray(["World state service is unavailable."])
+	store.begin_new_world(setup.world_seed, setup_state)
+	return PackedStringArray()
+
+
 func load_from_slot(slot: int) -> bool:
 	var store := _store()
 	if store == null:
