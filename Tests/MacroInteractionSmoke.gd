@@ -271,6 +271,23 @@ func _run() -> void:
 	if arena == null:
 		_fail("Ambush selection did not create combat.")
 		return
+	var exploration_stage := macro_map.macro_hud.get_exploration_stage()
+	if (
+		exploration_stage.is_open()
+		or exploration_stage.get_node("%DimOverlay").visible
+		or (
+			exploration_stage.get_node("%Root") as Control
+		).mouse_filter != Control.MOUSE_FILTER_IGNORE
+	):
+		_fail("Collision overlay or its input blocker survived the combat handoff.")
+		return
+	for child in macro_map.get_children():
+		if child is CanvasLayer and (child as CanvasLayer).visible:
+			_fail(
+				"Macro CanvasLayer survived the combat handoff: %s"
+				% child.name
+			)
+			return
 	if arena.lane_manager._find_entity_lane(arena.player_core) != 4:
 		_fail("The selected close ambush position was not honored.")
 		return

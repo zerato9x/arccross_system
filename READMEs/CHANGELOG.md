@@ -23,6 +23,21 @@
 - Authored `READMEs/WORLD_TIMELINE_CODEX.md` as official era chronology;
   synced Canonical World Spec Delta/Baric/regions to Codex dates.
 
+### Collision-To-Combat Overlay Teardown
+
+- Stopped `MacroExplorationStage` from consuming every mouse click while a
+  collision modal is open, allowing its actual choice buttons to receive GUI
+  input.
+- Made exploration/collision teardown unconditional before combat so the dimmer
+  and full-screen input blocker cannot survive an in-frame modal transition.
+- Suspended every direct macro-world `CanvasLayer` during combat and restored
+  its previous visibility afterward. This removes the leaked
+  `VisionVignette`, inventory, and exploration layers that were darkening and
+  intercepting the turn-based duel.
+- Live Steam Godot 4.7.1 validation replayed new game, hostile spawn, mouse
+  selection through the collision choices, combat handoff, and briefing exit;
+  active combat reported no visible macro layers.
+
 ## July 23, 2026
 
 ### Official Turn-Based Combat Overhaul

@@ -35,6 +35,10 @@ legality, hit timing, defense, targets, or outcomes.
 - Stage readability is corrected locally at the battlefield texture. Global
   post-processing and briefing shades must not be used to compensate for a
   dark source plate.
+- The macro world's CanvasLayers, including its vision vignette and interaction
+  surfaces, are suspended for the complete combat lifetime and restored only
+  after combat teardown. A hidden macro Node2D is not sufficient because
+  CanvasLayer visibility and GUI interception are independent.
 
 ## Optional real-time interface
 

@@ -3185,8 +3185,11 @@ func _request_pending_combat(
 	_pending_interaction.clear()
 	if exploration_window and exploration_window.is_open():
 		exploration_window.close_window(false)
-	if macro_hud and macro_hud.is_event_open():
-		macro_hud.close_event(false)
+	if macro_hud:
+		# Hard-reset the complete exploration surface before the director adds
+		# combat. A collision dimmer with MOUSE_FILTER_STOP must never survive
+		# merely because its modal state changed during the same frame.
+		macro_hud.clear_exploration_presentation(false)
 	combat_requested.emit(request)
 
 func _get_loot_profile(hex_data: MacroHexData) -> Dictionary:

@@ -11,6 +11,7 @@ var _combat_coords: Vector2i = Vector2i.ZERO
 var _combat_approach_from: Vector2i = Vector2i.ZERO
 var _combat_enemy_id: String = ""
 var _combat_request: Dictionary = {}
+var _macro_canvas_visibility: Dictionary = {}
 var _world_state: RuntimeStateStore
 var _event_bus: Node
 
@@ -57,10 +58,13 @@ func _on_combat_requested(request: Dictionary) -> void:
 	var coords: Vector2i = request.get("coords", Vector2i.ZERO)
 	print("\n[DIRECTOR] Combat request accepted. Stopping macro world...")
 	set_process_unhandled_input(false)
+	if macro_map.macro_hud:
+		# Defensive handoff guard for combat requests that do not originate from
+		# MacroGameManager's normal collision-choice path.
+		macro_map.macro_hud.clear_exploration_presentation(false)
+	_suspend_macro_canvas_layers()
 	macro_map.hide()
 	_set_macro_camera_active(false)
-	if macro_map.macro_hud:
-		macro_map.macro_hud.visible = false
 	_combat_coords = coords
 	_combat_approach_from = request.get(
 		"approach_from",
@@ -157,8 +161,7 @@ func _on_duel_finished(
 	_teardown_arena()
 	macro_map.show()
 	_set_macro_camera_active(true)
-	if macro_map.macro_hud:
-		macro_map.macro_hud.visible = true
+	_restore_macro_canvas_layers()
 	if should_retreat_player:
 		macro_map.retreat_player_from_combat(
 			_combat_coords,
@@ -187,6 +190,32 @@ func _set_macro_camera_active(active: bool) -> void:
 	macro_camera.enabled = active
 	if active:
 		macro_camera.make_current()
+
+
+func _suspend_macro_canvas_layers() -> void:
+	_macro_canvas_visibility.clear()
+	if macro_map == null:
+		return
+	for child in macro_map.get_children():
+		if child is CanvasLayer:
+			var canvas_layer := child as CanvasLayer
+			_macro_canvas_visibility[String(canvas_layer.name)] = canvas_layer.visible
+			canvas_layer.visible = false
+
+
+func _restore_macro_canvas_layers() -> void:
+	if macro_map == null:
+		_macro_canvas_visibility.clear()
+		return
+	for child in macro_map.get_children():
+		if not child is CanvasLayer:
+			continue
+		var canvas_layer := child as CanvasLayer
+		if _macro_canvas_visibility.has(String(canvas_layer.name)):
+			canvas_layer.visible = bool(
+				_macro_canvas_visibility[String(canvas_layer.name)]
+			)
+	_macro_canvas_visibility.clear()
 
 func restart_new_run() -> void:
 	macro_map.flush_world_mutations()

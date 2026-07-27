@@ -242,10 +242,11 @@ func clear_presentation(notify: bool = false) -> void:
 		if _exploration_window and _exploration_window.is_open():
 			_exploration_window.close_window(false)
 		_finish_poi_close(notify)
-	elif _blocking:
-		close_event(notify)
 	else:
-		_fx_layer.clear_fx()
+		# This is deliberately unconditional. Combat can be requested while a
+		# collision modal is between states, and CanvasLayer visibility alone
+		# does not make a full-screen Control stop intercepting GUI input.
+		close_event(notify)
 
 
 func is_open() -> bool:
@@ -351,9 +352,6 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 	if _mode == "poi":
-		return
-	if event is InputEventMouseButton:
-		get_viewport().set_input_as_handled()
 		return
 	if not event is InputEventKey:
 		return
