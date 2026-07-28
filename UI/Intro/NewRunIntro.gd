@@ -11,6 +11,11 @@ const FLOW_PATH := "res://UI/Intro/opening_flow.tres"
 @onready var _identity_panel: VBoxContainer = $Backdrop/PageMargin/Page/ContentPanel/ContentMargin/IdentityPanel
 @onready var _message_panel: VBoxContainer = $Backdrop/PageMargin/Page/ContentPanel/ContentMargin/MessagePanel
 @onready var _message_text: RichTextLabel = $Backdrop/PageMargin/Page/ContentPanel/ContentMargin/MessagePanel/MessageText
+@onready var _eviction_panel: Control = $Backdrop/PageMargin/Page/ContentPanel/ContentMargin/EvictionPanel
+@onready var _eviction_background: TextureRect = $Backdrop/PageMargin/Page/ContentPanel/ContentMargin/EvictionPanel/OfficeBackground
+@onready var _eviction_portrait: TextureRect = $Backdrop/PageMargin/Page/ContentPanel/ContentMargin/EvictionPanel/ClerkPortrait
+@onready var _eviction_speaker: Label = $Backdrop/PageMargin/Page/ContentPanel/ContentMargin/EvictionPanel/DialogueBox/DialogueMargin/Dialogue/SpeakerLabel
+@onready var _eviction_dialogue: RichTextLabel = $Backdrop/PageMargin/Page/ContentPanel/ContentMargin/EvictionPanel/DialogueBox/DialogueMargin/Dialogue/DialogueText
 @onready var _departure_panel: HBoxContainer = $Backdrop/PageMargin/Page/ContentPanel/ContentMargin/DeparturePanel
 @onready var _departure_graph: Control = $Backdrop/PageMargin/Page/ContentPanel/ContentMargin/DeparturePanel/DepartureGraph
 @onready var _selected_node_label: Label = $Backdrop/PageMargin/Page/ContentPanel/ContentMargin/DeparturePanel/DepartureSide/SelectedNodeLabel
@@ -47,6 +52,7 @@ func _ready() -> void:
 	_departure_graph.connect("node_selected", _on_departure_node_selected)
 	HUDAssetLibrary.apply_button(_back_button)
 	HUDAssetLibrary.apply_button(_next_button, "pass")
+	_configure_eviction_stage()
 	_refresh_identity_summaries()
 	_show_step(Step.IDENTITY)
 	var bus := get_node_or_null("/root/GameEventBus")
@@ -81,11 +87,24 @@ func _refresh_identity_summaries() -> void:
 		_selected_id(_flaw_option)).get("summary", ""))
 
 
+func _configure_eviction_stage() -> void:
+	_eviction_background.texture = _load_texture(_flow.eviction_background_path)
+	_eviction_portrait.texture = _load_texture(_flow.eviction_npc_portrait_path)
+	_eviction_speaker.text = _flow.eviction_speaker_name
+
+
+func _load_texture(resource_path: String) -> Texture2D:
+	if resource_path.is_empty() or not ResourceLoader.exists(resource_path):
+		return null
+	return load(resource_path) as Texture2D
+
+
 func _show_step(step: Step) -> void:
 	_step = step
 	_error_label.text = ""
 	_identity_panel.visible = step == Step.IDENTITY
-	_message_panel.visible = step in [Step.CONFIRMATION, Step.EVICTION]
+	_message_panel.visible = step == Step.CONFIRMATION
+	_eviction_panel.visible = step == Step.EVICTION
 	_departure_panel.visible = step == Step.DEPARTURE
 	_step_label.text = "STEP %d / 4" % (int(step) + 1)
 	_back_button.text = "CANCEL" if step == Step.IDENTITY else "BACK"
@@ -103,7 +122,8 @@ func _show_step(step: Step) -> void:
 			_title.text = _flow.eviction_title
 			_body.text = _flow.eviction_body
 			var occupation := IdentityCatalog.occupation_descriptor(_selected_id(_occupation_option))
-			_message_text.text = "[b]%s FILE[/b]\n\n%s\n\nCENTRAL NODE ACCESS: REVOKED" % [
+			_eviction_dialogue.text = "%s\n\n[color=#d1b46c]%s FILE:[/color] %s" % [
+				_flow.eviction_dialogue,
 				str(occupation.get("display_name", "Occupation")).to_upper(),
 				str(occupation.get("exile_text", "Your access is revoked.")),
 			]

@@ -102,6 +102,80 @@ layout_mode = 2
 bbcode_enabled = true
 fit_content = true
 
+[node name="EvictionPanel" type="Control" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin"]
+visible = false
+custom_minimum_size = Vector2(0, 420)
+layout_mode = 2
+
+[node name="OfficeBackground" type="TextureRect" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/EvictionPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Atmosphere" type="ColorRect" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/EvictionPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.015, 0.025, 0.028, 0.18)
+
+[node name="ClerkPortrait" type="TextureRect" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/EvictionPanel"]
+layout_mode = 1
+anchors_preset = 0
+anchor_left = 0.48
+anchor_top = 0.02
+anchor_right = 0.98
+anchor_bottom = 0.98
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="DialogueBox" type="PanelContainer" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/EvictionPanel"]
+layout_mode = 1
+anchors_preset = 0
+anchor_left = 0.025
+anchor_top = 0.65
+anchor_right = 0.975
+anchor_bottom = 0.975
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="DialogueMargin" type="MarginContainer" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/EvictionPanel/DialogueBox"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 14
+
+[node name="Dialogue" type="VBoxContainer" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/EvictionPanel/DialogueBox/DialogueMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SpeakerLabel" type="Label" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/EvictionPanel/DialogueBox/DialogueMargin/Dialogue"]
+modulate = Color(0.82, 0.706, 0.424, 1)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "CENTRAL EVICTION CLERK"
+
+[node name="DialogueText" type="RichTextLabel" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin/EvictionPanel/DialogueBox/DialogueMargin/Dialogue"]
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+fit_content = true
+autowrap_mode = 2
+text = "Eviction dialogue."
+
 [node name="DeparturePanel" type="HBoxContainer" parent="Backdrop/PageMargin/Page/ContentPanel/ContentMargin" unique_id=1044901422]
 visible = false
 layout_mode = 2

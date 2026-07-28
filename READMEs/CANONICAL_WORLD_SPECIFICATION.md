@@ -113,6 +113,11 @@ Era 9 playable framing continues in the eviction section below.
 ## Era 9 Opening Scenario — Eviction (Player Contract)
 
 **Status:** canonical story framing for the first playable campaign arc.
+
+The eviction is shown inside an ordinary Central administration office. A
+visible civil clerk delivers the order with bureaucratic indifference; this NPC
+is not The Operator. The scene establishes Central as a lived-in institution
+before access is revoked and the player chooses a departure gate.
 Systems that enforce Central lock / endgame return are **deferred** until the
 Central and North content spine exists; see
 [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)

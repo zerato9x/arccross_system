@@ -4,6 +4,12 @@ ARCCROSS uses a severe retro-tactical interface: dark fields, monospace
 readouts, wireframe anatomy, and restrained high-contrast alerts. Presentation
 should make systemic consequences legible without owning gameplay rules.
 
+The terminal language belongs to interface chrome, instrumentation, and system
+readouts. It is not a substitute for environmental art or character staging.
+Narrative events must show the place and the people involved when the scene
+calls for them; they must not collapse into text-only terminal panels merely to
+match the HUD.
+
 See [Combat UI Specification](COMBAT_UI_SPECIFICATION.md) for combat-specific
 layout.
 
@@ -19,6 +25,18 @@ layout.
   that competes with decision-making.
 - **Texture:** scanlines, phosphor glow, fog, and distortion should remain subtle
   enough to preserve readability.
+
+## Narrative Event Staging
+
+- Major story beats require an authored environmental backdrop and a visible
+  character portrait or sprite when an NPC is speaking.
+- Dialogue UI may use the terminal palette and typography as an overlay, but the
+  scene art remains the visual focus.
+- Backdrops, portraits, speaker identity, and dialogue copy are resource-owned
+  presentation data. Event controllers select and stage them; controllers do
+  not hard-code them.
+- "Minimal assets" is not a project-wide art direction. Minimal treatment is
+  appropriate only for explicitly abstract diagnostics and debug tools.
 
 ## Canonical Visual References
 

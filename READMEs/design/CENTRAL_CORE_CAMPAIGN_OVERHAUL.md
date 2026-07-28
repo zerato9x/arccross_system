@@ -18,6 +18,13 @@ step. New Game opens a resource-driven guided sequence:
 3. Choose any of the four adjacent Route 1 nodes. The character enters that
    node facing inward from Central; the run never enters Central first.
 
+The guided eviction is an illustrated narrative event, not a terminal-only
+message. It must stage a Central administration office backdrop, a visible
+eviction-clerk NPC distinct from The Operator, a named dialogue box, and the
+occupation-flavored follow-up. The office image, NPC portrait, speaker name,
+base dialogue, and occupation copy are resource-backed presentation data.
+Terminal/CRT styling is limited to the dialogue and navigation chrome.
+
 The post-eviction Node Web is governed by
 [`WorldCore/campaign_graph.tres`](../../WorldCore/campaign_graph.tres):
 

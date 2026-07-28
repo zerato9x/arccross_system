@@ -20,6 +20,8 @@ func _run() -> void:
 		or catalog.flaw_selection_count != 1
 	):
 		return _fail("Opening selection limits must remain 1/1/1.")
+	if not await _verify_eviction_stage():
+		return
 
 	var expected_items := {
 		"scavenger": ["res://ItemCore/Items/crowbar.tres"],
@@ -89,6 +91,45 @@ func _run() -> void:
 		return _fail("Identity IDs did not survive setup staging.")
 	print("OpeningFlowDataSmoke PASSED")
 	quit(0)
+
+
+func _verify_eviction_stage() -> bool:
+	var flow := load("res://UI/Intro/opening_flow.tres") as OpeningFlowDefinition
+	if flow == null:
+		_fail("Opening flow resource did not load.")
+		return false
+	if (
+		flow.eviction_background_path.is_empty()
+		or not ResourceLoader.exists(flow.eviction_background_path)
+		or flow.eviction_npc_portrait_path.is_empty()
+		or not ResourceLoader.exists(flow.eviction_npc_portrait_path)
+	):
+		_fail("Eviction stage is missing its resource-backed art.")
+		return false
+	if flow.eviction_speaker_name.is_empty() or flow.eviction_dialogue.is_empty():
+		_fail("Eviction stage is missing its resource-backed speaker or dialogue.")
+		return false
+
+	var packed := load("res://UI/Intro/NewRunIntro.tscn") as PackedScene
+	var intro := packed.instantiate() as NewRunIntro
+	root.add_child(intro)
+	await process_frame
+	intro.call("_show_step", NewRunIntro.Step.EVICTION)
+	await process_frame
+	var panel := intro.get_node("Backdrop/PageMargin/Page/ContentPanel/ContentMargin/EvictionPanel") as Control
+	var background := panel.get_node("OfficeBackground") as TextureRect
+	var portrait := panel.get_node("ClerkPortrait") as TextureRect
+	var dialogue := panel.get_node("DialogueBox/DialogueMargin/Dialogue/DialogueText") as RichTextLabel
+	if not panel.visible or background.texture == null or portrait.texture == null:
+		intro.queue_free()
+		_fail("Illustrated eviction stage did not present its backdrop and clerk.")
+		return false
+	if not dialogue.text.contains(flow.eviction_dialogue):
+		intro.queue_free()
+		_fail("Eviction scene did not present the authored base dialogue.")
+		return false
+	intro.queue_free()
+	return true
 
 
 func _setup_for(occupation_id: String, start_node_id: String) -> NewRunSetup:
