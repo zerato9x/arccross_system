@@ -47,6 +47,8 @@ const NON_LOOPING_ANIMATIONS := [
 	"Die",
 ]
 
+# Attack1 is intentionally truncated to the firearm windup/muzzle columns.
+# Other one-shots use the full sheet width (FRAME_COLUMNS).
 const ANIMATION_FRAMES := {
 	"Attack1": 5,
 }
@@ -138,7 +140,7 @@ static func appearance_from_equipment_snapshot(equipment: Array) -> Dictionary:
 		if not raw_entry is Dictionary:
 			continue
 		var entry: Dictionary = raw_entry
-		var item_id := str(entry.get("id", ""))
+		var item_id := str(entry.get("id", entry.get("item_id", "")))
 		if item_id.is_empty():
 			continue
 		slot_item_ids[int(entry.get("equipment_slot", 0))] = item_id

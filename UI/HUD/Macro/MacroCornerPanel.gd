@@ -129,6 +129,7 @@ func expanded_size_for_viewport(viewport_size: Vector2) -> Vector2:
 func set_hud_scale(value: float) -> void:
 	_update_scale_pivot()
 	scale = Vector2.ONE * value
+	_apply_layout()
 
 
 func _set_state(state: PanelState) -> void:
@@ -182,14 +183,15 @@ func _play_state_transition(active_root: Control) -> void:
 
 
 func _expanded_size_for_viewport(viewport_size: Vector2) -> Vector2:
+	var ui_scale := maxf(scale.x, 0.01)
 	var available := Vector2(
-		maxf(1.0, viewport_size.x - PREVIEW_MARGIN * 2.0),
-		maxf(1.0, viewport_size.y - PREVIEW_MARGIN * 2.0)
+		maxf(1.0, (viewport_size.x - PREVIEW_MARGIN * 2.0) / ui_scale),
+		maxf(1.0, (viewport_size.y - PREVIEW_MARGIN * 2.0) / ui_scale)
 	)
 	if _expanded_available_override.x > 0.0:
-		available.x = minf(available.x, _expanded_available_override.x)
+		available.x = minf(available.x, _expanded_available_override.x / ui_scale)
 	if _expanded_available_override.y > 0.0:
-		available.y = minf(available.y, _expanded_available_override.y)
+		available.y = minf(available.y, _expanded_available_override.y / ui_scale)
 	var max_size := Vector2(
 		available.x if expanded_max_size.x <= 0.0 else minf(expanded_max_size.x, available.x),
 		available.y if expanded_max_size.y <= 0.0 else minf(expanded_max_size.y, available.y)

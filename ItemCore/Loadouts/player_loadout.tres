@@ -12,6 +12,8 @@
 [ext_resource type="Resource" path="res://ItemCore/Items/pistol_round.tres" id="12_round"]
 [ext_resource type="Resource" path="res://ItemCore/Items/backpack_survivalist.tres" id="13_pack"]
 [ext_resource type="Resource" path="res://ItemCore/Items/webbing.tres" id="14_rig"]
+[ext_resource type="Resource" path="res://ItemCore/Items/crowbar.tres" id="15_crowbar"]
+[ext_resource type="Resource" path="res://ItemCore/Items/multitool.tres" id="16_multitool"]
 
 [resource]
 script = ExtResource("1_loadout")
@@ -19,5 +21,5 @@ weapon = ExtResource("2_weapon")
 outer_torso = ExtResource("3_armor")
 feet = ExtResource("4_boots")
 backpack_gear = ExtResource("13_pack")
-starting_items = [ExtResource("5_food"), ExtResource("8_sleep"), ExtResource("9_tarp"), ExtResource("10_trap"), ExtResource("11_magazine"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round")]
+starting_items = [ExtResource("5_food"), ExtResource("8_sleep"), ExtResource("9_tarp"), ExtResource("10_trap"), ExtResource("15_crowbar"), ExtResource("16_multitool"), ExtResource("11_magazine"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round")]
 vest = ExtResource("14_rig")

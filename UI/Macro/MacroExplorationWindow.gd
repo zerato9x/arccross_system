@@ -247,7 +247,11 @@ func _apply_stage_overlay_layout() -> void:
 	_right_panel.custom_minimum_size = Vector2(260.0, 0.0)
 
 
-func open_landmark(session: Dictionary, inventory_snapshot: Dictionary = {}) -> void:
+func open_landmark(
+	session: Dictionary,
+	inventory_snapshot: Dictionary = {},
+	player_record: Dictionary = {}
+) -> void:
 	_session = session.duplicate(true)
 	_selected_fixture_id = str(_session.get("selected_fixture_id", ""))
 	_selected_search_option_id = str(
@@ -258,22 +262,31 @@ func open_landmark(session: Dictionary, inventory_snapshot: Dictionary = {}) -> 
 	_active_mode = GameEnums.PoiAction.SEARCH
 	_panel.visible = true
 	_progress_overlay.visible = false
-	_bind_actor_token_appearance(inventory_snapshot)
+	_cancel_action_progress()
+	_bind_actor_token_appearance(player_record, inventory_snapshot)
 	_place_token_at(Vector2(0.12, 0.78), false)
 	_render_session()
 	_request_preview()
 	_walk_token_to_selected_fixture()
 
 
-func _bind_actor_token_appearance(inventory_snapshot: Dictionary) -> void:
+func _bind_actor_token_appearance(
+	player_record: Dictionary = {},
+	inventory_snapshot: Dictionary = {}
+) -> void:
 	if _actor_token == null:
 		return
 	_actor_token.set_display_scale(_ACTOR_TOKEN_DISPLAY_SCALE)
-	_actor_token.set_appearance(
-		HumanoidVisualCatalog.appearance_from_equipment_snapshot(
+	var appearance := {}
+	if not player_record.is_empty():
+		appearance = HumanoidVisualCatalog.appearance_from_record(player_record)
+	elif not inventory_snapshot.is_empty():
+		appearance = HumanoidVisualCatalog.appearance_from_equipment_snapshot(
 			inventory_snapshot.get("equipment", [])
 		)
-	)
+	else:
+		appearance = HumanoidVisualCatalog.appearance_from_slot_item_ids({})
+	_actor_token.set_appearance(appearance)
 	_actor_token.play_animation("Idle")
 
 
@@ -299,6 +312,9 @@ func _on_continue_pressed() -> void:
 	close_window(true)
 
 func collapse_to_preview() -> void:
+	_cancel_action_progress()
+	_pending_verb = ""
+	_action_busy = false
 	if _panel:
 		_panel.visible = false
 	_showing_result = false
@@ -323,10 +339,13 @@ func is_open() -> bool:
 
 func refresh_session_state(
 	available_items: Array,
-	ground_items: Array
+	ground_items: Array,
+	player_record: Dictionary = {}
 ) -> void:
 	_session["available_items"] = available_items.duplicate(true)
 	_session["ground_items"] = _normalized_ground_items(ground_items)
+	if not player_record.is_empty():
+		_bind_actor_token_appearance(player_record)
 	_render_interaction_gear()
 	_render_ground_items()
 
@@ -1041,6 +1060,7 @@ func _render_verb_row(verbs: Array, resting: bool) -> void:
 		child.queue_free()
 	if resting:
 		return
+	var fixture := _selected_fixture()
 	for verb in verbs:
 		var button := Button.new()
 		match str(verb):
@@ -1048,13 +1068,24 @@ func _render_verb_row(verbs: Array, resting: bool) -> void:
 				button.text = "Search"
 			SiteCatalog.VERB_SLEEP:
 				button.text = "Sleep here"
+				if bool(fixture.get("sleep_blocked", false)) or not bool(
+					_session.get("camp_allowed", false)
+				):
+					button.disabled = true
+					button.tooltip_text = str(
+						fixture.get(
+							"sleep_block_reason",
+							_session.get("camp_block_reason", "This location is unsafe.")
+						)
+					)
 			SiteCatalog.VERB_TRAP:
 				button.text = "Set trap"
 			_:
 				button.text = str(verb).capitalize()
 		HUDAssetLibrary.apply_button(button)
-		button.disabled = _action_busy
-		button.pressed.connect(_begin_fixture_verb.bind(str(verb)))
+		if not button.disabled:
+			button.disabled = _action_busy
+			button.pressed.connect(_begin_fixture_verb.bind(str(verb)))
 		_verb_row.add_child(button)
 
 
@@ -1149,8 +1180,21 @@ func _play_action_progress(label: String, minutes: int, action: GameEnums.PoiAct
 	_progress_tween.tween_callback(func():
 		_progress_overlay.visible = false
 		_action_busy = false
+		_pending_verb = ""
 		_submit_action_for(action)
 	)
+
+
+func _cancel_action_progress() -> void:
+	if _progress_tween != null and _progress_tween.is_valid():
+		_progress_tween.kill()
+	_progress_tween = null
+	if _progress_overlay:
+		_progress_overlay.visible = false
+	if _action_progress:
+		_action_progress.value = 0.0
+	_action_busy = false
+	_pending_verb = ""
 
 
 func _selected_item_ids() -> Array:

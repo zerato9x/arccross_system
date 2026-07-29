@@ -81,6 +81,9 @@ func set_display_scale(value: float) -> void:
 func set_animation_speed(scale: float) -> void:
 	_animation_speed_scale = maxf(0.1, scale)
 
+const TIMED_ONE_SHOT_MIN_SPEED := 0.75
+const TIMED_ONE_SHOT_MAX_SPEED := 1.25
+
 func get_animation_duration(animation: String) -> float:
 	if not HumanoidVisualCatalog.supports_animation(animation):
 		return 0.0
@@ -89,9 +92,28 @@ func get_animation_duration(animation: String) -> float:
 		/ maxf(0.01, HumanoidVisualCatalog.animation_fps(animation))
 	)
 
-## Plays every visible frame across the requested presentation duration. This
-## makes sprite playback follow the duel timeline instead of finishing early
-## and idling while the resolver is still winding up.
+## Resolves the wall-clock duration a timed one-shot will actually occupy after
+## stretch clamping. Prefer readable frame density over meeting an aggressive
+## authored clock: speeds stay within [0.75x, 1.25x] of nominal.
+func resolve_timed_one_shot_duration(
+	animation: String,
+	target_duration: float
+) -> float:
+	var nominal_duration := get_animation_duration(animation)
+	if nominal_duration <= 0.0:
+		return 0.0
+	var safe_target := maxf(0.05, target_duration)
+	var requested_speed := nominal_duration / safe_target
+	var clamped_speed := clampf(
+		requested_speed,
+		TIMED_ONE_SHOT_MIN_SPEED,
+		TIMED_ONE_SHOT_MAX_SPEED
+	)
+	return nominal_duration / clamped_speed
+
+## Plays every visible frame across the resolved presentation duration. Stretch
+## is clamped so short turn windows cannot crush 15-frame clips into a blur and
+## long windows cannot float 5-frame attacks in slow motion.
 func play_timed_one_shot(
 	animation: String,
 	return_animation: String,
@@ -102,8 +124,12 @@ func play_timed_one_shot(
 	var nominal_duration := get_animation_duration(animation)
 	if nominal_duration <= 0.0:
 		return false
+	var actual_duration := resolve_timed_one_shot_duration(
+		animation,
+		target_duration
+	)
 	_return_animation_speed_scale = 1.0
-	set_animation_speed(nominal_duration / maxf(0.05, target_duration))
+	set_animation_speed(nominal_duration / maxf(0.05, actual_duration))
 	return play_animation(animation, true, return_animation)
 
 func play_animation(

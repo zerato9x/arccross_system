@@ -52,6 +52,9 @@ var _states: Dictionary = {}
 var _ap_tick_accumulator := 0.0
 var _bleed_tick_accumulator := 0.0
 var _timeline_serial := 0
+## Frozen clothed appearances for dead combatants so corpse tokens keep outfit
+## layers after inventory drain during resolve.
+var _death_appearance: Dictionary = {}
 
 ## Transitional read aliases for callers that only halt or escape an arena.
 ## Turn scheduling and reaction APIs are intentionally not emulated.
@@ -70,6 +73,7 @@ func configure(player: HumanoidCore, enemy: HumanoidCore) -> void:
 	enemy_core = enemy
 	combatants = [player_core, enemy_core]
 	_states.clear()
+	_death_appearance.clear()
 	for entity in [player_core, enemy_core]:
 		_states[entity] = _new_actor_state(entity)
 		entity.set_meta("duel_side", _side(entity))
@@ -992,8 +996,33 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"ranged_weapon": _weapon_snapshot(ranged),
 		"melee_weapon": _weapon_snapshot(melee),
 		"equipment": equipment,
-		"appearance": HumanoidVisualCatalog.appearance_from_equipment_snapshot(equipment),
+		"appearance": _appearance_for_entity(entity, equipment),
 	}
+
+func _appearance_for_entity(
+	entity: HumanoidCore,
+	equipment: Array
+) -> Dictionary:
+	if entity != null and entity.is_dead and _death_appearance.has(entity):
+		return (_death_appearance[entity] as Dictionary).duplicate(true)
+	var appearance := HumanoidVisualCatalog.appearance_from_equipment_snapshot(
+		equipment
+	)
+	if (
+		entity != null
+		and entity.is_dead
+		and _appearance_has_outfit_layers(appearance)
+	):
+		_death_appearance[entity] = appearance.duplicate(true)
+	return appearance
+
+func _appearance_has_outfit_layers(appearance: Dictionary) -> bool:
+	for raw_layer in appearance.get("layers", []):
+		if not raw_layer is Dictionary:
+			continue
+		if not str((raw_layer as Dictionary).get("directory", "")).is_empty():
+			return true
+	return false
 
 func _weapon_snapshot(weapon: ItemData) -> Dictionary:
 	if weapon == null:

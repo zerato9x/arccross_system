@@ -102,6 +102,7 @@ const HEX_NEIGHBORS = [
 ]
 const _SnapshotBuilder := preload("res://WorldCore/MacroSnapshotBuilder.gd")
 const _PoiController := preload("res://WorldCore/MacroPoiController.gd")
+const _HexPresentation := preload("res://PresentationCore/HexPresentationDescriptor.gd")
 const _NpcSimulator := preload("res://WorldCore/MacroNpcSimulator.gd")
 const _NODE_MAP_INVENTORY_LAYER := 36
 const _NODE_MAP_OVERLAY_LAYER := 36
@@ -176,6 +177,7 @@ func enter_campaign_node(
 	_pending_exit_direction = GameEnums.MacroTravelDirection.NONE
 	_apply_active_zone_to_world()
 	_ensure_central_rim_guards()
+	_ensure_starter_wayfinder()
 	_ensure_meta_component_source()
 	return true
 
@@ -477,7 +479,7 @@ func _ensure_central_rim_guards() -> void:
 	var node_id := str(campaign.active_node_id)
 	if not _is_route_one_node(node_id):
 		return
-	if _has_central_guard_pair():
+	if _has_central_guard_pair(node_id):
 		return
 
 	var toward_central := _central_facing_direction_for_route_one(node_id)
@@ -523,6 +525,38 @@ func _ensure_central_rim_guards() -> void:
 	)
 
 
+func _ensure_starter_wayfinder() -> void:
+	_ensure_campaign()
+	if campaign == null or campaign.zone_generator == null or mob_spawner == null:
+		return
+	var node_id := str(campaign.active_node_id)
+	if node_id != "north_random_1":
+		return
+	for entity in _world_state.entity_records.values():
+		if not entity is EntityRecord:
+			continue
+		var record := entity as EntityRecord
+		if str(record.runtime.get("template_id", "")) == "starter_wayfinder":
+			return
+	var zone: MacroZoneGenerator = campaign.zone_generator
+	var coords := zone.starter_npc_coords
+	if not _is_guard_spawn_hex(coords):
+		return
+	var arm_id := node_id.trim_suffix("_random_1")
+	var record := mob_spawner.generate_starter_wayfinder_record(
+		coords,
+		arm_id,
+		"%s:%s:starter_wayfinder" % [_world_state.world_seed, node_id]
+	)
+	_initialize_npc_runtime(record)
+	var entity_id := _world_state.register_entity(record)
+	var hex_data := world_generator.get_hex_at(coords)
+	hex_data.encounter_entity_id = entity_id
+	hex_data.encounter_evaluated = true
+	_world_state.set_hex_record(coords, hex_data.to_state())
+	_spawn_enemy_token_from_record(record)
+
+
 func _is_route_one_node(node_id: String) -> bool:
 	return (
 		node_id == "north_random_1"
@@ -546,8 +580,9 @@ func _central_facing_direction_for_route_one(node_id: String) -> int:
 			return GameEnums.MacroTravelDirection.NONE
 
 
-func _has_central_guard_pair() -> bool:
+func _has_central_guard_pair(node_id: String) -> bool:
 	var count := 0
+	var expected_squad := "central_guard_pair_%s" % node_id
 	for entity in _world_state.entity_records.values():
 		if not (entity is EntityRecord):
 			continue
@@ -557,7 +592,10 @@ func _has_central_guard_pair() -> bool:
 		var template_id := str(record.definition.get("template_id", ""))
 		if template_id.is_empty():
 			template_id = str(record.runtime.get("template_id", ""))
-		if template_id == "central_guard":
+		if (
+			template_id == "central_guard"
+			and str(record.runtime.get("squad_id", "")) == expected_squad
+		):
 			count += 1
 	return count >= 2
 
@@ -831,6 +869,7 @@ func _ready() -> void:
 		macro_hud.inventory_requested.connect(_toggle_fullscreen_inventory)
 		macro_hud.hex_preview_expand_requested.connect(_expand_hex_at)
 		macro_hud.hex_preview_travel_requested.connect(_on_hex_preview_travel)
+		macro_hud.location_action_requested.connect(resolve_location_action)
 		macro_hud.viewport_insets_changed.connect(_on_hud_viewport_insets_changed)
 		macro_hud.medical_action_requested.connect(_on_medical_action_requested)
 		macro_hud.event_choice_submitted.connect(_on_macro_hud_choice_submitted)
@@ -838,14 +877,14 @@ func _ready() -> void:
 		macro_hud.node_map_requested.connect(open_node_map)
 		if inventory_panel:
 			macro_hud.get_inventory_corner_panel().inventory_ui = inventory_panel
+		macro_hud.poi_action_submitted.connect(resolve_poi_action)
+		macro_hud.poi_preview_requested.connect(preview_poi_action)
+		macro_hud.exploration_inventory_action_requested.connect(
+			resolve_inventory_action
+		)
+		macro_hud.exploration_interaction_closed.connect(close_macro_interaction)
 		if exploration_window:
 			macro_hud.bind_exploration_window(exploration_window)
-			macro_hud.poi_action_submitted.connect(resolve_poi_action)
-			macro_hud.poi_preview_requested.connect(preview_poi_action)
-			macro_hud.exploration_inventory_action_requested.connect(
-				resolve_inventory_action
-			)
-			macro_hud.exploration_interaction_closed.connect(close_macro_interaction)
 	var player_inventory := player_token.get_humanoid_core().inventory
 	player_inventory.inventory_error.connect(_on_player_inventory_error)
 	player_inventory.items_spilled.connect(_on_player_items_spilled)
@@ -902,6 +941,7 @@ func _initialize_new_run(setup: Dictionary) -> void:
 	_pending_exit_direction = GameEnums.MacroTravelDirection.NONE
 	_apply_active_zone_to_world()
 	_ensure_central_rim_guards()
+	_ensure_starter_wayfinder()
 	_ensure_meta_component_source()
 	_macro_log("Eviction complete. Deployed to %s." % start_node_id)
 
@@ -943,6 +983,8 @@ func _initialize_loaded_world() -> void:
 			_world_state.active_node_id
 		)
 		_apply_active_zone_to_world()
+		_ensure_central_rim_guards()
+		_ensure_starter_wayfinder()
 		if world_generator.is_in_zone_bounds(loaded_coords):
 			player_token.snap_to_hex(
 				loaded_coords,
@@ -1191,9 +1233,10 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 	if target_entity != null:
 		if not _world_state.is_entity_alive(target_entity.entity_id):
 			unload_enemy_token(target_coords)
-		elif _world_state.is_entity_hostile(target_entity.entity_id):
+		else:
 			_force_project_npc_token(target_entity)
-			advance_macro_world(1)
+			if _world_state.is_entity_hostile(target_entity.entity_id):
+				advance_macro_world(1)
 			begin_entity_collision(
 				target_entity.entity_id,
 				target_coords,
@@ -1536,7 +1579,7 @@ func begin_poi_interaction(
 	}
 	player_token.play_interaction()
 	set_process_unhandled_input(false)
-	if exploration_window == null:
+	if macro_hud == null and exploration_window == null:
 		push_error("POI interaction opened without a presentation subscriber.")
 		close_macro_interaction()
 		return
@@ -1674,6 +1717,7 @@ func _present_poi_session(
 ) -> void:
 	var camp_access := _get_camp_access(coords, hex_data)
 	var inventory_snapshot := _build_inventory_snapshot()
+	var player_record := player_token.capture_runtime_record()
 	var session := (
 		_PoiController.build_landmark_session_snapshot(
 			coords,
@@ -1701,13 +1745,18 @@ func _present_poi_session(
 			_PoiController.available_interaction_options(
 				player_token.get_humanoid_core().inventory.get_all_items()
 			),
-			inventory_snapshot.get("ground", [])
+			inventory_snapshot.get("ground", []),
+			Callable(self, "_inventory_has_any_item_id"),
+			Callable(self, "_inventory_has_any_tag"),
+			Callable(self, "_inventory_has_any_role")
 		)
 	)
+	_enrich_location_session(session, hex_data)
+	session["player_record"] = player_record
 	if macro_hud:
-		macro_hud.present_poi(session, inventory_snapshot)
+		macro_hud.present_poi(session, inventory_snapshot, player_record)
 	elif exploration_window:
-		exploration_window.open_landmark(session, inventory_snapshot)
+		exploration_window.open_landmark(session, inventory_snapshot, player_record)
 	else:
 		push_error("POI session opened without a presentation subscriber.")
 		close_macro_interaction()
@@ -1728,9 +1777,13 @@ func begin_entity_collision(
 		push_error("Entity interaction opened without a HUD subscriber.")
 		close_macro_interaction()
 		return
-	_open_entity_collision_session(
+	var record := _world_state.get_entity(enemy_id)
+	var opening_mode := (
 		MacroEntityCollisionResolver.MODE_ROOT
+		if record != null and record.world_status == GameEnums.EntityWorldStatus.HOSTILE
+		else MacroEntityCollisionResolver.MODE_PEACEFUL
 	)
+	_open_entity_collision_session(opening_mode)
 
 func preview_poi_action(
 	action: GameEnums.PoiAction,
@@ -1822,13 +1875,143 @@ func resolve_poi_action(
 				camp_access.get("reason", "This location is unsafe.")
 			)
 			return
-		_apply_poi_session_selections(coords, hex_data, selected_item_ids)
+		_apply_poi_session_selections(
+			coords,
+			hex_data,
+			selected_item_ids,
+			action == GameEnums.PoiAction.CAMP
+		)
 		hex_data.rest_in_progress = true
 		_world_state.set_hex_record(coords, hex_data.to_state())
 		_resolve_camp(coords, hex_data, profile["camp"], selected_item_ids)
 		hex_data = world_generator.get_hex_at(coords)
 		hex_data.rest_in_progress = false
 		_world_state.set_hex_record(coords, hex_data.to_state())
+
+
+func resolve_location_action(command: Dictionary) -> void:
+	if _pending_interaction.get("type") != GameEnums.MacroInteractionType.POI:
+		return
+	var coords: Vector2i = command.get("coords", Vector2i.ZERO)
+	if coords != player_token.current_hex_coords:
+		_last_macro_event = "That location is no longer HERE."
+		_refresh_world_hud()
+		return
+	var current := _build_current_location_snapshot(_build_inventory_snapshot())
+	if int(command.get("location_revision", -1)) != int(current.get("revision", 0)):
+		_last_macro_event = "The location changed before that action could begin."
+		_refresh_world_hud()
+		if macro_hud:
+			macro_hud.show_location_outcome("LOCATION CHANGED", _last_macro_event)
+		return
+	var verb := str(command.get("verb", ""))
+	var selected_item_ids: Array = command.get("selected_item_ids", [])
+	if verb in ["take", "inspect"]:
+		var ground_id := str(selected_item_ids[0]) if not selected_item_ids.is_empty() else ""
+		var ground_exists := false
+		for item in current.get("session", {}).get("ground_items", []):
+			if item is Dictionary and str(item.get("instance_id", "")) == ground_id:
+				ground_exists = true
+				break
+		if not ground_exists:
+			_show_interaction_result("ITEM MOVED", "That item is no longer on the ground here.")
+			return
+		var inventory_result := resolve_inventory_action(
+			GameEnums.MACRO_INV_TAKE if verb == "take" else GameEnums.MACRO_INV_INTERACT,
+			ground_id,
+			GameEnums.EquipmentSlot.NONE,
+			{}
+		)
+		_show_interaction_result(
+			(
+				"ITEM TAKEN"
+				if verb == "take" and inventory_result.get("ground_restore", []).is_empty()
+				else ("ITEM INSPECTED" if verb == "inspect" else "PACK FULL")
+			),
+			str(inventory_result.get("message", "The location has been refreshed."))
+		)
+		return
+	var fixture := SiteCatalog.fixture_by_id(
+		current.get("session", {}).get("site", {}),
+		str(command.get("fixture_id", ""))
+	)
+	if fixture.is_empty() or not fixture.get("verbs", []).has(verb):
+		_show_interaction_result(
+			"ACTION UNAVAILABLE",
+			"That fixture no longer supports the requested action."
+		)
+		return
+	var accepted_roles: Array = fixture.get("accepted_roles", [])
+	var available_by_id := {}
+	for item in current.get("session", {}).get("available_items", []):
+		if item is Dictionary:
+			available_by_id[str(item.get("instance_id", ""))] = item
+	for item_id_value in selected_item_ids:
+		var item_id := str(item_id_value)
+		if not available_by_id.has(item_id):
+			_show_interaction_result("GEAR CHANGED", "Selected gear is no longer carried.")
+			return
+		var item_roles: Array = available_by_id[item_id].get("interaction_roles", [])
+		var eligible := accepted_roles.is_empty()
+		for role in item_roles:
+			if accepted_roles.has(role):
+				eligible = true
+				break
+		if not eligible:
+			_show_interaction_result("GEAR INELIGIBLE", "That item cannot be used at this fixture.")
+			return
+	match verb:
+		SiteCatalog.VERB_SEARCH:
+			resolve_poi_action(
+				GameEnums.PoiAction.SEARCH,
+				selected_item_ids,
+				str(fixture.get("search_option_id", ""))
+			)
+		SiteCatalog.VERB_SLEEP:
+			resolve_poi_action(GameEnums.PoiAction.REST, selected_item_ids)
+		SiteCatalog.VERB_TRAP:
+			_resolve_location_trap(coords, selected_item_ids)
+		_:
+			_show_interaction_result(
+				"ACTION UNAVAILABLE",
+				"This place does not support that action yet."
+			)
+
+
+func _resolve_location_trap(coords: Vector2i, selected_item_ids: Array) -> void:
+	var hex_data := world_generator.get_hex_at(coords)
+	var trap_count_before := hex_data.camp_traps.size()
+	_apply_poi_session_selections(coords, hex_data, selected_item_ids)
+	hex_data = world_generator.get_hex_at(coords)
+	if hex_data.camp_traps.size() <= trap_count_before:
+		_show_interaction_result(
+			"TRAP NOT SET",
+			"Choose an eligible trap from the gear tray."
+		)
+		return
+	_advance_survival_time(GameTimeRules.ACTION_MINUTES, 0.25, coords)
+	_last_macro_event = "Trap armed at HEX %d,%d." % [coords.x, coords.y]
+	_refresh_world_hud()
+	_show_interaction_result(
+		"TRAP ARMED",
+		"The selected approach is trapped. The device remains here until triggered."
+	)
+
+
+func _enrich_location_session(session: Dictionary, hex_data: MacroHexData) -> void:
+	var profile := MacroInteractionResolver.build_poi_profile(
+		_world_state.world_seed,
+		player_token.current_hex_coords,
+		hex_data.biome,
+		hex_data.poi_id
+	)
+	var loot_profile := _get_loot_profile(hex_data)
+	session["preview_base_metrics"] = {
+		"search": profile.get("search", {}).duplicate(true),
+		"camp": profile.get("camp", {}).duplicate(true),
+	}
+	session["search_count"] = hex_data.search_count
+	session["max_searches"] = int(loot_profile.get("max_searches", 4))
 
 
 func _on_macro_hud_choice_submitted(choice_id: String) -> void:
@@ -2268,7 +2451,12 @@ func queue_entity_collision(
 	if not _pending_interaction.is_empty():
 		return false
 	var enemy_record := _world_state.get_entity(enemy_id)
-	if enemy_record == null or not _world_state.is_entity_hostile(enemy_id):
+	if (
+		enemy_record == null
+		or enemy_record.kind != GameEnums.RuntimeEntityKind.NPC
+		or not _world_state.is_entity_alive(enemy_id)
+		or enemy_record.world_status == GameEnums.EntityWorldStatus.WITHDRAWN
+	):
 		return false
 	var resolved_approach := (
 		player_token.current_hex_coords
@@ -2425,7 +2613,7 @@ func resolve_inventory_action(
 	instance_id: String,
 	equipment_slot: int,
 	action_payload: Dictionary = {}
-) -> void:
+) -> Dictionary:
 	_last_inventory_error = ""
 	var player_core := player_token.get_humanoid_core()
 	var coords := player_token.current_hex_coords
@@ -2465,6 +2653,7 @@ func resolve_inventory_action(
 		inventory_panel.refresh_snapshot(snapshot, "")
 	_refresh_exploration_ground()
 	_refresh_world_hud()
+	return result
 
 func _refresh_exploration_ground() -> void:
 	if exploration_window == null or not exploration_window.is_open():
@@ -2475,7 +2664,8 @@ func _refresh_exploration_ground() -> void:
 	)
 	exploration_window.refresh_session_state(
 		available,
-		snapshot.get("ground", [])
+		snapshot.get("ground", []),
+		player_token.capture_runtime_record()
 	)
 
 func _build_inventory_snapshot() -> Dictionary:
@@ -2527,6 +2717,100 @@ func _build_world_hud_snapshot() -> Dictionary:
 	return snapshot
 
 
+func _build_current_location_snapshot(inventory_snapshot: Dictionary) -> Dictionary:
+	var coords := player_token.current_hex_coords
+	var hex_data := world_generator.get_hex_at(coords)
+	var hex_descriptor := _build_hex_descriptor(coords)
+	var camp_access := _get_camp_access(coords, hex_data)
+	var available_items := _PoiController.available_interaction_options(
+		player_token.get_humanoid_core().inventory.get_all_items()
+	)
+	var ground_items: Array = inventory_snapshot.get("ground", [])
+	var session := (
+		_PoiController.build_landmark_session_snapshot(
+			coords,
+			hex_data,
+			_world_state.world_seed,
+			_world_state.get_world_time_snapshot(),
+			_hex_label(coords, hex_data),
+			camp_access,
+			available_items,
+			ground_items,
+			Callable(self, "_inventory_has_any_item_id"),
+			Callable(self, "_inventory_has_any_tag"),
+			Callable(self, "_inventory_has_any_role")
+		)
+		if hex_data.has_landmark()
+		else _PoiController.build_hex_session_snapshot(
+			coords,
+			hex_data,
+			_world_state.world_seed,
+			_world_state.get_world_time_snapshot(),
+			_hex_label(coords, hex_data),
+			camp_access,
+			available_items,
+			ground_items,
+			Callable(self, "_inventory_has_any_item_id"),
+			Callable(self, "_inventory_has_any_tag"),
+			Callable(self, "_inventory_has_any_role")
+		)
+	)
+	_enrich_location_session(session, hex_data)
+	var decorations: Array = []
+	if world_generator.has_method("get_decorations_at"):
+		decorations = world_generator.get_decorations_at(coords)
+	var catalog: MacroTileCatalog = map_visualizer.tile_catalog if map_visualizer else null
+	var presentation := _HexPresentation.build(
+		hex_data,
+		catalog,
+		decorations,
+		_world_state.world_seed,
+		coords,
+		hex_descriptor.get("entity_inspect", {}),
+		ground_items
+	)
+	presentation["scene"] = _HexPresentation.merge_scene(
+		presentation.get("scene", {}),
+		session.get("scene_descriptor", {})
+	)
+	var revision_payload := {
+		"coords": str(coords),
+		"hex": hex_data.to_state().to_dict(),
+		"ground": ground_items,
+		"available_item_ids": available_items.map(
+			func(item: Dictionary): return str(item.get("instance_id", ""))
+		),
+		"world_time": _world_state.get_world_time_snapshot(),
+	}
+	return {
+		"coords": coords,
+		"revision": hash(str(revision_payload)),
+		"hex": hex_descriptor,
+		"presentation": presentation,
+		"session": session,
+		"fixture_count": session.get("site", {}).get("fixtures", []).size(),
+		"can_open": true,
+	}
+
+
+func _build_target_location_snapshot(snapshot: Dictionary) -> Dictionary:
+	var target: Dictionary = snapshot.get("selected_hex", {}).duplicate(true)
+	var current_coords := player_token.current_hex_coords
+	var target_coords: Vector2i = target.get("coords", current_coords)
+	if target_coords == current_coords:
+		return {}
+	var blocked_reason := ""
+	if not world_generator.is_in_zone_bounds(target_coords):
+		blocked_reason = "Outside this zone"
+	elif int(target.get("distance", 0)) != 1:
+		blocked_reason = "Choose an adjacent hex"
+	elif not bool(target.get("passable", false)):
+		blocked_reason = "Blocked terrain"
+	target["blocked_reason"] = blocked_reason
+	target["can_travel"] = blocked_reason.is_empty()
+	return target
+
+
 func _build_hex_descriptor(coords: Vector2i) -> Dictionary:
 	var hex_data := world_generator.get_hex_at(coords)
 	var player_coords := player_token.current_hex_coords
@@ -2567,15 +2851,8 @@ func _refresh_world_hud() -> void:
 	snapshot["maximum_capacity"] = inventory_snapshot.get("maximum_capacity", 0)
 	snapshot["capacity_breakdown"] = inventory_snapshot.get("capacity_breakdown", [])
 	snapshot["loadout_stats"] = inventory_snapshot.get("loadout_stats", {})
-	var hex_data := world_generator.get_hex_at(_selected_hex_coords)
-	var scene_descriptor := EventBgCatalog.build_scene_descriptor(
-		hex_data,
-		_world_state.world_seed,
-		_selected_hex_coords
-	)
-	if not hex_data.water_sprite_path.is_empty():
-		scene_descriptor["background_path"] = hex_data.water_sprite_path
-	snapshot["selected_scene_descriptor"] = scene_descriptor
+	snapshot["current_location"] = _build_current_location_snapshot(inventory_snapshot)
+	snapshot["target_location"] = _build_target_location_snapshot(snapshot)
 	macro_hud.refresh(snapshot)
 	var world_time: Dictionary = snapshot.get("world_time", {})
 	var hour := int(world_time.get("hour", 8))
@@ -2917,14 +3194,15 @@ func _resolve_camp(
 	)
 
 func _spawn_search_intruder(coords: Vector2i) -> void:
-	if not _world_state.has_entity_at(coords):
+	var occupying := _world_state.get_entity_at(coords)
+	if occupying == null or not _world_state.is_entity_alive(occupying.entity_id):
 		spawn_procedural_enemy(
 			coords,
 			GameEnums.Faction.SCAVENGER_CELL,
 			0
 		)
 	var record := _world_state.get_entity_at(coords)
-	if record == null:
+	if record == null or not _world_state.is_entity_alive(record.entity_id):
 		_show_interaction_result(
 			"INTERRUPTED",
 			"A hostile was heard nearby, but no encounter could be projected."
@@ -3031,7 +3309,14 @@ func _hex_label(coords: Vector2i, hex_data: MacroHexData) -> String:
 	return "HEX %d,%d // %s" % [coords.x, coords.y, region]
 
 func _show_interaction_result(title: String, message: String) -> void:
-	if exploration_window and exploration_window.is_open():
+	if (
+		macro_hud
+		and macro_hud.is_location_open()
+		and _pending_interaction.get("type") == GameEnums.MacroInteractionType.POI
+	):
+		_refresh_world_hud()
+		macro_hud.show_location_outcome(title, message)
+	elif exploration_window and exploration_window.is_open():
 		exploration_window.show_result(title, message)
 	else:
 		_show_collision_result(title, message, "")
@@ -3059,7 +3344,8 @@ func _show_collision_result(
 func _apply_poi_session_selections(
 	coords: Vector2i,
 	hex_data: MacroHexData,
-	selected_item_ids: Array
+	selected_item_ids: Array,
+	apply_traps: bool = true
 ) -> void:
 	var inventory := player_token.get_humanoid_core().inventory
 	_PoiController.apply_sleep_gear_selection(
@@ -3067,12 +3353,14 @@ func _apply_poi_session_selections(
 		selected_item_ids,
 		Callable(self, "_find_inventory_item_by_instance_id")
 	)
-	var trap_outcome := _PoiController.apply_trap_install(
-		hex_data,
-		selected_item_ids,
-		Callable(self, "_find_inventory_item_by_instance_id"),
-		Callable(inventory, "remove_item_by_instance_id")
-	)
+	var trap_outcome := {"hex_state": hex_data.to_state()}
+	if apply_traps:
+		trap_outcome = _PoiController.apply_trap_install(
+			hex_data,
+			selected_item_ids,
+			Callable(self, "_find_inventory_item_by_instance_id"),
+			Callable(inventory, "remove_item_by_instance_id")
+		)
 	var gear_outcome := _PoiController.apply_camp_gear_selection(
 		hex_data,
 		coords,

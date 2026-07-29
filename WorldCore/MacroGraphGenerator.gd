@@ -92,6 +92,11 @@ static func _build_arm(
 	var previous_id := CENTRAL_ID
 	for tier in range(1, 4):
 		var node_id := "%s_random_%d" % [arm.prefix, tier]
+		var zone_profile_id := (
+			"starter_route_1"
+			if tier == 1
+			else "%s_tier_%d" % [arm.prefix, tier]
+		)
 		var node := _def(
 			node_id,
 			"%s Route %d" % [arm.display_name, tier],
@@ -101,7 +106,7 @@ static func _build_arm(
 			GameEnums.MacroNodePersistence.SEEDED_RANDOM,
 			arm.arm_direction as GameEnums.MacroArmDirection,
 			tier,
-			"%s_tier_%d" % [arm.prefix, tier]
+			zone_profile_id
 		)
 		node.unlocked = tier <= arm.initial_open_depth
 		node.discovered = true
@@ -174,10 +179,11 @@ static func _build_interior_cluster(
 	var hidden_count := mini(node_count - 1, rng.randi_range(hidden_range.x, hidden_range.y))
 	var visible_count := node_count - hidden_count
 	var visible_ids: Array[String] = []
+	var main_edge_ids: Array[String] = []
 
 	for index in range(node_count):
 		var node_id := "%s_route_%d_interior_%02d" % [arm.prefix, tier, index + 1]
-		var hidden := index >= visible_count
+		var is_secret := index >= visible_count
 		var node := _def(
 			node_id,
 			"%s Interior %02d" % [arm.display_name, index + 1],
@@ -191,16 +197,26 @@ static func _build_interior_cluster(
 		)
 		node.region_id = anchor.id
 		node.unlocked = true
-		node.discovered = not hidden
+		node.discovered = false
 		node.details_revealed = false
-		node.hidden_until_discovered = hidden
+		node.hidden_until_discovered = true
 		graph.add_node(node)
-		if not hidden:
+		if not is_secret:
 			visible_ids.append(node_id)
 
 	for index in range(visible_ids.size()):
 		var from_id := anchor.id if index == 0 else visible_ids[index - 1]
-		_connect_by_layout(graph, from_id, visible_ids[index], true)
+		var edge_ids := _connect_by_layout(graph, from_id, visible_ids[index], false)
+		for edge_id in edge_ids:
+			main_edge_ids.append(edge_id)
+
+	graph.discovery_rules.append({
+		"id": "cluster_reveal__%s" % anchor.id,
+		"trigger_ids": ["node_entered:%s" % anchor.id],
+		"reveal_node_ids": visible_ids.duplicate(),
+		"reveal_edge_ids": main_edge_ids.duplicate(),
+		"requirements": {},
+	})
 
 	for hidden_index in range(hidden_count):
 		var node_index := visible_count + hidden_index

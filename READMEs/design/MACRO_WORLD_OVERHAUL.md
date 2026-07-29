@@ -15,6 +15,9 @@ Where Act 1 soft language here conflicts with that file, **Central Core wins**.
 **Asset packs → dialects / alpha homestead ramp:**
 [Hex World Asset Overhaul](HEX_WORLD_ASSET_OVERHAUL.md)
 
+**Generated local-zone contract:**
+[Hex World Generator V2](HEX_WORLD_GENERATOR_V2.md)
+
 ---
 
 ## Current opening topology (supersedes older Act 1 soft-seal text below)
@@ -32,6 +35,19 @@ Where Act 1 soft language here conflicts with that file, **Central Core wins**.
   discovery rules reveal them.
 - Every playable node, including cluster interiors, continues to use the same
   bounded radius-12 local-zone runtime and snapshot lifecycle.
+- All four `*_random_1` nodes share the `starter_route_1` ecology and logistics
+  contract: 469 cells, a low-hazard fixed paved arterial from the
+  Central-facing rim to the outward rim, a short dirt service spur, poor
+  exhaustible rubble, and seed-varying surroundings.
+- The starter ring contains exactly one inhabited settlement. The alpha locks
+  it and the single stationary wayfinder to `north_random_1`; East, South, and
+  West have no settlement stamp, inhabited POI, or resident wayfinder.
+- The logistics skeleton is invariant across seeds and entry directions.
+  Player arrival selects the spawn rim but never generates or reroutes roads.
+- North Route 1 remains a cold Central fringe rather than a snow biome: it uses
+  plains/mud terrain, a denser corrugated homestead footprint, infrastructure
+  clutter, and sparse frost-covered rock accents. Continuous snow starts on
+  North Route 2 and intensifies toward the gateway and Core.
 
 The live topology contract is authored in
 [`WorldCore/campaign_graph.tres`](../../WorldCore/campaign_graph.tres), not in a
@@ -140,20 +156,26 @@ Implementation order lives in
 
 ## Zone composition (all 469 cells)
 
-Composition plan runs **before** free decoration scatter:
+Generator V2 composes authoritative logistics separately from seeded
+surroundings:
 
-1. Terrain / moisture noise (existing)
-2. Ring bands + wedge tags
-3. Trails + rim arrivals/exits
-4. Budgeted roles + cluster growth
-5. Hex dressing templates (locked FRAME, swap CORE)
-6. Light scatter only on EMPTY / SCRUB
+1. Resolve node/profile, world seed, actual arrival, and fixed arm directions.
+2. Generate terrain, moisture, drainage, vegetation, and human-pressure fields.
+3. Apply the rotated Central-rim → outward-rim paved arterial.
+4. Apply the North-only settlement stamp and a short dirt service spur.
+5. Grow rubble, forests, scrub, rocks, traces, and quiet terrain from seeded
+   adjacency-aware rules.
+6. Assign gameplay authority and reciprocal road masks.
+7. Fill fitted dressing recipes; use light scatter only on quiet cells.
+8. Validate budgets, reachability, sockets, seams, assets, and overflow.
 
-Majority of cells stay quiet so landmarks read.
+At least 60% of each starter zone stays free of POIs, structures, and
+searchable fixtures so roads, the sole settlement, and terrain masses remain
+readable. Profiles own budgets and palettes; generated plans own composition;
+props remain presentation-only.
 
-Profiles (`zone_profile_id`) own budgets, palettes, and landmark pool filters.
-
-Detail: [Hex Dressing Templates](HEX_DRESSING_TEMPLATES.md).
+Details: [Hex World Generator V2](HEX_WORLD_GENERATOR_V2.md) and
+[Hex Dressing Templates](HEX_DRESSING_TEMPLATES.md).
 
 ---
 

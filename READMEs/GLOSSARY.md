@@ -62,23 +62,38 @@ Unmarked terms are established. Terms still in motion are labeled
   from Automations. Zeta Corps founded (Era V end) partly to fight them.
 - **World Timeline Codex:** Official era chronology. Supersedes older Alpha /
   README era lists.
-- **North Spine (Act 1):** The first campaign highway — Central fringe plus
-  `north_random_1..3`, north gateway, and north arm core. E/S/W arms are grey
-  and non-traversable in Act 1 (rim travel and Node Map both sealed).
+- **Starter Ring:** The four open Central-adjacent Route 1 nodes and their
+  inner-ring links. Each owns a fixed Central-facing-to-outward arterial, but
+  the ring contains only one inhabited starter settlement.
+- **North Spine (Act 1):** The first deep campaign highway —
+  `north_random_1..3`, north gateway, and north arm core. All four Route 1 nodes
+  are available as starter-ring locations; East/South/West routes beyond that
+  ring remain locked.
 - **North Pointer Tutorial:** One-shot Act 1 beat after eviction: an NPC or
   scripted event points the player North, opens the Node Map, and highlights
   `central_core → north_random_1` with a focus animation. Sets Meta flag
   `tutorial_north_pointed`. See
   [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
-- **Act 1 Arm Seal:** Hard travel refuse for East/South/West routes and their
-  `*_random_1` teases after eviction. Visible on the Node Map as grey locked
-  nodes/edges; does not open side-arm play. Detail:
+- **Act 1 Arm Seal:** Travel refusal for East/South/West routes beyond the open
+  Route 1 starter ring. Deeper nodes, gateways, and Cores remain visible but
+  locked; the seal does not block movement among the four starter nodes. Detail:
   [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
-- **Zone Composition Plan** *(planned):* Deterministic pass that assigns
-  budgeted visual roles across a 469-cell zone (rings, trails, clusters) before
-  decoration fill.
-- **Hex Dressing Template** *(planned):* Per-hex visual recipe with locked FRAME
-  anchors and swappable CORE pools so layout stays coherent while interiors vary.
+- **Fixed Logistics Skeleton:** Seed-invariant paved arterial and dirt service
+  spur authored for a main node. It is oriented by the node's arm and cannot be
+  rerouted by terrain noise, player arrival, or discovery order.
+- **Generated Zone Plan:** Transient Generator V2 composition containing the
+  469 cell roles, road masks, settlement stamp, rubble, traces, and validation
+  results before authoritative hex records are finalized.
+- **Zone Composition Plan:** Deterministic pass that assigns budgeted gameplay
+  and visual roles across a 469-cell zone before dressing fill.
+- **Hex Dressing Template:** Per-hex visual recipe with locked FRAME anchors and
+  swappable CORE pools so silhouettes stay coherent while interiors vary.
+- **Starter Settlement:** The only inhabited POI in the four-node starter ring.
+  The alpha locks it to `north_random_1`; it owns the sole stationary
+  wayfinder. Future seed selection must still choose exactly one arm.
+- **Road Mask:** Six-bit reciprocal connectivity record for one hex. Each bit
+  corresponds to one axial neighbor socket and resolves to a surface-specific
+  512×512 overlay without changing terrain authority.
 - **Regional Dialect:** Arm- or profile-specific art, landmark, and environmental
   copy bias (Central admin remnant, North frontier scraps, East war debris,
   South Guild logistics, West mining/steel) without cosmic exposition.

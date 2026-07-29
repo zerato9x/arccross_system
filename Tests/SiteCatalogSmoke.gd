@@ -1,6 +1,7 @@
 extends SceneTree
 
 const SiteCatalog := preload("res://WorldCore/SiteCatalog.gd")
+const MacroPoiController := preload("res://WorldCore/MacroPoiController.gd")
 
 
 func _initialize() -> void:
@@ -12,11 +13,13 @@ func _run() -> void:
 		return
 	if not _verify_homestead_site():
 		return
+	if not _verify_parcel_site():
+		return
 	if not _verify_story_rooms_deferred():
 		return
 	if not _verify_collision_presence():
 		return
-	print("[TEST PASS] SiteCatalog homestead fixtures, deferred story rooms, scale, collision presence.")
+	print("[TEST PASS] SiteCatalog homestead fixtures, parcel fixtures, deferred story rooms, scale, collision presence.")
 	quit(0)
 
 
@@ -27,6 +30,8 @@ func _verify_scale() -> bool:
 		return _fail("SEARCH_MINUTES should be two action atoms (30).")
 	if absf(GameTimeRules.HEX_CENTER_DISTANCE_KM - 0.45) > 0.001:
 		return _fail("HEX_CENTER_DISTANCE_KM should be 0.45.")
+	if absf(GameTimeRules.HEX_AREA_KM2 - 0.175) > 0.001:
+		return _fail("HEX_AREA_KM2 should stay locked at 0.175 (neighborhood parcel).")
 	return true
 
 
@@ -37,7 +42,11 @@ func _verify_homestead_site() -> bool:
 	hex.poi_name = "Abandoned Homestead"
 	hex.is_poi = true
 	hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
-	var options := MacroInteractionResolver.build_search_options("SITE_SMOKE", Vector2i(3, 1), hex)
+	var options := MacroPoiController.build_landmark_search_options(
+		hex,
+		"SITE_SMOKE",
+		Vector2i(3, 1)
+	)
 	var site := SiteCatalog.site_for_hex(
 		hex,
 		options,
@@ -56,9 +65,60 @@ func _verify_homestead_site() -> bool:
 	var verbs: Array = bed.get("verbs", [])
 	if not verbs.has(SiteCatalog.VERB_SEARCH) or not verbs.has(SiteCatalog.VERB_SLEEP):
 		return _fail("Bed must support Search and Sleep.")
+	var bed_option := str(bed.get("search_option_id", ""))
+	if bed_option.is_empty():
+		return _fail("Homestead bed must bind a live search_option_id.")
+	var option_ids: Dictionary = {}
+	for option in options:
+		if option is Dictionary:
+			option_ids[str(option.get("id", ""))] = true
+	if not option_ids.has(bed_option):
+		return _fail(
+			"Homestead bed search_option_id '%s' missing from landmark options."
+			% bed_option
+		)
 	var kitchen_floor := SiteCatalog.fixture_by_id(site, "kitchen_floor")
 	if kitchen_floor.is_empty() or not kitchen_floor.get("verbs", []).has(SiteCatalog.VERB_SLEEP):
 		return _fail("Kitchen floor must be a sleep verb fixture.")
+	return true
+
+
+func _verify_parcel_site() -> bool:
+	var hex := MacroHexData.new()
+	hex.flora_layer = GameEnums.MacroFloraLayer.SHRUBS
+	var options := MacroInteractionResolver.build_search_options(
+		"SITE_SMOKE",
+		Vector2i(2, 2),
+		hex
+	)
+	var site := SiteCatalog.site_for_hex(
+		hex,
+		options,
+		{"allowed": true, "reason": ""},
+		"SITE_SMOKE",
+		Vector2i(2, 2)
+	)
+	if str(site.get("site_id", "")) != "parcel_ground":
+		return _fail("Quiet hex should resolve to parcel_ground site.")
+	var fixtures: Array = site.get("fixtures", [])
+	if fixtures.size() < 1 or fixtures.size() > 3:
+		return _fail(
+			"Quiet parcel should keep 1–3 fixtures, got %d." % fixtures.size()
+		)
+	var searchable := SiteCatalog.searchable_fixtures(site)
+	if searchable.is_empty():
+		return _fail("Quiet parcel should expose at least one SEARCH fixture.")
+	for fixture in searchable:
+		var option_id := str(fixture.get("search_option_id", ""))
+		if option_id.is_empty():
+			return _fail("Parcel SEARCH fixture missing search_option_id.")
+		var found := false
+		for option in options:
+			if option is Dictionary and str(option.get("id", "")) == option_id:
+				found = true
+				break
+		if not found:
+			return _fail("Parcel fixture option '%s' not in search_options." % option_id)
 	return true
 
 

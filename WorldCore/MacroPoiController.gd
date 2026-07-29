@@ -267,14 +267,14 @@ static func available_interaction_options(inventory_items: Array) -> Array:
 	var descriptors: Array = []
 	for item in inventory_items:
 		if item is ItemData and not item.interaction_roles.is_empty():
-			descriptors.append({
-				"instance_id": item.instance_id,
-				"item_id": item.id,
-				"name": item.display_name,
-				"sprite_path": item.get_inventory_sprite_path(),
-				"tags": item.tags.duplicate(),
-				"roles": item.interaction_roles.duplicate(),
-			})
+			var roles: Array = item.interaction_roles.duplicate()
+			var descriptor: Dictionary = item.to_interaction_descriptor()
+			descriptor["item_id"] = item.id
+			descriptor["sprite_path"] = item.get_inventory_sprite_path()
+			descriptor["tags"] = item.tags.duplicate()
+			descriptor["roles"] = roles
+			descriptor["interaction_roles"] = roles
+			descriptors.append(descriptor)
 	return descriptors
 
 
@@ -544,18 +544,26 @@ static func build_landmark_session_snapshot(
 	)
 	var default_fixture_id := _default_fixture_id(site)
 	var default_fixture := SiteCatalog.fixture_by_id(site, default_fixture_id)
+	var scene_descriptor := EventBgCatalog.build_scene_descriptor(
+		hex_data,
+		world_seed,
+		coords
+	)
+	scene_descriptor["props"] = align_props_to_site_fixtures(
+		scene_descriptor.get("props", []),
+		site,
+		hex_data,
+		world_seed,
+		coords
+	)
 	return {
 		"poi_name": hex_data.poi_name,
 		"hex_label": hex_label,
-		"has_search": true,
+		"has_search": not SiteCatalog.searchable_fixtures(site).is_empty(),
 		"place_centric": true,
 		"site": site,
 		"selected_fixture_id": default_fixture_id,
-		"scene_descriptor": EventBgCatalog.build_scene_descriptor(
-			hex_data,
-			world_seed,
-			coords
-		),
+		"scene_descriptor": scene_descriptor,
 		"available_items": available_items,
 		"search_drop_targets": build_fixture_drop_targets(site, default_fixture_id),
 		"search_gear_slots": build_search_gear_slots(),
@@ -588,37 +596,130 @@ static func build_hex_session_snapshot(
 	hex_label: String,
 	camp_access: Dictionary,
 	available_items: Array,
-	ground_items: Array
+	ground_items: Array,
+	inventory_has_item_id: Callable = Callable(),
+	inventory_has_tag: Callable = Callable(),
+	inventory_has_role: Callable = Callable()
 ) -> Dictionary:
 	const EventBgCatalog := preload("res://PresentationCore/EventBgCatalog.gd")
 	const WorldSectorCatalog := preload("res://WorldCore/WorldSectorCatalog.gd")
-	var site := SiteCatalog.site_for_hex(hex_data, [], camp_access, world_seed, coords)
+	var search_options: Array = []
+	if (
+		inventory_has_item_id.is_valid()
+		and inventory_has_tag.is_valid()
+		and inventory_has_role.is_valid()
+	):
+		search_options = evaluated_search_options(
+			world_seed,
+			coords,
+			hex_data,
+			inventory_has_item_id,
+			inventory_has_tag,
+			inventory_has_role
+		)
+	else:
+		search_options = MacroInteractionResolver.build_search_options(
+			world_seed,
+			coords,
+			hex_data
+		)
+	var site := SiteCatalog.site_for_hex(hex_data, search_options, camp_access, world_seed, coords)
 	var default_fixture_id := _default_fixture_id(site)
+	var default_fixture := SiteCatalog.fixture_by_id(site, default_fixture_id)
+	var searchable := SiteCatalog.searchable_fixtures(site)
+	var props := align_props_to_site_fixtures(
+		[],
+		site,
+		hex_data,
+		world_seed,
+		coords
+	)
 	return {
-		"poi_name": hex_label if not hex_label.is_empty() else "WILDERNESS",
+		"poi_name": hex_label if not hex_label.is_empty() else "Neighborhood Parcel",
 		"hex_label": hex_label,
-		"has_search": false,
+		"has_search": not searchable.is_empty(),
 		"place_centric": true,
 		"site": site,
 		"selected_fixture_id": default_fixture_id,
 		"scene_descriptor": {
 			"background_path": EventBgCatalog.resolve_background(hex_data),
-			"props": [],
+			"props": props,
 			"zone_name": WorldSectorCatalog.wedge_display_name(hex_data.zone_id),
 		},
 		"available_items": available_items,
-		"search_drop_targets": [],
-		"search_gear_slots": [],
+		"search_drop_targets": build_fixture_drop_targets(site, default_fixture_id),
+		"search_gear_slots": build_search_gear_slots(),
 		"camp_drop_targets": build_camp_drop_targets(hex_data),
 		"fixture_drop_targets": build_fixture_drop_targets(site, default_fixture_id),
 		"ground_items": ground_items,
-		"search_options": [],
+		"search_options": search_options,
+		"searched_targets": hex_data.searched_targets.duplicate(),
 		"camp_allowed": camp_access.get("allowed", false),
 		"camp_block_reason": camp_access.get("reason", ""),
 		"rest_in_progress": hex_data.rest_in_progress,
 		"world_time": world_time,
-		"selected_search_option_id": "",
+		"selected_search_option_id": str(
+			default_fixture.get("search_option_id", "")
+		),
 	}
+
+
+static func align_props_to_site_fixtures(
+	existing_props: Array,
+	site: Dictionary,
+	hex_data: MacroHexData,
+	world_seed: String,
+	coords: Vector2i
+) -> Array:
+	const PoiVisualCatalog := preload("res://PresentationCore/PoiVisualCatalog.gd")
+	var searchable := SiteCatalog.searchable_fixtures(site)
+	if searchable.is_empty():
+		return existing_props.duplicate(true)
+	var by_option: Dictionary = {}
+	for prop in existing_props:
+		if not prop is Dictionary:
+			continue
+		var option_id := str(prop.get("search_option_id", prop.get("id", "")))
+		if not option_id.is_empty():
+			by_option[option_id] = prop.duplicate(true)
+	var aligned: Array = []
+	for fixture in searchable:
+		if not fixture is Dictionary:
+			continue
+		var option_id := str(fixture.get("search_option_id", ""))
+		if option_id.is_empty():
+			continue
+		var prop: Dictionary = {}
+		if by_option.has(option_id):
+			prop = by_option[option_id].duplicate(true)
+		else:
+			var sprite_path := ""
+			if hex_data.flora_layer != GameEnums.MacroFloraLayer.NONE:
+				sprite_path = PoiVisualCatalog.pick_flora_path(world_seed, coords)
+			if sprite_path.is_empty() and not hex_data.structure_sprite_path.is_empty():
+				sprite_path = hex_data.structure_sprite_path
+			if sprite_path.is_empty():
+				var structures := PoiVisualCatalog.pick_structure_paths(
+					hex_data.landmark_id if not hex_data.landmark_id.is_empty() else hex_data.poi_id,
+					world_seed,
+					coords,
+					1
+				)
+				if not structures.is_empty():
+					sprite_path = str(structures[0])
+			if sprite_path.is_empty():
+				continue
+			prop = {
+				"id": option_id,
+				"label": str(fixture.get("label", option_id)),
+				"sprite_path": sprite_path,
+				"search_option_id": option_id,
+			}
+		prop["anchor"] = fixture.get("anchor", prop.get("anchor", Vector2(0.5, 0.55)))
+		prop["label"] = str(fixture.get("label", prop.get("label", option_id)))
+		prop["search_option_id"] = option_id
+		aligned.append(prop)
+	return aligned
 
 
 static func _default_fixture_id(site: Dictionary) -> String:

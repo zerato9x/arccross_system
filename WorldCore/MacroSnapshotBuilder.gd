@@ -435,24 +435,24 @@ static func feature_title(hex_data: MacroHexData) -> String:
 	if hex_data.is_poi and not hex_data.poi_name.is_empty():
 		return hex_data.poi_name
 	if hex_data.water_layer == GameEnums.MacroWaterLayer.SHALLOW_RIVER:
-		return "Shallow River Channel"
+		return "Shallow River Bend"
 	if hex_data.water_layer == GameEnums.MacroWaterLayer.DEEP_WATER:
-		return "Deep Water"
+		return "Deep Water Parcel"
 	if hex_data.rock_layer == GameEnums.MacroRockLayer.ROCKS:
-		return "Blocking Boulder Field"
+		return "Blocked Boulder Lot"
 	if hex_data.rock_layer == GameEnums.MacroRockLayer.HILLS:
-		return "Broken Rocky Rise"
+		return "Rocky Rise Parcel"
 	if hex_data.flora_layer == GameEnums.MacroFloraLayer.TREES:
-		return "Temperate Grove"
+		return "Grove Parcel"
 	if hex_data.structure_layer == GameEnums.MacroStructureLayer.REMNANTS:
-		return "Scattered Remnants"
+		return "Remnant Lot"
 	if hex_data.structure_layer == GameEnums.MacroStructureLayer.STRUCTURES:
 		return "Isolated Structure"
 	if hex_data.terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW:
-		return "Waterlogged Lowland"
+		return "Waterlogged Parcel"
 	if hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS:
-		return "Shrub-Dotted Prairie"
-	return "Open Prairie"
+		return "Scrub Parcel"
+	return "Open Parcel"
 
 
 static func _hex_environment_summary(hex_data: MacroHexData) -> String:
@@ -461,22 +461,22 @@ static func _hex_environment_summary(hex_data: MacroHexData) -> String:
 
 static func environment_summary(hex_data: MacroHexData) -> String:
 	if hex_data.water_layer == GameEnums.MacroWaterLayer.SHALLOW_RIVER:
-		return "Cold shallow water, stony banks, and dense riverside growth."
+		return "Cold shallow water and stony banks across this ~450 m parcel."
 	if hex_data.water_layer == GameEnums.MacroWaterLayer.DEEP_WATER:
-		return "Dark water with no safe footing visible from the bank."
+		return "Dark water with no safe footing on this parcel's bank."
 	if hex_data.rock_layer == GameEnums.MacroRockLayer.ROCKS:
-		return "Massive weathered stone closes off direct passage."
+		return "Weathered stone closes off direct passage through the parcel."
 	if hex_data.rock_layer == GameEnums.MacroRockLayer.HILLS:
-		return "Uneven stone shelves break up the surrounding grassland."
+		return "Uneven stone shelves break up this neighborhood rise."
 	if hex_data.flora_layer == GameEnums.MacroFloraLayer.TREES:
-		return "Mature trees, leaf litter, and thick understory limit sightlines."
+		return "A tight grove and understory cut sightlines across the parcel."
 	if hex_data.structure_layer != GameEnums.MacroStructureLayer.NONE:
-		return "Human-made remains interrupt the otherwise open plains."
+		return "Human-made remains interrupt this neighborhood parcel."
 	if hex_data.terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW:
-		return "Soft saturated ground records tracks and slows every step."
+		return "Soft saturated ground on this parcel records tracks and slows steps."
 	if hex_data.flora_layer == GameEnums.MacroFloraLayer.SHRUBS:
-		return "Waist-high scrub and hardy plants cluster across the prairie."
-	return "Wind-cut grassland with long sightlines and little shelter."
+		return "Waist-high scrub clusters across this ~450 m parcel."
+	return "Open grassland parcel with short sightlines and little shelter."
 
 
 static func _hex_movement_note(hex_data: MacroHexData) -> String:

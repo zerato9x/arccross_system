@@ -181,13 +181,18 @@ func _on_combatant_died(cause: String, dead_entity: HumanoidCore) -> void:
 		return
 	_resolving = true
 	turn_manager.halt_loop()
-	if dead_entity == enemy_core:
-		_append_dropped_items(enemy_core.inventory.drain_all_items())
 	var outcome := (
 		GameEnums.CombatOutcome.PLAYER_DEFEAT
 		if dead_entity == player_core
 		else GameEnums.CombatOutcome.PLAYER_VICTORY
 	)
+	# Let the adapter emit the death presentation and freeze a clothed snapshot
+	# before loot strip, then wait for Die / final-blow to finish.
+	await get_tree().process_frame
+	command_adapter.refresh_snapshot()
+	await lane_hud.wait_for_presentation_idle()
+	if dead_entity == enemy_core:
+		_append_dropped_items(enemy_core.inventory.drain_all_items())
 	if DisplayServer.get_name() != "headless":
 		await lane_hud.show_resolve_screen({
 			"title": "TURN-BASED DUEL RESOLVED",

@@ -633,7 +633,46 @@ static func _ask_profile(dialogue_id: String) -> Dictionary:
 		return _unique_sample_broker()
 	if dialogue_id == "central_guard":
 		return _central_guard_ask()
+	if dialogue_id.begins_with("starter_wayfinder:"):
+		return _starter_wayfinder_ask(dialogue_id.trim_prefix("starter_wayfinder:"))
 	return _generic_ask()
+
+
+static func _starter_wayfinder_ask(arm_id: String) -> Dictionary:
+	var arm_label := arm_id.capitalize()
+	return {
+		"title": "ASK // %s WAYFINDER" % arm_label.to_upper(),
+		"body": (
+			"A fringe resident keeps watch beside the homesteads. They know which "
+			+ "tracks still carry people, and which only carry trouble."
+		),
+		"choices": [
+			{
+				"id": "ask_wayfinder_route",
+				"label": "Ask about the road ahead",
+				"preview": "Get a direction beyond the settlement.",
+				"reason": "Available.",
+				"result_title": "%s ROUTE" % arm_label.to_upper(),
+				"result_body": (
+					"'Take the marked trail away from Central. The old route marker still "
+					+ "points toward %s Route 2. Check it before you commit.'" % arm_label
+				),
+				"effects": {"elapsed_minutes": 2, "exertion": 0.05},
+			},
+			{
+				"id": "ask_wayfinder_ring",
+				"label": "Ask about the inner ring",
+				"preview": "Learn how the four old approaches connect.",
+				"reason": "Available.",
+				"result_title": "FRINGE RING",
+				"result_body": (
+					"'Four old approaches still ring Central's lock, but this is the only "
+					+ "settled camp. The paved bones remain even where nobody stayed.'"
+				),
+				"effects": {"elapsed_minutes": 2, "exertion": 0.05},
+			},
+		],
+	}
 
 
 static func _central_guard_ask() -> Dictionary:

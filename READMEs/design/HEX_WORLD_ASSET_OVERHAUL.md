@@ -1,10 +1,12 @@
 # Hex World Asset Overhaul
 
-**Status:** Official asset → Node Map → hex-zone implementation plan.  
+**Status:** Official asset-pool and biome-dialect contract.
 **Locks:** [World Timeline Codex](../WORLD_TIMELINE_CODEX.md) chronology ·  
 [Macro World Overhaul](MACRO_WORLD_OVERHAUL.md) Node Web ·  
 [Hex Dressing Templates](HEX_DRESSING_TEMPLATES.md) FRAME/CORE ·  
-[Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md) Act 1 seals.
+[Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md) Act 1 seals ·
+[Hex World Generator V2](HEX_WORLD_GENERATOR_V2.md) local-zone composition,
+roads, and settlement uniqueness.
 
 Where this file conflicts with older S:→biome sort tables (including the asset
 pipeline table previously embedded in Central Core Campaign Overhaul), **this
@@ -67,13 +69,25 @@ Make the Directional Node Web and radius-12 hex generator produce an Era 9
 | Node depth | `default_era8` (Golbanc) | Arm theme | Intent |
 | --- | --- | --- | --- |
 | `central_core` | rare | `central` 100% authored | Eviction seat / hub stamp |
-| `*_random_1` (next to Central) | 80–100% | 0–20% hint only | **Starter areas** — shared tutorial grammar |
+| `*_random_1` (next to Central) | 100% | 0% terrain; dressing hint only | **Starter areas** — shared tutorial grammar |
 | mid (`*_random_2..3` / approaches) | ~50% | ~50% | Player feels the Arm waking up |
 | `*_gateway` | ~20% | ~80% | Theme readable |
 | `*_core` | low | theme + Core landmark | Destination identity |
 
-**North example:** terrain lerps plains/Golbanc grass → snow hexes; structures
+**North example:** Route 1 is Central's cold fringe: muddy/plains terrain,
+Golbanc structures, dead vegetation, and only isolated frost-covered props.
+Snow terrain begins at Route 2, then ramps toward the North Core. Structures
 stay Golbanc longer than terrain (sheds in snow = Era 9).
+
+All four Route 1 nodes use the same starter **ecology and logistics grammar**,
+not four copies of the same inhabited POI. Each has a fixed paved arterial from
+its Central-facing rim to its outward arm exit, plus a short dirt service spur.
+Exactly one inhabited starter settlement exists across the ring. The alpha
+locks that settlement and its only wayfinder to `north_random_1`; East, South,
+and West contain no settlement stamp, resident wayfinder, or substitute
+inhabited POI. Seeded terrain, forests, rocks, rubble, and dressing vary around
+the fixed logistics skeleton. The complete contract lives in
+[Hex World Generator V2](HEX_WORLD_GENERATOR_V2.md).
 
 Act 1 shipping may still **hard-seal E/S/W** travel
 ([Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)). The
@@ -157,8 +171,9 @@ Per biome / pool:
 - `Structures/` — CORE footprints
 - `flora/`, `Rocks/`, `remnants/`, `water_*` as needed
 
-**Do not** bake roads into terrain HEX. Roads = OVERLAY backlog (hex-edge set
-covering all iso axes — separate task after dialect wiring).
+**Do not** bake roads into terrain HEX. Generator V2 ships complete transparent
+six-edge overlay families: 64 paved masks and 64 dirt masks at 512×512. Pipes
+and power remain later infrastructure work.
 
 ---
 
@@ -222,7 +237,7 @@ SystemCore ([Central Core](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)).
 - `structure_pack` on hex records; catalog resolves vernacular structures
 - `HexWorldGenerator` facade: legacy hub/wedge off by default
 - **Done when:** North approach reads Golbanc→snow ramp at fixed seed  
-- **Status (2026-07-27):** Done — `MacroZoneDialectSmoke` snow_r1=53 vs snow_core=434
+- **Status (2026-07-28):** Done — `MacroZoneDialectSmoke` snow_r1=0 vs snow_core=434
 
 ### Phase D — Dressing templates
 
@@ -239,9 +254,11 @@ SystemCore ([Central Core](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)).
 
 ### Phase F — Infrastructure overlays
 
-- Hex-edge road set (all iso axes), then pipes/power  
-- Vignette-only until complete  
-- **Done when:** trails use OVERLAY stubs without baking into HEX  
+- **Road status (2026-07-29): Done** — 64 paved and 64 dirt masks, exact shared
+  sockets, stable IDs, surface-aware rendering, and fixed four-arm logistics.
+- Pipes and power remain future overlay families.
+- **Road acceptance:** reciprocal sockets, all masks present, both rims
+  connected, no road geometry baked into terrain HEX files.
 
 ---
 
@@ -264,6 +281,10 @@ SystemCore ([Central Core](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)).
 - Catalog + generator speak in pool ids aligned to this doc  
 - Act 1 can ship Central + North ramp without waiting for all packs  
 - Props never author blockers / travel / POI authority  
+- Exactly one inhabited starter settlement exists across the four Route 1
+  nodes; alpha ownership is North.
+- Road geometry is invariant across seeds and discovery direction while the
+  surrounding ecology materially changes with the seed.
 
 ---
 
@@ -273,4 +294,5 @@ SystemCore ([Central Core](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)).
 - Act 1 seals / eviction: [Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)  
 - Node Web: [Macro World Overhaul](MACRO_WORLD_OVERHAUL.md)  
 - Dressing schema: [Hex Dressing Templates](HEX_DRESSING_TEMPLATES.md)  
+- Generator contract: [Hex World Generator V2](HEX_WORLD_GENERATOR_V2.md)
 - Builder: [`Tools/Build-HexTileSet.gd`](../../Tools/Build-HexTileSet.gd)  

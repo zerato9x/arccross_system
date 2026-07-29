@@ -44,6 +44,44 @@ Live screenshots live under [`../Mockup/`](../Mockup/). Prefer those over the
 historical plates in [`mockups/`](mockups/), which are obsolete layout sketches
 only.
 
+The Central eviction office and North Route 1 fringe settlement are the
+canonical environmental-art pair for the campaign: high-resolution grounded
+pixel-art realism, dense worn industrial materials, cold blue-gray atmosphere,
+restrained amber practical lights, and lived-in scarcity. New narrative
+backdrops should extend this language rather than introduce glossy neon sci-fi,
+clean utopian surfaces, or low-resolution retro caricature.
+
+North Route 1 should match that backdrop through corrugated homesteads, crates,
+machinery, muddy/plains ground, dead scrub, and sparse frost in sheltered edges.
+It must not read as established snow country; continuous snow is reserved for
+Route 2 onward so the North journey has a visible climatic escalation.
+
+The settlement backdrop describes the sole alpha starter settlement, locked to
+North. East, South, and West Route 1 share the readable plains and logistics
+language but must not visually imply three additional inhabited settlements.
+
+## Hex World Generator V2
+
+- Terrain fills the complete hex silhouette. Edge shadows, black gutters, and
+  bevels that reveal tile boundaries are forbidden.
+- Use the full approved seamless green-plains family across each 469-cell
+  starter zone; variation should read as one landscape rather than repeated
+  isolated plates.
+- Paved and dirt roads are crisp transparent 512×512 overlays. Curbs, cracks,
+  aggregate, compacted soil, and weathering may provide material detail, but
+  all six edge sockets must remain visually identical between masks.
+- The paved arterial is a logistics landmark: it always joins the
+  Central-facing rim to the outward arm rim. Seeded forest, rocks, rubble, and
+  scrub frame it without obscuring its route.
+- Rubble should be materially larger than shrubs and framed by scattered scrub.
+  Tent cells should read as camps with multiple tents and utility details.
+- Forests form readable masses; rocks establish strong terrain silhouettes;
+  shrubs remain smaller and use off-center placements instead of clustering in
+  the center of every hex.
+
+The implementation contract and exact budgets live in
+[Hex World Generator V2](HEX_WORLD_GENERATOR_V2.md).
+
 ## Presentation Contract
 
 HUDs display owner-produced snapshots and emit intent through stable command or

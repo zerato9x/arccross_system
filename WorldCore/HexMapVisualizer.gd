@@ -12,6 +12,7 @@ enum FogState {
 @export var world_generator: HexWorldGenerator
 @export var tile_catalog: MacroTileCatalog
 @export var overlay_layer: TileMapLayer
+@export var road_layer: TileMapLayer
 @export var water_layer: TileMapLayer
 @export var flora_layer: TileMapLayer
 @export var rock_layer: TileMapLayer
@@ -219,6 +220,7 @@ func _collect_source_ids(value: Variant, output: Dictionary) -> void:
 func _assign_tileset_to_layers(generated_tile_set: TileSet) -> void:
 	for layer in [
 		overlay_layer,
+		road_layer,
 		water_layer,
 		flora_layer,
 		rock_layer,
@@ -464,6 +466,7 @@ func _paint_single_hex(coords: Vector2i) -> void:
 	set_cell(coords, bg_source_id, SINGLE_TILE_COORD)
 
 	var target_flora_layer := flora_layer if flora_layer != null else overlay_layer
+	var target_road_layer := road_layer if road_layer != null else overlay_layer
 	var target_water_layer := water_layer if water_layer != null else overlay_layer
 	var target_rock_layer := rock_layer if rock_layer != null else overlay_layer
 	var target_structure_layer := (
@@ -471,6 +474,7 @@ func _paint_single_hex(coords: Vector2i) -> void:
 	)
 
 	if is_unknown:
+		_paint_optional_layer(target_road_layer, coords, -1)
 		_paint_optional_layer(target_water_layer, coords, -1)
 		_paint_optional_layer(target_flora_layer, coords, -1)
 		_paint_optional_layer(target_rock_layer, coords, -1)
@@ -479,6 +483,7 @@ func _paint_single_hex(coords: Vector2i) -> void:
 		_clear_decorations(coords)
 		_hide_poi_marker(coords)
 	else:
+		_paint_optional_layer(target_road_layer, coords, _resolve_road_source_id(hex_data))
 		_paint_optional_layer(
 			target_water_layer,
 			coords,
@@ -520,6 +525,10 @@ func _paint_single_hex(coords: Vector2i) -> void:
 	_apply_fog_to_hex(coords, fog_state)
 
 func _resolve_bg_source_id(hex_data: MacroHexData) -> int:
+	if tile_catalog != null and not hex_data.terrain_asset_id.is_empty():
+		var stable_source := tile_catalog.resolve_asset_id(hex_data.terrain_asset_id)
+		if stable_source >= 0:
+			return stable_source
 	var authored := _resolve_authored_path(hex_data.terrain_sprite_path, hex_data)
 	if authored >= 0:
 		return authored
@@ -532,6 +541,13 @@ func _resolve_bg_source_id(hex_data: MacroHexData) -> int:
 		if catalog_source >= 0:
 			return catalog_source
 	return LEGACY_BIOME_TO_SOURCE_ID.get(hex_data.biome, 0)
+
+
+func _resolve_road_source_id(hex_data: MacroHexData) -> int:
+	if hex_data.road_mask <= 0 or tile_catalog == null:
+		return -1
+	var surface_id := "dirt" if hex_data.composition_role == "dirt_service_spur" else "paved"
+	return tile_catalog.resolve_road_mask_id(hex_data.road_mask, surface_id)
 
 func _resolve_flora_source_id(hex_data: MacroHexData) -> int:
 	var authored := _resolve_authored_path(hex_data.flora_sprite_path, hex_data)
@@ -848,6 +864,7 @@ func _apply_fog_to_hex(coords: Vector2i, state: int, animate: bool = true) -> vo
 func _sync_detail_visibility(coords: Vector2i, state: int) -> void:
 	var is_unknown := state == FogState.UNKNOWN
 	var hex_data: MacroHexData = world_generator.get_hex_at(coords)
+	var target_road_layer := road_layer if road_layer != null else overlay_layer
 	var target_flora_layer := flora_layer if flora_layer != null else overlay_layer
 	var target_water_layer := water_layer if water_layer != null else overlay_layer
 	var target_rock_layer := rock_layer if rock_layer != null else overlay_layer
@@ -855,6 +872,7 @@ func _sync_detail_visibility(coords: Vector2i, state: int) -> void:
 		structure_layer if structure_layer != null else overlay_layer
 	)
 	if is_unknown:
+		_paint_optional_layer(target_road_layer, coords, -1)
 		_paint_optional_layer(target_water_layer, coords, -1)
 		_paint_optional_layer(target_flora_layer, coords, -1)
 		_paint_optional_layer(target_rock_layer, coords, -1)
@@ -867,6 +885,7 @@ func _sync_detail_visibility(coords: Vector2i, state: int) -> void:
 		return
 
 	# Restored visibility: repaint details if missing.
+	_paint_optional_layer(target_road_layer, coords, _resolve_road_source_id(hex_data))
 	_paint_optional_layer(
 		target_water_layer,
 		coords,
@@ -913,6 +932,8 @@ func _erase_hex_visual(coords: Vector2i) -> void:
 	erase_cell(coords)
 	if overlay_layer != null:
 		overlay_layer.erase_cell(coords)
+	if road_layer != null:
+		road_layer.erase_cell(coords)
 	if water_layer != null:
 		water_layer.erase_cell(coords)
 	if flora_layer != null:

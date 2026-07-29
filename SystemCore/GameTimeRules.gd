@@ -2,8 +2,12 @@ extends RefCounted
 class_name GameTimeRules
 
 ## Physical time remains in minutes. These are orchestration rules, not enums.
+## Hex scale LOCKED: HEX_CENTER_DISTANCE_KM = 0.45, HEX_AREA_KM2 = 0.175
+## (neighborhood parcel). Do not retune area toward 0.5.
 ## Radius-12 axial zone: 469 cells. Hex pitch ~0.45 km → ~0.175 km² each,
 ## zone ~82 km² (district-scale travel board).
+## Exploration fixtures (SiteCatalog) mirror one parcel — never densify every
+## cell with landmark-sized POI kits.
 ## One plains step = 15 minutes (four action atoms per hour).
 const HEX_CENTER_DISTANCE_KM: float = 0.45
 ## Area of a regular hex with center-to-center pitch d: (√3/2) * d²

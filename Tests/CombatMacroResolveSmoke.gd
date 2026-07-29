@@ -10,7 +10,7 @@ func _run() -> void:
 	var resolve_ok := await _verify_enemy_death_resolve_zoom()
 	if not resolve_ok:
 		return
-	print("[TEST PASS] Combat escape retreats on the macro map and enemy death shows a resolve zoom.")
+	print("[TEST PASS] Combat escape retreats on the macro map and enemy death keeps clothed Die layers through resolve.")
 	quit(0)
 
 func _verify_player_escape_retreat() -> bool:
@@ -114,6 +114,34 @@ func _verify_enemy_death_resolve_zoom() -> bool:
 	)
 	await process_frame
 
+	var shirt := (
+		load("res://ItemCore/Items/tshirt_black.tres") as ItemData
+	).create_runtime_instance()
+	var pants := (
+		load("res://ItemCore/Items/pants_cargo.tres") as ItemData
+	).create_runtime_instance()
+	if not arena.enemy_core.inventory.equip_item(
+		shirt,
+		GameEnums.EquipmentSlot.INNER_TORSO
+	):
+		return _fail("Could not equip mapped shirt on the resolve enemy.")
+	if not arena.enemy_core.inventory.equip_item(
+		pants,
+		GameEnums.EquipmentSlot.LEGS
+	):
+		return _fail("Could not equip mapped pants on the resolve enemy.")
+	arena.duel_runtime.refresh_snapshot()
+	await process_frame
+
+	var shirt_dir := str(
+		HumanoidVisualCatalog.ITEM_VISUAL_DIRECTORIES.get("tshirt_black", "")
+	)
+	var pants_dir := str(
+		HumanoidVisualCatalog.ITEM_VISUAL_DIRECTORIES.get("pants_cargo", "")
+	)
+	if shirt_dir.is_empty() or pants_dir.is_empty():
+		return _fail("Mapped clothing directories missing from ITEM_VISUAL_DIRECTORIES.")
+
 	var outcomes: Array = []
 	arena.duel_finished.connect(
 		func(
@@ -130,18 +158,65 @@ func _verify_enemy_death_resolve_zoom() -> bool:
 		999.0,
 		0.0
 	)
-	await create_timer(0.35).timeout
-	if not arena.lane_hud.is_resolve_screen_visible():
+
+	var enemy_token: HumanoidTokenView = arena.lane_hud.lane_view._enemy_token
+	if not await _wait_for_token_animation(enemy_token, "Die", 180):
+		return _fail("Final blow did not drive the enemy death animation.")
+	if enemy_token.get("_animation_speed_scale") >= 0.75:
+		return _fail("Final blow did not slow the enemy death animation.")
+
+	# Reproduce the old strip path mid-Die: drain equipment and rebuild the
+	# snapshot. Clothed death appearance must survive.
+	arena.enemy_core.inventory.drain_all_items()
+	arena.duel_runtime.refresh_snapshot()
+	await process_frame
+	await process_frame
+	if enemy_token.get_animation() != "Die":
+		return _fail("Drain/refresh interrupted the Die presentation.")
+	var die_signature := enemy_token.get_appearance_signature()
+	var die_dirs: Array = enemy_token.get("_layer_directories")
+	var has_shirt := false
+	var has_pants := false
+	for directory in die_dirs:
+		var path := str(directory)
+		if path.contains(shirt_dir):
+			has_shirt = true
+		if path.contains(pants_dir):
+			has_pants = true
+	if (
+		not has_shirt
+		or not has_pants
+		or die_signature.find(shirt_dir) < 0
+		or die_signature.find(pants_dir) < 0
+	):
+		return _fail(
+			"Die presentation stripped clothing after drain. signature=%s dirs=%s"
+			% [die_signature, str(die_dirs)]
+		)
+	if die_dirs.size() <= 1:
+		return _fail(
+			"Die presentation only kept the naked base layer. dirs=%s"
+			% str(die_dirs)
+		)
+
+	var headless := DisplayServer.get_name() == "headless"
+	if headless:
+		for _frame in range(240):
+			if not outcomes.is_empty():
+				break
+			await process_frame
+		if outcomes.size() != 1 or outcomes[0] != GameEnums.CombatOutcome.PLAYER_VICTORY:
+			return _fail("Enemy death did not finish as a player victory.")
+		holder.queue_free()
+		await process_frame
+		return true
+
+	if not await _wait_for_resolve_visible(arena.lane_hud):
 		return _fail("Enemy death did not show the resolve screen.")
 	if arena.lane_hud.get_resolve_focus_side() != "enemy":
 		return _fail("Resolve screen did not focus the enemy token.")
 	if arena.lane_hud.get_camera_zoom_value() < 1.25:
 		return _fail("Resolve screen did not zoom the combat camera.")
-	var enemy_token: HumanoidTokenView = arena.lane_hud._lane_view._enemy_token
-	if enemy_token.get_animation() != "Die":
-		return _fail("Final blow did not drive the enemy death animation.")
-	if enemy_token.get("_animation_speed_scale") >= 0.75:
-		return _fail("Final blow did not slow the enemy death animation.")
 	if not await _wait_for_result_overlay(arena.lane_hud):
 		return _fail("Enemy death did not settle into the result overlay.")
 	if not outcomes.is_empty():
@@ -157,6 +232,27 @@ func _verify_enemy_death_resolve_zoom() -> bool:
 	holder.queue_free()
 	await process_frame
 	return true
+
+func _wait_for_token_animation(
+	token: HumanoidTokenView,
+	animation: String,
+	frame_limit: int = 180
+) -> bool:
+	for _frame in range(frame_limit):
+		if token != null and token.get_animation() == animation:
+			return true
+		await process_frame
+	return token != null and token.get_animation() == animation
+
+func _wait_for_resolve_visible(
+	hud: RealtimeDuelHUD,
+	frame_limit: int = 360
+) -> bool:
+	for _frame in range(frame_limit):
+		if hud.is_resolve_screen_visible():
+			return true
+		await process_frame
+	return hud.is_resolve_screen_visible()
 
 func _find_clear_adjacent_hex(
 	macro_map: MacroGameManager,

@@ -19,6 +19,14 @@ class_name MacroHexData
 @export var rock_sprite_path: String = ""
 @export var water_sprite_path: String = ""
 @export var structure_sprite_path: String = ""
+@export var world_generation_version: int = 1
+@export var terrain_asset_id: String = ""
+@export var overlay_asset_ids: Array[String] = []
+@export var composition_role: String = "legacy"
+@export var stamp_instance_id: String = ""
+@export_range(0, 63) var road_mask: int = 0
+@export var loot_tier_id: String = ""
+@export var trace_records: Array[Dictionary] = []
 
 # POI Variables
 @export var is_poi: bool = false
@@ -60,6 +68,14 @@ func to_state() -> HexRecord:
 	record.rock_sprite_path = rock_sprite_path
 	record.water_sprite_path = water_sprite_path
 	record.structure_sprite_path = structure_sprite_path
+	record.world_generation_version = world_generation_version
+	record.terrain_asset_id = terrain_asset_id
+	record.overlay_asset_ids = overlay_asset_ids.duplicate()
+	record.composition_role = composition_role
+	record.stamp_instance_id = stamp_instance_id
+	record.road_mask = road_mask
+	record.loot_tier_id = loot_tier_id
+	record.trace_records = trace_records.duplicate(true)
 	record.is_poi = is_poi
 	record.poi_id = poi_id
 	record.poi_name = poi_name
@@ -104,6 +120,14 @@ func apply_state(state) -> void:
 	rock_sprite_path = source.rock_sprite_path
 	water_sprite_path = source.water_sprite_path
 	structure_sprite_path = source.structure_sprite_path
+	world_generation_version = source.world_generation_version
+	terrain_asset_id = source.terrain_asset_id
+	overlay_asset_ids = source.overlay_asset_ids.duplicate()
+	composition_role = source.composition_role
+	stamp_instance_id = source.stamp_instance_id
+	road_mask = source.road_mask
+	loot_tier_id = source.loot_tier_id
+	trace_records = source.trace_records.duplicate(true)
 	is_poi = source.is_poi
 	poi_id = source.poi_id
 	poi_name = source.poi_name

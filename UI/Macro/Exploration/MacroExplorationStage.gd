@@ -172,7 +172,11 @@ func open_event(session: Dictionary) -> void:
 	present_session(packed)
 
 
-func present_poi(session: Dictionary, inventory_snapshot: Dictionary = {}) -> void:
+func present_poi(
+	session: Dictionary,
+	inventory_snapshot: Dictionary = {},
+	player_record: Dictionary = {}
+) -> void:
 	_dismiss_travel_quiet()
 	_session = session.duplicate(true)
 	_mode = "poi"
@@ -191,7 +195,10 @@ func present_poi(session: Dictionary, inventory_snapshot: Dictionary = {}) -> vo
 	if viewport_size.x < 1280.0:
 		edge = 18.0
 	_exploration_window.present_as_stage_overlay(edge)
-	_exploration_window.open_landmark(_session, inventory_snapshot)
+	var resolved_record: Dictionary = player_record
+	if resolved_record.is_empty():
+		resolved_record = _session.get("player_record", {})
+	_exploration_window.open_landmark(_session, inventory_snapshot, resolved_record)
 	_kill_open_tween()
 	_open_tween = create_tween()
 	_open_tween.tween_property(_dim, "modulate:a", 1.0, HudMotion.FEEDBACK_SEC)

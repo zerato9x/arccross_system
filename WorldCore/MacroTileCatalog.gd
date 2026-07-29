@@ -9,6 +9,15 @@ class_name MacroTileCatalog
 @export var flora_source_ids: Dictionary = {}
 @export var rock_source_ids: Dictionary = {}
 @export var structure_source_ids: Dictionary = {}
+## Generator V2 full-hex overlays, keyed by six-bit road connection mask.
+@export var road_mask_source_ids: Dictionary = {}
+## Compacted-earth service-road overlays, keyed by the same six-bit mask.
+@export var dirt_road_mask_source_ids: Dictionary = {}
+## Source metadata is generated only for exact 512x512 full-hex entries.
+@export var source_id_to_path: Dictionary = {}
+@export var edge_signatures: Dictionary = {} # source id -> six packed RGB ints
+## Stable Generator V2 IDs; paths remain build-time metadata only.
+@export var asset_id_to_source_id: Dictionary = {}
 
 ## Legacy fields kept so older generated catalogs still load.
 @export var biome_source_ids: Dictionary = {}
@@ -29,6 +38,24 @@ func resolve_terrain_id(
 	if packed >= 0:
 		return packed
 	return _resolve_from_ids(get_terrain_ids(terrain), visual_variant_hash)
+
+
+func resolve_road_mask_id(mask: int, surface_id: String = "paved") -> int:
+	var family := dirt_road_mask_source_ids if surface_id == "dirt" else road_mask_source_ids
+	var value: Variant = family.get(mask, -1)
+	return int(value) if value is int else -1
+
+
+func resolve_asset_id(asset_id: String) -> int:
+	return int(asset_id_to_source_id.get(asset_id, -1))
+
+
+func path_for_source_id(source_id: int) -> String:
+	return str(source_id_to_path.get(source_id, ""))
+
+
+func edge_signature_for_source(source_id: int) -> PackedInt32Array:
+	return _get_packed_ids(edge_signatures, source_id)
 
 func get_flora_ids(
 	flora: GameEnums.MacroFloraLayer

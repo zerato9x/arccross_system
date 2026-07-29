@@ -20,7 +20,13 @@ AI scoring, action costs, timing, or mode-specific balance modifiers.
   limits decisions per turn, reserves defensive AP when appropriate, and treats
   aimed shots as deliberate finishers rather than the universal best button.
 - `TurnBasedCombatBalance` owns turn-only presentation cadence and cue markers.
-  Realtime `DuelWeaponProfile` resources remain independent.
+  Durations sit near each humanoid clip's nominal length so timed stretch stays
+  inside roughly `0.75x–1.25x` of sheet FPS. `recovery_seconds` is consumed by
+  `CombatLaneView` after the action cue (full remaining clip for late cues such
+  as reload/cover; short recovery settle for early impact cues so projectiles
+  still start on the marker). Turn hit reacts stretch `TakeDamage` instead of
+  awaiting the full natural sheet.
+- Realtime `DuelWeaponProfile` resources remain independent.
 - `CombatLaneView`, projectile presentation, impact feedback, and the firearm
   card consume the same turn action profile. Actor windup reaches its cue before
   projectile/damage presentation begins.

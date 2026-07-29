@@ -23,7 +23,7 @@ retain meaningful units.
 
 ## Current Prototype
 
-Status updated on **July 23, 2026**.
+Status updated on **July 29, 2026**.
 
 ### Playable Today
 
@@ -44,9 +44,9 @@ Launch from `UI/MainMenu.tscn` into a persistent macro run (Godot **4.7**):
    comparisons, firearm readiness, grounded field notes, and tool-plus-material
    repair; treat wounds through the Field Health HUD.
 7. Save and reload with `F5` / `F9` or the main-menu and in-game slot UI.
-8. Cross radius-12 local zones through directional rims and the Node Web. **Act 1
-   content** opens the North spine after eviction; E/S/W stay sealed — see
-   [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
+8. Cross radius-12 local zones through directional rims and the Node Web. The
+   four Route 1 nodes form the open starter ring; deeper North is open while
+   deeper East/South/West remain sealed.
 
 Characters and their run-local worlds are disposable. Permanent Meta nodes,
 completed Meta Events, gateway state, structural mutations, and arm-core
@@ -65,9 +65,8 @@ profile.
   `CombatCore/TurnBased/TurnBasedDuelScene.tscn`. `RealtimeDuelRuntime` is the
   optional Settings mode. Both share canonical ItemCore and persistent entity
   state, while cadence, AI, timing, action costs, and balance remain independent.
-- **Active now:** [Official Turn-Based Combat Overhaul](READMEs/design/TURN_BASED_COMBAT_OVERHAUL.md).
-- **Asset-blocked:** [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
-  resumes when the complete categorized asset folder is available.
+- **Active world track:** [Hex World Generator V2](READMEs/design/HEX_WORLD_GENERATOR_V2.md).
+- **Campaign framing:** [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
 ### Core Systems
 
@@ -93,10 +92,11 @@ profile.
   wear the selected tool, and remain unavailable in either combat mode.
 - Item definitions are shared Resources loaded once by `LootCatalog`; items do
   not require individual scripts or scene nodes.
-- Macro local zones use seeded generation as a fallback, while
-  `AuthoredWorldMap`, `WorldMapEditor`, and `AuthoredWorldMapBaker` provide a
-  hand-painted preset pipeline for terrain, water, blockers, decorations, and
-  runtime content sockets.
+- Route 1 local zones use Generator V2: fixed seed-invariant paved/dirt
+  logistics, seed-varying terrain and ecology, poor exhaustible rubble, and one
+  North-only alpha settlement across the four-node starter ring.
+- `AuthoredWorldMap`, `WorldMapEditor`, and `AuthoredWorldMapBaker` remain the
+  hand-painted preset pipeline for permanent and special nodes.
 - The reusable `plains_zone_template.tscn` contains the complete 469-cell
   footprint, eight arrival sockets, eight exit sockets, and examples for fixed
   POIs, variable POIs, encounters, quest objects, water, and freeform props.
@@ -127,13 +127,12 @@ profile.
   seeded procedural fallback.
 - Pocket Map / full pocket-device HUD chrome remains deferred (Phase 2.5).
 
-## Working Agreement (July 23)
+## Working Agreement (July 29)
 
-Phase 2 foundations stay live. The active delivery track is the
-[Official Turn-Based Combat Overhaul](READMEs/design/TURN_BASED_COMBAT_OVERHAUL.md).
-Central Core campaign implementation is paused pending the complete categorized
-asset folder. Do not resurrect finished Macro HUD remake/repair or
-entity-collision plans.
+Phase 2 foundations stay live. Generator V2 is the active world-delivery track:
+fixed logistics are authored truth, seeded surroundings provide run variation,
+and the starter ring contains only one inhabited settlement. Do not restore the
+legacy arrival-driven road behavior or four-settlement starter contract.
 
 ## Item Authoring
 
@@ -155,6 +154,7 @@ records authored data but does not rescue a beautifully painted dead end.
 - [Official Turn-Based Combat Overhaul](READMEs/design/TURN_BASED_COMBAT_OVERHAUL.md)
 - [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
 - [Hex World Asset Overhaul](READMEs/design/HEX_WORLD_ASSET_OVERHAUL.md)
+- [Hex World Generator V2](READMEs/design/HEX_WORLD_GENERATOR_V2.md)
 - [Project glossary](READMEs/GLOSSARY.md)
 - [Canonical world specification](READMEs/CANONICAL_WORLD_SPECIFICATION.md)
 - [World Timeline Codex](READMEs/WORLD_TIMELINE_CODEX.md) (official era chronology)

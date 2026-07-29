@@ -28,6 +28,7 @@ signal exploration_inventory_action_requested(
 	action_payload: Dictionary
 )
 signal exploration_interaction_closed
+signal location_action_requested(command: Dictionary)
 signal node_map_requested
 
 const MAX_SCALE := 12.0
@@ -39,6 +40,7 @@ var _layout_manager := MacroHudLayoutManager.new()
 @onready var _health_panel: MacroHealthCornerPanel = %MacroHealthPanel
 @onready var _inventory_panel: MacroInventoryCornerPanel = %MacroInventoryPanel
 @onready var _hex_panel: MacroHexCornerPanel = %MacroHexPanel
+@onready var _target_panel: MacroHexTargetPanel = %MacroHexTargetPanel
 @onready var _world_status: MacroWorldStatusPanel = %MacroWorldStatusPanel
 @onready var _settings_panel: PanelContainer = %SettingsPanel
 @onready var _save_load_menu: SaveLoadMenu = %SaveLoadMenu
@@ -76,7 +78,13 @@ func _ready() -> void:
 	_health_panel.medical_action_requested.connect(medical_action_requested.emit)
 	_inventory_panel.fullscreen_requested.connect(inventory_requested.emit)
 	_hex_panel.expand_requested_hex.connect(hex_preview_expand_requested.emit)
-	_hex_panel.travel_requested_hex.connect(hex_preview_travel_requested.emit)
+	_hex_panel.location_action_requested.connect(location_action_requested.emit)
+	_hex_panel.state_changed.connect(_on_here_panel_state_changed)
+	_hex_panel.location_inventory_action_requested.connect(
+		exploration_inventory_action_requested.emit
+	)
+	_hex_panel.collapse_requested.connect(exploration_interaction_closed.emit)
+	_target_panel.travel_requested.connect(hex_preview_travel_requested.emit)
 	_world_status.settings_requested.connect(_open_settings)
 	_world_status.node_map_requested.connect(node_map_requested.emit)
 	_exploration_stage.choice_submitted.connect(event_choice_submitted.emit)
@@ -141,6 +149,9 @@ func refresh(snapshot: Dictionary) -> void:
 	_health_panel.apply_snapshot(snapshot)
 	_inventory_panel.apply_snapshot(snapshot)
 	_hex_panel.apply_snapshot(snapshot)
+	_target_panel.apply_snapshot(snapshot)
+	if _hex_panel.is_expanded():
+		_target_panel.visible = false
 	_world_status.apply_snapshot(snapshot)
 
 
@@ -181,8 +192,19 @@ func present_travel_beat(session: Dictionary) -> void:
 		append_exploration_log(line, "travel")
 
 
-func present_poi(session: Dictionary, inventory_snapshot: Dictionary = {}) -> void:
-	_exploration_stage.present_poi(session, inventory_snapshot)
+func present_poi(
+	session: Dictionary,
+	_inventory_snapshot: Dictionary = {},
+	_player_record: Dictionary = {}
+) -> void:
+	# Routine exploration is hosted by HERE. The full exploration stage is now
+	# reserved for authored events, collisions, and combat handoff.
+	var location: Dictionary = _snapshot.get("current_location", {}).duplicate(true)
+	location["session"] = session.duplicate(true)
+	location["fixture_count"] = session.get("site", {}).get("fixtures", []).size()
+	_snapshot["current_location"] = location
+	_hex_panel.apply_snapshot(_snapshot)
+	_hex_panel.expand()
 
 
 func bind_exploration_window(window: MacroExplorationWindow) -> void:
@@ -223,12 +245,23 @@ func is_event_open() -> bool:
 	return _exploration_stage.is_open()
 
 
+func is_location_open() -> bool:
+	return _hex_panel != null and _hex_panel.is_expanded()
+
+
+func show_location_outcome(title: String, message: String) -> void:
+	if _hex_panel:
+		_hex_panel.show_outcome(title, message)
+
+
 func is_travel_beat_showing() -> bool:
 	return false
 
 
 func clear_exploration_presentation(notify: bool = false) -> void:
 	_exploration_stage.clear_presentation(notify)
+	if _hex_panel and _hex_panel.is_expanded():
+		_hex_panel.collapse()
 
 
 func get_exploration_window() -> MacroExplorationWindow:
@@ -295,6 +328,13 @@ func _set_hud_scale(value: float) -> void:
 	_health_panel.set_hud_scale(value)
 	_inventory_panel.set_hud_scale(value)
 	_hex_panel.set_hud_scale(value)
+	_target_panel.pivot_offset = Vector2(_target_panel.size.x, 0.0)
+	_target_panel.scale = Vector2.ONE * value
+	var target_right := -(
+		MacroCornerPanel.PREVIEW_MARGIN * 2.0 + _hex_panel.preview_size.x * value
+	)
+	_target_panel.offset_right = target_right
+	_target_panel.offset_left = target_right - _target_panel.size.x
 	_world_status.set_hud_scale(value)
 	_settings_panel.pivot_offset = _settings_panel.size * 0.5
 	_settings_panel.scale = Vector2.ONE * value
@@ -302,6 +342,13 @@ func _set_hud_scale(value: float) -> void:
 	if settings != null:
 		settings.set_hud_scale(value)
 	_update_scale_label()
+
+
+func _on_here_panel_state_changed(_panel_id: String, state: int) -> void:
+	if state == MacroCornerPanel.PanelState.EXPANDED:
+		_target_panel.visible = false
+	else:
+		_target_panel.apply_snapshot(_snapshot)
 
 
 func _on_screen_noise_toggled(enabled: bool) -> void:
@@ -364,6 +411,8 @@ func _on_hud_scheme_changed(_scheme_id: String) -> void:
 		_inventory_panel.restyle_scheme()
 	if _hex_panel and _hex_panel.has_method("restyle_scheme"):
 		_hex_panel.restyle_scheme()
+	if _target_panel and _target_panel.has_method("restyle"):
+		_target_panel.restyle()
 	if _world_status and _world_status.has_method("restyle"):
 		_world_status.restyle()
 	if _entity_inspect and _entity_inspect.has_method("restyle"):

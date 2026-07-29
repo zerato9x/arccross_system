@@ -133,15 +133,8 @@ func _verify_plains_catalog() -> bool:
 		GameEnums.MacroTerrainTile.PLAINS_GRASS,
 		PackedInt32Array()
 	)
-	var mud: PackedInt32Array = catalog.terrain_source_ids.get(
-		GameEnums.MacroTerrainTile.MUD_YELLOW,
-		PackedInt32Array()
-	)
-	if plains.is_empty():
-		_fail("PLAINS_GRASS has no green_hex sources.")
-		return false
-	if mud.is_empty():
-		_fail("MUD_YELLOW has no mud.png source.")
+	if plains.size() != 54:
+		_fail("PLAINS_GRASS must contain the complete 54-file grass_default family.")
 		return false
 	for sid in plains:
 		var path := _path_for_source(catalog, sid)

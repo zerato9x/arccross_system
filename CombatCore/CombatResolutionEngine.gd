@@ -1404,6 +1404,9 @@ func _emit_first_strike(action_type: int) -> void:
 		return
 	_first_strike_fired = true
 	first_combat_action.emit(action_type)
+	var bus = get_node_or_null("/root/GameEventBus")
+	if bus and bus.has_method("emit_scene_audio"):
+		bus.emit_scene_audio("first_strike", {"action_type": action_type})
 
 func _emit_combat_action(
 	attacker: HumanoidCore,

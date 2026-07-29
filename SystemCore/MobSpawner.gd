@@ -295,6 +295,48 @@ func generate_central_guard_record(
 		"macro_purpose_label": "Hold",
 		"macro_origin_coords": coords,
 		"macro_target_coords": coords,
+		"stationary": true,
+	}
+	return record
+
+
+## Neutral resident posted at a Route 1 settlement to orient new arrivals.
+func generate_starter_wayfinder_record(
+	coords: Vector2i,
+	arm_id: String,
+	deterministic_key: String = ""
+) -> EntityRecord:
+	var definition := EntityDefinition.new()
+	definition.archetype_name = "%s Fringe Wayfinder" % arm_id.capitalize()
+	definition.faction = GameEnums.Faction.UNALIGNED
+	definition.agenda = GameEnums.Agenda.SURVIVALIST
+	definition.combat_tactic = GameEnums.CombatTactic.BRUTE
+	definition.dialogue_id = "starter_wayfinder:%s" % arm_id
+	definition.template_id = "starter_wayfinder"
+	# Dialogue is authored now; settlement stock is not. Keep Trade visibly
+	# unavailable instead of offering an NPC whose generated pack is empty.
+	definition.allows_trade = false
+	definition.blocks_ambush = true
+
+	var record := EntityRecord.new()
+	record.entity_id = (
+		"entity_" + str(absi(deterministic_key.hash()))
+		if not deterministic_key.is_empty()
+		else "entity_" + str(ResourceUID.create_id())
+	)
+	record.kind = GameEnums.RuntimeEntityKind.NPC
+	record.life_state = GameEnums.EntityLifeState.ALIVE
+	record.world_status = GameEnums.EntityWorldStatus.CEASEFIRE
+	record.coords = coords
+	record.definition = definition.to_state()
+	record.runtime = {
+		"template_id": "starter_wayfinder",
+		"starter_arm": arm_id,
+		"macro_purpose": GameEnums.NPC_PURPOSE_HOLD,
+		"macro_purpose_label": "Wayfinder",
+		"macro_origin_coords": coords,
+		"macro_target_coords": coords,
+		"stationary": true,
 	}
 	return record
 

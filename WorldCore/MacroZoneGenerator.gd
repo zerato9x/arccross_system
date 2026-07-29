@@ -7,6 +7,9 @@ class_name MacroZoneGenerator
 const ZONE_RADIUS := GameEnums.MACRO_ZONE_RADIUS
 const _PoiVisualCatalog := preload("res://PresentationCore/PoiVisualCatalog.gd")
 const _SectorCatalog := preload("res://WorldCore/WorldSectorCatalog.gd")
+const _StarterZonePlanner := preload("res://WorldCore/GenerationV2/StarterZonePlanner.gd")
+const _ZoneGenerationProfile := preload("res://WorldCore/GenerationV2/ZoneGenerationProfile.gd")
+const _WorldAssetManifest := preload("res://WorldCore/GenerationV2/WorldAssetManifest.gd")
 const DECOR_SHRUB_PATHS := [
 	"res://Asset/HexTiles/_BIOMES/biome_plains/flora/Shrub A.png",
 	"res://Asset/HexTiles/_BIOMES/biome_plains/flora/Shrub B.png",
@@ -35,6 +38,15 @@ const DECOR_ROCK_PATHS := [
 	"res://Asset/HexTiles/_BIOMES/biome_plains/Rocks/Rocks Sz2 A.png",
 	"res://Asset/HexTiles/_BIOMES/biome_plains/Rocks/Rocks Sz2 B.png",
 ]
+## Every approved tile in grass_default. A 469-cell starter node distributes
+## this entire family, rather than collapsing the terrain to one repeated tile.
+const STARTER_TERRAIN_VARIANT_NUMBERS := [
+	5, 6, 7, 8, 9,
+	13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+	26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+	44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56,
+	59, 60, 61, 62, 63, 64, 65, 69, 70, 71,
+]
 const RANDOM_STRUCTURE_PATHS := [
 	"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size1 B-i shadow.png",
 	"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size1 A shadow.png",
@@ -60,6 +72,23 @@ const DECOR_NORTH_ROCK_PATHS := [
 	"res://Asset/HexTiles/_BIOMES/biome_north/Rocks/Glacial Ice - Sz 1 - A.png",
 	"res://Asset/HexTiles/_BIOMES/biome_north/Rocks/Glacial Ice - Sz 2 - A.png",
 ]
+const STARTER_STRUCTURE_PATHS := [
+	"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size1 B-i shadow.png",
+	"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size1 A shadow.png",
+	"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size1 C shadow.png",
+	"res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size 2 - B-i.png",
+]
+const STARTER_TENT_PATHS := [
+	"res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/Colony Infrastructure/Tent A.a - Gray - closed.png",
+	"res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/Colony Infrastructure/Tent A.b - Green - closed.png",
+	"res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/Colony Infrastructure/Tent Quonset - A.a - Gray.png",
+]
+const STARTER_INFRA_PATHS := [
+	"res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Post A1-i.png",
+	"res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Crate A1-i.png",
+	"res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Barrel A1-i.png",
+	"res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Solar Panel A1-i.png",
+]
 
 var master_seed: String = ""
 var node_id: String = ""
@@ -77,12 +106,17 @@ var _dialect_profile: Dictionary = {}
 
 var elevation_noise: FastNoiseLite
 var moisture_noise: FastNoiseLite
+var terrain_detail_noise: FastNoiseLite
+var vegetation_detail_noise: FastNoiseLite
 var world_hex_cache: Dictionary = {} # Vector2i -> MacroHexData
 var start_coords: Vector2i = HexCoordUtils.rim_anchor(
 	GameEnums.MacroTravelDirection.SOUTH,
 	ZONE_RADIUS
 )
 var objective_coords: Vector2i = Vector2i.ZERO
+var starter_settlement_coords: Vector2i = Vector2i.ZERO
+var starter_clue_coords: Vector2i = Vector2i.ZERO
+var starter_npc_coords: Vector2i = Vector2i.ZERO
 @export_range(0.0, 1.0) var random_structure_chance: float = 0.018
 @export_range(0.0, 1.0) var random_remnant_chance: float = 0.035
 @export_range(0.0, 1.0) var shrub_spawn_chance: float = 0.40
@@ -93,6 +127,8 @@ var objective_coords: Vector2i = Vector2i.ZERO
 var zone_decorations: Dictionary = {} # Vector2i -> Array[Dictionary]
 var trail_hexes: Dictionary = {} # Vector2i -> true
 var permanent_baseline_records: Dictionary = {} # Vector2i -> HexRecord
+var generated_plan: GeneratedZonePlan = null
+var _runtime_asset_metadata: Dictionary = {}
 
 var _world_state: RuntimeStateStore
 var _meta_progress: Node
@@ -142,6 +178,10 @@ func generate_zone(
 	zone_decorations.clear()
 	trail_hexes.clear()
 	permanent_baseline_records.clear()
+	starter_settlement_coords = Vector2i.ZERO
+	starter_clue_coords = Vector2i.ZERO
+	starter_npc_coords = Vector2i.ZERO
+	generated_plan = null
 	_initialize_noise()
 
 	var spawn_direction := arrival_direction
@@ -154,12 +194,20 @@ func generate_zone(
 		var hex := _build_hex(coords)
 		world_hex_cache[coords] = hex
 
-	_apply_trail_network()
-	_place_start_and_objective()
-	_place_guaranteed_landmarks()
-	_apply_permanent_profile_patches()
-	_sync_hex_records()
-	_scatter_zone_decorations()
+	if _is_starter_route_zone():
+		_apply_starter_v2_composition()
+		_place_start_and_objective()
+		_apply_permanent_profile_patches()
+		_sync_hex_records()
+		_scatter_zone_decorations()
+		_apply_starter_v2_dressing()
+	else:
+		_apply_trail_network()
+		_place_start_and_objective()
+		_place_guaranteed_landmarks()
+		_apply_permanent_profile_patches()
+		_sync_hex_records()
+		_scatter_zone_decorations()
 
 
 func get_decorations_at(coords: Vector2i) -> Array:
@@ -198,6 +246,16 @@ func _initialize_noise() -> void:
 	moisture_noise.seed = (zone_seed + ":moisture").hash()
 	moisture_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	moisture_noise.frequency = 0.03
+
+	terrain_detail_noise = FastNoiseLite.new()
+	terrain_detail_noise.seed = (zone_seed + ":terrain_detail").hash()
+	terrain_detail_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	terrain_detail_noise.frequency = 0.085
+
+	vegetation_detail_noise = FastNoiseLite.new()
+	vegetation_detail_noise.seed = (zone_seed + ":vegetation_detail").hash()
+	vegetation_detail_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	vegetation_detail_noise.frequency = 0.11
 
 
 func _zone_seed() -> String:
@@ -289,8 +347,16 @@ func _build_plains_rng_hex(coords: Vector2i) -> MacroHexData:
 		+ float(HexCoordUtils.distance_from_origin(coords)) * 0.08
 	)
 
-	var elevation: float = elevation_noise.get_noise_2dv(coords)
-	var moisture: float = moisture_noise.get_noise_2dv(coords)
+	# Large fields keep causal regions coherent; smaller secondary fields stop
+	# different seeds from collapsing into the same few oversized blobs.
+	var elevation: float = (
+		elevation_noise.get_noise_2dv(coords)
+		+ terrain_detail_noise.get_noise_2dv(coords) * 0.18
+	)
+	var moisture: float = (
+		moisture_noise.get_noise_2dv(coords)
+		+ vegetation_detail_noise.get_noise_2dv(coords) * 0.22
+	)
 
 	# Contiguous rock / hill clusters (flood-style thresholds, not speckles).
 	if elevation > 0.52:
@@ -308,6 +374,28 @@ func _build_plains_rng_hex(coords: Vector2i) -> MacroHexData:
 			hex.flora_layer = GameEnums.MacroFloraLayer.TREES
 
 	_apply_shrub_variation(coords, hex)
+	if _is_starter_route_zone():
+		# Starter nodes share a coherent green-plains floor. Elevation still
+		# drives rocks and vegetation, but never swaps in snow/mud families.
+		hex.biome = GameEnums.GridBiome.PLAINS
+		hex.biome_pack = GameEnums.BIOME_PACK_PLAINS
+		hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
+		# Starter plains are not a lawn. Broaden the damp band into contiguous
+		# woodland while keeping roads, settlement cells, and rock masses clear.
+		if (
+			hex.rock_layer == GameEnums.MacroRockLayer.NONE
+			and moisture > 0.08
+			and elevation > -0.20
+			and elevation < 0.38
+		):
+			hex.flora_layer = GameEnums.MacroFloraLayer.TREES
+		hex.structure_layer = GameEnums.MacroStructureLayer.NONE
+		hex.structure_sprite_path = ""
+		hex.world_generation_version = 2
+		hex.terrain_asset_id = "terrain.plains.green.5"
+		hex.composition_role = "quiet_plains"
+		hex.visual_variant_hash = HexWorldGenerator.compute_visual_variant_hash(coords, _zone_seed())
+		return hex
 
 	var zone_seed := _zone_seed()
 	var dialect_rng := RandomNumberGenerator.new()
@@ -502,8 +590,320 @@ func _apply_trail_network() -> void:
 		if hex.flora_layer == GameEnums.MacroFloraLayer.TREES:
 			hex.flora_layer = GameEnums.MacroFloraLayer.NONE
 			hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
+		if _is_starter_route_zone():
+			hex.hazard_level = minf(hex.hazard_level, 1.25)
+			# Route 1 logistics spines are onboarding space. Hazard level does not
+			# currently drive encounter rolls, so explicitly consume the roll.
+			hex.encounter_evaluated = true
 		if _world_state != null:
 			_world_state.set_hex_record(coords, hex.to_state())
+
+
+func _apply_starter_v2_composition() -> void:
+	var include_settlement := _has_alpha_starter_settlement()
+	var profile: ZoneGenerationProfile = _ZoneGenerationProfile.starter_node(
+		_arm_key(), include_settlement
+	)
+	var inward_direction := HexCoordUtils.opposite_travel_direction(int(node_arm_direction))
+	var logistics_entry := HexCoordUtils.rim_anchor(inward_direction, ZONE_RADIUS)
+	var outward_coords := HexCoordUtils.rim_anchor(int(node_arm_direction), ZONE_RADIUS)
+	generated_plan = _StarterZonePlanner.build_plan(
+		_zone_seed(), ZONE_RADIUS, logistics_entry, outward_coords, world_hex_cache,
+		profile, include_settlement
+	)
+	starter_settlement_coords = (
+		generated_plan.settlement_coords if include_settlement else Vector2i.ZERO
+	)
+	objective_coords = generated_plan.gameplay_anchor_coords
+	trail_hexes.clear()
+	var terrain_assignments := _build_starter_terrain_assignments()
+	generated_plan.terrain_asset_usage.clear()
+
+	for coords in world_hex_cache.keys():
+		var hex: MacroHexData = world_hex_cache[coords]
+		hex.world_generation_version = 2
+		hex.terrain_asset_id = str(terrain_assignments.get(coords, "terrain.plains.green.5"))
+		generated_plan.terrain_asset_usage[hex.terrain_asset_id] = (
+			int(generated_plan.terrain_asset_usage.get(hex.terrain_asset_id, 0)) + 1
+		)
+		hex.overlay_asset_ids.clear()
+		hex.composition_role = generated_plan.role_at(coords)
+		hex.stamp_instance_id = ""
+		hex.road_mask = generated_plan.road_mask_at(coords)
+		hex.loot_tier_id = ""
+		hex.trace_records.clear()
+		hex.biome = GameEnums.GridBiome.PLAINS
+		hex.biome_pack = GameEnums.BIOME_PACK_PLAINS
+		hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
+		hex.structure_layer = GameEnums.MacroStructureLayer.NONE
+		hex.structure_sprite_path = ""
+		hex.is_poi = false
+		hex.poi_id = ""
+		hex.poi_name = ""
+		hex.landmark_id = ""
+		if generated_plan.road_cells.has(coords):
+			trail_hexes[coords] = true
+			var road_surface := (
+				"dirt" if hex.composition_role == "dirt_service_spur" else "paved"
+			)
+			hex.overlay_asset_ids.append(
+				"overlay.road.%s.%02d" % [road_surface, hex.road_mask]
+			)
+			hex.impassable = false
+			hex.rock_layer = GameEnums.MacroRockLayer.NONE
+			hex.flora_layer = GameEnums.MacroFloraLayer.NONE
+			hex.hazard_level = minf(hex.hazard_level, 1.25)
+			hex.encounter_evaluated = true
+		if generated_plan.stamp_cells.has(coords):
+			var stamp_cell: Dictionary = generated_plan.stamp_cells[coords]
+			hex.stamp_instance_id = str(stamp_cell.get("stamp_instance_id", ""))
+			hex.impassable = false
+			hex.rock_layer = GameEnums.MacroRockLayer.NONE
+			hex.flora_layer = GameEnums.MacroFloraLayer.NONE
+			hex.hazard_level = minf(hex.hazard_level, 0.75)
+			if hex.composition_role in ["settlement_structure", "settlement_tent"]:
+				hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
+			elif hex.composition_role == "settlement_rubble":
+				hex.structure_layer = GameEnums.MacroStructureLayer.REMNANTS
+
+	for coords in generated_plan.rubble_search_cells:
+		var rubble_hex: MacroHexData = world_hex_cache[coords]
+		rubble_hex.structure_layer = GameEnums.MacroStructureLayer.REMNANTS
+		rubble_hex.loot_tier_id = profile.loot_tier_id
+		rubble_hex.impassable = false
+
+	if include_settlement:
+		_seed_starter_truth_grove()
+
+		var anchor: MacroHexData = world_hex_cache[generated_plan.gameplay_anchor_coords]
+		anchor.is_poi = true
+		anchor.poi_id = "starter_settlement"
+		anchor.poi_name = "%s Fringe Settlement" % _arm_label()
+		anchor.landmark_id = "homestead_b"
+		anchor.sleep_anchor = "bed"
+		anchor.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
+		anchor.structure_pack = GameEnums.BIOME_PACK_DEFAULT_ERA8
+		anchor.encounter_evaluated = true
+
+		starter_npc_coords = generated_plan.gameplay_anchor_coords
+		for coords in generated_plan.stamp_cells.keys():
+			if generated_plan.role_at(coords) == "settlement_tent":
+				starter_npc_coords = coords
+				break
+	starter_clue_coords = outward_coords
+	for trace in generated_plan.trace_records:
+		var trace_coords: Vector2i = trace.get("coords", Vector2i.ZERO)
+		if world_hex_cache.has(trace_coords):
+			world_hex_cache[trace_coords].trace_records.append(trace.duplicate(true))
+	if not generated_plan.is_valid():
+		push_error("Starter V2 plan failed validation: %s" % "; ".join(generated_plan.validation_errors))
+
+
+func _has_alpha_starter_settlement() -> bool:
+	# Alpha lock. Production can seed-select one arm later, but the inner ring
+	# must still contain exactly one inhabited starter settlement.
+	return node_id == "north_random_1"
+
+
+func _build_starter_terrain_assignments() -> Dictionary:
+	var ordered_cells: Array[Vector2i] = []
+	for coords in world_hex_cache.keys():
+		ordered_cells.append(coords)
+	ordered_cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		if a.y == b.y:
+			return a.x < b.x
+		return a.y < b.y
+	)
+	# Fisher-Yates gives each seed a different spatial composition. Cycling the
+	# complete palette after the shuffle guarantees all 54 variants appear.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = (_zone_seed() + ":terrain_palette_v2").hash()
+	for index in range(ordered_cells.size() - 1, 0, -1):
+		var swap_index := rng.randi_range(0, index)
+		var held := ordered_cells[index]
+		ordered_cells[index] = ordered_cells[swap_index]
+		ordered_cells[swap_index] = held
+	var assignments: Dictionary = {}
+	var variant_offset := rng.randi_range(0, STARTER_TERRAIN_VARIANT_NUMBERS.size() - 1)
+	for index in range(ordered_cells.size()):
+		var palette_index := (index + variant_offset) % STARTER_TERRAIN_VARIANT_NUMBERS.size()
+		assignments[ordered_cells[index]] = "terrain.plains.green.%d" % (
+			STARTER_TERRAIN_VARIANT_NUMBERS[palette_index]
+		)
+	return assignments
+
+
+func _seed_starter_truth_grove() -> void:
+	# Guarantee one readable woodland mass near the reference settlement view.
+	# The first cell is seed-ranked, then adjacent eligible cells grow from it.
+	var candidates: Array[Vector2i] = []
+	for coords in world_hex_cache.keys():
+		var distance := HexCoordUtils.distance(coords, starter_settlement_coords)
+		if distance < 2 or distance > 3:
+			continue
+		if not _is_quiet_grove_cell(coords):
+			continue
+		candidates.append(coords)
+	candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return (
+			(_zone_seed() + ":truth_grove:" + str(a)).hash()
+			< (_zone_seed() + ":truth_grove:" + str(b)).hash()
+		)
+	)
+	if candidates.is_empty():
+		return
+	var selected: Array[Vector2i] = [candidates[0]]
+	var frontier: Array[Vector2i] = [candidates[0]]
+	while not frontier.is_empty() and selected.size() < 5:
+		var current: Vector2i = frontier.pop_front()
+		for direction in HexCoordUtils.AXIAL_DIRECTIONS:
+			var neighbor: Vector2i = current + Vector2i(direction)
+			if HexCoordUtils.distance(neighbor, starter_settlement_coords) > 3:
+				continue
+			if selected.has(neighbor) or not _is_quiet_grove_cell(neighbor):
+				continue
+			selected.append(neighbor)
+			frontier.append(neighbor)
+			if selected.size() >= 5:
+				break
+	for coords in selected:
+		var hex: MacroHexData = world_hex_cache[coords]
+		hex.flora_layer = GameEnums.MacroFloraLayer.TREES
+		hex.rock_layer = GameEnums.MacroRockLayer.NONE
+		hex.impassable = false
+
+
+func _is_quiet_grove_cell(coords: Vector2i) -> bool:
+	if not world_hex_cache.has(coords):
+		return false
+	if generated_plan == null or generated_plan.role_at(coords) != "quiet_plains":
+		return false
+	if generated_plan.road_cells.has(coords) or generated_plan.stamp_cells.has(coords):
+		return false
+	if generated_plan.rubble_search_cells.has(coords) or generated_plan.visual_rubble_cells.has(coords):
+		return false
+	var hex: MacroHexData = world_hex_cache[coords]
+	return hex.rock_layer == GameEnums.MacroRockLayer.NONE
+
+
+func _apply_starter_v2_dressing() -> void:
+	if generated_plan == null:
+		return
+	var structure_index := 0
+	var tent_index := 0
+	var rubble_index := 0
+	for coords in generated_plan.stamp_cells.keys():
+		var role := generated_plan.role_at(coords)
+		match role:
+			"settlement_structure":
+				_append_authored_decoration(coords, STARTER_STRUCTURE_PATHS[structure_index % STARTER_STRUCTURE_PATHS.size()], "structure", 1.0)
+				structure_index += 1
+			"settlement_tent":
+				_append_tent_cluster(coords, tent_index)
+				tent_index += 1
+			"settlement_rubble":
+				_append_rubble_cluster(coords, rubble_index, 1.0, 3)
+				rubble_index += 1
+			"settlement_anchor":
+				_append_authored_decoration(coords, STARTER_INFRA_PATHS[0], "prop", 1.0)
+	for coords in generated_plan.rubble_search_cells:
+		_append_rubble_cluster(coords, rubble_index, 0.95, 3)
+		rubble_index += 1
+	for coords in generated_plan.visual_rubble_cells:
+		_append_rubble_cluster(coords, rubble_index, 0.84, 2)
+		rubble_index += 1
+	var infra_index := 1
+	for coords in generated_plan.stamp_cells.keys():
+		if infra_index >= STARTER_INFRA_PATHS.size():
+			break
+		if generated_plan.role_at(coords) == "settlement_structure":
+			_append_authored_decoration(coords, STARTER_INFRA_PATHS[infra_index], "prop", 0.88)
+			infra_index += 1
+
+
+func _append_tent_cluster(coords: Vector2i, cluster_index: int) -> void:
+	var phase := posmod(cluster_index + absi((_zone_seed() + str(coords)).hash()), 3)
+	var tent_offset_recipes: Array = [
+		[Vector2(-82.0, 28.0), Vector2(76.0, -36.0), Vector2(26.0, 104.0)],
+		[Vector2(-72.0, -34.0), Vector2(88.0, 32.0), Vector2(-18.0, 108.0)],
+		[Vector2(-92.0, 12.0), Vector2(62.0, 48.0), Vector2(44.0, -104.0)],
+	]
+	var tent_offsets: Array = tent_offset_recipes[phase]
+	_append_authored_decoration(
+		coords,
+		STARTER_TENT_PATHS[cluster_index % STARTER_TENT_PATHS.size()],
+		"tent",
+		0.82,
+		tent_offsets[0]
+	)
+	_append_authored_decoration(
+		coords,
+		STARTER_TENT_PATHS[(cluster_index + 1) % STARTER_TENT_PATHS.size()],
+		"tent",
+		0.72,
+		tent_offsets[1],
+		cluster_index % 2 == 0
+	)
+	# Every other camp gets a smaller third shelter, so the settlement reads as
+	# several lived-in camps rather than six identical two-object stamps.
+	if cluster_index % 2 == 0:
+		_append_authored_decoration(
+			coords,
+			STARTER_TENT_PATHS[(cluster_index + 2) % STARTER_TENT_PATHS.size()],
+			"tent",
+			0.60,
+			tent_offsets[2],
+			true
+		)
+	var detail_offsets := [Vector2(-12.0, 112.0), Vector2(132.0, 74.0)]
+	for detail_index in range(2):
+		var path: String = STARTER_INFRA_PATHS[
+			1 + posmod(cluster_index * 2 + detail_index, STARTER_INFRA_PATHS.size() - 1)
+		]
+		_append_authored_decoration(
+			coords,
+			path,
+			"prop",
+			0.72 if detail_index == 0 else 0.62,
+			detail_offsets[detail_index]
+		)
+
+
+func _append_rubble_cluster(
+	coords: Vector2i,
+	cluster_index: int,
+	scale_multiplier: float,
+	shrub_count: int
+) -> void:
+	var phase := posmod(cluster_index + absi((_zone_seed() + ":rubble:" + str(coords)).hash()), 4)
+	var rubble_offsets := [
+		Vector2(-18.0, 12.0), Vector2(20.0, -8.0),
+		Vector2(-8.0, -18.0), Vector2(14.0, 18.0),
+	]
+	_append_authored_decoration(
+		coords,
+		RANDOM_REMNANT_PATHS[cluster_index % RANDOM_REMNANT_PATHS.size()],
+		"rock",
+		scale_multiplier,
+		rubble_offsets[phase]
+	)
+	var shrub_offsets := [
+		Vector2(-144.0, 66.0), Vector2(136.0, 54.0),
+		Vector2(-112.0, -86.0), Vector2(104.0, -96.0),
+	]
+	for shrub_index in range(shrub_count):
+		var slot := posmod(phase + shrub_index, shrub_offsets.size())
+		var shrub_path: String = DECOR_SHRUB_PATHS[
+			posmod(cluster_index * 3 + shrub_index, DECOR_SHRUB_PATHS.size())
+		]
+		_append_authored_decoration(
+			coords,
+			shrub_path,
+			"shrub",
+			0.86 + float((cluster_index + shrub_index) % 3) * 0.06,
+			shrub_offsets[slot],
+			(cluster_index + shrub_index) % 2 == 0
+		)
 
 
 func _axial_line(from_coords: Vector2i, to_coords: Vector2i) -> Array[Vector2i]:
@@ -532,6 +932,8 @@ func _scatter_zone_decorations() -> void:
 	var zone_seed := _zone_seed()
 	for coords in world_hex_cache.keys():
 		var hex: MacroHexData = world_hex_cache[coords]
+		if _is_starter_route_zone() and hex.composition_role != "quiet_plains":
+			continue
 		if (
 			(hex.impassable and hex.rock_layer == GameEnums.MacroRockLayer.NONE)
 			or hex.is_poi
@@ -545,7 +947,10 @@ func _scatter_zone_decorations() -> void:
 		var chance := clutter_spawn_chance
 		if node_role == GameEnums.MacroNodeRole.CENTRAL_CORE:
 			chance *= 0.45
-		if hex.rock_layer != GameEnums.MacroRockLayer.NONE:
+		if (
+			hex.rock_layer != GameEnums.MacroRockLayer.NONE
+			or hex.flora_layer == GameEnums.MacroFloraLayer.TREES
+		):
 			chance = 1.0
 		if trail_hexes.has(coords):
 			chance *= 0.16
@@ -560,14 +965,17 @@ func _scatter_zone_decorations() -> void:
 			var path := _pick_cluster_decor_path(hex, rng, i)
 			if path.is_empty() or not ResourceLoader.exists(path):
 				continue
-			var offset := _sample_cluster_offset(rng, used_offsets)
-			used_offsets.append(offset)
 			var kind := _decor_kind(path)
+			var offset := _sample_cluster_offset(rng, used_offsets, kind, path)
+			used_offsets.append(offset)
+			var asset_meta := _asset_metadata_for_path(path)
 			props.append({
 				"coords": coords,
+				"asset_id": str(asset_meta.get("asset_id", "")),
 				"sprite_path": path,
 				"kind": kind,
-				"target_box": _decor_target_box(kind),
+				"footprint_class": str(asset_meta.get("footprint_class", "fitted_prop")),
+				"target_box": _decor_target_box(kind, path),
 				"scale_multiplier": rng.randf_range(0.88, 1.08),
 				"offset": offset,
 				"rotation": 0.0,
@@ -578,16 +986,74 @@ func _scatter_zone_decorations() -> void:
 			zone_decorations[coords] = props
 
 
+func _append_authored_decoration(
+	coords: Vector2i,
+	path: String,
+	kind: String,
+	scale_multiplier: float,
+	offset: Vector2 = Vector2.ZERO,
+	flip_h: bool = false
+) -> void:
+	if not world_hex_cache.has(coords) or not ResourceLoader.exists(path):
+		return
+	var asset_meta := _asset_metadata_for_path(path)
+	var footprint_class := str(asset_meta.get("footprint_class", "fitted_prop"))
+	var props: Array = zone_decorations.get(coords, [])
+	props.append({
+		"coords": coords,
+		"asset_id": str(asset_meta.get("asset_id", "")),
+		"sprite_path": path,
+		"kind": kind,
+		"footprint_class": footprint_class,
+		"reserved_cells": _reserved_cells_for_decoration(coords, footprint_class),
+		"target_box": _decor_target_box(kind, path),
+		"scale_multiplier": scale_multiplier,
+		"offset": offset,
+		"rotation": 0.0,
+		"flip_h": flip_h,
+		"layer": _decor_layer(path),
+	})
+	zone_decorations[coords] = props
+
+
+func _asset_metadata_for_path(path: String) -> Dictionary:
+	if _runtime_asset_metadata.is_empty():
+		for entry in _WorldAssetManifest.approved_assets():
+			if not entry is Dictionary:
+				continue
+			_runtime_asset_metadata[str(entry.get("destination", ""))] = entry
+	return _runtime_asset_metadata.get(path, {})
+
+
+func _reserved_cells_for_decoration(coords: Vector2i, footprint_class: String) -> Array[Vector2i]:
+	var reserved: Array[Vector2i] = [coords]
+	if footprint_class != "reserved_two_hex":
+		return reserved
+	if generated_plan != null:
+		for direction in HexCoordUtils.AXIAL_DIRECTIONS:
+			var neighbor: Vector2i = coords + Vector2i(direction)
+			if generated_plan.stamp_cells.has(neighbor):
+				reserved.append(neighbor)
+				return reserved
+		generated_plan.overflow_violations.append({
+			"coords": coords,
+			"footprint_class": footprint_class,
+			"reason": "No reserved neighboring stamp cell.",
+		})
+		generated_plan.validation_errors.append("Large dressing has no reserved neighboring cell.")
+	return reserved
+
+
 func _cluster_size_for_hex(hex: MacroHexData, rng: RandomNumberGenerator) -> int:
 	if hex.flora_layer == GameEnums.MacroFloraLayer.TREES:
-		return rng.randi_range(2, 3)
-	if hex.rock_layer == GameEnums.MacroRockLayer.ROCKS:
-		return rng.randi_range(5, 7)
-	if hex.rock_layer == GameEnums.MacroRockLayer.HILLS:
 		return rng.randi_range(3, 5)
+	if hex.rock_layer == GameEnums.MacroRockLayer.ROCKS:
+		return rng.randi_range(3, 4)
+	if hex.rock_layer == GameEnums.MacroRockLayer.HILLS:
+		return rng.randi_range(2, 3)
 	if hex.structure_layer != GameEnums.MacroStructureLayer.NONE:
 		return rng.randi_range(2, 4)
-	return rng.randi_range(2, 5)
+	return rng.randi_range(1, 3)
 
 
 func _pick_cluster_decor_path(
@@ -595,23 +1061,24 @@ func _pick_cluster_decor_path(
 	rng: RandomNumberGenerator,
 	index: int
 ) -> String:
-	# Large trees and formations already come from authoritative TileMap layers.
-	# Cluster recipes add understory and small ground clutter without duplicating
-	# an entire grove or rock field on top of itself.
 	if hex.flora_layer == GameEnums.MacroFloraLayer.TREES:
+		if index == 0:
+			return DECOR_TREE_PATHS[rng.randi_range(0, DECOR_TREE_PATHS.size() - 1)]
 		return DECOR_SHRUB_PATHS[rng.randi_range(0, DECOR_SHRUB_PATHS.size() - 1)]
 	if hex.rock_layer != GameEnums.MacroRockLayer.NONE:
 		var prefer_north_rocks := hex.biome_pack == GameEnums.BIOME_PACK_NORTH
-		if prefer_north_rocks and index < maxi(2, _cluster_size_for_rock_layer(hex.rock_layer) - 1):
+		if prefer_north_rocks and index < 2:
 			var north_rock := _pick_curated_layer_path(DECOR_NORTH_ROCK_PATHS, rng)
 			if not north_rock.is_empty():
 				return north_rock
-		return (
-			DECOR_ROCK_PATHS[rng.randi_range(0, DECOR_ROCK_PATHS.size() - 1)]
-			if index < maxi(2, _cluster_size_for_rock_layer(hex.rock_layer) - 1)
-			else DECOR_SHRUB_PATHS[rng.randi_range(0, DECOR_SHRUB_PATHS.size() - 1)]
-		)
-	if rng.randf() < 0.14:
+		if index == 0:
+			# Sz2 establishes the rock mass; smaller stones and restrained scrub
+			# frame it instead of forming a tiny central pebble pile.
+			return DECOR_ROCK_PATHS[rng.randi_range(3, 4)]
+		if index == 1 or rng.randf() < 0.72:
+			return DECOR_ROCK_PATHS[rng.randi_range(0, 2)]
+		return DECOR_SHRUB_PATHS[rng.randi_range(0, DECOR_SHRUB_PATHS.size() - 1)]
+	if rng.randf() < 0.12:
 		if hex.biome_pack == GameEnums.BIOME_PACK_NORTH:
 			var north_rock := _pick_curated_layer_path(DECOR_NORTH_ROCK_PATHS, rng)
 			if not north_rock.is_empty():
@@ -622,31 +1089,38 @@ func _pick_cluster_decor_path(
 	return DECOR_SHRUB_PATHS[rng.randi_range(0, DECOR_SHRUB_PATHS.size() - 1)]
 
 
-func _cluster_size_for_rock_layer(rock_layer: int) -> int:
-	return 5 if rock_layer == GameEnums.MacroRockLayer.ROCKS else 3
-
-
 func _sample_cluster_offset(
 	rng: RandomNumberGenerator,
-	used_offsets: Array[Vector2]
+	used_offsets: Array[Vector2],
+	kind: String,
+	path: String
 ) -> Vector2:
-	for _attempt in range(16):
-		var candidate := Vector2(
-			rng.randf_range(-132.0, 132.0),
-			rng.randf_range(-72.0, 72.0)
-		)
-		# Pull the corners inward so ground anchors remain inside the hex.
-		var x_limit := 132.0 * (1.0 - absf(candidate.y) / 150.0)
-		if absf(candidate.x) > x_limit:
-			continue
+	var large_visual := kind == "tree" or (kind == "rock" and "sz2" in path.to_lower())
+	var inset := 72.0 if large_visual else 38.0
+	var max_y := 154.0 if large_visual else 188.0
+	var min_separation := 92.0 if large_visual else (62.0 if kind == "rock" else 48.0)
+	for _attempt in range(28):
+		var y := rng.randf_range(-max_y, max_y)
+		# Exact pointy-hex interior: vertical sides through |y| <= 128,
+		# then the diagonal caps pull toward the top/bottom point.
+		var polygon_limit := 256.0 if absf(y) <= 128.0 else 512.0 - 2.0 * absf(y)
+		var x_limit := maxf(36.0, polygon_limit - inset)
+		var candidate := Vector2(rng.randf_range(-x_limit, x_limit), y)
 		var separated := true
 		for used in used_offsets:
-			if candidate.distance_to(used) < 42.0:
+			if candidate.distance_to(used) < min_separation:
 				separated = false
 				break
 		if separated:
 			return candidate
-	return Vector2(rng.randf_range(-44.0, 44.0), rng.randf_range(-28.0, 28.0))
+	# Deterministic frame slots prevent a failed dense recipe from collapsing
+	# every remaining object back into the middle of the tile.
+	var frame_slots := [
+		Vector2(-152.0, -58.0), Vector2(152.0, -58.0),
+		Vector2(-138.0, 72.0), Vector2(138.0, 72.0),
+		Vector2(-68.0, -146.0), Vector2(70.0, 146.0),
+	]
+	return frame_slots[rng.randi_range(0, frame_slots.size() - 1)]
 
 
 func _decor_kind(path: String) -> String:
@@ -660,16 +1134,35 @@ func _decor_kind(path: String) -> String:
 	return "prop"
 
 
-func _decor_target_box(kind: String) -> Vector2:
+func _decor_target_box(kind: String, path: String = "") -> Vector2:
+	var lowered := path.to_lower()
 	match kind:
+		"structure":
+			return Vector2(300.0, 240.0)
+		"tent":
+			return Vector2(176.0, 126.0)
 		"tree":
-			return Vector2(180.0, 170.0)
+			return Vector2(310.0, 270.0)
 		"rock":
-			return Vector2(88.0, 70.0)
+			if "sz2" in lowered:
+				return Vector2(270.0, 220.0)
+			if "rubble" in lowered:
+				return Vector2(270.0, 205.0)
+			return Vector2(164.0, 132.0)
+		"shrub":
+			return Vector2(54.0, 62.0)
 		"prop":
+			if "post" in lowered:
+				return Vector2(78.0, 126.0)
+			if "crate" in lowered:
+				return Vector2(92.0, 72.0)
+			if "barrel" in lowered:
+				return Vector2(74.0, 82.0)
+			if "solar panel" in lowered:
+				return Vector2(150.0, 112.0)
 			return Vector2(96.0, 80.0)
 		_:
-			return Vector2(76.0, 88.0)
+			return Vector2(62.0, 68.0)
 
 
 func _decor_layer(path: String) -> int:
@@ -746,6 +1239,10 @@ func _place_start_and_objective() -> void:
 	start_hex.flora_layer = GameEnums.MacroFloraLayer.NONE
 	start_hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
 	start_hex.is_explored = true
+	if _is_starter_route_zone():
+		if _world_state != null:
+			_world_state.set_hex_record(start_coords, start_hex.to_state())
+		return
 
 	var center_hex: MacroHexData = world_hex_cache[Vector2i.ZERO]
 	center_hex.impassable = false
@@ -801,6 +1298,34 @@ func _place_start_and_objective() -> void:
 	if _world_state != null:
 		_world_state.set_hex_record(start_coords, start_hex.to_state())
 		_world_state.set_hex_record(Vector2i.ZERO, center_hex.to_state())
+
+
+func _is_starter_route_zone() -> bool:
+	return (
+		zone_profile_id == "starter_route_1"
+		or (
+			node_arm_tier == 1
+			and node_arm_direction != GameEnums.MacroArmDirection.NONE
+		)
+	)
+
+
+func _arm_key() -> String:
+	match node_arm_direction:
+		GameEnums.MacroArmDirection.NORTH:
+			return "north"
+		GameEnums.MacroArmDirection.EAST:
+			return "east"
+		GameEnums.MacroArmDirection.SOUTH:
+			return "south"
+		GameEnums.MacroArmDirection.WEST:
+			return "west"
+		_:
+			return "unknown"
+
+
+func _arm_label() -> String:
+	return _arm_key().capitalize()
 
 
 func hex_count() -> int:

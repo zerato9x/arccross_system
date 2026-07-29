@@ -1,0 +1,4525 @@
+{
+  "version": 2,
+  "assets": [
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.13",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_13.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_13.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          76,
+          71,
+          43,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          60,
+          56,
+          34,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "26ee0d2be9da662be38eff9ce1d1a8735aa4ea16005af13515f6354b2394daad"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.14",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_14.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_14.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          66,
+          62,
+          38,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          67,
+          60,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "ee45989ff9df32e7f8bc315fadc1d1ba1d2c72f7a02adebc12ba17071caa6374"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.15",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_15.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_15.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          68,
+          63,
+          38,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          73,
+          69,
+          42,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "66d4f5214c6b91193a9f142ff975b2d75313aa3fbb2a75d94408b6e56fbb9755"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.16",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_16.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_16.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          64,
+          60,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          68,
+          64,
+          39,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "db430dde0d673a53f9cb33f326ce4d73c08c6559e1232990e1b5a76d4ccd5def"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.17",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_17.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_17.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          59,
+          52,
+          34,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          69,
+          64,
+          39,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "7229ac9847070452e98628e4d88d046540780510cc12e02ab329a40edd8b4927"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.18",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_18.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_18.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          63,
+          58,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          60,
+          54,
+          33,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "4f6c1ffd6be6f24bdc7d16587c72114cc90cdbd73737688c1b201af9f86972c2"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.19",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_19.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_19.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          63,
+          57,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          56,
+          46,
+          32,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "9972504a1a19de21f8eae0b7cce99ac6c33b68249a8f1b126b13e78c57a88522"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.20",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_20.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_20.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          63,
+          56,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          70,
+          65,
+          39,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "72da12f780ed8f44d805c7eaff1651d476911f5619ea78ea2011e489148ab5b1"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.21",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_21.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_21.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          58,
+          52,
+          33,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          63,
+          57,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "f22fe50d911eaeb4959b92fb6286eb2993ae2702b2986c06fc97509099b55f71"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.22",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_22.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_22.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          60,
+          54,
+          34,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          62,
+          55,
+          34,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "3e82cc78faa2d3f3898029dd4f555dd35e8ed65e0de1422dd3aea89a37096946"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.23",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_23.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_23.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          59,
+          51,
+          33,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          68,
+          62,
+          39,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "48142f97f4fb5dd51d4553165dbba005beff65f2fbd2f8cf1314434f3c9a040c"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.26",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_26.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_26.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          69,
+          63,
+          39,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          72,
+          66,
+          41,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "866e43f56a94ccea3cc9e207cdd8437f39886bd129929af4179e7cb7b49cf7b4"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.27",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_27.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_27.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          66,
+          61,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          74,
+          69,
+          42,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "4d972356d0dde8e1598ddc28ed74c0447a7742702aff775340c72c2b5e8d97ca"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.28",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_28.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_28.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          68,
+          63,
+          39,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          65,
+          59,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "020848410591c28a92a33a79cb0b1198aa07e16be561b37bfcf7da6474528970"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.29",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_29.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_29.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          66,
+          60,
+          38,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          67,
+          62,
+          38,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "f8a02209b622a18c5749e1a1ff4b5b4e74fe03b1518676b0df9a40907adbbb66"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.30",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_30.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_30.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          69,
+          64,
+          40,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          64,
+          58,
+          36,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "a0191a3a96d5846125525114e8e39e000f5515aa6d9f3bc16abe6f1351659ea9"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.31",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_31.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_31.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          63,
+          58,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          68,
+          62,
+          38,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "a3513b88e3a2514d8808c7565e853f8fc663690e3db2c0356f461c77852d70b2"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.32",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_32.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_32.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          64,
+          59,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          64,
+          58,
+          36,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "c298c1772c6898f1a2bb85e547506bbab39ca2b9e4129560e16488f5d433e457"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.33",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_33.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_33.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          65,
+          61,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          60,
+          53,
+          34,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "c9a5b43101e7af0a557ac5de8d3b88b566ac2abe1096ae191c0355255e80a16f"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.34",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_34.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_34.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          68,
+          63,
+          39,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          56,
+          49,
+          32,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "6b4133c58242a7bcab2d7bd99e2974d2ef2b124c1933aad872b1b305068cda81"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.35",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_35.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_35.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          65,
+          59,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          67,
+          63,
+          38,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "1558e8e664968c3941009b75be2886a347ef157fc937a64099981509cdfc2219"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.36",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_36.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_36.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          66,
+          61,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          66,
+          61,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "992cf79bdcb8522ca4142be1760c00cd49153328cf33b555aa32b772a4b13b83"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.37",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_37.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_37.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          72,
+          66,
+          41,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          66,
+          60,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "966b608a940787bf86978ea717a6879b746ae319949f13db9fc8fc777b3d982a"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.38",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_38.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_38.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          71,
+          66,
+          41,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          65,
+          61,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "8270de8c76cb17650e48501b49f7a220674e7336b0d0efb54d0207dac9611d22"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.39",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_39.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_39.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          66,
+          61,
+          38,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          70,
+          65,
+          40,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "135246063d0bff3b125269f36a5ef202c1ffc8a7808b571f7c0d2445e1e60d0a"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.40",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_40.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_40.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          57,
+          50,
+          34,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          72,
+          67,
+          41,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "c5be1204b9b704bc2448b6e5d48d08717a1bf2854906f89ece9e90610b3abc14"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.44",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_44.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_44.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          63,
+          56,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          64,
+          57,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "7deb1bf04b9be35612dfca99e6d02643298ba06aa0bbf845c47fafb2edd3e60a"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.45",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_45.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_45.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          60,
+          55,
+          34,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          58,
+          48,
+          31,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "297272d9985464f64f9c2cc36878667a845716771dd8115c6666c2635e57d12e"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.46",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_46.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_46.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          60,
+          53,
+          33,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          61,
+          52,
+          34,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "8b5570c785d79cc597279e2f171ed72119cec02b8c626ab05ff6376fd642e9ca"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.47",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_47.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_47.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          65,
+          60,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          67,
+          62,
+          38,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "34bcb5f3b4116ae66532cb0a17dd5d2f69d3f61465b541d80744088fac98e691"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.48",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_48.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_48.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          63,
+          57,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          62,
+          55,
+          34,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "53fa8c0e6aacf6c57c3285350881c963f1f06efa5454d3aa4788d0ecba14703d"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.49",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_49.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_49.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          62,
+          56,
+          34,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          65,
+          58,
+          36,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "566780990632b092cbb3d240336fdc116fad9ba38ce601b52183490ad1ca7082"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.5",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_5.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_5.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          68,
+          64,
+          39,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          67,
+          59,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "19e700ecdf13dec154dac3cb9189284191ff74b100c34c40cc1cefa428ceda01"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.50",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_50.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_50.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          67,
+          62,
+          38,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          63,
+          57,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "87def6935b169530bf0850b3c139e2b500934320bd5fe6f0fb188d8723f25157"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.51",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_51.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_51.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          55,
+          43,
+          28,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          67,
+          63,
+          38,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "0c64546dd643999df72d039f98c56eaa9b09b158e13e6903e0b10cad52f3d3df"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.52",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_52.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_52.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          71,
+          66,
+          41,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          68,
+          63,
+          39,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "3c17353bb3fbf280e729f723791e3056cde60b960a77a19b2deb650739072f92"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.53",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_53.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_53.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          61,
+          57,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          59,
+          50,
+          31,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "d3ce3d909094a292739436548462a6fa75cef0a3ca9ad8942c34942bbe5f11c4"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.54",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_54.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_54.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          65,
+          60,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          65,
+          59,
+          36,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "e903e004b68d75521419a527eab2085c0fba5f6b54de46728e875e3df1b9f31a"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.55",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_55.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_55.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          63,
+          57,
+          36,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          64,
+          60,
+          36,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "410d40fe566a6872358e8abaf47d031afb0a266de6f3d4d59f737fc962a1084b"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.56",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_56.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_56.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          68,
+          62,
+          38,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          66,
+          61,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "bec2125b7ccc2d0db4cb6c50dc5cedf9c68976f700968d1c026ea1e1ffb30865"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.59",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_59.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_59.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          61,
+          55,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          66,
+          59,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "9ef12198ffed362fe480700d5fea5548f892776d0e4d57dcb15805deb21cc0b7"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.6",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_6.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_6.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          77,
+          73,
+          44,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          75,
+          69,
+          42,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "2bf50e98bc6a58c986a0038b4f4f7f73019afb6d16e7b12ae6e9ddd85325ca87"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.60",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_60.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_60.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          64,
+          57,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          62,
+          56,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "c2eaf7e558a9f189e93905d11eab68b31331d8e7dc3f405851ebe02b0fc0fa80"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.61",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_61.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_61.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          61,
+          57,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          63,
+          58,
+          36,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "ecb5557d4054556f7c4c1e020ad460c7b4250057738e6ef94b2e3aebe0cabb9e"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.62",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_62.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_62.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          65,
+          60,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          61,
+          52,
+          34,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "b01e46d1273e808b96829bb35a6cf3b5680b949ef14dec9dcc4270ce5252ad1a"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.63",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_63.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_63.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          59,
+          51,
+          32,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          64,
+          59,
+          36,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "9cde9bd190ce9e3084e728d1ddc028bb38cd96e42e33d333b92d3447d5b6ba36"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.64",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_64.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_64.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          67,
+          62,
+          38,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          63,
+          59,
+          36,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "75ad67d9360e0ca04f94ef76238c7cb3f026fe17bb7cace61d742df69ad62de6"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.65",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_65.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_65.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          67,
+          61,
+          38,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          60,
+          54,
+          33,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "a603d45f25459685d4548e6c286c7b525c335459d6e0738715eb471a3954c2d0"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.69",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_69.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_69.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          62,
+          56,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          61,
+          54,
+          33,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "da57f25cd0e9c4fed6514fca2943b43a64743eef1927fd8251733a0512a5970c"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.7",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_7.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_7.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          70,
+          64,
+          40,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          67,
+          63,
+          38,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "80d927eb685e88a93951a17b26bb696702170ce67e512354f77a7276542dc8fc"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.70",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_70.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_70.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          65,
+          59,
+          36,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          69,
+          62,
+          38,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "2ec71c55171dcee101fb5fb3cf1c3d47c8f5f0172c01f3905e5820029ab8364e"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.71",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_71.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_71.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          65,
+          60,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          62,
+          55,
+          35,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "0bfac627f4852877337e0b79ed01d18c8a8f76273c57991831621166800a014b"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.8",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_8.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_8.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          68,
+          63,
+          39,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          73,
+          68,
+          41,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "ceb2a828ea8c4f142da2dbf61c59bb48b5f319a2fb93de8e290f1964f8317026"
+    },
+    {
+      "asset_id": "plains_green.grassland.painted.green.hex.9",
+      "family_id": "plains_green",
+      "layer_kind": "terrain_hex",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\grass_tiles\\grass_default\\Grassland - Painted - green_hex_9.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/HEX/grass_tiles/grass_default/Grassland - Painted - green_hex_9.png",
+      "tags": [
+        "plains",
+        "starter",
+        "green",
+        "seamless_family"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [
+        [
+          63,
+          58,
+          36,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          65,
+          58,
+          37,
+          255
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "footprint_class": "full_hex",
+      "hash": "ea88773df469574cc4e5bf8bfa23894436bf429aac107b2e484a6a212ccb098d"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.barrel.a1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Barrel A1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Barrel A1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "88754bb102837db715f9fac98149ae1df5ecbbbdaaed5c5cd1b685211fc004a2"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.barrel.a2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Barrel A2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Barrel A2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "8cbcf4c3a6ac71e04a9cc014bd4e4f520d1ce6a0ddf9c3faa838e43a6307cb00"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.barrel.b1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Barrel B1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Barrel B1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "3bcbffe6deed6ef8b0da3adfdc0064c9242bb6b7a1240c04fa2ba41383d91305"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.barrel.b1.ii",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Barrel B1-ii.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Barrel B1-ii.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        166,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "68e4c382b37ff5571266e49f9274a2d323abc75cbb7ad106a4ddb5a9a9850073"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.barrel.b2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Barrel B2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Barrel B2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "ec9f578eda9915735d63bc67fd4361258a8022edc6396ee01e21e50ce9d6f6dd"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.barrel.b2.ii",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Barrel B2-ii.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Barrel B2-ii.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        166,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "4529a811a1cec1376eb3051a53587c59d587a777b34491c96d6aaff18d8ed7a3"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.a1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit A1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit A1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "70cf194ca8eae68c50630a2bebc77a5b76f05b036f471754dce01c55f06a4664"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.a1.ii",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit A1-ii.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit A1-ii.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "21c0d0ee9a962797092a6c25c573c5f79ebfda3d544ccefd8d5afb0bafce44b5"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.a2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit A2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit A2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "7c0a7d1a951edc150c5b53d0701ab22c4324fad390293a8925fc2a8c0d7c8876"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.a2.ii",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit A2-ii.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit A2-ii.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "d67a17437daafc025b1ac93a5f3b229b7d9fb80432bc1499e2b43102cbc27d41"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.b1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit B1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit B1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        166,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "db10b3e8eb34ceac2bad10a7418e24ea710602d9602d544a27ea83d23a9b6f8f"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.b1.ii",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit B1-ii.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit B1-ii.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "95057359432f71f004297b2eb1c70baeb269f7543403e51e800cca442539a751"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.b2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit B2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit B2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        166,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "108f80f491865bf4d63600d84052fc4d5b7a9e546d0af0b259cde428c4955aaf"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.b2.ii",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit B2-ii.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit B2-ii.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "0339aac98e9c3ec7d62a2df5264905f45694950c841a5bf64f343ddd9ffd07c1"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.c1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit C1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit C1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "10bbf51a0739aedb679aecfa2e60690603e13343d919a53431481c01b120db7f"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.c1.ii",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit C1-ii.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit C1-ii.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        166,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "7e743d15fed0e0b5b2a58e45b59e05874f0303662958e1c27c0b37180f48754b"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.c2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit C2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit C2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "ef72438177369a06d97f66b6ad963dfd04831ac32e9409d16d14ccf1c0400e59"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.c2.ii",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit C2-ii.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit C2-ii.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        166,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "916ec8904583b978f2f7c6b5d1c01b94c47ff89f042f596a1d24e3ad30f8dcaa"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.d1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit D1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit D1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "3ef70b435080b2bfbf0bab64294e798d6c7563979c45b03353dade4a7e8c184b"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.d1.ii",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit D1-ii.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit D1-ii.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "e9767f205e95d8efdd5073a2da1baf806e43a0179942647e55ea2fedb93f85db"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.d2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit D2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit D2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "5fd4ec0e81e0018e4b0a6c23adfa6b3e11ab485997837f47fc04a55d8b84648a"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.d2.ii",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit D2-ii.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit D2-ii.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "ebc15a8274047bdb99a96aa5a580069ce65fbe0756818553bb472dc9bb6d4638"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.e.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit E-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit E-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        166,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "500220b78a3e5ee2b758b94c43cef337989e97b7dc98c207742a777042b614e1"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.e2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit E2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit E2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        166,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "651ad29702150c10962101c8b2848c5fb2fd8a6eba6ab6bb19d8a08efd2eb8eb"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.f1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit F1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit F1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        166,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "408f791ccb0330698b488f1359d35c351bd6f8d6e95ae1ad8340c92f529a1ce8"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.bit.f2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Bit F2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Bit F2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        166,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "9e670a011ba5dd4f2380229c66ee3dc88886cb3dc99034ddf62062a0bc6d1293"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.crate.a1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Crate A1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Crate A1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "cecbc73d5c2bbafd44f1be4b4b75f8d708df0be5a72a10e34fa5b7848322bd27"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.crate.a2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Crate A2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Crate A2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "4c3dcf964678adac0397073d1bfebfb644b671bc5c064421a2ce684ee144b29f"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.crate.b1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Crate B1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Crate B1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        166,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "639082d5e2e96f892e00b6f648874209e2ef21d41303b82331e2630be19e5c69"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.crate.b2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Crate B2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Crate B2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        166,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "6a77fcf92e6e269df87c50d066e2a22d9eb86250cb27fbb62cd4abc53e553401"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.crate.c1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Crate C1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Crate C1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "6a19faa5fb004269c581445c989b52509157d05d63bb0ba76bc413cd67b9cdd6"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.crate.c2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Crate C2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Crate C2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "1230dd4348569573f22fec37e5f3c0a7fbde5af3725f2dc99e1a95d5d04726d3"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.post.a1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Post A1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Post A1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "cc0d9279daa3ad661783b15dc64726e2b8c22917c65ade7d9ea811bbdea6b160"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.post.a2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Post A2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Post A2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "8ce0550c23d7540ef9e413f93f2136fd7aee7238b7b329e3e50124971eca400c"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.post.b1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Post B1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Post B1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        166,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "0a2cdb161914a3b8940fb559571f1ef6c5d790d9923e8381fac1d967f433b4a9"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.post.b2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Post B2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Post B2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        166,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "486686ad952e38b41ede34d4f9f7b2819c933186c17eda1eefaf0e54f1553e37"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.post.c1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Post C1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Post C1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "9a69a61b1d6221646e919818c63f15754e9add6d140d82e22ed57e45d92da878"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.post.c2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Post C2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Post C2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "941d17e58c1898f3500ace54a269c9d2ea03b3e196806a7970561bd93bb5c09d"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.post.d1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Post D1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Post D1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "11bc70ca200cbe0f79f4240a18046bcb9c4781a3a81159bf65fc67b6531db539"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.post.d2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Post D2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Post D2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "aeee5a75db507d05f37b71e70147c6fdd74636141ac2612f579c104580d64b01"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.solar.panel.a1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Solar Panel A1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Solar Panel A1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "bb4bc4bfd73f932ef1a5db61565308dab1ba1f0b197d3a40080b2e427534f01e"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.solar.panel.a2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Solar Panel A2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Solar Panel A2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "da70f7cc5652490f018fcfe0f2a2f79bcd2e02f57cf5c96e751df550c4c7eb63"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.solar.panel.b1.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Solar Panel B1-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Solar Panel B1-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "731e30b89f2913b130ae8229c268e77b56bb00c20ca01973014e6e67bce505dc"
+    },
+    {
+      "asset_id": "plains_infrastructure_details.infrastructural.solar.panel.b2.i",
+      "family_id": "plains_infrastructure_details",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Infrastructural Solar Panel B2-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/MoreInfras/Infrastructural Solar Panel B2-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "infrastructure",
+        "frame"
+      ],
+      "dimensions": [
+        167,
+        300
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "62f1700ba9122a43412c70bbaf140e68a2a923fa9a9de4a08b5e6c8e226b10a0"
+    },
+    {
+      "asset_id": "starter_homestead_small.homestead.building.size1.a.shadow",
+      "family_id": "starter_homestead_small",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Structures\\Homestead Building Size1 A shadow.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size1 A shadow.png",
+      "tags": [
+        "plains",
+        "starter",
+        "settlement",
+        "structure"
+      ],
+      "dimensions": [
+        512,
+        416
+      ],
+      "edge_signatures": [],
+      "footprint_class": "single_hex_tall",
+      "hash": "8ea455c76b69f4b39deb896cce954c4cff625c36ec59188a9dc28562a0624ff0"
+    },
+    {
+      "asset_id": "starter_homestead_small.homestead.building.size1.b.i.shadow",
+      "family_id": "starter_homestead_small",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Structures\\Homestead Building Size1 B-i shadow.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size1 B-i shadow.png",
+      "tags": [
+        "plains",
+        "starter",
+        "settlement",
+        "structure"
+      ],
+      "dimensions": [
+        512,
+        405
+      ],
+      "edge_signatures": [],
+      "footprint_class": "single_hex_tall",
+      "hash": "f3fd84c9f5bdc91d65f0d94ba4e61e2b00de8e298a57960f8a122cdfa3bbb3d9"
+    },
+    {
+      "asset_id": "starter_homestead_small.homestead.building.size1.c.shadow",
+      "family_id": "starter_homestead_small",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Structures\\Homestead Building Size1 C shadow.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size1 C shadow.png",
+      "tags": [
+        "plains",
+        "starter",
+        "settlement",
+        "structure"
+      ],
+      "dimensions": [
+        512,
+        391
+      ],
+      "edge_signatures": [],
+      "footprint_class": "single_hex_tall",
+      "hash": "4759216e1e3aa53de70be280786cb1eb058f2ce9d8b0bd63bf32f11a69a3419e"
+    },
+    {
+      "asset_id": "starter_homestead_large.homestead.building.size.2.b.i",
+      "family_id": "starter_homestead_large",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Structures\\Homestead Building Size 2 - B-i.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/default_era8/Structures/Homestead Building Size 2 - B-i.png",
+      "tags": [
+        "plains",
+        "starter",
+        "settlement",
+        "structure",
+        "large"
+      ],
+      "dimensions": [
+        512,
+        297
+      ],
+      "edge_signatures": [],
+      "footprint_class": "reserved_two_hex",
+      "hash": "835aa51503e99e3732e8929adbcbb11a1c576d1539e4d4fff819ecc2386d94d9"
+    },
+    {
+      "asset_id": "starter_tents.tent.a.a.gray.closed",
+      "family_id": "starter_tents",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\Colony Infrastructure\\Tent A.a - Gray - closed.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/Colony Infrastructure/Tent A.a - Gray - closed.png",
+      "tags": [
+        "plains",
+        "starter",
+        "settlement",
+        "tent"
+      ],
+      "dimensions": [
+        210,
+        150
+      ],
+      "edge_signatures": [],
+      "footprint_class": "single_hex_tall",
+      "hash": "35d863a981ca1cf53c82a6620d4167066b7584385b15db9c5955336946abd878"
+    },
+    {
+      "asset_id": "starter_tents.tent.a.b.green.closed",
+      "family_id": "starter_tents",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\Colony Infrastructure\\Tent A.b - Green - closed.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/Colony Infrastructure/Tent A.b - Green - closed.png",
+      "tags": [
+        "plains",
+        "starter",
+        "settlement",
+        "tent"
+      ],
+      "dimensions": [
+        212,
+        150
+      ],
+      "edge_signatures": [],
+      "footprint_class": "single_hex_tall",
+      "hash": "1a7c1f161c716e70796c9b27b82a44e875b6dd8bf04ac85f7b8301d61043cccd"
+    },
+    {
+      "asset_id": "starter_tents.tent.quonset.a.a.gray",
+      "family_id": "starter_tents",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\Colony Infrastructure\\Tent Quonset - A.a - Gray.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Infrastructure/Colony Infrastructure/Tent Quonset - A.a - Gray.png",
+      "tags": [
+        "plains",
+        "starter",
+        "settlement",
+        "tent"
+      ],
+      "dimensions": [
+        194,
+        150
+      ],
+      "edge_signatures": [],
+      "footprint_class": "single_hex_tall",
+      "hash": "ffd5766227658064a123d4ce9ac2e8606e45ed14dfdfecd5bc830866754306ee"
+    },
+    {
+      "asset_id": "starter_rubble.rubble.1x1.a",
+      "family_id": "starter_rubble",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Remnants\\Rubble 1x1 A.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/remnants/Rubble 1x1 A.png",
+      "tags": [
+        "plains",
+        "starter",
+        "rubble",
+        "remnant"
+      ],
+      "dimensions": [
+        512,
+        422
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "d86e1634ac8d5925b615ea8ab5acf49ad75b8a5442bf2e4fa68bf2d374969e1d"
+    },
+    {
+      "asset_id": "starter_rubble.rubble.1x1.b",
+      "family_id": "starter_rubble",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Remnants\\Rubble 1x1 B.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/remnants/Rubble 1x1 B.png",
+      "tags": [
+        "plains",
+        "starter",
+        "rubble",
+        "remnant"
+      ],
+      "dimensions": [
+        512,
+        366
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "1e17f26b0abb594731fe9207cac25910c557a89776d0b9fb6310896cd2b88828"
+    },
+    {
+      "asset_id": "starter_rubble.rubble.1x1.c",
+      "family_id": "starter_rubble",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Remnants\\Rubble 1x1 C.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/remnants/Rubble 1x1 C.png",
+      "tags": [
+        "plains",
+        "starter",
+        "rubble",
+        "remnant"
+      ],
+      "dimensions": [
+        512,
+        341
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "85edd3c0bd04d58529fc883cd4c2bbddbabf5b1351b1d2deab782ba81d07cbd4"
+    },
+    {
+      "asset_id": "starter_rubble.rubble.1x1.d",
+      "family_id": "starter_rubble",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Remnants\\Rubble 1x1 D.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/remnants/Rubble 1x1 D.png",
+      "tags": [
+        "plains",
+        "starter",
+        "rubble",
+        "remnant"
+      ],
+      "dimensions": [
+        512,
+        318
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "9ae6b17bd52d5fa15ef38d5909a10a7b6a4d0ac6f10f0649a2fa22417095169e"
+    },
+    {
+      "asset_id": "starter_shrubs.shrub.a",
+      "family_id": "starter_shrubs",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Trees\\Shrub A.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Shrub A.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "vegetation"
+      ],
+      "dimensions": [
+        512,
+        930
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "d8889b1211947290ef1259418f7e86ab7d23d508beef7e3272a05948622e63c2"
+    },
+    {
+      "asset_id": "starter_shrubs.shrub.b",
+      "family_id": "starter_shrubs",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Trees\\Shrub B.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Shrub B.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "vegetation"
+      ],
+      "dimensions": [
+        512,
+        374
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "fa386410fc28c5838f3c9f0f5aded62ebf49666c6c3586da02fe4b30e76247fe"
+    },
+    {
+      "asset_id": "starter_shrubs.shrub.c",
+      "family_id": "starter_shrubs",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Trees\\Shrub C.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Shrub C.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "vegetation"
+      ],
+      "dimensions": [
+        512,
+        451
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "878a936ccc11e2576a8192a373e8afbc9b13b0c870c15b2549526f3a1243e2f2"
+    },
+    {
+      "asset_id": "starter_shrubs.shrub.d",
+      "family_id": "starter_shrubs",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Trees\\Shrub D.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Shrub D.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "vegetation"
+      ],
+      "dimensions": [
+        512,
+        341
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "59e6303db5e0e55288bffd536927eb5489f7d1bae87034d1fc9f7c68e2ac58c3"
+    },
+    {
+      "asset_id": "starter_shrubs.shrub.e",
+      "family_id": "starter_shrubs",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Trees\\Shrub E.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Shrub E.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "vegetation"
+      ],
+      "dimensions": [
+        512,
+        297
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "44deb604730ff8d1e2c4e9ce384a75bb0976614b930e7c076c18311b331a4763"
+    },
+    {
+      "asset_id": "starter_shrubs.shrub.f",
+      "family_id": "starter_shrubs",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Trees\\Shrub F.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Shrub F.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "vegetation"
+      ],
+      "dimensions": [
+        512,
+        467
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "a0500cf98a0a9aeb155b916106b87212cfa502a9f21c94fe15f3adc519710114"
+    },
+    {
+      "asset_id": "starter_shrubs.shrub.g",
+      "family_id": "starter_shrubs",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Trees\\Shrub G.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Shrub G.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "vegetation"
+      ],
+      "dimensions": [
+        512,
+        393
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "318b762ed6ba906650cb4a33aef36fed6a867795f00e308d555c47bf882e442e"
+    },
+    {
+      "asset_id": "starter_shrubs.shrub.h",
+      "family_id": "starter_shrubs",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Trees\\Shrub H.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Shrub H.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "vegetation"
+      ],
+      "dimensions": [
+        512,
+        465
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "fe7f6ddfba99336ff3f5748b082b3da8874c785abea40b7fce97a9c3425030c4"
+    },
+    {
+      "asset_id": "starter_tree_groups.temperate.trees.v2.size.2.a.green",
+      "family_id": "starter_tree_groups",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Trees\\Temperate Trees v2 size-2 A green.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Temperate Trees v2 size-2 A green.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "vegetation",
+        "woodland_mass"
+      ],
+      "dimensions": [
+        512,
+        512
+      ],
+      "edge_signatures": [],
+      "footprint_class": "single_hex_tall",
+      "hash": "acd6e9060432ee728226543f7ac93e6e2f254214e88db5c9e4eb88825813064e"
+    },
+    {
+      "asset_id": "starter_tree_groups.trees.green.2x2a",
+      "family_id": "starter_tree_groups",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Trees\\Trees Green - 2x2A.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Trees Green - 2x2A.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "vegetation",
+        "woodland_mass"
+      ],
+      "dimensions": [
+        512,
+        501
+      ],
+      "edge_signatures": [],
+      "footprint_class": "single_hex_tall",
+      "hash": "85dc4cdca32a611cbb9c2eb7a5419a944fb3531a310bd8d380ef862b2ae4dabc"
+    },
+    {
+      "asset_id": "starter_tree_groups.trees.green.2x2b",
+      "family_id": "starter_tree_groups",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Trees\\Trees Green - 2x2B.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/flora/Trees Green - 2x2B.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "vegetation",
+        "woodland_mass"
+      ],
+      "dimensions": [
+        512,
+        494
+      ],
+      "edge_signatures": [],
+      "footprint_class": "single_hex_tall",
+      "hash": "f073539a5b10fcb6a511d5e15a1a7c766b051eebad835c330d92f9453362c871"
+    },
+    {
+      "asset_id": "starter_rocks.rocks.sz1.a",
+      "family_id": "starter_rocks",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Rocks\\Rocks Sz1 A.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Rocks/Rocks Sz1 A.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "rock"
+      ],
+      "dimensions": [
+        512,
+        487
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "7129b6b3b833e5010008514eb1f707e22ef415c0af705b9af7080ead77256141"
+    },
+    {
+      "asset_id": "starter_rocks.rocks.sz1.b",
+      "family_id": "starter_rocks",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Rocks\\Rocks Sz1 B.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Rocks/Rocks Sz1 B.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "rock"
+      ],
+      "dimensions": [
+        512,
+        446
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "5697eda358722613bda6fbe5fe1d9b2316153408cff9ede35bcb5ebf8b5d9a92"
+    },
+    {
+      "asset_id": "starter_rocks.rocks.sz1.c.shadow",
+      "family_id": "starter_rocks",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Rocks\\Rocks Sz1 C shadow.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Rocks/Rocks Sz1 C shadow.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "rock"
+      ],
+      "dimensions": [
+        512,
+        425
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "4b305761145106acc2201f51dd9c45a1c3fdf00b1c0343a107bee4dcf2bf9a39"
+    },
+    {
+      "asset_id": "starter_rocks.rocks.sz2.a",
+      "family_id": "starter_rocks",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Rocks\\Rocks Sz2 A.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Rocks/Rocks Sz2 A.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "rock"
+      ],
+      "dimensions": [
+        512,
+        397
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "0e1d2a331d3ec5e2c6070e116b865342266c29cb2cc36c3fb64de8292f253353"
+    },
+    {
+      "asset_id": "starter_rocks.rocks.sz2.b",
+      "family_id": "starter_rocks",
+      "layer_kind": "decor_sprite",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Rocks\\Rocks Sz2 B.png",
+      "destination": "res://Asset/HexTiles/_BIOMES/biome_plains/Rocks/Rocks Sz2 B.png",
+      "tags": [
+        "plains",
+        "starter",
+        "quiet",
+        "rock"
+      ],
+      "dimensions": [
+        512,
+        441
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "c85ac9a5503114538fead7ca113cb86803af62fbab4a3d3bbd66fb6b06ad0329"
+    },
+    {
+      "asset_id": "paved_road_material.paved.road.iii.nexsw",
+      "family_id": "paved_road_material",
+      "layer_kind": "source_material",
+      "source": "S:\\Asset\\_Asset\\_BIOMES\\biome_plains\\Infrastructure\\MoreInfras\\Paved Road III - NExSW.png",
+      "destination": "res://Asset/HexTiles/_SOURCE/roads/Paved Road III - NExSW.png",
+      "tags": [
+        "road",
+        "material_source"
+      ],
+      "dimensions": [
+        827,
+        469
+      ],
+      "edge_signatures": [],
+      "footprint_class": "fitted_prop",
+      "hash": "5a7e6c8e6c0c7b8a0b5e83168af98d66a4969cca714f2678a8a7ef50a5f2674b"
+    }
+  ]
+}

@@ -1,5 +1,37 @@
 # ARCCROSS Changelog
 
+## July 29, 2026
+
+### Hex World Generator V2 — Fixed Logistics And One Starter Settlement
+
+- Replaced arrival-driven Route 1 road planning with one canonical arterial
+  rotated per arm. Every Central-adjacent node now retains a fixed paved route
+  from its Central-facing rim to its outward arm exit regardless of world seed,
+  player arrival, or discovery order.
+- Added a short dirt service spur to every starter node and separated paved and
+  dirt presentation through stable surface-specific overlay IDs.
+- Rebuilt the road asset foundation as 128 transparent 512×512 masks: every
+  six-bit neighbor mask `0–63` for both paved and dirt surfaces. The builder
+  renders at four-times resolution and downsamples to the runtime target.
+- Corrected starter settlement authority: exactly one inhabited settlement
+  exists across the four Route 1 nodes. The alpha locks it, its unique POI, and
+  the stationary wayfinder to `north_random_1`; East, South, and West generate
+  none of those records.
+- Made Central Guard squads node-specific so each visited starter node can hold
+  its actual Central-facing road approach without reusing another node's pair.
+- Increased seed variation with secondary terrain and vegetation noise while
+  preserving fixed logistics. All 54 approved seamless plains variants remain
+  active; forests, rocks, shrubs, rubble, and traces vary by seed.
+- Preserved starter budgets: 469 cells, 6–10 poor exhaustible rubble searches,
+  12–20 visual remnants, at least 60% quiet landscape, and zero Route 1 snow.
+- Added paved/dirt asset-contract checks, four-arm settlement uniqueness,
+  seed/arrival logistics invariance, surrounding-variation checks, and live
+  Godot verification for North and East approaches.
+- Added the authoritative
+  `READMEs/design/HEX_WORLD_GENERATOR_V2.md` contract and synchronized the
+  campaign, macro-world, asset, dressing, visual, architecture, glossary,
+  README, and LFS-audit documentation.
+
 ## July 24, 2026
 
 ### Alpha Hex Assets — Plains Homestead + North Snow

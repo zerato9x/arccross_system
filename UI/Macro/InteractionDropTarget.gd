@@ -191,7 +191,10 @@ func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
 	if payload.get("source_drop_target", null) == self:
 		_set_highlight(false)
 		return false
-	var roles: Array = payload.get("interaction_roles", [])
+	var roles: Array = payload.get(
+		"interaction_roles",
+		payload.get("roles", [])
+	)
 	for role in accepted_roles:
 		if roles.has(role):
 			_set_highlight(true)

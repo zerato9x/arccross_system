@@ -10,6 +10,11 @@ const LANE_MOVE_DURATION_SECONDS := DEFAULT_LANE_MOVE_DURATION_SECONDS
 const MOTION_WAIT_FRAME_LIMIT := 210
 const TOKEN_PRESENTATION_FRAME_LIMIT := 240
 const FINAL_BLOW_SETTLE_FRACTION := 0.58
+const TURN_TAKE_DAMAGE_DURATION_SECONDS := 0.65
+## Late cues (reload / cover / get-up) hold through remaining clip so the next
+## snapshot does not cut mid-recovery. Early impact cues only settle recovery
+## so projectiles can still start on the authored marker.
+const LATE_CUE_HOLD_FRACTION := 0.80
 const STAGE_GROUND_ASSET := "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png"
 const STAGE_MIN_SIZE := Vector2(1680.0, 920.0)
 const CAMERA_BLEED_X_RATIO := 0.4
@@ -176,7 +181,11 @@ func play_presentation_event(event: Dictionary) -> void:
 			if event.get("skip_lane_presentation", false):
 				return
 			if not data.get("is_dead", false):
-				if token.play_one_shot("TakeDamage", _token_pose(data)):
+				if token.play_timed_one_shot(
+					"TakeDamage",
+					_token_pose(data),
+					TURN_TAKE_DAMAGE_DURATION_SECONDS
+				):
 					await _wait_for_token_animation_finished(token, "TakeDamage")
 		"action":
 			var animation := _animation_for_action(
@@ -189,6 +198,11 @@ func play_presentation_event(event: Dictionary) -> void:
 					token.get_animation_duration(animation)
 				))
 				var cue_fraction := float(event.get("cue_fraction", 1.0))
+				var recovery_seconds := float(event.get("recovery_seconds", 0.0))
+				var actual_duration := token.resolve_timed_one_shot_duration(
+					animation,
+					duration
+				)
 				if token.play_timed_one_shot(
 					animation,
 					_token_pose(data),
@@ -198,6 +212,11 @@ func play_presentation_event(event: Dictionary) -> void:
 						token,
 						animation,
 						cue_fraction
+					)
+					await _wait_for_action_recovery(
+						actual_duration,
+						cue_fraction,
+						recovery_seconds
 					)
 
 func layout_for_viewport(viewport_size: Vector2) -> void:
@@ -513,23 +532,45 @@ func _presentation_appearance(
 		if is_player
 		else _last_enemy_appearance
 	)
-	if data.get("is_dead", false) and not has_outfit and not cached.is_empty():
+	var cache_has_outfit := _appearance_has_outfit_layers(cached)
+	var is_dead := bool(data.get("is_dead", false))
+
+	# Dead combatants keep their richest clothed cache for the whole Die /
+	# corpse hold — never overwrite with thinner post-drain outfits.
+	if is_dead and cache_has_outfit:
 		return cached
-	if has_outfit:
-		if is_player:
-			_last_player_appearance = appearance.duplicate(true)
-		else:
-			_last_enemy_appearance = appearance.duplicate(true)
+
+	if not is_dead:
+		if has_outfit:
+			_store_last_appearance(is_player, appearance)
+	elif has_outfit:
+		if (
+			cached.is_empty()
+			or not cache_has_outfit
+			or _appearance_outfit_layer_count(appearance)
+			> _appearance_outfit_layer_count(cached)
+		):
+			_store_last_appearance(is_player, appearance)
 	return appearance
 
+func _store_last_appearance(is_player: bool, appearance: Dictionary) -> void:
+	if is_player:
+		_last_player_appearance = appearance.duplicate(true)
+	else:
+		_last_enemy_appearance = appearance.duplicate(true)
+
 func _appearance_has_outfit_layers(appearance: Dictionary) -> bool:
+	return _appearance_outfit_layer_count(appearance) > 0
+
+func _appearance_outfit_layer_count(appearance: Dictionary) -> int:
+	var count := 0
 	for raw_layer in appearance.get("layers", []):
 		if not raw_layer is Dictionary:
 			continue
 		var layer: Dictionary = raw_layer
 		if not str(layer.get("directory", "")).is_empty():
-			return true
-	return false
+			count += 1
+	return count
 
 func _move_or_place_token(
 	token: HumanoidTokenView,
@@ -632,6 +673,20 @@ func _start_realtime_move(
 func _token_is_moving(is_player: bool) -> bool:
 	var tween := _player_move_tween if is_player else _enemy_move_tween
 	return tween != null and tween.is_valid() and tween.is_running()
+
+func _wait_for_action_recovery(
+	actual_duration: float,
+	cue_fraction: float,
+	recovery_seconds: float
+) -> void:
+	var clamped_cue := clampf(cue_fraction, 0.0, 1.0)
+	var remaining := maxf(0.0, actual_duration * (1.0 - clamped_cue))
+	var hold := maxf(0.0, recovery_seconds)
+	if clamped_cue >= LATE_CUE_HOLD_FRACTION:
+		hold = maxf(remaining, hold)
+	if hold <= 0.0:
+		return
+	await get_tree().create_timer(hold).timeout
 
 func _wait_for_token_animation_finished(
 	token: HumanoidTokenView,

@@ -64,6 +64,20 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_combat_requested(request: Dictionary) -> void:
 	var enemy_id: String = request.get("enemy_id", "")
 	var coords: Vector2i = request.get("coords", Vector2i.ZERO)
+	var enemy_record := _world_state.get_entity(enemy_id)
+	if enemy_record == null or not _world_state.is_entity_alive(enemy_id):
+		push_warning(
+			"[DIRECTOR] Combat request rejected — enemy missing or not alive: "
+			+ enemy_id
+		)
+		if macro_map:
+			macro_map.show()
+			_set_macro_camera_active(true)
+			_restore_macro_canvas_layers()
+			macro_map.set_process_unhandled_input(true)
+		set_process_unhandled_input(true)
+		return
+
 	print("\n[DIRECTOR] Combat request accepted. Stopping macro world...")
 	set_process_unhandled_input(false)
 	if macro_map.macro_hud:
@@ -97,17 +111,14 @@ func _on_combat_requested(request: Dictionary) -> void:
 	
 	_active_arena.duel_finished.connect(_on_duel_finished)
 	
-	var enemy_record := _world_state.get_entity(enemy_id)
-	if enemy_record == null:
-		push_error("[DIRECTOR] No entity record for enemy_id: " + enemy_id)
-		return
 	_active_arena.setup_duel_from_records(
 		macro_map.player_token.capture_runtime_record(),
 		enemy_record.to_dict(),
 		_combat_request
 	)
 	
-	_emit_scene_audio("combat_standard")
+	# Waiting_game → first_strike → War (see AudioConductor COMBAT_SPECIAL)
+	_emit_scene_audio("combat_special")
 
 func _on_duel_finished(
 	outcome: GameEnums.CombatOutcome,

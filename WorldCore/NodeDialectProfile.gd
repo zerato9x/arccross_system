@@ -2,8 +2,10 @@ extends RefCounted
 class_name NodeDialectProfile
 
 ## Resolves Node Map ids → alpha dialect mix (Hex World Asset Overhaul).
-## Adjacent ring (*_random_1): homestead / plains dominant.
-## North spine: snow theme_weight ramps toward north_core.
+## Adjacent ring (*_random_1): shared plains dialect; only North owns the
+## inhabited alpha settlement.
+## North spine: the cold fringe stays plains; snow begins at Route 2 and
+## ramps toward north_core.
 
 const PROFILE_VERSION := 1
 
@@ -26,17 +28,19 @@ static func profile_for_node(node_id: String) -> Dictionary:
 	var theme_pack := _theme_pack_for_arm(arm)
 	var ecology := _ecology_for_arm(arm)
 
-	# Four nodes adjacent to Central: homestead starters (plains + Golbanc).
+	# Four nodes adjacent to Central share plains/Golbanc visual language. This
+	# profile does not grant settlement authority; Generator V2 grants it only
+	# to North during the alpha.
 	if depth == 1:
-		theme_weight = 0.12 if arm == "north" else 0.0
+		theme_weight = 0.0
 		return _profile(
 			arm,
-			ecology if arm == "north" else "homestead",
-			theme_pack if arm == "north" else GameEnums.BIOME_PACK_PLAINS,
+			"cold_fringe" if arm == "north" else "homestead",
+			GameEnums.BIOME_PACK_PLAINS,
 			GameEnums.BIOME_PACK_DEFAULT_ERA8,
 			theme_weight,
 			0.02,
-			theme_pack if arm != "north" else ""
+			theme_pack
 		)
 
 	# Non-north arms stay plains/homestead until those packs ship.
@@ -131,7 +135,7 @@ static func _depth_from_id(node_id: String) -> int:
 static func _theme_weight_for_depth(depth: int) -> float:
 	match depth:
 		1:
-			return 0.12
+			return 0.0
 		2:
 			return 0.40
 		3:

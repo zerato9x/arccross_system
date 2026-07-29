@@ -7,6 +7,8 @@ Gameplay authority stays on hex records, markers, and sockets — not props.
 (Act 1 build / asset sort) · [Macro World Overhaul](MACRO_WORLD_OVERHAUL.md)
 (Node Web lore alignment)
 
+**Composition owner:** [Hex World Generator V2](HEX_WORLD_GENERATOR_V2.md)
+
 **World tone:** [Canonical World Specification](../CANONICAL_WORLD_SPECIFICATION.md)
 
 ---
@@ -63,7 +65,9 @@ still varying interiors.
 
 **CORE** — the thing that changes.  
 **FRAME** — shrubs/crates/lamps; same places every time.  
-**OVERLAY** — future roads (edge stubs); not baked into grass hexes.
+**OVERLAY** — roads and later infrastructure layers; never baked into grass
+hexes. Generator V2 currently resolves complete paved and dirt six-edge mask
+families.
 
 ---
 
@@ -87,7 +91,7 @@ Templated hexes do **not** receive random-offset scatter on the same slots.
 | --- | --- |
 | Ring bands | Core dense; mid quiet; rim = gates/trails |
 | Wedges | Dialect bias via `WorldSectorCatalog` / profile |
-| Trails | Spine; `ROAD_EDGE` / cleared roles |
+| Logistics | Fixed paved spine + dirt service spur; `paved_spine` / `dirt_service_spur` roles |
 | Budgets | Hard caps so towers stay rare |
 | Adjacency | Compatible neighbors; cluster rubble/rocks; space tall silhouettes |
 | Palette | One shrub/crate/tank family per zone seed |
@@ -103,8 +107,9 @@ WAREHOUSE stamps), then remnant scrub outward.
 2. CORE assets declare footprint class (`1x1_center`, `tall`, `wide`, …).
 3. FRAME anchors live in the same offset space as current decor props.
 4. Pools are tagged path lists — not one-off generator ifs.
-5. Infrastructure roads that only cover two iso axes are vignette-only until
-   hex-edge OVERLAY pieces exist.
+5. Road overlays use one of 64 reciprocal six-edge masks per surface. Current
+   paved and dirt families are complete at 512×512; props near roads remain
+   fitted dressing and cannot change connectivity.
 
 ---
 
@@ -119,17 +124,23 @@ Bind via `profile_tags` (e.g. farmstead socket → `WAREHOUSE` / homestead role)
 Exploration (`SiteCatalog`) can later mirror the same idea: fixed fixture
 anchors, swapping search tables — separate from map dressing.
 
+**Parcel contract:** exploration fixtures describe **one neighborhood parcel**
+(`HEX_CENTER_DISTANCE_KM = 0.45`, `HEX_AREA_KM2 = 0.175`). Quiet hexes keep
+1–3 fixtures; stamped POIs keep landmark density. Do not densify every cell
+with POI kits, and do not retune hex area toward 0.5.
+
 ---
 
 ## Ship order
 
 See [Hex World Asset Overhaul](HEX_WORLD_ASSET_OVERHAUL.md) Phases B–F.
 
-1. Six to eight templates covering Central + north homestead + north cold mid.
-2. Wire planner into `MacroZoneGenerator` after trails/landmarks (profile mix).
-3. Central ring recipe pass.
-4. North dialect pools (`north` + `default_era8`).
-5. Road OVERLAY + single-hex exploration templates (Phase F).
+1. Maintain the shipped starter settlement, rubble, forest, rock, scrub, and
+   quiet-landscape recipes.
+2. Expand Central and later-arm template libraries without bypassing
+   `GeneratedZonePlan` roles.
+3. Add pipe/power overlays using the same fitted, non-authoritative separation.
+4. Expand single-hex exploration templates independently from map dressing.
 
 ---
 
@@ -139,3 +150,7 @@ See [Hex World Asset Overhaul](HEX_WORLD_ASSET_OVERHAUL.md) Phases B–F.
 - Same template → FRAME positions stable; CORE (and allowed ACCENT empties) vary.
 - Hub and north approaches read as places, not shrub lottery.
 - Props never author blockers, travel cost, or POI authority.
+- Rubble reads as a large pile with scrub framing; tents read as clusters with
+  utility detail; rocks remain larger than shrubs.
+- Road masks remain reciprocal and surface-specific without changing terrain
+  HEX assets.

@@ -22,6 +22,9 @@ var _available_reactions: Array = []
 var _player_forward_direction: int = 1
 var _pending_projectile_damage_events: Array[Dictionary] = []
 var _pending_projectile_death_events: Array[Dictionary] = []
+## Frozen clothed appearances for dead combatants so loot drain cannot strip
+## the Die presentation / corpse token mid-resolve.
+var _death_appearance: Dictionary = {}
 
 const AIMED_LIMBS := [
 	GameEnums.LimbRegion.HEAD,
@@ -50,6 +53,7 @@ func configure(
 	lane_manager = lanes
 	turn_manager = turns
 	resolution_engine = resolver
+	_death_appearance.clear()
 
 	if not turn_manager.turn_started.is_connected(_on_combat_state_changed):
 		turn_manager.turn_started.connect(_on_combat_state_changed)
@@ -587,14 +591,37 @@ func _combatant_snapshot(entity: HumanoidCore) -> Dictionary:
 		"melee_weapon": melee_weapon,
 		"equipment": equipment,
 		"both_legs_broken": entity.body.are_both_legs_disabled(),
-		"appearance": HumanoidVisualCatalog.appearance_from_equipment_snapshot(
-			equipment
-		),
+		"appearance": _appearance_for_entity(entity, equipment),
 		"is_dead": entity.is_dead,
 		"is_escaping": entity.is_escaping,
 		"reserved_ap": turn_manager.reserved_ap.get(entity, 0),
 		"is_active": turn_manager.get_active_entity() == entity,
 	}
+
+func _appearance_for_entity(
+	entity: HumanoidCore,
+	equipment: Array
+) -> Dictionary:
+	if entity != null and entity.is_dead and _death_appearance.has(entity):
+		return (_death_appearance[entity] as Dictionary).duplicate(true)
+	var appearance := HumanoidVisualCatalog.appearance_from_equipment_snapshot(
+		equipment
+	)
+	if (
+		entity != null
+		and entity.is_dead
+		and _appearance_has_outfit_layers(appearance)
+	):
+		_death_appearance[entity] = appearance.duplicate(true)
+	return appearance
+
+func _appearance_has_outfit_layers(appearance: Dictionary) -> bool:
+	for raw_layer in appearance.get("layers", []):
+		if not raw_layer is Dictionary:
+			continue
+		if not str((raw_layer as Dictionary).get("directory", "")).is_empty():
+			return true
+	return false
 
 func _weapon_slot_snapshot(entity: HumanoidCore, melee: bool) -> Dictionary:
 	var weapon: ItemData = entity.inventory.get_active_weapon(melee)
@@ -847,6 +874,13 @@ func _on_equipment_changed(
 	_slot: GameEnums.EquipmentSlot,
 	_item: ItemData
 ) -> void:
+	# Loot drain unequips while the corpse is already dead; skip rebuilds that
+	# would replace the frozen death appearance with a naked snapshot.
+	if (
+		(player_core != null and player_core.is_dead)
+		or (enemy_core != null and enemy_core.is_dead)
+	):
+		return
 	refresh_snapshot()
 
 func _on_combat_bleed_tick(entity: HumanoidCore, event: Dictionary) -> void:

@@ -46,13 +46,13 @@ func _verify_injected_plains_zone(
 	world_state: RuntimeStateStore
 ) -> bool:
 	var node := MacroNodeData.new()
-	node.id = "east_random_1"
+	node.id = "east_random_2"
 	node.zone_kind = GameEnums.MacroZoneKind.BIOME_RNG
 	node.biome = GameEnums.GridBiome.PLAINS
 	node.persistence = GameEnums.MacroNodePersistence.SEEDED_RANDOM
 	node.role = GameEnums.MacroNodeRole.RANDOM_ZONE
 	node.arm_direction = GameEnums.MacroArmDirection.EAST
-	node.arm_tier = 1
+	node.arm_tier = 2
 
 	if not _inject_node_zone(generator, world_state, node):
 		return false
@@ -106,9 +106,9 @@ func _verify_injected_plains_zone(
 			hex.terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW
 		)
 	if not found_forest:
-		return _fail("No forest tile with tree flora in injected east_random_1 zone.")
+		return _fail("No forest tile with tree flora in injected east_random_2 zone.")
 	if not found_mud:
-		return _fail("No mud tile in injected east_random_1 zone.")
+		return _fail("No mud tile in injected east_random_2 zone.")
 	return true
 
 
@@ -209,17 +209,14 @@ func _verify_tileset_geometry_and_catalog() -> bool:
 		return _fail("MacroTileCatalog could not be loaded.")
 	if catalog.tile_size != Vector2i(512, 512):
 		return _fail("MacroTileCatalog tile size drifted away from the TileSet.")
-	# Node-zone overhaul: PLAINS_GRASS is green_hex_* only (currently 3 variants).
-	if not _expect_min_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.PLAINS_GRASS), 3, "plains terrain"):
-		return false
-	if not _expect_min_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.FOREST_SPARSE), 1, "forest terrain"):
-		return false
-	if not _expect_min_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.MUD_YELLOW), 1, "mud terrain"):
+	# Generator V2 admits only approved exact-HEX terrain and native overlays.
+	# Dressing is intentionally absent from the TileSet and rendered as Sprite2D.
+	if not _expect_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.PLAINS_GRASS), 54, "plains terrain"):
 		return false
 	if catalog.get_terrain_ids(GameEnums.MacroTerrainTile.SNOW_TRANSITION).size() > 0:
 		if not _expect_min_count(catalog.get_terrain_ids(GameEnums.MacroTerrainTile.SNOW_TRANSITION), 1, "snow transition terrain"):
 			return false
-	if not _expect_min_count(catalog.get_flora_ids(GameEnums.MacroFloraLayer.SHRUBS), 7, "shrub flora"):
+	if not _expect_count(catalog.get_flora_ids(GameEnums.MacroFloraLayer.SHRUBS), 0, "shrub TileMap"):
 		return false
 	if not _expect_min_count(
 		catalog.get_terrain_ids(GameEnums.MacroTerrainTile.HUB_CONCRETE),
@@ -227,8 +224,16 @@ func _verify_tileset_geometry_and_catalog() -> bool:
 		"hub concrete terrain"
 	):
 		return false
-	if not _expect_min_count(catalog.get_flora_ids(GameEnums.MacroFloraLayer.TREES), 6, "tree flora"):
+	if not _expect_count(catalog.get_flora_ids(GameEnums.MacroFloraLayer.TREES), 0, "tree TileMap"):
 		return false
+	if not _expect_count(catalog.get_structure_ids(GameEnums.MacroStructureLayer.STRUCTURES), 0, "structure TileMap"):
+		return false
+	if catalog.road_mask_source_ids.size() != 64:
+		return _fail("Generator V2 paved-road atlas does not contain all 64 masks.")
+	if catalog.dirt_road_mask_source_ids.size() != 64:
+		return _fail("Generator V2 dirt-road atlas does not contain all 64 masks.")
+	if catalog.resolve_asset_id("terrain.plains.green.base") < 0:
+		return _fail("Stable V2 plains asset ID is unavailable.")
 	return true
 
 

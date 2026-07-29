@@ -83,7 +83,10 @@ func _run() -> void:
 	if not _assert_rect_inside_viewport(health.get_global_rect(), vp, "health"):
 		return
 	if health.get_global_rect().intersects(world_status.get_global_rect()):
-		_fail("Expanded health overlaps the compact World Signal Log.")
+		_fail(
+			"Expanded health %s overlaps compact World Signal Log %s at viewport %s."
+			% [health.get_global_rect(), world_status.get_global_rect(), vp]
+		)
 		return
 
 	hud.toggle_inventory_panel()
@@ -181,38 +184,19 @@ func _run() -> void:
 		return
 	if not _assert_panel_size(vp, health, "health"):
 		return
-	if not macro_map.exploration_window.is_open():
-		_fail("Exploration window did not open on the exploration stage.")
+	if not macro_map.macro_hud.is_location_open():
+		_fail("HERE location board did not open as the exploration work surface.")
 		return
-	var exploration_panel := macro_map.exploration_window.get("_panel") as Control
-	if exploration_panel == null:
-		_fail("Exploration panel missing from the stage work surface.")
+	if macro_map.exploration_window.is_open():
+		_fail("Routine exploration still opened MacroExplorationWindow.")
 		return
-	if exploration_panel.get_parent() != macro_map.exploration_window:
-		_fail("Exploration panel should remain owned by MacroExplorationWindow.")
+	var location_rect := hex.get_global_rect()
+	if not _assert_rect_inside_viewport(location_rect, vp, "HERE exploration panel"):
 		return
-	if not _assert_rect_inside_viewport(exploration_panel.get_global_rect(), vp, "stage exploration panel"):
+	var gear_list := hex.get("_gear_list") as VBoxContainer
+	if gear_list == null:
+		_fail("HERE eligible-gear tray is missing.")
 		return
-
-	macro_map.exploration_window.call("_set_mode", GameEnums.PoiAction.CAMP)
-	await process_frame
-	var drop_row := macro_map.exploration_window.get_node_or_null("%DropRow") as HBoxContainer
-	if drop_row == null:
-		_fail("Camp/search drop tray missing.")
-		return
-	if drop_row.get_child_count() != 6:
-		_fail("Camp mode should render six compact drop slots in the shared tray.")
-		return
-	for child in drop_row.get_children():
-		if not child is InteractionDropTarget:
-			continue
-		var target := child as InteractionDropTarget
-		if target.custom_minimum_size != HUDAssetLibrary.MACRO_SLOT_SIZE:
-			_fail("Drop slot did not use the shared macro slot size.")
-			return
-		if _contains_banned_copy(target.get_slot_label()):
-			_fail("Camp slot label is still code-shaped: " + target.get_slot_label())
-			return
 	_check_camp_target_copy(poi_hex)
 
 	health.collapse()
@@ -226,8 +210,8 @@ func _run() -> void:
 	if world_status.is_work_surface_compact():
 		_fail("World Signal Log did not restore after the medical surface closed.")
 		return
-	if not macro_map.exploration_window.is_open():
-		_fail("Closing health should not dismiss stage exploration.")
+	if not macro_map.macro_hud.is_location_open():
+		_fail("Closing health should not dismiss HERE exploration.")
 		return
 
 	hud.get_layout_manager().collapse_all()

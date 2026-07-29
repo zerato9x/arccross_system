@@ -117,15 +117,7 @@ func _on_player_vitals_changed(context: Dictionary) -> void:
 				context.get("tier", GameEnums.KineticTier.FLUID),
 				int(context.get("burden", 0))
 			)
-		"stance":
-			on_stance_changed(
-				context.get("stance", GameEnums.StanceState.PLANTED),
-				int(context.get("points", 12))
-			)
-		"morale_broken":
-			on_morale_broken()
-		"player_died":
-			on_player_died(str(context.get("cause", "")))
+
 
 func _setup_sfx_conductor() -> void:
 	var sfx = SfxConductor.new()
@@ -278,20 +270,6 @@ func on_kinetic_tier_changed(tier: GameEnums.KineticTier, _burden: int) -> void:
 			if current_scene == AudioScene.COMBAT_STANDARD or current_scene == AudioScene.COMBAT_SPECIAL:
 				set_critical_overlay(true)
 
-## Called when the player's stance state changes.
-func on_stance_changed(_new_state: GameEnums.StanceState, _points: int) -> void:
-	pass
-
-## Called when the player's morale breaks.
-func on_morale_broken() -> void:
-	print("[CONDUCTOR] MORALE BROKEN")
-
-## Called on player death — fade out.
-func on_player_died(_cause: String) -> void:
-	set_gain(-80.0) # Fade out to silence
-	set_critical_overlay(false)
-	print("[CONDUCTOR] PLAYER DIED")
-
 # ---------------------------------------------------------
 # LOW-LEVEL CONTROLS
 # ---------------------------------------------------------
@@ -343,20 +321,3 @@ func _process(delta: float) -> void:
 	overlay_amp.volume_db = lerpf(overlay_amp.volume_db, target_overlay_gain_db, t)
 	if not is_overlay_active and overlay_amp.volume_db < -78.0 and overlay_player.playing:
 		overlay_player.stop()
-
-# ---------------------------------------------------------
-# LEGACY COMPAT
-# ---------------------------------------------------------
-
-func play_track(stream: AudioStream) -> void:
-	music_player.stream = stream
-	music_player.play()
-
-func play_preset(preset_name: String) -> void:
-	if TRACKS.has(preset_name):
-		play_track(TRACKS[preset_name])
-	else:
-		push_error("AudioConductor: Track not found: " + preset_name)
-
-func stop_track() -> void:
-	music_player.stop()

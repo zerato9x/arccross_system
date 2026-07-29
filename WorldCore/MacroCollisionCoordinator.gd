@@ -203,7 +203,10 @@ func _collision_background_path(enemy_record: EntityRecord) -> String:
 	if host.world_generator == null:
 		return EventBgCatalog.PLAINS_BG
 	var hex_data := host.world_generator.get_hex_at(coords)
-	var path := EventBgCatalog.resolve_background(hex_data)
+	var dialogue_id := ""
+	if enemy_record != null:
+		dialogue_id = str(enemy_record.definition.get("dialogue_id", ""))
+	var path := EventBgCatalog.resolve_dialogue_background(dialogue_id, hex_data)
 	if path.is_empty():
 		return EventBgCatalog.PLAINS_BG
 	return path
@@ -236,10 +239,17 @@ func _player_presentation() -> Dictionary:
 			"equipped_sprite_paths": item.get_equipped_sprite_paths(),
 			"requires_two_hands": item.requires_two_hands,
 		})
+	var record: Dictionary = {}
+	if player_token.has_method("capture_runtime_record"):
+		record = player_token.capture_runtime_record()
+	var appearance := (
+		HumanoidVisualCatalog.appearance_from_record(record)
+		if not record.is_empty()
+		else HumanoidVisualCatalog.appearance_from_equipment_snapshot(equipment)
+	)
 	return {
 		"name": "YOU",
 		"equipment": equipment,
-		"appearance": HumanoidVisualCatalog.appearance_from_equipment_snapshot(
-			equipment
-		),
+		"appearance": appearance,
+		"record": record,
 	}

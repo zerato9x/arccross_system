@@ -38,8 +38,11 @@ func _run() -> void:
 
 	macro_map.debug_begin_poi_interaction(DEMO_POI, hex_data)
 	await process_frame
-	if not macro_map.exploration_window.is_open():
-		_fail("Act entry did not open the exploration window.")
+	if not macro_map.macro_hud.is_location_open():
+		_fail("Act entry did not open the HERE location board.")
+		return
+	if macro_map.exploration_window.is_open():
+		_fail("Routine Act entry still opened the retired exploration window.")
 		return
 
 	var noise_trap := _find_inventory_item(player_core, "trap_makeshift")
@@ -60,11 +63,31 @@ func _run() -> void:
 		[sleeping_bag.to_interaction_descriptor()]
 	)
 	hex_data.camp_rest_count = _find_safe_camp_attempt(DEMO_POI, camp_metrics)
+	world_state.set_hex_record(DEMO_POI, hex_data.to_state())
+	macro_map._refresh_world_hud()
 
-	macro_map.resolve_poi_action(
-		GameEnums.PoiAction.REST,
-		[noise_trap.instance_id, sleeping_bag.instance_id]
-	)
+	var location: Dictionary = macro_map.macro_hud.get("_snapshot").get("current_location", {})
+	var trap_fixture := _fixture_with_verb(location, SiteCatalog.VERB_TRAP)
+	var sleep_fixture := _fixture_with_verb(location, SiteCatalog.VERB_SLEEP)
+	if trap_fixture.is_empty() or sleep_fixture.is_empty():
+		_fail("Homestead HERE is missing trap or sleep fixtures.")
+		return
+	macro_map.resolve_location_action({
+		"coords": DEMO_POI,
+		"location_revision": int(location.get("revision", 0)),
+		"fixture_id": str(trap_fixture.get("id", "")),
+		"verb": SiteCatalog.VERB_TRAP,
+		"selected_item_ids": [noise_trap.instance_id],
+	})
+	await process_frame
+	location = macro_map.macro_hud.get("_snapshot").get("current_location", {})
+	macro_map.resolve_location_action({
+		"coords": DEMO_POI,
+		"location_revision": int(location.get("revision", 0)),
+		"fixture_id": str(sleep_fixture.get("id", "")),
+		"verb": SiteCatalog.VERB_SLEEP,
+		"selected_item_ids": [sleeping_bag.instance_id],
+	})
 	await process_frame
 
 	hex_data = macro_map.world_generator.get_hex_at(DEMO_POI)
@@ -76,7 +99,7 @@ func _run() -> void:
 		_fail("Installed trap gear remained in the player inventory.")
 		return
 
-	macro_map.exploration_window.close_window()
+	macro_map.close_macro_interaction()
 	await process_frame
 	var enemy_id := _ensure_collision_probe(macro_map, world_state, DEMO_POI)
 	if enemy_id.is_empty():
@@ -141,7 +164,7 @@ func _run() -> void:
 	game_director.queue_free()
 	await process_frame
 	print(
-		"[TEST PASS] Exploration window Act entry, trap persistence, and lane trap trigger work."
+		"[TEST PASS] HERE Act entry, trap persistence, rest, and lane trap trigger work."
 	)
 	quit(0)
 
@@ -161,6 +184,13 @@ func _find_inventory_item(core: HumanoidCore, item_id: String) -> ItemData:
 		if item.id == item_id:
 			return item
 	return null
+
+
+func _fixture_with_verb(location: Dictionary, verb: String) -> Dictionary:
+	for fixture in location.get("session", {}).get("site", {}).get("fixtures", []):
+		if fixture is Dictionary and fixture.get("verbs", []).has(verb):
+			return fixture
+	return {}
 
 func _ensure_collision_probe(
 	macro_map: MacroGameManager,

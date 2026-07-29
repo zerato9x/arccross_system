@@ -7,6 +7,7 @@ const HEX_TILES_ROOT := "res://Asset/HexTiles/_BIOMES"
 const TILESET_OUTPUT := "res://Asset/MacroTileSet.tres"
 const CATALOG_OUTPUT := "res://Asset/MacroTileCatalog.tres"
 const DEFAULT_TILE_SIZE := Vector2i(512, 512)
+const _Manifest := preload("res://WorldCore/GenerationV2/WorldAssetManifest.gd")
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -56,6 +57,11 @@ static func build_macro_tile_assets() -> Dictionary:
 		GameEnums.BIOME_PACK_DEFAULT_ERA8: {},
 	}
 	catalog.path_to_source_id = {}
+	catalog.road_mask_source_ids = {}
+	catalog.dirt_road_mask_source_ids = {}
+	catalog.source_id_to_path = {}
+	catalog.edge_signatures = {}
+	catalog.asset_id_to_source_id = {}
 
 	var source_id := 0
 	for image_path in image_paths:
@@ -75,12 +81,32 @@ static func build_macro_tile_assets() -> Dictionary:
 		tile_set.add_source(atlas, source_id)
 
 		_categorize_tile(image_path, source_id, catalog)
+		_register_stable_asset_id(image_path, source_id, catalog)
 		catalog.path_to_source_id[image_path] = source_id
+		catalog.source_id_to_path[source_id] = image_path
+		catalog.edge_signatures[source_id] = _sample_edge_signatures(texture)
 		source_id += 1
 
 	ResourceSaver.save(tile_set, TILESET_OUTPUT)
 	ResourceSaver.save(catalog, CATALOG_OUTPUT)
 	return {"ok": true, "source_count": source_id}
+
+
+static func _register_stable_asset_id(path: String, source_id: int, catalog: MacroTileCatalog) -> void:
+	var lowered := path.to_lower()
+	if "/_overlays/roads/dirt/dirt_road_mask_" in lowered:
+		var mask_text := path.get_file().get_basename().trim_prefix("dirt_road_mask_")
+		catalog.asset_id_to_source_id["overlay.road.dirt.%02d" % int(mask_text)] = source_id
+	elif "/_overlays/roads/road_mask_" in lowered:
+		var mask_text := path.get_file().get_basename().trim_prefix("road_mask_")
+		catalog.asset_id_to_source_id["overlay.road.paved.%02d" % int(mask_text)] = source_id
+		catalog.asset_id_to_source_id["overlay.road.%02d" % int(mask_text)] = source_id
+	elif "green_hex" in lowered:
+		var basename := path.get_file().get_basename()
+		var variant := basename.get_slice("_", basename.get_slice_count("_") - 1)
+		catalog.asset_id_to_source_id["terrain.plains.green.%s" % variant] = source_id
+		if not catalog.asset_id_to_source_id.has("terrain.plains.green.base"):
+			catalog.asset_id_to_source_id["terrain.plains.green.base"] = source_id
 
 static func _biome_pack_from_path(path: String) -> String:
 	var lowered := path.to_lower()
@@ -95,26 +121,22 @@ static func _biome_pack_from_path(path: String) -> String:
 static func _categorize_tile(path: String, source_id: int, catalog: MacroTileCatalog) -> void:
 	var lowered := path.to_lower()
 	var biome_pack := _biome_pack_from_path(path)
+
+	if "/_overlays/roads/dirt/dirt_road_mask_" in lowered:
+		var mask_text := path.get_file().get_basename().trim_prefix("dirt_road_mask_")
+		if mask_text.is_valid_int():
+			catalog.dirt_road_mask_source_ids[int(mask_text)] = source_id
+		return
+	if "/_overlays/roads/road_mask_" in lowered:
+		var mask_text := path.get_file().get_basename().trim_prefix("road_mask_")
+		if mask_text.is_valid_int():
+			catalog.road_mask_source_ids[int(mask_text)] = source_id
+		return
 	
 	if "water_default" in lowered:
 		return
 	if lowered.ends_with("/bg_plains.png") or lowered.ends_with("/bg_north.png"):
 		return
-	if lowered.ends_with("/mud.png"):
-		_add_to_catalog_array(
-			catalog.terrain_source_ids,
-			GameEnums.MacroTerrainTile.MUD_YELLOW,
-			source_id
-		)
-		_add_to_pack(
-			catalog,
-			biome_pack,
-			"terrain",
-			GameEnums.MacroTerrainTile.MUD_YELLOW,
-			source_id
-		)
-		return
-
 	if "concrete_tiles" in lowered:
 		_add_to_catalog_array(
 			catalog.terrain_source_ids,
@@ -153,6 +175,9 @@ static func _categorize_tile(path: String, source_id: int, catalog: MacroTileCat
 		elif "snowy" in lowered:
 			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.SNOW_TRANSITION, source_id)
 			_add_to_pack(catalog, biome_pack, "terrain", GameEnums.MacroTerrainTile.SNOW_TRANSITION, source_id)
+		elif "old riverbed" in lowered:
+			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.MUD_YELLOW, source_id)
+			_add_to_pack(catalog, biome_pack, "terrain", GameEnums.MacroTerrainTile.MUD_YELLOW, source_id)
 		elif "sparse green" in lowered:
 			# Forest sparse floor only — never mixed into PLAINS_GRASS.
 			_add_to_catalog_array(catalog.terrain_source_ids, GameEnums.MacroTerrainTile.FOREST_SPARSE, source_id)
@@ -221,7 +246,10 @@ static func _add_to_catalog_array(dict: Dictionary, key, source_id: int) -> void
 
 static func _collect_all_tile_paths() -> PackedStringArray:
 	var paths := PackedStringArray()
-	var pending: Array[String] = [HEX_TILES_ROOT]
+	var pending: Array[String] = []
+	for root in _Manifest.approved_hex_roots():
+		if DirAccess.dir_exists_absolute(root):
+			pending.append(root)
 	while not pending.is_empty():
 		var current_dir: String = pending.pop_back()
 		var dir := DirAccess.open(current_dir)
@@ -246,18 +274,67 @@ static func _collect_all_tile_paths() -> PackedStringArray:
 
 static func _should_collect_tile_path(path: String) -> bool:
 	var lowered := path.to_lower()
-	if lowered.ends_with("/bg_plains.png") or lowered.ends_with("/bg_north.png"):
+	if not _Manifest.is_runtime_hex_path(path) or _Manifest.is_explicitly_excluded(path):
 		return false
-	# mud.png is a ground terrain source for MUD_YELLOW.
-	return true
+	if "/_overlays/roads/" in lowered and "road_mask_" in lowered:
+		return true
+	if "concrete_tiles" in lowered or "snow_tiles" in lowered:
+		return true
+	if "grass_tiles" in lowered:
+		return (
+			"green_hex" in lowered
+			or "painted - green" in lowered
+			or "sparse green" in lowered
+			or "old riverbed" in lowered
+		)
+	return false
 
 static func _is_valid_tile_texture(texture: Texture2D, image_path: String) -> bool:
-	var lowered := image_path.to_lower()
-	if (
-		"grass_tiles" in lowered
-		or "concrete_tiles" in lowered
-		or "snow_tiles" in lowered
-	):
-		var size := texture.get_size()
-		return int(size.x) == DEFAULT_TILE_SIZE.x and int(size.y) == DEFAULT_TILE_SIZE.y
-	return true
+	var size := texture.get_size()
+	return (
+		_Manifest.is_runtime_hex_path(image_path)
+		and not _Manifest.is_explicitly_excluded(image_path)
+		and int(size.x) == DEFAULT_TILE_SIZE.x
+		and int(size.y) == DEFAULT_TILE_SIZE.y
+	)
+
+
+static func _sample_edge_signatures(texture: Texture2D) -> PackedInt32Array:
+	var image := texture.get_image()
+	var signatures := PackedInt32Array()
+	if image == null or image.is_empty():
+		return signatures
+	var vertices := [
+		Vector2(256, 0), Vector2(511, 128), Vector2(511, 383),
+		Vector2(256, 511), Vector2(0, 383), Vector2(0, 128),
+	]
+	var center := Vector2(256, 256)
+	for edge_index in range(6):
+		var a: Vector2 = vertices[edge_index]
+		var b: Vector2 = vertices[(edge_index + 1) % 6]
+		var red := 0.0
+		var green := 0.0
+		var blue := 0.0
+		var samples := 0
+		for sample_index in range(4, 17):
+			var t := float(sample_index) / 20.0
+			var edge_point := a.lerp(b, t)
+			var point := edge_point.lerp(center, 0.055)
+			var color := image.get_pixel(
+				clampi(roundi(point.x), 0, image.get_width() - 1),
+				clampi(roundi(point.y), 0, image.get_height() - 1)
+			)
+			if color.a < 0.25:
+				continue
+			red += color.r
+			green += color.g
+			blue += color.b
+			samples += 1
+		if samples == 0:
+			signatures.append(0)
+		else:
+			var r := clampi(roundi(red / float(samples) * 255.0), 0, 255)
+			var g := clampi(roundi(green / float(samples) * 255.0), 0, 255)
+			var bl := clampi(roundi(blue / float(samples) * 255.0), 0, 255)
+			signatures.append((r << 16) | (g << 8) | bl)
+	return signatures

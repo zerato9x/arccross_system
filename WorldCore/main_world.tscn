@@ -36,14 +36,18 @@ script = ExtResource("2_3etub")
 authored_map = ExtResource("33_authored_map")
 require_authored_map = true
 
-[node name="HexMapVisualizer" type="TileMapLayer" parent="." unique_id=1261522321 node_paths=PackedStringArray("world_generator", "water_layer", "flora_layer", "rock_layer", "structure_layer", "shrub_layer")]
+[node name="HexMapVisualizer" type="TileMapLayer" parent="." unique_id=1261522321 node_paths=PackedStringArray("world_generator", "road_layer", "water_layer", "flora_layer", "rock_layer", "structure_layer", "shrub_layer")]
 script = ExtResource("3_whfra")
 world_generator = NodePath("../HexWorldGenerator")
+road_layer = NodePath("../HexRoadVisualizer")
 water_layer = NodePath("../HexWaterVisualizer")
 flora_layer = NodePath("../HexFloraVisualizer")
 rock_layer = NodePath("../HexRockVisualizer")
 structure_layer = NodePath("../HexStructureVisualizer")
 shrub_layer = NodePath("../ShrubDecorations")
+
+[node name="HexRoadVisualizer" type="TileMapLayer" parent="."]
+z_index = 1
 
 [node name="HexWaterVisualizer" type="TileMapLayer" parent="." unique_id=1859909054]
 

@@ -36,6 +36,15 @@ The post-eviction Node Web is governed by
 - North Route 2 and Route 3 own deterministic interior clusters. Hidden nodes
   and edges are absent from the map until a data-authored discovery trigger
   reveals them; hidden branches are never required for main progression.
+- Every Route 1 node owns a fixed paved road from its Central-facing rim to its
+  outward arm exit plus a dirt service spur. The road skeleton is independent
+  of seed, player arrival, and discovery order.
+- Exactly one inhabited starter settlement exists across the four Route 1
+  nodes. The alpha locks it, its POI, and the stationary wayfinder to
+  `north_random_1`; the other three nodes do not generate substitute
+  settlements.
+- Each visited Route 1 node owns a separate stationary Central Guard pair at
+  its Central-facing road rim.
 
 Core restoration and structural changes remain profile-wide Meta state. A new
 character inherits restored Cores, while identity, chosen spawn, eviction, and
@@ -57,6 +66,7 @@ and is not an implementation requirement.
 | Official era chronology | [World Timeline Codex](../WORLD_TIMELINE_CODEX.md) |
 | Domain ownership / presentation boundaries | [System Architecture](../SYSTEM_ARCHITECTURE.md) |
 | FRAME/CORE dressing schema detail | [Hex Dressing Templates](HEX_DRESSING_TEMPLATES.md) |
+| Generated 469-cell composition, roads, settlement uniqueness, persistence, validation | [Hex World Generator V2](HEX_WORLD_GENERATOR_V2.md) |
 | Supporting Node Web lore alignment | [Macro World Overhaul](MACRO_WORLD_OVERHAUL.md) |
 
 No gameplay code is required to treat this file as the build queue. Implement
@@ -274,8 +284,8 @@ props. Detail: Hex World Asset Overhaul.
 Agent-checkable bullets (extends [Hex Dressing Templates](HEX_DRESSING_TEMPLATES.md)):
 
 - Base hex = **terrain only**; never bake roads/pipes into grass/concrete bases
-- Roads / power / pipes = **OVERLAY** edge stubs + straight/corner pieces
-  covering all iso axes before full use
+- Roads = shipped **OVERLAY** families covering all 64 six-edge masks for paved
+  and dirt surfaces. Power and pipes remain future overlay families.
 - FRAME anchors fixed; CORE swaps; props have **no gameplay authority**
 - Central ring recipe: multi-hex HUB stamp using official hub PNG + surrounding
   STRUCTURE / ADMIN cells
@@ -287,15 +297,14 @@ Agent-checkable bullets (extends [Hex Dressing Templates](HEX_DRESSING_TEMPLATES
 
 ---
 
-## 6. Infrastructure generation backlog
+## 6. Infrastructure generation status
 
-Not Act 1 travel-seal blockers; schedule after seals and hub look:
-
-- Road overlay set (plains + central)
-- Power lines / pylons
-- Pipe runs / tanks
-- Light poles / crates families (partially present)
-- Catalog + dressing pool wiring
+- **Shipped:** 64 paved and 64 dirt 512×512 road masks, shared reciprocal
+  sockets, catalog IDs, fixed Route 1 arterial planning, and service spurs.
+- **Remaining:** Central-specific road variants, power lines/pylons, pipe runs,
+  tanks, and expanded light-pole/crate families.
+- Road, pipe, and power presentation must remain overlays or fitted props; none
+  may become terrain or gameplay authority.
 
 ---
 
@@ -369,9 +378,13 @@ Not Act 1 travel-seal blockers; schedule after seals and hub look:
 ### Phase 8 — Roads / pipes / power overlays
 
 - **Files:** Infrastructure art, OVERLAY pools, catalog wiring
-- **Jobs:** full iso-axis stub sets for plains + central
-- **Done when:** overlays place without altering terrain bases
-- **Acceptance:** dressing smoke / visual probe
+- **Road status (2026-07-29): Done** — complete 64-mask paved and 64-mask dirt
+  families, stable surface IDs, reciprocal sockets, and fixed starter-ring
+  arterial placement.
+- **Remaining jobs:** pipe and power overlay families; later Central-specific
+  infrastructure variants.
+- **Acceptance:** overlays place without altering terrain bases; road asset,
+  determinism, composition, persistence, and visual smokes pass.
 
 ### Phase 9 — Later acts
 

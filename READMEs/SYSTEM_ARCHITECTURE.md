@@ -268,6 +268,21 @@ ambush_position: GameEnums.AmbushPosition
   outward rim step and only for eligible adjacent directional edges.
 - `RuntimeStateStore` snapshots visited nodes within one run so backtracking
   cannot reset enemies, loot, fog, or quest objects.
+- Generator V2 starter zones separate fixed logistics from seeded environment.
+  `StarterZonePlanner` rotates one canonical Central-facing-to-outward arterial
+  for each arm; neither world seed nor player arrival may reroute it.
+- `GeneratedZonePlan` is transient composition authority for 469 cell roles,
+  road masks, stamps, rubble, traces, and validation. Persisted `MacroHexData`
+  and `HexRecord` state carries stable asset/template IDs and runtime mutations,
+  not external source paths or the planner object.
+- The four Route 1 nodes collectively own exactly one starter settlement. The
+  alpha selects `north_random_1`; only that node receives the settlement stamp,
+  gameplay anchor, POI, and stationary wayfinder.
+- Every visited Route 1 node may own its own stationary Central Guard pair,
+  keyed by node-specific squad ID and placed at the Central-facing road rim.
+- Road connectivity is gameplay composition data expressed as reciprocal
+  six-bit masks. `HexMapVisualizer` resolves those masks to paved or dirt
+  512×512 overlays; presentation cannot add a road or change connectivity.
 - `AuthoredWorldMap` stores painted hex entries, freeform decoration records,
   and socket records. The template supplies all eight arrival and exit anchors;
   authored presets must keep those corridors traversable.
@@ -278,6 +293,9 @@ ambush_position: GameEnums.AmbushPosition
   a finished authored preset. The template does not magically constitute a
   complete preset library, despite being much more organized than the old
   shrub lottery.
+
+The complete composition, asset, and acceptance contract is
+[Hex World Generator V2](design/HEX_WORLD_GENERATOR_V2.md).
 
 ## Dependency Direction
 

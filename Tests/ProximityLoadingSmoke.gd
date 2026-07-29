@@ -138,13 +138,12 @@ func _run() -> void:
 		_fail("A dead persistent enemy projected a token after revisiting.")
 		return
 
-	var dead_record := world_state.get_entity_at(dead_coords)
-	if (
-		dead_record == null
-		or dead_record.entity_id != dead_id
-		or world_state.is_entity_alive(dead_id)
-	):
-		_fail("Dead enemy state was replaced or revived after revisiting.")
+	var dead_record := world_state.get_entity(dead_id)
+	if dead_record == null or world_state.is_entity_alive(dead_id):
+		_fail("Dead enemy record was lost or revived after revisiting.")
+		return
+	if world_state.get_entity_at(dead_coords) != null:
+		_fail("Dead enemy still occupied its hex after death.")
 		return
 
 	if not _entity_coordinates_are_unique(world_state.get_all_entity_records()):

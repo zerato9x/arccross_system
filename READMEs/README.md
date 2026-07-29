@@ -22,6 +22,9 @@ of restating it.
 - [Hex World Asset Overhaul](design/HEX_WORLD_ASSET_OVERHAUL.md): official
   S:→biome pool roles, Golbanc Era 8 default, alpha homestead→theme ramp,
   dialect profiles, promote phases.
+- [Hex World Generator V2](design/HEX_WORLD_GENERATOR_V2.md): authoritative
+  469-cell composition, fixed four-arm logistics, one-of-four settlement rule,
+  paved/dirt road masks, seeded surroundings, persistence, and acceptance tests.
 - [Official Turn-Based Combat Overhaul](design/TURN_BASED_COMBAT_OVERHAUL.md):
   **active combat contract** — official default, transaction lifecycle, AI,
   impact cues, firearm-card playback, and independent mode balance.
@@ -35,7 +38,7 @@ of restating it.
 
 ## Current Implementation
 
-Status updated on **July 23, 2026**:
+Status updated on **July 29, 2026**:
 
 ### Playable Loop
 
@@ -47,10 +50,11 @@ Status updated on **July 23, 2026**:
 - Macro play covers hex movement, fog of war, proximity loading, SEARCH/CAMP
   via `MacroExplorationWindow`, TALK/AMBUSH via the shared exploration/event
   stage, inventory, Field Health treatment, and world-time biology.
-- Macro zones use radius-12 geometry on the Directional Node Web. Permanent Meta
-  nodes survive characters; seeded random nodes and ordinary runtime state do
-  not. **Act 1 content contract** opens North only after eviction — see
-  [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
+- Macro zones use radius-12 geometry on the Directional Node Web. The open
+  starter ring contains four Route 1 nodes with fixed Central-to-outward roads;
+  only North owns the alpha settlement and wayfinder. Deeper East/South/West
+  routes remain locked. See
+  [Hex World Generator V2](design/HEX_WORLD_GENERATOR_V2.md).
 - Entity collision opens the exploration/event stage first (Talk / Ambush /
   Ask / Trade placeholder). Combat entry loads `CombatCore/MainDuelScene`.
 - Combat outcomes return to the macro map with persistent injury, ammunition,
@@ -66,9 +70,8 @@ Status updated on **July 23, 2026**:
   detail lives in [phase_2_execution_plan.md](phase_2_execution_plan.md).
   The turn command deck is again the official combat UI; `RealtimeDuelHUD`
   remains the optional mode.
-- **Active next:** [Official Turn-Based Combat Overhaul](design/TURN_BASED_COMBAT_OVERHAUL.md).
-- **Queued Act 1 campaign:** [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
-  (Phase 0 docs landed; runtime starts at Phase 1 asset sort).
+- **Active world track:** [Hex World Generator V2](design/HEX_WORLD_GENERATOR_V2.md).
+- **Campaign framing:** [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
 ### Systems Snapshot
 
@@ -84,9 +87,10 @@ Status updated on **July 23, 2026**:
   Resources with grounded field notes and repair domains. `LootCatalog` is the
   single runtime registry. `ItemConditionRules` owns Base-12 condition wear and
   malfunctions for both combat modes.
-- Macro node zones retain deterministic seeded generation as a fallback, while
-  the authored pipeline stores painted terrain, water, gameplay layers,
-  decorations, and placement sockets in `AuthoredWorldMap` resources.
+- Starter Route 1 zones use Generator V2: exactly 469 cells, all approved
+  seamless plains variants, seed-varying ecology and rubble, fixed paved/dirt
+  logistics, and one North-only alpha settlement. Authored maps remain
+  available for permanent/special nodes.
 - `WorldCore/plains_zone_template.tscn` is the canonical radius-12 authoring
   example.
 - Identity catalog wiring includes occupations, traits, and flaws
@@ -111,18 +115,17 @@ Status updated on **July 23, 2026**:
 
 ## Remaining Work
 
-**Active delivery track:**
-[Official Turn-Based Combat Overhaul](design/TURN_BASED_COMBAT_OVERHAUL.md)
+**Active world delivery track:**
+[Hex World Generator V2](design/HEX_WORLD_GENERATOR_V2.md)
 
-**Queued Act 1 campaign bible:**
-[Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
-
-1. Phase 1 — Asset sort (Central + plains from S:/HEXIFY; hub PNG; taxonomy)
-2. Phase 2 — Act 1 travel seals (E/S/W grey; Central lock)
-3. Phase 3 — Eviction + occupation flavor (scavenger first)
-4. Phase 4 — North Pointer Tutorial + Node Map highlight
-5. Phases 5–7 — Central look / dressing runtime / North spine content
-6. Phases 8–9 — Roads/pipes/power overlays; later E/S/W chapters
+1. Maintain fixed four-arm starter logistics and the North-only alpha
+   settlement contract.
+2. Expand event-driven traces and persistent world changes.
+3. Promote later-arm terrain only after seam and asset validation.
+4. Add pipe/power overlay families without altering the shipped paved/dirt
+   road sockets.
+5. Seed-select the sole settlement arm only when the campaign is ready to
+   remove the alpha North lock.
 
 ## Design Direction
 

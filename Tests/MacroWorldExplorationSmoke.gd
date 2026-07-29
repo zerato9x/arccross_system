@@ -61,39 +61,15 @@ func _run() -> void:
 		return
 	macro_map.begin_poi_interaction(poi_coords, poi_hex)
 	await process_frame
-	if not macro_map.exploration_window.is_open():
-		_fail("Exploration window did not open for the demonstration landmark.")
+	if not macro_map.macro_hud.is_location_open():
+		_fail("HERE location board did not open for the demonstration landmark.")
 		return
-	if not macro_map.macro_hud.is_event_open():
-		_fail("Exploration stage did not enter POI presentation mode.")
+	if macro_map.exploration_window.is_open() or macro_map.macro_hud.is_event_open():
+		_fail("Routine landmark exploration leaked into a legacy/fullscreen presenter.")
 		return
-	var exploration_panel := macro_map.exploration_window.get("_panel") as Control
-	if exploration_panel == null or not exploration_panel.visible:
-		_fail("POI exploration panel was not visible on the stage overlay.")
-		return
-	if exploration_panel.get_parent() != macro_map.exploration_window:
-		_fail("Exploration panel should remain owned by MacroExplorationWindow.")
-		return
-	var actor_token := macro_map.exploration_window.get("_actor_token") as HumanoidTokenView
-	if actor_token == null:
-		_fail("Exploration ActorToken should be a HumanoidTokenView.")
-		return
-	if actor_token.get_appearance_signature().is_empty():
-		_fail("Exploration token should bind a humanoid appearance signature.")
-		return
-	# open_landmark walks to the selected fixture immediately.
-	if actor_token.get_animation() != "Walk":
-		macro_map.exploration_window.call("_place_token_at", Vector2(0.12, 0.78), false)
-		macro_map.exploration_window.call("_walk_token_to_selected_fixture")
-		await process_frame
-	if actor_token.get_animation() != "Walk":
-		_fail("Exploration token should play Walk while moving to a fixture.")
-		return
-	await macro_map.get_tree().create_timer(0.45).timeout
-	if actor_token.get_animation() != "Idle":
-		_fail("Exploration token should return to Idle after the walk tween.")
-		return
-	var session: Dictionary = macro_map.exploration_window.get("_session")
+	var session: Dictionary = macro_map.macro_hud.get("_snapshot").get(
+		"current_location", {}
+	).get("session", {})
 	if session.get("search_options", []).size() < 2:
 		_fail("SEARCH did not expose multiple landmark target options.")
 		return

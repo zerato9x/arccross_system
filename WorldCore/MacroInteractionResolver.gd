@@ -32,6 +32,17 @@ static func build_search_options(
 	hex_data: MacroHexData
 ) -> Array:
 	var options: Array = []
+	if hex_data.world_generation_version >= 2:
+		if hex_data.composition_role != "rubble_search":
+			return options
+		options.append(_search_option(
+			"wreckage",
+			"Picked-over Rubble",
+			"A poor, finite pocket of salvage. Once cleared, it stays cleared.",
+			{"any_item_ids": ["crowbar", "multitool"], "any_tags": ["tools"]},
+			{"loot": -2.5, "safety": -0.5, "sneak": 0.0}
+		))
+		return options
 	var _seed_signature := (
 		world_seed
 		+ ":search_options:"
@@ -576,4 +587,3 @@ static func resolve_threat_surrender(
 		"ground_items": ground_items,
 		"kept_loadout": kept_loadout,
 	}
-

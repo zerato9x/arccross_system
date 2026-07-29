@@ -14,6 +14,12 @@ func _run() -> void:
 	var zone_core := _generate_zone("north_core")
 	var snow_r1 := _count_snow(zone_r1)
 	var snow_core := _count_snow(zone_core)
+	if snow_r1 != 0:
+		_fail(
+			"north_random_1 is Central's cold fringe and must have zero snow terrain (got %d)."
+			% snow_r1
+		)
+		return
 
 	if snow_core <= snow_r1:
 		_fail(

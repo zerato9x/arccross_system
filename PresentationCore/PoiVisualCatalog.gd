@@ -48,7 +48,7 @@ static func pick_structure_paths(
 ) -> Array[String]:
 	var options: Array = STRUCTURE_PATHS.get(landmark_id, [])
 	if options.is_empty():
-		options = STRUCTURE_PATHS.get("homestead_b", [])
+		return []
 	var valid: Array[String] = []
 	for path in options:
 		if ResourceLoader.exists(path):
@@ -58,7 +58,7 @@ static func pick_structure_paths(
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = (seed_value + ":structures:" + landmark_id + ":" + str(coords)).hash()
-	var count := mini(3, valid.size())
+	var count := mini(maxi(max_count, 0), valid.size())
 	var picked: Array[String] = []
 	var pool := valid.duplicate()
 	while picked.size() < count and not pool.is_empty():
@@ -100,7 +100,9 @@ static func build_prop_descriptors(
 		if not hex_data.landmark_id.is_empty()
 		else hex_data.poi_id
 	)
-	var structure_paths := pick_structure_paths(landmark_id, world_seed, coords)
+	var structure_paths: Array[String] = []
+	if not landmark_id.is_empty():
+		structure_paths = pick_structure_paths(landmark_id, world_seed, coords)
 	if structure_paths.is_empty() and not hex_data.structure_sprite_path.is_empty():
 		structure_paths = [hex_data.structure_sprite_path]
 

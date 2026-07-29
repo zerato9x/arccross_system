@@ -159,30 +159,15 @@ func _begin_duel(encounter_setup: Dictionary) -> void:
 		duel_runtime.begin_duel()
 
 func _wire_combat_audio(core: HumanoidCore) -> void:
-	var bus := get_node_or_null("/root/GameEventBus")
-	if bus == null or core == null:
+	if core == null:
 		return
 	if not core.kinetic_burden_calculated.is_connected(_on_kinetic_burden_changed):
 		core.kinetic_burden_calculated.connect(_on_kinetic_burden_changed)
-	if not core.stance_changed.is_connected(_on_stance_changed):
-		core.stance_changed.connect(_on_stance_changed)
-	if not core.morale_broken.is_connected(_on_morale_broken):
-		core.morale_broken.connect(_on_morale_broken)
 
 func _on_kinetic_burden_changed(tier: GameEnums.KineticTier, burden: int) -> void:
 	var bus := get_node_or_null("/root/GameEventBus")
 	if bus:
 		bus.emit_player_vitals({"type": "kinetic_tier", "tier": tier, "burden": burden})
-
-func _on_stance_changed(new_state: GameEnums.StanceState, points: int) -> void:
-	var bus := get_node_or_null("/root/GameEventBus")
-	if bus:
-		bus.emit_player_vitals({"type": "stance", "stance": new_state, "points": points})
-
-func _on_morale_broken() -> void:
-	var bus := get_node_or_null("/root/GameEventBus")
-	if bus:
-		bus.emit_player_vitals({"type": "morale_broken"})
 
 func _on_player_items_spilled(items: Array[ItemData]) -> void:
 	_append_dropped_items(items)
@@ -196,14 +181,15 @@ func _on_combatant_died(cause: String, dead_entity: HumanoidCore) -> void:
 	_resolving = true
 	duel_runtime.stop()
 	duel_runtime.refresh_snapshot()
-	if dead_entity == enemy_core:
-		_append_dropped_items(enemy_core.inventory.drain_all_items())
 	var outcome := (
 		GameEnums.CombatOutcome.PLAYER_DEFEAT
 		if dead_entity == player_core
 		else GameEnums.CombatOutcome.PLAYER_VICTORY
 	)
 	await lane_hud.play_final_blow("player" if dead_entity == player_core else "enemy")
+	# Drain after Die presentation so corpse tokens keep clothing layers.
+	if dead_entity == enemy_core:
+		_append_dropped_items(enemy_core.inventory.drain_all_items())
 	if DisplayServer.get_name() != "headless":
 		await lane_hud.show_resolve_screen({
 			"title": "DEFEAT" if dead_entity == player_core else "VICTORY",

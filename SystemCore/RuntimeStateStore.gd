@@ -14,7 +14,8 @@ signal save_completed(path: String)
 signal load_completed(path: String)
 signal persistence_failed(operation: String, message: String)
 
-const SAVE_VERSION: int = 7
+const SAVE_VERSION: int = 8
+const WORLD_GENERATION_VERSION: int = 2
 const DEFAULT_SAVE_PATH: String = "user://arccross_run.json"
 const VARIANT_TYPE_KEY: String = "__arccross_type"
 
@@ -54,13 +55,14 @@ func begin_new_world(seed_value: String, setup_state: Dictionary = {}) -> void:
 	campaign_graph = {}
 	active_node_id = ""
 	active_arrival_direction = GameEnums.MacroTravelDirection.SOUTH
-	run_flags.clear()
+	run_flags = {"world_generation_version": WORLD_GENERATION_VERSION}
 	_pending_new_run_setup = setup_state.duplicate(true)
 	if not setup_state.is_empty():
 		run_flags = {
 			"eviction_completed": true,
 			"chosen_start_node_id": str(setup_state.get("start_node_id", "")),
 			"intro_version": int(setup_state.get("intro_version", 1)),
+			"world_generation_version": WORLD_GENERATION_VERSION,
 		}
 	node_runtime_snapshots.clear()
 	entity_records.clear()
@@ -179,7 +181,11 @@ func move_entity(entity_id: String, target_coords: Vector2i) -> bool:
 func set_entity_life_state(entity_id: String, life_state: GameEnums.EntityLifeState) -> void:
 	if not entity_records.has(entity_id):
 		return
-	entity_records[entity_id].life_state = life_state
+	var record: EntityRecord = entity_records[entity_id]
+	record.life_state = life_state
+	if life_state == GameEnums.EntityLifeState.DEAD:
+		if entity_ids_by_coords.get(record.coords, "") == entity_id:
+			entity_ids_by_coords.erase(record.coords)
 
 func set_entity_world_status(
 	entity_id: String,
@@ -414,7 +420,11 @@ func restore_node_runtime(node_id: String) -> bool:
 			continue
 		var coords: Variant = entry.get("coords")
 		if coords is Vector2i:
-			hex_records[coords] = HexRecord.from_dict(entry.get("record", {}))
+			var restored_record := HexRecord.from_dict(entry.get("record", {}))
+			restored_record.trace_records = _active_trace_records(
+				restored_record.trace_records, world_time_minutes
+			)
+			hex_records[coords] = restored_record
 	for entry in snapshot.get("ground_items", []):
 		if not entry is Dictionary:
 			continue
@@ -422,6 +432,15 @@ func restore_node_runtime(node_id: String) -> bool:
 		if coords is Vector2i:
 			ground_item_records[coords] = entry.get("items", []).duplicate(true)
 	return true
+
+
+func _active_trace_records(records: Array[Dictionary], current_minute: int) -> Array[Dictionary]:
+	var active: Array[Dictionary] = []
+	for trace in records:
+		var expires := int(trace.get("expires_minute", -1))
+		if expires < 0 or expires > current_minute:
+			active.append(trace.duplicate(true))
+	return active
 
 # ---------------------------------------------------------
 # SERIALIZATION BOUNDARY — Resources flatten to Dicts here

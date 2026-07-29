@@ -157,6 +157,8 @@ func _connect_to_bus() -> void:
 	if bus:
 		if not bus.scene_audio_requested.is_connected(_on_scene_audio_requested):
 			bus.scene_audio_requested.connect(_on_scene_audio_requested)
+		if not bus.humanoid_injured.is_connected(_on_humanoid_injured):
+			bus.humanoid_injured.connect(_on_humanoid_injured)
 		bus.humanoid_exhausted.connect(_on_humanoid_exhausted)
 		bus.item_used.connect(_on_item_used)
 		bus.humanoid_footstep_taken.connect(_on_humanoid_footstep)

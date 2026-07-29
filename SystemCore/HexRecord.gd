@@ -22,6 +22,14 @@ class_name HexRecord
 @export var rock_sprite_path: String = ""
 @export var water_sprite_path: String = ""
 @export var structure_sprite_path: String = ""
+@export var world_generation_version: int = 1
+@export var terrain_asset_id: String = ""
+@export var overlay_asset_ids: Array[String] = []
+@export var composition_role: String = "legacy"
+@export var stamp_instance_id: String = ""
+@export_range(0, 63) var road_mask: int = 0
+@export var loot_tier_id: String = ""
+@export var trace_records: Array[Dictionary] = []
 @export var sleep_anchor: String = "ground"
 @export var sleep_gear_instance_id: String = ""
 @export var is_poi: bool = false
@@ -59,6 +67,14 @@ func to_dict() -> Dictionary:
 		"rock_sprite_path": rock_sprite_path,
 		"water_sprite_path": water_sprite_path,
 		"structure_sprite_path": structure_sprite_path,
+		"world_generation_version": world_generation_version,
+		"terrain_asset_id": terrain_asset_id,
+		"overlay_asset_ids": overlay_asset_ids.duplicate(),
+		"composition_role": composition_role,
+		"stamp_instance_id": stamp_instance_id,
+		"road_mask": road_mask,
+		"loot_tier_id": loot_tier_id,
+		"trace_records": trace_records.duplicate(true),
 		"sleep_anchor": sleep_anchor,
 		"sleep_gear_instance_id": sleep_gear_instance_id,
 		"is_poi": is_poi,
@@ -121,6 +137,17 @@ static func from_dict(data: Dictionary) -> HexRecord:
 	record.rock_sprite_path = data.get("rock_sprite_path", "")
 	record.water_sprite_path = data.get("water_sprite_path", "")
 	record.structure_sprite_path = data.get("structure_sprite_path", "")
+	record.world_generation_version = int(data.get("world_generation_version", 1))
+	record.terrain_asset_id = str(data.get("terrain_asset_id", ""))
+	for asset_id in data.get("overlay_asset_ids", []):
+		record.overlay_asset_ids.append(str(asset_id))
+	record.composition_role = str(data.get("composition_role", "legacy"))
+	record.stamp_instance_id = str(data.get("stamp_instance_id", ""))
+	record.road_mask = clampi(int(data.get("road_mask", 0)), 0, 63)
+	record.loot_tier_id = str(data.get("loot_tier_id", ""))
+	for trace in data.get("trace_records", []):
+		if trace is Dictionary:
+			record.trace_records.append(trace.duplicate(true))
 	record.sleep_anchor = data.get("sleep_anchor", "ground")
 	record.sleep_gear_instance_id = data.get("sleep_gear_instance_id", "")
 	record.is_poi = data.get("is_poi", false)

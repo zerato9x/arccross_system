@@ -1,0 +1,132 @@
+{
+  "version": 2,
+  "external_source_root": "S:/Asset/_Asset/_BIOMES",
+  "runtime_root": "res://Asset/HexTiles",
+  "approved_hex_roots": [
+    "res://Asset/HexTiles/_BIOMES/biome_plains/HEX",
+    "res://Asset/HexTiles/_BIOMES/biome_centralcore/HEX",
+    "res://Asset/HexTiles/_BIOMES/biome_north/HEX",
+    "res://Asset/HexTiles/_OVERLAYS/roads"
+  ],
+  "excluded_hex_name_fragments": [
+    "v2 red",
+    "redmist",
+    "t crossroad",
+    "painted - snowy",
+    "yellow_hex"
+  ],
+  "import_families": [
+    {
+      "asset_id": "plains_green",
+      "kind": "terrain_hex",
+      "source": "biome_plains/grass_tiles/grass_default",
+      "destination": "_BIOMES/biome_plains/HEX/grass_tiles/grass_default",
+      "glob": "*.png",
+      "tags": ["plains", "starter", "green", "seamless_family"],
+      "required_size": [512, 512],
+      "prune_destination": true
+    },
+    {
+      "asset_id": "plains_infrastructure_details",
+      "kind": "decor_sprite",
+      "source": "biome_plains/Infrastructure/MoreInfras",
+      "destination": "_BIOMES/biome_plains/Infrastructure/MoreInfras",
+      "glob": "Infrastructural *.png",
+      "tags": ["plains", "starter", "infrastructure", "frame"]
+    },
+    {
+      "asset_id": "starter_homestead_small",
+      "kind": "decor_sprite",
+      "source": "biome_plains/Structures",
+      "destination": "_BIOMES/default_era8/Structures",
+      "files": [
+        "Homestead Building Size1 A shadow.png",
+        "Homestead Building Size1 B-i shadow.png",
+        "Homestead Building Size1 C shadow.png"
+      ],
+      "tags": ["plains", "starter", "settlement", "structure"],
+      "footprint_class": "single_hex_tall"
+    },
+    {
+      "asset_id": "starter_homestead_large",
+      "kind": "decor_sprite",
+      "source": "biome_plains/Structures",
+      "destination": "_BIOMES/default_era8/Structures",
+      "files": ["Homestead Building Size 2 - B-i.png"],
+      "tags": ["plains", "starter", "settlement", "structure", "large"],
+      "footprint_class": "reserved_two_hex"
+    },
+    {
+      "asset_id": "starter_tents",
+      "kind": "decor_sprite",
+      "source": "biome_plains/Infrastructure/Colony Infrastructure",
+      "destination": "_BIOMES/biome_plains/Infrastructure/Colony Infrastructure",
+      "files": [
+        "Tent A.a - Gray - closed.png",
+        "Tent A.b - Green - closed.png",
+        "Tent Quonset - A.a - Gray.png"
+      ],
+      "tags": ["plains", "starter", "settlement", "tent"],
+      "footprint_class": "single_hex_tall"
+    },
+    {
+      "asset_id": "starter_rubble",
+      "kind": "decor_sprite",
+      "source": "biome_plains/Remnants",
+      "destination": "_BIOMES/biome_plains/remnants",
+      "files": [
+        "Rubble 1x1 A.png",
+        "Rubble 1x1 B.png",
+        "Rubble 1x1 C.png",
+        "Rubble 1x1 D.png"
+      ],
+      "tags": ["plains", "starter", "rubble", "remnant"],
+      "footprint_class": "fitted_prop"
+    },
+    {
+      "asset_id": "starter_shrubs",
+      "kind": "decor_sprite",
+      "source": "biome_plains/Trees",
+      "destination": "_BIOMES/biome_plains/flora",
+      "files": [
+        "Shrub A.png", "Shrub B.png", "Shrub C.png", "Shrub D.png",
+        "Shrub E.png", "Shrub F.png", "Shrub G.png", "Shrub H.png"
+      ],
+      "tags": ["plains", "starter", "quiet", "vegetation"],
+      "footprint_class": "fitted_prop"
+    },
+    {
+      "asset_id": "starter_tree_groups",
+      "kind": "decor_sprite",
+      "source": "biome_plains/Trees",
+      "destination": "_BIOMES/biome_plains/flora",
+      "files": [
+        "Trees Green - 2x2A.png",
+        "Trees Green - 2x2B.png",
+        "Temperate Trees v2 size-2 A green.png"
+      ],
+      "tags": ["plains", "starter", "quiet", "vegetation", "woodland_mass"],
+      "footprint_class": "single_hex_tall"
+    },
+    {
+      "asset_id": "starter_rocks",
+      "kind": "decor_sprite",
+      "source": "biome_plains/Rocks",
+      "destination": "_BIOMES/biome_plains/Rocks",
+      "files": [
+        "Rocks Sz1 A.png", "Rocks Sz1 B.png", "Rocks Sz1 C shadow.png",
+        "Rocks Sz2 A.png", "Rocks Sz2 B.png"
+      ],
+      "tags": ["plains", "starter", "quiet", "rock"],
+      "footprint_class": "fitted_prop"
+    },
+    {
+      "asset_id": "paved_road_material",
+      "kind": "source_material",
+      "source": "biome_plains/Infrastructure/MoreInfras",
+      "destination": "_SOURCE/roads",
+      "glob": "Paved Road III - NExSW.png",
+      "tags": ["road", "material_source"]
+    }
+  ]
+}
