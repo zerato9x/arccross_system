@@ -59,7 +59,7 @@ func _take_turn() -> void:
 			if score > best_score:
 				best_score = score
 				best_request = request
-		if best_request == null or best_request.action_id == "reserve":
+		if best_request == null or best_request.action_id == "end_turn":
 			turn_manager.pass_turn(actor)
 			break
 		var before := turn_manager.current_ap_pool
@@ -77,13 +77,15 @@ func enumerate_requests() -> Array[CombatActionRequest]:
 		return requests
 	var actor_id := _actor_id(actor)
 	var target_id := _actor_id(target)
-	for action_id in ["strike", "heavy_strike", "shove", "grapple", "takedown", "throw", "restrain", "fire", "aimed_fire", "take_cover"]:
+	for action_id in ["strike", "power_strike", "aimed_strike", "shove", "fire", "aimed_fire", "take_cover"]:
 		var request := CombatActionRequest.new()
 		request.actor_id = actor_id
 		request.action_id = action_id
 		request.target_actor_id = target_id
+		if action_id in ["aimed_strike", "aimed_fire"]:
+			request.target_body_region = _preferred_target_region()
 		requests.append(request)
-	for action_id in ["brace", "break_free", "release", "reload", "cycle", "clear_malfunction", "escape", "reserve"]:
+	for action_id in ["brace", "crouch", "stand", "reload", "cycle", "clear_malfunction", "escape", "end_turn"]:
 		var request := CombatActionRequest.new()
 		request.actor_id = actor_id
 		request.action_id = action_id
@@ -96,26 +98,13 @@ func enumerate_requests() -> Array[CombatActionRequest]:
 		var path := board.find_path(origin, int(destination), actor)
 		if path.size() < 2:
 			continue
-		for action_id in ["move", "rush", "disengage"]:
-			if action_id == "rush" and path.size() - 1 > 3:
-				continue
+		for action_id in ["move", "disengage"]:
 			var request := CombatActionRequest.new()
 			request.actor_id = actor_id
 			request.action_id = action_id
 			request.final_facing = board.facing_toward(int(path[-2]), int(path[-1]))
 			for index in path.slice(1):
 				request.path.append(CombatArenaState.coords_for_index(int(index)))
-			requests.append(request)
-	if board.control_role(actor) == "controller":
-		var controlled := board.grapple_target(actor)
-		if controlled != null:
-			var request := CombatActionRequest.new()
-			request.actor_id = actor_id
-			request.action_id = "drag"
-			request.path = [
-				CombatArenaState.coords_for_index(origin),
-				CombatArenaState.coords_for_index(board.position_of(controlled)),
-			]
 			requests.append(request)
 	return requests
 
@@ -132,7 +121,7 @@ func _score(request: CombatActionRequest, action_quote: CombatActionQuote) -> fl
 	)
 	var distance := board.grid_distance(destination, target_index)
 	if "damage" in tags:
-		score += 5.0
+		score += 4.0 + action_quote.forecast.hit_probability * 3.0 if action_quote.forecast != null else 5.0
 	if "control" in tags:
 		score += 2.4
 	if "hazard" in tags and not action_quote.collision_preview.get("hazard", {}).is_empty():
@@ -160,9 +149,17 @@ func _score(request: CombatActionRequest, action_quote: CombatActionQuote) -> fl
 		score += 6.0 if crisis else -1.0
 	if not action_quote.reaction_threat_ids.is_empty():
 		score -= float(action_quote.reaction_threat_ids.size()) * 2.0
-	if request.action_id == "reserve":
+	if request.action_id == "end_turn":
 		score = 0.2
 	return score
+
+
+func _preferred_target_region() -> int:
+	if target == null:
+		return GameEnums.LimbRegion.UPPER_TORSO
+	var head_function := target.body.get_limb_function(GameEnums.LimbRegion.HEAD)
+	var torso_function := target.body.get_limb_function(GameEnums.LimbRegion.UPPER_TORSO)
+	return GameEnums.LimbRegion.HEAD if head_function < torso_function - 2.0 else GameEnums.LimbRegion.UPPER_TORSO
 
 
 func _first_hostile() -> HumanoidCore:

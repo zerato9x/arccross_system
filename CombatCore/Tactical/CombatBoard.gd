@@ -15,7 +15,6 @@ var _baseline_arena: CombatArenaState
 var actor_facings: Dictionary = {}
 var actor_cover_edges: Dictionary = {}
 var actor_tactics: Dictionary = {}
-var grapple_links: Dictionary = {}
 var trap_outcomes: Array[Dictionary] = []
 var _generator := CombatArenaGenerator.new()
 
@@ -64,7 +63,6 @@ func clear_actors() -> void:
 	actor_facings.clear()
 	actor_cover_edges.clear()
 	actor_tactics.clear()
-	grapple_links.clear()
 
 
 func spawn_actor(actor: HumanoidCore, side: String, preferred_row: int = 2) -> int:
@@ -96,7 +94,6 @@ func force_spawn_actor(actor: HumanoidCore, index: int, side: String = "") -> bo
 func remove_actor(actor: HumanoidCore) -> void:
 	if actor == null:
 		return
-	break_grapple(actor)
 	for sector in sectors:
 		if sector.occupant == actor:
 			sector.occupant = null
@@ -194,7 +191,6 @@ func commit_path(actor: HumanoidCore, path: Array, suppress_reactions: bool = fa
 			"suppress_reactions": suppress_reactions,
 		})
 		_resolve_entry(actor, sectors[to_index])
-	break_invalid_grapples()
 	board_changed.emit()
 	return changes
 
@@ -256,7 +252,7 @@ func reaction_threats(actor: HumanoidCore, path: Array) -> Array[String]:
 			var threat := sectors[neighbor].occupant
 			if not _hostile(actor, threat):
 				continue
-			if grid_distance(to_index, position_of(threat)) <= weapon_reach(threat):
+			if can_melee_reach(threat, to_index):
 				continue
 			var id := _actor_id(threat)
 			if id not in ids:
@@ -338,7 +334,7 @@ func posture(actor: HumanoidCore) -> String:
 
 
 func set_posture(actor: HumanoidCore, value: String) -> bool:
-	if value not in ["standing", "crouched", "prone"]:
+	if value not in ["standing", "crouched"]:
 		return false
 	_tactics(actor)["posture"] = value
 	board_changed.emit()
@@ -352,75 +348,6 @@ func has_condition(actor: HumanoidCore, condition_id: String) -> bool:
 func set_condition(actor: HumanoidCore, condition_id: String, enabled: bool) -> void:
 	_tactics(actor)[condition_id] = enabled
 	board_changed.emit()
-
-
-func control_role(actor: HumanoidCore) -> String:
-	var id := _actor_id(actor)
-	if grapple_links.has(id):
-		return "controller"
-	if id in grapple_links.values():
-		return "controlled"
-	return ""
-
-
-func grapple_target(controller: HumanoidCore) -> HumanoidCore:
-	return actor_by_id(str(grapple_links.get(_actor_id(controller), "")))
-
-
-func grapple_controller(controlled: HumanoidCore) -> HumanoidCore:
-	var target_id := _actor_id(controlled)
-	for controller_id in grapple_links:
-		if str(grapple_links[controller_id]) == target_id:
-			return actor_by_id(str(controller_id))
-	return null
-
-
-func establish_grapple(controller: HumanoidCore, controlled: HumanoidCore) -> bool:
-	if controller == null or controlled == null or grid_distance(position_of(controller), position_of(controlled)) != 1:
-		return false
-	break_grapple(controller)
-	break_grapple(controlled)
-	grapple_links[_actor_id(controller)] = _actor_id(controlled)
-	set_condition(controlled, "restrained", false)
-	board_changed.emit()
-	return true
-
-
-func break_grapple(actor: HumanoidCore) -> void:
-	if actor == null:
-		return
-	var id := _actor_id(actor)
-	var counterpart: HumanoidCore
-	if grapple_links.has(id):
-		counterpart = actor_by_id(str(grapple_links[id]))
-		grapple_links.erase(id)
-	else:
-		for controller_id in grapple_links.keys():
-			if str(grapple_links[controller_id]) == id:
-				counterpart = actor_by_id(str(controller_id))
-				grapple_links.erase(controller_id)
-				break
-	set_condition(actor, "restrained", false)
-	if counterpart != null:
-		set_condition(counterpart, "restrained", false)
-	board_changed.emit()
-
-
-func break_invalid_grapples() -> void:
-	for controller_id in grapple_links.keys():
-		var controller := actor_by_id(str(controller_id))
-		var controlled := actor_by_id(str(grapple_links[controller_id]))
-		if (
-			controller == null
-			or controlled == null
-			or controller.is_dead
-			or controlled.is_dead
-			or grid_distance(position_of(controller), position_of(controlled)) != 1
-			or not controller.body.has_functional_arms()
-		):
-			grapple_links.erase(controller_id)
-			if controlled != null:
-				set_condition(controlled, "restrained", false)
 
 
 func preview_shove(initiator: HumanoidCore, target: HumanoidCore) -> Dictionary:
@@ -496,34 +423,10 @@ func commit_shove(
 			result["moved"] = true
 		"boundary":
 			set_condition(target, "off_balance", true)
-	if margin >= 4.0 and str(preview.get("type", "")) == "clear":
-		set_posture(target, "prone")
-	break_invalid_grapples()
+	if margin >= 4.0:
+		set_condition(target, "off_balance", true)
 	board_changed.emit()
 	return result
-
-
-func commit_drag(controller: HumanoidCore, destination: int) -> Array[Dictionary]:
-	var controlled := grapple_target(controller)
-	if controlled == null:
-		return []
-	var controller_origin := position_of(controller)
-	var controlled_origin := position_of(controlled)
-	if destination != controlled_origin or destination not in neighboring_indices(controller_origin):
-		return []
-	sectors[controller_origin].occupant = null
-	sectors[controlled_origin].occupant = null
-	sectors[destination].occupant = controller
-	sectors[controller_origin].occupant = controlled
-	set_facing(controller, facing_toward(controller_origin, destination))
-	set_facing(controlled, facing_toward(controlled_origin, controller_origin))
-	_resolve_entry(controller, sectors[destination])
-	_resolve_entry(controlled, sectors[controller_origin])
-	board_changed.emit()
-	return [
-		{"actor_id": _actor_id(controller), "from": CombatArenaState.coords_for_index(controller_origin), "to": CombatArenaState.coords_for_index(destination)},
-		{"actor_id": _actor_id(controlled), "from": CombatArenaState.coords_for_index(controlled_origin), "to": CombatArenaState.coords_for_index(controller_origin)},
-	]
 
 
 func weapon_reach(actor: HumanoidCore) -> int:
@@ -531,6 +434,27 @@ func weapon_reach(actor: HumanoidCore) -> int:
 		return 0
 	var weapon := actor.inventory.get_active_weapon(true)
 	return maxi(1, weapon.weapon_reach_cells if weapon != null else 1)
+
+
+func can_melee_reach(actor: HumanoidCore, target_index: int) -> bool:
+	var origin := position_of(actor)
+	if not _valid_index(origin) or not _valid_index(target_index):
+		return false
+	var from := CombatArenaState.coords_for_index(origin)
+	var target := CombatArenaState.coords_for_index(target_index)
+	var delta := target - from
+	var distance := absi(delta.x) + absi(delta.y)
+	if distance < 1 or distance > weapon_reach(actor):
+		return false
+	if delta.x != 0 and delta.y != 0:
+		return false
+	if distance > 1:
+		var step := Vector2i(signi(delta.x), signi(delta.y))
+		for offset in range(1, distance):
+			var intervening := sectors[CombatArenaState.index_for_coords(from + step * offset)]
+			if intervening.opaque or intervening.occupant != null:
+				return false
+	return true
 
 
 func find_spawn_sector(side: String, preferred_row: int = 2) -> int:
@@ -577,7 +501,6 @@ func snapshot() -> Dictionary:
 		"facings": actor_facings.duplicate(true),
 		"cover_edges": actor_cover_edges.duplicate(true),
 		"tactics": actor_tactics.duplicate(true),
-		"grapples": grapple_links.duplicate(true),
 		"backdrop_asset_path": arena_state.backdrop_asset_path if arena_state != null else "",
 	}
 
@@ -602,8 +525,6 @@ func _default_tactics() -> Dictionary:
 		"posture": "standing",
 		"off_balance": false,
 		"braced": false,
-		"restrained": false,
-		"momentum": 0,
 	}
 
 

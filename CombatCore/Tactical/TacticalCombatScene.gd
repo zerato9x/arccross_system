@@ -16,6 +16,7 @@ var player_core: HumanoidCore
 var enemy_core: HumanoidCore
 var enemy_entity_id := ""
 var _resolving := false
+var _pending_request: CombatActionRequest
 var _transfer_receipts: Array[Dictionary] = []
 var _body_locations: Array[Dictionary] = []
 
@@ -23,6 +24,8 @@ var _body_locations: Array[Dictionary] = []
 func _ready() -> void:
 	hud.sector_selected.connect(_on_sector_selected)
 	hud.action_selected.connect(_on_action_selected)
+	hud.action_confirmed.connect(_on_action_confirmed)
+	hud.selection_cancelled.connect(_on_selection_cancelled)
 	hud.item_selected.connect(_refresh_context_quotes.unbind(1))
 	hud.wound_selected.connect(_refresh_context_quotes.unbind(1))
 	hud.reaction_selected.connect(_on_reaction_selected)
@@ -70,6 +73,7 @@ func setup_encounter(encounter: CombatEncounterRecord) -> void:
 	resolution_engine.board = board
 	resolution_engine.turn_manager = turn_manager
 	action_controller.configure([player_core, enemy_core], board, turn_manager, resolution_engine)
+	hud.configure_action_catalog(action_controller.catalog)
 	var ai := TacticalCombatAI.new()
 	ai.name = "TacticalCombatAI"
 	add_child(ai)
@@ -95,31 +99,68 @@ func _wire_actor(actor: HumanoidCore) -> void:
 
 
 func _on_sector_selected(coords: Vector2i) -> void:
-	var request := _build_request("move")
+	var sector := board.arena_state.sector_at(coords)
+	if sector == null:
+		return
 	var destination := CombatArenaState.index_for_coords(coords)
+	if board.actor_at(destination) != null:
+		_pending_request = null
+		hud.clear_staged_action()
+		_refresh_context_quotes()
+		return
+	var request := _build_request("move")
 	var origin := board.position_of(player_core)
 	var path := board.find_path(origin, destination, player_core)
 	for index in path.slice(1):
 		request.path.append(CombatArenaState.coords_for_index(int(index)))
 	if path.size() >= 2:
 		request.final_facing = board.facing_toward(int(path[-2]), int(path[-1]))
-	hud.show_quote(action_controller.preview(request))
 	_refresh_context_quotes()
+	var action_quote := action_controller.preview(request)
+	_pending_request = request if action_quote.legal else null
+	hud.show_quote(action_quote)
 
 
 func _on_action_selected(action_id: String) -> void:
 	if _resolving:
 		return
 	var request := _build_request(action_id)
+	var action_quote := action_controller.preview(request)
+	hud.show_quote(action_quote)
+	if not action_quote.legal:
+		_pending_request = null
+		return
+	_pending_request = request
+	var definition := action_controller.catalog.definition(action_id)
+	if definition != null and not definition.requires_confirmation:
+		await _execute_pending_action()
+
+
+func _on_action_confirmed() -> void:
+	if not _resolving:
+		await _execute_pending_action()
+
+
+func _execute_pending_action() -> void:
+	if _pending_request == null:
+		hud.show_feedback("Select and preview a legal action first.")
+		return
+	var request := _pending_request
+	_pending_request = null
 	var outcome := await action_controller.request_action(request)
 	if not outcome.committed:
 		hud.show_feedback(outcome.message)
-	if action_id == "escape" and outcome.committed:
+	if request.action_id == "escape" and outcome.committed:
 		_finish_combat(
 			GameEnums.CombatOutcome.PLAYER_ESCAPED if request.actor_id == _actor_id(player_core) else GameEnums.CombatOutcome.ENEMY_ESCAPED,
 			"escape"
 		)
+	hud.clear_staged_action()
 	_refresh_context_quotes()
+
+
+func _on_selection_cancelled() -> void:
+	_pending_request = null
 
 
 func _build_request(action_id: String) -> CombatActionRequest:
@@ -131,27 +172,18 @@ func _build_request(action_id: String) -> CombatActionRequest:
 	request.target_sector = context.target_sector
 	request.target_item_instance_id = str(context.item_instance_id)
 	request.target_wound_id = str(context.wound_id)
+	request.target_body_region = int(context.body_region)
 	request.final_facing = str(context.facing)
 	var definition := action_controller.catalog.definition(action_id)
 	if definition != null and definition.target_mode == CombatActionDefinition.TARGET_PATH:
 		var origin := board.position_of(player_core)
 		var path: Array[int] = []
-		if action_id == "drag" and board.grapple_target(player_core) != null:
-			path = [origin, board.position_of(board.grapple_target(player_core))]
-		else:
-			var destination := CombatArenaState.index_for_coords(request.target_sector) if CombatArenaState.contains_coords(request.target_sector) else -1
-			path = board.find_path(origin, destination, player_core)
+		var destination := CombatArenaState.index_for_coords(request.target_sector) if CombatArenaState.contains_coords(request.target_sector) else -1
+		path = board.find_path(origin, destination, player_core)
 		for index in path.slice(1):
 			request.path.append(CombatArenaState.coords_for_index(int(index)))
-		if action_id == "drag" and path.size() == 2:
-			request.path.push_front(CombatArenaState.coords_for_index(origin))
 		if request.final_facing.is_empty() and path.size() >= 2:
 			request.final_facing = board.facing_toward(int(path[-2]), int(path[-1]))
-	if action_id == "turn" and request.final_facing.is_empty() and CombatArenaState.contains_coords(request.target_sector):
-		request.final_facing = board.facing_toward(board.position_of(player_core), CombatArenaState.index_for_coords(request.target_sector))
-	if action_id == "aimed_fire":
-		var wound := _find_wound(enemy_core, request.target_wound_id)
-		request.metadata["body_region"] = wound.body_region if wound != null else GameEnums.LimbRegion.UPPER_TORSO
 	return request
 
 
@@ -168,8 +200,6 @@ func _refresh_context_quotes() -> void:
 func _on_turn_started(actor: HumanoidCore) -> void:
 	board.set_condition(actor, "braced", false)
 	board.set_condition(actor, "off_balance", false)
-	board._tactics(actor)["momentum"] = 0
-	board.break_invalid_grapples()
 	if actor == player_core:
 		_refresh_context_quotes()
 
@@ -194,7 +224,7 @@ func _on_reaction_window_opened(
 
 
 func _on_reaction_selected(action_id: String) -> void:
-	if not turn_manager.resolve_reaction(player_core, action_id):
+	if action_id == "decline" or not turn_manager.resolve_reaction(player_core, action_id):
 		turn_manager.decline_reaction(player_core)
 
 
@@ -233,8 +263,6 @@ func _finish_combat(outcome: int, reason: String, detail: String = "") -> void:
 		return
 	_resolving = true
 	turn_manager.halt_loop()
-	board.break_grapple(player_core)
-	board.break_grapple(enemy_core)
 	player_core.reset_combat_transients()
 	enemy_core.reset_combat_transients()
 	var result := CombatResultRecord.new()

@@ -19,6 +19,12 @@ const TARGET_WOUND := "wound"
 @export var action_id: String = ""
 @export var label: String = ""
 @export_multiline var description: String = ""
+@export_enum("move", "attack", "aim", "guard", "maneuver", "item", "interact", "end_turn", "reaction") var menu_family: String = "interact"
+@export var menu_priority: int = 0
+@export var icon_id: String = ""
+@export_enum("always", "target_context", "when_relevant", "reaction_only") var context_visibility: String = "when_relevant"
+@export var requires_confirmation: bool = true
+@export var automatic_reaction: bool = false
 @export_enum("quick", "minor", "major", "heavy", "committed", "free") var ap_category: String = AP_MINOR
 @export_enum("none", "path", "path_plus_action") var movement_cost_policy: String = "none"
 @export_enum("self", "actor", "sector", "path", "object", "item", "wound") var target_mode: String = TARGET_SELF
@@ -34,6 +40,8 @@ const TARGET_WOUND := "wound"
 @export var reaction_tags: Array[String] = []
 @export var ai_tags: Array[String] = []
 @export var presentation_profile: CombatPresentationProfile
+@export var targeting_profile: CombatTargetingProfile
+@export var effect_profile: CombatActionEffectProfile
 
 
 func base_ap_cost(kinetic_tier: int, remaining_ap: int) -> int:

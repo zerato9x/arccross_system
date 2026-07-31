@@ -28,6 +28,7 @@ func _verify_size(viewport_size: Vector2i) -> void:
 	var hud: TacticalCombatHUD = HUD_SCENE.instantiate()
 	viewport.add_child(hud)
 	await process_frame
+	hud.configure_action_catalog(load("res://CombatCore/Tactical/default_combat_action_catalog.tres"))
 	hud.show_quotes(_sample_quotes())
 	await process_frame
 	await process_frame
@@ -36,25 +37,25 @@ func _verify_size(viewport_size: Vector2i) -> void:
 		_fail("HUD root %s did not fill its %s viewport (got %s)." % [viewport_size, viewport_size, hud.size])
 	var bottom: Control = hud.get_node("Bottom")
 	var main: Control = hud.get_node("Main")
-	var action_scroll: Control = hud.actions.get_parent()
 	_assert_inside(hud.get_global_rect(), bottom.get_global_rect(), "bottom tray", viewport_size)
 	_assert_inside(hud.get_global_rect(), main.get_global_rect(), "main arena row", viewport_size)
-	_assert_inside(hud.get_global_rect(), action_scroll.get_global_rect(), "action scroll", viewport_size)
-	if action_scroll.size.y < 100.0:
-		_fail("Action tray collapsed at %s (height %.1f)." % [viewport_size, action_scroll.size.y])
-	if hud.actions.get_child_count() != 36:
-		_fail("Action tray lost contextual entries at %s." % viewport_size)
+	_assert_inside(hud.get_global_rect(), hud.command_wheel.get_global_rect(), "command wheel", viewport_size)
+	if hud.wheel_buttons.get_child_count() > 8:
+		_fail("Command wheel exposed more than eight top-level families at %s." % viewport_size)
+	if hud.confirm_button.size.y < 32.0:
+		_fail("Confirmation control collapsed at %s." % viewport_size)
 	viewport.queue_free()
 	await process_frame
 
 
 func _sample_quotes() -> Array[CombatActionQuote]:
 	var result: Array[CombatActionQuote] = []
-	for index in range(36):
+	var catalog: CombatActionCatalog = load("res://CombatCore/Tactical/default_combat_action_catalog.tres")
+	for definition in catalog.all():
 		var quote := CombatActionQuote.new()
-		quote.action_id = "context_action_%02d" % index
-		quote.ap_cost = 2 + index % 4
-		quote.legal = index < 12
+		quote.action_id = definition.action_id
+		quote.ap_cost = 3
+		quote.legal = definition.context_visibility != "reaction_only"
 		quote.denial_code = "specific_denial_reason"
 		result.append(quote)
 	return result

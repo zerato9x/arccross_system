@@ -1,0 +1,65 @@
+[gd_resource type="Resource" script_class="CombatCommandMenuCatalog" load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://CombatCore/Tactical/CombatCommandMenuCatalog.gd" id="1_catalog"]
+[ext_resource type="Script" path="res://CombatCore/Tactical/CombatCommandFamilyDefinition.gd" id="2_family"]
+
+[sub_resource type="Resource" id="Move"]
+script = ExtResource("2_family")
+family_id = "move"
+label = "MOVE"
+glyph = "◇"
+order = 0
+accent_color = Color(0.38, 0.72, 0.78, 1)
+[sub_resource type="Resource" id="Attack"]
+script = ExtResource("2_family")
+family_id = "attack"
+label = "ATTACK"
+glyph = "†"
+order = 1
+accent_color = Color(0.85, 0.34, 0.29, 1)
+[sub_resource type="Resource" id="Aim"]
+script = ExtResource("2_family")
+family_id = "aim"
+label = "AIM"
+glyph = "◎"
+order = 2
+accent_color = Color(0.9, 0.68, 0.28, 1)
+[sub_resource type="Resource" id="Guard"]
+script = ExtResource("2_family")
+family_id = "guard"
+label = "GUARD"
+glyph = "▣"
+order = 3
+accent_color = Color(0.39, 0.67, 0.55, 1)
+[sub_resource type="Resource" id="Maneuver"]
+script = ExtResource("2_family")
+family_id = "maneuver"
+label = "MANEUVER"
+glyph = "↯"
+order = 4
+accent_color = Color(0.74, 0.55, 0.78, 1)
+[sub_resource type="Resource" id="Item"]
+script = ExtResource("2_family")
+family_id = "item"
+label = "ITEM"
+glyph = "▤"
+order = 5
+accent_color = Color(0.66, 0.72, 0.48, 1)
+[sub_resource type="Resource" id="Interact"]
+script = ExtResource("2_family")
+family_id = "interact"
+label = "INTERACT"
+glyph = "⌁"
+order = 6
+accent_color = Color(0.55, 0.7, 0.78, 1)
+[sub_resource type="Resource" id="EndTurn"]
+script = ExtResource("2_family")
+family_id = "end_turn"
+label = "END TURN"
+glyph = "■"
+order = 7
+accent_color = Color(0.8, 0.72, 0.5, 1)
+
+[resource]
+script = ExtResource("1_catalog")
+families = Array[ExtResource("2_family")]([SubResource("Move"), SubResource("Attack"), SubResource("Aim"), SubResource("Guard"), SubResource("Maneuver"), SubResource("Item"), SubResource("Interact"), SubResource("EndTurn")])

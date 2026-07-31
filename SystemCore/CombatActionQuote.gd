@@ -21,6 +21,7 @@ class_name CombatActionQuote
 @export var predicted_displacement: Array[Dictionary] = []
 @export var collision_preview: Dictionary = {}
 @export var presentation_profile_id: String = ""
+@export var forecast: CombatForecastRecord
 
 
 func deny(code: String, message: String) -> CombatActionQuote:
@@ -57,4 +58,5 @@ func to_dict() -> Dictionary:
 		"predicted_displacement": predicted_displacement.duplicate(true),
 		"collision_preview": collision_preview.duplicate(true),
 		"presentation_profile_id": presentation_profile_id,
+		"forecast": forecast.to_dict() if forecast != null else {},
 	}

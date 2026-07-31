@@ -150,7 +150,7 @@ func open_reaction_window(defender: HumanoidCore, attacker: HumanoidCore, trigge
 		return []
 	var available_ap := int(reserved_ap.get(defender, 0))
 	var available: Array = []
-	var is_melee := str(trigger_action) in ["strike", "heavy_strike", "opportunity_strike"]
+	var is_melee := str(trigger_action) in ["strike", "power_strike", "aimed_strike", "opportunity_strike"]
 	if is_melee and available_ap >= reaction_cost(defender, "block") and defender.body.has_functional_arms():
 		available.append("block")
 	if available_ap >= reaction_cost(defender, "dodge") and not defender.body.are_both_legs_disabled():

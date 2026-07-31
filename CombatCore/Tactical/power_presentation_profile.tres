@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CombatPresentationProfile" load_steps=2 format=3]
+[ext_resource type="Script" path="res://CombatCore/Tactical/CombatPresentationProfile.gd" id="1"]
+[resource]
+script = ExtResource("1")
+profile_id = "power"
+wind_up_seconds = 0.24
+transit_seconds = 0.10
+contact_seconds = 0.16
+reaction_seconds = 0.14
+impact_seconds = 0.16
+settle_seconds = 0.16
+actor_animation_id = "Attack3"
+target_animation_id = "TakeDamage"
+vfx_id = "heavy_contact"

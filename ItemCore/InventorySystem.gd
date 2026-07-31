@@ -783,6 +783,29 @@ func resolve_protection_event(
 		result.total_protection += contribution
 	return result
 
+
+func preview_protection(damage_type: GameEnums.DamageType, limb_region: int = -1) -> float:
+	## Read-only armor forecast. This never rolls faults or applies wear.
+	var stat_name := ""
+	match damage_type:
+		GameEnums.DamageType.BLUNT:
+			stat_name = "protection_blunt"
+		GameEnums.DamageType.SHARP:
+			stat_name = "protection_sharp"
+		GameEnums.DamageType.BALLISTIC:
+			stat_name = "protection_ballistic"
+	if stat_name.is_empty():
+		return 0.0
+	var total := 0.0
+	for slot_value in paper_doll:
+		var item: ItemData = paper_doll.get(slot_value)
+		if item == null or (limb_region >= 0 and not _item_covers_limb(item, limb_region)):
+			continue
+		if item.condition_enabled and item.current_condition <= 0.0:
+			continue
+		total += float(item.get(stat_name))
+	return total
+
 ## Shared repair transaction. WorldCore owns combat gating and time passage;
 ## ItemCore owns recipes, material consumption, tool wear, and condition caps.
 func repair_item(

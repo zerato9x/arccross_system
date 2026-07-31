@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://CombatCore/Tactical/TacticalCombatHUD.gd" id="1_hud"]
 [ext_resource type="Script" path="res://CombatCore/Tactical/TacticalArenaView.gd" id="2_view"]
+[ext_resource type="Script" path="res://CombatCore/Tactical/CombatBodyTargetView.gd" id="3_body"]
 
 [node name="TacticalCombatHUD" type="Control"]
 layout_mode = 3
@@ -20,7 +21,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.035, 0.043, 0.051, 1)
+color = Color(0.025, 0.035, 0.043, 1)
 
 [node name="TopStrip" type="PanelContainer" parent="."]
 layout_mode = 1
@@ -29,13 +30,27 @@ anchor_right = 1.0
 offset_bottom = 52.0
 grow_horizontal = 2
 
-[node name="TopLabel" type="Label" parent="TopStrip"]
+[node name="TopMargin" type="MarginContainer" parent="TopStrip"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+
+[node name="TopRow" type="HBoxContainer" parent="TopStrip/TopMargin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="InitiativeRow" type="HBoxContainer" parent="TopStrip/TopMargin/TopRow"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.91, 0.82, 0.62, 1)
-theme_override_font_sizes/font_size = 18
-text = "ROUND 00   ACTIVE   AP 00/12   RESERVED 00"
-horizontal_alignment = 1
+size_flags_horizontal = 3
+theme_override_constants/separation = 16
+
+[node name="APLabel" type="Label" parent="TopStrip/TopMargin/TopRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94, 0.79, 0.42, 1)
+theme_override_font_sizes/font_size = 17
+text = "ROUND 00   AP 00/12   RESERVED 00"
 vertical_alignment = 1
 
 [node name="Main" type="HBoxContainer" parent="."]
@@ -44,21 +59,21 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_top = 58.0
-offset_bottom = -190.0
+offset_bottom = -112.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 8
 
 [node name="Left" type="PanelContainer" parent="Main"]
-custom_minimum_size = Vector2(220, 0)
+custom_minimum_size = Vector2(232, 0)
 layout_mode = 2
 
 [node name="LeftMargin" type="MarginContainer" parent="Main/Left"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 10
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 10
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
 
 [node name="LeftScroll" type="ScrollContainer" parent="Main/Left/LeftMargin"]
 layout_mode = 2
@@ -66,27 +81,66 @@ layout_mode = 2
 [node name="LeftContent" type="VBoxContainer" parent="Main/Left/LeftMargin/LeftScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 8
+theme_override_constants/separation = 5
 
-[node name="ActorLabel" type="RichTextLabel" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+[node name="ActorName" type="Label" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(220, 240)
 layout_mode = 2
-bbcode_enabled = true
-fit_content = true
+theme_override_colors/font_color = Color(0.46, 0.76, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "ACTOR"
+
+[node name="ActorStatus" type="Label" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "STANDING • FACING EAST"
+
+[node name="ActorBody" type="Control" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(210, 180)
+layout_mode = 2
+script = ExtResource("3_body")
+
+[node name="BloodLabel" type="Label" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+layout_mode = 2
+text = "BLOOD"
+[node name="BloodBar" type="ProgressBar" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+unique_name_in_owner = true
+layout_mode = 2
+show_percentage = false
+[node name="PainLabel" type="Label" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+layout_mode = 2
+text = "PAIN"
+[node name="PainBar" type="ProgressBar" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+unique_name_in_owner = true
+layout_mode = 2
+show_percentage = false
+[node name="ShockLabel" type="Label" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+layout_mode = 2
+text = "SHOCK"
+[node name="ShockBar" type="ProgressBar" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+unique_name_in_owner = true
+layout_mode = 2
+show_percentage = false
+[node name="ConsciousnessLabel" type="Label" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+layout_mode = 2
+text = "CONSCIOUSNESS"
+[node name="ConsciousnessBar" type="ProgressBar" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+unique_name_in_owner = true
+layout_mode = 2
+show_percentage = false
 
 [node name="WoundHeading" type="Label" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.45, 0.39, 1)
 text = "WOUNDS"
-
 [node name="Wounds" type="VBoxContainer" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
 unique_name_in_owner = true
 layout_mode = 2
-
 [node name="ItemHeading" type="Label" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
 layout_mode = 2
-text = "PHYSICAL ITEMS"
-
+theme_override_colors/font_color = Color(0.8, 0.72, 0.5, 1)
+text = "ACCESSIBLE ITEMS"
 [node name="Items" type="VBoxContainer" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -94,8 +148,7 @@ layout_mode = 2
 [node name="Arena" type="PanelContainer" parent="Main"]
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_stretch_ratio = 4.0
-
+size_flags_stretch_ratio = 5.0
 [node name="TacticalArenaView" type="Control" parent="Main/Arena"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(520, 300)
@@ -104,19 +157,33 @@ mouse_filter = 0
 script = ExtResource("2_view")
 
 [node name="Right" type="PanelContainer" parent="Main"]
-custom_minimum_size = Vector2(220, 0)
+custom_minimum_size = Vector2(252, 0)
 layout_mode = 2
-
 [node name="RightMargin" type="MarginContainer" parent="Main/Right"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 10
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 10
-
-[node name="TargetLabel" type="RichTextLabel" parent="Main/Right/RightMargin"]
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+[node name="RightContent" type="VBoxContainer" parent="Main/Right/RightMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+[node name="TargetName" type="Label" parent="Main/Right/RightMargin/RightContent"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.48, 0.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "SECTOR CONTEXT"
+[node name="TargetBody" type="Control" parent="Main/Right/RightMargin/RightContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 220)
+layout_mode = 2
+script = ExtResource("3_body")
+[node name="TargetLabel" type="RichTextLabel" parent="Main/Right/RightMargin/RightContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 150)
+layout_mode = 2
+size_flags_vertical = 3
 bbcode_enabled = true
 fit_content = true
 
@@ -126,38 +193,129 @@ anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -184.0
+offset_top = -106.0
 grow_horizontal = 2
 grow_vertical = 0
-
 [node name="BottomMargin" type="MarginContainer" parent="Bottom"]
 layout_mode = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 8
-
 [node name="BottomContent" type="VBoxContainer" parent="Bottom/BottomMargin"]
 layout_mode = 2
-
 [node name="FeedbackLabel" type="Label" parent="Bottom/BottomMargin/BottomContent"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.86, 0.79, 0.65, 1)
-text = "Select a sector, then choose an action."
-
-[node name="ActionScroll" type="ScrollContainer" parent="Bottom/BottomMargin/BottomContent"]
-custom_minimum_size = Vector2(0, 130)
+text = "Select terrain to move or an entity for contextual actions."
+[node name="ForecastRow" type="HBoxContainer" parent="Bottom/BottomMargin/BottomContent"]
 layout_mode = 2
-size_flags_vertical = 3
-horizontal_scroll_mode = 0
-vertical_scroll_mode = 1
-
-[node name="Actions" type="GridContainer" parent="Bottom/BottomMargin/BottomContent/ActionScroll"]
+[node name="ForecastLabel" type="Label" parent="Bottom/BottomMargin/BottomContent/ForecastRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-columns = 5
+theme_override_colors/font_color = Color(0.62, 0.82, 0.76, 1)
+text = "NO ACTION STAGED"
+text_overrun_behavior = 3
+[node name="CommandButton" type="Button" parent="Bottom/BottomMargin/BottomContent/ForecastRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(118, 38)
+layout_mode = 2
+text = "COMMAND"
+[node name="CancelButton" type="Button" parent="Bottom/BottomMargin/BottomContent/ForecastRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 38)
+layout_mode = 2
+text = "CANCEL"
+[node name="ConfirmButton" type="Button" parent="Bottom/BottomMargin/BottomContent/ForecastRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 38)
+layout_mode = 2
+text = "CONFIRM"
+
+[node name="CommandWheel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -190.0
+offset_right = 260.0
+offset_bottom = 190.0
+grow_horizontal = 2
+grow_vertical = 2
+[node name="WheelButtons" type="Control" parent="CommandWheel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(520, 380)
+layout_mode = 2
+[node name="FamilyPanel" type="PanelContainer" parent="CommandWheel/WheelButtons"]
+layout_mode = 0
+offset_left = 145.0
+offset_top = 80.0
+offset_right = 375.0
+offset_bottom = 295.0
+[node name="FamilyContent" type="VBoxContainer" parent="CommandWheel/WheelButtons/FamilyPanel"]
+layout_mode = 2
+[node name="FamilyTitle" type="Label" parent="CommandWheel/WheelButtons/FamilyPanel/FamilyContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94, 0.79, 0.42, 1)
+text = "MOVE"
+horizontal_alignment = 1
+[node name="FamilyActions" type="VBoxContainer" parent="CommandWheel/WheelButtons/FamilyPanel/FamilyContent"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ContextMenu" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 0
+offset_right = 220.0
+offset_bottom = 220.0
+[node name="ContextContent" type="VBoxContainer" parent="ContextMenu"]
+layout_mode = 2
+[node name="ContextTitle" type="Label" parent="ContextMenu/ContextContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94, 0.64, 0.46, 1)
+text = "TARGET"
+horizontal_alignment = 1
+[node name="ContextActions" type="VBoxContainer" parent="ContextMenu/ContextContent"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="AimPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -185.0
+offset_top = -255.0
+offset_right = 185.0
+offset_bottom = 255.0
+grow_horizontal = 2
+grow_vertical = 2
+[node name="AimContent" type="VBoxContainer" parent="AimPanel"]
+layout_mode = 2
+[node name="AimTitle" type="Label" parent="AimPanel/AimContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94, 0.79, 0.42, 1)
+theme_override_font_sizes/font_size = 18
+text = "SELECT BODY REGION"
+horizontal_alignment = 1
+[node name="AimBody" type="Control" parent="AimPanel/AimContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(350, 450)
+layout_mode = 2
+script = ExtResource("3_body")
 
 [node name="ReactionPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
@@ -167,13 +325,12 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -260.0
-offset_top = -172.0
-offset_right = 260.0
-offset_bottom = -112.0
+offset_left = -280.0
+offset_top = -176.0
+offset_right = 280.0
+offset_bottom = -120.0
 grow_horizontal = 2
 grow_vertical = 0
-
 [node name="ReactionActions" type="HBoxContainer" parent="ReactionPanel"]
 unique_name_in_owner = true
 layout_mode = 2

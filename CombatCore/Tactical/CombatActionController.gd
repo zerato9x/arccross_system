@@ -47,24 +47,16 @@ func configure(
 func _register_resolvers() -> void:
 	_resolvers = {
 		"move": Callable(self, "_resolve_move"),
-		"turn": Callable(self, "_resolve_turn"),
 		"change_posture": Callable(self, "_resolve_posture"),
 		"disengage": Callable(self, "_resolve_disengage"),
-		"rush": Callable(self, "_resolve_rush"),
 		"brace": Callable(self, "_resolve_brace"),
 		"take_cover": Callable(self, "_resolve_take_cover"),
 		"escape": Callable(self, "_resolve_escape"),
-		"reserve": Callable(self, "_resolve_reserve"),
+		"end_turn": Callable(self, "_resolve_end_turn"),
 		"strike": Callable(self, "_resolve_strike"),
-		"heavy_strike": Callable(self, "_resolve_heavy_strike"),
+		"power_strike": Callable(self, "_resolve_power_strike"),
+		"aimed_strike": Callable(self, "_resolve_aimed_strike"),
 		"shove": Callable(self, "_resolve_shove"),
-		"grapple": Callable(self, "_resolve_grapple"),
-		"drag": Callable(self, "_resolve_drag"),
-		"takedown": Callable(self, "_resolve_takedown"),
-		"throw": Callable(self, "_resolve_throw"),
-		"restrain": Callable(self, "_resolve_restrain"),
-		"release": Callable(self, "_resolve_release"),
-		"break_free": Callable(self, "_resolve_break_free"),
 		"fire": Callable(self, "_resolve_fire"),
 		"aimed_fire": Callable(self, "_resolve_aimed_fire"),
 		"reload": Callable(self, "_resolve_reload"),
@@ -111,11 +103,6 @@ func quote(request: CombatActionRequest) -> CombatActionQuote:
 	var requirement_denial := _validate_requirements(actor, definition)
 	if not requirement_denial.is_empty():
 		return result.deny(str(requirement_denial.code), str(requirement_denial.message))
-	if not definition.required_control_state.is_empty() and board.control_role(actor) != definition.required_control_state:
-		return result.deny("control_state_required", "This action requires the %s grapple role." % definition.required_control_state)
-	if board.control_role(actor) == "controlled" and request.action_id not in ["break_free", "release"]:
-		return result.deny("grapple_controlled", "A controlled actor must break free before acting.")
-
 	var target := actor_by_id(request.target_actor_id)
 	if definition.target_mode == CombatActionDefinition.TARGET_ACTOR:
 		if target == null or target == actor:
@@ -125,18 +112,10 @@ func quote(request: CombatActionRequest) -> CombatActionQuote:
 		return result.deny("invalid_target_sector", "Select a sector inside the arena.")
 
 	if definition.target_mode == CombatActionDefinition.TARGET_PATH:
-		var path_check := (
-			_validate_drag_path(actor, request.path)
-			if request.action_id == "drag"
-			else board.validate_path(actor, request.path)
-		)
+		var path_check := board.validate_path(actor, request.path)
 		if not bool(path_check.valid):
 			return result.deny(str(path_check.code), _path_denial(str(path_check.code)))
 		var indices: Array = path_check.path
-		if request.action_id == "rush" and indices.size() - 1 > 3:
-			return result.deny("rush_too_long", "Rush paths may cross at most three sectors.")
-		if request.action_id == "drag" and indices.size() != 2:
-			return result.deny("drag_one_step", "Drag advances exactly one sector.")
 		for index in indices:
 			result.path.append(CombatArenaState.coords_for_index(int(index)))
 		result.target_sector = result.path.back()
@@ -153,10 +132,13 @@ func quote(request: CombatActionRequest) -> CombatActionQuote:
 	if definition.minimum_range_cells > 0 and result.range_cells < definition.minimum_range_cells:
 		return result.deny("target_too_close", "The target is inside the action's minimum range.")
 	var maximum_range := definition.maximum_range_cells
-	if request.action_id in ["strike", "heavy_strike", "opportunity_strike"]:
+	if request.action_id in ["strike", "power_strike", "aimed_strike", "opportunity_strike"]:
 		maximum_range = board.weapon_reach(actor)
 	if maximum_range > 0 and result.range_cells > maximum_range:
 		return result.deny("target_out_of_range", "The target is outside the action's range.")
+	if request.action_id in ["strike", "power_strike", "aimed_strike", "opportunity_strike"] and target != null:
+		if not board.can_melee_reach(actor, target_index):
+			return result.deny("cardinal_reach_required", "Melee reach travels only along a clear cardinal line.")
 	result.has_line_of_sight = board.has_line_of_sight(origin_index, target_index)
 	if definition.requires_line_of_sight and not result.has_line_of_sight:
 		return result.deny("line_of_sight_blocked", "No clear line of sight reaches the target.")
@@ -171,10 +153,11 @@ func quote(request: CombatActionRequest) -> CombatActionQuote:
 		result.ap_cost += result.movement_cost
 	if not turn_manager.can_commit_action_cost(actor, result.ap_cost):
 		return result.deny("insufficient_ap", "Needs %d AP; %d remains." % [result.ap_cost, turn_manager.current_ap_pool])
-	if request.action_id in ["shove", "throw"] and target != null:
+	if request.action_id == "shove" and target != null:
 		result.collision_preview = board.preview_shove(actor, target)
 		if str(result.collision_preview.get("type", "")) == "clear":
 			result.predicted_displacement.append({"actor_id": request.target_actor_id, "to": result.collision_preview.destination})
+	result.forecast = resolution_engine.build_forecast(request, definition, actor, target, result)
 	return result.allow()
 
 
@@ -276,27 +259,13 @@ func refresh_snapshot() -> void:
 
 
 func movement_step_base(actor: HumanoidCore) -> int:
+	var posture_cost := 1 if board != null and board.posture(actor) == "crouched" else 0
 	match actor.kinetic_tier:
 		GameEnums.KineticTier.LABORED:
-			return 3
+			return 3 + posture_cost
 		GameEnums.KineticTier.AGONIZING:
-			return 4
-	return 2
-
-
-func _validate_drag_path(actor: HumanoidCore, requested: Array[Vector2i]) -> Dictionary:
-	var controlled := board.grapple_target(actor)
-	if controlled == null or requested.size() != 2:
-		return {"valid": false, "code": "drag_one_step", "path": []}
-	var origin := board.position_of(actor)
-	var destination := board.position_of(controlled)
-	if (
-		CombatArenaState.index_for_coords(requested[0]) != origin
-		or CombatArenaState.index_for_coords(requested[1]) != destination
-		or board.grid_distance(origin, destination) != 1
-	):
-		return {"valid": false, "code": "drag_through_target", "path": []}
-	return {"valid": true, "code": "", "path": [origin, destination]}
+			return 4 + posture_cost
+	return 2 + posture_cost
 
 
 func _validate_requirements(actor: HumanoidCore, definition: CombatActionDefinition) -> Dictionary:
@@ -320,12 +289,12 @@ func _validate_specific(
 	_definition: CombatActionDefinition,
 	result: CombatActionQuote
 ) -> Dictionary:
+	if request.action_id in ["aimed_strike", "aimed_fire"]:
+		if request.target_body_region < 0 or request.target_body_region >= GameEnums.LimbRegion.keys().size():
+			return {"code": "body_region_required", "message": "Select a body region on the target."}
 	match request.action_id:
 		"block", "dodge", "opportunity_strike":
 			return {"code": "reaction_only", "message": "This action is only available from a reaction prompt."}
-		"turn":
-			if request.final_facing not in CombatBoard.FACINGS or request.final_facing == board.get_facing(actor):
-				return {"code": "invalid_facing", "message": "Choose a different cardinal facing."}
 		"stand":
 			if board.posture(actor) == "standing":
 				return {"code": "posture_unchanged", "message": "The actor is already standing."}
@@ -334,25 +303,12 @@ func _validate_specific(
 		"crouch":
 			if board.posture(actor) != "standing":
 				return {"code": "standing_required", "message": "Crouching begins from standing."}
-		"go_prone":
-			if board.posture(actor) == "prone":
-				return {"code": "posture_unchanged", "message": "The actor is already prone."}
-		"move", "rush", "disengage":
+		"move", "disengage":
 			if request.final_facing.is_empty():
 				result.final_facing = board.facing_toward(board.position_of(actor), CombatArenaState.index_for_coords(result.target_sector))
-		"shove", "grapple":
+		"shove":
 			if target == null or board.grid_distance(board.position_of(actor), board.position_of(target)) != 1:
 				return {"code": "cardinal_adjacency_required", "message": "This action requires cardinal adjacency."}
-		"drag":
-			var controlled := board.grapple_target(actor)
-			if controlled == null:
-				return {"code": "no_controlled_target", "message": "No adjacent actor is under control."}
-			var destination := CombatArenaState.index_for_coords(result.target_sector)
-			if destination != board.position_of(controlled):
-				return {"code": "drag_through_target", "message": "Drag advances through the controlled actor's sector."}
-		"takedown", "throw", "restrain":
-			if target == null or board.grapple_target(actor) != target:
-				return {"code": "controlled_target_required", "message": "Select the actor currently under your control."}
 		"fire", "aimed_fire":
 			var weapon := actor.inventory.get_active_weapon(false)
 			if weapon == null or not weapon.is_ready_to_fire():
@@ -429,21 +385,12 @@ func _resolve_move(request: CombatActionRequest, action_quote: CombatActionQuote
 	return outcome
 
 
-func _resolve_turn(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
-	var outcome := _outcome(request)
-	var actor := actor_by_id(request.actor_id)
-	outcome.committed = board.set_facing(actor, request.final_facing)
-	outcome.actor_changes.append({"actor_id": request.actor_id, "facing": request.final_facing})
-	return outcome
-
-
 func _resolve_posture(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
 	var outcome := _outcome(request)
 	var actor := actor_by_id(request.actor_id)
 	var next_posture := {
 		"stand": "standing",
 		"crouch": "crouched",
-		"go_prone": "prone",
 	}.get(request.action_id, "standing") as String
 	outcome.committed = board.set_posture(actor, next_posture)
 	if outcome.committed:
@@ -458,15 +405,6 @@ func _resolve_disengage(request: CombatActionRequest, action_quote: CombatAction
 	if not request.final_facing.is_empty():
 		board.set_facing(actor, request.final_facing)
 	outcome.committed = not outcome.actor_changes.is_empty()
-	return outcome
-
-
-func _resolve_rush(request: CombatActionRequest, action_quote: CombatActionQuote) -> CombatActionOutcome:
-	var outcome := await _resolve_move(request, action_quote)
-	if outcome.committed:
-		var actor := actor_by_id(request.actor_id)
-		board._tactics(actor)["momentum"] = action_quote.path.size() - 1
-		outcome.actor_changes.append({"actor_id": request.actor_id, "momentum": action_quote.path.size() - 1})
 	return outcome
 
 
@@ -498,7 +436,7 @@ func _resolve_escape(request: CombatActionRequest, _quote: CombatActionQuote) ->
 	return outcome
 
 
-func _resolve_reserve(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
+func _resolve_end_turn(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
 	var outcome := _outcome(request)
 	turn_manager.pass_turn(actor_by_id(request.actor_id))
 	outcome.committed = true
@@ -510,18 +448,31 @@ func _resolve_strike(request: CombatActionRequest, _quote: CombatActionQuote) ->
 	var actor := actor_by_id(request.actor_id)
 	var target := actor_by_id(request.target_actor_id)
 	board.set_facing(actor, board.facing_toward(board.position_of(actor), board.position_of(target)))
-	await resolution_engine.execute_melee_strike(actor, target)
-	board._tactics(actor)["momentum"] = 0
+	var definition := catalog.definition(request.action_id)
+	await resolution_engine.execute_melee_strike(actor, target, -1, definition.effect_profile, definition.targeting_profile, request.action_id)
 	outcome.committed = true
 	return outcome
 
 
-func _resolve_heavy_strike(request: CombatActionRequest, action_quote: CombatActionQuote) -> CombatActionOutcome:
-	var outcome := await _resolve_strike(request, action_quote)
-	if outcome.committed:
-		var target := actor_by_id(request.target_actor_id)
-		board.set_condition(target, "off_balance", true)
-		outcome.actor_changes.append({"actor_id": request.target_actor_id, "off_balance": true})
+func _resolve_power_strike(request: CombatActionRequest, action_quote: CombatActionQuote) -> CombatActionOutcome:
+	return await _resolve_strike(request, action_quote)
+
+
+func _resolve_aimed_strike(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
+	var outcome := _outcome(request)
+	var actor := actor_by_id(request.actor_id)
+	var target := actor_by_id(request.target_actor_id)
+	var definition := catalog.definition(request.action_id)
+	board.set_facing(actor, board.facing_toward(board.position_of(actor), board.position_of(target)))
+	await resolution_engine.execute_melee_strike(
+		actor,
+		target,
+		request.target_body_region,
+		definition.effect_profile,
+		definition.targeting_profile,
+		request.action_id
+	)
+	outcome.committed = true
 	return outcome
 
 
@@ -551,99 +502,18 @@ func _resolve_shove(request: CombatActionRequest, _quote: CombatActionQuote) -> 
 	return outcome
 
 
-func _resolve_grapple(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
-	var outcome := _outcome(request)
-	var actor := actor_by_id(request.actor_id)
-	var target := actor_by_id(request.target_actor_id)
-	var opposed := _opposed_control_roll(actor, target, 0.0)
-	outcome.rolls.append(opposed)
-	if float(opposed.margin) > 0.0:
-		outcome.committed = board.establish_grapple(actor, target)
-		outcome.actor_changes.append({"controller_id": request.actor_id, "controlled_id": request.target_actor_id})
-	else:
-		if float(opposed.margin) <= -4.0:
-			board.set_condition(actor, "off_balance", true)
-		outcome.message = "The grapple failed."
-		outcome.committed = true
-	return outcome
-
-
-func _resolve_drag(request: CombatActionRequest, action_quote: CombatActionQuote) -> CombatActionOutcome:
-	var outcome := _outcome(request)
-	var actor := actor_by_id(request.actor_id)
-	var indices := _quote_path_indices(action_quote)
-	outcome.actor_changes = board.commit_drag(actor, int(indices.back()))
-	outcome.committed = not outcome.actor_changes.is_empty()
-	return outcome
-
-
-func _resolve_takedown(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
-	var outcome := _outcome(request)
-	var actor := actor_by_id(request.actor_id)
-	var target := actor_by_id(request.target_actor_id)
-	var opposed := _opposed_control_roll(actor, target, 2.0 if board.has_condition(target, "restrained") else 0.0)
-	outcome.rolls.append(opposed)
-	if float(opposed.margin) > 0.0:
-		board.set_posture(target, "prone")
-		outcome.actor_changes.append({"actor_id": request.target_actor_id, "posture": "prone"})
-	else:
-		outcome.message = "The takedown failed."
-	outcome.committed = true
-	return outcome
-
-
-func _resolve_throw(request: CombatActionRequest, action_quote: CombatActionQuote) -> CombatActionOutcome:
-	var outcome := _resolve_shove(request, action_quote)
-	board.break_grapple(actor_by_id(request.actor_id))
-	outcome.actor_changes.append({"actor_id": request.target_actor_id, "control_released": true})
-	return outcome
-
-
-func _resolve_restrain(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
-	var outcome := _outcome(request)
-	var actor := actor_by_id(request.actor_id)
-	var target := actor_by_id(request.target_actor_id)
-	var opposed := _opposed_control_roll(actor, target, 2.0)
-	outcome.rolls.append(opposed)
-	if float(opposed.margin) > 0.0:
-		board.set_condition(target, "restrained", true)
-		outcome.actor_changes.append({"actor_id": request.target_actor_id, "restrained": true})
-	else:
-		outcome.message = "The restraint attempt failed."
-	outcome.committed = true
-	return outcome
-
-
-func _resolve_release(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
-	var outcome := _outcome(request)
-	board.break_grapple(actor_by_id(request.actor_id))
-	outcome.actor_changes.append({"actor_id": request.actor_id, "control_released": true})
-	outcome.committed = true
-	return outcome
-
-
-func _resolve_break_free(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
-	var outcome := _outcome(request)
-	var actor := actor_by_id(request.actor_id)
-	var controller := board.grapple_controller(actor)
-	var defense_bonus := -3.0 if board.has_condition(actor, "restrained") else 0.0
-	var opposed := _opposed_control_roll(actor, controller, defense_bonus)
-	outcome.rolls.append(opposed)
-	if float(opposed.margin) > 0.0:
-		board.break_grapple(actor)
-		outcome.actor_changes.append({"actor_id": request.actor_id, "control_broken": true})
-	else:
-		outcome.message = "The break-free attempt failed."
-	outcome.committed = true
-	return outcome
-
-
 func _resolve_fire(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
 	var outcome := _outcome(request)
 	var actor := actor_by_id(request.actor_id)
 	var target := actor_by_id(request.target_actor_id)
+	var definition := catalog.definition(request.action_id)
 	board.set_facing(actor, board.facing_toward(board.position_of(actor), board.position_of(target)))
-	await resolution_engine.execute_ranged_strike(actor, board.position_of(target))
+	await resolution_engine.execute_ranged_strike(
+		actor,
+		board.position_of(target),
+		definition.effect_profile,
+		definition.targeting_profile
+	)
 	outcome.committed = true
 	return outcome
 
@@ -652,9 +522,15 @@ func _resolve_aimed_fire(request: CombatActionRequest, _quote: CombatActionQuote
 	var outcome := _outcome(request)
 	var actor := actor_by_id(request.actor_id)
 	var target := actor_by_id(request.target_actor_id)
-	var region := int(request.metadata.get("body_region", GameEnums.LimbRegion.UPPER_TORSO))
+	var definition := catalog.definition(request.action_id)
 	board.set_facing(actor, board.facing_toward(board.position_of(actor), board.position_of(target)))
-	await resolution_engine.execute_aimed_shot(actor, board.position_of(target), region)
+	await resolution_engine.execute_aimed_shot(
+		actor,
+		board.position_of(target),
+		request.target_body_region,
+		definition.effect_profile,
+		definition.targeting_profile
+	)
 	outcome.committed = true
 	return outcome
 
@@ -815,16 +691,14 @@ func _control_score(actor: HumanoidCore) -> float:
 		actor.body.get_limb_function(GameEnums.LimbRegion.LEFT_ARM)
 		+ actor.body.get_limb_function(GameEnums.LimbRegion.RIGHT_ARM)
 	) / GameEnums.SCALE_MAX
-	var posture_modifier: float = float({"standing": 2.0, "crouched": 1.0, "prone": -3.0}.get(board.posture(actor), 0.0))
-	var momentum := float(board._tactics(actor).get("momentum", 0))
+	var posture_modifier: float = float({"standing": 2.0, "crouched": 1.0}.get(board.posture(actor), 0.0))
 	var brace := 2.0 if board.has_condition(actor, "braced") else 0.0
 	var balance := -2.0 if board.has_condition(actor, "off_balance") else 0.0
-	var restraint := -3.0 if board.has_condition(actor, "restrained") else 0.0
 	var grip := 0.0
 	var sector_index := board.position_of(actor)
 	if sector_index >= 0:
 		grip = -float(board.sectors[sector_index].hazard_state.get("grip_penalty", 0.0))
-	return float(actor.definition.brawn) + arms + posture_modifier + momentum + brace + balance + restraint + grip - float(actor.total_burden) * 0.25
+	return float(actor.definition.brawn) + arms + posture_modifier + brace + balance + grip - float(actor.total_burden) * 0.25
 
 
 func _has_reload_source(actor: HumanoidCore, weapon: ItemData) -> bool:
@@ -869,6 +743,7 @@ func _actor_snapshot(actor: HumanoidCore) -> Dictionary:
 			"name": item.display_name,
 			"access": actor.inventory.get_access_tier(item),
 			"location": item.physical_location,
+			"equipped_slot": item.equipped_slot,
 			"condition": item.current_condition,
 			"quantity": item.stack_count,
 		})
@@ -880,7 +755,6 @@ func _actor_snapshot(actor: HumanoidCore) -> Dictionary:
 		"facing": board.get_facing(actor),
 		"posture": board.posture(actor),
 		"conditions": board._tactics(actor).duplicate(true),
-		"control_role": board.control_role(actor),
 		"blood": actor.body.blood_level,
 		"pain": actor.body.get_total_pain(),
 		"shock": actor.body.shock,

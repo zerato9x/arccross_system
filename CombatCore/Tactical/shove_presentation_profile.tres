@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CombatPresentationProfile" load_steps=2 format=3]
+[ext_resource type="Script" path="res://CombatCore/Tactical/CombatPresentationProfile.gd" id="1"]
+[resource]
+script = ExtResource("1")
+profile_id = "shove"
+wind_up_seconds = 0.12
+transit_seconds = 0.08
+contact_seconds = 0.12
+reaction_seconds = 0.12
+impact_seconds = 0.14
+settle_seconds = 0.12
+actor_animation_id = "Attack1"
+target_animation_id = "TakeDamage"
+vfx_id = "shove_contact"

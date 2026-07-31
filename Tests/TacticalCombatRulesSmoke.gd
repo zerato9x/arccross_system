@@ -45,15 +45,16 @@ func _run() -> void:
 		return
 	if not _shove_checks():
 		return
-	if not _grapple_checks():
+	if not _melee_geometry_checks():
+		return
+	if not _forecast_and_catalog_checks():
 		return
 	print("[TACTICAL_COMBAT_RULES] PASS")
 	quit(0)
 
 
 func _transaction_and_movement_checks() -> bool:
-	var invalid := _request("turn")
-	invalid.final_facing = _board.get_facing(_alpha)
+	var invalid := _request("move")
 	var before_ap := _turns.current_ap_pool
 	var before_state := _board.snapshot()
 	var before_rng := _controller._rng.state
@@ -87,18 +88,20 @@ func _transaction_and_movement_checks() -> bool:
 
 func _posture_checks() -> bool:
 	_turns.current_ap_pool = 12
-	var prone := _request("go_prone")
-	var quote := _controller.quote(prone)
+	var crouch := _request("crouch")
+	var quote := _controller.quote(crouch)
 	if not quote.legal:
-		return _fail("Go Prone was not exposed as a legal authored action.")
-	var outcome := await _controller.request_action(prone)
-	if not outcome.committed or _board.posture(_alpha) != "prone":
-		return _fail("Go Prone did not commit discrete posture state.")
+		return _fail("Crouch was not exposed as a legal authored action.")
+	var outcome := await _controller.request_action(crouch)
+	if not outcome.committed or _board.posture(_alpha) != "crouched":
+		return _fail("Crouch did not commit discrete posture state.")
+	if _controller.movement_step_base(_alpha) != 3:
+		return _fail("Crouch did not add one AP to fluid movement steps.")
 	_turns.current_ap_pool = 12
 	var stand := _request("stand")
 	var stand_outcome := await _controller.request_action(stand)
 	if not stand_outcome.committed or _board.posture(_alpha) != "standing":
-		return _fail("Stand did not recover from prone posture.")
+		return _fail("Stand did not recover from crouched posture.")
 	return true
 
 
@@ -109,8 +112,8 @@ func _shove_checks() -> bool:
 	if _board.preview_shove(_alpha, _bravo).get("type") != "clear":
 		return _fail("Clear shove displacement was not predicted.")
 	var clear_result := _board.commit_shove(_alpha, _bravo, 4.0, 2.0)
-	if not clear_result.get("moved", false) or _board.posture(_bravo) != "prone":
-		return _fail("Strong clear shove did not move and knock prone.")
+	if not clear_result.get("moved", false) or not _board.has_condition(_bravo, "off_balance"):
+		return _fail("Strong clear shove did not move and apply off-balance.")
 
 	_clear_occupants()
 	_deploy(_alpha, Vector2i(1, 2), "player")
@@ -141,21 +144,43 @@ func _shove_checks() -> bool:
 	return true
 
 
-func _grapple_checks() -> bool:
+func _melee_geometry_checks() -> bool:
+	_clear_occupants()
+	_deploy(_alpha, Vector2i(2, 2), "player")
+	_deploy(_bravo, Vector2i(3, 3), "enemy")
+	if _board.grid_distance(_board.position_of(_alpha), _board.position_of(_bravo)) != 2:
+		return _fail("Diagonal adjacency was not measured as distance two.")
+	if _board.can_melee_reach(_alpha, _board.position_of(_bravo)):
+		return _fail("Reach-one melee illegally attacked a diagonal sector.")
 	_clear_occupants()
 	_deploy(_alpha, Vector2i(2, 2), "player")
 	_deploy(_bravo, Vector2i(3, 2), "enemy")
-	if not _board.establish_grapple(_alpha, _bravo):
-		return _fail("Adjacent grapple control could not be established.")
-	_board.set_condition(_bravo, "restrained", true)
-	if _board.control_role(_alpha) != "controller" or _board.control_role(_bravo) != "controlled":
-		return _fail("Grapple roles were not persistent and directional.")
-	var dragged := _board.commit_drag(_alpha, _index(Vector2i(3, 2)))
-	if dragged.size() != 2 or _board.grid_distance(_board.position_of(_alpha), _board.position_of(_bravo)) != 1:
-		return _fail("Drag did not preserve adjacent grapple control.")
-	_board.break_grapple(_alpha)
-	if not _board.control_role(_alpha).is_empty() or _board.has_condition(_bravo, "restrained"):
-		return _fail("Release did not clear control transients.")
+	if not _board.can_melee_reach(_alpha, _board.position_of(_bravo)):
+		return _fail("Cardinal adjacency did not enable reach-one melee.")
+	return true
+
+
+func _forecast_and_catalog_checks() -> bool:
+	for removed_id in ["go_prone", "rush", "reserve", "grapple", "drag", "takedown", "throw", "restrain", "release", "break_free", "heavy_strike"]:
+		if _controller.catalog.definition(removed_id) != null:
+			return _fail("Removed action remained in the production catalog: %s" % removed_id)
+	for required_id in ["move", "strike", "power_strike", "aimed_strike", "shove", "fire", "aimed_fire", "end_turn"]:
+		if _controller.catalog.definition(required_id) == null:
+			return _fail("Required contextual action is missing: %s" % required_id)
+	_turns.current_ap_pool = 12
+	var aimed := _request("aimed_strike")
+	aimed.target_actor_id = "bravo"
+	aimed.target_body_region = GameEnums.LimbRegion.HEAD
+	var before_rng := _controller._rng.state
+	var action_quote := _controller.preview(aimed)
+	if not action_quote.legal or action_quote.forecast == null:
+		return _fail("Aimed strike did not produce a legal typed forecast.")
+	if action_quote.forecast.target_body_region != GameEnums.LimbRegion.HEAD:
+		return _fail("Aimed strike forecast lost the selected body region.")
+	if action_quote.forecast.hit_probability <= 0.0 or action_quote.forecast.hit_probability > 1.0:
+		return _fail("Forecast hit probability escaped its valid range.")
+	if _controller._rng.state != before_rng:
+		return _fail("Read-only forecasting advanced tactical RNG.")
 	return true
 
 

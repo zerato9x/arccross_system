@@ -114,16 +114,6 @@ func get_initiative_roll() -> float:
 	
 	return (randf() * 12.0) + reaction_speed - encumbrance_penalty
 
-func get_grapple_strength() -> float:
-	var muscle: float = float(definition.brawn)
-	
-	var structural_health := (
-		body.get_limb_function(GameEnums.LimbRegion.UPPER_TORSO)
-		+ body.get_limb_function(GameEnums.LimbRegion.LOWER_TORSO)
-	) / (GameEnums.SCALE_MAX * 2.0)
-	
-	return muscle * structural_health
-
 func get_combat_accuracy(is_ranged: bool) -> float:
 	if is_ranged:
 		return definition.finesse / 12.0 

@@ -32,19 +32,81 @@ const BALLISTIC_REGIONS := [
 ]
 
 
-func execute_ranged_strike(attacker: HumanoidCore, target_index: int) -> bool:
-	return await _execute_shot(attacker, target_index, false, GameEnums.LimbRegion.UPPER_TORSO)
+func build_forecast(
+	request: CombatActionRequest,
+	definition: CombatActionDefinition,
+	attacker: HumanoidCore,
+	defender: HumanoidCore,
+	action_quote: CombatActionQuote
+) -> CombatForecastRecord:
+	var forecast := CombatForecastRecord.new()
+	if attacker == null or defender == null or definition == null:
+		return forecast
+	if request.action_id not in ["strike", "power_strike", "aimed_strike", "fire", "aimed_fire"]:
+		return forecast
+	var aimed := request.action_id in ["aimed_strike", "aimed_fire"]
+	var region := request.target_body_region if aimed else GameEnums.LimbRegion.UPPER_TORSO
+	forecast.target_body_region = region if aimed else -1
+	var targeting := definition.targeting_profile
+	if targeting != null:
+		forecast.probable_body_regions = targeting.weighted_regions()
+	var effect := definition.effect_profile
+	var accuracy_modifier := effect.accuracy_modifier if effect != null else 0.0
+	if aimed and targeting != null:
+		accuracy_modifier += targeting.accuracy_modifier(region)
+	var is_melee := request.action_id in ["strike", "power_strike", "aimed_strike"]
+	var weapon := attacker.inventory.get_active_weapon(is_melee)
+	if is_melee:
+		forecast.hit_probability = _melee_hit_chance(attacker, defender, accuracy_modifier)
+	elif weapon != null:
+		forecast.hit_probability = _ranged_hit_chance(
+			attacker, defender, weapon, board.position_of(attacker), board.position_of(defender), accuracy_modifier
+		)
+	forecast.attack_arc = str(board.attack_arc(attacker, defender).get("arc", "front"))
+	if weapon == null:
+		forecast.bleeding_risk = "low"
+		forecast.severe_wound_risk = _risk_band(2.0 * forecast.hit_probability)
+		forecast.incapacity_risk = "low"
+		return forecast
+	forecast.armor_penetration = weapon.armor_penetration + (effect.penetration_modifier if effect != null else 0.0)
+	forecast.armor_protection = defender.inventory.preview_protection(weapon.damage_type, region)
+	forecast.armor_result = _armor_result(forecast.armor_penetration, forecast.armor_protection)
+	var damage := weapon.flesh_damage * (effect.damage_multiplier if effect != null else 1.0)
+	damage = maxf(0.05, damage - maxf(0.0, forecast.armor_protection - forecast.armor_penetration) * 0.5)
+	forecast.severe_wound_risk = _risk_band(damage * forecast.hit_probability)
+	forecast.incapacity_risk = _risk_band(damage * forecast.hit_probability * (1.35 if region in [GameEnums.LimbRegion.HEAD, GameEnums.LimbRegion.UPPER_TORSO] else 0.55))
+	forecast.bleeding_risk = _risk_band(damage * forecast.hit_probability * (1.2 if weapon.damage_type in [GameEnums.DamageType.SHARP, GameEnums.DamageType.BALLISTIC] else 0.35))
+	if action_quote.cover_strength > 0.0:
+		forecast.notes.append("Directional cover may intercept the hit.")
+	return forecast
 
 
-func execute_aimed_shot(attacker: HumanoidCore, target_index: int, target_region: int) -> bool:
-	return await _execute_shot(attacker, target_index, true, target_region)
+func execute_ranged_strike(
+	attacker: HumanoidCore,
+	target_index: int,
+	effect_profile: CombatActionEffectProfile = null,
+	targeting_profile: CombatTargetingProfile = null
+) -> bool:
+	return await _execute_shot(attacker, target_index, false, -1, effect_profile, targeting_profile)
+
+
+func execute_aimed_shot(
+	attacker: HumanoidCore,
+	target_index: int,
+	target_region: int,
+	effect_profile: CombatActionEffectProfile = null,
+	targeting_profile: CombatTargetingProfile = null
+) -> bool:
+	return await _execute_shot(attacker, target_index, true, target_region, effect_profile, targeting_profile)
 
 
 func _execute_shot(
 	attacker: HumanoidCore,
 	target_index: int,
 	aimed: bool,
-	target_region: int
+	target_region: int,
+	effect_profile: CombatActionEffectProfile,
+	targeting_profile: CombatTargetingProfile
 ) -> bool:
 	if board == null or attacker == null or target_index < 0 or target_index >= board.sectors.size():
 		return false
@@ -70,11 +132,14 @@ func _execute_shot(
 	if reaction == "dodge" and _resolve_dodge(victim, attacker, distance):
 		_emit_shot(attacker, victim, origin_index, target_index, "dodge", target_region, {})
 		return true
-	var region := target_region if aimed else int(BALLISTIC_REGIONS.pick_random())
+	var region := target_region if aimed else _pick_region(targeting_profile, BALLISTIC_REGIONS)
 	if reaction == "block" and _resolve_block(victim, attacker, weapon, region):
 		_emit_shot(attacker, victim, origin_index, target_index, "block", region, {})
 		return true
-	var hit_chance := _ranged_hit_chance(attacker, victim, weapon, origin_index, target_index, aimed)
+	var accuracy_modifier := effect_profile.accuracy_modifier if effect_profile != null else (0.14 if aimed else 0.0)
+	if aimed and targeting_profile != null:
+		accuracy_modifier += targeting_profile.accuracy_modifier(region)
+	var hit_chance := _ranged_hit_chance(attacker, victim, weapon, origin_index, target_index, accuracy_modifier)
 	if randf() > hit_chance:
 		_emit_shot(attacker, victim, origin_index, target_index, "miss", region, {})
 		return true
@@ -88,40 +153,57 @@ func _execute_shot(
 		victim,
 		weapon,
 		region,
-		weapon.damage_multiplier_at_distance(distance),
+		weapon.damage_multiplier_at_distance(distance) * (effect_profile.damage_multiplier if effect_profile != null else 1.0),
+		effect_profile.penetration_modifier if effect_profile != null else 0.0,
 		"aimed_fire" if aimed else "fire"
 	)
 	_emit_shot(attacker, victim, origin_index, target_index, "hit", region, damage)
 	return true
 
 
-func execute_melee_strike(attacker: HumanoidCore, defender: HumanoidCore) -> bool:
+func execute_melee_strike(
+	attacker: HumanoidCore,
+	defender: HumanoidCore,
+	target_region: int = -1,
+	effect_profile: CombatActionEffectProfile = null,
+	targeting_profile: CombatTargetingProfile = null,
+	action_id: String = "strike"
+) -> bool:
 	if board == null or attacker == null or defender == null:
 		return false
 	var weapon := attacker.inventory.get_active_weapon(true)
-	var reach := board.weapon_reach(attacker)
-	if board.grid_distance(board.position_of(attacker), board.position_of(defender)) > reach:
+	if not board.can_melee_reach(attacker, board.position_of(defender)):
 		return false
 	board.set_facing(attacker, board.facing_toward(board.position_of(attacker), board.position_of(defender)))
-	action_started.emit(attacker, "strike")
-	var reaction := await _request_reaction(defender, attacker, "strike")
+	action_started.emit(attacker, action_id)
+	var reaction := await _request_reaction(defender, attacker, action_id)
 	if reaction == "dodge" and _resolve_dodge(defender, attacker, 1):
 		return true
 	if reaction == "block" and _resolve_block(defender, attacker, weapon, -1):
 		return true
-	var region := (
-		GameEnums.LimbRegion.HEAD
-		if board.posture(defender) == "prone"
-		else int(MELEE_REGIONS.pick_random())
-	)
+	var aimed := target_region >= 0
+	var region := target_region if aimed else _pick_region(targeting_profile, MELEE_REGIONS)
+	var accuracy_modifier := effect_profile.accuracy_modifier if effect_profile != null else 0.0
+	if aimed and targeting_profile != null:
+		accuracy_modifier += targeting_profile.accuracy_modifier(region)
+	if randf() > _melee_hit_chance(attacker, defender, accuracy_modifier):
+		return true
 	if weapon != null:
 		var condition := ItemConditionRules.resolve_use(weapon, ItemConditionRules.EVENT_MELEE)
-		var multiplier := float(condition.get("performance_multiplier", 1.0))
-		if board.posture(defender) == "prone":
-			multiplier *= 1.5
-		_apply_weapon_damage(attacker, defender, weapon, region, multiplier, "strike")
+		var multiplier := float(condition.get("performance_multiplier", 1.0)) * (effect_profile.damage_multiplier if effect_profile != null else 1.0)
+		_apply_weapon_damage(
+			attacker,
+			defender,
+			weapon,
+			region,
+			multiplier,
+			effect_profile.penetration_modifier if effect_profile != null else 0.0,
+			action_id
+		)
 	else:
-		_apply_unarmed_damage(attacker, defender, region)
+		_apply_unarmed_damage(attacker, defender, region, effect_profile.damage_multiplier if effect_profile != null else 1.0)
+	if effect_profile != null and effect_profile.applies_off_balance_on_hit:
+		board.set_condition(defender, "off_balance", true)
 	return true
 
 
@@ -184,7 +266,7 @@ func _ranged_hit_chance(
 	weapon: ItemData,
 	origin_index: int,
 	target_index: int,
-	aimed: bool
+	accuracy_modifier: float
 ) -> float:
 	var distance := board.grid_distance(origin_index, target_index)
 	var optimal_max := weapon.optimal_range_cells.y if weapon.optimal_range_cells.y > 0 else weapon.optimal_range_cells.x
@@ -197,11 +279,15 @@ func _ranged_hit_chance(
 	var visibility := board.sectors[target_index].record.visibility_penalty
 	var injury := 1.0 - clampf(attacker.body.get_limb_function(GameEnums.LimbRegion.RIGHT_ARM) / GameEnums.SCALE_MAX, 0.0, 1.0)
 	var arc := board.attack_arc(attacker, defender)
+	var posture_modifier := 0.03 if board.posture(attacker) == "crouched" else 0.0
+	if board.posture(defender) == "crouched":
+		posture_modifier -= 0.08
 	return clampf(
 		0.42
 		+ attacker.get_combat_accuracy(true) * 0.42
-		+ (0.14 if aimed else 0.0)
+		+ accuracy_modifier
 		+ float(arc.get("accuracy", 0.0))
+		+ posture_modifier
 		- range_pressure
 		- visibility
 		- injury * 0.25,
@@ -210,17 +296,61 @@ func _ranged_hit_chance(
 	)
 
 
+func _melee_hit_chance(attacker: HumanoidCore, defender: HumanoidCore, accuracy_modifier: float) -> float:
+	var arc := board.attack_arc(attacker, defender)
+	var injury := 1.0 - clampf(attacker.body.get_limb_function(GameEnums.LimbRegion.RIGHT_ARM) / GameEnums.SCALE_MAX, 0.0, 1.0)
+	var posture_modifier := -0.05 if board.posture(attacker) == "crouched" else 0.0
+	if board.has_condition(attacker, "off_balance"):
+		posture_modifier -= 0.12
+	return clampf(
+		0.50
+		+ attacker.get_combat_accuracy(false) * 0.34
+		+ float(arc.get("accuracy", 0.0))
+		+ accuracy_modifier
+		+ posture_modifier
+		- injury * 0.22,
+		0.05,
+		0.95
+	)
+
+
+func _pick_region(profile: CombatTargetingProfile, fallback: Array) -> int:
+	var regions: Array = profile.weighted_regions() if profile != null else fallback
+	return int(regions.pick_random()) if not regions.is_empty() else GameEnums.LimbRegion.UPPER_TORSO
+
+
+func _risk_band(value: float) -> String:
+	if value < 0.75:
+		return "low"
+	if value < 2.0:
+		return "moderate"
+	if value < 4.0:
+		return "high"
+	return "critical"
+
+
+func _armor_result(penetration: float, protection: float) -> String:
+	if protection <= 0.0:
+		return "unarmored"
+	if penetration >= protection * 1.25:
+		return "overmatched"
+	if penetration >= protection:
+		return "contested"
+	return "protected"
+
+
 func _apply_weapon_damage(
 	attacker: HumanoidCore,
 	victim: HumanoidCore,
 	weapon: ItemData,
 	region: int,
 	multiplier: float,
+	penetration_modifier: float,
 	source: String
 ) -> Dictionary:
 	var protection := victim.inventory.resolve_protection_event(weapon.damage_type, region)
 	var defense := float(protection.get("total_protection", 0.0))
-	var penetration := maxf(0.0, weapon.armor_penetration - defense)
+	var penetration := maxf(0.0, weapon.armor_penetration + penetration_modifier - defense)
 	var raw := maxf(0.0, weapon.flesh_damage * multiplier)
 	var flesh := maxf(0.05, raw - maxf(0.0, defense - weapon.armor_penetration) * 0.5)
 	victim.body.apply_targeted_hit(region, flesh, penetration, weapon.damage_type)
@@ -241,11 +371,11 @@ func _apply_weapon_damage(
 	return event
 
 
-func _apply_unarmed_damage(attacker: HumanoidCore, victim: HumanoidCore, region: int) -> Dictionary:
+func _apply_unarmed_damage(attacker: HumanoidCore, victim: HumanoidCore, region: int, multiplier: float = 1.0) -> Dictionary:
 	var protection := victim.inventory.resolve_protection_event(GameEnums.DamageType.BLUNT, region)
 	var unarmed := CombatRules.get_unarmed_damage(attacker.definition.brawn, float(protection.get("total_protection", 0.0)), 0.0)
-	var flesh := float(unarmed.get("flesh", 0.1))
-	var impact := float(unarmed.get("balance_impact", 1.0))
+	var flesh := float(unarmed.get("flesh", 0.1)) * multiplier
+	var impact := float(unarmed.get("balance_impact", 1.0)) * multiplier
 	victim.body.apply_targeted_hit(region, flesh, 0.0, GameEnums.DamageType.BLUNT)
 	_apply_balance_impact(victim, impact)
 	var event := {
@@ -312,7 +442,7 @@ func _resolve_block(
 
 
 func _resolve_dodge(defender: HumanoidCore, attacker: HumanoidCore, distance: int) -> bool:
-	if defender.body.are_both_legs_disabled() or board.posture(defender) == "prone":
+	if defender.body.are_both_legs_disabled():
 		return false
 	var chance := 0.22 + float(defender.definition.finesse - attacker.definition.finesse) / 48.0
 	chance += 0.08 if distance > 3 else 0.0
