@@ -171,8 +171,6 @@ func _configure_humanoid_token() -> void:
 		humanoid_core.inventory.equipment_changed.connect(
 			_on_inventory_appearance_changed
 		)
-	if not humanoid_core.stance_changed.is_connected(_on_stance_changed):
-		humanoid_core.stance_changed.connect(_on_stance_changed)
 	if not humanoid_core.body.limb_destroyed.is_connected(
 		_on_limb_destroyed
 	):
@@ -255,16 +253,7 @@ func _movement_animation() -> String:
 	return "CrouchRun" if _is_impaired() else "Walk"
 
 func _is_impaired() -> bool:
-	return (
-		humanoid_core.stance_points <= 6
-		or humanoid_core.body.are_both_legs_disabled()
-	)
-
-func _on_stance_changed(
-	_state: GameEnums.StanceState,
-	_points: int
-) -> void:
-	refresh_token_pose()
+	return humanoid_core.body.are_both_legs_disabled()
 
 func _on_limb_destroyed(_limb: GameEnums.LimbRegion) -> void:
 	refresh_token_pose()

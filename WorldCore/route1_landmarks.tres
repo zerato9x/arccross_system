@@ -1,0 +1,50 @@
+[gd_resource type="Resource" script_class="Route1LandmarkCatalog" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://WorldCore/Route1LandmarkCatalog.gd" id="1_catalog"]
+[ext_resource type="Script" path="res://WorldCore/Route1LandmarkDefinition.gd" id="2_landmark"]
+
+[sub_resource type="Resource" id="NorthRelay"]
+script = ExtResource("2_landmark")
+arm_id = "north"
+poi_id = "north_fringe_relay"
+display_name = "North Fringe Relay"
+description = "The only inhabited Route-1 settlement, built around a relay that can clear the next northern road."
+landmark_id = "homestead_b"
+loot_profile_id = "loot_route1_north_relay"
+evidence_item_id = "north_relay_ledger"
+sleep_anchor = "bed"
+inhabited = true
+
+[sub_resource type="Resource" id="EastRegistry"]
+script = ExtResource("2_landmark")
+arm_id = "east"
+poi_id = "east_handle_registry"
+display_name = "Flooded Handle Registry"
+description = "A drowned assignment office where controlled lives were counted beside equipment losses."
+landmark_id = "warehouse_b"
+loot_profile_id = "loot_route1_east_registry"
+evidence_item_id = "east_handle_registry"
+
+[sub_resource type="Resource" id="SouthDepot"]
+script = ExtResource("2_landmark")
+arm_id = "south"
+poi_id = "south_guild_depot"
+display_name = "Guild Ration Depot"
+description = "A stripped logistics depot whose surviving paperwork explains where the food went."
+landmark_id = "warehouse_b"
+loot_profile_id = "loot_route1_south_depot"
+evidence_item_id = "south_guild_manifest"
+
+[sub_resource type="Resource" id="WestCache"]
+script = ExtResource("2_landmark")
+arm_id = "west"
+poi_id = "west_zeta_cache"
+display_name = "Zeta Survey Cache"
+description = "A quarry survey post abandoned with its repair stock and sealed route notes."
+landmark_id = "warehouse_b"
+loot_profile_id = "loot_route1_west_cache"
+evidence_item_id = "west_zeta_survey"
+
+[resource]
+script = ExtResource("1_catalog")
+landmarks = Array[ExtResource("2_landmark")]([SubResource("NorthRelay"), SubResource("EastRegistry"), SubResource("SouthDepot"), SubResource("WestCache")])

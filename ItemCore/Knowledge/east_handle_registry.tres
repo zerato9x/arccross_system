@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="KnowledgeEntryDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/KnowledgeEntryDefinition.gd" id="1_entry"]
+
+[resource]
+script = ExtResource("1_entry")
+id = "east_handle_registry"
+title = "Flooded Handle Registry"
+region_id = "east"
+era = 7
+tags = PackedStringArray("handle", "registry", "east", "route_intel")
+summary = "Water-damaged assignments recording controlled Arcborn as inventory rather than people."
+body = "Most names have dissolved into blue fibers, but the surviving columns are legible: handler, output, restraint faults, replacement cost. Later pages stop recording transfers and begin recording breaches. A survey notation identifies the North Fringe Relay as the only surviving route-clear transmitter."
+decode_requirements = {}
+discovery_trigger_ids = PackedStringArray("intel:east_handle_registry")

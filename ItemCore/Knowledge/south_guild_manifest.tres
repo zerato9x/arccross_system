@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="KnowledgeEntryDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/KnowledgeEntryDefinition.gd" id="1_entry"]
+
+[resource]
+script = ExtResource("1_entry")
+id = "south_guild_manifest"
+title = "Guild Ration Manifest"
+region_id = "south"
+era = 8
+tags = PackedStringArray("guild", "logistics", "rationing", "route_intel")
+summary = "A shipment manifest showing that scarcity was allocated before it became unavoidable."
+body = "The depot received enough sealed food to supply three fringe districts. Central received the first allotment, licensed crews the second, and the road settlements what remained after spoilage was declared. A convoy annotation orders surviving signal parts delivered to the North Fringe Relay."
+decode_requirements = {}
+discovery_trigger_ids = PackedStringArray("intel:south_guild_manifest")

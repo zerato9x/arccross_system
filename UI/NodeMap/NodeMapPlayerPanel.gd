@@ -20,7 +20,7 @@ var _snapshot: Dictionary = {}
 @onready var _hunger_bar: ProgressBar = %HungerBar
 @onready var _thirst_bar: ProgressBar = %ThirstBar
 @onready var _fatigue_bar: ProgressBar = %FatigueBar
-@onready var _stance_label: Label = %StanceLabel
+@onready var _condition_label: Label = %ConditionLabel
 @onready var _morale_label: Label = %MoraleLabel
 @onready var _emergency_label: Label = %EmergencyLabel
 @onready var _capacity_label: Label = %CapacityLabel
@@ -33,9 +33,9 @@ func _ready() -> void:
 	HUDAssetLibrary.apply_panel(self, "neutral")
 	HUDAssetLibrary.apply_progress_bar(_blood_bar, "blood")
 	HUDAssetLibrary.apply_progress_bar(_hunger_bar, "warning")
-	HUDAssetLibrary.apply_progress_bar(_thirst_bar, "stance")
+	HUDAssetLibrary.apply_progress_bar(_thirst_bar, "condition")
 	HUDAssetLibrary.apply_progress_bar(_fatigue_bar, "anomaly")
-	HUDAssetLibrary.apply_label(_stance_label, "muted")
+	HUDAssetLibrary.apply_label(_condition_label, "muted")
 	HUDAssetLibrary.apply_label(_morale_label, "muted")
 	HUDAssetLibrary.apply_label(_emergency_label, "warning")
 	HUDAssetLibrary.apply_label(_capacity_label, "muted")
@@ -53,9 +53,9 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	_set_bar(_hunger_bar, float(_snapshot.get("hunger", 0.0)), 100.0)
 	_set_bar(_thirst_bar, float(_snapshot.get("thirst", 0.0)), 100.0)
 	_set_bar(_fatigue_bar, float(_snapshot.get("fatigue", 0.0)), 100.0)
-	_stance_label.text = "Stance  %s (%d)" % [
-		str(_snapshot.get("stance_state", "—")),
-		int(_snapshot.get("stance", 0)),
+	_condition_label.text = "Wounds  %d  •  Infection %.0f%%" % [
+		int(_snapshot.get("wound_count", 0)),
+		float(_snapshot.get("infection_risk", 0.0)) * 100.0,
 	]
 	_morale_label.text = "Morale  %d" % int(_snapshot.get("morale", 0))
 	var emergencies: Array = _snapshot.get("emergencies", [])

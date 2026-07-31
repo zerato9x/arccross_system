@@ -1,0 +1,59 @@
+[gd_resource type="Resource" script_class="LootProfile" load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/LootProfile.gd" id="1_profile"]
+[ext_resource type="Script" path="res://ItemCore/LootEntry.gd" id="2_entry"]
+
+[sub_resource type="Resource" id="Evidence"]
+script = ExtResource("2_entry")
+item_id = "east_handle_registry"
+weight = 0.0
+once_key = "route1:east:evidence"
+
+[sub_resource type="Resource" id="Water"]
+script = ExtResource("2_entry")
+item_id = "water_bottle"
+weight = 8.0
+
+[sub_resource type="Resource" id="Crackers"]
+script = ExtResource("2_entry")
+item_id = "crackers"
+weight = 6.0
+
+[sub_resource type="Resource" id="Blood"]
+script = ExtResource("2_entry")
+item_id = "blood_bag"
+weight = 3.0
+
+[sub_resource type="Resource" id="Dressing"]
+script = ExtResource("2_entry")
+item_id = "dressingpack"
+weight = 3.0
+
+[sub_resource type="Resource" id="Circuits"]
+script = ExtResource("2_entry")
+item_id = "circuits"
+weight = 4.0
+quantity_max = 2
+
+[sub_resource type="Resource" id="Flashlight"]
+script = ExtResource("2_entry")
+item_id = "flashlight"
+weight = 2.0
+
+[sub_resource type="Resource" id="Phone"]
+script = ExtResource("2_entry")
+item_id = "phone"
+weight = 1.0
+
+[sub_resource type="Resource" id="Binoculars"]
+script = ExtResource("2_entry")
+item_id = "binoculars"
+weight = 0.75
+
+[resource]
+script = ExtResource("1_profile")
+profile_id = "loot_route1_east_registry"
+max_searches = 4
+max_items_per_search = 3
+guaranteed_entries = Array[ExtResource("2_entry")]([SubResource("Evidence")])
+entries = Array[ExtResource("2_entry")]([SubResource("Water"), SubResource("Crackers"), SubResource("Blood"), SubResource("Dressing"), SubResource("Circuits"), SubResource("Flashlight"), SubResource("Phone"), SubResource("Binoculars")])

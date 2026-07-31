@@ -1,0 +1,37 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://CombatCore/Tactical/TacticalCombatScene.gd" id="1_scene"]
+[ext_resource type="Script" path="res://CombatCore/Tactical/CombatBoard.gd" id="2_board"]
+[ext_resource type="Script" path="res://CombatCore/Tactical/TacticalTurnManager.gd" id="3_turn"]
+[ext_resource type="Script" path="res://CombatCore/CombatResolutionEngine.gd" id="4_resolver"]
+[ext_resource type="Script" path="res://CombatCore/Tactical/TacticalEncounterBuilder.gd" id="5_builder"]
+[ext_resource type="Script" path="res://CombatCore/Tactical/CombatActionController.gd" id="6_controller"]
+[ext_resource type="Script" path="res://CombatCore/Tactical/TacticalPresentationPlayer.gd" id="7_presentation"]
+[ext_resource type="PackedScene" path="res://CombatCore/Tactical/TacticalCombatHUD.tscn" id="8_hud"]
+
+[node name="TacticalCombatScene" type="Node2D"]
+script = ExtResource("1_scene")
+
+[node name="CombatBoard" type="Node" parent="."]
+script = ExtResource("2_board")
+
+[node name="TacticalTurnManager" type="Node" parent="."]
+script = ExtResource("3_turn")
+
+[node name="CombatResolutionEngine" type="Node" parent="."]
+script = ExtResource("4_resolver")
+
+[node name="TacticalEncounterBuilder" type="Node" parent="." node_paths=PackedStringArray("board", "turn_manager")]
+script = ExtResource("5_builder")
+board = NodePath("../CombatBoard")
+turn_manager = NodePath("../TacticalTurnManager")
+
+[node name="CombatActionController" type="Node" parent="."]
+script = ExtResource("6_controller")
+
+[node name="TacticalPresentationPlayer" type="Node" parent="."]
+script = ExtResource("7_presentation")
+
+[node name="HUDLayer" type="CanvasLayer" parent="."]
+
+[node name="TacticalCombatHUD" parent="HUDLayer" instance=ExtResource("8_hud")]

@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="LootProfile" load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/LootProfile.gd" id="1_profile"]
+[ext_resource type="Script" path="res://ItemCore/LootEntry.gd" id="2_entry"]
+
+[sub_resource type="Resource" id="Water"]
+script = ExtResource("2_entry")
+item_id = "water_bottle"
+weight = 6.0
+[sub_resource type="Resource" id="Food"]
+script = ExtResource("2_entry")
+item_id = "canned_meat"
+weight = 5.0
+[sub_resource type="Resource" id="Bandage"]
+script = ExtResource("2_entry")
+item_id = "bandage"
+weight = 5.0
+[sub_resource type="Resource" id="DuctTape"]
+script = ExtResource("2_entry")
+item_id = "ducttape"
+weight = 4.0
+[sub_resource type="Resource" id="Flashlight"]
+script = ExtResource("2_entry")
+item_id = "flashlight"
+weight = 2.0
+[sub_resource type="Resource" id="Knife"]
+script = ExtResource("2_entry")
+item_id = "knife_makeshift"
+weight = 1.5
+[sub_resource type="Resource" id="Coat"]
+script = ExtResource("2_entry")
+item_id = "coat"
+weight = 1.0
+[resource]
+script = ExtResource("1_profile")
+profile_id = "loot_route1_rubble_locked"
+max_searches = 1
+max_items_per_search = 2
+entries = Array[ExtResource("2_entry")]([SubResource("Water"), SubResource("Food"), SubResource("Bandage"), SubResource("DuctTape"), SubResource("Flashlight"), SubResource("Knife"), SubResource("Coat")])

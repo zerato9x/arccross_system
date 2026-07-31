@@ -6,12 +6,11 @@ signal settings_changed(snapshot: Dictionary)
 const SETTINGS_PATH := "user://arccross_settings.cfg"
 ## Real-time is retained for Combat Lab (WaveMode) tooling only.
 ## Production macro combat always uses turn-based via GameDirector.
-const COMBAT_REALTIME := "realtime"
 const COMBAT_TURN_BASED := "turn_based"
 const DEFAULT_COMBAT_MODE := COMBAT_TURN_BASED
 
 ## Persisted preference kept for lab/legacy settings files. GameDirector ignores
-## this and always launches the turn-based duel scene.
+## this and always launches the tactical combat scene.
 var combat_mode := DEFAULT_COMBAT_MODE
 var screen_noise_enabled := false
 var hud_scale := 1.0
@@ -92,7 +91,7 @@ func set_hud_scheme(scheme_id: String) -> void:
 
 
 func get_combat_mode_label() -> String:
-	return "TURN-BASED" if combat_mode == COMBAT_TURN_BASED else "REAL-TIME"
+	return "TURN-BASED"
 
 
 func get_hud_scheme_label() -> String:
@@ -110,10 +109,8 @@ func get_snapshot() -> Dictionary:
 	}
 
 
-func _sanitize_combat_mode(mode: String) -> String:
-	if mode in [COMBAT_TURN_BASED, COMBAT_REALTIME]:
-		return mode
-	return DEFAULT_COMBAT_MODE
+func _sanitize_combat_mode(_mode: String) -> String:
+	return COMBAT_TURN_BASED
 
 
 func _sanitize_hud_scheme(scheme_id: String) -> String:

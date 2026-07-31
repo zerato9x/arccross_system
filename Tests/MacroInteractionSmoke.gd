@@ -341,10 +341,10 @@ func _verify_failed_talk_deployment() -> bool:
 	if arena == null:
 		_fail("Guaranteed failed negotiation did not start combat.")
 		return false
-	if arena.lane_manager._find_entity_lane(arena.player_core) != 2:
+	if arena.board.position_of(arena.player_core) != CombatArenaState.index_for_coords(Vector2i(0, 2)):
 		_fail("Failed negotiation did not use the ordinary player deployment.")
 		return false
-	if arena.lane_manager._find_entity_lane(arena.enemy_core) != 9:
+	if arena.board.position_of(arena.enemy_core) != CombatArenaState.index_for_coords(Vector2i(6, 2)):
 		_fail("Failed negotiation did not use the ordinary enemy deployment.")
 		return false
 	if arena.turn_manager.get_active_entity() != arena.player_core:
@@ -354,17 +354,19 @@ func _verify_failed_talk_deployment() -> bool:
 	arena.turn_manager.halt_loop()
 	arena.queue_free()
 	await process_frame
-	var duel_scene := load(PresentationSceneRegistry.TURN_BASED_DUEL_SCENE) as PackedScene
-	var enemy_initiated_arena = duel_scene.instantiate()
+	var combat_scene := load(PresentationSceneRegistry.TACTICAL_COMBAT_SCENE) as PackedScene
+	var enemy_initiated_arena := combat_scene.instantiate() as TacticalCombatScene
 	game_director.add_child(enemy_initiated_arena)
-	enemy_initiated_arena.setup_duel(
-		macro_map.player_token.get_humanoid_core(),
-		world_state.get_entity(enemy_id).to_dict(),
-		{
-			"context": GameEnums.EncounterContext.ENEMY_AMBUSH,
-			"initiator_id": enemy_id,
-		}
-	)
+	var enemy_encounter := macro_map._build_combat_encounter_record({
+		"coords": world_state.get_entity(enemy_id).coords,
+		"context": GameEnums.EncounterContext.ENEMY_AMBUSH,
+		"initiator_id": enemy_id,
+	})
+	enemy_encounter.actors = [
+		{"actor_id": "player", "team_id": "player", "runtime_record": macro_map.player_token.capture_runtime_record()},
+		{"actor_id": enemy_id, "team_id": "enemy", "runtime_record": world_state.get_entity(enemy_id).to_dict()},
+	]
+	enemy_initiated_arena.setup_encounter(enemy_encounter)
 	await process_frame
 	if (
 		enemy_initiated_arena.turn_manager.combatants[0]

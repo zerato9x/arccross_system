@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Generator V2 contract for all four Central-adjacent starter nodes.
+## Generator V2 contract for all four playable Route 1 nodes.
 
 const SEED := "STARTER_NODE_COMPOSITION_V2"
 const MobSpawnerScript := preload("res://SystemCore/MobSpawner.gd")
@@ -90,7 +90,7 @@ func _verify_zone(zone: MacroZoneGenerator, arm_id: String, expects_settlement: 
 		if stamp_count < 13 or stamp_count > 17:
 			return _fail("%s settlement footprint is %d cells." % [arm_id, stamp_count])
 	else:
-		if poi_count != 0 or anchor_count != 0 or stamp_count != 0 or zone.generated_plan.has_settlement:
+		if poi_count != 1 or anchor_count != 0 or zone.generated_plan.has_settlement:
 			return _fail("%s contains a second starter settlement." % arm_id)
 	if float(quiet_count) / 469.0 < 0.60:
 		return _fail("%s quiet-landscape budget failed." % arm_id)

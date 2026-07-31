@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+id = "east_handle_registry"
+display_name = "Flooded Handle Registry"
+lore_description = "Water-damaged assignment sheets. Decode them to recover route intelligence."
+item_type = 0
+catalog_category = 0
+item_grade = 4
+tags = Array[String](["knowledge", "east", "handle"])
+functional_roles = PackedStringArray("knowledge", "barter")
+knowledge_entry_id = "east_handle_registry"
+condition_enabled = false
+size_cost = 1
+max_stack_size = 1
+target_slot = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Items/Misc/documents.png"
+weight = 0.2

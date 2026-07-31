@@ -39,7 +39,7 @@ func _ready() -> void:
 	mouse_entered.connect(_on_mouse_entered)
 	mouse_exited.connect(_on_mouse_exited)
 	_build_styles()
-	HUDAssetLibrary.apply_progress_bar(condition_rail, "stance")
+	HUDAssetLibrary.apply_progress_bar(condition_rail, "condition")
 	if empty_texture:
 		empty_background.texture = empty_texture
 	slot_label.text = _configured_label

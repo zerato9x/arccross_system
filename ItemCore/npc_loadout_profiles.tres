@@ -1,0 +1,53 @@
+[gd_resource type="Resource" script_class="NpcLoadoutCatalog" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/NpcLoadoutCatalog.gd" id="1_catalog"]
+[ext_resource type="Script" path="res://ItemCore/NpcLoadoutProfile.gd" id="2_profile"]
+
+[sub_resource type="Resource" id="Technician"]
+script = ExtResource("2_profile")
+profile_id = "north_technician"
+role_ids = PackedStringArray("technician", "resident")
+slot_pools = {"backpack_gear": [{"item_id": "backpack_service", "weight": 2.0}, {"item_id": "tornister", "weight": 1.0}], "feet": [{"item_id": "boot_service", "weight": 2.0}, {"item_id": "boot_brown", "weight": 1.0}], "head": [{"item_id": "cap", "weight": 2.0}, {"item_id": "hat_winter", "weight": 1.0}, {"item_id": "bandana", "weight": 1.0}], "inner_torso": [{"item_id": "shirt_service", "weight": 2.0}, {"item_id": "shirt_thermo", "weight": 1.0}, {"item_id": "tshirt_white", "weight": 1.0}], "legs": [{"item_id": "pants_service", "weight": 2.0}, {"item_id": "pants_khaki", "weight": 1.0}, {"item_id": "jeans_1", "weight": 1.0}], "outer_torso": [{"item_id": "coat", "weight": 2.0}, {"item_id": "coat_leather", "weight": 1.0}], "weapon": [{"item_id": "bent_pry_bar", "weight": 2.0}, {"item_id": "rebar", "weight": 1.0}]}
+starting_item_pool = [{"item_id": "water_bottle", "weight": 2.0}, {"item_id": "bandage", "weight": 2.0}, {"item_id": "bolts", "weight": 1.0}, {"item_id": "ducttape", "weight": 1.0}]
+starting_item_min = 1
+starting_item_max = 2
+
+[sub_resource type="Resource" id="Salvager"]
+script = ExtResource("2_profile")
+profile_id = "road_salvager"
+role_ids = PackedStringArray("salvager")
+slot_pools = {"backpack_gear": [{"item_id": "backpack_survivalist", "weight": 2.0}, {"item_id": "tornister", "weight": 2.0}, {"item_id": "sidebag_1", "weight": 1.0}], "feet": [{"item_id": "boot_brown", "weight": 2.0}, {"item_id": "boot_black", "weight": 1.0}], "head": [{"item_id": "boonie", "weight": 2.0}, {"item_id": "bandana", "weight": 2.0}, {"item_id": "hat_winter", "weight": 1.0}], "inner_torso": [{"item_id": "tshirt_black", "weight": 1.0}, {"item_id": "tanktop", "weight": 1.0}, {"item_id": "shirt_thermo", "weight": 2.0}], "legs": [{"item_id": "pants_cargo", "weight": 2.0}, {"item_id": "jeans_2", "weight": 2.0}, {"item_id": "pants_cargo_camo", "weight": 1.0}], "outer_torso": [{"item_id": "coat_leather", "weight": 2.0}, {"item_id": "coat", "weight": 2.0}, {"item_id": "coat_black", "weight": 1.0}], "weapon": [{"item_id": "rebar", "weight": 2.0}, {"item_id": "crowbar", "weight": 2.0}, {"item_id": "axe_makeshift", "weight": 1.0}]}
+starting_item_pool = [{"item_id": "mre", "weight": 2.0}, {"item_id": "water_bottle", "weight": 2.0}, {"item_id": "rag", "weight": 1.0}, {"item_id": "bolts", "weight": 1.0}]
+starting_item_min = 1
+starting_item_max = 3
+
+[sub_resource type="Resource" id="Raider"]
+script = ExtResource("2_profile")
+profile_id = "road_raider"
+role_ids = PackedStringArray("raider")
+slot_pools = {"backpack_gear": [{"item_id": "backpack_service", "weight": 1.0}, {"item_id": "backpack_survivalist", "weight": 2.0}], "face": [{"item_id": "balaclava_black", "weight": 2.0}, {"item_id": "mask_makeshift", "weight": 1.0}, {"item_id": "", "weight": 2.0}], "feet": [{"item_id": "boot_black", "weight": 2.0}, {"item_id": "boot_service", "weight": 1.0}], "head": [{"item_id": "bandana", "weight": 2.0}, {"item_id": "helmet_2", "weight": 1.0}, {"item_id": "cap2", "weight": 1.0}], "inner_torso": [{"item_id": "tshirt_black", "weight": 2.0}, {"item_id": "shirt_service", "weight": 1.0}], "legs": [{"item_id": "pants_black", "weight": 2.0}, {"item_id": "pants_cargo_camo", "weight": 1.0}], "outer_torso": [{"item_id": "coat_black", "weight": 2.0}, {"item_id": "coat_leather", "weight": 1.0}], "weapon": [{"item_id": "service_pistol", "weight": 2.0}, {"item_id": "revolver", "weight": 2.0}, {"item_id": "bat_spiked", "weight": 1.0}]}
+starting_item_pool = [{"item_id": "pistol_round", "weight": 2.0}, {"item_id": "canned_meat", "weight": 1.0}, {"item_id": "cigarettes", "weight": 1.0}]
+starting_item_min = 1
+starting_item_max = 3
+
+[sub_resource type="Resource" id="Sentry"]
+script = ExtResource("2_profile")
+profile_id = "fringe_sentry"
+role_ids = PackedStringArray("sentry", "patrol")
+slot_pools = {"backpack_gear": [{"item_id": "backpack_service", "weight": 2.0}, {"item_id": "backpack_service_big", "weight": 1.0}], "feet": [{"item_id": "boot_service", "weight": 2.0}, {"item_id": "boot_black", "weight": 1.0}], "head": [{"item_id": "helmet", "weight": 1.0}, {"item_id": "helmet_2", "weight": 1.0}, {"item_id": "helmet_3", "weight": 1.0}], "inner_torso": [{"item_id": "shirt_service", "weight": 2.0}, {"item_id": "shirt_thermo", "weight": 1.0}], "legs": [{"item_id": "pants_service", "weight": 2.0}, {"item_id": "pants_carbon", "weight": 1.0}], "outer_torso": [{"item_id": "armor_service", "weight": 2.0}, {"item_id": "armor_makeshift", "weight": 1.0}], "vest": [{"item_id": "webbing_service", "weight": 2.0}, {"item_id": "webbing", "weight": 1.0}], "weapon": [{"item_id": "service_rifle", "weight": 1.0}, {"item_id": "shotgun", "weight": 1.0}, {"item_id": "service_pistol", "weight": 1.0}]}
+starting_item_pool = [{"item_id": "bandage", "weight": 2.0}, {"item_id": "water_bottle", "weight": 2.0}, {"item_id": "mre", "weight": 1.0}]
+starting_item_min = 2
+starting_item_max = 3
+
+[sub_resource type="Resource" id="PlotAgent"]
+script = ExtResource("2_profile")
+profile_id = "emergent_actor"
+role_ids = PackedStringArray("plot_agent")
+slot_pools = {"backpack_gear": [{"item_id": "backpack_service_big", "weight": 1.0}, {"item_id": "backpack_survivalist", "weight": 1.0}], "eyes": [{"item_id": "goggles", "weight": 2.0}, {"item_id": "goggles_nightvision", "weight": 1.0}], "feet": [{"item_id": "boot_service", "weight": 1.0}, {"item_id": "boot_black", "weight": 1.0}], "head": [{"item_id": "boonie", "weight": 1.0}, {"item_id": "cap3", "weight": 1.0}], "inner_torso": [{"item_id": "shirt_thermo", "weight": 1.0}, {"item_id": "shirt_service", "weight": 1.0}], "legs": [{"item_id": "pants_carbon", "weight": 1.0}, {"item_id": "pants_cargo_camo", "weight": 1.0}], "outer_torso": [{"item_id": "coat_black", "weight": 1.0}, {"item_id": "armor_arcborn", "weight": 1.0}], "weapon": [{"item_id": "carbon_pistol", "weight": 1.0}, {"item_id": "carbon_rifle", "weight": 1.0}]}
+starting_item_pool = [{"item_id": "life_booster", "weight": 1.0}, {"item_id": "pda", "weight": 1.0}, {"item_id": "water_bottle", "weight": 1.0}]
+starting_item_min = 2
+starting_item_max = 3
+
+[resource]
+script = ExtResource("1_catalog")
+profiles = Array[ExtResource("2_profile")]([SubResource("Technician"), SubResource("Salvager"), SubResource("Raider"), SubResource("Sentry"), SubResource("PlotAgent")])

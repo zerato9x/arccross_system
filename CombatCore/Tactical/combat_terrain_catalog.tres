@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="TacticalTerrainCatalog" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://CombatCore/Tactical/TacticalTerrainCatalog.gd" id="1_catalog"]
+
+[resource]
+script = ExtResource("1_catalog")
+terrain_profiles = {
+0: {"id": "plains", "label": "PLAINS", "movement_modifier": 0},
+1: {"id": "forest_floor", "label": "FOREST", "movement_modifier": 0, "visibility_penalty": 0.08},
+2: {"id": "mud", "label": "MUD", "movement_modifier": 1, "contaminates_wounds": true, "trip_risk": 0.15},
+3: {"id": "snow", "label": "SNOW", "movement_modifier": 1, "cold_exposure": 1.0, "leaves_tracks": true},
+4: {"id": "concrete", "label": "CONCRETE", "movement_modifier": 0}
+}
+flora_profiles = {
+0: {},
+1: {"id": "shrubs", "label": "SHRUBS", "concealment": 0.20, "density": 0.20},
+2: {"id": "trees", "label": "TREE LINE", "concealment": 0.30, "visibility_penalty": 0.18, "density": 0.30, "object_type": "soft_cover", "durability": 8.0, "flammable": true}
+}
+rock_profiles = {
+0: {},
+1: {"id": "hills", "label": "HILLS", "elevation": 1, "movement_modifier": 1, "density": 0.25},
+2: {"id": "rocks", "label": "ROCKS", "density": 0.24, "object_type": "hard_cover", "durability": 12.0, "blocked_fraction": 0.35}
+}
+water_profiles = {
+0: {},
+1: {"id": "shallow_water", "label": "SHALLOW WATER", "movement_modifier": 2, "wet_exposure": true, "band_width": 1},
+2: {"id": "deep_water", "label": "DEEP WATER", "blocked": true, "spawnable": false, "band_width": 1}
+}
+structure_profiles = {
+0: {},
+1: {"id": "structure", "label": "STRUCTURE", "density": 0.20, "object_type": "hard_cover", "durability": 12.0, "blocked_fraction": 0.40},
+2: {"id": "remnants", "label": "REMNANTS", "density": 0.26, "movement_modifier": 1, "object_type": "unstable_cover", "durability": 6.0, "blocked_fraction": 0.15}
+}

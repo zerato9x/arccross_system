@@ -53,6 +53,7 @@ func _run() -> void:
 	var coat := ItemData.new()
 	coat.item_type = GameEnums.ItemType.ARMOR
 	coat.protection_sharp = 4.0
+	coat.armor_coverage = [GameEnums.LimbRegion.UPPER_TORSO]
 	inventory.paper_doll[GameEnums.EquipmentSlot.OUTER_TORSO] = coat
 	if inventory.get_protection_for(GameEnums.DamageType.SHARP, GameEnums.LimbRegion.UPPER_TORSO) != 4.0:
 		_fail("Torso armor did not protect the torso.")

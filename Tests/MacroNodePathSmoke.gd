@@ -31,8 +31,8 @@ func _run() -> void:
 
 
 func _verify_graph(graph: MacroMapGraph) -> bool:
-	if graph.nodes.size() < 34 or graph.nodes.size() > 39:
-		return _fail("Expected the expanded 34-39 node North web, got %d." % graph.nodes.size())
+	if graph.nodes.size() < 33 or graph.nodes.size() > 38:
+		return _fail("Expected the North-only 33-38 node web, got %d." % graph.nodes.size())
 	if graph.get_node(MacroGraphGenerator.CENTRAL_ID) == null:
 		return _fail("Missing Central Core.")
 	for prefix in MacroGraphGenerator.ARM_PREFIXES:
@@ -49,12 +49,12 @@ func _verify_graph(graph: MacroMapGraph) -> bool:
 			or core.persistence != GameEnums.MacroNodePersistence.PERMANENT_META
 		):
 			return _fail("%s gateway/core must be permanent." % prefix)
-	if graph.get_node(MacroGraphGenerator.FETCH_BRANCH_ID) == null:
-		return _fail("Missing permanent fetch branch.")
+	if graph.get_node(MacroGraphGenerator.FETCH_BRANCH_ID) != null:
+		return _fail("Legacy fetch branch leaked into the North-only build.")
 	if graph.get_edge("north_random_1", "east_random_1").is_empty():
-		return _fail("Inner-ring north/east cross-link missing.")
+		return _fail("Inner-ring north/east Act 1 link missing.")
 	if graph.get_edge("west_random_1", "north_random_1").is_empty():
-		return _fail("Inner-ring west/north cross-link missing.")
+		return _fail("Inner-ring west/north Act 1 link missing.")
 	return true
 
 
@@ -106,7 +106,7 @@ func _verify_geometry_and_direction(progress: MacroProgressController) -> bool:
 		GameEnums.MacroTravelDirection.SOUTHEAST
 	)
 	if not southeast.has("east_random_1"):
-		return _fail("Inner-ring southeast cross-link is not directionally available.")
+		return _fail("Inner-ring East route is not available from North.")
 	return true
 
 
@@ -160,9 +160,6 @@ func _verify_meta_gateway(progress: MacroProgressController) -> bool:
 		return _fail("Meta flag did not unlock north gateway.")
 	if not newly.has("north_gateway"):
 		return _fail("Gateway unlock was not reported.")
-	progress.reveal_fetch_branch()
-	if not progress.graph.get_node(MacroGraphGenerator.FETCH_BRANCH_ID).discovered:
-		return _fail("Fetch quest did not reveal permanent branch.")
 	return true
 
 

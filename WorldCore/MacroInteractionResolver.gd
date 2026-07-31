@@ -35,13 +35,28 @@ static func build_search_options(
 	if hex_data.world_generation_version >= 2:
 		if hex_data.composition_role != "rubble_search":
 			return options
-		options.append(_search_option(
-			"wreckage",
-			"Picked-over Rubble",
-			"A poor, finite pocket of salvage. Once cleared, it stays cleared.",
-			{"any_item_ids": ["crowbar", "multitool"], "any_tags": ["tools"]},
-			{"loot": -2.5, "safety": -0.5, "sneak": 0.0}
-		))
+		var catalog := SearchSiteCatalog.data()
+		var site := (
+			catalog.descriptor(hex_data.search_site_id)
+			if catalog != null and not hex_data.search_site_id.is_empty()
+			else {}
+		)
+		if site.is_empty():
+			options.append(_search_option(
+				"wreckage",
+				"Picked-over Rubble",
+				"A poor, finite pocket of salvage. Once cleared, it stays cleared.",
+				{},
+				{"loot": -3.0, "safety": -0.5, "sneak": 0.0}
+			))
+		else:
+			options.append(_search_option(
+				str(site.get("id", hex_data.search_site_id)),
+				str(site.get("label", "Roadside Rubble")),
+				str(site.get("description", "Search the roadside debris.")),
+				site.get("requirements", {}),
+				site.get("metric_modifiers", {})
+			))
 		return options
 	var _seed_signature := (
 		world_seed
@@ -350,6 +365,14 @@ static func resolve_search(
 		loot_count += 1
 
 	var loot_ids: Array[String] = []
+	if search_count == 0:
+		for guaranteed in loot_profile.get("guaranteed_entries", []):
+			var quantity := rng.randi_range(
+				maxi(1, int(guaranteed.get("quantity_min", 1))),
+				maxi(1, int(guaranteed.get("quantity_max", 1)))
+			)
+			for _quantity_index in range(quantity):
+				loot_ids.append(str(guaranteed.get("item_id", "")))
 	for index in range(loot_count):
 		var item_id := _roll_weighted_item_id(
 			rng,

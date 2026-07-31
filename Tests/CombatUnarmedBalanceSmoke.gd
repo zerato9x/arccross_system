@@ -9,8 +9,8 @@ func _run() -> void:
 	if float(exposed_damage.get("flesh", 0.0)) <= float(armored_damage.get("flesh", 0.0)):
 		_fail("Exposed target did not take more fist trauma than armored target.")
 		return
-	if float(exposed_damage.get("stance", 0.0)) <= float(armored_damage.get("stance", 0.0)):
-		_fail("Exposed target did not lose more stance than armored target.")
+	if float(exposed_damage.get("balance_impact", 0.0)) <= float(armored_damage.get("balance_impact", 0.0)):
+		_fail("The stronger unarmed strike did not produce more balance impact.")
 		return
 
 	var spawner := root.get_node_or_null("MobSpawner") as MobSpawner

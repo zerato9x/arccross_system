@@ -2,6 +2,7 @@ extends RefCounted
 class_name HumanoidVisualCatalog
 
 const ROOT_DIR := "res://Asset/humanoid_spritesheets"
+const EQUIPMENT_VISUAL_CATALOG_PATH := "res://UI/Humanoid/equipment_visuals.tres"
 const BASE_LAYER_DIR := ROOT_DIR + "/Humanoid/nake_64"
 const FRAME_COLUMNS := 15
 const DIRECTION_ROWS := 8
@@ -113,6 +114,7 @@ const ITEM_VISUAL_DIRECTORIES := {
 	"bat_2": "weapons/melee/bat",
 	"bat_spiked": "weapons/melee/bat",
 	"crowbar": "weapons/melee/crowbar",
+	"bent_pry_bar": "weapons/melee/crowbar",
 	"hammer": "weapons/melee/hammer",
 	"knife_carbon": "weapons/melee/knife",
 	"knife_makeshift": "weapons/melee/knife",
@@ -130,9 +132,17 @@ const LOADOUT_SLOT_KEYS := {
 	"vest": GameEnums.EquipmentSlot.VEST,
 	"weapon": GameEnums.EquipmentSlot.HAND,
 	"offhand": GameEnums.EquipmentSlot.OFFHAND,
+	"head": GameEnums.EquipmentSlot.HEAD,
+	"eyes": GameEnums.EquipmentSlot.EYES,
+	"face": GameEnums.EquipmentSlot.FACE,
+	"neck": GameEnums.EquipmentSlot.NECK,
+	"arms": GameEnums.EquipmentSlot.ARMS,
+	"belt": GameEnums.EquipmentSlot.BELT,
+	"sling": GameEnums.EquipmentSlot.SLING,
 }
 
 static var _path_exists_cache: Dictionary = {}
+static var _equipment_visual_catalog: HumanoidEquipmentVisualCatalog
 
 static func appearance_from_equipment_snapshot(equipment: Array) -> Dictionary:
 	var slot_item_ids: Dictionary = {}
@@ -178,7 +188,7 @@ static func appearance_from_slot_item_ids(slot_item_ids: Dictionary) -> Dictiona
 
 	for raw_slot in slot_item_ids.keys():
 		var item_id := str(slot_item_ids[raw_slot])
-		var relative_directory := str(ITEM_VISUAL_DIRECTORIES.get(item_id, ""))
+		var relative_directory := _equipment_directory_for(item_id)
 		if relative_directory.is_empty():
 			unmapped_item_ids.append(item_id)
 			continue
@@ -203,6 +213,16 @@ static func appearance_from_slot_item_ids(slot_item_ids: Dictionary) -> Dictiona
 		"signature": "|".join(signature_parts),
 		"unmapped_item_ids": unmapped_item_ids,
 	}
+
+
+static func _equipment_directory_for(item_id: String) -> String:
+	if _equipment_visual_catalog == null and ResourceLoader.exists(EQUIPMENT_VISUAL_CATALOG_PATH):
+		_equipment_visual_catalog = load(EQUIPMENT_VISUAL_CATALOG_PATH) as HumanoidEquipmentVisualCatalog
+	if _equipment_visual_catalog != null:
+		var authored := _equipment_visual_catalog.directory_for(item_id)
+		if not authored.is_empty():
+			return authored
+	return str(ITEM_VISUAL_DIRECTORIES.get(item_id, ""))
 
 static func layer_directories(appearance: Dictionary) -> Array[String]:
 	var directories: Array[String] = []

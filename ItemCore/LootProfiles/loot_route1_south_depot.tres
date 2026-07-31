@@ -1,0 +1,59 @@
+[gd_resource type="Resource" script_class="LootProfile" load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/LootProfile.gd" id="1_profile"]
+[ext_resource type="Script" path="res://ItemCore/LootEntry.gd" id="2_entry"]
+
+[sub_resource type="Resource" id="Evidence"]
+script = ExtResource("2_entry")
+item_id = "south_guild_manifest"
+weight = 0.0
+once_key = "route1:south:evidence"
+
+[sub_resource type="Resource" id="Water"]
+script = ExtResource("2_entry")
+item_id = "water_bottle"
+weight = 7.0
+
+[sub_resource type="Resource" id="Mre"]
+script = ExtResource("2_entry")
+item_id = "mre"
+weight = 9.0
+
+[sub_resource type="Resource" id="CannedMeat"]
+script = ExtResource("2_entry")
+item_id = "canned_meat"
+weight = 6.0
+
+[sub_resource type="Resource" id="Soda"]
+script = ExtResource("2_entry")
+item_id = "soda"
+weight = 4.0
+
+[sub_resource type="Resource" id="Backpack"]
+script = ExtResource("2_entry")
+item_id = "backpack_service"
+weight = 1.25
+
+[sub_resource type="Resource" id="Webbing"]
+script = ExtResource("2_entry")
+item_id = "webbing"
+weight = 1.5
+
+[sub_resource type="Resource" id="CookingPot"]
+script = ExtResource("2_entry")
+item_id = "cooking_pot"
+weight = 2.0
+
+[sub_resource type="Resource" id="DuctTape"]
+script = ExtResource("2_entry")
+item_id = "ducttape"
+weight = 3.0
+quantity_max = 2
+
+[resource]
+script = ExtResource("1_profile")
+profile_id = "loot_route1_south_depot"
+max_searches = 4
+max_items_per_search = 3
+guaranteed_entries = Array[ExtResource("2_entry")]([SubResource("Evidence")])
+entries = Array[ExtResource("2_entry")]([SubResource("Water"), SubResource("Mre"), SubResource("CannedMeat"), SubResource("Soda"), SubResource("Backpack"), SubResource("Webbing"), SubResource("CookingPot"), SubResource("DuctTape")])

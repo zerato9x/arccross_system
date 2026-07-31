@@ -8,11 +8,10 @@ const MINDLESS_BASE_AP: int = 8
 # ---------------------------------------------------------
 signal kinetic_burden_calculated(tier: GameEnums.KineticTier, burden: int)
 signal died(cause: String)
+signal incapacitated(reason: String)
 signal arc_energy_depleted()
 signal red_mist_corruption_maxed()
 signal morale_broken()
-signal stance_changed(new_state: GameEnums.StanceState, points: int)
-signal felled()
 
 @export_group("Core Identity")
 @export var definition: EntityDefinition
@@ -27,11 +26,6 @@ var current_max_ap: int = 12 # Locked at 12 for the Base-12 system
 var is_dead: bool = false
 var kinetic_tier: GameEnums.KineticTier = GameEnums.KineticTier.FLUID
 var total_burden: int = 0
-
-# The 12-Point Stance Equilibrium Scale
-var stance_points: int = 12 # 12 = rock solid, 0 = face in the mud
-var current_stance: GameEnums.StanceState = GameEnums.StanceState.PLANTED
-var has_stance_recovery_guard: bool = false
 
 # Psychological & Metaphysical Status
 var current_morale: float = 12.0
@@ -61,6 +55,7 @@ func _ready() -> void:
 	# Wire up the biological trauma sensors
 	body.limb_destroyed.connect(_on_limb_destroyed)
 	body.vital_failure.connect(_on_vital_failure)
+	body.incapacitated.connect(_on_incapacitated)
 	body.blood_level_changed.connect(_on_vitals_shifted)
 	body.metabolic_crisis.connect(_on_metabolic_crisis)
 	
@@ -122,14 +117,10 @@ func get_initiative_roll() -> float:
 func get_grapple_strength() -> float:
 	var muscle: float = float(definition.brawn)
 	
-	# Combine both torso regions for structural integrity
-	var current_torso = body.limb_hp[GameEnums.LimbRegion.UPPER_TORSO] + body.limb_hp[GameEnums.LimbRegion.LOWER_TORSO]
-	var max_torso = (
-		body.get_limb_max(GameEnums.LimbRegion.UPPER_TORSO)
-		+ body.get_limb_max(GameEnums.LimbRegion.LOWER_TORSO)
-	)
-	
-	var structural_health: float = current_torso / max_torso
+	var structural_health := (
+		body.get_limb_function(GameEnums.LimbRegion.UPPER_TORSO)
+		+ body.get_limb_function(GameEnums.LimbRegion.LOWER_TORSO)
+	) / (GameEnums.SCALE_MAX * 2.0)
 	
 	return muscle * structural_health
 
@@ -139,137 +130,15 @@ func get_combat_accuracy(is_ranged: bool) -> float:
 	else:
 		return definition.brawn / 12.0
 
-# ---------------------------------------------------------
-# THE 12-POINT STANCE SCALE
-# ---------------------------------------------------------
-# 12 = PLANTED (stable, full action set)
-# 7-11 = PLANTED (stable)
-# 1-6 = STUMBLING (normal turn, passive recovery, THREAT = 0)
-# 0 = FELLED (must spend the next active turn getting up)
-
-## Apply equilibrium loss from an impact. Ordinary impacts stop at 1 Stance;
-## explicit takedown actions may pass can_fell=true to reduce a target to 0.
-func apply_stance_damage(
-	amount: float,
-	can_fell: bool = false
-) -> GameEnums.StanceState:
-	if is_dead: return current_stance
-	if current_stance == GameEnums.StanceState.FELLED:
-		return current_stance
-	
-	var stance_floor := (
-		0
-		if can_fell and not has_stance_recovery_guard
-		else 1
-	)
-	var previous_points := stance_points
-	stance_points = max(
-		stance_floor,
-		stance_points - int(ceil(amount))
-	)
-	_evaluate_stance_state()
-	if (
-		has_stance_recovery_guard
-		and previous_points > stance_floor
-		and stance_points == stance_floor
-	):
-		print(
-			"[RECOVERY GUARD] ",
-			name,
-			" cannot be FELLED again before their next active turn."
-		)
-	return current_stance
-
-## Attempt to recover stance points. Capped at 12.
-## Use force=true to rise from FELLED while resolving GET_UP.
-func recover_stance(amount: int, force: bool = false) -> void:
-	if is_dead: return
-	if current_stance == GameEnums.StanceState.FELLED and not force: return
-	
-	stance_points = min(12, stance_points + amount)
-	_evaluate_stance_state()
-
-## Full stance reset for encounter setup and explicit restoration effects.
-func reset_stance() -> void:
-	stance_points = 12
-	has_stance_recovery_guard = false
-	_evaluate_stance_state()
-
-## Resolve GET_UP by rising from FELLED into STUMBLING.
-## The floor prevents an opponent from creating an indefinite knockdown loop.
-func begin_felled_recovery(recovery_points: int) -> void:
-	if is_dead or current_stance != GameEnums.StanceState.FELLED:
-		return
-	recover_stance(recovery_points, true)
-	has_stance_recovery_guard = true
-	print(
-		"[RECOVERY GUARD] ",
-		name,
-		" is protected from another knockdown until their next active turn."
-	)
-
-## Called only when this entity receives a usable active turn.
-func expire_stance_recovery_guard() -> void:
-	if not has_stance_recovery_guard:
-		return
-	has_stance_recovery_guard = false
-	print("[RECOVERY GUARD] ", name, " can be FELLED normally again.")
-
-## Force a collapse while respecting temporary recovery protection.
-func try_fell() -> bool:
-	if is_dead:
-		return false
-	if has_stance_recovery_guard:
-		stance_points = 1
-		_evaluate_stance_state()
-		print(
-			"[RECOVERY GUARD] ",
-			name,
-			" resisted a forced knockdown."
-		)
-		return false
-	stance_points = 0
-	_evaluate_stance_state()
-	return true
-
 ## Clear tactical state that has no meaning outside one combat encounter.
 ## Wounds, Blood, Morale, inventory, and survival state remain untouched.
 func reset_combat_transients() -> void:
-	stance_points = int(GameEnums.SCALE_MAX)
-	has_stance_recovery_guard = false
 	is_fleeing = false
 	is_escaping = false
-	_evaluate_stance_state()
 
-func _evaluate_stance_state() -> void:
-	var previous_state: GameEnums.StanceState = current_stance
-	
-	if stance_points >= 7:
-		current_stance = GameEnums.StanceState.PLANTED
-	elif stance_points >= 1:
-		current_stance = GameEnums.StanceState.STUMBLING
-	else:
-		current_stance = GameEnums.StanceState.FELLED
-	
-	if current_stance != previous_state:
-		stance_changed.emit(current_stance, stance_points)
-		print(name, " stance shifted to ", GameEnums.StanceState.keys()[current_stance], " (", stance_points, "/12)")
-		
-		if current_stance == GameEnums.StanceState.FELLED:
-			print("[FELLED] ", name, " has collapsed and must use GET UP.")
-			felled.emit()
-			
-		if current_stance == GameEnums.StanceState.STUMBLING:
-			# Stumbling entities project zero THREAT
-			print(
-				"[STUMBLING] ",
-				name,
-				"'s THREAT drops to 0, but their active turn remains available."
-			)
 
-## Override: THREAT is 0 when stumbling or felled.
 func get_effective_threat() -> float:
-	if current_stance != GameEnums.StanceState.PLANTED:
+	if is_dead or is_comatose:
 		return 0.0
 	return get_threat_level()
 
@@ -540,7 +409,7 @@ func use_consumable_item(item: ItemData, combat_only: bool = false) -> bool:
 		return false
 	if item.consumable_effect == GameEnums.ConsumableEffect.STOP_BLEEDING:
 		var has_treatable_bleed := false
-		for limb in body.limb_trauma.keys():
+		for limb in body.wounds_by_limb.keys():
 			if body.can_treat_bleeding(limb):
 				has_treatable_bleed = true
 				break
@@ -575,7 +444,7 @@ func use_consumable_item(item: ItemData, combat_only: bool = false) -> bool:
 		GameEnums.ConsumableEffect.STOP_BLEEDING:
 			var target_limb := -1
 			var worst_rate := 0.0
-			for limb in body.limb_trauma.keys():
+			for limb in body.wounds_by_limb.keys():
 				var rate := body.get_limb_bleeding_rate(limb)
 				if body.can_treat_bleeding(limb) and (target_limb < 0 or rate > worst_rate):
 					target_limb = limb
@@ -608,6 +477,15 @@ func _on_vital_failure(reason: String) -> void:
 	print(name, " has flatlined. Cause: ", reason)
 	died.emit(reason)
 
+
+func _on_incapacitated(reason: String) -> void:
+	if is_dead or is_comatose:
+		return
+	is_comatose = true
+	current_max_ap = 0
+	print(name, " is incapacitated. Cause: ", reason)
+	incapacitated.emit(reason)
+
 # ---------------------------------------------------------
 # RUNTIME STATE CONTRACT
 # ---------------------------------------------------------
@@ -619,7 +497,6 @@ func capture_runtime_state() -> HumanoidState:
 	state.base_ap = base_ap
 	state.current_max_ap = current_max_ap
 	state.is_dead = is_dead
-	state.stance_points = stance_points
 	state.current_morale = current_morale
 	state.is_fleeing = is_fleeing
 	state.is_escaping = is_escaping
@@ -647,7 +524,6 @@ func restore_runtime_state(state) -> void:
 	base_ap = humanoid_state.base_ap
 	current_max_ap = humanoid_state.current_max_ap
 	is_dead = humanoid_state.is_dead
-	stance_points = clampi(humanoid_state.stance_points, 0, int(GameEnums.SCALE_MAX))
 	current_morale = clampf(humanoid_state.current_morale, 0.0, GameEnums.SCALE_MAX)
 	is_fleeing = humanoid_state.is_fleeing
 	is_escaping = humanoid_state.is_escaping
@@ -663,6 +539,4 @@ func restore_runtime_state(state) -> void:
 	)
 	is_mindless_hive_thrall = humanoid_state.is_mindless_hive_thrall
 	is_comatose = humanoid_state.is_comatose
-	has_stance_recovery_guard = false
-	_evaluate_stance_state()
 	_calculate_kinetic_burden()

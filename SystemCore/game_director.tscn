@@ -1,14 +1,14 @@
 [gd_scene format=3 uid="uid://b75pfheha1hoi"]
 
 [ext_resource type="Script" uid="uid://cygfmj8gajpts" path="res://SystemCore/GameDirector.gd" id="1_8d223"]
-[ext_resource type="PackedScene" path="res://CombatCore/TurnBased/TurnBasedDuelScene.tscn" id="2_po17x"]
+[ext_resource type="PackedScene" path="res://CombatCore/Tactical/TacticalCombatScene.tscn" id="2_po17x"]
 [ext_resource type="PackedScene" uid="uid://bwooo54kfekny" path="res://WorldCore/main_world.tscn" id="2_x1nkk"]
 [ext_resource type="Script" uid="uid://dbogqs5va221c" path="res://SystemCore/DefeatPanel.gd" id="3_defeat"]
 
 [node name="GameDirector" type="Node" unique_id=1731536390 node_paths=PackedStringArray("macro_map", "defeat_panel")]
 script = ExtResource("1_8d223")
 macro_map = NodePath("MainWorld")
-duel_scene = ExtResource("2_po17x")
+combat_scene = ExtResource("2_po17x")
 defeat_panel = NodePath("DefeatPanel")
 
 [node name="MainWorld" parent="." unique_id=1029321409 instance=ExtResource("2_x1nkk")]

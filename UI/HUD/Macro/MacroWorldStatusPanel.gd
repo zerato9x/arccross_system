@@ -3,6 +3,7 @@ class_name MacroWorldStatusPanel
 
 signal settings_requested
 signal node_map_requested
+signal minimap_hex_selected(coords: Vector2i)
 
 const MAX_LOG_LINES := 12
 const PANEL_SIZE := Vector2(420.0, 316.0)
@@ -37,14 +38,11 @@ var _signal_widget: SignalStrengthWidget
 @onready var _calendar_label: Label = %CalendarLabel
 @onready var _signal_pulse: ColorRect = %SignalPulse
 @onready var _signal_label: Label = %SignalLabel
-@onready var _log_title: Label = %LogTitle
-@onready var _legend: Label = %Legend
-@onready var _log_header: HBoxContainer = %LogHeader
 @onready var _settings_button: Button = %SettingsButton
 @onready var _node_map_button: Button = %NodeMapButton
-@onready var _log_frame: PanelContainer = %LogFrame
-@onready var _log_scroll: ScrollContainer = %LogScroll
-@onready var _log_list: VBoxContainer = %LogList
+@onready var _minimap_frame: PanelContainer = %MinimapFrame
+@onready var _minimap: MacroMinimapView = %MacroMinimapView
+@onready var _latest_event_ticker: Label = %LatestEventTicker
 @onready var _button_row: HBoxContainer = %ButtonRow
 @onready var _clock_stack: VBoxContainer = %ClockStack
 @onready var _signal_row: HBoxContainer = %SignalRow
@@ -64,6 +62,7 @@ func _ready() -> void:
 	_node_map_button.custom_minimum_size = HUDAssetLibrary.macro_button_minimum_size()
 	_settings_button.pressed.connect(func(): settings_requested.emit())
 	_node_map_button.pressed.connect(func(): node_map_requested.emit())
+	_minimap.hex_selected.connect(minimap_hex_selected.emit)
 	_install_visual_widgets()
 	if _log_entries.is_empty():
 		append_log("World channel synchronized.", "system")
@@ -71,15 +70,15 @@ func _ready() -> void:
 
 func _apply_base_styles() -> void:
 	HUDAssetLibrary.apply_panel(_frame, "neutral")
-	HUDAssetLibrary.apply_inset_panel(_log_frame, "neutral")
+	HUDAssetLibrary.apply_inset_panel(_minimap_frame, "neutral")
 	HUDAssetLibrary.apply_label(_eyebrow_label, "info")
 	HUDAssetLibrary.apply_label(_phase_label, "muted")
 	HUDAssetLibrary.apply_label(_time_label, "title")
 	HUDAssetLibrary.apply_label(_day_label, "body")
 	HUDAssetLibrary.apply_label(_calendar_label, "muted")
 	HUDAssetLibrary.apply_label(_signal_label, "info")
-	HUDAssetLibrary.apply_label(_log_title, "info")
-	HUDAssetLibrary.apply_label(_legend, "success")
+	HUDAssetLibrary.apply_label(_latest_event_ticker, "muted")
+	_latest_event_ticker.add_theme_font_size_override("font_size", 10)
 	_time_label.add_theme_font_size_override("font_size", 24)
 	HUDAssetLibrary.apply_soft_edge(_frame, 0.20)
 
@@ -121,8 +120,8 @@ func set_work_surface_active(active: bool) -> void:
 	if _work_surface_active == active:
 		return
 	_work_surface_active = active
-	_log_header.visible = not active
-	_log_frame.visible = not active
+	_minimap_frame.visible = not active
+	_latest_event_ticker.visible = not active
 	_button_row.visible = not active
 	var target_size := COMPACT_SIZE if active else PANEL_SIZE
 	custom_minimum_size = target_size
@@ -143,6 +142,8 @@ func is_work_surface_compact() -> bool:
 
 func apply_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
+	if _minimap:
+		_minimap.set_minimap_snapshot(snapshot.get("minimap", {}))
 	var clock: Dictionary = snapshot.get("world_time", {})
 	var calendar: Dictionary = snapshot.get("calendar", {})
 	var hour := int(clock.get("hour", 0))
@@ -216,54 +217,17 @@ func get_latest_log_kind() -> String:
 
 
 func _render_log() -> void:
-	if _log_list == null:
+	if _latest_event_ticker == null or _log_entries.is_empty():
 		return
-	for child in _log_list.get_children():
-		_log_list.remove_child(child)
-		child.queue_free()
-	for i in range(_log_entries.size()):
-		var entry: Dictionary = _log_entries[i]
-		var latest := i == _log_entries.size() - 1
-		var kind := str(entry.get("kind", "world"))
-		var row := PanelContainer.new()
-		row.custom_minimum_size = Vector2(0.0, 28.0)
-		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.set_meta("log_kind", kind)
-		row.add_theme_stylebox_override("panel", HUDAssetLibrary.log_row_style(kind, latest))
-		var line := HBoxContainer.new()
-		line.add_theme_constant_override("separation", 6)
-		row.add_child(line)
-		var marker := ColorRect.new()
-		marker.custom_minimum_size = Vector2(3.0, 0.0)
-		marker.color = HUDAssetLibrary.semantic_color(kind)
-		marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		line.add_child(marker)
-		var meta := Label.new()
-		meta.custom_minimum_size = Vector2(70.0, 0.0)
-		meta.text = "%s %s" % [
-			str(entry.get("stamp", "--:--")),
-			str(LOG_KIND_TOKENS.get(kind, "WORLD")),
-		]
-		HUDAssetLibrary.apply_label(meta, kind)
-		line.add_child(meta)
-		var body := Label.new()
-		body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		body.text = str(entry.get("message", ""))
-		HUDAssetLibrary.apply_label(body, kind if latest else "muted")
-		if latest:
-			body.add_theme_font_size_override("font_size", 12)
-		line.add_child(body)
-		_log_list.add_child(row)
-		if latest:
-			HudMotion.slide_fade_in(self, row, 0.18, 8.0)
-	call_deferred("_scroll_log_to_end")
-
-
-func _scroll_log_to_end() -> void:
-	if _log_scroll == null:
-		return
-	_log_scroll.scroll_vertical = int(_log_scroll.get_v_scroll_bar().max_value)
+	var entry: Dictionary = _log_entries[_log_entries.size() - 1]
+	var kind := str(entry.get("kind", "world"))
+	_latest_event_ticker.text = "%s %s  %s" % [
+		str(entry.get("stamp", "--:--")),
+		str(LOG_KIND_TOKENS.get(kind, "WORLD")),
+		str(entry.get("message", "")),
+	]
+	HUDAssetLibrary.apply_label(_latest_event_ticker, kind)
+	_latest_event_ticker.add_theme_font_size_override("font_size", 10)
 
 
 func _apply_frame_severity(kind: String) -> void:

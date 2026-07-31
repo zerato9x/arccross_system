@@ -3,7 +3,7 @@ class_name GameDirector
 
 @export_group("System Links")
 @export var macro_map: MacroGameManager
-@export var duel_scene: PackedScene
+@export var combat_scene: PackedScene
 @export var defeat_panel: DefeatPanel
 
 var _active_arena: Node = null
@@ -23,7 +23,7 @@ func _ready() -> void:
 			_world_state,
 			get_node_or_null("/root/LootCatalog")
 		)
-	if not macro_map or not duel_scene:
+	if not macro_map or not combat_scene:
 		push_error("Director is blind. Assign the Macro Map and Duel Scene in the inspector.")
 		return
 	var player_token := macro_map.player_token
@@ -95,40 +95,47 @@ func _on_combat_requested(request: Dictionary) -> void:
 	_combat_enemy_id = enemy_id
 	_combat_request = request.duplicate(true)
 	
-	# Production combat is always turn-based. Real-time lives only in WaveMode
-	# (COMBAT LAB) and the orphaned CombatModeComparison scene.
-	var selected_scene := duel_scene
-	var loaded_scene := load(PresentationSceneRegistry.TURN_BASED_DUEL_SCENE) as PackedScene
+	# Production and Combat Lab combat share the authoritative turn-based arena.
+	var selected_scene := combat_scene
+	var loaded_scene := load(PresentationSceneRegistry.TACTICAL_COMBAT_SCENE) as PackedScene
 	if loaded_scene != null:
 		selected_scene = loaded_scene
 	else:
 		push_error(
-			"[DIRECTOR] Turn-based duel scene failed to load: "
-			+ PresentationSceneRegistry.TURN_BASED_DUEL_SCENE
+			"[DIRECTOR] Tactical combat scene failed to load: "
+			+ PresentationSceneRegistry.TACTICAL_COMBAT_SCENE
 		)
 	_active_arena = selected_scene.instantiate()
 	add_child(_active_arena)
 	
-	_active_arena.duel_finished.connect(_on_duel_finished)
-	
-	_active_arena.setup_duel_from_records(
-		macro_map.player_token.capture_runtime_record(),
-		enemy_record.to_dict(),
-		_combat_request
+	var encounter := CombatEncounterRecord.from_dict(
+		request.get("encounter", {})
 	)
+	encounter.actors = [
+		{
+			"actor_id": "player",
+			"team_id": "player",
+			"runtime_record": macro_map.player_token.capture_runtime_record(),
+		},
+		{
+			"actor_id": enemy_id,
+			"team_id": "enemy",
+			"runtime_record": enemy_record.to_dict(),
+		},
+	]
+	_active_arena.combat_finished.connect(_on_combat_finished)
+	_active_arena.setup_encounter(encounter)
 	
 	# Waiting_game → first_strike → War (see AudioConductor COMBAT_SPECIAL)
 	_emit_scene_audio("combat_special")
 
-func _on_duel_finished(
-	outcome: GameEnums.CombatOutcome,
-	enemy_id: String,
-	enemy_runtime: Dictionary,
-	player_runtime: Dictionary,
-	dropped_items: Array
-) -> void:
-	print("\n[DIRECTOR] Duel finished with outcome: ", GameEnums.CombatOutcome.keys()[outcome])
-	_world_state.advance_world_time(GameTimeRules.COMBAT_MINUTES)
+func _on_combat_finished(result: CombatResultRecord) -> void:
+	if result == null:
+		push_error("Combat finished without a result record.")
+		return
+	var player_runtime := _runtime_from_result(result, "player")
+	var enemy_runtime := _runtime_from_result(result, _combat_enemy_id)
+	_world_state.advance_world_time(result.elapsed_minutes)
 	macro_map.player_token.restore_runtime_record({
 		"entity_id": "player",
 		"coords": macro_map.player_token.current_hex_coords,
@@ -136,45 +143,54 @@ func _on_duel_finished(
 		"runtime": player_runtime,
 	})
 	macro_map.player_token.get_humanoid_core().process_survival_time(
-		GameTimeRules.COMBAT_MINUTES,
+		result.elapsed_minutes,
 		15.0,
 		1.5
 	)
-	_world_state.update_entity_runtime(enemy_id, enemy_runtime)
+	player_runtime = macro_map.player_token.get_humanoid_core().capture_runtime_state().to_dict()
+	_world_state.update_entity_runtime(_combat_enemy_id, enemy_runtime)
 	_world_state.update_player_runtime(
 		player_runtime,
 		macro_map.player_token.current_hex_coords
 	)
-
-	if dropped_items.size() > 0:
-		macro_map.add_ground_item_states(_combat_coords, dropped_items)
+	_apply_combat_site_result(result)
+	if not result.ground_items.is_empty():
+		macro_map.add_ground_item_states(_combat_coords, result.ground_items)
 
 	var should_retreat_player := false
-	var combat_approach_from := _combat_approach_from
-	var combat_initiator := str(_combat_request.get("initiator_id", "player"))
-	match outcome:
+	match result.outcome:
 		GameEnums.CombatOutcome.PLAYER_VICTORY:
-			_world_state.set_entity_life_state(
-				enemy_id,
-				GameEnums.EntityLifeState.DEAD
-			)
+			if result.reason == "death":
+				_world_state.set_entity_life_state(
+					_combat_enemy_id,
+					GameEnums.EntityLifeState.DEAD
+				)
 			macro_map.unload_enemy_token(_combat_coords)
 		GameEnums.CombatOutcome.PLAYER_DEFEAT:
-			_on_player_defeat_preserve_mutations()
-			_teardown_arena()
-			macro_map.set_process_unhandled_input(false)
-			_emit_scene_audio("game_over")
-			if defeat_panel:
-				defeat_panel.open_panel(_world_state.has_save_file())
-			print("[DIRECTOR] Player defeat preserved. Run-ended presentation opened.")
-			return
+			if result.reason == "death":
+				_on_player_defeat_preserve_mutations()
+				_teardown_arena()
+				macro_map.set_process_unhandled_input(false)
+				_emit_scene_audio("game_over")
+				if defeat_panel:
+					defeat_panel.open_panel(_world_state.has_save_file())
+				return
+			should_retreat_player = true
 		GameEnums.CombatOutcome.PLAYER_ESCAPED:
 			should_retreat_player = true
-		GameEnums.CombatOutcome.ENEMY_ESCAPED:
-			pass
-		GameEnums.CombatOutcome.DRAW:
+		GameEnums.CombatOutcome.PLAYER_SURRENDERED:
+			should_retreat_player = true
+		GameEnums.CombatOutcome.ENEMY_SURRENDERED:
+			_world_state.set_entity_world_status(
+				_combat_enemy_id,
+				GameEnums.EntityWorldStatus.WITHDRAWN
+			)
+			macro_map.unload_enemy_token(_combat_coords)
+		_:
 			pass
 
+	var approach_from := _combat_approach_from
+	var initiator := str(_combat_request.get("initiator_id", "player"))
 	_teardown_arena()
 	macro_map.show()
 	_set_macro_camera_active(true)
@@ -182,13 +198,30 @@ func _on_duel_finished(
 	if should_retreat_player:
 		macro_map.retreat_player_from_combat(
 			_combat_coords,
-			combat_approach_from,
-			combat_initiator
+			approach_from,
+			initiator
 		)
 	macro_map.set_process_unhandled_input(true)
 	set_process_unhandled_input(true)
 	_start_macro_audio()
-	print("[DIRECTOR] Macro map re-enabled.")
+
+
+func _runtime_from_result(result: CombatResultRecord, actor_id: String) -> Dictionary:
+	for update in result.actor_runtime_updates:
+		if str(update.get("actor_id", "")) == actor_id:
+			return update.get("runtime", {}).duplicate(true)
+	return {}
+
+
+func _apply_combat_site_result(result: CombatResultRecord) -> void:
+	var record := _world_state.get_hex_record(result.source_coords)
+	if record == null:
+		return
+	var state := result.environment_patch.duplicate(true)
+	state["bodies"] = result.body_locations.duplicate(true)
+	state["ground_items"] = result.ground_items.duplicate(true)
+	record.combat_site_state = state
+	_world_state.set_hex_record(result.source_coords, record)
 
 func _teardown_arena() -> void:
 	if _active_arena:

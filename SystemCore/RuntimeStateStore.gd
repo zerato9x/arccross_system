@@ -14,7 +14,7 @@ signal save_completed(path: String)
 signal load_completed(path: String)
 signal persistence_failed(operation: String, message: String)
 
-const SAVE_VERSION: int = 8
+const SAVE_VERSION: int = 11
 const WORLD_GENERATION_VERSION: int = 2
 const DEFAULT_SAVE_PATH: String = "user://arccross_run.json"
 const VARIANT_TYPE_KEY: String = "__arccross_type"
@@ -340,7 +340,7 @@ func load_from_disk(path: String = DEFAULT_SAVE_PATH) -> bool:
 	if file_version != SAVE_VERSION:
 		return _fail_persistence(
 			"load",
-			"Unsupported save version %s. Expected %d."
+			"Unsupported pre-combat-overhaul save version %s. Expected %d; a new run is required."
 			% [str(decoded.get("version", "missing")), SAVE_VERSION]
 		)
 	if not _restore_save_snapshot(decoded):

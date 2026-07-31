@@ -254,6 +254,9 @@ static func item_inventory_descriptor(
 		"is_jammed": item.is_jammed,
 		"readiness": ItemConditionRules.readiness_descriptor(item),
 		"tags": item.tags.duplicate(),
+		"functional_roles": Array(item.get_functional_roles()),
+		"knowledge_entry_id": item.knowledge_entry_id,
+		"can_inspect_knowledge": item.can_inspect_knowledge(),
 		"interaction_roles": item.interaction_roles.duplicate(),
 		"roles": item.interaction_roles.duplicate(),
 		"size_cost": item.get_inventory_cost(),
@@ -279,11 +282,11 @@ static func item_inventory_descriptor(
 		"weapon_type": item.weapon_type,
 		"damage_type": item.damage_type,
 		"flesh_damage": item.flesh_damage,
-		"stance_damage": item.stance_damage,
+		"balance_impact": item.balance_impact,
 		"armor_penetration": item.armor_penetration,
 		"accuracy_rating": item.accuracy_rating,
-		"effective_range": item.effective_range,
-		"optimal_range": item.optimal_range,
+		"maximum_range_cells": item.maximum_range_cells,
+		"optimal_range_cells": item.optimal_range_cells,
 		"protection_blunt": item.protection_blunt,
 		"protection_sharp": item.protection_sharp,
 		"protection_ballistic": item.protection_ballistic,
@@ -373,6 +376,15 @@ static func build_hex_descriptor(
 	var distance: int = hex_distance_callback.call(player_coords, coords)
 	var travel_minutes := GameTimeRules.move_minutes_for_hex(hex_data) if distance == 1 else 0
 	var travel_km := GameTimeRules.travel_distance_km(1) if distance == 1 else 0.0
+	var search_site: Dictionary = {}
+	if not hex_data.search_site_id.is_empty():
+		var search_catalog := SearchSiteCatalog.data()
+		search_site = (
+			search_catalog.descriptor(hex_data.search_site_id)
+			if search_catalog != null
+			else {}
+		)
+	var search_requirements: Dictionary = search_site.get("requirements", {})
 	return {
 		"coords": coords,
 		"label": hex_label,
@@ -411,6 +423,12 @@ static func build_hex_descriptor(
 		"is_poi": hex_data.is_poi,
 		"poi_name": hex_data.poi_name,
 		"search_count": hex_data.search_count,
+		"search_site_id": hex_data.search_site_id,
+		"search_site_name": str(search_site.get("display_name", "")),
+		"search_site_description": str(search_site.get("description", "")),
+		"search_marker_kind": str(search_site.get("marker_kind", "")),
+		"search_requires_access": not search_requirements.is_empty(),
+		"search_depleted": not search_site.is_empty() and hex_data.search_count > 0,
 		"camp_rest_count": hex_data.camp_rest_count,
 		"ground_item_count": ground_items.size(),
 		"entity_name": entity_name,
@@ -434,6 +452,11 @@ static func _hex_feature_title(hex_data: MacroHexData) -> String:
 static func feature_title(hex_data: MacroHexData) -> String:
 	if hex_data.is_poi and not hex_data.poi_name.is_empty():
 		return hex_data.poi_name
+	if not hex_data.search_site_id.is_empty():
+		var catalog := SearchSiteCatalog.data()
+		var site := catalog.get_site(hex_data.search_site_id) if catalog != null else null
+		if site != null:
+			return site.display_name
 	if hex_data.water_layer == GameEnums.MacroWaterLayer.SHALLOW_RIVER:
 		return "Shallow River Bend"
 	if hex_data.water_layer == GameEnums.MacroWaterLayer.DEEP_WATER:
@@ -651,6 +674,8 @@ static func build_world_hud_snapshot(
 		"world_time": world_time,
 		"blood": body.blood_level,
 		"pain": body.get_total_pain(),
+		"shock": body.shock,
+		"consciousness": body.consciousness,
 		"bleeding_rate": body.get_total_bleeding_rate(),
 		"wound_count": body.get_total_wound_count(),
 		"infection_risk": body.get_infection_risk(),
@@ -661,8 +686,6 @@ static func build_world_hud_snapshot(
 		"morale": player_core.current_morale,
 		"arc_energy": player_core.current_arc_energy,
 		"red_mist": player_core.red_mist_corruption,
-		"stance": player_core.stance_points,
-		"stance_state": GameEnums.StanceState.keys()[player_core.current_stance],
 		"current_capacity": inventory.current_size,
 		"maximum_capacity": inventory.current_max_capacity,
 		"medical_items": build_medical_item_snapshot(inventory),

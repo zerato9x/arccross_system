@@ -71,6 +71,9 @@ func _render() -> void:
 		str(node.get("objective_id", "")),
 		str(node.get("objective_text", "")),
 	]
+	var intel_text := _intel_text(node)
+	if not intel_text.is_empty():
+		_objective_label.text += "\n\nDecoded Intel\n" + intel_text
 	_neighbors_label.text = "Neighbors\n%s" % _neighbors_text(node)
 
 	var can_enter := bool(node.get("can_enter", false))
@@ -161,6 +164,18 @@ func _neighbors_text(node: Dictionary) -> String:
 			elif bool(neighbor.get("discovered", false)):
 				legality = "known"
 		lines.append("  • %s (%s)" % [label, legality])
+	return "\n".join(lines)
+
+
+func _intel_text(node: Dictionary) -> String:
+	var lines: PackedStringArray = []
+	for entry in node.get("intel_entries", []):
+		if not entry is Dictionary:
+			continue
+		lines.append("• %s — %s" % [
+			str(entry.get("title", "Recovered record")),
+			str(entry.get("summary", "")),
+		])
 	return "\n".join(lines)
 
 

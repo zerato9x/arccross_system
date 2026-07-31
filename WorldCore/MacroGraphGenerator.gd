@@ -75,7 +75,10 @@ static func generate_web(seed_value: String, meta_flags: Dictionary = {}) -> Mac
 		_add_bidirectional(graph, "west_random_1", "north_random_1",
 			GameEnums.MacroTravelDirection.NORTHEAST, GameEnums.MacroTravelDirection.SOUTHWEST)
 
-	_add_fetch_branch(graph, definition.graph_spacing)
+	if definition.enable_legacy_fetch_branch:
+		_add_fetch_branch(graph, definition.graph_spacing)
+	for discovery_rule in definition.discovery_rules:
+		graph.discovery_rules.append(discovery_rule.duplicate(true))
 	return graph
 
 
@@ -109,6 +112,12 @@ static func _build_arm(
 			zone_profile_id
 		)
 		node.unlocked = tier <= arm.initial_open_depth
+		if (
+			arm.prefix == "north"
+			and tier == 2
+			and bool(meta_flags.get("north_relay_restored", false))
+		):
+			node.unlocked = true
 		node.discovered = true
 		node.details_revealed = tier == 1
 		graph.add_node(node)

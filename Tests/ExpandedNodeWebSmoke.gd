@@ -32,12 +32,14 @@ func _run() -> void:
 		if start == null or not start.unlocked or not start.discovered:
 			return _fail("Start node is not visible and open: %s" % start_id)
 	for node_id in ["north_random_2", "north_random_3"]:
-		if not graph.get_node(node_id).unlocked:
-			return _fail("North depth must start fully open: %s" % node_id)
+		if graph.get_node(node_id).unlocked:
+			return _fail("North depth must wait for route objectives: %s" % node_id)
 	for prefix in ["east", "south", "west"]:
+		if not graph.get_node("%s_random_1" % prefix).unlocked:
+			return _fail("Act 1 arm started locked: %s" % prefix)
 		for tier in [2, 3]:
 			if graph.get_node("%s_random_%d" % [prefix, tier]).unlocked:
-				return _fail("Side-arm depth started open: %s tier %d" % [prefix, tier])
+				return _fail("Locked side arm started open: %s tier %d" % [prefix, tier])
 	for link in [
 		["north_random_1", "east_random_1"],
 		["east_random_1", "south_random_1"],
@@ -83,6 +85,9 @@ func _run() -> void:
 	progress.configure(state_store)
 	progress.graph = graph
 	progress.world_seed = SEED
+	var relay_reveal := progress.apply_discovery_trigger("objective:north_relay_restored")
+	if not graph.get_node("north_random_2").unlocked or not relay_reveal.has("north_random_2"):
+		return _fail("Relay objective did not unlock North Route 2.")
 	var locked_snapshot := MacroNodeMapSnapshot.build(
 		progress,
 		GameEnums.MacroTravelDirection.NONE

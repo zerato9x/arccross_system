@@ -62,16 +62,41 @@ func apply_to(inventory: InventorySystem) -> void:
 	if offhand:
 		inventory.equip_item(offhand, GameEnums.EquipmentSlot.OFFHAND)
 
-	# 3. Stuff loose items into legal worn storage.
-	for item in starting_items:
+	# 3. Materialize authored quantities as explicit stack instances. This is
+	# creation-time authoring, not an implicit pickup/transfer merge: every
+	# created stack receives one stable instance identity.
+	for item in _materialize_starting_items():
 		if not inventory.add_to_backpack(item):
-			print("[LOADOUT] WARNING: Backpack full. Could not fit: ", item.display_name)
+			print("[LOADOUT] WARNING: Worn storage full. Could not fit: ", item.display_name)
 
 	# Authored loadouts begin field-ready. Replacement magazines found later
 	# must be fitted through the inventory action.
 	for carried_item in inventory.backpack_array.duplicate():
 		if carried_item.is_magazine() and carried_item.loaded_rounds == 0:
 			inventory.load_magazine(carried_item)
+
+
+func _materialize_starting_items() -> Array[ItemData]:
+	var counts_by_path: Dictionary = {}
+	var definitions_by_path: Dictionary = {}
+	for definition in starting_items:
+		if definition == null:
+			continue
+		var key := definition.resource_path
+		if key.is_empty():
+			key = "embedded:%s" % definition.id
+		counts_by_path[key] = int(counts_by_path.get(key, 0)) + 1
+		definitions_by_path[key] = definition
+	var instances: Array[ItemData] = []
+	for key in counts_by_path:
+		var definition: ItemData = definitions_by_path[key]
+		var remaining := int(counts_by_path[key])
+		while remaining > 0:
+			var instance := definition.create_runtime_instance()
+			instance.stack_count = mini(remaining, definition.get_stack_limit())
+			remaining -= instance.stack_count
+			instances.append(instance)
+	return instances
 
 func to_state() -> Dictionary:
 	return {

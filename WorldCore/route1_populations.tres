@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="RoutePopulationCatalog" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://WorldCore/RoutePopulationCatalog.gd" id="1_catalog"]
+[ext_resource type="Script" path="res://WorldCore/RoutePopulationProfile.gd" id="2_profile"]
+
+[sub_resource type="Resource" id="North"]
+script = ExtResource("2_profile")
+node_id = "north_random_1"
+spawn_entries = [{"count": 2, "faction": 0, "placement": "search_near", "role_id": "salvager", "template_prefix": "north_road_salvager", "world_status": 1}, {"count": 1, "faction": 1, "placement": "search_far", "role_id": "raider", "template_prefix": "north_road_raider", "world_status": 0}, {"count": 1, "faction": 0, "placement": "poi_neighbor", "role_id": "sentry", "template_prefix": "north_relay_sentry", "world_status": 1}]
+
+[sub_resource type="Resource" id="East"]
+script = ExtResource("2_profile")
+node_id = "east_random_1"
+spawn_entries = [{"count": 2, "faction": 0, "placement": "search_near", "role_id": "salvager", "template_prefix": "east_registry_salvager", "world_status": 1}, {"count": 1, "faction": 1, "placement": "search_far", "role_id": "raider", "template_prefix": "east_registry_raider", "world_status": 0}, {"count": 1, "faction": 2, "placement": "poi_neighbor", "role_id": "patrol", "template_prefix": "east_registry_patrol", "world_status": 1}]
+
+[sub_resource type="Resource" id="South"]
+script = ExtResource("2_profile")
+node_id = "south_random_1"
+spawn_entries = [{"count": 2, "faction": 0, "placement": "search_near", "role_id": "salvager", "template_prefix": "south_depot_salvager", "world_status": 1}, {"count": 1, "faction": 1, "placement": "search_far", "role_id": "raider", "template_prefix": "south_depot_raider", "world_status": 0}]
+
+[sub_resource type="Resource" id="West"]
+script = ExtResource("2_profile")
+node_id = "west_random_1"
+spawn_entries = [{"count": 2, "faction": 0, "placement": "search_near", "role_id": "salvager", "template_prefix": "west_cache_salvager", "world_status": 1}, {"count": 1, "faction": 1, "placement": "search_far", "role_id": "raider", "template_prefix": "west_cache_raider", "world_status": 0}]
+
+[resource]
+script = ExtResource("1_catalog")
+profiles = Array[ExtResource("2_profile")]([SubResource("North"), SubResource("East"), SubResource("South"), SubResource("West")])

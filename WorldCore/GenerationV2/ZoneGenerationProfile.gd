@@ -21,6 +21,8 @@ static func starter_node(arm_key: String, include_settlement: bool = false) -> Z
 	var profile := ZoneGenerationProfile.new()
 	profile.profile_id = "starter_node_%s_v2" % arm_key
 	profile.climate_id = "north_cold_fringe" if arm_key == "north" else "central_fringe"
+	profile.rubble_search_min = 7
+	profile.rubble_search_max = 7
 	if not include_settlement:
 		profile.required_stamp_ids = PackedStringArray()
 		profile.simulated_resident_count = 0

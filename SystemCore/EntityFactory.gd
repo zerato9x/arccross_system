@@ -8,10 +8,6 @@ static func record_to_humanoid_core(
 	record: Dictionary,
 	parent: Node,
 	unit_name: String = "Humanoid",
-	attach_ai: bool = false,
-	lane_manager: CombatLaneManager = null,
-	turn_manager: CombatTurnManager = null,
-	resolution_engine: CombatResolutionEngine = null,
 	items_spilled_callback: Callable = Callable()
 ) -> HumanoidCore:
 	var definition_state: Dictionary = record.get("definition", {})
@@ -36,15 +32,6 @@ static func record_to_humanoid_core(
 
 	if items_spilled_callback.is_valid():
 		inv.items_spilled.connect(items_spilled_callback)
-
-	if attach_ai and lane_manager and turn_manager and resolution_engine:
-		var ai := CombatAIEvaluator.new()
-		ai.name = "CombatAIEvaluator"
-		ai.ai_core = core
-		ai.lane_manager = lane_manager
-		ai.turn_manager = turn_manager
-		ai.resolution_engine = resolution_engine
-		core.add_child(ai)
 
 	if parent:
 		parent.add_child(core)
@@ -94,7 +81,6 @@ static func _has_humanoid_runtime(runtime_state: Dictionary) -> bool:
 		"base_ap",
 		"current_max_ap",
 		"is_dead",
-		"stance_points",
 		"current_morale",
 	]:
 		if runtime_state.has(key):

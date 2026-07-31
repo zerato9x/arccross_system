@@ -750,13 +750,16 @@ func _render_grid_preview(preview: Dictionary) -> void:
 	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	HUDAssetLibrary.apply_label(caption, "muted")
 	_grid_preview_root.add_child(caption)
-	var lane_row := HBoxContainer.new()
-	lane_row.add_theme_constant_override("separation", 4)
-	lane_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_grid_preview_root.add_child(lane_row)
-	var lane_count := maxi(1, int(preview.get("lane_count", 12)))
-	var player_lane := int(preview.get("player_lane", -1))
-	var enemy_lane := int(preview.get("enemy_lane", -1))
+	var sector_grid := GridContainer.new()
+	var width := maxi(1, int(preview.get("width", 7)))
+	var height := maxi(1, int(preview.get("height", 5)))
+	sector_grid.columns = width
+	sector_grid.add_theme_constant_override("h_separation", 4)
+	sector_grid.add_theme_constant_override("v_separation", 4)
+	sector_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_grid_preview_root.add_child(sector_grid)
+	var player_sector: Vector2i = preview.get("player_sector", Vector2i(-1, -1))
+	var enemy_sector: Vector2i = preview.get("enemy_sector", Vector2i(-1, -1))
 	var player_appearance: Dictionary = _session.get("player", {}).get(
 		"appearance",
 		{}
@@ -765,12 +768,13 @@ func _render_grid_preview(preview: Dictionary) -> void:
 		"appearance",
 		{}
 	)
-	for lane_index in range(1, lane_count + 1):
+	for sector_index in range(width * height):
+		var coords := Vector2i(sector_index % width, sector_index / width)
 		var cell := PanelContainer.new()
 		cell.custom_minimum_size = Vector2(36, 72)
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var is_player := lane_index == player_lane
-		var is_enemy := lane_index == enemy_lane
+		var is_player := coords == player_sector
+		var is_enemy := coords == enemy_sector
 		HUDAssetLibrary.apply_panel(cell, "warning" if is_player or is_enemy else "neutral")
 		var margin := MarginContainer.new()
 		margin.add_theme_constant_override("margin_left", 2)
@@ -782,7 +786,7 @@ func _render_grid_preview(preview: Dictionary) -> void:
 		column.add_theme_constant_override("separation", 2)
 		margin.add_child(column)
 		var index_label := Label.new()
-		index_label.text = "%02d" % lane_index
+		index_label.text = "%d,%d" % [coords.x, coords.y]
 		index_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		HUDAssetLibrary.apply_label(index_label, "muted")
 		column.add_child(index_label)
@@ -809,7 +813,7 @@ func _render_grid_preview(preview: Dictionary) -> void:
 			marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			HUDAssetLibrary.apply_label(marker, "muted")
 			column.add_child(marker)
-		lane_row.add_child(cell)
+		sector_grid.add_child(cell)
 	var legend := Label.new()
 	legend.text = "Field presence // player and contact tokens"
 	legend.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

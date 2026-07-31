@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SurvivalBalance" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://BiologicalCore/SurvivalBalance.gd" id="1_balance"]
+
+[resource]
+script = ExtResource("1_balance")
+hunger_drain = 0.12
+thirst_drain = 0.36
+fatigue_gain = 0.24
+hunger_grace_minutes = 360
+hunger_fatal_minutes = 1440
+hunger_blood_loss_per_hour = 0.5
+hunger_fatigue_per_hour = 0.25
+thirst_grace_minutes = 60
+thirst_fatal_minutes = 360
+thirst_blood_loss_per_hour = 2.0
+thirst_fatigue_per_hour = 1.0

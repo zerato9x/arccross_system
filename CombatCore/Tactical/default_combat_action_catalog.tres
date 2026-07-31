@@ -1,0 +1,439 @@
+[gd_resource type="Resource" script_class="CombatActionCatalog" load_steps=38 format=3]
+
+[ext_resource type="Script" path="res://CombatCore/Tactical/CombatActionCatalog.gd" id="1_catalog"]
+[ext_resource type="Script" path="res://CombatCore/Tactical/CombatActionDefinition.gd" id="2_action"]
+[ext_resource type="Resource" path="res://CombatCore/Tactical/default_presentation_profile.tres" id="3_profile"]
+
+[sub_resource type="Resource" id="Action_move"]
+script = ExtResource("2_action")
+action_id = "move"
+label = "Move"
+description = "Traverse a selected orthogonal path and choose final facing."
+ap_category = "free"
+movement_cost_policy = "path"
+target_mode = "path"
+resolver_id = "move"
+reaction_tags = Array[String](["movement", "provokes_control_zone"])
+ai_tags = Array[String](["position", "cover", "flank"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_turn"]
+script = ExtResource("2_action")
+action_id = "turn"
+label = "Turn"
+ap_category = "quick"
+target_mode = "self"
+resolver_id = "turn"
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_stand"]
+script = ExtResource("2_action")
+action_id = "stand"
+label = "Stand"
+description = "Rise from crouched or prone posture."
+ap_category = "major"
+target_mode = "self"
+resolver_id = "change_posture"
+ai_tags = Array[String](["posture", "mobility"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_crouch"]
+script = ExtResource("2_action")
+action_id = "crouch"
+label = "Crouch"
+description = "Lower posture for concealment and stability."
+ap_category = "quick"
+target_mode = "self"
+resolver_id = "change_posture"
+ai_tags = Array[String](["posture", "cover"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_go_prone"]
+script = ExtResource("2_action")
+action_id = "go_prone"
+label = "Go Prone"
+description = "Drop prone for a smaller profile at the cost of mobility."
+ap_category = "quick"
+target_mode = "self"
+resolver_id = "change_posture"
+ai_tags = Array[String](["posture", "cover"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_disengage"]
+script = ExtResource("2_action")
+action_id = "disengage"
+label = "Disengage"
+description = "Move along a selected path without provoking movement reactions."
+ap_category = "heavy"
+movement_cost_policy = "path_plus_action"
+target_mode = "path"
+resolver_id = "disengage"
+reaction_tags = Array[String](["movement", "suppresses_control_zone"])
+ai_tags = Array[String](["escape_control", "survival"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_rush"]
+script = ExtResource("2_action")
+action_id = "rush"
+label = "Rush"
+description = "Move up to three sectors and gain momentum; no attack is included."
+ap_category = "free"
+movement_cost_policy = "path"
+target_mode = "path"
+resolver_id = "rush"
+reaction_tags = Array[String](["movement", "provokes_control_zone"])
+ai_tags = Array[String](["close_distance", "momentum"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_brace"]
+script = ExtResource("2_action")
+action_id = "brace"
+label = "Brace"
+ap_category = "minor"
+target_mode = "self"
+resolver_id = "brace"
+ai_tags = Array[String](["defense", "balance"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_take_cover"]
+script = ExtResource("2_action")
+action_id = "take_cover"
+label = "Take Cover"
+ap_category = "major"
+target_mode = "actor"
+resolver_id = "take_cover"
+ai_tags = Array[String](["cover", "defense"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_escape"]
+script = ExtResource("2_action")
+action_id = "escape"
+label = "Escape"
+ap_category = "committed"
+target_mode = "self"
+resolver_id = "escape"
+ai_tags = Array[String](["escape", "survival"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_reserve"]
+script = ExtResource("2_action")
+action_id = "reserve"
+label = "Reserve AP"
+ap_category = "free"
+target_mode = "self"
+resolver_id = "reserve"
+ai_tags = Array[String](["reaction", "defense"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_strike"]
+script = ExtResource("2_action")
+action_id = "strike"
+label = "Strike"
+ap_category = "major"
+target_mode = "actor"
+minimum_range_cells = 1
+maximum_range_cells = 2
+reach_cells = 1
+required_postures = Array[String](["standing", "crouched"])
+required_limb_tags = Array[String](["one_arm"])
+resolver_id = "strike"
+reaction_tags = Array[String](["melee_attack", "blockable", "dodgeable"])
+ai_tags = Array[String](["damage", "melee"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_heavy_strike"]
+script = ExtResource("2_action")
+action_id = "heavy_strike"
+label = "Heavy Strike"
+ap_category = "heavy"
+target_mode = "actor"
+minimum_range_cells = 1
+maximum_range_cells = 2
+reach_cells = 1
+required_postures = Array[String](["standing"])
+required_limb_tags = Array[String](["one_arm"])
+resolver_id = "heavy_strike"
+reaction_tags = Array[String](["melee_attack", "blockable", "dodgeable"])
+ai_tags = Array[String](["damage", "melee", "committed"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_shove"]
+script = ExtResource("2_action")
+action_id = "shove"
+label = "Shove"
+ap_category = "major"
+target_mode = "actor"
+minimum_range_cells = 1
+maximum_range_cells = 1
+reach_cells = 1
+required_postures = Array[String](["standing", "crouched"])
+required_limb_tags = Array[String](["one_arm"])
+resolver_id = "shove"
+reaction_tags = Array[String](["melee_control"])
+ai_tags = Array[String](["collision", "hazard", "control"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_grapple"]
+script = ExtResource("2_action")
+action_id = "grapple"
+label = "Grapple"
+ap_category = "heavy"
+target_mode = "actor"
+minimum_range_cells = 1
+maximum_range_cells = 1
+required_postures = Array[String](["standing", "crouched"])
+required_limb_tags = Array[String](["one_arm"])
+resolver_id = "grapple"
+reaction_tags = Array[String](["melee_control"])
+ai_tags = Array[String](["control", "disable"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_drag"]
+script = ExtResource("2_action")
+action_id = "drag"
+label = "Drag"
+ap_category = "major"
+movement_cost_policy = "path_plus_action"
+target_mode = "path"
+required_control_state = "controller"
+resolver_id = "drag"
+ai_tags = Array[String](["control", "position", "hazard"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_takedown"]
+script = ExtResource("2_action")
+action_id = "takedown"
+label = "Takedown"
+ap_category = "major"
+target_mode = "actor"
+required_control_state = "controller"
+resolver_id = "takedown"
+ai_tags = Array[String](["control", "prone"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_throw"]
+script = ExtResource("2_action")
+action_id = "throw"
+label = "Throw"
+ap_category = "heavy"
+target_mode = "actor"
+required_control_state = "controller"
+resolver_id = "throw"
+ai_tags = Array[String](["collision", "hazard", "control"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_restrain"]
+script = ExtResource("2_action")
+action_id = "restrain"
+label = "Restrain"
+ap_category = "heavy"
+target_mode = "actor"
+required_control_state = "controller"
+resolver_id = "restrain"
+ai_tags = Array[String](["control", "disable"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_release"]
+script = ExtResource("2_action")
+action_id = "release"
+label = "Release"
+ap_category = "free"
+target_mode = "self"
+required_control_state = "controller"
+resolver_id = "release"
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_break_free"]
+script = ExtResource("2_action")
+action_id = "break_free"
+label = "Break Free"
+ap_category = "major"
+target_mode = "self"
+required_control_state = "controlled"
+resolver_id = "break_free"
+ai_tags = Array[String](["escape_control", "survival"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_fire"]
+script = ExtResource("2_action")
+action_id = "fire"
+label = "Fire"
+ap_category = "major"
+target_mode = "actor"
+minimum_range_cells = 1
+maximum_range_cells = 10
+requires_line_of_sight = true
+required_limb_tags = Array[String](["one_arm"])
+required_equipment_tags = Array[String](["ranged_weapon"])
+resolver_id = "fire"
+reaction_tags = Array[String](["ranged_attack", "dodgeable"])
+ai_tags = Array[String](["damage", "ranged"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_aimed_fire"]
+script = ExtResource("2_action")
+action_id = "aimed_fire"
+label = "Aimed Fire"
+ap_category = "heavy"
+target_mode = "actor"
+minimum_range_cells = 1
+maximum_range_cells = 10
+requires_line_of_sight = true
+required_limb_tags = Array[String](["one_arm"])
+required_equipment_tags = Array[String](["ranged_weapon"])
+resolver_id = "aimed_fire"
+reaction_tags = Array[String](["ranged_attack", "dodgeable"])
+ai_tags = Array[String](["damage", "ranged", "precision"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_reload"]
+script = ExtResource("2_action")
+action_id = "reload"
+label = "Reload"
+ap_category = "minor"
+target_mode = "item"
+required_limb_tags = Array[String](["one_arm"])
+required_equipment_tags = Array[String](["ranged_weapon"])
+resolver_id = "reload"
+ai_tags = Array[String](["ammunition"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_cycle"]
+script = ExtResource("2_action")
+action_id = "cycle"
+label = "Cycle"
+ap_category = "quick"
+target_mode = "item"
+required_equipment_tags = Array[String](["ranged_weapon"])
+resolver_id = "cycle"
+ai_tags = Array[String](["ammunition"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_clear_malfunction"]
+script = ExtResource("2_action")
+action_id = "clear_malfunction"
+label = "Clear Malfunction"
+ap_category = "quick"
+target_mode = "item"
+required_equipment_tags = Array[String](["ranged_weapon"])
+resolver_id = "clear_malfunction"
+ai_tags = Array[String](["weapon_service"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_ready"]
+script = ExtResource("2_action")
+action_id = "ready"
+label = "Ready"
+ap_category = "minor"
+target_mode = "item"
+resolver_id = "ready"
+ai_tags = Array[String](["inventory"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_rummage"]
+script = ExtResource("2_action")
+action_id = "rummage"
+label = "Rummage"
+ap_category = "major"
+target_mode = "item"
+resolver_id = "rummage"
+ai_tags = Array[String](["inventory"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_use"]
+script = ExtResource("2_action")
+action_id = "use"
+label = "Use"
+ap_category = "minor"
+target_mode = "item"
+resolver_id = "use"
+ai_tags = Array[String](["inventory", "survival"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_treat"]
+script = ExtResource("2_action")
+action_id = "treat"
+label = "Treat Wound"
+ap_category = "major"
+target_mode = "wound"
+resolver_id = "treat"
+ai_tags = Array[String](["medical", "survival"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_pick_up"]
+script = ExtResource("2_action")
+action_id = "pick_up"
+label = "Pick Up"
+ap_category = "minor"
+target_mode = "item"
+resolver_id = "pick_up"
+ai_tags = Array[String](["inventory", "ground"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_drop"]
+script = ExtResource("2_action")
+action_id = "drop"
+label = "Drop"
+ap_category = "quick"
+target_mode = "item"
+resolver_id = "drop"
+ai_tags = Array[String](["inventory"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_strip"]
+script = ExtResource("2_action")
+action_id = "strip"
+label = "Strip"
+description = "Transfer one exact item instance from an adjacent incapacitated body."
+ap_category = "major"
+target_mode = "actor"
+maximum_range_cells = 1
+resolver_id = "strip"
+ai_tags = Array[String](["inventory", "body"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_interact"]
+script = ExtResource("2_action")
+action_id = "interact"
+label = "Interact"
+ap_category = "major"
+target_mode = "object"
+maximum_range_cells = 1
+resolver_id = "interact"
+ai_tags = Array[String](["object", "terrain"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_block"]
+script = ExtResource("2_action")
+action_id = "block"
+label = "Block"
+ap_category = "minor"
+target_mode = "self"
+resolver_id = "block"
+reaction_tags = Array[String](["reaction"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_dodge"]
+script = ExtResource("2_action")
+action_id = "dodge"
+label = "Dodge"
+ap_category = "minor"
+target_mode = "sector"
+resolver_id = "dodge"
+reaction_tags = Array[String](["reaction", "movement"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_opportunity_strike"]
+script = ExtResource("2_action")
+action_id = "opportunity_strike"
+label = "Opportunity Strike"
+ap_category = "minor"
+target_mode = "actor"
+maximum_range_cells = 2
+resolver_id = "opportunity_strike"
+reaction_tags = Array[String](["reaction", "melee_attack"])
+presentation_profile = ExtResource("3_profile")
+
+[resource]
+script = ExtResource("1_catalog")
+definitions = Array[ExtResource("2_action")]([SubResource("Action_move"), SubResource("Action_turn"), SubResource("Action_stand"), SubResource("Action_crouch"), SubResource("Action_go_prone"), SubResource("Action_disengage"), SubResource("Action_rush"), SubResource("Action_brace"), SubResource("Action_take_cover"), SubResource("Action_escape"), SubResource("Action_reserve"), SubResource("Action_strike"), SubResource("Action_heavy_strike"), SubResource("Action_shove"), SubResource("Action_grapple"), SubResource("Action_drag"), SubResource("Action_takedown"), SubResource("Action_throw"), SubResource("Action_restrain"), SubResource("Action_release"), SubResource("Action_break_free"), SubResource("Action_fire"), SubResource("Action_aimed_fire"), SubResource("Action_reload"), SubResource("Action_cycle"), SubResource("Action_clear_malfunction"), SubResource("Action_ready"), SubResource("Action_rummage"), SubResource("Action_use"), SubResource("Action_treat"), SubResource("Action_pick_up"), SubResource("Action_drop"), SubResource("Action_strip"), SubResource("Action_interact"), SubResource("Action_block"), SubResource("Action_dodge"), SubResource("Action_opportunity_strike")])

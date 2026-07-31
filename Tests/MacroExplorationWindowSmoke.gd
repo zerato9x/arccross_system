@@ -94,7 +94,10 @@ func _run() -> void:
 	if hex_data.camp_traps.is_empty():
 		_fail("Trap gear was not persisted on the landmark hex.")
 		return
-	var trap_lane := int(hex_data.camp_traps[0].get("lane_index", 8))
+	var trap_sector_coords := Vector2i(
+		int(hex_data.camp_traps[0].get("sector_x", 1)),
+		int(hex_data.camp_traps[0].get("sector_y", 2))
+	)
 	if player_core.inventory.find_item_by_instance_id(noise_trap.instance_id) != null:
 		_fail("Installed trap gear remained in the player inventory.")
 		return
@@ -120,51 +123,45 @@ func _run() -> void:
 		_fail("Ambush during camp did not create combat.")
 		return
 
-	var trap_slot: CombatLaneSlot = arena.lane_manager.lane_slots[trap_lane]
-	if trap_slot.current_cover != CombatRules.TileObject.TRAP:
-		_fail("EncounterBuilder did not place the macro trap on the nominated lane.")
+	var trap_sector := arena.board.arena_state.sector_at(trap_sector_coords)
+	if trap_sector == null or trap_sector.trap_state.is_empty():
+		_fail("TacticalEncounterBuilder did not place the macro trap in its authored sector.")
 		return
 
 	hex_data = macro_map.world_generator.get_hex_at(DEMO_POI)
-	if not hex_data.camp_traps.is_empty():
-		_fail("Trap was not consumed from the hex record when combat began.")
+	if hex_data.camp_traps.is_empty():
+		_fail("Preparing combat consumed the persistent macro trap before resolution.")
 		return
 
-	var enemy_lane_before: int = arena.lane_manager._find_entity_lane(arena.enemy_core)
-	if enemy_lane_before == trap_lane:
-		_fail("Enemy spawned directly on the trap lane; cannot verify entry trigger.")
+	var enemy_sector_before: int = arena.board.position_of(arena.enemy_core)
+	var trap_index := CombatArenaState.index_for_coords(trap_sector_coords)
+	if enemy_sector_before == trap_index:
+		_fail("Enemy spawned directly on the trap sector; cannot verify entry trigger.")
 		return
-	if not arena.lane_manager.can_move_entity_to(
-		arena.enemy_core,
-		enemy_lane_before,
-		trap_lane
-	):
-		_fail("Enemy could not enter the trapped lane for trigger verification.")
+	var path := arena.board.find_path(enemy_sector_before, trap_index, arena.enemy_core)
+	if path.size() < 2:
+		_fail("Enemy could not path into the trapped sector for trigger verification.")
 		return
 
-	var leg_hp_before: float = arena.enemy_core.body.limb_hp[GameEnums.LimbRegion.LEFT_LEG]
-	if not arena.lane_manager.move_entity(
-		arena.enemy_core,
-		enemy_lane_before,
-		trap_lane
-	):
-		_fail("Enemy movement into the trapped lane failed.")
+	var wound_count_before := arena.enemy_core.body.get_wounds_for_limb(GameEnums.LimbRegion.LEFT_LEG).size()
+	if arena.board.commit_path(arena.enemy_core, path).is_empty():
+		_fail("Enemy movement into the trapped sector failed.")
 		return
-	if trap_slot.trap_armed:
+	if bool(trap_sector.trap_state.get("armed", true)):
 		_fail("Trap did not disarm after enemy entry.")
 		return
 	if (
-		arena.enemy_core.body.limb_hp[GameEnums.LimbRegion.LEFT_LEG]
-		>= leg_hp_before
+		arena.enemy_core.body.get_wounds_for_limb(GameEnums.LimbRegion.LEFT_LEG).size()
+		<= wound_count_before
 	):
-		_fail("Trap did not damage the enemy on lane entry.")
+		_fail("Trap did not wound the enemy on sector entry.")
 		return
 
 	arena.turn_manager.halt_loop()
 	game_director.queue_free()
 	await process_frame
 	print(
-		"[TEST PASS] HERE Act entry, trap persistence, rest, and lane trap trigger work."
+		"[TEST PASS] HERE Act entry, trap persistence, rest, and sector trap trigger work."
 	)
 	quit(0)
 

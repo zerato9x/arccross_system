@@ -1,0 +1,387 @@
+extends RefCounted
+class_name CombatArenaGenerator
+
+const DEFAULT_CATALOG := preload(
+	"res://CombatCore/Tactical/combat_terrain_catalog.tres"
+)
+
+const AXIAL_DIRECTIONS := [
+	Vector2i(1, 0),
+	Vector2i(1, -1),
+	Vector2i(0, -1),
+	Vector2i(-1, 0),
+	Vector2i(-1, 1),
+	Vector2i(0, 1),
+]
+
+var catalog: TacticalTerrainCatalog
+
+
+func _init(profile_catalog: TacticalTerrainCatalog = null) -> void:
+	catalog = profile_catalog if profile_catalog != null else DEFAULT_CATALOG
+
+
+func generate(encounter: CombatEncounterRecord) -> CombatArenaState:
+	var arena := CombatArenaState.new()
+	arena.source_coords = encounter.source_coords
+	arena.orientation_step = _orientation_step(
+		encounter.source_coords - encounter.approach_from
+	)
+	arena.baseline_seed = _stable_seed(encounter)
+	arena.backdrop_asset_path = _backdrop_path(encounter)
+	arena.lighting = _lighting_descriptor(encounter.world_time)
+	var layer_assets := _layer_assets(encounter.presentation)
+	for index in range(CombatArenaState.SECTOR_COUNT):
+		var sector := TacticalSectorRecord.new()
+		sector.index = index
+		sector.coords = CombatArenaState.coords_for_index(index)
+		_configure_base(sector, encounter.center_hex, layer_assets)
+		arena.sectors.append(sector)
+
+	_apply_road(arena, encounter.center_hex, layer_assets)
+	_apply_water(arena, encounter, layer_assets)
+	_apply_scattered_layers(arena, encounter.center_hex, layer_assets)
+	_apply_presentation_props(arena, encounter.presentation, arena.baseline_seed)
+	_apply_traps(arena, encounter.traps)
+	_apply_persistent_state(arena, encounter.center_hex)
+	_configure_edges(arena)
+	return arena
+
+
+func _configure_base(
+	sector: TacticalSectorRecord,
+	hex: HexRecord,
+	assets: Dictionary
+) -> void:
+	var profile := catalog.terrain(hex.terrain_tile) if hex != null else {}
+	sector.surface_id = str(profile.get("id", "plains"))
+	sector.surface_label = str(profile.get("label", "PLAINS"))
+	sector.ground_asset_path = str(assets.get("terrain", ""))
+	sector.movement_modifier = int(profile.get("movement_modifier", 0))
+	sector.visibility_penalty = float(profile.get("visibility_penalty", 0.0))
+	sector.concealment = float(profile.get("concealment", 0.0))
+	sector.opaque = bool(profile.get("opaque", false))
+	sector.blocked = bool(profile.get("blocked", false))
+	sector.spawnable = bool(profile.get("spawnable", not sector.blocked))
+	sector.hazard_state = _hazard_fields(profile)
+
+
+func _apply_road(
+	arena: CombatArenaState,
+	hex: HexRecord,
+	assets: Dictionary
+) -> void:
+	if hex == null or hex.road_mask <= 0:
+		return
+	var ports: Array[Vector2i] = []
+	for direction_index in range(6):
+		if (hex.road_mask & (1 << direction_index)) != 0:
+			ports.append(_edge_port_for_direction(arena, direction_index))
+	if ports.is_empty():
+		return
+	for coords in _connected_paths(ports):
+		var sector := arena.sector_at(coords)
+		sector.surface_id = "road"
+		sector.surface_label = "DIRT ROAD" if hex.composition_role == "dirt_service_spur" else "ROAD"
+		sector.overlay_asset_path = str(assets.get("road", ""))
+		sector.movement_modifier = mini(sector.movement_modifier, -1)
+		sector.blocked = false
+		sector.spawnable = true
+		sector.hazard_state["road_mask"] = hex.road_mask
+
+
+func _apply_water(
+	arena: CombatArenaState,
+	encounter: CombatEncounterRecord,
+	assets: Dictionary
+) -> void:
+	var hex := encounter.center_hex
+	if hex == null or hex.water_layer == GameEnums.MacroWaterLayer.NONE:
+		return
+	var profile := catalog.water(hex.water_layer)
+	var ports: Array[Vector2i] = []
+	for direction_index in range(mini(6, encounter.neighbor_hexes.size())):
+		var neighbor := encounter.neighbor_hexes[direction_index]
+		if neighbor != null and neighbor.water_layer == hex.water_layer:
+			ports.append(_edge_port_for_direction(arena, direction_index))
+	if ports.is_empty():
+		# A standalone authored water hex is a local pool crossing the center.
+		ports = [Vector2i(3, 1), Vector2i(3, 3)]
+	for coords in _connected_paths(ports):
+		var sector := arena.sector_at(coords)
+		_apply_profile(sector, profile)
+		sector.overlay_asset_path = str(assets.get("water", ""))
+
+
+func _apply_scattered_layers(
+	arena: CombatArenaState,
+	hex: HexRecord,
+	assets: Dictionary
+) -> void:
+	if hex == null:
+		return
+	_apply_scatter(arena, catalog.flora(hex.flora_layer), str(assets.get("flora", "")), "flora", arena.baseline_seed + 101)
+	_apply_scatter(arena, catalog.rock(hex.rock_layer), str(assets.get("rock", "")), "rock", arena.baseline_seed + 211)
+	_apply_scatter(arena, catalog.structure(hex.structure_layer), str(assets.get("structure", "")), "structure", arena.baseline_seed + 307)
+
+
+func _apply_scatter(
+	arena: CombatArenaState,
+	profile: Dictionary,
+	asset_path: String,
+	kind: String,
+	seed_value: int
+) -> void:
+	if profile.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	var candidates: Array[TacticalSectorRecord] = []
+	for sector in arena.sectors:
+		if sector.coords.x in [0, CombatArenaState.WIDTH - 1]:
+			continue
+		if sector.surface_id in ["road", "shallow_water", "deep_water"]:
+			continue
+		candidates.append(sector)
+	if candidates.is_empty():
+		return
+	for index in range(candidates.size() - 1, 0, -1):
+		var swap_index := rng.randi_range(0, index)
+		var current := candidates[index]
+		candidates[index] = candidates[swap_index]
+		candidates[swap_index] = current
+	var count := clampi(roundi(float(profile.get("density", 0.0)) * candidates.size()), 1, candidates.size())
+	for index in range(count):
+		var sector := candidates[index]
+		_apply_profile(sector, profile)
+		if not asset_path.is_empty():
+			sector.object_state = {
+				"id": "%s_%02d" % [kind, sector.index],
+				"type": str(profile.get("object_type", kind)),
+				"label": str(profile.get("label", kind.capitalize())),
+				"asset_path": asset_path,
+				"durability": float(profile.get("durability", 0.0)),
+				"persistent": true,
+			}
+		var blocked_fraction := float(profile.get("blocked_fraction", 0.0))
+		if blocked_fraction > 0.0 and rng.randf() < blocked_fraction:
+			sector.blocked = true
+			sector.spawnable = false
+		if not sector.object_state.is_empty():
+			sector.cover_edges = _cover_for_object(profile, rng)
+
+
+func _apply_presentation_props(
+	arena: CombatArenaState,
+	presentation: Dictionary,
+	seed_value: int
+) -> void:
+	var scene: Dictionary = presentation.get("scene", {})
+	var props: Array = scene.get("props", [])
+	for prop_index in range(props.size()):
+		var prop: Variant = props[prop_index]
+		if not prop is Dictionary:
+			continue
+		var anchor: Vector2 = prop.get("anchor", Vector2(0.5, 0.5))
+		var coords := Vector2i(
+			clampi(roundi(anchor.x * float(CombatArenaState.WIDTH - 1)), 1, CombatArenaState.WIDTH - 2),
+			clampi(roundi(anchor.y * float(CombatArenaState.HEIGHT - 1)), 0, CombatArenaState.HEIGHT - 1)
+		)
+		var sector := arena.sector_at(coords)
+		if sector == null or not sector.object_state.is_empty():
+			sector = _nearest_free_object_sector(arena, coords, seed_value + prop_index)
+		if sector == null:
+			continue
+		sector.object_state = {
+			"id": str(prop.get("id", "prop_%02d" % prop_index)),
+			"type": "poi_prop",
+			"label": str(prop.get("label", "Terrain fixture")),
+			"asset_path": str(prop.get("sprite_path", "")),
+			"durability": 12.0,
+			"persistent": true,
+			"decorative": bool(prop.get("decorative", false)),
+		}
+		if not bool(prop.get("decorative", false)):
+			sector.cover_edges = {"north": 0.5, "east": 0.5, "south": 0.5, "west": 0.5}
+
+
+func _apply_traps(arena: CombatArenaState, traps: Array[Dictionary]) -> void:
+	for trap_index in range(traps.size()):
+		var trap := traps[trap_index]
+		var coords: Vector2i = trap.get("sector", Vector2i(1, CombatArenaState.HEIGHT / 2))
+		if not CombatArenaState.contains_coords(coords):
+			coords = Vector2i(1, CombatArenaState.HEIGHT / 2)
+		var sector := arena.sector_at(coords)
+		sector.trap_state = trap.duplicate(true)
+		sector.trap_state["armed"] = bool(trap.get("armed", true))
+		sector.trap_state["id"] = str(trap.get("instance_id", "trap_%02d" % trap_index))
+
+
+func _apply_persistent_state(arena: CombatArenaState, hex: HexRecord) -> void:
+	if hex == null or hex.combat_site_state.is_empty():
+		return
+	arena.mutations = hex.combat_site_state.duplicate(true)
+	var patches: Dictionary = hex.combat_site_state.get("sector_patches", {})
+	for key in patches.keys():
+		var index := int(key)
+		if index < 0 or index >= arena.sectors.size():
+			continue
+		var patch: Dictionary = patches[key]
+		var sector := arena.sectors[index]
+		if patch.has("object_state"):
+			sector.object_state = patch.object_state.duplicate(true)
+		if patch.has("hazard_state"):
+			sector.hazard_state = patch.hazard_state.duplicate(true)
+		if patch.has("trap_state"):
+			sector.trap_state = patch.trap_state.duplicate(true)
+		if patch.has("surface_id"):
+			sector.surface_id = str(patch.surface_id)
+		if patch.has("blocked"):
+			sector.blocked = bool(patch.blocked)
+		if patch.has("cover_edges"):
+			sector.cover_edges = patch.cover_edges.duplicate(true)
+
+
+func _configure_edges(arena: CombatArenaState) -> void:
+	for y in range(CombatArenaState.HEIGHT):
+		var player_edge := arena.sector_at(Vector2i(0, y))
+		player_edge.escape_side = "player" if not player_edge.blocked else ""
+		player_edge.territory_side = "player"
+		player_edge.spawnable = player_edge.spawnable and not player_edge.blocked
+		var enemy_edge := arena.sector_at(Vector2i(CombatArenaState.WIDTH - 1, y))
+		enemy_edge.escape_side = "enemy" if not enemy_edge.blocked else ""
+		enemy_edge.territory_side = "enemy"
+		enemy_edge.spawnable = enemy_edge.spawnable and not enemy_edge.blocked
+	for sector in arena.sectors:
+		if sector.coords.x > 0 and sector.coords.x < CombatArenaState.WIDTH - 1:
+			sector.territory_side = "neutral"
+
+
+func _apply_profile(sector: TacticalSectorRecord, profile: Dictionary) -> void:
+	if profile.is_empty():
+		return
+	sector.surface_id = str(profile.get("id", sector.surface_id))
+	sector.surface_label = str(profile.get("label", sector.surface_label))
+	sector.movement_modifier += int(profile.get("movement_modifier", 0))
+	sector.elevation = maxi(sector.elevation, int(profile.get("elevation", 0)))
+	sector.visibility_penalty = clampf(sector.visibility_penalty + float(profile.get("visibility_penalty", 0.0)), 0.0, 1.0)
+	sector.concealment = clampf(sector.concealment + float(profile.get("concealment", 0.0)), 0.0, 1.0)
+	sector.opaque = sector.opaque or bool(profile.get("opaque", false))
+	sector.blocked = sector.blocked or bool(profile.get("blocked", false))
+	sector.spawnable = sector.spawnable and bool(profile.get("spawnable", not sector.blocked))
+	for key in _hazard_fields(profile).keys():
+		sector.hazard_state[key] = profile[key]
+
+
+func _hazard_fields(profile: Dictionary) -> Dictionary:
+	var fields: Dictionary = {}
+	for key in ["trip_risk", "contaminates_wounds", "cold_exposure", "leaves_tracks", "wet_exposure"]:
+		if profile.has(key):
+			fields[key] = profile[key]
+	return fields
+
+
+func _cover_for_object(profile: Dictionary, rng: RandomNumberGenerator) -> Dictionary:
+	var direction: String = ["north", "east", "south", "west"][rng.randi_range(0, 3)]
+	var strength := 0.65 if str(profile.get("object_type", "")).contains("hard") else 0.35
+	return {direction: strength}
+
+
+func _nearest_free_object_sector(
+	arena: CombatArenaState,
+	origin: Vector2i,
+	_seed_value: int
+) -> TacticalSectorRecord:
+	for radius in range(1, 5):
+		for y in range(CombatArenaState.HEIGHT):
+			for x in range(1, CombatArenaState.WIDTH - 1):
+				var coords := Vector2i(x, y)
+				if absi(coords.x - origin.x) + absi(coords.y - origin.y) != radius:
+					continue
+				var sector := arena.sector_at(coords)
+				if sector != null and sector.object_state.is_empty():
+					return sector
+	return null
+
+
+func _layer_assets(presentation: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for layer in presentation.get("layers", []):
+		if layer is Dictionary:
+			var kind := str(layer.get("kind", ""))
+			if not kind.is_empty() and not result.has(kind):
+				result[kind] = str(layer.get("path", ""))
+	return result
+
+
+func _backdrop_path(encounter: CombatEncounterRecord) -> String:
+	var scene: Dictionary = encounter.presentation.get("scene", {})
+	var path := str(scene.get("background_path", ""))
+	if not path.is_empty():
+		return path
+	return str(_layer_assets(encounter.presentation).get("terrain", ""))
+
+
+func _lighting_descriptor(world_time: Dictionary) -> Dictionary:
+	var hour := int(world_time.get("hour", 12))
+	var phase := "day"
+	var visibility := 0.0
+	if hour < 6 or hour >= 20:
+		phase = "night"
+		visibility = 0.22
+	elif hour < 8 or hour >= 18:
+		phase = "twilight"
+		visibility = 0.10
+	return {"phase": phase, "visibility_penalty": visibility, "hour": hour}
+
+
+func _stable_seed(encounter: CombatEncounterRecord) -> int:
+	var hex := encounter.center_hex
+	return absi(("%s|%s|%s|%s|%s|%s" % [
+		encounter.world_seed,
+		str(encounter.source_coords),
+		hex.zone_id if hex != null else "",
+		hex.world_generation_version if hex != null else 0,
+		hex.visual_variant_hash if hex != null else 0,
+		hex.stamp_instance_id if hex != null else "",
+	]).hash())
+
+
+func _orientation_step(delta: Vector2i) -> int:
+	var index := AXIAL_DIRECTIONS.find(delta)
+	return index if index >= 0 else 0
+
+
+func _edge_port_for_direction(arena: CombatArenaState, direction_index: int) -> Vector2i:
+	var incoming_direction := (arena.orientation_step + 3) % 6
+	var relative := (direction_index - incoming_direction + 6) % 6
+	match relative:
+		0:
+			return Vector2i(0, 2)
+		1:
+			return Vector2i(2, 0)
+		2:
+			return Vector2i(4, 0)
+		3:
+			return Vector2i(6, 2)
+		4:
+			return Vector2i(4, 4)
+		_:
+			return Vector2i(2, 4)
+
+
+func _connected_paths(ports: Array[Vector2i]) -> Array[Vector2i]:
+	var cells: Array[Vector2i] = [Vector2i(3, 2)]
+	for port in ports:
+		var cursor := port
+		while cursor.x != 3:
+			if cursor not in cells:
+				cells.append(cursor)
+			cursor.x += 1 if cursor.x < 3 else -1
+		while cursor.y != 2:
+			if cursor not in cells:
+				cells.append(cursor)
+			cursor.y += 1 if cursor.y < 2 else -1
+		if cursor not in cells:
+			cells.append(cursor)
+	return cells

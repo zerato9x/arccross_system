@@ -1,0 +1,180 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://CombatCore/Tactical/TacticalCombatHUD.gd" id="1_hud"]
+[ext_resource type="Script" path="res://CombatCore/Tactical/TacticalArenaView.gd" id="2_view"]
+
+[node name="TacticalCombatHUD" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_hud")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.035, 0.043, 0.051, 1)
+
+[node name="TopStrip" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 52.0
+grow_horizontal = 2
+
+[node name="TopLabel" type="Label" parent="TopStrip"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.91, 0.82, 0.62, 1)
+theme_override_font_sizes/font_size = 18
+text = "ROUND 00   ACTIVE   AP 00/12   RESERVED 00"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Main" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 58.0
+offset_bottom = -190.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 8
+
+[node name="Left" type="PanelContainer" parent="Main"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+
+[node name="LeftMargin" type="MarginContainer" parent="Main/Left"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="LeftScroll" type="ScrollContainer" parent="Main/Left/LeftMargin"]
+layout_mode = 2
+
+[node name="LeftContent" type="VBoxContainer" parent="Main/Left/LeftMargin/LeftScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="ActorLabel" type="RichTextLabel" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 240)
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
+[node name="WoundHeading" type="Label" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+layout_mode = 2
+text = "WOUNDS"
+
+[node name="Wounds" type="VBoxContainer" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ItemHeading" type="Label" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+layout_mode = 2
+text = "PHYSICAL ITEMS"
+
+[node name="Items" type="VBoxContainer" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Arena" type="PanelContainer" parent="Main"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 4.0
+
+[node name="TacticalArenaView" type="Control" parent="Main/Arena"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(520, 300)
+layout_mode = 2
+mouse_filter = 0
+script = ExtResource("2_view")
+
+[node name="Right" type="PanelContainer" parent="Main"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+
+[node name="RightMargin" type="MarginContainer" parent="Main/Right"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="TargetLabel" type="RichTextLabel" parent="Main/Right/RightMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
+
+[node name="Bottom" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -184.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="BottomMargin" type="MarginContainer" parent="Bottom"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="BottomContent" type="VBoxContainer" parent="Bottom/BottomMargin"]
+layout_mode = 2
+
+[node name="FeedbackLabel" type="Label" parent="Bottom/BottomMargin/BottomContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.79, 0.65, 1)
+text = "Select a sector, then choose an action."
+
+[node name="ActionScroll" type="ScrollContainer" parent="Bottom/BottomMargin/BottomContent"]
+custom_minimum_size = Vector2(0, 130)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 1
+
+[node name="Actions" type="GridContainer" parent="Bottom/BottomMargin/BottomContent/ActionScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+columns = 5
+
+[node name="ReactionPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -260.0
+offset_top = -172.0
+offset_right = 260.0
+offset_bottom = -112.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="ReactionActions" type="HBoxContainer" parent="ReactionPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+alignment = 1

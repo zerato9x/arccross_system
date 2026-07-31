@@ -75,11 +75,15 @@ func _build_loadout(weapon_id: String, armor_ids: Array[String], consumable_ids:
 func _get_item_definition(item_id: String) -> ItemData:
 	if item_id.is_empty():
 		return null
-	var catalog := get_node_or_null("/root/LootCatalog")
-	if not catalog:
-		push_error("[MOB SPAWNER] LootCatalog is unavailable.")
-		return null
-	return catalog.call("get_item_definition", item_id) as ItemData
+	var catalog := get_node_or_null("/root/LootCatalog") if is_inside_tree() else null
+	if catalog != null:
+		var definition := catalog.call("get_item_definition", item_id) as ItemData
+		if definition != null:
+			return definition
+	# Factories are also used detached from the scene tree by previews and smoke
+	# tests. Item IDs remain data paths, so that context does not need an autoload.
+	var item_path := "res://ItemCore/Items/%s.tres" % item_id
+	return load(item_path) as ItemData if ResourceLoader.exists(item_path) else null
 
 ## Generate a random SCAVENGER loadout.
 func _generate_scavenger_loadout(rng: RandomNumberGenerator = null) -> SpawnLoadout:
@@ -147,6 +151,7 @@ func generate_mob(
 			def.fortitude = _roll_attribute(4 + difficulty_bias, 3, rng)
 			def.will = _roll_attribute(3 + difficulty_bias, 3, rng)
 			def.loadout = _generate_scavenger_loadout(rng)
+			def.npc_role_id = "raider"
 			
 		GameEnums.Faction.ARCBORN_RESISTANCE:
 			def.archetype_name = _pick_arcborn_name(rng)
@@ -160,6 +165,7 @@ func generate_mob(
 			def.max_arc_energy = 6.0
 			def.red_mist_resistance = 4.0
 			def.loadout = _generate_arcborn_loadout()
+			def.npc_role_id = "patrol"
 			
 		GameEnums.Faction.CRAVEN_HIVE:
 			def.archetype_name = "Craven Thrall"
@@ -183,6 +189,7 @@ func generate_mob(
 			def.will = 1 # No willpower, pure instinct
 			def.red_mist_resistance = 0.0
 			def.loadout = _generate_craven_loadout()
+			def.npc_role_id = "stalker"
 			
 		_: # UNALIGNED / Fallback
 			def.archetype_name = "Drifter"
@@ -193,6 +200,11 @@ func generate_mob(
 			def.fortitude = _roll_attribute(6 + difficulty_bias, 3, rng)
 			def.will = _roll_attribute(6 + difficulty_bias, 3, rng)
 			def.loadout = _generate_scavenger_loadout(rng)
+			def.npc_role_id = "salvager"
+
+	var role_loadout := _generate_role_loadout(def.npc_role_id, rng)
+	if role_loadout != null:
+		def.loadout = role_loadout
 	
 	print("[MOB SPAWNER] Generated: ", def.archetype_name, " | B:", def.brawn, " F:", def.finesse, " T:", def.fortitude, " W:", def.will)
 	print(
@@ -266,6 +278,7 @@ func generate_central_guard_record(
 		definition.blocks_central_reentry = true
 		definition.allows_trade = false
 		definition.dialogue_id = "central_guard"
+		definition.npc_role_id = "sentry"
 		definition.brawn = 7
 		definition.finesse = 7
 		definition.fortitude = 7
@@ -296,6 +309,7 @@ func generate_central_guard_record(
 		"macro_origin_coords": coords,
 		"macro_target_coords": coords,
 		"stationary": true,
+		"npc_role_id": "sentry",
 	}
 	return record
 
@@ -313,6 +327,13 @@ func generate_starter_wayfinder_record(
 	definition.combat_tactic = GameEnums.CombatTactic.BRUTE
 	definition.dialogue_id = "starter_wayfinder:%s" % arm_id
 	definition.template_id = "starter_wayfinder"
+	definition.npc_role_id = "technician"
+	var rng := RandomNumberGenerator.new()
+	rng.seed = (
+		deterministic_key if not deterministic_key.is_empty()
+		else "starter_wayfinder:%s" % arm_id
+	).hash()
+	definition.loadout = _generate_role_loadout("technician", rng)
 	# Dialogue is authored now; settlement stock is not. Keep Trade visibly
 	# unavailable instead of offering an NPC whose generated pack is empty.
 	definition.allows_trade = false
@@ -337,8 +358,182 @@ func generate_starter_wayfinder_record(
 		"macro_origin_coords": coords,
 		"macro_target_coords": coords,
 		"stationary": true,
+		"npc_role_id": "technician",
 	}
 	return record
+
+
+## Builds a deterministic persistent NPC for authored route populations. Role,
+## faction, status, and equipment remain separate data axes.
+func generate_role_record(
+	coords: Vector2i,
+	role_id: String,
+	faction: GameEnums.Faction,
+	world_status: GameEnums.EntityWorldStatus,
+	template_id: String,
+	deterministic_key: String = ""
+) -> EntityRecord:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = (deterministic_key if not deterministic_key.is_empty() else template_id).hash()
+	var definition := generate_mob(faction, 0, rng)
+	definition.npc_role_id = role_id
+	definition.template_id = template_id
+	var role_catalog := NpcRoleCatalog.data()
+	var role := role_catalog.get_role(role_id) if role_catalog != null else null
+	if role != null:
+		definition.archetype_name = "%s %s" % [
+			_pick_route_name(rng),
+			role.display_name,
+		]
+	var role_loadout := _generate_role_loadout(role_id, rng)
+	if role_loadout != null:
+		definition.loadout = role_loadout
+	definition.blocks_ambush = world_status != GameEnums.EntityWorldStatus.HOSTILE
+
+	var record := EntityRecord.new()
+	record.entity_id = "entity_" + str(absi((deterministic_key + template_id).hash()))
+	record.kind = GameEnums.RuntimeEntityKind.NPC
+	record.life_state = GameEnums.EntityLifeState.ALIVE
+	record.world_status = world_status
+	record.coords = coords
+	record.definition = definition.to_state()
+	record.runtime = {
+		"template_id": template_id,
+		"npc_role_id": role_id,
+	}
+	return record
+
+
+## Builds a persistent authored plot actor while preserving the ordinary loadout
+## and record pipeline. Plot data remains owned by WorldCore resources.
+func generate_authored_actor_record(
+	coords: Vector2i,
+	actor_id: String,
+	actor_name: String,
+	faction: GameEnums.Faction,
+	world_status: GameEnums.EntityWorldStatus,
+	role_id: String,
+	dialogue_id: String,
+	visual_mode: String = "equipment_rig",
+	token_sprite_path: String = "",
+	deterministic_key: String = ""
+) -> EntityRecord:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = (deterministic_key if not deterministic_key.is_empty() else actor_id).hash()
+	var definition := generate_mob(faction, 0, rng)
+	definition.archetype_name = actor_name
+	definition.template_id = actor_id
+	definition.npc_role_id = role_id
+	var role_loadout := _generate_role_loadout(role_id, rng)
+	if role_loadout != null:
+		definition.loadout = role_loadout
+	definition.dialogue_id = dialogue_id
+	definition.token_visual_mode = visual_mode
+	definition.token_sprite_path = token_sprite_path
+	definition.blocks_ambush = world_status != GameEnums.EntityWorldStatus.HOSTILE
+
+	var record := EntityRecord.new()
+	record.entity_id = "entity_plot_" + str(absi((deterministic_key + actor_id).hash()))
+	record.kind = GameEnums.RuntimeEntityKind.NPC
+	record.life_state = GameEnums.EntityLifeState.ALIVE
+	record.world_status = world_status
+	record.coords = coords
+	record.definition = definition.to_state()
+	record.runtime = {
+		"template_id": actor_id,
+		"npc_role_id": role_id,
+		"plot_actor": true,
+		"plot_actor_id": actor_id,
+	}
+	return record
+
+
+func _generate_role_loadout(
+	role_id: String,
+	rng: RandomNumberGenerator = null
+) -> SpawnLoadout:
+	var catalog := NpcLoadoutCatalog.data()
+	var profile := catalog.for_role(role_id) if catalog != null else null
+	if profile == null:
+		return null
+	var active_rng := rng
+	if active_rng == null:
+		active_rng = RandomNumberGenerator.new()
+		active_rng.randomize()
+	var loadout := SpawnLoadout.new()
+	for slot_key_value in profile.slot_pools.keys():
+		var slot_key := str(slot_key_value)
+		var item_id := _roll_weighted_item_id(profile.slot_pools[slot_key_value], active_rng)
+		_set_loadout_slot(loadout, slot_key, _get_item_definition(item_id))
+	var minimum := mini(profile.starting_item_min, profile.starting_item_max)
+	var maximum := maxi(profile.starting_item_min, profile.starting_item_max)
+	var item_count := active_rng.randi_range(minimum, maximum)
+	for _item_index in range(item_count):
+		var item_id := _roll_weighted_item_id(profile.starting_item_pool, active_rng)
+		var item := _get_item_definition(item_id)
+		if item != null:
+			loadout.starting_items.append(item)
+	_append_weapon_support(loadout)
+	return loadout
+
+
+func _append_weapon_support(loadout: SpawnLoadout) -> void:
+	if loadout.weapon == null or not loadout.weapon.is_ranged():
+		return
+	if loadout.vest == null:
+		loadout.vest = _get_item_definition("webbing")
+	for support_id in [loadout.weapon.magazine_id, loadout.weapon.reload_aid_id]:
+		var support := _get_item_definition(support_id)
+		if support != null:
+			loadout.starting_items.append(support)
+	var ammunition := _get_item_definition(loadout.weapon.ammunition_id)
+	if ammunition != null:
+		for _round_index in range(mini(6, loadout.weapon.max_magazine)):
+			loadout.starting_items.append(ammunition)
+
+
+func _roll_weighted_item_id(pool_value, rng: RandomNumberGenerator) -> String:
+	var pool: Array = pool_value if pool_value is Array else []
+	var total := 0.0
+	for entry_value in pool:
+		if entry_value is Dictionary:
+			total += maxf(0.0, float(entry_value.get("weight", 1.0)))
+	if total <= 0.0:
+		return ""
+	var roll := rng.randf_range(0.0, total)
+	for entry_value in pool:
+		if not entry_value is Dictionary:
+			continue
+		roll -= maxf(0.0, float(entry_value.get("weight", 1.0)))
+		if roll <= 0.0:
+			return str(entry_value.get("item_id", ""))
+	return str(pool.back().get("item_id", "")) if pool.back() is Dictionary else ""
+
+
+func _set_loadout_slot(loadout: SpawnLoadout, slot_key: String, item: ItemData) -> void:
+	match slot_key:
+		"weapon": loadout.weapon = item
+		"offhand": loadout.offhand = item
+		"inner_torso": loadout.inner_torso = item
+		"outer_torso": loadout.outer_torso = item
+		"legs": loadout.legs = item
+		"feet": loadout.feet = item
+		"vest": loadout.vest = item
+		"backpack_gear": loadout.backpack_gear = item
+		"head": loadout.head = item
+		"eyes": loadout.eyes = item
+		"face": loadout.face = item
+		"neck": loadout.neck = item
+		"arms": loadout.arms = item
+		"belt": loadout.belt = item
+		"sling": loadout.sling = item
+
+
+func _pick_route_name(rng: RandomNumberGenerator) -> String:
+	var names: Array[String] = [
+		"Amber", "Blue", "Cinder", "Juniper", "Moss", "Ochre", "Rust", "Violet",
+	]
+	return names[rng.randi_range(0, names.size() - 1)]
 
 # ---------------------------------------------------------
 # NAME GENERATORS (Lore Flavor)

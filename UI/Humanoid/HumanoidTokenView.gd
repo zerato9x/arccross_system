@@ -18,6 +18,7 @@ var _frame_time := 0.0
 var _animation_speed_scale := 1.0
 var _display_scale := 2.4
 var _appearance_record: Dictionary = {}
+var _static_sprite_sheet_path := ""
 var _return_animation := "Idle"
 var _return_animation_speed_scale := 1.0
 var _animation_completion_emitted := false
@@ -64,6 +65,7 @@ func set_slot_item_ids(slot_item_ids: Dictionary) -> void:
 	)
 
 func set_appearance(appearance: Dictionary) -> void:
+	_static_sprite_sheet_path = ""
 	var signature := str(appearance.get("signature", ""))
 	if signature == str(_appearance.get("signature", "")):
 		return
@@ -71,6 +73,17 @@ func set_appearance(appearance: Dictionary) -> void:
 	_layer_directories = HumanoidVisualCatalog.layer_directories(
 		_appearance
 	)
+	_rebuild_layers()
+
+
+## Unique actors can use a standard 8x11 generated token sheet while systemic
+## NPCs keep the composited equipment rig. Both modes share animation timing.
+func set_static_sprite_sheet(path: String) -> void:
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return
+	_static_sprite_sheet_path = path
+	_appearance = {"signature": "static:" + path}
+	_layer_directories.clear()
 	_rebuild_layers()
 
 func set_display_scale(value: float) -> void:
@@ -236,15 +249,16 @@ func _emit_animation_finished(animation: String) -> void:
 func _rebuild_layers() -> void:
 	_layer_sprites.clear()
 
-	if _layer_directories.size() > _layer_pool.size():
+	var requested_layer_count := 1 if not _static_sprite_sheet_path.is_empty() else _layer_directories.size()
+	if requested_layer_count > _layer_pool.size():
 		push_warning(
 			"Humanoid Token needs %d layers but its scene pool contains %d."
-			% [_layer_directories.size(), _layer_pool.size()]
+			% [requested_layer_count, _layer_pool.size()]
 		)
 
 	for index in range(_layer_pool.size()):
 		var sprite := _layer_pool[index]
-		var active := index < _layer_directories.size()
+		var active := index < requested_layer_count
 		sprite.visible = active
 		if active:
 			_layer_sprites.append(sprite)
@@ -255,6 +269,10 @@ func _rebuild_layers() -> void:
 	_apply_frame()
 
 func _refresh_textures() -> void:
+	if not _static_sprite_sheet_path.is_empty():
+		if not _layer_sprites.is_empty():
+			_layer_sprites[0].texture = EntityProjectionAssets.texture(_static_sprite_sheet_path)
+		return
 	for index in range(_layer_sprites.size()):
 		var texture_path := HumanoidVisualCatalog.texture_path(
 			_layer_directories[index],

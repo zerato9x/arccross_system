@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+id = "relay_maintenance_key"
+display_name = "Relay Maintenance Key"
+lore_description = "A numbered service key cut for the North relay crews. Its lock survived longer than its owners."
+item_type = 4
+catalog_category = 6
+item_grade = 2
+tags = Array[String](["tools", "route1", "relay_key"])
+functional_roles = PackedStringArray("tool", "search_tool", "quest_key")
+condition_enabled = false
+size_cost = 1
+max_stack_size = 1
+target_slot = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Items/Tools/keys.png"
+weight = 0.2
+interaction_roles = Array[int]([1])
+search_sneak_bonus = 1.0

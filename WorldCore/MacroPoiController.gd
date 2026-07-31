@@ -472,7 +472,10 @@ static func build_camp_drop_targets(hex_data: MacroHexData) -> Array:
 			"assigned_instance_id": str(trap_state.get("instance_id", "")),
 			"assigned_name": "",
 			"anchor_id": str(trap_state.get("anchor_id", "door_frame")),
-			"lane_index": int(trap_state.get("lane_index", 8 + trap_index)),
+			"sector": Vector2i(
+				int(trap_state.get("sector_x", 1)),
+				int(trap_state.get("sector_y", 2 + trap_index))
+			),
 		})
 	return targets
 
@@ -507,7 +510,7 @@ static func build_fixture_drop_targets(site: Dictionary, fixture_id: String) -> 
 			"assigned_instance_id": "",
 			"assigned_name": "",
 			"anchor_id": str(fixture.get("id", "door_frame")),
-			"lane_index": 8,
+			"sector": Vector2i(1, 2),
 		})
 	return targets
 
@@ -775,7 +778,8 @@ static func apply_trap_install(
 			"instance_id": instance_id,
 			"item_id": removed.id,
 			"anchor_id": "door_frame" if new_traps.is_empty() else "brush_line",
-			"lane_index": 8 if new_traps.is_empty() else 9,
+			"sector_x": 1,
+			"sector_y": 2 if new_traps.is_empty() else 3,
 			"trap_damage": maxf(removed.flesh_damage, 2.5),
 		})
 

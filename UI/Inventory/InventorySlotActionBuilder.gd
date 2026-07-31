@@ -161,6 +161,12 @@ static func _append_backpack_actions(
 	descriptor: Dictionary,
 	container_slot: int
 ) -> void:
+	if descriptor.get("can_inspect_knowledge", false):
+		actions.append(_inventory_entry(
+			GameEnums.MACRO_INV_INSPECT,
+			"Decode Evidence",
+			container_slot
+		))
 	if descriptor.get("can_load_magazine", false):
 		actions.append(_inventory_entry(
 			GameEnums.MACRO_INV_LOAD_MAGAZINE,

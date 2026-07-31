@@ -349,6 +349,7 @@ func _render_verbs(verbs: Array) -> void:
 			SiteCatalog.VERB_SEARCH: "Search",
 			SiteCatalog.VERB_SLEEP: "Sleep here",
 			SiteCatalog.VERB_TRAP: "Set trap",
+			SiteCatalog.VERB_INSTALL_RELICS: "Install relics",
 		}.get(verb, verb.capitalize())
 		if verb == SiteCatalog.VERB_SLEEP and not bool(_session.get("camp_allowed", false)):
 			button.disabled = true
@@ -358,6 +359,15 @@ func _render_verbs(verbs: Array) -> void:
 			if bool(option.get("locked", false)) or bool(option.get("depleted", false)):
 				button.disabled = true
 				button.tooltip_text = str(option.get("lock_reason", "Already searched."))
+		if verb == SiteCatalog.VERB_INSTALL_RELICS:
+			var missing: Array = _missing_required_item_ids(fixture.get("required_item_ids", []))
+			var completed := bool(_session.get("objective_completed", false))
+			button.disabled = completed or not missing.is_empty()
+			button.tooltip_text = (
+				"Relay already restored."
+				if completed
+				else ("Missing: " + ", ".join(missing) if not missing.is_empty() else "")
+			)
 		HUDAssetLibrary.apply_button(button)
 		button.pressed.connect(_select_verb.bind(verb))
 		_verb_row.add_child(button)
@@ -422,6 +432,11 @@ func _update_action_preview() -> void:
 		metric_kind, {}
 	).duplicate(true)
 	match _selected_verb:
+		SiteCatalog.VERB_INSTALL_RELICS:
+			minutes = GameTimeRules.ACTION_MINUTES
+			exertion = 0.0
+			risk = "Permanent route restoration"
+			metrics.clear()
 		SiteCatalog.VERB_SLEEP:
 			minutes = int(fixture.get("minutes_sleep_preview", GameTimeRules.CAMP_MINUTES))
 			exertion = 0.0
@@ -466,6 +481,12 @@ func _update_action_preview() -> void:
 	]
 	var requires_gear := _selected_verb == SiteCatalog.VERB_TRAP
 	_confirm_button.disabled = requires_gear and _selected_item_ids.is_empty()
+	if _selected_verb == SiteCatalog.VERB_INSTALL_RELICS:
+		_confirm_button.text = "Install relay relics"
+		_confirm_button.disabled = (
+			bool(_session.get("objective_completed", false))
+			or not _missing_required_item_ids(fixture.get("required_item_ids", [])).is_empty()
+		)
 
 
 func _confirm_action() -> void:
@@ -508,6 +529,19 @@ func _render_ground_items() -> void:
 		empty.text = "Nothing loose here"
 		HUDAssetLibrary.apply_label(empty, "muted")
 		_ground_list.add_child(empty)
+
+
+func _missing_required_item_ids(required_ids: Array) -> Array:
+	var carried: Dictionary = {}
+	for entry in _session.get("available_items", []):
+		if entry is Dictionary:
+			carried[str(entry.get("id", entry.get("item_id", "")))] = true
+	var missing: Array = []
+	for item_id_value in required_ids:
+		var item_id := str(item_id_value)
+		if not carried.has(item_id):
+			missing.append(item_id.replace("_", " ").capitalize())
+	return missing
 
 
 func _on_ground_action(item: Dictionary) -> void:

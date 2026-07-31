@@ -12,6 +12,7 @@ class_name SiteCatalog
 const VERB_SEARCH := "search"
 const VERB_SLEEP := "sleep"
 const VERB_TRAP := "trap"
+const VERB_INSTALL_RELICS := "install_relics"
 
 const HOMESTEAD_LANDMARKS := ["homestead_b", "homestead_d", "plains_homestead", "plains_homestead_d"]
 
@@ -23,18 +24,47 @@ static func site_for_hex(
 	world_seed: String,
 	coords: Vector2i
 ) -> Dictionary:
+	var site: Dictionary = {}
 	if hex_data.world_generation_version >= 2 and hex_data.composition_role == "settlement_anchor":
-		return _starter_settlement_site(hex_data, camp_access)
+		site = _starter_settlement_site(hex_data, camp_access)
+		return _with_route_objective_fixture(site, hex_data)
 	var landmark_id := (
 		hex_data.landmark_id
 		if not hex_data.landmark_id.is_empty()
 		else hex_data.poi_id
 	)
 	if _is_homestead(landmark_id, hex_data.poi_id):
-		return _homestead_site(hex_data, search_options, camp_access, world_seed, coords)
+		site = _homestead_site(hex_data, search_options, camp_access, world_seed, coords)
+		return _with_route_objective_fixture(site, hex_data)
 	if hex_data.has_landmark() or hex_data.is_poi:
-		return _generic_landmark_site(hex_data, search_options, camp_access, landmark_id)
+		site = _generic_landmark_site(hex_data, search_options, camp_access, landmark_id)
+		return _with_route_objective_fixture(site, hex_data)
 	return _parcel_site(hex_data, search_options, camp_access, world_seed, coords)
+
+
+static func _with_route_objective_fixture(site: Dictionary, hex_data: MacroHexData) -> Dictionary:
+	var catalog := RouteObjectiveCatalog.data()
+	var objective := catalog.for_poi(hex_data.poi_id) if catalog != null else null
+	if objective == null:
+		return site
+	var fixtures: Array = site.get("fixtures", []).duplicate(true)
+	var fixture := _fixture(
+		objective.turn_in_fixture_id,
+		str(site.get("rooms", [{"id": "main"}])[0].get("id", "main")),
+		"Relay Control Cabinet",
+		"Install all three recovered relay relics to clear the northern road.",
+		[VERB_INSTALL_RELICS],
+		"",
+		Vector2(0.66, 0.40),
+		[],
+		0.0,
+		{"allowed": true, "reason": ""}
+	)
+	fixture["objective_id"] = objective.objective_id
+	fixture["required_item_ids"] = Array(objective.required_item_ids)
+	fixtures.append(fixture)
+	site["fixtures"] = fixtures
+	return site
 
 
 static func _starter_settlement_site(hex_data: MacroHexData, camp_access: Dictionary) -> Dictionary:

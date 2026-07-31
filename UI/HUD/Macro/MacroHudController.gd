@@ -30,6 +30,7 @@ signal exploration_inventory_action_requested(
 signal exploration_interaction_closed
 signal location_action_requested(command: Dictionary)
 signal node_map_requested
+signal minimap_hex_selected(coords: Vector2i)
 
 const MAX_SCALE := 12.0
 
@@ -87,6 +88,7 @@ func _ready() -> void:
 	_target_panel.travel_requested.connect(hex_preview_travel_requested.emit)
 	_world_status.settings_requested.connect(_open_settings)
 	_world_status.node_map_requested.connect(node_map_requested.emit)
+	_world_status.minimap_hex_selected.connect(minimap_hex_selected.emit)
 	_exploration_stage.choice_submitted.connect(event_choice_submitted.emit)
 	_exploration_stage.event_closed.connect(event_closed.emit)
 	_exploration_stage.travel_beat_finished.connect(travel_beat_finished.emit)

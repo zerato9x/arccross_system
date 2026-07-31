@@ -4,7 +4,7 @@ class_name MacroCollisionCoordinator
 ## Entity-collision UI dispatch extracted from MacroGameManager.
 ## Holds trade/ask/leave/back/session-open bodies; talk and ambush combat
 ## resolution stay on the host. Shares MacroInteractionState with the host.
-## WorldCore may use ItemCore/SystemCore; must not import duel or menu domains.
+## WorldCore may use ItemCore/SystemCore; it must not import combat presentation or menu domains.
 
 var host: MacroGameManager
 var interaction_state: MacroInteractionState

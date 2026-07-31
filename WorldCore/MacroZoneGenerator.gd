@@ -631,6 +631,7 @@ func _apply_starter_v2_composition() -> void:
 		hex.stamp_instance_id = ""
 		hex.road_mask = generated_plan.road_mask_at(coords)
 		hex.loot_tier_id = ""
+		hex.search_site_id = ""
 		hex.trace_records.clear()
 		hex.biome = GameEnums.GridBiome.PLAINS
 		hex.biome_pack = GameEnums.BIOME_PACK_PLAINS
@@ -666,30 +667,38 @@ func _apply_starter_v2_composition() -> void:
 			elif hex.composition_role == "settlement_rubble":
 				hex.structure_layer = GameEnums.MacroStructureLayer.REMNANTS
 
-	for coords in generated_plan.rubble_search_cells:
+	var ordered_rubble: Array[Vector2i] = generated_plan.rubble_search_cells.duplicate()
+	ordered_rubble.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		var a_distance := HexCoordUtils.distance(start_coords, a)
+		var b_distance := HexCoordUtils.distance(start_coords, b)
+		if a_distance == b_distance:
+			return str(a) < str(b)
+		return a_distance < b_distance
+	)
+	generated_plan.rubble_search_cells = ordered_rubble
+	var search_catalog := SearchSiteCatalog.data()
+	var assigned_search_sites: Array[String] = (
+		search_catalog.assignment_ids_for_arm(_arm_key())
+		if search_catalog != null
+		else []
+	)
+	for rubble_index in range(generated_plan.rubble_search_cells.size()):
+		var coords: Vector2i = generated_plan.rubble_search_cells[rubble_index]
 		var rubble_hex: MacroHexData = world_hex_cache[coords]
 		rubble_hex.structure_layer = GameEnums.MacroStructureLayer.REMNANTS
 		rubble_hex.loot_tier_id = profile.loot_tier_id
+		if rubble_index < assigned_search_sites.size():
+			rubble_hex.search_site_id = assigned_search_sites[rubble_index]
 		rubble_hex.impassable = false
 
 	if include_settlement:
 		_seed_starter_truth_grove()
-
-		var anchor: MacroHexData = world_hex_cache[generated_plan.gameplay_anchor_coords]
-		anchor.is_poi = true
-		anchor.poi_id = "starter_settlement"
-		anchor.poi_name = "%s Fringe Settlement" % _arm_label()
-		anchor.landmark_id = "homestead_b"
-		anchor.sleep_anchor = "bed"
-		anchor.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
-		anchor.structure_pack = GameEnums.BIOME_PACK_DEFAULT_ERA8
-		anchor.encounter_evaluated = true
-
 		starter_npc_coords = generated_plan.gameplay_anchor_coords
 		for coords in generated_plan.stamp_cells.keys():
 			if generated_plan.role_at(coords) == "settlement_tent":
 				starter_npc_coords = coords
 				break
+	_apply_route_1_signature_landmark(include_settlement)
 	starter_clue_coords = outward_coords
 	for trace in generated_plan.trace_records:
 		var trace_coords: Vector2i = trace.get("coords", Vector2i.ZERO)
@@ -703,6 +712,39 @@ func _has_alpha_starter_settlement() -> bool:
 	# Alpha lock. Production can seed-select one arm later, but the inner ring
 	# must still contain exactly one inhabited starter settlement.
 	return node_id == "north_random_1"
+
+
+func _apply_route_1_signature_landmark(include_settlement: bool) -> void:
+	var catalog := Route1LandmarkCatalog.data()
+	var definition := catalog.for_arm(_arm_key()) if catalog != null else null
+	if definition == null:
+		return
+	var signature_coords := generated_plan.gameplay_anchor_coords
+	if not include_settlement:
+		var spur_cells: Array[Vector2i] = []
+		for coords in generated_plan.road_cells.keys():
+			if generated_plan.role_at(coords) == "dirt_service_spur":
+				spur_cells.append(coords)
+		spur_cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+			var a_distance := HexCoordUtils.distance(a, Vector2i.ZERO)
+			var b_distance := HexCoordUtils.distance(b, Vector2i.ZERO)
+			if a_distance == b_distance:
+				return str(a) < str(b)
+			return a_distance < b_distance
+		)
+		if not spur_cells.is_empty():
+			signature_coords = spur_cells[0]
+	objective_coords = signature_coords
+	var anchor: MacroHexData = world_hex_cache[signature_coords]
+	anchor.is_poi = true
+	anchor.poi_id = definition.poi_id
+	anchor.poi_name = definition.display_name
+	anchor.landmark_id = definition.landmark_id
+	anchor.sleep_anchor = definition.sleep_anchor
+	anchor.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
+	anchor.structure_pack = GameEnums.BIOME_PACK_DEFAULT_ERA8
+	anchor.impassable = false
+	anchor.encounter_evaluated = true
 
 
 func _build_starter_terrain_assignments() -> Dictionary:

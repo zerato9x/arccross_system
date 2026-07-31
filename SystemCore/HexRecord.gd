@@ -29,6 +29,7 @@ class_name HexRecord
 @export var stamp_instance_id: String = ""
 @export_range(0, 63) var road_mask: int = 0
 @export var loot_tier_id: String = ""
+@export var search_site_id: String = ""
 @export var trace_records: Array[Dictionary] = []
 @export var sleep_anchor: String = "ground"
 @export var sleep_gear_instance_id: String = ""
@@ -46,6 +47,9 @@ var camp_item_states: Array = []
 var camp_rest_count: int = 0
 var camp_traps: Array = []
 var rest_in_progress: bool = false
+## Versioned, neutral tactical-site mutations. Combat regenerates a deterministic
+## baseline from the hex and overlays only this persisted delta.
+var combat_site_state: Dictionary = {}
 
 func to_dict() -> Dictionary:
 	return {
@@ -74,6 +78,7 @@ func to_dict() -> Dictionary:
 		"stamp_instance_id": stamp_instance_id,
 		"road_mask": road_mask,
 		"loot_tier_id": loot_tier_id,
+		"search_site_id": search_site_id,
 		"trace_records": trace_records.duplicate(true),
 		"sleep_anchor": sleep_anchor,
 		"sleep_gear_instance_id": sleep_gear_instance_id,
@@ -91,6 +96,7 @@ func to_dict() -> Dictionary:
 		"camp_rest_count": camp_rest_count,
 		"camp_traps": camp_traps.duplicate(true),
 		"rest_in_progress": rest_in_progress,
+		"combat_site_state": combat_site_state.duplicate(true),
 	}
 
 static func from_dict(data: Dictionary) -> HexRecord:
@@ -145,6 +151,7 @@ static func from_dict(data: Dictionary) -> HexRecord:
 	record.stamp_instance_id = str(data.get("stamp_instance_id", ""))
 	record.road_mask = clampi(int(data.get("road_mask", 0)), 0, 63)
 	record.loot_tier_id = str(data.get("loot_tier_id", ""))
+	record.search_site_id = str(data.get("search_site_id", ""))
 	for trace in data.get("trace_records", []):
 		if trace is Dictionary:
 			record.trace_records.append(trace.duplicate(true))
@@ -170,6 +177,7 @@ static func from_dict(data: Dictionary) -> HexRecord:
 	record.camp_rest_count = data.get("camp_rest_count", 0)
 	record.camp_traps = data.get("camp_traps", []).duplicate(true)
 	record.rest_in_progress = data.get("rest_in_progress", false)
+	record.combat_site_state = data.get("combat_site_state", {}).duplicate(true)
 	return record
 
 static func _legacy_terrain_for_biome(

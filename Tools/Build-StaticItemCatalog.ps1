@@ -9,7 +9,13 @@ $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $AssetRoot = Join-Path $ProjectRoot 'Asset\Innawoods_Asset'
 $OutputRoot = Join-Path $ProjectRoot 'ItemCore\Items'
 $ItemScriptPath = 'res://ItemCore/ItemData.gd'
-$ProtectedAuthoredResources = @('arc_core_component_north.tres')
+$ProtectedAuthoredResources = @(
+    'arc_core_component_north.tres',
+    'north_relay_ledger.tres',
+    'east_handle_registry.tres',
+    'south_guild_manifest.tres',
+    'west_zeta_survey.tres'
+)
 
 $ItemType = @{
     Junk = 0; Weapon = 1; Armor = 2; Consumable = 3
@@ -74,6 +80,7 @@ function New-Item([string]$Id, [string]$SpritePath) {
         repair_domain = $RepairDomain.None
         maintenance_constraint = ''
         tags = @()
+        functional_roles = @('barter')
         size_cost = 1
         max_stack_size = 1
         target_slot = $Slot.None
@@ -88,6 +95,9 @@ function New-Item([string]$Id, [string]$SpritePath) {
         protection_ballistic = 0.0
         bulk = 0.0
         weight = 0.2
+        capacity_bonus = 0
+        insulation = 0.0
+        threat = 0.0
         interaction_roles = @()
         search_loot_bonus = 0.0
         search_safety_bonus = 0.0
@@ -129,6 +139,17 @@ function Add-InventoryOverhaulValues([System.Collections.IDictionary]$Item) {
     $variant = Get-StableVariant $Item.id 4
     $Item.item_grade = $grade
 
+    switch ($Item.item_type) {
+        $ItemType.Weapon { $Item.functional_roles = @('weapon') }
+        $ItemType.Armor { $Item.functional_roles = @('equipment') }
+        $ItemType.Consumable { $Item.functional_roles = @('consumable') }
+        $ItemType.Tool { $Item.functional_roles = @('tool') }
+        $ItemType.Ammunition { $Item.functional_roles = @('ammunition') }
+        $ItemType.Material { $Item.functional_roles = @('repair_material') }
+        $ItemType.Attachment { $Item.functional_roles = @('attachment') }
+        default { $Item.functional_roles = @('barter') }
+    }
+
     $functional = $Item.item_type -in @($ItemType.Weapon, $ItemType.Armor, $ItemType.Tool)
     $Item.condition_enabled = $functional
     if ($Item.catalog_category -eq $Category.Firearm) {
@@ -145,6 +166,11 @@ function Add-InventoryOverhaulValues([System.Collections.IDictionary]$Item) {
     elseif ($Item.item_type -in @($ItemType.Weapon, $ItemType.Tool)) {
         $Item.repair_domain = $RepairDomain.RigidMechanical
     }
+
+    if ([int]$Item.capacity_bonus -gt 0) { $Item.functional_roles += 'container' }
+    if ([double]$Item.insulation -gt 0.0) { $Item.functional_roles += 'insulation' }
+    if (@($Item.interaction_roles).Count -gt 0) { $Item.functional_roles += 'world_interaction' }
+    $Item.functional_roles = @($Item.functional_roles | Sort-Object -Unique)
 
     if ($grade -eq $ItemGrade.Unique) {
         $Item.maintenance_constraint = 'Unique components: field repairs cannot restore condition above 6.'
@@ -715,7 +741,7 @@ function Convert-ToGodotValue([string]$Key, $Value) {
                 [Convert]::ToString($_, [Globalization.CultureInfo]::InvariantCulture)
             }
         }) -join ', '
-        if ($Key -in @('tags', 'equipped_sprite_paths', 'compatible_weapon_ids')) {
+        if ($Key -in @('tags', 'functional_roles', 'equipped_sprite_paths', 'compatible_weapon_ids')) {
             return "Array[String]([$serialized])"
         }
         return "Array[int]([$serialized])"

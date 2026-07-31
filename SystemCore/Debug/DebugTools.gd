@@ -520,7 +520,6 @@ func _build_stats_tab() -> void:
 	_add_stat_slider(tab, "thirst", "Thirst", 0.0, SCALE_MAX, 0.5)
 	_add_stat_slider(tab, "fatigue", "Fatigue", 0.0, SCALE_MAX, 0.5)
 	_add_stat_slider(tab, "morale", "Morale", 0.0, SCALE_MAX, 0.5)
-	_add_stat_slider(tab, "stance", "Stance", 0.0, SCALE_MAX, 1.0)
 	_add_stat_slider(tab, "arc", "Arc Energy", 0.0, SCALE_MAX, 0.5)
 	_add_stat_slider(tab, "redmist", "Red Mist", 0.0, SCALE_MAX, 0.5)
 	_add_stat_slider(tab, "temp", "Core Temp (C)", 20.0, 42.0, 0.5)
@@ -544,7 +543,6 @@ func _build_stats_tab() -> void:
 	row2.add_theme_constant_override("separation", 4)
 	tab.add_child(row2)
 	_make_button(row2, "Clear Trauma", _action_clear_trauma).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_make_button(row2, "Reset Stance", _action_reset_stance).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var row3 := HBoxContainer.new()
 	row3.add_theme_constant_override("separation", 4)
@@ -632,7 +630,6 @@ func _refresh_stats() -> void:
 	_set_slider("thirst", body.thirst)
 	_set_slider("fatigue", body.fatigue)
 	_set_slider("morale", core.current_morale)
-	_set_slider("stance", core.stance_points)
 	_set_slider("arc", core.current_arc_energy)
 	_set_slider("redmist", core.red_mist_corruption)
 	_set_slider("temp", body.core_temperature)
@@ -676,9 +673,6 @@ func _on_stat_slider_changed(key: String, value: float) -> void:
 		"thirst": body.thirst = value
 		"fatigue": body.fatigue = value
 		"morale": core.current_morale = value
-		"stance":
-			core.stance_points = int(value)
-			core.call("_evaluate_stance_state")
 		"arc": core.current_arc_energy = value
 		"redmist": core.red_mist_corruption = value
 		"temp": body.core_temperature = value
@@ -757,18 +751,6 @@ func _action_clear_trauma() -> void:
 	_refresh_stats()
 	_sync_after_mutation()
 	_set_status("All trauma cleared.")
-
-
-func _action_reset_stance() -> void:
-	var core = _get_core()
-	if core == null:
-		return
-	core.reset_stance()
-	_refresh_stats()
-	_sync_after_mutation()
-	_set_status("Stance reset to 12.")
-
-
 func _action_revive() -> void:
 	var core = _get_core()
 	if core == null:
@@ -782,7 +764,6 @@ func _action_revive() -> void:
 			body.limb_hp[limb] = body.get_limb_max(limb)
 		body.limb_trauma[limb] = GameEnums.TraumaType.NONE
 	body.blood_level = SCALE_MAX
-	core.reset_stance()
 	core.call("_calculate_kinetic_burden")
 	_refresh_stats()
 	_sync_after_mutation()

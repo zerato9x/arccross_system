@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+id = "bent_pry_bar"
+display_name = "Bent Pry Bar"
+lore_description = "A short wrecking bar pulled from roadside rubble. Bent, cold, and still strong enough to teach a sealed crate some humility."
+item_type = 1
+catalog_category = 9
+item_grade = 0
+tags = Array[String](["weapon", "tools", "route1"])
+functional_roles = PackedStringArray("weapon", "tool", "search_tool")
+condition_enabled = true
+repair_domain = 3
+size_cost = 2
+max_stack_size = 1
+target_slot = 8
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Melee_Sharp/1H/crowbar.png"
+weapon_type = 2
+flesh_damage = 2.5
+balance_impact = 3.0
+armor_penetration = 1.0
+accuracy_rating = 5.0
+bulk = 0.4
+weight = 1.1
+interaction_roles = Array[int]([1])
+search_loot_bonus = 1.5
+search_safety_bonus = -0.5
+search_sneak_bonus = -1.0
+damage_type = 1
+threat = 0.5
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Weapons/Melee_Sharp/1H/equip_crowbar.png"])

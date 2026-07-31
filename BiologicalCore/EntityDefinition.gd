@@ -15,6 +15,11 @@ class_name EntityDefinition
 @export var template_id: String = ""
 ## When true, this NPC diegetically backs Central re-entry refusal.
 @export var blocks_central_reentry: bool = false
+## Data-driven macro behavior category. WorldCore resolves this through its role catalog.
+@export var npc_role_id: String = ""
+## Unique plot actors may opt into a generated/static token sheet without changing AI data.
+@export var token_visual_mode: String = "equipment_rig"
+@export_file("*.png") var token_sprite_path: String = ""
 # --- THE 12-POINT PILLARS ---
 @export_group("Core Attributes")
 @export_range(1, 12) var brawn: int = 6     # 6 = Average
@@ -50,6 +55,9 @@ func to_state() -> Dictionary:
 		"blocks_ambush": blocks_ambush,
 		"template_id": template_id,
 		"blocks_central_reentry": blocks_central_reentry,
+		"npc_role_id": npc_role_id,
+		"token_visual_mode": token_visual_mode,
+		"token_sprite_path": token_sprite_path,
 		"brawn": brawn,
 		"finesse": finesse,
 		"fortitude": fortitude,
@@ -74,6 +82,9 @@ static func from_state(state: Dictionary) -> EntityDefinition:
 	definition.blocks_ambush = bool(state.get("blocks_ambush", false))
 	definition.template_id = str(state.get("template_id", ""))
 	definition.blocks_central_reentry = bool(state.get("blocks_central_reentry", false))
+	definition.npc_role_id = str(state.get("npc_role_id", ""))
+	definition.token_visual_mode = str(state.get("token_visual_mode", "equipment_rig"))
+	definition.token_sprite_path = str(state.get("token_sprite_path", ""))
 	definition.brawn = clampi(state.get("brawn", 6), 1, 12)
 	definition.finesse = clampi(state.get("finesse", 6), 1, 12)
 	definition.fortitude = clampi(state.get("fortitude", 6), 1, 12)

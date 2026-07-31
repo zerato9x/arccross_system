@@ -9,6 +9,11 @@ class_name ItemData
 @export var catalog_category: GameEnums.ItemCategory = GameEnums.ItemCategory.MISC
 @export var item_grade: GameEnums.ItemGrade = GameEnums.ItemGrade.CIVILIAN
 @export var tags: Array[String] = []
+## Explicit extensible roles for mods and catalog validation. Legacy resources
+## receive deterministic roles from their authored mechanics when this is empty.
+@export var functional_roles: PackedStringArray = []
+## Optional stable ID resolved through the knowledge catalog on inspection.
+@export var knowledge_entry_id: String = ""
 
 @export_group("Condition & Repair")
 @export var condition_enabled: bool = true
@@ -33,21 +38,24 @@ class_name ItemData
 @export var weapon_type: GameEnums.WeaponClass = GameEnums.WeaponClass.NONE
 @export var damage_type: GameEnums.DamageType = GameEnums.DamageType.BLUNT
 @export var flesh_damage: float = 0.0
-@export var stance_damage: float = 0.0
+@export var balance_impact: float = 0.0
 @export_range(0.0, 12.0) var armor_penetration: float = 0.0
 @export_range(0.0, 12.0) var accuracy_rating: float = 6.0
-@export_range(0, 12) var effective_range: int = 1
-@export_range(0, 12) var optimal_range: int = 1
+## Tactical-sector range contract. Vector2i stores inclusive min/max optimal
+## distance; maximum_range_cells is the hard limit.
+@export var optimal_range_cells: Vector2i = Vector2i(1, 1)
+@export_range(0, 10) var maximum_range_cells: int = 1
+@export_range(0.0, 1.0) var range_falloff: float = 0.12
+@export_range(1, 2) var weapon_reach_cells: int = 1
 @export_range(0.0, 1.0) var minimum_damage_multiplier: float = 1.0
-## Neutral lookup key for CombatCore's real-time handling profile. Empty uses
-## the weapon-class fallback, preserving existing item definitions.
-@export var realtime_profile_id: String = ""
 
 @export_group("Gear Stats")
 ## Defensive values. Only relevant for ARMOR type items equipped on the paper doll.
 @export var protection_blunt: float = 0.0
 @export var protection_sharp: float = 0.0
 @export var protection_ballistic: float = 0.0
+@export var armor_coverage: Array[int] = []
+@export_range(0, 3) var armor_layer: int = 0
 ## Sliding scale: negative = dodge/stealth bonus, positive = AP damage resistance bonus.
 @export var bulk: float = 0.0
 ## AP tax applied to every action while this item is equipped.
@@ -64,7 +72,7 @@ class_name ItemData
 @export var block_coverage: Array[int] = []
 ## Fraction of the intercepted attack that bleeds through the shield.
 @export_range(0.0, 1.0) var block_flesh_multiplier: float = 1.0
-@export_range(0.0, 1.0) var block_stance_multiplier: float = 1.0
+@export_range(0.0, 1.0) var block_balance_multiplier: float = 1.0
 
 @export_group("Consumable")
 @export var consumable_effect: GameEnums.ConsumableEffect = GameEnums.ConsumableEffect.RESTORE_HUNGER
@@ -120,6 +128,15 @@ var loaded_rounds: int = 0
 ## Persistent cross-mode state. Condition is a Base-12 meter; firearms may jam.
 var current_condition: float = GameEnums.SCALE_MAX
 var is_jammed: bool = false
+## Stable physical placement and fitted-item identity.
+var owner_id: String = ""
+var physical_location: String = "unassigned"
+var equipped_slot: int = GameEnums.EquipmentSlot.NONE
+var container_instance_id: String = ""
+var fitted_magazine_instance_id: String = ""
+var fitted_magazine_state: Dictionary = {}
+var fitted_attachment_instance_ids: Array[String] = []
+var fitted_attachment_states: Array[Dictionary] = []
 
 ## Helper: Is this item a ranged weapon?
 func is_ranged() -> bool:
@@ -156,13 +173,41 @@ func has_active_function() -> bool:
 	return not condition_enabled or current_condition > 0.0
 
 
+func get_functional_roles() -> PackedStringArray:
+	if not functional_roles.is_empty():
+		return functional_roles.duplicate()
+	var roles: PackedStringArray = []
+	match item_type:
+		GameEnums.ItemType.WEAPON: roles.append("weapon")
+		GameEnums.ItemType.ARMOR: roles.append("equipment")
+		GameEnums.ItemType.CONSUMABLE: roles.append("consumable")
+		GameEnums.ItemType.TOOL: roles.append("tool")
+		GameEnums.ItemType.AMMUNITION: roles.append("ammunition")
+		GameEnums.ItemType.MATERIAL: roles.append("repair_material")
+		GameEnums.ItemType.ATTACHMENT: roles.append("attachment")
+		_: roles.append("barter")
+	if capacity_bonus > 0 and not roles.has("container"):
+		roles.append("container")
+	if insulation > 0.0 and not roles.has("insulation"):
+		roles.append("insulation")
+	if not interaction_roles.is_empty() and not roles.has("world_interaction"):
+		roles.append("world_interaction")
+	if not knowledge_entry_id.is_empty() and not roles.has("knowledge"):
+		roles.append("knowledge")
+	return roles
+
+
+func can_inspect_knowledge() -> bool:
+	return not knowledge_entry_id.is_empty()
+
+
 ## Rough relative worth for macro barter. Prefer explicit threat / damage / protection
 ## signals over a separate economy table until a full value catalog exists.
 func get_barter_value() -> float:
 	var value := 1.0
 	value += maxf(0.0, threat) * 1.5
 	value += maxf(0.0, flesh_damage) * 0.75
-	value += maxf(0.0, stance_damage) * 0.5
+	value += maxf(0.0, balance_impact) * 0.5
 	value += maxf(0.0, protection_blunt + protection_sharp + protection_ballistic) * 0.6
 	value += maxf(0.0, consumable_potency) * 0.4
 	value += maxf(0.0, float(max_magazine)) * 0.15
@@ -226,15 +271,18 @@ func get_equipped_sprite_paths() -> Array[String]:
 	return []
 
 func damage_multiplier_at_distance(distance: int) -> float:
-	if distance <= optimal_range or effective_range <= optimal_range:
+	var optimal_max := optimal_range_cells.y
+	if distance >= optimal_range_cells.x and distance <= optimal_max:
 		return 1.0
-	var falloff_progress := clampf(
-		float(distance - optimal_range)
-			/ float(effective_range - optimal_range),
-		0.0,
-		1.0
+	var cells_outside := (
+		optimal_range_cells.x - distance
+		if distance < optimal_range_cells.x
+		else distance - optimal_max
 	)
-	return lerpf(1.0, minimum_damage_multiplier, falloff_progress)
+	return maxf(
+		minimum_damage_multiplier,
+		1.0 - range_falloff * float(cells_outside)
+	)
 
 func is_runtime_instance() -> bool:
 	return not instance_id.is_empty()
@@ -275,6 +323,14 @@ func create_runtime_instance() -> ItemData:
 	)
 	instance.current_condition = GameEnums.SCALE_MAX
 	instance.is_jammed = false
+	instance.owner_id = ""
+	instance.physical_location = "unassigned"
+	instance.equipped_slot = GameEnums.EquipmentSlot.NONE
+	instance.container_instance_id = ""
+	instance.fitted_magazine_instance_id = ""
+	instance.fitted_magazine_state = {}
+	instance.fitted_attachment_instance_ids = []
+	instance.fitted_attachment_states = []
 	return instance
 
 func to_runtime_state() -> Dictionary:
@@ -287,6 +343,14 @@ func to_runtime_state() -> Dictionary:
 		"loaded_rounds": loaded_rounds,
 		"current_condition": current_condition,
 		"is_jammed": is_jammed,
+		"owner_id": owner_id,
+		"physical_location": physical_location,
+		"equipped_slot": equipped_slot,
+		"container_instance_id": container_instance_id,
+		"fitted_magazine_instance_id": fitted_magazine_instance_id,
+		"fitted_magazine_state": fitted_magazine_state.duplicate(true),
+		"fitted_attachment_instance_ids": fitted_attachment_instance_ids.duplicate(),
+		"fitted_attachment_states": fitted_attachment_states.duplicate(true),
 		"definition": to_definition_state(),
 	}
 
@@ -299,6 +363,8 @@ func to_definition_state() -> Dictionary:
 		"catalog_category": catalog_category,
 		"item_grade": item_grade,
 		"tags": tags.duplicate(),
+		"functional_roles": Array(get_functional_roles()),
+		"knowledge_entry_id": knowledge_entry_id,
 		"condition_enabled": condition_enabled,
 		"repair_domain": repair_domain,
 		"maintenance_constraint": maintenance_constraint,
@@ -315,16 +381,19 @@ func to_definition_state() -> Dictionary:
 		"weapon_type": weapon_type,
 		"damage_type": damage_type,
 		"flesh_damage": flesh_damage,
-		"stance_damage": stance_damage,
+		"balance_impact": balance_impact,
 		"armor_penetration": armor_penetration,
 		"accuracy_rating": accuracy_rating,
-		"effective_range": effective_range,
-		"optimal_range": optimal_range,
+		"optimal_range_cells": optimal_range_cells,
+		"maximum_range_cells": maximum_range_cells,
+		"range_falloff": range_falloff,
+		"weapon_reach_cells": weapon_reach_cells,
 		"minimum_damage_multiplier": minimum_damage_multiplier,
-		"realtime_profile_id": realtime_profile_id,
 		"protection_blunt": protection_blunt,
 		"protection_sharp": protection_sharp,
 		"protection_ballistic": protection_ballistic,
+		"armor_coverage": armor_coverage.duplicate(),
+		"armor_layer": armor_layer,
 		"bulk": bulk,
 		"weight": weight,
 		"threat": threat,
@@ -332,7 +401,7 @@ func to_definition_state() -> Dictionary:
 		"block_damage_types": block_damage_types.duplicate(),
 		"block_coverage": block_coverage.duplicate(),
 		"block_flesh_multiplier": block_flesh_multiplier,
-		"block_stance_multiplier": block_stance_multiplier,
+		"block_balance_multiplier": block_balance_multiplier,
 		"consumable_effect": consumable_effect,
 		"consumable_potency": consumable_potency,
 		"interaction_roles": interaction_roles.duplicate(),
@@ -389,6 +458,15 @@ static func from_runtime_state(state: Dictionary) -> ItemData:
 		GameEnums.SCALE_MAX
 	)
 	item.is_jammed = bool(state.get("is_jammed", false))
+	item.owner_id = str(state.get("owner_id", ""))
+	item.physical_location = str(state.get("physical_location", "unassigned"))
+	item.equipped_slot = int(state.get("equipped_slot", GameEnums.EquipmentSlot.NONE))
+	item.container_instance_id = str(state.get("container_instance_id", ""))
+	item.fitted_magazine_instance_id = str(state.get("fitted_magazine_instance_id", ""))
+	item.fitted_magazine_state = state.get("fitted_magazine_state", {}).duplicate(true)
+	for attachment_id in state.get("fitted_attachment_instance_ids", []):
+		item.fitted_attachment_instance_ids.append(str(attachment_id))
+	item.fitted_attachment_states = state.get("fitted_attachment_states", []).duplicate(true)
 	return item
 
 func _apply_definition_state(state: Dictionary) -> void:
@@ -403,10 +481,16 @@ func _apply_definition_state(state: Dictionary) -> void:
 			for entry in value:
 				strings.append(str(entry))
 			set(property_name, strings)
+		elif property_name == "functional_roles":
+			var functional_strings: PackedStringArray = []
+			for entry in value:
+				functional_strings.append(str(entry))
+			functional_roles = functional_strings
 		elif property_name in [
 			"interaction_roles",
 			"block_damage_types",
 			"block_coverage",
+			"armor_coverage",
 		]:
 			var roles: Array[int] = []
 			for entry in value:
@@ -416,8 +500,15 @@ func _apply_definition_state(state: Dictionary) -> void:
 			set(property_name, value)
 	armor_penetration = clampf(armor_penetration, 0.0, GameEnums.SCALE_MAX)
 	accuracy_rating = clampf(accuracy_rating, 0.0, GameEnums.SCALE_MAX)
-	effective_range = clampi(effective_range, 0, int(GameEnums.SCALE_MAX))
-	optimal_range = clampi(optimal_range, 0, effective_range)
+	maximum_range_cells = clampi(maximum_range_cells, 0, 10)
+	optimal_range_cells.x = clampi(optimal_range_cells.x, 0, maximum_range_cells)
+	optimal_range_cells.y = clampi(
+		optimal_range_cells.y,
+		optimal_range_cells.x,
+		maximum_range_cells
+	)
+	weapon_reach_cells = clampi(weapon_reach_cells, 1, 2)
+	range_falloff = clampf(range_falloff, 0.0, 1.0)
 	minimum_damage_multiplier = clampf(
 		minimum_damage_multiplier,
 		0.0,
@@ -430,7 +521,7 @@ func _apply_definition_state(state: Dictionary) -> void:
 	)
 	insulation = clampf(insulation, 0.0, GameEnums.SCALE_MAX)
 	block_flesh_multiplier = clampf(block_flesh_multiplier, 0.0, 1.0)
-	block_stance_multiplier = clampf(block_stance_multiplier, 0.0, 1.0)
+	block_balance_multiplier = clampf(block_balance_multiplier, 0.0, 1.0)
 	consumable_potency = clampf(
 		consumable_potency,
 		0.0,

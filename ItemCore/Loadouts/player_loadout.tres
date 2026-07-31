@@ -5,15 +5,11 @@
 [ext_resource type="Resource" path="res://ItemCore/Items/coat_leather.tres" id="3_armor"]
 [ext_resource type="Resource" path="res://ItemCore/Items/boot_brown.tres" id="4_boots"]
 [ext_resource type="Resource" path="res://ItemCore/Items/mre.tres" id="5_food"]
-[ext_resource type="Resource" path="res://ItemCore/Items/sleeping_bag.tres" id="8_sleep"]
-[ext_resource type="Resource" path="res://ItemCore/Items/tentkit.tres" id="9_tarp"]
-[ext_resource type="Resource" path="res://ItemCore/Items/trap_makeshift.tres" id="10_trap"]
+[ext_resource type="Resource" path="res://ItemCore/Items/water_bottle.tres" id="6_water"]
 [ext_resource type="Resource" path="res://ItemCore/Items/revolver_speedloader.tres" id="11_magazine"]
 [ext_resource type="Resource" path="res://ItemCore/Items/pistol_round.tres" id="12_round"]
 [ext_resource type="Resource" path="res://ItemCore/Items/backpack_survivalist.tres" id="13_pack"]
 [ext_resource type="Resource" path="res://ItemCore/Items/webbing.tres" id="14_rig"]
-[ext_resource type="Resource" path="res://ItemCore/Items/crowbar.tres" id="15_crowbar"]
-[ext_resource type="Resource" path="res://ItemCore/Items/multitool.tres" id="16_multitool"]
 
 [resource]
 script = ExtResource("1_loadout")
@@ -21,5 +17,5 @@ weapon = ExtResource("2_weapon")
 outer_torso = ExtResource("3_armor")
 feet = ExtResource("4_boots")
 backpack_gear = ExtResource("13_pack")
-starting_items = [ExtResource("5_food"), ExtResource("8_sleep"), ExtResource("9_tarp"), ExtResource("10_trap"), ExtResource("15_crowbar"), ExtResource("16_multitool"), ExtResource("11_magazine"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round")]
+starting_items = [ExtResource("5_food"), ExtResource("6_water"), ExtResource("11_magazine"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round")]
 vest = ExtResource("14_rig")

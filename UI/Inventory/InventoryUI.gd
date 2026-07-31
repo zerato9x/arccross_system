@@ -18,6 +18,7 @@ const ACTION_MOVE := GameEnums.MACRO_INV_MOVE
 const ACTION_LOAD_MAGAZINE := GameEnums.MACRO_INV_LOAD_MAGAZINE
 const ACTION_INTERACT := GameEnums.MACRO_INV_INTERACT
 const ACTION_REPAIR := GameEnums.MACRO_INV_REPAIR
+const ACTION_INSPECT := GameEnums.MACRO_INV_INSPECT
 
 enum PresentationMode {
 	FULLSCREEN,
@@ -233,7 +234,7 @@ func _bind_authored_interface() -> void:
 	if _backdrop != null:
 		_backdrop.color = Color(COLOR_BACKDROP, 0.92)
 	HUDAssetLibrary.apply_progress_bar(_capacity_bar, "health")
-	HUDAssetLibrary.apply_progress_bar(_condition_bar, "stance")
+	HUDAssetLibrary.apply_progress_bar(_condition_bar, "condition")
 	_condition_bar.visible = false
 	_shell.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_capacity_bar.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -406,10 +407,10 @@ func _comparison_text(descriptor: Dictionary) -> String:
 			break
 	if equipped.is_empty() or equipped.get("instance_id", "") == descriptor.get("instance_id", ""):
 		return "COMPARISON: no different equipped item in the relevant slot"
-	return "VS %s  |  Flesh %+.1f  Stance %+.1f  Pen %+.1f  Prot %+.1f  Weight %+.1f  Bulk %+.1f" % [
+	return "VS %s  |  Flesh %+.1f  Impact %+.1f  Pen %+.1f  Prot %+.1f  Weight %+.1f  Bulk %+.1f" % [
 		str(equipped.get("name", "EQUIPPED")).to_upper(),
 		float(descriptor.get("flesh_damage", 0.0)) - float(equipped.get("flesh_damage", 0.0)),
-		float(descriptor.get("stance_damage", 0.0)) - float(equipped.get("stance_damage", 0.0)),
+		float(descriptor.get("balance_impact", 0.0)) - float(equipped.get("balance_impact", 0.0)),
 		float(descriptor.get("armor_penetration", 0.0)) - float(equipped.get("armor_penetration", 0.0)),
 		_total_protection(descriptor) - _total_protection(equipped),
 		float(descriptor.get("weight", 0.0)) - float(equipped.get("weight", 0.0)),
@@ -1531,7 +1532,7 @@ func _render_character_strip(loadout: Dictionary) -> void:
 		float(character.get("finesse", 6)),
 		12.0,
 		"%d / 12" % int(character.get("finesse", 6)),
-		"stance",
+		"condition",
 		HUDAssetLibrary.condition_icon("precaution_y")
 	)
 	_add_stat_gauge(
@@ -1549,7 +1550,7 @@ func _render_character_strip(loadout: Dictionary) -> void:
 		float(character.get("will", 6)),
 		12.0,
 		"%d / 12" % int(character.get("will", 6)),
-		"stance",
+		"condition",
 		HUDAssetLibrary.condition_icon("precaution_o")
 	)
 
@@ -1589,7 +1590,7 @@ func _render_character_strip(loadout: Dictionary) -> void:
 			insulation,
 			12.0,
 			"%.1f / 12" % insulation,
-			"stance",
+			"condition",
 			HUDAssetLibrary.condition_icon("precaution_o")
 		)
 	_add_stat_gauge(
@@ -1676,7 +1677,7 @@ func _populate_item_stat_gauges(descriptor: Dictionary) -> void:
 			condition,
 			12.0,
 			"%.1f / 12  %s" % [condition, band.to_upper()],
-			"stance",
+			"condition",
 			HUDAssetLibrary.condition_icon("stable")
 		)
 	_add_stat_gauge(
@@ -1716,7 +1717,7 @@ func _populate_item_stat_gauges(descriptor: Dictionary) -> void:
 			insulation,
 			12.0,
 			"%.1f / 12" % insulation,
-			"stance",
+			"condition",
 			HUDAssetLibrary.condition_icon("precaution_o")
 		)
 
@@ -1733,11 +1734,11 @@ func _populate_item_stat_gauges(descriptor: Dictionary) -> void:
 		)
 		_add_stat_gauge(
 			_stat_gauge_list,
-			"Stance",
-			float(descriptor.get("stance_damage", 0.0)),
+			"Balance impact",
+			float(descriptor.get("balance_impact", 0.0)),
 			12.0,
-			"%.1f" % float(descriptor.get("stance_damage", 0.0)),
-			"stance",
+			"%.1f" % float(descriptor.get("balance_impact", 0.0)),
+			"condition",
 			HUDAssetLibrary.condition_icon("healing")
 		)
 		_add_stat_gauge(
@@ -1758,14 +1759,14 @@ func _populate_item_stat_gauges(descriptor: Dictionary) -> void:
 			"health",
 			HUDAssetLibrary.condition_icon("stable")
 		)
-		var optimal := int(descriptor.get("optimal_range", 0))
-		var effective := int(descriptor.get("effective_range", 0))
+		var optimal: Vector2i = descriptor.get("optimal_range_cells", Vector2i.ZERO)
+		var maximum := int(descriptor.get("maximum_range_cells", 0))
 		_add_stat_gauge(
 			_stat_gauge_list,
 			"Range",
-			float(effective),
-			12.0,
-			"%d-%d" % [optimal, effective],
+			float(maximum),
+			10.0,
+			"%d-%d / %d" % [optimal.x, optimal.y, maximum],
 			"travel",
 			HUDAssetLibrary.condition_icon("precaution_o")
 		)
@@ -1780,7 +1781,7 @@ func _populate_item_stat_gauges(descriptor: Dictionary) -> void:
 				float(loaded),
 				float(max_magazine),
 				"%d / %d" % [loaded, max_magazine],
-				"stance",
+				"condition",
 				HUDAssetLibrary.condition_icon("healing")
 			)
 
@@ -1987,15 +1988,17 @@ func _format_item_stats(descriptor: Dictionary) -> String:
 		GameEnums.ItemType.JUNK
 	))
 	if item_type == GameEnums.ItemType.WEAPON:
-		lines.append("Flesh %.1f  |  Stance %.1f  |  Pen %.1f" % [
+		lines.append("Flesh %.1f  |  Impact %.1f  |  Pen %.1f" % [
 			float(descriptor.get("flesh_damage", 0.0)),
-			float(descriptor.get("stance_damage", 0.0)),
+			float(descriptor.get("balance_impact", 0.0)),
 			float(descriptor.get("armor_penetration", 0.0)),
 		])
-		lines.append("Accuracy %.1f  |  Range %d-%d" % [
+		var optimal: Vector2i = descriptor.get("optimal_range_cells", Vector2i.ZERO)
+		lines.append("Accuracy %.1f  |  Optimal %d-%d  |  Maximum %d" % [
 			float(descriptor.get("accuracy_rating", 0.0)),
-			int(descriptor.get("optimal_range", 0)),
-			int(descriptor.get("effective_range", 0)),
+			optimal.x,
+			optimal.y,
+			int(descriptor.get("maximum_range_cells", 0)),
 		])
 		var max_magazine := int(descriptor.get("max_magazine", 0))
 		if max_magazine > 0:

@@ -244,9 +244,52 @@ func _reveal_rule(rule: Dictionary) -> void:
 		if node != null and not node.discovered:
 			node.discovered = true
 			_newly_revealed_node_ids.append(node.id)
+	for node_id_value in rule.get("reveal_details_node_ids", []):
+		var detail_node := graph.get_node(str(node_id_value))
+		if detail_node != null and not detail_node.details_revealed:
+			detail_node.details_revealed = true
+			if not _newly_revealed_node_ids.has(detail_node.id):
+				_newly_revealed_node_ids.append(detail_node.id)
+	for node_id_value in rule.get("unlock_node_ids", []):
+		var unlock_node := graph.get_node(str(node_id_value))
+		if unlock_node != null and not unlock_node.unlocked:
+			unlock_node.unlocked = true
+			if not _newly_revealed_node_ids.has(unlock_node.id):
+				_newly_revealed_node_ids.append(unlock_node.id)
+			nodes_unlocked.emit([unlock_node.id])
+	for region_id_value in rule.get("reveal_hidden_in_regions", []):
+		_reveal_next_hidden_node_in_region(str(region_id_value))
 	var edge_ids: Array = rule.get("reveal_edge_ids", [])
 	for edge in graph.edges:
 		if edge is Dictionary and edge_ids.has(str(edge.get("id", ""))):
+			edge["revealed"] = true
+
+
+func _reveal_next_hidden_node_in_region(region_id: String) -> void:
+	var candidates: Array[MacroNodeData] = []
+	for node_value in graph.nodes.values():
+		var node := node_value as MacroNodeData
+		if (
+			node != null
+			and node.region_id == region_id
+			and node.hidden_until_discovered
+			and not node.discovered
+		):
+			candidates.append(node)
+	candidates.sort_custom(func(a: MacroNodeData, b: MacroNodeData) -> bool:
+		return a.id < b.id
+	)
+	if candidates.is_empty():
+		return
+	var revealed := candidates[0]
+	revealed.discovered = true
+	revealed.details_revealed = true
+	_newly_revealed_node_ids.append(revealed.id)
+	for edge in graph.edges:
+		if edge is Dictionary and (
+			str(edge.get("from", "")) == revealed.id
+			or str(edge.get("to", "")) == revealed.id
+		):
 			edge["revealed"] = true
 
 

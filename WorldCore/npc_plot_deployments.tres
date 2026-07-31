@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="NpcPlotDirector" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://WorldCore/NpcPlotDirector.gd" id="1_director"]
+[ext_resource type="Script" path="res://WorldCore/NpcPlotDeploymentDefinition.gd" id="2_deployment"]
+
+[sub_resource type="Resource" id="SignalCourier"]
+script = ExtResource("2_deployment")
+deployment_id = "route1_signal_courier"
+run_once_key = "plot_actor:route1_signal_courier"
+required_any_codex_ids = PackedStringArray("east_handle_registry", "south_guild_manifest", "west_zeta_survey")
+allowed_node_ids = PackedStringArray("east_random_1", "south_random_1", "west_random_1")
+actor_name = "Signal Courier"
+role_id = "plot_agent"
+dialogue_id = "route1_signal_courier"
+faction = 0
+world_status = 1
+minimum_spawn_distance = 3
+maximum_spawn_distance = 5
+
+[resource]
+script = ExtResource("1_director")
+deployments = Array[ExtResource("2_deployment")]([SubResource("SignalCourier")])

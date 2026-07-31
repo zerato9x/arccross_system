@@ -18,6 +18,7 @@ static func build(
 		next_ids = campaign.get_directional_destinations(pending_exit_direction)
 	var available := campaign.get_available_nodes()
 	var newly_revealed := campaign.consume_newly_revealed_node_ids()
+	var codex_entries: Array = hud_snapshot.get("codex_entries", [])
 	var nodes: Array = []
 	var edges: Array = []
 	if campaign.graph != null:
@@ -55,6 +56,7 @@ static func build(
 				entry["zone_profile_id"] = ""
 			entry["zone_flavor"] = zone_flavor(node)
 			entry["objective_text"] = objective_text(node)
+			entry["intel_entries"] = intel_for_node(node, codex_entries)
 			nodes.append(entry)
 		for edge in campaign.graph.edges:
 			if not (edge is Dictionary):
@@ -100,16 +102,17 @@ static func build(
 	if not hud_snapshot.is_empty():
 		snapshot["blood"] = hud_snapshot.get("blood", 0.0)
 		snapshot["pain"] = hud_snapshot.get("pain", 0.0)
+		snapshot["shock"] = hud_snapshot.get("shock", 0.0)
+		snapshot["consciousness"] = hud_snapshot.get("consciousness", 0.0)
 		snapshot["bleeding_rate"] = hud_snapshot.get("bleeding_rate", 0.0)
 		snapshot["wound_count"] = hud_snapshot.get("wound_count", 0)
 		snapshot["infection_risk"] = hud_snapshot.get("infection_risk", 0.0)
 		snapshot["hunger"] = hud_snapshot.get("hunger", 0.0)
 		snapshot["thirst"] = hud_snapshot.get("thirst", 0.0)
 		snapshot["fatigue"] = hud_snapshot.get("fatigue", 0.0)
-		snapshot["stance"] = hud_snapshot.get("stance", 0)
-		snapshot["stance_state"] = hud_snapshot.get("stance_state", "")
 		snapshot["morale"] = hud_snapshot.get("morale", 0)
 		snapshot["emergencies"] = hud_snapshot.get("emergencies", [])
+		snapshot["codex_entries"] = codex_entries
 		snapshot["equipment"] = inventory_snapshot.get("equipment", [])
 		snapshot["current_capacity"] = inventory_snapshot.get("current_capacity", 0)
 		snapshot["maximum_capacity"] = inventory_snapshot.get("maximum_capacity", 0)
@@ -145,6 +148,13 @@ static func zone_flavor(node: MacroNodeData) -> String:
 
 
 static func objective_text(node: MacroNodeData) -> String:
+	if node.arm_tier == 1 and node.arm_direction != GameEnums.MacroArmDirection.NONE:
+		if node.arm_direction == GameEnums.MacroArmDirection.NORTH:
+			return "The North Fringe Relay is the Act 1 gate. Bring it the three relay relics recovered from the surrounding Route 1 arms."
+		var landmarks := Route1LandmarkCatalog.data()
+		var landmark := landmarks.for_arm(_arm_id(node.arm_direction)) if landmarks != null else null
+		if landmark != null:
+			return "Search %s and its roadside caches. Recover supplies, world evidence, and anything that points back to the North relay." % landmark.display_name
 	if node.role == GameEnums.MacroNodeRole.GATEWAY and not node.unlocked:
 		return "Sealed by Meta Progress."
 	if node.role == GameEnums.MacroNodeRole.CENTRAL_CORE:
@@ -152,3 +162,26 @@ static func objective_text(node: MacroNodeData) -> String:
 	if node.role == GameEnums.MacroNodeRole.META_BRANCH:
 		return "Recover the North Core Regulator."
 	return "Traverse the zone through a graph-connected rim."
+
+
+static func intel_for_node(node: MacroNodeData, codex_entries: Array) -> Array:
+	var arm_id := _arm_id(node.arm_direction)
+	var matches: Array = []
+	for entry in codex_entries:
+		if entry is Dictionary and str(entry.get("region_id", "")) == arm_id:
+			matches.append(entry.duplicate(true))
+	return matches
+
+
+static func _arm_id(direction: int) -> String:
+	match direction:
+		GameEnums.MacroArmDirection.NORTH:
+			return "north"
+		GameEnums.MacroArmDirection.EAST:
+			return "east"
+		GameEnums.MacroArmDirection.SOUTH:
+			return "south"
+		GameEnums.MacroArmDirection.WEST:
+			return "west"
+		_:
+			return ""

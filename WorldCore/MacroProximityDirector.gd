@@ -3,7 +3,7 @@ class_name MacroProximityDirector
 
 ## Proximity / enemy-token lifecycle extracted from MacroGameManager.
 ## Owns active token projections (coords -> MacroEnemy). Tokens are still
-## parented under the host via add_child. Keep this WorldCore-only (no duel/UI imports).
+## parented under the host via add_child. Keep this WorldCore-only (no combat presentation/UI imports).
 
 const _NpcSimulator := preload("res://WorldCore/MacroNpcSimulator.gd")
 

@@ -113,6 +113,16 @@ func _render() -> void:
 	var ground_count := int(hex.get("ground_item_count", 0))
 	var entity_name := str(hex.get("entity_name", ""))
 	var presence := "%d PLACE%s" % [fixture_count, "" if fixture_count == 1 else "S"]
+	if not str(hex.get("search_site_id", "")).is_empty():
+		presence += (
+			" // DEPLETED SALVAGE"
+			if bool(hex.get("search_depleted", false))
+			else (
+				" // LOCKED CACHE"
+				if bool(hex.get("search_requires_access", false))
+				else " // OPEN SALVAGE"
+			)
+		)
 	if ground_count > 0:
 		presence += " // %d ITEM%s" % [ground_count, "" if ground_count == 1 else "S"]
 	if not entity_name.is_empty():

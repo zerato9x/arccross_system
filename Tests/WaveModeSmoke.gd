@@ -26,7 +26,7 @@ func _run() -> void:
 		_fail("The obsolete debug-spawner overlay still exists.")
 		return
 	if wave_mode.combat_hud.mouse_filter != Control.MOUSE_FILTER_IGNORE:
-		_fail("The Wave combat overlay still blocks CombatLaneHUD mouse input.")
+		_fail("The Wave combat overlay still blocks TacticalCombatHUD mouse input.")
 		return
 
 	var auto_supply := wave_mode.stage_item(

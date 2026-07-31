@@ -1,0 +1,60 @@
+[gd_resource type="Resource" script_class="LootProfile" load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/LootProfile.gd" id="1_profile"]
+[ext_resource type="Script" path="res://ItemCore/LootEntry.gd" id="2_entry"]
+
+[sub_resource type="Resource" id="Evidence"]
+script = ExtResource("2_entry")
+item_id = "west_zeta_survey"
+weight = 0.0
+once_key = "route1:west:evidence"
+
+[sub_resource type="Resource" id="Water"]
+script = ExtResource("2_entry")
+item_id = "water_bottle"
+weight = 7.0
+
+[sub_resource type="Resource" id="CannedMeat"]
+script = ExtResource("2_entry")
+item_id = "canned_meat"
+weight = 5.0
+
+[sub_resource type="Resource" id="Bolts"]
+script = ExtResource("2_entry")
+item_id = "bolts"
+weight = 6.0
+quantity_max = 3
+
+[sub_resource type="Resource" id="DuctTape"]
+script = ExtResource("2_entry")
+item_id = "ducttape"
+weight = 5.0
+quantity_max = 2
+
+[sub_resource type="Resource" id="Crowbar"]
+script = ExtResource("2_entry")
+item_id = "crowbar"
+weight = 3.0
+
+[sub_resource type="Resource" id="Shovel"]
+script = ExtResource("2_entry")
+item_id = "shovel"
+weight = 2.0
+
+[sub_resource type="Resource" id="Pliers"]
+script = ExtResource("2_entry")
+item_id = "pliers"
+weight = 3.0
+
+[sub_resource type="Resource" id="Armor"]
+script = ExtResource("2_entry")
+item_id = "armor_makeshift"
+weight = 0.75
+
+[resource]
+script = ExtResource("1_profile")
+profile_id = "loot_route1_west_cache"
+max_searches = 4
+max_items_per_search = 3
+guaranteed_entries = Array[ExtResource("2_entry")]([SubResource("Evidence")])
+entries = Array[ExtResource("2_entry")]([SubResource("Water"), SubResource("CannedMeat"), SubResource("Bolts"), SubResource("DuctTape"), SubResource("Crowbar"), SubResource("Shovel"), SubResource("Pliers"), SubResource("Armor")])

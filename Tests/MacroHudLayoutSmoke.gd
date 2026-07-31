@@ -31,6 +31,8 @@ func _run() -> void:
 	var inventory := hud.get_node_or_null("%MacroInventoryPanel") as MacroInventoryCornerPanel
 	var hex := hud.get_node_or_null("%MacroHexPanel") as MacroHexCornerPanel
 	var world_status := hud.get_node_or_null("%MacroWorldStatusPanel") as MacroWorldStatusPanel
+	var minimap: MacroMinimapView
+	var latest_ticker: Label
 	if health == null:
 		_fail("Health corner panel missing.")
 		return
@@ -42,6 +44,22 @@ func _run() -> void:
 		return
 	if world_status == null:
 		_fail("World status panel missing.")
+		return
+	minimap = world_status.get_node_or_null("%MacroMinimapView") as MacroMinimapView
+	latest_ticker = world_status.get_node_or_null("%LatestEventTicker") as Label
+	if minimap == null or latest_ticker == null:
+		_fail("World Signal minimap/ticker composition missing.")
+		return
+	if not minimap.visible or not latest_ticker.visible:
+		_fail("World Signal minimap should be visible in preview mode.")
+		return
+	if not _assert_rect_inside_rect(
+		minimap.get_global_rect(), world_status.get_global_rect(), "World Signal minimap"
+	):
+		return
+	if not _assert_rect_inside_rect(
+		latest_ticker.get_global_rect(), world_status.get_global_rect(), "latest-event ticker"
+	):
 		return
 	var camera := macro_map.get_node_or_null("Camera2D") as MacroCamera
 	if camera == null:
@@ -65,6 +83,9 @@ func _run() -> void:
 		return
 	if not world_status.is_work_surface_compact():
 		_fail("World Signal Log did not fold clear of the medical work surface.")
+		return
+	if minimap.is_visible_in_tree() or latest_ticker.is_visible_in_tree():
+		_fail("Minimap/ticker did not fold with compact World Signal mode.")
 		return
 	if health.get_node("%PreviewRoot").get_node_or_null("FieldHealthPreview") == null:
 		_fail("Health corner is not using the authored FieldHealthHUD preview.")
@@ -207,8 +228,11 @@ func _run() -> void:
 	if not world_status.visible:
 		_fail("World status panel disappeared during work-surface switching.")
 		return
-	if world_status.is_work_surface_compact():
-		_fail("World Signal Log did not restore after the medical surface closed.")
+	if not world_status.is_work_surface_compact():
+		_fail("World Signal should stay compact while HERE remains expanded.")
+		return
+	if minimap.is_visible_in_tree() or latest_ticker.is_visible_in_tree():
+		_fail("Minimap/ticker reappeared beneath the expanded HERE surface.")
 		return
 	if not macro_map.macro_hud.is_location_open():
 		_fail("Closing health should not dismiss HERE exploration.")
@@ -216,6 +240,12 @@ func _run() -> void:
 
 	hud.get_layout_manager().collapse_all()
 	await process_frame
+	if world_status.is_work_surface_compact():
+		_fail("World Signal did not restore after all work surfaces closed.")
+		return
+	if not minimap.is_visible_in_tree() or not latest_ticker.is_visible_in_tree():
+		_fail("Minimap/ticker did not restore after all work surfaces closed.")
+		return
 	print("[TEST PASS] Macro HUD cockpit layout, copy, and exploration stage hosting.")
 	quit(0)
 

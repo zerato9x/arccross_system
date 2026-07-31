@@ -7,6 +7,130 @@ const HEX_NEIGHBORS := [
 	Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1),
 	Vector2i(-1, 0), Vector2i(-1, 1), Vector2i(0, 1),
 ]
+const AI_SCHEMA_VERSION := 1
+const ROLE_CATALOG_PATH := "res://WorldCore/npc_roles.tres"
+
+
+static func role_descriptor(record: EntityRecord) -> Dictionary:
+	var role_id := str(record.runtime.get("npc_role_id", ""))
+	if role_id.is_empty():
+		role_id = str(record.definition.get("npc_role_id", ""))
+	if role_id.is_empty():
+		role_id = _fallback_role_id(record)
+	record.runtime["npc_role_id"] = role_id
+	var catalog := load(ROLE_CATALOG_PATH) as NpcRoleCatalog
+	return catalog.descriptor(role_id) if catalog != null else {}
+
+
+static func _fallback_role_id(record: EntityRecord) -> String:
+	if _is_stationary_guard(record):
+		return "sentry"
+	var faction: GameEnums.Faction = record.definition.get(
+		"faction", GameEnums.Faction.UNALIGNED
+	)
+	match faction:
+		GameEnums.Faction.CRAVEN_HIVE:
+			return "stalker"
+		GameEnums.Faction.ARCBORN_RESISTANCE:
+			return "patrol"
+		GameEnums.Faction.SCAVENGER_CELL:
+			return "raider"
+		_:
+			return "salvager"
+
+
+static func ensure_npc_memory(record: EntityRecord) -> Dictionary:
+	var ai: Dictionary = record.runtime.get("macro_ai", {})
+	ai["schema_version"] = AI_SCHEMA_VERSION
+	ai["role_id"] = str(record.runtime.get("npc_role_id", _fallback_role_id(record)))
+	if not ai.has("memory"):
+		ai["memory"] = {
+			"player_trust": 0.0,
+			"player_threat": 0.0,
+			"last_player_coords": null,
+			"last_player_turn": -1,
+			"events": [],
+		}
+	record.runtime["macro_ai"] = ai
+	return ai
+
+
+static func remember_player_event(
+	record: EntityRecord,
+	event_id: String,
+	turn_index: int,
+	player_coords: Vector2i,
+	trust_delta: float = 0.0,
+	threat_delta: float = 0.0
+) -> void:
+	var ai := ensure_npc_memory(record)
+	var memory: Dictionary = ai.get("memory", {})
+	memory["player_trust"] = clampf(float(memory.get("player_trust", 0.0)) + trust_delta, -12.0, 12.0)
+	memory["player_threat"] = clampf(float(memory.get("player_threat", 0.0)) + threat_delta, 0.0, 12.0)
+	memory["last_player_coords"] = player_coords
+	memory["last_player_turn"] = turn_index
+	var events: Array = memory.get("events", [])
+	events.append({"id": event_id, "turn": turn_index, "coords": player_coords})
+	while events.size() > 8:
+		events.pop_front()
+	memory["events"] = events
+	ai["memory"] = memory
+	record.runtime["macro_ai"] = ai
+
+
+static func select_goal(
+	record: EntityRecord,
+	player_coords: Vector2i,
+	world_seed: String,
+	macro_turn_index: int
+) -> String:
+	var role := role_descriptor(record)
+	var ai := ensure_npc_memory(record)
+	var memory: Dictionary = ai.get("memory", {})
+	var weights: Dictionary = role.get("goal_weights", {}).duplicate(true)
+	if weights.is_empty():
+		weights[str(role.get("default_goal_id", "roam"))] = 1.0
+	var distance := hex_distance(record.coords, player_coords)
+	var detection_radius := int(role.get("detection_radius", 5))
+	if record.world_status == GameEnums.EntityWorldStatus.HOSTILE and distance <= detection_radius:
+		weights["hunt"] = float(weights.get("hunt", 0.0)) + 12.0
+		memory["last_player_coords"] = player_coords
+		memory["last_player_turn"] = macro_turn_index
+	if float(memory.get("player_threat", 0.0)) >= 6.0 and record.world_status != GameEnums.EntityWorldStatus.HOSTILE:
+		weights["evade"] = float(weights.get("evade", 0.0)) + 8.0
+	var best_goal := str(role.get("default_goal_id", "roam"))
+	var best_score := -INF
+	for goal_key in weights.keys():
+		var jitter_seed := (
+			world_seed + ":npc_goal:" + record.entity_id + ":"
+			+ str(macro_turn_index / 4) + ":" + str(goal_key)
+		).hash()
+		var score := float(weights[goal_key]) + float(posmod(jitter_seed, 1000)) / 10000.0
+		if score > best_score:
+			best_score = score
+			best_goal = str(goal_key)
+	ai["goal_id"] = best_goal
+	ai["goal_label"] = best_goal.capitalize()
+	ai["goal_selected_turn"] = macro_turn_index
+	ai["memory"] = memory
+	record.runtime["macro_ai"] = ai
+	record.runtime["macro_purpose"] = _goal_to_purpose(best_goal)
+	record.runtime["macro_purpose_label"] = best_goal.capitalize()
+	return best_goal
+
+
+static func _goal_to_purpose(goal_id: String) -> String:
+	match goal_id:
+		"hunt", "ambush":
+			return GameEnums.NPC_PURPOSE_HUNT
+		"scavenge":
+			return GameEnums.NPC_PURPOSE_SCAVENGE
+		"patrol", "investigate":
+			return GameEnums.NPC_PURPOSE_PATROL
+		"hold", "trade":
+			return GameEnums.NPC_PURPOSE_HOLD
+		_:
+			return GameEnums.NPC_PURPOSE_ROAM
 
 
 static func hex_distance(from_coords: Vector2i, to_coords: Vector2i) -> int:
@@ -88,6 +212,9 @@ static func initialize_npc_runtime(
 		return
 	if not record.runtime.has("macro_origin_coords"):
 		record.runtime["macro_origin_coords"] = record.coords
+	role_descriptor(record)
+	ensure_npc_memory(record)
+	select_goal(record, player_coords, world_seed, macro_turn_index)
 	var purpose := ensure_npc_purpose(record)
 	if not record.runtime.has("macro_target_coords"):
 		record.runtime["macro_target_coords"] = purpose_target_for(
@@ -153,6 +280,16 @@ static func find_scavenge_target(
 			score += 12.0
 		if hex_data.structure_layer != GameEnums.MacroStructureLayer.NONE:
 			score += 8.0
+		if not hex_data.search_site_id.is_empty():
+			var site_catalog := SearchSiteCatalog.data()
+			var site := (
+				site_catalog.get_site(hex_data.search_site_id)
+				if site_catalog != null
+				else null
+			)
+			if site != null and site.quest_protected:
+				continue
+			score += 16.0
 		if has_ground_items.call(coords):
 			score += 6.0
 		if hex_data.region == GameEnums.MacroRegion.CENTRAL_HUB:
@@ -355,6 +492,10 @@ static func evaluate_npc_step(
 	if distance_to_player <= 0:
 		return current_coords
 
+	var ai := ensure_npc_memory(record)
+	var selected_turn := int(ai.get("goal_selected_turn", -999))
+	if selected_turn < 0 or macro_turn_index - selected_turn >= 4:
+		select_goal(record, player_coords, world_seed, macro_turn_index)
 	var purpose := ensure_npc_purpose(record)
 	if purpose == GameEnums.NPC_PURPOSE_HOLD:
 		record.runtime["macro_target_coords"] = current_coords
@@ -370,11 +511,26 @@ static func evaluate_npc_step(
 	).hash()
 
 	if record.world_status != GameEnums.EntityWorldStatus.HOSTILE:
-		if distance_to_player <= 2:
+		var active_goal := str(ai.get("goal_id", "roam"))
+		if active_goal == "evade" or distance_to_player <= 1:
 			return best_npc_neighbor(
 				record,
 				player_coords,
 				false,
+				get_hex_at,
+				get_occupying_entity_id
+			)
+		if purpose in [GameEnums.NPC_PURPOSE_SCAVENGE, GameEnums.NPC_PURPOSE_PATROL]:
+			return evaluate_targeted_purpose_step(
+				record,
+				player_coords,
+				purpose_target_for(
+					record, purpose, world_seed, macro_turn_index,
+					player_coords, get_hex_at, has_ground_items
+				),
+				rng,
+				npc_wander_chance * 0.5,
+				true,
 				get_hex_at,
 				get_occupying_entity_id
 			)
@@ -513,6 +669,9 @@ static func pursuit_radius_for(
 	npc_pursuit_radius: int,
 	craven_pursuit_radius: int
 ) -> int:
+	var role := role_descriptor(record)
+	if role.has("pursuit_radius"):
+		return maxi(1, int(role.get("pursuit_radius", npc_pursuit_radius)))
 	var faction: GameEnums.Faction = record.definition.get(
 		"faction",
 		GameEnums.Faction.UNALIGNED

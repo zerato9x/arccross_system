@@ -9,10 +9,11 @@ signal meta_event_completed(event_id: String)
 signal gateway_state_changed(gateway_id: String, unsealed: bool)
 signal core_state_changed(core_id: String, state: Dictionary)
 signal campaign_milestone_completed(milestone_id: String)
+signal codex_entry_recorded(entry_id: String)
 
 const SAVE_PATH := "user://arccross_meta_progression.json"
 const LEGACY_WORLD_PROFILE_PATH := "user://arccross_world_profile.json"
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2
 const VARIANT_TYPE_KEY := "__arccross_type"
 const CENTRAL_MILESTONE_PATH := "res://SystemCore/central_unlock_milestone.tres"
 const STRUCTURAL_FIELDS := [
@@ -37,6 +38,7 @@ const STRUCTURAL_FIELDS := [
 	"is_poi",
 	"poi_id",
 	"poi_name",
+	"search_site_id",
 	"hazard_level",
 ]
 
@@ -45,6 +47,7 @@ var gateway_states: Dictionary = {} # gateway_id -> bool
 var core_states: Dictionary = {} # core_id -> neutral Dictionary
 var node_profile_patches: Dictionary = {} # node_id -> neutral Dictionary
 var permanent_node_hex_patches: Dictionary = {} # node_id -> Vector2i -> patch
+var codex_entries: Dictionary = {} # knowledge_id -> true
 ## After eviction, Central Core refuses re-entry until endgame unlock.
 ## Defaults true so Route 1 guards diegetically hold the lock.
 var central_locked: bool = true
@@ -70,6 +73,29 @@ func get_meta_flags() -> Dictionary:
 
 func is_central_locked() -> bool:
 	return central_locked
+
+
+func has_codex_entry(entry_id: String) -> bool:
+	return bool(codex_entries.get(entry_id, false))
+
+
+func get_codex_entry_ids() -> PackedStringArray:
+	var ids := PackedStringArray()
+	for entry_id in codex_entries.keys():
+		if bool(codex_entries[entry_id]):
+			ids.append(str(entry_id))
+	ids.sort()
+	return ids
+
+
+func record_codex_entry(entry_id: String, save_after: bool = true) -> bool:
+	if entry_id.is_empty() or has_codex_entry(entry_id):
+		return false
+	codex_entries[entry_id] = true
+	codex_entry_recorded.emit(entry_id)
+	if save_after:
+		save_profile()
+	return true
 
 
 func set_central_locked(locked: bool, save_after: bool = true) -> void:
@@ -246,6 +272,7 @@ func reset_profile() -> void:
 	core_states.clear()
 	node_profile_patches.clear()
 	permanent_node_hex_patches.clear()
+	codex_entries.clear()
 	central_locked = true
 	save_profile()
 
@@ -275,6 +302,7 @@ func save_profile(path: String = "") -> bool:
 		"core_states": core_states.duplicate(true),
 		"node_profile_patches": node_profile_patches.duplicate(true),
 		"permanent_node_hex_patches": node_patch_entries,
+		"codex_entries": codex_entries.duplicate(true),
 		"central_locked": central_locked,
 	}
 	file.store_string(JSON.stringify(_encode_variant(payload), "\t"))
@@ -292,6 +320,7 @@ func load_profile(path: String = "") -> bool:
 	core_states.clear()
 	node_profile_patches.clear()
 	permanent_node_hex_patches.clear()
+	codex_entries.clear()
 	central_locked = true
 	if not FileAccess.file_exists(path):
 		_migrate_legacy_profile()
@@ -308,12 +337,14 @@ func load_profile(path: String = "") -> bool:
 		return false
 	var data: Dictionary = _decode_variant(json.data)
 	if int(data.get("version", -1)) != SAVE_VERSION:
-		_last_save_error = "Unsupported Meta Progress version."
-		return false
+		_backup_incompatible_profile(path, int(data.get("version", -1)))
+		_last_save_error = "Older Meta Progress was backed up and reset."
+		return save_profile(path)
 	completed_events = data.get("completed_events", {}).duplicate(true)
 	gateway_states = data.get("gateway_states", {}).duplicate(true)
 	core_states = data.get("core_states", {}).duplicate(true)
 	node_profile_patches = data.get("node_profile_patches", {}).duplicate(true)
+	codex_entries = data.get("codex_entries", {}).duplicate(true)
 	central_locked = bool(data.get("central_locked", true))
 	for node_entry in data.get("permanent_node_hex_patches", []):
 		if not node_entry is Dictionary:
@@ -329,6 +360,22 @@ func load_profile(path: String = "") -> bool:
 		permanent_node_hex_patches[node_id] = node_patches
 	evaluate_campaign_milestones(false)
 	return true
+
+
+func _backup_incompatible_profile(path: String, old_version: int) -> void:
+	if not FileAccess.file_exists(path):
+		return
+	var source := FileAccess.open(path, FileAccess.READ)
+	if source == null:
+		return
+	var contents := source.get_as_text()
+	source.close()
+	var absolute := ProjectSettings.globalize_path(path)
+	var backup_path := "%s.v%d.bak" % [absolute, old_version]
+	var backup := FileAccess.open(backup_path, FileAccess.WRITE)
+	if backup != null:
+		backup.store_string(contents)
+		backup.close()
 
 
 func get_last_save_error() -> String:

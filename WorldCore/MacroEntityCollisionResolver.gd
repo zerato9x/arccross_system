@@ -19,10 +19,10 @@ const CHOICE_ASK := "ask"
 const CHOICE_TRADE := "trade"
 const CHOICE_LEAVE := "leave"
 
-const LANE_COUNT := 12
-const ENEMY_AMBUSH_LANE := 7
-const ORDINARY_PLAYER_LANE := 2
-const ORDINARY_ENEMY_LANE := 9
+const ARENA_SIZE := Vector2i(7, 5)
+const ENEMY_AMBUSH_SECTOR := Vector2i(6, 2)
+const ORDINARY_PLAYER_SECTOR := Vector2i(0, 2)
+const ORDINARY_ENEMY_SECTOR := Vector2i(6, 2)
 
 const DEFAULT_IMAGE := EventBgCatalog.PLAINS_BG
 
@@ -49,14 +49,14 @@ static func build_root_session(enemy_record: EntityRecord) -> Dictionary:
 				CHOICE_AMBUSH,
 				"AMBUSH",
 				"ambush",
-				"Choose opening lane. You act first.",
+				"Choose an opening sector. You act first.",
 				true,
 				"Commit to a fight on your terms."
 			),
 		],
 		MODE_ROOT,
 		opponent,
-		_grid_preview(ORDINARY_PLAYER_LANE, ORDINARY_ENEMY_LANE, "Ordinary meet"),
+		_grid_preview(ORDINARY_PLAYER_SECTOR, ORDINARY_ENEMY_SECTOR, "Ordinary meet"),
 		false
 	)
 
@@ -100,7 +100,7 @@ static func build_talk_session(enemy_record: EntityRecord) -> Dictionary:
 		],
 		MODE_TALK,
 		opponent,
-		_grid_preview(ORDINARY_PLAYER_LANE, ORDINARY_ENEMY_LANE, "If talks fail"),
+		_grid_preview(ORDINARY_PLAYER_SECTOR, ORDINARY_ENEMY_SECTOR, "If talks fail"),
 		false
 	)
 
@@ -121,7 +121,7 @@ static func build_ambush_session(enemy_record: EntityRecord) -> Dictionary:
 				CHOICE_AMBUSH_FAR,
 				"FAR APPROACH",
 				"ambush",
-				"Player lane 1 vs enemy lane 7.",
+				"Player sector (0,2) vs enemy sector (6,2).",
 				true,
 				"Maximum standoff."
 			),
@@ -129,7 +129,7 @@ static func build_ambush_session(enemy_record: EntityRecord) -> Dictionary:
 				CHOICE_AMBUSH_STANDARD,
 				"STANDARD APPROACH",
 				"ambush",
-				"Player lane 3 vs enemy lane 7.",
+				"Player sector (3,2) vs enemy sector (6,2).",
 				true,
 				"Balanced opening."
 			),
@@ -137,7 +137,7 @@ static func build_ambush_session(enemy_record: EntityRecord) -> Dictionary:
 				CHOICE_AMBUSH_CLOSE,
 				"CLOSE APPROACH",
 				"ambush",
-				"Player lane 4 vs enemy lane 7.",
+				"Player sector (4,2) vs enemy sector (6,2).",
 				true,
 				"Knife-range pressure."
 			),
@@ -153,8 +153,8 @@ static func build_ambush_session(enemy_record: EntityRecord) -> Dictionary:
 		MODE_AMBUSH,
 		opponent,
 		_grid_preview(
-			ambush_player_lane(GameEnums.AmbushPosition.STANDARD),
-			ENEMY_AMBUSH_LANE,
+			ambush_player_sector(GameEnums.AmbushPosition.STANDARD),
+			ENEMY_AMBUSH_SECTOR,
 			"Standard ambush"
 		),
 		false
@@ -433,6 +433,18 @@ static func build_opponent_summary(enemy_record: EntityRecord) -> Dictionary:
 			int(definition.get("will", 6)),
 		],
 	]
+	var npc_role_id := ""
+	var npc_goal_id := ""
+	if enemy_record != null:
+		npc_role_id = str(enemy_record.runtime.get(
+			"npc_role_id", definition.get("npc_role_id", "")
+		))
+		var macro_ai: Dictionary = enemy_record.runtime.get("macro_ai", {})
+		npc_goal_id = str(macro_ai.get("goal_id", ""))
+	if not npc_role_id.is_empty():
+		tags.append("ROLE: " + npc_role_id.to_upper())
+	if not npc_goal_id.is_empty():
+		tags.append("GOAL: " + npc_goal_id.to_upper())
 	if not dialogue_id.is_empty():
 		tags.append("UNIQUE")
 	if not allows_trade:
@@ -461,6 +473,8 @@ static func build_opponent_summary(enemy_record: EntityRecord) -> Dictionary:
 		"blocks_ambush": blocks_ambush,
 		"blocks_central_reentry": blocks_central_reentry,
 		"template_id": template_id,
+		"npc_role_id": npc_role_id,
+		"npc_goal_id": npc_goal_id,
 		"tags": tags,
 		"entity_id": str(record_dict.get("entity_id", "")),
 		"world_status": int(record_dict.get("world_status", GameEnums.EntityWorldStatus.HOSTILE)),
@@ -502,14 +516,14 @@ static func central_reentry_refused_line() -> String:
 	)
 
 
-static func ambush_player_lane(position: GameEnums.AmbushPosition) -> int:
+static func ambush_player_sector(position: GameEnums.AmbushPosition) -> Vector2i:
 	match position:
 		GameEnums.AmbushPosition.FAR:
-			return 1
+			return Vector2i(0, 2)
 		GameEnums.AmbushPosition.CLOSE:
-			return 4
+			return Vector2i(4, 2)
 		_:
-			return 3
+			return Vector2i(3, 2)
 
 
 static func ambush_position_for_choice(choice_id: String) -> GameEnums.AmbushPosition:
@@ -572,14 +586,15 @@ static func _choice(
 
 
 static func _grid_preview(
-	player_lane: int,
-	enemy_lane: int,
+	player_sector: Vector2i,
+	enemy_sector: Vector2i,
 	caption: String
 ) -> Dictionary:
 	return {
-		"lane_count": LANE_COUNT,
-		"player_lane": player_lane,
-		"enemy_lane": enemy_lane,
+		"width": ARENA_SIZE.x,
+		"height": ARENA_SIZE.y,
+		"player_sector": player_sector,
+		"enemy_sector": enemy_sector,
 		"caption": caption,
 	}
 
@@ -629,6 +644,11 @@ static func _enum_key(keys: Array, value: int) -> String:
 
 
 static func _ask_profile(dialogue_id: String) -> Dictionary:
+	var catalog := DialogueCatalog.data()
+	if catalog != null:
+		var authored := catalog.resolve(dialogue_id if not dialogue_id.is_empty() else "generic")
+		if not authored.is_empty():
+			return authored
 	if dialogue_id == SAMPLE_UNIQUE_DIALOGUE_ID:
 		return _unique_sample_broker()
 	if dialogue_id == "central_guard":
@@ -771,7 +791,7 @@ static func _generic_ask() -> Dictionary:
 				"reason": "Available.",
 				"result_title": "TELL",
 				"result_body": (
-					"Their stance favors the right side. The kit is patched, "
+					"Their guard favors the right side. The kit is patched, "
 					+ "not pristine — pressure there would hurt."
 				),
 				"effects": {"elapsed_minutes": 2, "exertion": 0.15},

@@ -150,6 +150,20 @@ static func resolve_action(
 				"repair_context": context,
 				"result": repair,
 			}
+		GameEnums.MACRO_INV_INSPECT:
+			var inspected := inventory.find_item_by_instance_id(instance_id)
+			if inspected == null:
+				message = "That carried item is no longer available."
+			elif not inspected.can_inspect_knowledge():
+				message = "%s contains no decodable evidence." % inspected.display_name
+			else:
+				message = "Inspecting %s." % inspected.display_name
+				neutral_action = {
+					"action_id": GameEnums.MACRO_INV_INSPECT,
+					"instance_id": inspected.instance_id,
+					"item_id": inspected.id,
+					"knowledge_entry_id": inspected.knowledge_entry_id,
+				}
 		_:
 			message = "Unknown inventory command."
 

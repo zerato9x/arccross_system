@@ -46,40 +46,40 @@ func _run() -> void:
 
 	var arena = game_director.get_active_arena()
 	if arena == null:
-		_fail("Combat handoff did not create a duel arena.")
+		_fail("Combat handoff did not create a tactical arena.")
 		return
-	var duel_signature := str(
+	var combat_signature := str(
 		HumanoidVisualCatalog.appearance_from_record(
 			enemy_record.to_dict()
 		).get("signature", "")
 	)
-	if duel_signature != token_signature:
-		_fail("Duel enemy appearance drifted from the macro token.")
+	if combat_signature != token_signature:
+		_fail("Combat enemy appearance drifted from the macro token.")
 		return
 
+	var initial_wound_count: int = arena.enemy_core.body.get_wounds_for_limb(
+		GameEnums.LimbRegion.LEFT_ARM
+	).size()
 	arena.enemy_core.body.apply_targeted_hit(
 		GameEnums.LimbRegion.LEFT_ARM,
 		0.75,
 		0.0
 	)
-	var injured_hp: float = arena.enemy_core.body.limb_hp[
-		GameEnums.LimbRegion.LEFT_ARM
-	]
-	arena.turn_manager.escape_combat(arena.enemy_core)
+	arena._finish_combat(GameEnums.CombatOutcome.ENEMY_ESCAPED, "escape")
 	await process_frame
 	await process_frame
 	await process_frame
 
 	var escaped_record := world_state.get_entity(enemy_id)
-	var stored_hp: float = escaped_record.runtime.get(
+	var stored_wounds: Array = escaped_record.runtime.get(
 		"body",
 		{}
-	).get("limb_hp", {}).get(
+	).get("wounds_by_limb", {}).get(
 		str(GameEnums.LimbRegion.LEFT_ARM),
-		-1.0
+		[]
 	)
-	if not is_equal_approx(stored_hp, injured_hp):
-		_fail("Enemy escape did not persist duel body runtime.")
+	if stored_wounds.size() != initial_wound_count + 1:
+		_fail("Enemy escape did not persist wound-led body runtime.")
 		return
 	if escaped_record.runtime.get("macro_test_marker", "") != "preserve-me":
 		_fail("Combat write-back erased macro runtime metadata.")

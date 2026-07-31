@@ -51,18 +51,18 @@ func _verify_typed_faults_and_broken_legality() -> bool:
 	melee_definition.item_type = GameEnums.ItemType.WEAPON
 	melee_definition.weapon_type = GameEnums.WeaponClass.BLUNT
 	melee_definition.item_grade = GameEnums.ItemGrade.CIVILIAN
-	var realtime_melee := melee_definition.create_runtime_instance()
-	realtime_melee.current_condition = 4.0
-	var turn_melee := ItemData.from_runtime_state(realtime_melee.to_runtime_state())
-	var realtime_melee_outcome := ItemConditionRules.resolve_use(
-		realtime_melee, ItemConditionRules.EVENT_MELEE, 0.01
+	var first_melee := melee_definition.create_runtime_instance()
+	first_melee.current_condition = 4.0
+	var turn_melee := ItemData.from_runtime_state(first_melee.to_runtime_state())
+	var first_melee_outcome := ItemConditionRules.resolve_use(
+		first_melee, ItemConditionRules.EVENT_MELEE, 0.01
 	)
 	var turn_melee_outcome := ItemConditionRules.resolve_use(
 		turn_melee, ItemConditionRules.EVENT_MELEE, 0.01
 	)
-	if realtime_melee_outcome != turn_melee_outcome:
+	if first_melee_outcome != turn_melee_outcome:
 		return _fail("Cloned modes produced different melee outcomes.")
-	if not is_equal_approx(float(realtime_melee_outcome.performance_multiplier), 0.5):
+	if not is_equal_approx(float(first_melee_outcome.performance_multiplier), 0.5):
 		return _fail("Melee fault did not halve its contribution.")
 
 	var shield := ItemData.new().create_runtime_instance()
@@ -101,26 +101,26 @@ func _verify_firearm_parity_and_persistence() -> bool:
 	definition.weapon_type = GameEnums.WeaponClass.PISTOL
 	definition.item_grade = GameEnums.ItemGrade.SERVICE
 	definition.max_magazine = 8
-	var realtime := definition.create_runtime_instance()
-	realtime.current_condition = 7.0
-	var turn_based := ItemData.from_runtime_state(realtime.to_runtime_state())
+	var first_runtime := definition.create_runtime_instance()
+	first_runtime.current_condition = 7.0
+	var turn_based := ItemData.from_runtime_state(first_runtime.to_runtime_state())
 
-	var realtime_outcome := ItemConditionRules.resolve_use(
-		realtime, ItemConditionRules.EVENT_FIREARM, 0.01
+	var first_outcome := ItemConditionRules.resolve_use(
+		first_runtime, ItemConditionRules.EVENT_FIREARM, 0.01
 	)
 	var turn_outcome := ItemConditionRules.resolve_use(
 		turn_based, ItemConditionRules.EVENT_FIREARM, 0.01
 	)
-	if realtime_outcome != turn_outcome:
+	if first_outcome != turn_outcome:
 		return _fail("Cloned modes produced different firearm outcomes.")
-	if not realtime.is_jammed or realtime.current_magazine != 8:
+	if not first_runtime.is_jammed or first_runtime.current_magazine != 8:
 		return _fail("Fault did not jam the firearm while retaining ammunition.")
-	var restored := ItemData.from_runtime_state(realtime.to_runtime_state())
+	var restored := ItemData.from_runtime_state(first_runtime.to_runtime_state())
 	if not restored.is_jammed or not is_equal_approx(restored.current_condition, 6.92):
 		return _fail("Condition or malfunction did not survive persistence.")
 	if not ItemConditionRules.clear_malfunction(restored) or restored.is_jammed:
 		return _fail("Deterministic malfunction clearing failed.")
-	var legacy := realtime.to_runtime_state()
+	var legacy := first_runtime.to_runtime_state()
 	legacy.erase("current_condition")
 	legacy.erase("is_jammed")
 	var migrated := ItemData.from_runtime_state(legacy)

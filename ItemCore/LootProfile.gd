@@ -4,10 +4,15 @@ class_name LootProfile
 @export var profile_id: String = ""
 @export_range(1, 12) var max_searches: int = 4
 @export_range(1, 12) var max_items_per_search: int = 3
+@export var guaranteed_entries: Array[LootEntry] = []
 @export var entries: Array[LootEntry] = []
 
 func to_descriptor() -> Dictionary:
 	var entry_descriptors: Array = []
+	var guaranteed_descriptors: Array = []
+	for entry in guaranteed_entries:
+		if entry and not entry.item_id.is_empty():
+			guaranteed_descriptors.append(entry.to_descriptor())
 	for entry in entries:
 		if entry and not entry.item_id.is_empty() and entry.weight > 0.0:
 			entry_descriptors.append(entry.to_descriptor())
@@ -15,5 +20,6 @@ func to_descriptor() -> Dictionary:
 		"profile_id": profile_id,
 		"max_searches": max_searches,
 		"max_items_per_search": max_items_per_search,
+		"guaranteed_entries": guaranteed_descriptors,
 		"entries": entry_descriptors,
 	}

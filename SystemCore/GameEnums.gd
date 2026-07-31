@@ -78,6 +78,7 @@ const MACRO_INV_MOVE := "move"
 const MACRO_INV_LOAD_MAGAZINE := "load_magazine"
 const MACRO_INV_INTERACT := "interact"
 const MACRO_INV_REPAIR := "repair"
+const MACRO_INV_INSPECT := "inspect_knowledge"
 
 ## World HUD hex command IDs (intent from presentation).
 const MACRO_HEX_SCAN := "scan"
@@ -98,7 +99,7 @@ enum WeaponClass { NONE, BLUNT, BLADE, PISTOL, RIFLE, SHOTGUN }
 ## Functional classification of an item determining which systems interact with it.
 enum ItemType {
 	JUNK,        ## No mechanical function. Lore objects, trade barter, decoy weight.
-	WEAPON,      ## Equips to HANDS. Has DamageType, flesh_damage, stance_damage.
+	WEAPON,      ## Equips to HANDS. Has DamageType, flesh_damage, balance_impact.
 	ARMOR,       ## Equips to torso/legs/feet. Provides PROTECTION and BULK.
 	CONSUMABLE,  ## Single-use. Restores hunger, thirst, stops bleeding, fights fatigue.
 	TOOL,        ## Contextual world-interaction or campsite equipment.
@@ -187,7 +188,9 @@ enum CombatOutcome {
 	PLAYER_DEFEAT,
 	PLAYER_ESCAPED,
 	ENEMY_ESCAPED,
-	DRAW
+	DRAW,
+	PLAYER_SURRENDERED,
+	ENEMY_SURRENDERED,
 }
 
 # AI Agendas heavily rely on the new THREAT stat from player gear
@@ -208,97 +211,11 @@ enum KineticTier {
 	AGONIZING  ## Tier 3 (Burden 9+) - Severe costs (3, 4, 6, 12)
 }
 
-## Physiological equilibrium brackets based on the mandatory Base-12 threshold.
-enum StanceState {
-	PLANTED,   ## 7 to 12 Points: Full balance. Standard operations.
-	STUMBLING, ## 1 to 6 Points: Unbalanced but receives a normal active turn. Threat = 0.
-	FELLED     ## 0 Points: Prone/Collapsed. Spends the next turn recovering.
-}
-
-## Strict command mapping database for combat resolution parsing.
-enum ActionType {
-	# --- Non-Duel Actions ---
-	MOVE_FORWARD,   # 2 AP: Standard traversal through the 12-lane matrix
-	MOVE_BACKWARD,  # 2 AP: Standard traversal backward
-	CHARGE,         # 4 AP: Sprints 2 cells forward. Grapple Intercept risk at distance 1.
-	SHOOT,          # 4 AP: Fire a ranged weapon at a random body part
-	AIMED_SHOT,     # 6 AP: Fire a ranged weapon at a specific target limb
-	CYCLE,          # 1 AP: Cycle an action or hand-load one round where supported
-	RELOAD,         # 2 AP: Reload through a compatible magazine, clip, or speedloader
-	OBJ_INTERACT,   # 4 AP: Interact with the object at any tile
-	USE_ITEM,       # 2 AP: Use a consumable from the backpack
-	TAKE_COVER,     # 4 AP: Brace behind cover and recover a small amount of Stance.
-	
-	# --- Duel-Locked Actions ---
-	STRIKE,         # Core melee attack. Resolution randomly selects a non-Head Limb Region.
-	GRAPPLE,        # Opposed takedown check. Success fells the defender.
-	PUSH_STAY,      # 4 AP: PUSH. Displace target away, initiator stays, lock breaks.
-	PUSH_FOLLOW,    # Deprecated compatibility value. Hidden from legal actions.
-	PULL_FOLLOW,    # 4 AP: PULL. Drag both combatants together, lock holds.
-	PULL_STAY,      # Deprecated compatibility value. Hidden from legal actions.
-	BREAK,          # 2 AP: Braced stance attack. Erodes stance points only, no flesh damage.
-	DISENGAGE,      # Deprecated compatibility value. PUSH creates separation instead.
-	
-	# --- Prone Window Actions ---
-	TRIP,           # ALL AP: Ground sweep. Dexterity check to pull standing opponent into FELLED.
-	GET_UP,         # 4 AP: Rise from FELLED into STUMBLING with recovery protection.
-	EXECUTE,        # Trait-gated finishing action. Disabled until trait ownership exists.
-	
-	# --- Reaction Strikes (Off-Turn) ---
-	BLOCK,          # 3 AP: Absorb a STRIKE. Requires shield or functional arm.
-	DODGE,          # 3 AP: Evade ranged or melee attacks. Uses Finesse. Disabled if legs destroyed.
-	STAY,           # 0 AP: After successful PUSH — initiator holds position, lock breaks.
-	FOLLOW,         # 0 AP: After successful PUSH — initiator follows into vacated slot, lock holds.
-
-	# Appended for save/replay ordinal compatibility.
-	CLEAR_MALFUNCTION # Quick: 1/2/3 AP by Kinetic tier. Non-duel firearm service.
-}
-
-## Specific tactical profiles defining how an entity behaves once inside the combat lane.
-## Real-time duel input intents. These deliberately do not reuse ActionType
-## values: the retired turn ledger and the real-time state machine are different
-## protocols, despite both involving people hitting each other.
-enum DuelIntent {
-	MOVE_AWAY,
-	MOVE_TOWARD,
-	LIGHT_ATTACK,
-	HEAVY_ATTACK,
-	AIM_START,
-	AIM_CANCEL,
-	FIRE,
-	GUARD,
-	RELOAD_OR_CYCLE,
-	FOLLOW,
-}
-
-## Authoritative real-time action identities used by runtime snapshots and
-## presentation events.
-enum DuelActionType {
-	NONE,
-	MOVE,
-	LIGHT_STRIKE,
-	HEAVY_STRIKE,
-	COMBO_FINISHER,
-	PUSH,
-	FOLLOW,
-	GUARD,
-	PARRY,
-	BLIND_FIRE,
-	AIMED_FIRE,
-	RELOAD,
-	CYCLE,
-	GET_UP,
-	STAGGER,
-	ESCAPE,
-	MALFUNCTION,
-	CLEAR_MALFUNCTION,
-}
-
 enum CombatTactic {
-	MARKSMAN,     # Heavily weights SHOOT and TAKE_COVER. Wants to maintain distance.
-	BRUTE,        # Heavily weights CHARGE, GRAPPLE, and PUSH. Wants to force Melee Locks.
-	OPPORTUNIST,  # Avoids direct strikes unless opponent is STUMBLING/FELLED. Uses TRIP often.
-	DEFENDER      # Heavily weights MOVE_BACKWARD to become a BRACED support. Uses BLOCK often.
+	MARKSMAN,     ## Scores ranged positions and directional cover.
+	BRUTE,        ## Scores rush, shove collisions, and grapple control.
+	OPPORTUNIST,  ## Scores flank arcs, hazards, and wounded targets.
+	DEFENDER      ## Scores cover, bracing, reactions, and safe withdrawal.
 }
 
 # ==========================================

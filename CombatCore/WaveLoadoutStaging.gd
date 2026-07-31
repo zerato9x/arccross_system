@@ -360,11 +360,11 @@ func get_derived_stats() -> Dictionary:
 	var active_weapon := get_equipped_item(GameEnums.EquipmentSlot.HAND)
 	if active_weapon == null:
 		active_weapon = get_equipped_item(GameEnums.EquipmentSlot.OFFHAND)
-	var optimal_range := 1
-	var effective_range := 1
+	var optimal_range_cells := Vector2i(1, 1)
+	var maximum_range_cells := 1
 	if active_weapon != null:
-		optimal_range = active_weapon.optimal_range
-		effective_range = active_weapon.effective_range
+		optimal_range_cells = active_weapon.optimal_range_cells
+		maximum_range_cells = active_weapon.maximum_range_cells
 	var is_mindless := (
 		int(definition_state.get("faction", GameEnums.Faction.UNALIGNED))
 			== GameEnums.Faction.CRAVEN_HIVE
@@ -374,11 +374,10 @@ func get_derived_stats() -> Dictionary:
 	stats["burden"] = burden
 	stats["kinetic_tier"] = kinetic_tier
 	stats["movement_cost"] = movement_cost
-	stats["optimal_range"] = optimal_range
-	stats["effective_range"] = effective_range
+	stats["optimal_range_cells"] = optimal_range_cells
+	stats["maximum_range_cells"] = maximum_range_cells
 	stats["ap"] = 8 if is_mindless else 12
 	stats["blood"] = 12
-	stats["stance"] = 12
 	return stats
 
 func _simulate_storage() -> Dictionary:

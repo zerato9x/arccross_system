@@ -26,6 +26,7 @@ class_name MacroHexData
 @export var stamp_instance_id: String = ""
 @export_range(0, 63) var road_mask: int = 0
 @export var loot_tier_id: String = ""
+@export var search_site_id: String = ""
 @export var trace_records: Array[Dictionary] = []
 
 # POI Variables
@@ -47,6 +48,7 @@ var camp_traps: Array = []
 var sleep_anchor: String = "ground"
 var sleep_gear_instance_id: String = ""
 var rest_in_progress: bool = false
+var combat_site_state: Dictionary = {}
 
 func to_state() -> HexRecord:
 	var record := HexRecord.new()
@@ -75,6 +77,7 @@ func to_state() -> HexRecord:
 	record.stamp_instance_id = stamp_instance_id
 	record.road_mask = road_mask
 	record.loot_tier_id = loot_tier_id
+	record.search_site_id = search_site_id
 	record.trace_records = trace_records.duplicate(true)
 	record.is_poi = is_poi
 	record.poi_id = poi_id
@@ -92,6 +95,7 @@ func to_state() -> HexRecord:
 	record.sleep_anchor = sleep_anchor
 	record.sleep_gear_instance_id = sleep_gear_instance_id
 	record.rest_in_progress = rest_in_progress
+	record.combat_site_state = combat_site_state.duplicate(true)
 	return record
 
 func apply_state(state) -> void:
@@ -127,6 +131,7 @@ func apply_state(state) -> void:
 	stamp_instance_id = source.stamp_instance_id
 	road_mask = source.road_mask
 	loot_tier_id = source.loot_tier_id
+	search_site_id = source.search_site_id
 	trace_records = source.trace_records.duplicate(true)
 	is_poi = source.is_poi
 	poi_id = source.poi_id
@@ -144,6 +149,7 @@ func apply_state(state) -> void:
 	sleep_anchor = source.sleep_anchor
 	sleep_gear_instance_id = source.sleep_gear_instance_id
 	rest_in_progress = source.rest_in_progress
+	combat_site_state = source.combat_site_state.duplicate(true)
 
 
 static func from_state(state) -> MacroHexData:

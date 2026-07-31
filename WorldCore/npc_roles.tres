@@ -1,0 +1,102 @@
+[gd_resource type="Resource" script_class="NpcRoleCatalog" load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://WorldCore/NpcRoleCatalog.gd" id="1_catalog"]
+[ext_resource type="Script" path="res://WorldCore/NpcRoleDefinition.gd" id="2_role"]
+
+[sub_resource type="Resource" id="Resident"]
+script = ExtResource("2_role")
+role_id = "resident"
+display_name = "Resident"
+description = "A settlement local who protects a small routine and avoids unnecessary violence."
+default_goal_id = "hold"
+goal_weights = {"hold": 8.0, "roam": 1.0}
+detection_radius = 4
+pursuit_radius = 2
+stationary = true
+investigates_noise = true
+
+[sub_resource type="Resource" id="Technician"]
+script = ExtResource("2_role")
+role_id = "technician"
+display_name = "Relay Technician"
+description = "A practical route keeper who explains local systems and watches the relay cabinet."
+default_goal_id = "hold"
+goal_weights = {"hold": 10.0, "investigate": 2.0}
+detection_radius = 5
+pursuit_radius = 2
+stationary = true
+investigates_noise = true
+
+[sub_resource type="Resource" id="Salvager"]
+script = ExtResource("2_role")
+role_id = "salvager"
+display_name = "Salvager"
+description = "A cautious survivor who seeks loose supplies and gives threats room."
+default_goal_id = "scavenge"
+goal_weights = {"evade": 3.0, "roam": 1.0, "scavenge": 8.0}
+detection_radius = 5
+pursuit_radius = 3
+investigates_noise = true
+can_scavenge = true
+
+[sub_resource type="Resource" id="Raider"]
+script = ExtResource("2_role")
+role_id = "raider"
+display_name = "Raider"
+description = "An armed scavenger who values exposed cargo more than another life."
+default_goal_id = "scavenge"
+goal_weights = {"hunt": 5.0, "roam": 1.0, "scavenge": 6.0}
+detection_radius = 7
+pursuit_radius = 7
+investigates_noise = true
+can_scavenge = true
+
+[sub_resource type="Resource" id="Patrol"]
+script = ExtResource("2_role")
+role_id = "patrol"
+display_name = "Patrol"
+description = "A disciplined combatant who follows a route and responds to intrusion."
+default_goal_id = "patrol"
+goal_weights = {"hunt": 4.0, "hold": 1.0, "patrol": 8.0}
+detection_radius = 8
+pursuit_radius = 8
+investigates_noise = true
+
+[sub_resource type="Resource" id="Sentry"]
+script = ExtResource("2_role")
+role_id = "sentry"
+display_name = "Sentry"
+description = "A posted guard whose assignment matters more than pursuit."
+default_goal_id = "hold"
+goal_weights = {"hold": 12.0}
+detection_radius = 7
+pursuit_radius = 1
+stationary = true
+investigates_noise = true
+
+[sub_resource type="Resource" id="Stalker"]
+script = ExtResource("2_role")
+role_id = "stalker"
+display_name = "Stalker"
+description = "A feral hunter that follows fresh movement until the trail is cold."
+default_goal_id = "hunt"
+goal_weights = {"hunt": 12.0, "roam": 1.0}
+detection_radius = 9
+pursuit_radius = 9
+investigates_noise = true
+
+[sub_resource type="Resource" id="PlotAgent"]
+script = ExtResource("2_role")
+role_id = "plot_agent"
+display_name = "Emergent Actor"
+description = "A unique world actor deployed by authored plot conditions, then governed by ordinary goals."
+default_goal_id = "investigate"
+goal_weights = {"investigate": 9.0, "patrol": 2.0, "roam": 1.0}
+detection_radius = 7
+pursuit_radius = 6
+plot_actor = true
+investigates_noise = true
+
+[resource]
+script = ExtResource("1_catalog")
+roles = Array[ExtResource("2_role")]([SubResource("Resident"), SubResource("Technician"), SubResource("Salvager"), SubResource("Raider"), SubResource("Patrol"), SubResource("Sentry"), SubResource("Stalker"), SubResource("PlotAgent")])

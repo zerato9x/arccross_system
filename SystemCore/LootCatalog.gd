@@ -8,6 +8,10 @@ var _items_by_path: Dictionary = {}
 var _profiles_by_id: Dictionary = {}
 
 func _ready() -> void:
+	reload_catalog()
+
+
+func reload_catalog() -> void:
 	_load_items()
 	_load_profiles()
 
@@ -67,6 +71,9 @@ func get_item_descriptor(item_id: String) -> Dictionary:
 		"requires_two_hands": definition.requires_two_hands,
 		"item_size": definition.get_effective_item_size(),
 		"tags": definition.tags.duplicate(),
+		"functional_roles": Array(definition.get_functional_roles()),
+		"knowledge_entry_id": definition.knowledge_entry_id,
+		"can_inspect_knowledge": definition.can_inspect_knowledge(),
 	}
 
 
@@ -85,6 +92,8 @@ func get_all_item_descriptors() -> Array[Dictionary]:
 			"requires_two_hands": definition.requires_two_hands,
 			"item_size": definition.get_effective_item_size(),
 			"tags": definition.tags.duplicate(),
+			"functional_roles": Array(definition.get_functional_roles()),
+			"knowledge_entry_id": definition.knowledge_entry_id,
 			"template_path": template_path,
 		})
 	descriptors.sort_custom(
@@ -94,6 +103,41 @@ func get_all_item_descriptors() -> Array[Dictionary]:
 			return a_name.naturalnocasecmp_to(b_name) < 0
 	)
 	return descriptors
+
+
+## Returns neutral validation failures so CI and mod tools can reject broken
+## content without starting a world. An empty array means the catalog is valid.
+func validate_catalog() -> PackedStringArray:
+	var failures := PackedStringArray()
+	var knowledge_catalog := get_node_or_null("/root/KnowledgeCatalog")
+	for item_id in _items_by_id.keys():
+		var item := _items_by_id[item_id] as ItemData
+		if item == null:
+			continue
+		if item.get_functional_roles().is_empty():
+			failures.append("Item %s has no functional role." % item_id)
+		var sprite_path := item.get_inventory_sprite_path()
+		if not sprite_path.is_empty() and not ResourceLoader.exists(sprite_path):
+			failures.append("Item %s has a missing sprite: %s" % [item_id, sprite_path])
+		if (
+			not item.knowledge_entry_id.is_empty()
+			and (knowledge_catalog == null or not knowledge_catalog.has_entry(item.knowledge_entry_id))
+		):
+			failures.append("Item %s references unknown knowledge %s." % [item_id, item.knowledge_entry_id])
+	for profile_id in _profiles_by_id.keys():
+		var profile := _profiles_by_id[profile_id] as LootProfile
+		if profile == null:
+			continue
+		var all_entries: Array = profile.guaranteed_entries.duplicate()
+		all_entries.append_array(profile.entries)
+		for entry in all_entries:
+			if entry == null or entry.item_id.is_empty():
+				failures.append("Loot profile %s has an empty entry." % profile_id)
+			elif not _items_by_id.has(entry.item_id):
+				failures.append("Loot profile %s references unknown item %s." % [profile_id, entry.item_id])
+			elif entry.quantity_max < entry.quantity_min:
+				failures.append("Loot profile %s has an inverted quantity range." % profile_id)
+	return failures
 
 
 ## SystemCore-internal factory access. External domains should use descriptors
@@ -152,16 +196,27 @@ func _load_items_from_directory(directory_path: String) -> void:
 
 func _load_profiles() -> void:
 	_profiles_by_id.clear()
-	var directory := DirAccess.open(PROFILE_DIRECTORY)
+	_load_profiles_from_directory(PROFILE_DIRECTORY)
+
+
+func _load_profiles_from_directory(directory_path: String) -> void:
+	var directory := DirAccess.open(directory_path)
 	if not directory:
-		push_error("[LOOT CATALOG] Cannot open loot profile directory.")
+		push_error("[LOOT CATALOG] Cannot open loot profile directory: " + directory_path)
 		return
 	directory.list_dir_begin()
 	var file_name := directory.get_next()
 	while not file_name.is_empty():
-		if file_name.ends_with(".tres"):
-			var profile := load(PROFILE_DIRECTORY + file_name) as LootProfile
+		var resource_path := directory_path.path_join(file_name)
+		if directory.current_is_dir():
+			if not file_name.begins_with("."):
+				_load_profiles_from_directory(resource_path)
+		elif file_name.ends_with(".tres"):
+			var profile := load(resource_path) as LootProfile
 			if profile and not profile.profile_id.is_empty():
-				_profiles_by_id[profile.profile_id] = profile
+				if _profiles_by_id.has(profile.profile_id):
+					push_error("[LOOT CATALOG] Duplicate loot profile ID: " + profile.profile_id)
+				else:
+					_profiles_by_id[profile.profile_id] = profile
 		file_name = directory.get_next()
 	directory.list_dir_end()

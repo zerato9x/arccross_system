@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://CombatCore/Realtime/RealtimeWeaponCard.gd" id="1_card"]
+[ext_resource type="Script" path="res://UI/Inventory/CombatItemCard.gd" id="1_card"]
 [sub_resource type="StyleBoxFlat" id="Panel"]
 bg_color = Color(0.025, 0.035, 0.045, 0.96)
 border_width_left = 2

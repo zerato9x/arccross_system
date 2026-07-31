@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="KnowledgeEntryDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/KnowledgeEntryDefinition.gd" id="1_entry"]
+
+[resource]
+script = ExtResource("1_entry")
+id = "north_relay_ledger"
+title = "North Fringe Relay Ledger"
+region_id = "north"
+era = 9
+tags = PackedStringArray("relay", "rationing", "route_intel")
+summary = "A maintenance ledger proving that the northern relay can still pass a route-clear signal."
+body = "The last entries are practical: heater draw, ration counts, iced contacts, and names crossed out when they failed to return. A hand-written bypass routes the surviving transmitter around Central's dead authorization line. Restoring the relay will not repair the North, but it will make the next road visible."
+decode_requirements = {}
+discovery_trigger_ids = PackedStringArray("intel:north_relay_ledger")

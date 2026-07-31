@@ -65,14 +65,18 @@ func _run() -> void:
 		_fail("Hex state changed after the visual generator cache was cleared.")
 		return
 
-	var duel_scene := load("res://CombatCore/MainDuelScene.tscn") as PackedScene
-	var first_arena = duel_scene.instantiate()
+	var combat_scene := load(
+		"res://CombatCore/Tactical/TacticalCombatScene.tscn"
+	) as PackedScene
+	var first_arena := combat_scene.instantiate() as TacticalCombatScene
 	game_director.add_child(first_arena)
-	first_arena.setup_duel_from_records(
+	first_arena.setup_encounter(_encounter(
 		macro_map.player_token.capture_runtime_record(),
-		original_record.to_dict()
-	)
+		original_record.to_dict(),
+		first_hex
+	))
 	await process_frame
+	first_arena.turn_manager.halt_loop()
 	var first_arena_signature := str(
 		HumanoidVisualCatalog.appearance_from_record(
 			original_record.to_dict()
@@ -82,11 +86,10 @@ func _run() -> void:
 		_fail("Duel enemy appearance did not match the macro token record.")
 		return
 
-	var initial_arm_hp: float = first_arena.enemy_core.body.limb_hp[
+	var initial_wound_count: int = first_arena.enemy_core.body.get_wounds_for_limb(
 		GameEnums.LimbRegion.LEFT_ARM
-	]
-	var damage_amount := minf(1.0, initial_arm_hp * 0.5)
-	var damaged_hp := initial_arm_hp - damage_amount
+	).size()
+	var damage_amount := 1.0
 	first_arena.enemy_core.body.apply_targeted_hit(
 		GameEnums.LimbRegion.LEFT_ARM,
 		damage_amount,
@@ -100,10 +103,7 @@ func _run() -> void:
 	if first_weapon and first_weapon.is_ranged():
 		first_weapon.current_magazine = 1
 
-	world_state.update_entity_runtime(
-		enemy_id,
-		first_arena.capture_enemy_runtime_state()
-	)
+	world_state.update_entity_runtime(enemy_id, first_arena.enemy_core.capture_runtime_state().to_dict())
 	var stored_signature := str(
 		HumanoidVisualCatalog.appearance_from_record(
 			world_state.get_entity(enemy_id).to_dict()
@@ -116,19 +116,31 @@ func _run() -> void:
 	first_arena.queue_free()
 	await process_frame
 
-	var second_arena = duel_scene.instantiate()
+	var second_arena := combat_scene.instantiate() as TacticalCombatScene
 	game_director.add_child(second_arena)
-	second_arena.setup_duel_from_records(
+	second_arena.setup_encounter(_encounter(
 		macro_map.player_token.capture_runtime_record(),
-		world_state.get_entity(enemy_id).to_dict()
-	)
+		world_state.get_entity(enemy_id).to_dict(),
+		first_hex
+	))
 	await process_frame
+	second_arena.turn_manager.halt_loop()
 
-	var restored_hp: float = second_arena.enemy_core.body.limb_hp[
+	var restored_wounds: Array = second_arena.enemy_core.body.get_wounds_for_limb(
 		GameEnums.LimbRegion.LEFT_ARM
-	]
-	if not is_equal_approx(restored_hp, damaged_hp):
+	)
+	if restored_wounds.size() != initial_wound_count + 1:
 		_fail("Enemy injury did not survive runtime reconstruction.")
+		return
+	var restored_wound := restored_wounds.back() as Wound
+	if (
+		restored_wound == null
+		or not is_equal_approx(
+			float(restored_wound.damage_source.get("raw_damage", -1.0)),
+			damage_amount
+		)
+	):
+		_fail("Enemy wound source changed during runtime reconstruction.")
 		return
 
 	var restored_weapon: ItemData = second_arena.enemy_core.inventory.paper_doll.get(
@@ -203,6 +215,22 @@ func _verify_item_instance_isolation() -> bool:
 		return false
 
 	return true
+
+
+func _encounter(
+	player_record: Dictionary,
+	enemy_record: Dictionary,
+	hex: MacroHexData
+) -> CombatEncounterRecord:
+	var encounter := CombatEncounterRecord.new()
+	encounter.encounter_id = "runtime_state_smoke"
+	encounter.source_coords = Vector2i(4, -2)
+	encounter.center_hex = HexRecord.from_dict(hex.to_state().to_dict())
+	encounter.actors = [
+		{"actor_id": "player", "team_id": "player", "runtime_record": player_record},
+		{"actor_id": str(enemy_record.get("entity_id", "enemy")), "team_id": "enemy", "runtime_record": enemy_record},
+	]
+	return encounter
 
 func _fail(message: String) -> void:
 	push_error("[TEST FAIL] " + message)

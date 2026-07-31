@@ -7,7 +7,10 @@ class_name CampaignGraphDefinition
 @export var start_node_ids: PackedStringArray = []
 @export var start_arrival_directions: Dictionary = {}
 @export var open_inner_ring: bool = true
+@export var enable_legacy_fetch_branch: bool = false
 @export var central_unlock_milestone: CampaignMilestoneDefinition
+## Data-authored reveal/unlock rules copied into each generated run graph.
+@export var discovery_rules: Array[Dictionary] = []
 
 
 func allowed_start_node_ids() -> PackedStringArray:

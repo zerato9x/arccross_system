@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="LootProfile" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/LootProfile.gd" id="1_profile"]
+[ext_resource type="Script" path="res://ItemCore/LootEntry.gd" id="2_entry"]
+
+[sub_resource type="Resource" id="Key"]
+script = ExtResource("2_entry")
+item_id = "relay_maintenance_key"
+weight = 0.0
+once_key = "route1:north:maintenance_key"
+[sub_resource type="Resource" id="Water"]
+script = ExtResource("2_entry")
+item_id = "water_bottle"
+weight = 5.0
+[sub_resource type="Resource" id="Bandage"]
+script = ExtResource("2_entry")
+item_id = "bandage"
+weight = 4.0
+[sub_resource type="Resource" id="Tape"]
+script = ExtResource("2_entry")
+item_id = "ducttape"
+weight = 3.0
+[sub_resource type="Resource" id="Multitool"]
+script = ExtResource("2_entry")
+item_id = "multitool"
+weight = 1.0
+[resource]
+script = ExtResource("1_profile")
+profile_id = "loot_route1_rubble_key_cache"
+max_searches = 1
+max_items_per_search = 1
+guaranteed_entries = Array[ExtResource("2_entry")]([SubResource("Key")])
+entries = Array[ExtResource("2_entry")]([SubResource("Water"), SubResource("Bandage"), SubResource("Tape"), SubResource("Multitool")])

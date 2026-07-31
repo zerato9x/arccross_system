@@ -4,7 +4,12 @@ class_name WaveMode
 ## COMBAT LAB — sole production entry point for real-time duels.
 ## Macro/campaign combat always uses turn-based via GameDirector.
 
-const DUEL_SCENE := preload("res://CombatCore/MainDuelScene.tscn")
+const TACTICAL_SCENE := preload(
+	"res://CombatCore/Tactical/TacticalCombatScene.tscn"
+)
+const LAB_ENCOUNTER := preload(
+	"res://CombatCore/Tactical/combat_lab_encounter.tres"
+)
 const PLAYER_DEFINITION := preload("res://BiologicalCore/player_def.tres")
 const PROFILE_TEXTURE := preload("res://Asset/Innawoods_Asset/Humanoid/Body/Body_Nude.png")
 const LOADOUT_PRESET_DIR := "res://ItemCore/Loadouts"
@@ -334,18 +339,18 @@ func _render_profile() -> void:
 		int(definition.get("will", 6)),
 	]
 	combat_stats_label.text = (
-		"DERIVED COMBAT\nBLOOD %d/12   STANCE %d/12   AP %d\n"
-		+ "KINETIC %s (BURDEN %d)\nMOVE 1 LANE / %d AP\nRANGE %d OPTIMAL / %d EFFECTIVE\n"
+		"DERIVED COMBAT\nBLOOD %d/12   AP %d\n"
+		+ "KINETIC %s (BURDEN %d)\nMOVE 1 SECTOR / %d AP\nRANGE %d-%d OPTIMAL / %d MAX\n"
 		+ "WEIGHT %.1f   BULK %.1f   THREAT %.1f"
 	) % [
 		int(stats["blood"]),
-		int(stats["stance"]),
 		int(stats["ap"]),
 		_enum_name(GameEnums.KineticTier.keys(), int(stats["kinetic_tier"])),
 		int(stats["burden"]),
 		int(stats["movement_cost"]),
-		int(stats["optimal_range"]),
-		int(stats["effective_range"]),
+		int((stats["optimal_range_cells"] as Vector2i).x),
+		int((stats["optimal_range_cells"] as Vector2i).y),
+		int(stats["maximum_range_cells"]),
 		float(stats["weight"]),
 		float(stats["bulk"]),
 		float(stats["threat"]),
@@ -720,9 +725,9 @@ func _start_wave() -> void:
 		status_label.text = "WAVE LAB ERROR // enemy fabrication failed"
 		_transitioning = false
 		return
-	_arena = DUEL_SCENE.instantiate()
+	_arena = TACTICAL_SCENE.instantiate()
 	arena_root.add_child(_arena)
-	_arena.duel_finished.connect(_on_duel_finished, CONNECT_ONE_SHOT)
+	_arena.combat_finished.connect(_on_combat_finished, CONNECT_ONE_SHOT)
 
 	var player_definition := PLAYER_DEFINITION.to_state().duplicate(true)
 	player_definition["loadout"] = _player_stage.to_loadout_state()
@@ -740,14 +745,23 @@ func _start_wave() -> void:
 		_enum_name(GameEnums.Faction.keys(), faction),
 	]
 	status_label.text = "Normal EntityDefinition -> SpawnLoadout -> InventorySystem materialization"
-	_arena.setup_duel_from_records(
-		player_record,
-		enemy_record,
+	var encounter := LAB_ENCOUNTER.duplicate(true) as CombatEncounterRecord
+	encounter.encounter_id = "combat_lab_wave_%d" % wave_number
+	encounter.context = GameEnums.EncounterContext.NEUTRAL_MEET
+	encounter.initiator_id = "player"
+	encounter.actors = [
 		{
-			"context": GameEnums.EncounterContext.NEUTRAL_MEET,
-			"initiator_id": "player",
-		}
-	)
+			"actor_id": "player",
+			"team_id": "player",
+			"runtime_record": player_record,
+		},
+		{
+			"actor_id": str(enemy_record.get("entity_id", "wave_enemy")),
+			"team_id": "enemy",
+			"runtime_record": enemy_record,
+		},
+	]
+	_arena.setup_encounter(encounter)
 	_transitioning = false
 
 func _generate_enemy_record(for_wave: int) -> Dictionary:
@@ -801,19 +815,20 @@ func _build_enemy_record(for_wave: int) -> Dictionary:
 	record["runtime"] = {}
 	return record
 
-func _on_duel_finished(
-	outcome: GameEnums.CombatOutcome,
-	_enemy_id: String,
-	_enemy_runtime: Dictionary,
-	player_runtime: Dictionary,
-	_dropped_items: Array
-) -> void:
+func _on_combat_finished(result: CombatResultRecord) -> void:
 	if _transitioning:
 		return
 	_transitioning = true
+	var outcome := result.outcome as GameEnums.CombatOutcome
+	var player_runtime: Dictionary = {}
+	for update in result.actor_runtime_updates:
+		if str(update.get("actor_id", "")) == "player":
+			player_runtime = update.get("runtime", {}).duplicate(true)
+			break
 	if outcome in [
 		GameEnums.CombatOutcome.PLAYER_VICTORY,
 		GameEnums.CombatOutcome.ENEMY_ESCAPED,
+		GameEnums.CombatOutcome.ENEMY_SURRENDERED,
 	]:
 		waves_cleared += 1
 		_player_runtime = player_runtime.duplicate(true)
@@ -925,7 +940,7 @@ func _item_compact_summary(item: ItemData) -> String:
 	if item == null:
 		return "MISSING"
 	if item.item_type == GameEnums.ItemType.WEAPON:
-		return "DMG %.1f/%.1f  RNG %d" % [item.flesh_damage, item.stance_damage, item.effective_range]
+		return "FLESH %.1f  IMPACT %.1f  RNG %d" % [item.flesh_damage, item.balance_impact, item.maximum_range_cells]
 	if item.item_type == GameEnums.ItemType.ARMOR:
 		if item.capacity_bonus > 0:
 			return "%s  CAP +%d" % [_slot_name(item.target_slot), item.capacity_bonus]
@@ -960,14 +975,15 @@ func _item_detail_text(item: ItemData) -> String:
 		],
 	]
 	if item.item_type == GameEnums.ItemType.WEAPON:
-		lines.append("DAMAGE flesh %.1f / stance %.1f / penetration %.1f" % [
+		lines.append("DAMAGE flesh %.1f / balance impact %.1f / penetration %.1f" % [
 			item.flesh_damage,
-			item.stance_damage,
+			item.balance_impact,
 			item.armor_penetration,
 		])
-		lines.append("RANGE optimal %d / effective %d  |  accuracy %.1f" % [
-			item.optimal_range,
-			item.effective_range,
+		lines.append("RANGE optimal %d-%d / maximum %d  |  accuracy %.1f" % [
+			item.optimal_range_cells.x,
+			item.optimal_range_cells.y,
+			item.maximum_range_cells,
 			item.accuracy_rating,
 		])
 		lines.append("AMMO %s  |  MAGAZINE %s  |  CAPACITY %d" % [

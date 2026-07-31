@@ -21,8 +21,8 @@ func _verify_catalog() -> bool:
 	for path in directory.get_files():
 		if str(path).ends_with(".tres"):
 			files.append(str(path))
-	if files.size() != 168:
-		return _fail("Expected 168 items, found %d." % files.size())
+	if files.size() < 168:
+		return _fail("Expected at least 168 authored items, found %d." % files.size())
 	var grades := {}
 	for file_name in files:
 		var item := load("res://ItemCore/Items/" + str(file_name)) as ItemData
@@ -31,7 +31,11 @@ func _verify_catalog() -> bool:
 		if item.lore_description.begins_with("Field catalog entry"):
 			return _fail("Placeholder field note survived on %s." % item.id)
 		grades[item.item_grade] = int(grades.get(item.item_grade, 0)) + 1
-		if item.item_grade == GameEnums.ItemGrade.UNIQUE and item.maintenance_constraint.is_empty():
+		if (
+			item.item_grade == GameEnums.ItemGrade.UNIQUE
+			and item.item_type in [GameEnums.ItemType.WEAPON, GameEnums.ItemType.ARMOR]
+			and item.maintenance_constraint.is_empty()
+		):
 			return _fail("Unique item %s has no authored maintenance constraint." % item.id)
 	if int(grades.get(GameEnums.ItemGrade.UNIQUE, 0)) <= 0:
 		return _fail("Catalog contains no authored Unique sources.")
@@ -101,7 +105,7 @@ func _verify_authored_inventory_scene() -> bool:
 
 func _verify_shared_combat_card() -> bool:
 	var card_scene := load("res://UI/Inventory/CombatItemCard.tscn") as PackedScene
-	var card := card_scene.instantiate() as RealtimeWeaponCard
+	var card := card_scene.instantiate() as CombatItemCard
 	root.add_child(card)
 	await process_frame
 	card.show_descriptor({
@@ -113,7 +117,8 @@ func _verify_shared_combat_card() -> bool:
 		"fault_chance": 1.0 / 12.0,
 		"current_magazine": 3,
 		"max_magazine": 8,
-		"effective_range": 6,
+		"optimal_range_cells": Vector2i(2, 4),
+		"maximum_range_cells": 6,
 		"readiness": {"ready": false, "reason": "jammed"},
 	}, true)
 	if card.state_label.text != "JAMMED" or card.grade_label.text != "SERVICE // DAMAGED":

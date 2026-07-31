@@ -10,7 +10,6 @@ var inventory: InventoryState = null
 var base_ap: int = 12
 var current_max_ap: int = 12
 var is_dead: bool = false
-var stance_points: int = 12
 var current_morale: float = 12.0
 var is_fleeing: bool = false
 var is_escaping: bool = false
@@ -26,7 +25,6 @@ func to_dict() -> Dictionary:
 		"base_ap": base_ap,
 		"current_max_ap": current_max_ap,
 		"is_dead": is_dead,
-		"stance_points": stance_points,
 		"current_morale": current_morale,
 		"is_fleeing": is_fleeing,
 		"is_escaping": is_escaping,
@@ -47,11 +45,6 @@ static func from_dict(data: Dictionary) -> HumanoidState:
 	state.base_ap = data.get("base_ap", 12)
 	state.current_max_ap = data.get("current_max_ap", 12)
 	state.is_dead = data.get("is_dead", false)
-	state.stance_points = clampi(
-		int(data.get("stance_points", 12)),
-		0,
-		int(GameEnums.SCALE_MAX)
-	)
 	state.current_morale = clampf(
 		float(data.get("current_morale", 12.0)),
 		0.0,

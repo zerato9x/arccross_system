@@ -313,8 +313,8 @@ static func bar_fill_path(kind: String = "health") -> String:
 			return ROOT + "bars/bar_fill_blood_96x8.png"
 		"warning", "ap":
 			return ROOT + "bars/bar_fill_ap_96x8.png"
-		"stance":
-			return ROOT + "bars/bar_fill_stance_96x8.png"
+		"condition":
+			return ROOT + "bars/bar_fill_health_96x8.png"
 		"anomaly":
 			return ROOT + "bars/bar_fill_anomaly_96x8.png"
 		"travel":
@@ -453,7 +453,7 @@ static func bar_fill_style(kind: String = "health") -> StyleBox:
 			fill = COLOR_CRITICAL
 		"warning", "ap":
 			fill = COLOR_CAUTION
-		"stance":
+		"condition":
 			fill = Color("#c9c1a2")
 		"anomaly":
 			fill = COLOR_ANOMALY

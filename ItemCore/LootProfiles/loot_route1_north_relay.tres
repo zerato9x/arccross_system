@@ -1,0 +1,59 @@
+[gd_resource type="Resource" script_class="LootProfile" load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/LootProfile.gd" id="1_profile"]
+[ext_resource type="Script" path="res://ItemCore/LootEntry.gd" id="2_entry"]
+
+[sub_resource type="Resource" id="Evidence"]
+script = ExtResource("2_entry")
+item_id = "north_relay_ledger"
+weight = 0.0
+once_key = "route1:north:evidence"
+
+[sub_resource type="Resource" id="Water"]
+script = ExtResource("2_entry")
+item_id = "water_bottle"
+weight = 8.0
+
+[sub_resource type="Resource" id="Mre"]
+script = ExtResource("2_entry")
+item_id = "mre"
+weight = 7.0
+
+[sub_resource type="Resource" id="Bandage"]
+script = ExtResource("2_entry")
+item_id = "bandage"
+weight = 4.0
+
+[sub_resource type="Resource" id="Circuits"]
+script = ExtResource("2_entry")
+item_id = "circuits"
+weight = 4.0
+quantity_max = 2
+
+[sub_resource type="Resource" id="Coat"]
+script = ExtResource("2_entry")
+item_id = "coat"
+weight = 2.5
+
+[sub_resource type="Resource" id="SleepingBag"]
+script = ExtResource("2_entry")
+item_id = "sleeping_bag"
+weight = 1.5
+
+[sub_resource type="Resource" id="Heater"]
+script = ExtResource("2_entry")
+item_id = "portable_heater"
+weight = 1.0
+
+[sub_resource type="Resource" id="Multitool"]
+script = ExtResource("2_entry")
+item_id = "multitool"
+weight = 1.0
+
+[resource]
+script = ExtResource("1_profile")
+profile_id = "loot_route1_north_relay"
+max_searches = 4
+max_items_per_search = 3
+guaranteed_entries = Array[ExtResource("2_entry")]([SubResource("Evidence")])
+entries = Array[ExtResource("2_entry")]([SubResource("Water"), SubResource("Mre"), SubResource("Bandage"), SubResource("Circuits"), SubResource("Coat"), SubResource("SleepingBag"), SubResource("Heater"), SubResource("Multitool")])

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+id = "west_zeta_survey"
+display_name = "Zeta Quarry Survey"
+lore_description = "A folded quarry map annotated by a Zeta survey crew."
+item_type = 0
+catalog_category = 0
+item_grade = 4
+tags = Array[String](["knowledge", "west", "zeta"])
+functional_roles = PackedStringArray("knowledge", "barter")
+knowledge_entry_id = "west_zeta_survey"
+condition_enabled = false
+size_cost = 1
+max_stack_size = 1
+target_slot = 0
+inventory_sprite_path = "res://Asset/Innawoods_Asset/Items/Misc/map.png"
+weight = 0.1

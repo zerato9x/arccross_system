@@ -76,10 +76,11 @@ func _descriptor(item: ItemData, slot: int, condition: float) -> Dictionary:
 		"weapon_type": item.weapon_type,
 		"damage_type": item.damage_type,
 		"flesh_damage": item.flesh_damage,
-		"stance_damage": item.stance_damage,
+		"balance_impact": item.balance_impact,
 		"armor_penetration": item.armor_penetration,
 		"accuracy_rating": item.accuracy_rating,
-		"effective_range": item.effective_range,
+		"optimal_range_cells": item.optimal_range_cells,
+		"maximum_range_cells": item.maximum_range_cells,
 		"protection_blunt": item.protection_blunt,
 		"protection_sharp": item.protection_sharp,
 		"protection_ballistic": item.protection_ballistic,
@@ -90,4 +91,3 @@ func _descriptor(item: ItemData, slot: int, condition: float) -> Dictionary:
 		"stack_limit": item.get_stack_limit(),
 		"can_equip": true,
 	}
-

@@ -1,7 +1,8 @@
-[gd_scene format=3 uid="uid://dvwgktmev06j3"]
+[gd_scene load_steps=4 format=3 uid="uid://dvwgktmev06j3"]
 
 [ext_resource type="Script" uid="uid://cimnkoibgovi8" path="res://UI/HUD/Macro/MacroWorldStatusPanel.gd" id="1_status"]
 [ext_resource type="Texture2D" uid="uid://bsjdgd577lfwj" path="res://Asset/UI/HUD/icons/status/world_signal_128.png" id="2_signal"]
+[ext_resource type="Script" path="res://UI/HUD/Macro/MacroMinimapView.gd" id="3_minimap"]
 
 [node name="MacroWorldStatusPanel" type="Control" unique_id=1062311896]
 custom_minimum_size = Vector2(420, 316)
@@ -120,45 +121,24 @@ layout_mode = 2
 mouse_filter = 2
 color = Color(0.0862745, 0.266667, 0.27451, 1)
 
-[node name="LogHeader" type="HBoxContainer" parent="Frame/Margin/Column" unique_id=1058274728]
+[node name="MinimapFrame" type="PanelContainer" parent="Frame/Margin/Column"]
 unique_name_in_owner = true
 layout_mode = 2
-
-[node name="LogTitle" type="Label" parent="Frame/Margin/Column/LogHeader" unique_id=364349162]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-text = "WORLD LOG // CHRONOLOGICAL STREAM"
-
-[node name="Legend" type="Label" parent="Frame/Margin/Column/LogHeader" unique_id=1044221702]
-unique_name_in_owner = true
-layout_mode = 2
-text = "LIVE"
-horizontal_alignment = 2
-
-[node name="LogFrame" type="PanelContainer" parent="Frame/Margin/Column" unique_id=1598993377]
-unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 142)
-layout_mode = 2
 size_flags_vertical = 3
 
-[node name="LogMargin" type="MarginContainer" parent="Frame/Margin/Column/LogFrame" unique_id=1015558016]
-layout_mode = 2
-theme_override_constants/margin_left = 5
-theme_override_constants/margin_top = 5
-theme_override_constants/margin_right = 5
-theme_override_constants/margin_bottom = 5
-
-[node name="LogScroll" type="ScrollContainer" parent="Frame/Margin/Column/LogFrame/LogMargin" unique_id=255519606]
+[node name="MacroMinimapView" type="Control" parent="Frame/Margin/Column/MinimapFrame"]
 unique_name_in_owner = true
 layout_mode = 2
-horizontal_scroll_mode = 0
+mouse_filter = 0
+script = ExtResource("3_minimap")
 
-[node name="LogList" type="VBoxContainer" parent="Frame/Margin/Column/LogFrame/LogMargin/LogScroll" unique_id=591699010]
+[node name="LatestEventTicker" type="Label" parent="Frame/Margin/Column"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 4
+text = "--:-- SYS  World channel synchronized."
+text_overrun_behavior = 3
 
 [node name="ButtonRow" type="HBoxContainer" parent="Frame/Margin/Column" unique_id=163022250]
 unique_name_in_owner = true

@@ -1,0 +1,100 @@
+[gd_resource type="Resource" script_class="SearchSiteCatalog" load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://WorldCore/SearchSiteCatalog.gd" id="1_catalog"]
+[ext_resource type="Script" path="res://WorldCore/SearchSiteDefinition.gd" id="2_site"]
+
+[sub_resource type="Resource" id="Tutorial"]
+script = ExtResource("2_site")
+site_id = "route1_rubble_tutorial"
+display_name = "Loose Roadside Rubble"
+description = "Freshly shifted scrap. Search it now; anything recovered remains on the ground until taken."
+loot_profile_id = "loot_route1_rubble_tutorial"
+requirements = {}
+metric_modifiers = {"loot": -1.5, "safety": 1.5, "sneak": 0.5}
+assignment_arm_ids = PackedStringArray("north", "east", "south", "west")
+assignment_count = 1
+assignment_order = 0
+
+[sub_resource type="Resource" id="Open"]
+script = ExtResource("2_site")
+site_id = "route1_rubble_open"
+display_name = "Picked-over Rubble"
+description = "A scarce, finite pocket of salvage. It may already be empty."
+loot_profile_id = "loot_route1_rubble_open"
+requirements = {}
+metric_modifiers = {"loot": -4.0, "safety": 0.0, "sneak": 0.0}
+assignment_arm_ids = PackedStringArray("north", "east", "south", "west")
+assignment_count = 3
+assignment_order = 10
+
+[sub_resource type="Resource" id="Locked"]
+script = ExtResource("2_site")
+site_id = "route1_rubble_locked"
+display_name = "Jammed Salvage Crate"
+description = "A warped service crate wedged beneath concrete. A pry tool should open it."
+loot_profile_id = "loot_route1_rubble_locked"
+requirements = {"any_item_ids": ["bent_pry_bar", "crowbar", "multitool"]}
+metric_modifiers = {"loot": 1.0, "safety": -1.0, "sneak": -1.0}
+marker_kind = "locked_salvage"
+assignment_arm_ids = PackedStringArray("north", "east", "south", "west")
+assignment_count = 2
+assignment_order = 20
+
+[sub_resource type="Resource" id="Keyed"]
+script = ExtResource("2_site")
+site_id = "route1_rubble_key_cache"
+display_name = "Relay Crew Toolbox"
+description = "A chained toolbox stamped NORTH MAINTENANCE. A pry tool can break the corroded clasp."
+loot_profile_id = "loot_route1_rubble_key_cache"
+requirements = {"any_item_ids": ["bent_pry_bar", "crowbar", "multitool"]}
+metric_modifiers = {"loot": 0.5, "safety": -0.5, "sneak": -1.0}
+marker_kind = "locked_salvage"
+assignment_arm_ids = PackedStringArray("north")
+assignment_count = 1
+assignment_order = 30
+
+[sub_resource type="Resource" id="Fuse"]
+script = ExtResource("2_site")
+site_id = "route1_relic_fuse"
+display_name = "Sealed Relay Debris"
+description = "An eastern transfer casing marked RETURN TO NORTH FRINGE RELAY. It must be pried open."
+loot_profile_id = "loot_route1_relic_fuse"
+requirements = {"any_item_ids": ["bent_pry_bar", "crowbar", "multitool"]}
+metric_modifiers = {"loot": 0.0, "safety": -1.5, "sneak": -1.0}
+marker_kind = "relic_cache"
+quest_protected = true
+assignment_arm_ids = PackedStringArray("east")
+assignment_count = 1
+assignment_order = 30
+
+[sub_resource type="Resource" id="Insulator"]
+script = ExtResource("2_site")
+site_id = "route1_relic_insulator"
+display_name = "Collapsed Signal Housing"
+description = "A southern convoy sleeve lists the North Fringe Relay as its destination. A pry tool can reach the intact core."
+loot_profile_id = "loot_route1_relic_insulator"
+requirements = {"any_item_ids": ["bent_pry_bar", "crowbar", "multitool"]}
+metric_modifiers = {"loot": 0.0, "safety": -2.0, "sneak": -1.0}
+marker_kind = "relic_cache"
+quest_protected = true
+assignment_arm_ids = PackedStringArray("south")
+assignment_count = 1
+assignment_order = 30
+
+[sub_resource type="Resource" id="Seal"]
+script = ExtResource("2_site")
+site_id = "route1_relic_seal"
+display_name = "Authorization Lockbox"
+description = "A western authorization lockbox stamped NORTH FRINGE. The relay crew service key fits its surviving cylinder."
+loot_profile_id = "loot_route1_relic_seal"
+requirements = {"any_item_ids": ["relay_maintenance_key"]}
+metric_modifiers = {"loot": 0.0, "safety": -0.5, "sneak": -0.5}
+marker_kind = "relic_cache"
+quest_protected = true
+assignment_arm_ids = PackedStringArray("west")
+assignment_count = 1
+assignment_order = 30
+
+[resource]
+script = ExtResource("1_catalog")
+sites = Array[ExtResource("2_site")]([SubResource("Tutorial"), SubResource("Open"), SubResource("Locked"), SubResource("Keyed"), SubResource("Fuse"), SubResource("Insulator"), SubResource("Seal")])

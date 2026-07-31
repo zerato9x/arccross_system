@@ -1,0 +1,43 @@
+[gd_resource type="Resource" script_class="LootProfile" load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/LootProfile.gd" id="1_profile"]
+[ext_resource type="Script" path="res://ItemCore/LootEntry.gd" id="2_entry"]
+
+[sub_resource type="Resource" id="Rag"]
+script = ExtResource("2_entry")
+item_id = "rag"
+weight = 8.0
+[sub_resource type="Resource" id="Bolts"]
+script = ExtResource("2_entry")
+item_id = "bolts"
+weight = 7.0
+[sub_resource type="Resource" id="Tin"]
+script = ExtResource("2_entry")
+item_id = "open_tin_can"
+weight = 7.0
+[sub_resource type="Resource" id="Rebar"]
+script = ExtResource("2_entry")
+item_id = "rebar"
+weight = 5.0
+[sub_resource type="Resource" id="Bottle"]
+script = ExtResource("2_entry")
+item_id = "water_bottle_empty"
+weight = 6.0
+[sub_resource type="Resource" id="Crackers"]
+script = ExtResource("2_entry")
+item_id = "crackers"
+weight = 3.0
+[sub_resource type="Resource" id="Bandage"]
+script = ExtResource("2_entry")
+item_id = "bandage"
+weight = 2.0
+[sub_resource type="Resource" id="Matches"]
+script = ExtResource("2_entry")
+item_id = "matches"
+weight = 1.5
+[resource]
+script = ExtResource("1_profile")
+profile_id = "loot_route1_rubble_open"
+max_searches = 1
+max_items_per_search = 1
+entries = Array[ExtResource("2_entry")]([SubResource("Rag"), SubResource("Bolts"), SubResource("Tin"), SubResource("Rebar"), SubResource("Bottle"), SubResource("Crackers"), SubResource("Bandage"), SubResource("Matches")])

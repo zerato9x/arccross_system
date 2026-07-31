@@ -133,11 +133,16 @@ func setup_from_record(record) -> void:
 	)
 
 	if humanoid_token:
-		humanoid_token.set_appearance(
-			HumanoidVisualCatalog.appearance_from_record(
-				record.to_dict() if record is EntityRecord else record
+		var visual_mode := str(definition_state.get("token_visual_mode", "equipment_rig"))
+		var token_sprite_path := str(definition_state.get("token_sprite_path", ""))
+		if visual_mode == "static_sprite" and not token_sprite_path.is_empty():
+			humanoid_token.set_static_sprite_sheet(token_sprite_path)
+		else:
+			humanoid_token.set_appearance(
+				HumanoidVisualCatalog.appearance_from_record(
+					record.to_dict() if record is EntityRecord else record
+				)
 			)
-		)
 		humanoid_token.play_animation(_idle_animation, false)
 
 	# Keep faction readability without recoloring every equipped item.

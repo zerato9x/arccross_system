@@ -127,15 +127,16 @@ func _defeat_and_loot_enemy(director: GameDirector) -> bool:
 		return _fail("The player has no firearm for the demonstration.")
 	weapon.flesh_damage = GameEnums.SCALE_MAX * 10.0
 	weapon.armor_penetration = GameEnums.SCALE_MAX
-	var enemy_lane: int = arena.lane_manager._find_entity_lane(arena.enemy_core)
-	var target_slot: CombatLaneSlot = arena.lane_manager.lane_slots[enemy_lane]
-	target_slot.background = CombatRules.TileBackground.NONE
-	target_slot.current_cover = CombatRules.TileObject.NONE
+	var enemy_sector: int = arena.board.position_of(arena.enemy_core)
+	arena.board.sectors[enemy_sector].record.cover_edges.clear()
+	arena.board.sectors[enemy_sector].record.object_state.clear()
 	_seed_for_hit(0.75)
-	arena.command_adapter.request_player_action(
-		GameEnums.ActionType.AIMED_SHOT,
-		GameEnums.LimbRegion.HEAD
-	)
+	var aimed_request := CombatActionRequest.new()
+	aimed_request.actor_id = str(arena.player_core.get_meta("actor_id", "player"))
+	aimed_request.action_id = "aimed_fire"
+	aimed_request.target_actor_id = str(arena.enemy_core.get_meta("actor_id", "enemy"))
+	aimed_request.metadata["body_region"] = GameEnums.LimbRegion.HEAD
+	await arena.action_controller.request_action(aimed_request)
 
 	for _frame in range(300):
 		if director.get_active_arena() == null:

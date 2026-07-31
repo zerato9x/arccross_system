@@ -20,8 +20,21 @@ const CAMP_HAZARD_LIMIT: float = 8.0
 static func get_loot_profile_id(
 	biome: GameEnums.GridBiome,
 	poi_id: String,
-	region: GameEnums.MacroRegion = GameEnums.MacroRegion.WASTELAND
+	region: GameEnums.MacroRegion = GameEnums.MacroRegion.WASTELAND,
+	search_site_id: String = "",
+	loot_tier_id: String = ""
 ) -> String:
+	if not search_site_id.is_empty():
+		var search_catalog := SearchSiteCatalog.data()
+		var search_site := search_catalog.get_site(search_site_id) if search_catalog != null else null
+		if search_site != null and not search_site.loot_profile_id.is_empty():
+			return search_site.loot_profile_id
+	if not loot_tier_id.is_empty() and loot_tier_id.begins_with("loot_"):
+		return loot_tier_id
+	var route_catalog := Route1LandmarkCatalog.data()
+	var route_landmark := route_catalog.for_poi(poi_id) if route_catalog != null else null
+	if route_landmark != null and not route_landmark.loot_profile_id.is_empty():
+		return route_landmark.loot_profile_id
 	if LOOT_PROFILE_BY_POI_ID.has(poi_id):
 		return LOOT_PROFILE_BY_POI_ID[poi_id]
 	if region == GameEnums.MacroRegion.HUB_BORDER:

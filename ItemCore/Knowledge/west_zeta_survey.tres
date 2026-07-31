@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="KnowledgeEntryDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/KnowledgeEntryDefinition.gd" id="1_entry"]
+
+[resource]
+script = ExtResource("1_entry")
+id = "west_zeta_survey"
+title = "Zeta Quarry Survey"
+region_id = "west"
+era = 7
+tags = PackedStringArray("zeta", "mining", "man_eater", "route_intel")
+summary = "A field survey that treats missing crews, bad stone, and Craven traces as ordinary operating costs."
+body = "The surveyors tracked vibrations through the western cuts and found the same rhythm beneath a northern service corridor. The final sheet recommends sealing both sites. Someone instead circled the North Fringe Relay and wrote: route-clear still usable if quiet."
+decode_requirements = {}
+discovery_trigger_ids = PackedStringArray("intel:west_zeta_survey")

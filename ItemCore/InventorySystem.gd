@@ -5,6 +5,7 @@ signal capacity_updated(current: int, maximum: int)
 signal equipment_changed(slot: GameEnums.EquipmentSlot, item: ItemData)
 signal items_spilled(spilled_items: Array[ItemData])
 signal inventory_error(message: String)
+signal transfer_committed(receipt: Dictionary)
 
 const STORAGE_SLOTS := [
 	GameEnums.EquipmentSlot.VEST,
@@ -20,7 +21,13 @@ const AVERAGE_ITEM_STORAGE := [
 ]
 const COMBAT_ACCESSIBLE_STORAGE := [
 	GameEnums.EquipmentSlot.VEST,
+	GameEnums.EquipmentSlot.BELT,
+	GameEnums.EquipmentSlot.SLING,
 ]
+const ACCESS_HANDS := "hands"
+const ACCESS_QUICK := "quick"
+const ACCESS_RUMMAGE := "rummage"
+const ACCESS_ADJACENT := "adjacent"
 
 @export var base_max_capacity: int = 0
 var current_max_capacity: int = 0
@@ -54,16 +61,6 @@ func add_to_backpack(
 		inventory_error.emit("That stack exceeds its slot limit.")
 		return false
 
-	var merged_item := _find_stack_target(runtime_item, preferred_container)
-	if merged_item != null:
-		var available := (
-			merged_item.get_stack_limit() - merged_item.stack_count
-		)
-		if available >= runtime_item.stack_count:
-			merged_item.stack_count += runtime_item.stack_count
-			_recalculate_bounds()
-			return true
-
 	var container_slot := _find_container_for_item(
 		runtime_item,
 		preferred_container
@@ -74,8 +71,60 @@ func add_to_backpack(
 
 	backpack_array.append(runtime_item)
 	item_container_slots[runtime_item.instance_id] = container_slot
+	_set_stowed_location(runtime_item, container_slot)
 	_recalculate_bounds()
+	transfer_committed.emit({
+		"type": "pickup",
+		"instance_id": runtime_item.instance_id,
+		"container_instance_id": runtime_item.container_instance_id,
+	})
 	return true
+
+
+func consolidate_instances(survivor: ItemData, retired: ItemData) -> Dictionary:
+	if (
+		survivor == null
+		or retired == null
+		or survivor == retired
+		or not backpack_array.has(survivor)
+		or not backpack_array.has(retired)
+		or not survivor.can_stack_with(retired)
+		or survivor.stack_count + retired.stack_count > survivor.get_stack_limit()
+	):
+		return {}
+	survivor.stack_count += retired.stack_count
+	backpack_array.erase(retired)
+	item_container_slots.erase(retired.instance_id)
+	var receipt := {
+		"type": "consolidate",
+		"surviving_instance_id": survivor.instance_id,
+		"retired_instance_ids": [retired.instance_id],
+		"quantity": survivor.stack_count,
+	}
+	_recalculate_bounds()
+	transfer_committed.emit(receipt)
+	return receipt
+
+
+func get_access_tier(item: ItemData) -> String:
+	if item == null:
+		return "invalid"
+	if item.physical_location == "equipped" and item.equipped_slot in [
+		GameEnums.EquipmentSlot.HAND,
+		GameEnums.EquipmentSlot.OFFHAND,
+	]:
+		return ACCESS_HANDS
+	var container_slot := int(item_container_slots.get(
+		item.instance_id,
+		GameEnums.EquipmentSlot.NONE
+	))
+	if container_slot in COMBAT_ACCESSIBLE_STORAGE:
+		return ACCESS_QUICK
+	if container_slot in STORAGE_SLOTS:
+		return ACCESS_RUMMAGE
+	if item.physical_location in ["ground", "body"]:
+		return ACCESS_ADJACENT
+	return "unavailable"
 
 func move_to_container(
 	item: ItemData,
@@ -88,6 +137,7 @@ func move_to_container(
 		inventory_error.emit(_fit_error(item, container_slot))
 		return false
 	item_container_slots[item.instance_id] = container_slot
+	_set_stowed_location(item, container_slot)
 	_recalculate_bounds()
 	return true
 
@@ -113,6 +163,9 @@ func equip_item(item: ItemData, slot: GameEnums.EquipmentSlot) -> bool:
 	if backpack_array.has(runtime_item):
 		backpack_array.erase(runtime_item)
 		item_container_slots.erase(runtime_item.instance_id)
+	runtime_item.physical_location = "equipped"
+	runtime_item.equipped_slot = slot
+	runtime_item.container_instance_id = ""
 
 	var old_item: ItemData = paper_doll[slot]
 	paper_doll[slot] = runtime_item
@@ -173,6 +226,7 @@ func unequip_item(slot: GameEnums.EquipmentSlot) -> void:
 	else:
 		backpack_array.append(item)
 		item_container_slots[item.instance_id] = item_container
+		_set_stowed_location(item, item_container)
 
 	var spilled: Array[ItemData] = []
 	for contained_item in displaced_contents:
@@ -389,6 +443,132 @@ func consume_filled_magazine(magazine_id: String) -> ItemData:
 	_recalculate_bounds()
 	return magazine
 
+
+func swap_fitted_magazine(weapon: ItemData, incoming: ItemData) -> Dictionary:
+	if (
+		weapon == null
+		or incoming == null
+		or not backpack_array.has(incoming)
+		or incoming.id != weapon.magazine_id
+		or not incoming.is_magazine()
+		or incoming.loaded_rounds <= 0
+	):
+		return {}
+	var source_slot := get_item_container_slot(incoming)
+	var ejected: ItemData = null
+	if not weapon.fitted_magazine_state.is_empty():
+		ejected = ItemData.from_runtime_state(weapon.fitted_magazine_state)
+	elif weapon.current_magazine > 0:
+		# Legacy-authored starting weapons acquire a stable magazine identity at
+		# the first physical swap, using the incoming magazine definition.
+		ejected = incoming.duplicate(true) as ItemData
+		ejected.instance_id = "item_" + str(ResourceUID.create_id())
+		ejected.loaded_rounds = weapon.current_magazine
+		ejected.current_magazine = 0
+	backpack_array.erase(incoming)
+	item_container_slots.erase(incoming.instance_id)
+	incoming.physical_location = "fitted_magazine"
+	incoming.container_instance_id = weapon.instance_id
+	weapon.fitted_magazine_instance_id = incoming.instance_id
+	weapon.fitted_magazine_state = incoming.to_runtime_state()
+	weapon.current_magazine = mini(weapon.max_magazine, incoming.loaded_rounds)
+	var ejected_location := "none"
+	if ejected != null:
+		if add_to_backpack(ejected, source_slot):
+			ejected_location = "container"
+		else:
+			ejected.physical_location = "ground"
+			ejected.container_instance_id = ""
+			_emit_spilled_item(ejected)
+			ejected_location = "ground"
+	var receipt := {
+		"type": "reload",
+		"weapon_instance_id": weapon.instance_id,
+		"inserted_instance_id": incoming.instance_id,
+		"ejected_instance_id": ejected.instance_id if ejected != null else "",
+		"ejected_location": ejected_location,
+	}
+	_recalculate_bounds()
+	transfer_committed.emit(receipt)
+	return receipt
+
+
+func use_reload_aid(weapon: ItemData, aid: ItemData) -> Dictionary:
+	if (
+		weapon == null
+		or aid == null
+		or not backpack_array.has(aid)
+		or aid.id != weapon.reload_aid_id
+		or not aid.is_magazine()
+		or aid.loaded_rounds <= 0
+		or not is_combat_accessible(aid)
+	):
+		return {}
+	var rounds_needed := maxi(0, weapon.max_magazine - weapon.current_magazine)
+	if rounds_needed <= 0:
+		return {}
+	var transferred := mini(rounds_needed, aid.loaded_rounds)
+	weapon.current_magazine += transferred
+	aid.loaded_rounds -= transferred
+	var receipt := {
+		"type": "reload_aid",
+		"weapon_instance_id": weapon.instance_id,
+		"aid_instance_id": aid.instance_id,
+		"rounds_transferred": transferred,
+		"rounds_remaining": aid.loaded_rounds,
+	}
+	transfer_committed.emit(receipt)
+	return receipt
+
+
+func fit_attachment(weapon: ItemData, attachment: ItemData) -> Dictionary:
+	if (
+		weapon == null
+		or attachment == null
+		or not backpack_array.has(attachment)
+		or attachment.item_type != GameEnums.ItemType.ATTACHMENT
+		or (
+			not attachment.compatible_weapon_ids.is_empty()
+			and weapon.id not in attachment.compatible_weapon_ids
+		)
+	):
+		return {}
+	backpack_array.erase(attachment)
+	item_container_slots.erase(attachment.instance_id)
+	attachment.physical_location = "fitted_attachment"
+	attachment.container_instance_id = weapon.instance_id
+	weapon.fitted_attachment_instance_ids.append(attachment.instance_id)
+	weapon.fitted_attachment_states.append(attachment.to_runtime_state())
+	var receipt := {
+		"type": "fit_attachment",
+		"weapon_instance_id": weapon.instance_id,
+		"attachment_instance_id": attachment.instance_id,
+	}
+	_recalculate_bounds()
+	transfer_committed.emit(receipt)
+	return receipt
+
+
+func detach_attachment(weapon: ItemData, attachment_instance_id: String) -> Dictionary:
+	if weapon == null or attachment_instance_id not in weapon.fitted_attachment_instance_ids:
+		return {}
+	var attachment: ItemData = null
+	for state in weapon.fitted_attachment_states.duplicate(true):
+		if str(state.get("instance_id", "")) == attachment_instance_id:
+			attachment = ItemData.from_runtime_state(state)
+			weapon.fitted_attachment_states.erase(state)
+			break
+	if attachment == null or not add_to_backpack(attachment):
+		return {}
+	weapon.fitted_attachment_instance_ids.erase(attachment_instance_id)
+	var receipt := {
+		"type": "detach_attachment",
+		"weapon_instance_id": weapon.instance_id,
+		"attachment_instance_id": attachment_instance_id,
+	}
+	transfer_committed.emit(receipt)
+	return receipt
+
 func find_filled_magazine(magazine_id: String) -> ItemData:
 	for item in backpack_array:
 		if (
@@ -416,6 +596,16 @@ func _find_stack_target(
 			continue
 		return existing
 	return null
+
+
+func _set_stowed_location(
+	item: ItemData,
+	container_slot: GameEnums.EquipmentSlot
+) -> void:
+	item.physical_location = "container"
+	item.equipped_slot = GameEnums.EquipmentSlot.NONE
+	var container: ItemData = paper_doll.get(container_slot)
+	item.container_instance_id = container.instance_id if container != null else ""
 
 func _find_container_for_item(
 	item: ItemData,
@@ -498,6 +688,10 @@ func _emit_spilled_item(item: ItemData) -> void:
 func _emit_spilled_items(spilled: Array[ItemData]) -> void:
 	if spilled.is_empty():
 		return
+	for item in spilled:
+		item.physical_location = "ground"
+		item.equipped_slot = GameEnums.EquipmentSlot.NONE
+		item.container_instance_id = ""
 	items_spilled.emit(spilled)
 	inventory_error.emit("Storage changed. Items spilled onto the ground.")
 
@@ -537,7 +731,7 @@ func get_protection_for(damage_type: GameEnums.DamageType, limb_region: int = -1
 		if (
 			item != null
 			and item.has_active_function()
-			and (limb_region < 0 or _slot_covers_limb(int(slot), limb_region))
+			and (limb_region < 0 or _item_covers_limb(item, limb_region))
 		):
 			total += float(item.get(stat_name))
 	return total
@@ -567,7 +761,7 @@ func resolve_protection_event(
 	for slot_value in slots:
 		var slot := int(slot_value)
 		var item: ItemData = paper_doll.get(slot)
-		if item == null or (limb_region >= 0 and not _slot_covers_limb(slot, limb_region)):
+		if item == null or (limb_region >= 0 and not _item_covers_limb(item, limb_region)):
 			continue
 		var authored := float(item.get(stat_name))
 		if authored <= 0.0:
@@ -658,21 +852,8 @@ func repair_item(
 	return result
 
 
-func _slot_covers_limb(slot: int, limb: int) -> bool:
-	match slot:
-		GameEnums.EquipmentSlot.HEAD, GameEnums.EquipmentSlot.EYES, GameEnums.EquipmentSlot.FACE:
-			return limb == GameEnums.LimbRegion.HEAD
-		GameEnums.EquipmentSlot.NECK:
-			return limb in [GameEnums.LimbRegion.HEAD, GameEnums.LimbRegion.UPPER_TORSO]
-		GameEnums.EquipmentSlot.INNER_TORSO, GameEnums.EquipmentSlot.OUTER_TORSO, GameEnums.EquipmentSlot.VEST:
-			return limb in [GameEnums.LimbRegion.UPPER_TORSO, GameEnums.LimbRegion.LOWER_TORSO]
-		GameEnums.EquipmentSlot.ARMS:
-			return limb in [GameEnums.LimbRegion.LEFT_ARM, GameEnums.LimbRegion.RIGHT_ARM]
-		GameEnums.EquipmentSlot.LEGS:
-			return limb in [GameEnums.LimbRegion.LOWER_TORSO, GameEnums.LimbRegion.LEFT_LEG, GameEnums.LimbRegion.RIGHT_LEG]
-		GameEnums.EquipmentSlot.FEET:
-			return limb in [GameEnums.LimbRegion.LEFT_LEG, GameEnums.LimbRegion.RIGHT_LEG]
-	return false
+func _item_covers_limb(item: ItemData, limb: int) -> bool:
+	return item != null and item.armor_coverage.has(limb)
 
 func get_active_weapon(requires_melee: bool) -> ItemData:
 	for slot in [
@@ -717,6 +898,7 @@ func remove_item_by_instance_id(instance_id: String) -> ItemData:
 		if equipped != null and equipped.instance_id == instance_id:
 			var displaced_contents := get_container_items(slot)
 			paper_doll[slot] = null
+			equipped.equipped_slot = GameEnums.EquipmentSlot.NONE
 			equipment_changed.emit(slot, null)
 			for contained_item in displaced_contents:
 				item_container_slots.erase(contained_item.instance_id)
@@ -746,6 +928,7 @@ func drain_all_items() -> Array[ItemData]:
 			continue
 		drained.append(equipped)
 		paper_doll[slot] = null
+		equipped.equipped_slot = GameEnums.EquipmentSlot.NONE
 		equipment_changed.emit(slot, null)
 
 	_recalculate_bounds()
@@ -805,6 +988,8 @@ func restore_runtime_state(state) -> void:
 			paper_doll[slot] = ItemData.from_runtime_state(
 				inv_state.equipment[slot_key]
 			)
+			paper_doll[slot].physical_location = "equipped"
+			paper_doll[slot].equipped_slot = slot
 
 	for item_state in inv_state.backpack:
 		var item := ItemData.from_runtime_state(item_state)
