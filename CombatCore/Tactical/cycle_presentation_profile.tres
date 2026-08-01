@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CombatPresentationProfile" load_steps=3 format=3]
+[ext_resource type="Script" path="res://CombatCore/Tactical/CombatPresentationProfile.gd" id="1"]
+[ext_resource type="Resource" path="res://CombatCore/Tactical/Effects/weapon_service_effect_recipe.tres" id="2"]
+[resource]
+script = ExtResource("1")
+profile_id = "cycle"
+wind_up_seconds = 0.08
+transit_seconds = 0.44
+contact_seconds = 0.06
+reaction_seconds = 0.0
+impact_seconds = 0.0
+settle_seconds = 0.16
+actor_animation_id = "neutral"
+target_animation_id = "neutral"
+sfx_id = "weapon_cycle"
+camera_cue_id = "frame_actor"
+effect_recipe = ExtResource("2")
+

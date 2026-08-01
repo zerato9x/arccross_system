@@ -8,6 +8,7 @@ signal action_started(actor: HumanoidCore, action_id: String)
 signal damage_applied(actor: HumanoidCore)
 signal damage_resolved(event: Dictionary)
 signal shot_resolved(event: Dictionary)
+signal presentation_resolved(event: Dictionary)
 
 @export var board: CombatBoard
 @export var turn_manager: TacticalTurnManager
@@ -178,8 +179,10 @@ func execute_melee_strike(
 	action_started.emit(attacker, action_id)
 	var reaction := await _request_reaction(defender, attacker, action_id)
 	if reaction == "dodge" and _resolve_dodge(defender, attacker, 1):
+		presentation_resolved.emit(_melee_presentation_event(attacker, defender, action_id, "dodge", -1))
 		return true
 	if reaction == "block" and _resolve_block(defender, attacker, weapon, -1):
+		presentation_resolved.emit(_melee_presentation_event(attacker, defender, action_id, "block", -1))
 		return true
 	var aimed := target_region >= 0
 	var region := target_region if aimed else _pick_region(targeting_profile, MELEE_REGIONS)
@@ -187,6 +190,7 @@ func execute_melee_strike(
 	if aimed and targeting_profile != null:
 		accuracy_modifier += targeting_profile.accuracy_modifier(region)
 	if randf() > _melee_hit_chance(attacker, defender, accuracy_modifier):
+		presentation_resolved.emit(_melee_presentation_event(attacker, defender, action_id, "miss", region))
 		return true
 	if weapon != null:
 		var condition := ItemConditionRules.resolve_use(weapon, ItemConditionRules.EVENT_MELEE)
@@ -204,7 +208,25 @@ func execute_melee_strike(
 		_apply_unarmed_damage(attacker, defender, region, effect_profile.damage_multiplier if effect_profile != null else 1.0)
 	if effect_profile != null and effect_profile.applies_off_balance_on_hit:
 		board.set_condition(defender, "off_balance", true)
+	presentation_resolved.emit(_melee_presentation_event(attacker, defender, action_id, "hit", region))
 	return true
+
+
+func _melee_presentation_event(
+	attacker: HumanoidCore,
+	defender: HumanoidCore,
+	action_id: String,
+	result: String,
+	region: int
+) -> Dictionary:
+	return {
+		"type": "melee_resolution",
+		"action_id": action_id,
+		"attacker_id": _actor_id(attacker),
+		"victim_id": _actor_id(defender),
+		"result": result,
+		"region": region,
+	}
 
 
 func execute_reload(actor: HumanoidCore) -> bool:

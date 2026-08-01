@@ -1,5 +1,6 @@
-[gd_resource type="Resource" script_class="CombatPresentationProfile" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="CombatPresentationProfile" load_steps=3 format=3]
 [ext_resource type="Script" path="res://CombatCore/Tactical/CombatPresentationProfile.gd" id="1"]
+[ext_resource type="Resource" path="res://CombatCore/Tactical/Effects/shove_effect_recipe.tres" id="2"]
 [resource]
 script = ExtResource("1")
 profile_id = "shove"
@@ -11,4 +12,6 @@ impact_seconds = 0.14
 settle_seconds = 0.12
 actor_animation_id = "Attack1"
 target_animation_id = "TakeDamage"
+sfx_id = "shove_contact"
 vfx_id = "shove_contact"
+effect_recipe = ExtResource("2")

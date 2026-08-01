@@ -178,6 +178,7 @@ func _on_presentation_requested(sequence: CombatPresentationSequence) -> void:
 	hud.show_presentation_action(sequence)
 	await presentation_player.play(sequence)
 	action_controller.refresh_snapshot()
+	hud.finish_presentation()
 	_resolving = false
 	_refresh_context_quotes()
 
@@ -197,6 +198,15 @@ func _build_request(action_id: String) -> CombatActionRequest:
 	request.target_wound_id = str(context.wound_id)
 	request.target_body_region = int(context.body_region)
 	request.final_facing = str(context.facing)
+	var actor_snapshot: Dictionary = {}
+	for actor in hud.snapshot.get("actors", []):
+		if str(actor.get("actor_id", "")) == request.actor_id:
+			actor_snapshot = actor
+			break
+	var weapon: Dictionary = actor_snapshot.get("ranged_weapon", {}) if action_id in ["fire", "aimed_fire", "reload", "cycle", "clear_malfunction"] else actor_snapshot.get("melee_weapon", {})
+	if not weapon.is_empty():
+		request.metadata["weapon_class"] = int(weapon.get("weapon_type", GameEnums.WeaponClass.NONE))
+		request.metadata["weapon_id"] = str(weapon.get("definition_id", ""))
 	var definition := action_controller.catalog.definition(action_id)
 	if definition != null and definition.target_mode == CombatActionDefinition.TARGET_PATH:
 		var origin := board.position_of(player_core)
@@ -221,7 +231,6 @@ func _refresh_context_quotes() -> void:
 
 
 func _on_turn_started(actor: HumanoidCore) -> void:
-	board.set_condition(actor, "braced", false)
 	board.set_condition(actor, "off_balance", false)
 	if actor == player_core:
 		_refresh_context_quotes()
@@ -239,11 +248,10 @@ func _on_reaction_window_opened(
 			ids.append(str(action))
 		hud.show_reaction({"actions": ids})
 	else:
-		var choice = available[0] if not available.is_empty() else -1
-		if choice == -1:
+		if available.is_empty():
 			turn_manager.decline_reaction(defender)
 		else:
-			turn_manager.resolve_reaction(defender, choice)
+			turn_manager.resolve_reaction(defender, str(available[0]))
 
 
 func _on_reaction_selected(action_id: String) -> void:

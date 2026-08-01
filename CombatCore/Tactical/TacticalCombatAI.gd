@@ -85,7 +85,7 @@ func enumerate_requests() -> Array[CombatActionRequest]:
 		if action_id in ["aimed_strike", "aimed_fire"]:
 			request.target_body_region = _preferred_target_region()
 		requests.append(request)
-	for action_id in ["brace", "crouch", "stand", "reload", "cycle", "clear_malfunction", "escape", "end_turn"]:
+	for action_id in ["crouch", "stand", "reload", "cycle", "clear_malfunction", "escape", "end_turn"]:
 		var request := CombatActionRequest.new()
 		request.actor_id = actor_id
 		request.action_id = action_id

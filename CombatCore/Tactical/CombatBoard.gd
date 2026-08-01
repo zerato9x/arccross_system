@@ -538,7 +538,6 @@ func _default_tactics() -> Dictionary:
 	return {
 		"posture": "standing",
 		"off_balance": false,
-		"braced": false,
 	}
 
 

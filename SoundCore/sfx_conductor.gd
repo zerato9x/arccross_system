@@ -183,7 +183,7 @@ func _on_scene_audio_requested(scene_id: String, context: Dictionary) -> void:
 		"combat_action_sfx":
 			_on_combat_action(
 				null,
-				int(context.get("action", -1)),
+				str(context.get("action_id", "")),
 				int(context.get(
 					"weapon_class",
 					GameEnums.WeaponClass.NONE
@@ -195,11 +195,11 @@ func _on_scene_audio_requested(scene_id: String, context: Dictionary) -> void:
 
 func _on_combat_action(
 	_entity: Node,
-	action: int,
+	action: String,
 	weapon_class: int,
 	weapon_id: String
 ) -> void:
-	if action == GameEnums.ActionType.SHOOT or action == GameEnums.ActionType.AIMED_SHOT:
+	if action in ["fire", "aimed_fire"]:
 		match weapon_class:
 			GameEnums.WeaponClass.PISTOL:
 				_play_sound(_gunshot_pool_for_id(weapon_id).pick_random())
@@ -209,18 +209,11 @@ func _on_combat_action(
 				_play_sound(SOUNDS_SHOTGUN.pick_random())
 			_:
 				pass
-	elif action == GameEnums.ActionType.RELOAD:
+	elif action == "reload":
 		_play_sound(_mapped_pool(SOUNDS_GUN_RELOAD, weapon_id).pick_random(), 0.04, -2.0)
-	elif action == GameEnums.ActionType.CYCLE:
+	elif action == "cycle":
 		_play_sound(_mapped_pool(SOUNDS_GUN_CYCLE, weapon_id).pick_random(), 0.04, -3.0)
-	elif action in [
-		GameEnums.ActionType.STRIKE,
-		GameEnums.ActionType.GRAPPLE,
-		GameEnums.ActionType.BREAK,
-		GameEnums.ActionType.PUSH_STAY,
-		GameEnums.ActionType.PULL_FOLLOW,
-		GameEnums.ActionType.BLOCK,
-	]:
+	elif action in ["strike", "power_strike", "aimed_strike", "shove", "block"]:
 		_play_sound(SOUNDS_PUNCH.pick_random())
 
 func _gunshot_pool_for_id(weapon_id: String) -> Array:

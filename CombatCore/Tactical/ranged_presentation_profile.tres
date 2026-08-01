@@ -1,5 +1,6 @@
-[gd_resource type="Resource" script_class="CombatPresentationProfile" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="CombatPresentationProfile" load_steps=3 format=3]
 [ext_resource type="Script" path="res://CombatCore/Tactical/CombatPresentationProfile.gd" id="1"]
+[ext_resource type="Resource" path="res://CombatCore/Tactical/Effects/ranged_effect_recipe.tres" id="2"]
 [resource]
 script = ExtResource("1")
 profile_id = "ranged"
@@ -14,3 +15,4 @@ target_animation_id = "TakeDamage"
 sfx_id = "weapon_fire"
 vfx_id = "projectile"
 projectile = true
+effect_recipe = ExtResource("2")

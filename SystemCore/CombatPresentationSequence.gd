@@ -11,3 +11,11 @@ func to_dict() -> Dictionary:
 		if cue != null:
 			result.append(cue.to_dict())
 	return {"action_id": action_id, "cues": result}
+
+
+func total_duration() -> float:
+	var duration := 0.0
+	for cue in cues:
+		if cue != null:
+			duration += maxf(0.0, cue.duration_seconds)
+	return duration

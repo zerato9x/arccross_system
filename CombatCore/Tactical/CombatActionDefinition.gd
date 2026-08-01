@@ -16,6 +16,14 @@ const TARGET_OBJECT := "object"
 const TARGET_ITEM := "item"
 const TARGET_WOUND := "wound"
 
+const CONTEXT_SELF := "self"
+const CONTEXT_HOSTILE_ACTOR := "hostile_actor"
+const CONTEXT_SECTOR := "sector"
+const CONTEXT_ITEM := "item"
+const CONTEXT_WOUND := "wound"
+const CONTEXT_OBJECT := "object"
+const CONTEXT_BODY := "body"
+
 @export var action_id: String = ""
 @export var label: String = ""
 @export_multiline var description: String = ""
@@ -23,6 +31,10 @@ const TARGET_WOUND := "wound"
 @export var menu_priority: int = 0
 @export var icon_id: String = ""
 @export_enum("always", "target_context", "when_relevant", "reaction_only") var context_visibility: String = "when_relevant"
+@export var relevant_selection_contexts: Array[String] = []
+@export var capability_requirements: Array[String] = []
+@export var keep_temporary_denial_visible: bool = true
+@export_multiline var player_consequence: String = ""
 @export var requires_confirmation: bool = true
 @export var automatic_reaction: bool = false
 @export_enum("quick", "minor", "major", "heavy", "committed", "free") var ap_category: String = AP_MINOR
@@ -57,3 +69,26 @@ func base_ap_cost(kinetic_tier: int, remaining_ap: int) -> int:
 	}
 	var tier := clampi(kinetic_tier, 0, 2)
 	return int(costs.get(ap_category, [0, 0, 0])[tier])
+
+
+func presentation_ready() -> bool:
+	return not description.strip_edges().is_empty() and presentation_profile != null and not inferred_selection_contexts().is_empty()
+
+
+func inferred_selection_contexts() -> Array[String]:
+	if not relevant_selection_contexts.is_empty():
+		return relevant_selection_contexts
+	match target_mode:
+		TARGET_SELF:
+			return [CONTEXT_SELF]
+		TARGET_ACTOR:
+			return [CONTEXT_HOSTILE_ACTOR]
+		TARGET_PATH, TARGET_SECTOR:
+			return [CONTEXT_SECTOR]
+		TARGET_ITEM:
+			return [CONTEXT_ITEM]
+		TARGET_WOUND:
+			return [CONTEXT_WOUND]
+		TARGET_OBJECT:
+			return [CONTEXT_OBJECT]
+	return []

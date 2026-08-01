@@ -18,6 +18,7 @@ var ground_items: Dictionary = {}
 var _resolvers: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
 var _busy := false
+var _resolution_presentation_events: Array[Dictionary] = []
 
 
 func configure(
@@ -31,6 +32,13 @@ func configure(
 	board = tactical_board
 	turn_manager = turns
 	resolution_engine = resolver
+	if resolution_engine != null:
+		if not resolution_engine.damage_resolved.is_connected(_on_damage_resolved):
+			resolution_engine.damage_resolved.connect(_on_damage_resolved)
+		if not resolution_engine.shot_resolved.is_connected(_on_shot_resolved):
+			resolution_engine.shot_resolved.connect(_on_shot_resolved)
+		if not resolution_engine.presentation_resolved.is_connected(_on_presentation_resolved):
+			resolution_engine.presentation_resolved.connect(_on_presentation_resolved)
 	catalog = action_catalog if action_catalog != null else DEFAULT_CATALOG.duplicate(true)
 	_rng.seed = board.arena_state.baseline_seed if board != null and board.arena_state != null else 1
 	_register_resolvers()
@@ -49,7 +57,6 @@ func _register_resolvers() -> void:
 		"move": Callable(self, "_resolve_move"),
 		"change_posture": Callable(self, "_resolve_posture"),
 		"disengage": Callable(self, "_resolve_disengage"),
-		"brace": Callable(self, "_resolve_brace"),
 		"take_cover": Callable(self, "_resolve_take_cover"),
 		"escape": Callable(self, "_resolve_escape"),
 		"end_turn": Callable(self, "_resolve_end_turn"),
@@ -184,6 +191,7 @@ func request_action(request: CombatActionRequest) -> CombatActionOutcome:
 		action_denied.emit(action_quote)
 		return _failed_outcome(request, action_quote.denial_message)
 	_busy = true
+	_resolution_presentation_events.clear()
 	var outcome: CombatActionOutcome = await resolver.call(request, action_quote)
 	if outcome == null or not outcome.committed:
 		turn_manager.end_action_resolution(actor)
@@ -201,24 +209,32 @@ func request_action(request: CombatActionRequest) -> CombatActionOutcome:
 		_busy = false
 		return _failed_outcome(request, "AP reservation was lost.")
 	outcome.ap_spent = action_quote.ap_cost
+	outcome.presentation_events.append_array(_resolution_presentation_events.duplicate(true))
 	turn_manager.end_action_resolution(actor)
 	_busy = false
 	if definition.presentation_profile != null:
-		outcome.presentation_sequence = definition.presentation_profile.build_sequence(
-			request.action_id,
-			request.actor_id,
-			request.target_actor_id,
-			action_quote.origin_sector,
-			action_quote.target_sector,
-			action_quote.final_facing,
-			action_quote.path
-		)
+		outcome.presentation_sequence = definition.presentation_profile.build_sequence(request, action_quote, outcome)
 	action_committed.emit(outcome)
 	if outcome.presentation_sequence != null and not DisplayServer.get_name().contains("headless"):
 		presentation_requested.emit(outcome.presentation_sequence)
 	else:
 		refresh_snapshot()
 	return outcome
+
+
+func _on_damage_resolved(event: Dictionary) -> void:
+	if _busy:
+		_resolution_presentation_events.append(event.duplicate(true))
+
+
+func _on_shot_resolved(event: Dictionary) -> void:
+	if _busy:
+		_resolution_presentation_events.append(event.duplicate(true))
+
+
+func _on_presentation_resolved(event: Dictionary) -> void:
+	if _busy:
+		_resolution_presentation_events.append(event.duplicate(true))
 
 
 func quotes_for_actor(actor: HumanoidCore, context: Dictionary = {}) -> Array[CombatActionQuote]:
@@ -406,16 +422,6 @@ func _resolve_disengage(request: CombatActionRequest, action_quote: CombatAction
 	if not request.final_facing.is_empty():
 		board.set_facing(actor, request.final_facing)
 	outcome.committed = not outcome.actor_changes.is_empty()
-	return outcome
-
-
-func _resolve_brace(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
-	var outcome := _outcome(request)
-	var actor := actor_by_id(request.actor_id)
-	board.set_condition(actor, "braced", true)
-	board.set_condition(actor, "off_balance", false)
-	outcome.actor_changes.append({"actor_id": request.actor_id, "braced": true, "off_balance": false})
-	outcome.committed = true
 	return outcome
 
 
@@ -693,13 +699,12 @@ func _control_score(actor: HumanoidCore) -> float:
 		+ actor.body.get_limb_function(GameEnums.LimbRegion.RIGHT_ARM)
 	) / GameEnums.SCALE_MAX
 	var posture_modifier: float = float({"standing": 2.0, "crouched": 1.0}.get(board.posture(actor), 0.0))
-	var brace := 2.0 if board.has_condition(actor, "braced") else 0.0
 	var balance := -2.0 if board.has_condition(actor, "off_balance") else 0.0
 	var grip := 0.0
 	var sector_index := board.position_of(actor)
 	if sector_index >= 0:
 		grip = -float(board.sectors[sector_index].hazard_state.get("grip_penalty", 0.0))
-	return float(actor.definition.brawn) + arms + posture_modifier + brace + balance + grip - float(actor.total_burden) * 0.25
+	return float(actor.definition.brawn) + arms + posture_modifier + balance + grip - float(actor.total_burden) * 0.25
 
 
 func _has_reload_source(actor: HumanoidCore, weapon: ItemData) -> bool:
@@ -785,6 +790,9 @@ func _item_snapshot(item: ItemData, access: String) -> Dictionary:
 		"access": access,
 		"location": item.physical_location,
 		"equipped_slot": item.equipped_slot,
+		"equipment_slot": item.equipped_slot,
+		"item_type": item.item_type,
+		"catalog_category": item.catalog_category,
 		"condition": item.current_condition,
 		"current_condition": item.current_condition,
 		"quantity": item.stack_count,
@@ -795,6 +803,8 @@ func _item_snapshot(item: ItemData, access: String) -> Dictionary:
 		"optimal_range_cells": item.optimal_range_cells,
 		"maximum_range_cells": item.maximum_range_cells,
 		"inventory_sprite_path": item.inventory_sprite_path,
+		"equipped_sprite_path": item.equipped_sprite_path,
+		"equipped_sprite_paths": item.get_equipped_sprite_paths(),
 		"sprite_path": item.equipped_sprite_path if not item.equipped_sprite_path.is_empty() else item.inventory_sprite_path,
 		"readiness": {"reason": readiness_reason},
 	}

@@ -7,7 +7,13 @@ signal sector_unhovered
 
 const GRID_GAP := 6.0
 const TOKEN_RADIUS := 22.0
+const CAMERA_ZOOM_MIN := 1.0
+const CAMERA_ZOOM_MAX := 2.25
+const CAMERA_ZOOM_STEP := 0.15
 const HUMANOID_TOKEN_SCENE := preload("res://UI/Humanoid/HumanoidToken.tscn")
+const WEAPON_PRESENTATION_CATALOG: CombatWeaponPresentationCatalog = preload(
+	"res://CombatCore/Tactical/default_weapon_presentation_catalog.tres"
+)
 
 var snapshot: Dictionary = {}
 var selected_sector := Vector2i(-1, -1)
@@ -17,6 +23,13 @@ var _texture_cache: Dictionary = {}
 var _cue: CombatPresentationCue
 var _cue_progress := 0.0
 var _actor_tokens: Dictionary = {}
+var _presentation_positions: Dictionary = {}
+var _last_path_segment := -1
+var _view_zoom := CAMERA_ZOOM_MIN
+var _view_pan := Vector2.ZERO
+var _is_panning := false
+var _pan_anchor := Vector2.ZERO
+var _camera_safe_rect := Rect2()
 
 
 func _ready() -> void:
@@ -31,7 +44,15 @@ func _ready() -> void:
 
 
 func show_snapshot(value: Dictionary) -> void:
+	var topology_changed := (
+		int(snapshot.get("width", 0)) != int(value.get("width", 0))
+		or int(snapshot.get("height", 0)) != int(value.get("height", 0))
+		or str(snapshot.get("presentation_style", "")) != str(value.get("presentation_style", ""))
+	)
 	snapshot = value.duplicate(true)
+	if topology_changed:
+		reset_camera_view()
+	_presentation_positions.clear()
 	_sync_actor_tokens()
 	queue_redraw()
 
@@ -51,18 +72,51 @@ func select_sector(coords: Vector2i) -> void:
 	queue_redraw()
 
 
+func reset_camera_view() -> void:
+	_view_zoom = CAMERA_ZOOM_MIN
+	_view_pan = Vector2.ZERO
+	_refresh_camera_geometry()
+
+
+func camera_zoom() -> float:
+	return _view_zoom
+
+
+func camera_pan() -> Vector2:
+	return _view_pan
+
+
+func set_camera_safe_rect(value: Rect2) -> void:
+	_camera_safe_rect = value
+	_clamp_camera_pan()
+	_refresh_camera_geometry()
+
+
 func begin_cue(cue: CombatPresentationCue) -> void:
 	_cue = cue
 	_cue_progress = 0.0
+	_last_path_segment = -1
+	scale = Vector2.ONE
+	pivot_offset = sector_center(cue.end_sector) if _contains(cue.end_sector) else size * 0.5
 	var token := _actor_tokens.get(cue.actor_id) as HumanoidTokenView
 	if token != null:
-		token.position = sector_center(cue.start_sector)
-		token.face_direction(_facing_vector(cue.facing))
+		token.position = _presentation_positions.get(cue.actor_id, sector_center(cue.start_sector))
+		token.scale = Vector2.ONE
+		token.rotation = 0.0
+		var facing_vector := _facing_vector(cue.facing)
+		if cue.facing.is_empty() and cue.start_sector != cue.end_sector:
+			facing_vector = sector_center(cue.start_sector).direction_to(sector_center(cue.end_sector))
+		token.face_direction(facing_vector)
 		if HumanoidVisualCatalog.supports_animation(cue.animation_id):
 			if HumanoidVisualCatalog.animation_loops(cue.animation_id):
 				token.play_animation(cue.animation_id)
 			else:
 				token.play_timed_one_shot(cue.animation_id, "Idle", cue.duration_seconds)
+	var target_token := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
+	if target_token != null:
+		target_token.position = _presentation_positions.get(cue.target_actor_id, sector_center(cue.end_sector))
+		target_token.scale = Vector2.ONE
+		target_token.rotation = 0.0
 	queue_redraw()
 
 
@@ -71,17 +125,80 @@ func update_cue(progress: float, cue: CombatPresentationCue) -> void:
 		return
 	_cue_progress = progress
 	var token := _actor_tokens.get(cue.actor_id) as HumanoidTokenView
-	if token != null and cue.phase_id == "transit":
-		token.position = sector_center(cue.start_sector).lerp(sector_center(cue.end_sector), progress)
+	var target_token := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
+	var start := sector_center(cue.start_sector)
+	var finish := sector_center(cue.end_sector)
+	var direction := start.direction_to(finish)
+	if token != null:
+		if cue.phase_id == "transit" and cue.moves_actor:
+			token.position = _path_position(cue.path, progress, cue.start_sector, cue.end_sector)
+			if cue.path.size() >= 2:
+				var scaled := clampf(progress, 0.0, 1.0) * float(cue.path.size() - 1)
+				var segment := mini(floori(scaled), cue.path.size() - 2)
+				token.face_direction(sector_center(cue.path[segment]).direction_to(sector_center(cue.path[segment + 1])))
+				if segment != _last_path_segment:
+					_last_path_segment = segment
+					token.footstep_taken.emit()
+					var event_bus := get_node_or_null("/root/GameEventBus")
+					if event_bus != null:
+						event_bus.emit_humanoid_footstep(null, _surface_footstep(cue.path[segment + 1]))
+		elif cue.phase_id == "wind_up":
+			token.position = start - direction * cue.recoil_pixels * sin(progress * PI * 0.5)
+		elif cue.phase_id == "contact":
+			token.position = start + direction * cue.lunge_pixels * sin(progress * PI)
+		elif cue.phase_id == "impact" and cue.recoil_pixels > 0.0:
+			token.position = start - direction * cue.recoil_pixels * sin(progress * PI)
+	var reacts_now := cue.phase_id == "reaction" and cue.outcome_tag in ["dodge", "block"]
+	var impacts_now := cue.phase_id == "impact" and cue.outcome_tag not in ["miss", "neutral", "malfunction"]
+	if target_token != null and (reacts_now or impacts_now):
+		var target_start: Vector2 = _presentation_positions.get(cue.target_actor_id, finish)
+		var target_finish := sector_center(cue.target_end_sector) if _contains(cue.target_end_sector) else target_start
+		if cue.outcome_tag == "dodge":
+			var perpendicular := Vector2(-direction.y, direction.x)
+			target_token.position = target_start + perpendicular * 18.0 * sin(progress * PI)
+		elif cue.outcome_tag not in ["miss", "neutral", "malfunction"]:
+			var travel := target_start.lerp(target_finish, progress)
+			var shake := direction * sin(progress * cue.shake_frequency) * cue.shake_amplitude * (1.0 - progress)
+			target_token.position = travel + shake
+			target_token.scale = Vector2(1.0 - cue.impact_scale * sin(progress * PI), 1.0 + cue.impact_scale * sin(progress * PI))
+			target_token.rotation = deg_to_rad(cue.impact_rotation_degrees) * sin(progress * PI)
+	if cue.phase_id in ["contact", "impact"] and cue.camera_impulse_pixels > 0.0:
+		var camera_punch := cue.camera_impulse_pixels * 0.0025 * sin(progress * PI)
+		scale = Vector2.ONE * (1.0 + camera_punch)
 	queue_redraw()
 
 
 func end_cue(cue: CombatPresentationCue) -> void:
 	if cue == _cue:
+		var token := _actor_tokens.get(cue.actor_id) as HumanoidTokenView
+		var target_token := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
+		if cue.phase_id == "transit" and cue.moves_actor:
+			_presentation_positions[cue.actor_id] = sector_center(cue.end_sector)
+		if cue.phase_id == "impact" and target_token != null and _contains(cue.target_end_sector):
+			_presentation_positions[cue.target_actor_id] = sector_center(cue.target_end_sector)
+		if token != null:
+			token.position = _presentation_positions.get(cue.actor_id, sector_center(cue.start_sector))
+			token.scale = Vector2.ONE
+			token.rotation = 0.0
+			if cue.phase_id == "transit" and cue.moves_actor:
+				token.play_animation("Idle", true)
+		if target_token != null:
+			target_token.position = _presentation_positions.get(cue.target_actor_id, sector_center(cue.end_sector))
+			target_token.scale = Vector2.ONE
+			target_token.rotation = 0.0
 		_cue = null
 		_cue_progress = 0.0
-		_sync_actor_tokens()
+		scale = Vector2.ONE
 		queue_redraw()
+
+
+func _path_position(path: Array[Vector2i], progress: float, start: Vector2i, finish: Vector2i) -> Vector2:
+	if path.size() < 2:
+		return sector_center(start).lerp(sector_center(finish), progress)
+	var scaled := clampf(progress, 0.0, 1.0) * float(path.size() - 1)
+	var segment := mini(floori(scaled), path.size() - 2)
+	var local_progress := scaled - float(segment)
+	return sector_center(path[segment]).lerp(sector_center(path[segment + 1]), local_progress)
 
 
 func sector_center(coords: Vector2i) -> Vector2:
@@ -119,10 +236,11 @@ func _draw_sector(data: Dictionary, rect: Rect2) -> void:
 	var ground := _texture(str(data.get("ground_asset", "")))
 	var overlay := _texture(str(data.get("overlay_asset", "")))
 	var tint := _surface_color(str(data.get("surface_id", "unresolved")))
-	draw_rect(cell_rect, tint, true)
-	if ground != null:
+	var scene_first := str(snapshot.get("presentation_style", "")) == "duel_lane"
+	draw_rect(cell_rect, Color(tint, 0.20) if scene_first else tint, true)
+	if ground != null and not scene_first:
 		draw_texture_rect(ground, cell_rect, false, Color(1, 1, 1, 0.78))
-	if overlay != null:
+	if overlay != null and not scene_first:
 		draw_texture_rect(overlay, cell_rect, false, Color.WHITE)
 	if bool(data.get("blocked", false)):
 		draw_rect(cell_rect, Color(0.08, 0.08, 0.08, 0.55), true)
@@ -139,7 +257,7 @@ func _draw_sector(data: Dictionary, rect: Rect2) -> void:
 	elif coords == hovered_sector:
 		draw_rect(cell_rect, Color("9ac5c4"), false, 2.0)
 	else:
-		draw_rect(cell_rect, Color(0.45, 0.50, 0.49, 0.65), false, 1.0)
+		draw_rect(cell_rect, Color(0.45, 0.50, 0.49, 0.22), false, 1.0)
 
 
 func _draw_preview() -> void:
@@ -208,6 +326,7 @@ func _draw_vital_bar(origin: Vector2, width: float, value: float, color: Color) 
 func _draw_presentation() -> void:
 	if _cue == null:
 		return
+	_draw_weapon_sheet_frame()
 	var start := sector_center(_cue.start_sector)
 	var finish := sector_center(_cue.end_sector)
 	if _cue.phase_id == "transit" and not _cue.vfx_id.is_empty():
@@ -215,7 +334,48 @@ func _draw_presentation() -> void:
 		draw_line(start, point, Color("f0d487"), 3.0, true)
 		draw_circle(point, 4.0, Color.WHITE)
 	elif _cue.phase_id in ["contact", "impact"]:
-		draw_circle(finish, lerpf(8.0, 30.0, _cue_progress), Color(0.95, 0.45, 0.28, 1.0 - _cue_progress), false, 4.0)
+		var impact_color := Color("e7c56c") if _cue.outcome_tag in ["block", "cover"] else Color("ef6f52")
+		if _cue.outcome_tag == "miss":
+			impact_color = Color("8ca4a1")
+		draw_circle(finish, lerpf(8.0, 30.0, _cue_progress), Color(impact_color, 1.0 - _cue_progress), false, 4.0)
+		if _cue.outcome_tag in ["object_collision", "actor_collision", "boundary"]:
+			for index in range(5):
+				var angle := float(index) * TAU / 5.0
+				var debris := finish + Vector2.from_angle(angle) * lerpf(5.0, 24.0, _cue_progress)
+				draw_rect(Rect2(debris - Vector2(2.0, 2.0), Vector2(4.0, 4.0)), Color(0.68, 0.58, 0.43, 1.0 - _cue_progress), true)
+
+
+func _draw_weapon_sheet_frame() -> void:
+	var definition := WEAPON_PRESENTATION_CATALOG.definition_for(_cue.weapon_id)
+	if definition == null:
+		return
+	var sheet := definition.sheet_for_action(_cue.action_id)
+	var frame_size := definition.frame_size_for_action(_cue.action_id)
+	var fps := definition.fps_for_action(_cue.action_id)
+	if sheet == null or frame_size.x <= 0 or frame_size.y <= 0 or fps <= 0.0:
+		return
+	var columns := maxi(1, sheet.get_width() / frame_size.x)
+	var rows := maxi(1, sheet.get_height() / frame_size.y)
+	var frame_count := columns * rows
+	var sequence_progress := lerpf(
+		_cue.sequence_progress_start,
+		_cue.sequence_progress_end,
+		_cue_progress
+	)
+	var frame_index := clampi(floori(sequence_progress * float(frame_count)), 0, frame_count - 1)
+	var source := Rect2(
+		Vector2((frame_index % columns) * frame_size.x, (frame_index / columns) * frame_size.y),
+		Vector2(frame_size)
+	)
+	var actor_position: Vector2 = _presentation_positions.get(_cue.actor_id, sector_center(_cue.start_sector))
+	var display_scale := clampf(minf(_cell_size(_grid_rect()).x, _cell_size(_grid_rect()).y) / 44.0, 1.0, 2.2)
+	var display_size := Vector2(frame_size) * display_scale
+	var facing := _facing_vector(_cue.facing)
+	var rotation_angle := facing.angle()
+	var flip_y := facing.x < -0.5
+	draw_set_transform(actor_position, rotation_angle, Vector2(1.0, -1.0 if flip_y else 1.0))
+	draw_texture_rect_region(sheet, Rect2(-display_size * 0.5, display_size), source)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_cover_edges(rect: Rect2, edges: Dictionary) -> void:
@@ -268,7 +428,7 @@ func _sync_actor_tokens() -> void:
 			token.set_slot_item_ids(slot_items)
 		token.visible = true
 		token.position = sector_center(sector.coords)
-		token.set_display_scale(clampf(minf(_cell_size(_grid_rect()).x, _cell_size(_grid_rect()).y) / 38.0, 1.1, 2.0))
+		token.set_display_scale(clampf(minf(_cell_size(_grid_rect()).x, _cell_size(_grid_rect()).y) / 32.0, 1.1, 2.8))
 		token.face_direction(_facing_vector(str(facings.get(actor_id, "east"))))
 		var posture := str(tactics.get(actor_id, {}).get("posture", "standing"))
 		var idle := "CrouchIdle" if posture == "crouched" and HumanoidVisualCatalog.supports_animation("CrouchIdle") else "Idle"
@@ -297,13 +457,54 @@ func _facing_vector(facing: String) -> Vector2:
 
 
 func _grid_rect() -> Rect2:
+	var base := _base_grid_rect()
+	var scaled_size := base.size * _view_zoom
+	return Rect2(base.get_center() - scaled_size * 0.5 + _view_pan, scaled_size)
+
+
+func _base_grid_rect() -> Rect2:
 	var margin := 12.0
-	var rect := Rect2(Vector2(margin, margin), size - Vector2(margin * 2.0, margin * 2.0))
+	var available := _camera_safe_rect if _camera_safe_rect.size.x > 0.0 and _camera_safe_rect.size.y > 0.0 else Rect2(Vector2.ZERO, size)
+	var rect := available.grow(-margin)
+	if rect.size.x > 1440.0:
+		rect.position.x += (rect.size.x - 1440.0) * 0.5
+		rect.size.x = 1440.0
 	if str(snapshot.get("presentation_style", "")) == "duel_lane":
 		var lane_height := clampf(size.y * 0.34, 96.0, 220.0)
 		rect.position.y = size.y * 0.57 - lane_height * 0.5
 		rect.size.y = lane_height
 	return rect
+
+
+func _set_camera_zoom(next_zoom: float, focus: Vector2) -> void:
+	var old_rect := _grid_rect()
+	var normalized := Vector2(0.5, 0.5)
+	if old_rect.size.x > 0.0 and old_rect.size.y > 0.0:
+		normalized = (focus - old_rect.position) / old_rect.size
+	_view_zoom = clampf(next_zoom, CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX)
+	if is_equal_approx(_view_zoom, CAMERA_ZOOM_MIN):
+		_view_pan = Vector2.ZERO
+	else:
+		var next_rect := _grid_rect()
+		_view_pan += focus - (next_rect.position + normalized * next_rect.size)
+	_clamp_camera_pan()
+	_refresh_camera_geometry()
+
+
+func _clamp_camera_pan() -> void:
+	if _view_zoom <= CAMERA_ZOOM_MIN:
+		_view_pan = Vector2.ZERO
+		return
+	var base := _base_grid_rect()
+	var allowance := (base.size * _view_zoom - base.size) * 0.5
+	_view_pan.x = clampf(_view_pan.x, -allowance.x, allowance.x)
+	_view_pan.y = clampf(_view_pan.y, -allowance.y, allowance.y)
+
+
+func _refresh_camera_geometry() -> void:
+	_presentation_positions.clear()
+	_sync_actor_tokens()
+	queue_redraw()
 
 
 func _cell_size(rect: Rect2) -> Vector2:
@@ -324,7 +525,31 @@ func _coords_at(local_position: Vector2) -> Vector2i:
 
 
 func _on_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var mouse_button := event as InputEventMouseButton
+		if mouse_button.button_index == MOUSE_BUTTON_WHEEL_UP and mouse_button.pressed:
+			_set_camera_zoom(_view_zoom + CAMERA_ZOOM_STEP, mouse_button.position)
+			accept_event()
+			return
+		if mouse_button.button_index == MOUSE_BUTTON_WHEEL_DOWN and mouse_button.pressed:
+			_set_camera_zoom(_view_zoom - CAMERA_ZOOM_STEP, mouse_button.position)
+			accept_event()
+			return
+		if mouse_button.button_index == MOUSE_BUTTON_MIDDLE:
+			_is_panning = mouse_button.pressed
+			_pan_anchor = mouse_button.position
+			mouse_default_cursor_shape = Control.CURSOR_DRAG if _is_panning else Control.CURSOR_POINTING_HAND
+			accept_event()
+			return
 	if event is InputEventMouseMotion:
+		if _is_panning:
+			var motion := event as InputEventMouseMotion
+			_view_pan += motion.position - _pan_anchor
+			_pan_anchor = motion.position
+			_clamp_camera_pan()
+			_refresh_camera_geometry()
+			accept_event()
+			return
 		var coords := _coords_at(event.position)
 		if coords != hovered_sector:
 			hovered_sector = coords
@@ -391,6 +616,17 @@ func _surface_color(surface_id: String) -> Color:
 	}.get(surface_id, Color("252a2d"))
 
 
+func _surface_footstep(coords: Vector2i) -> String:
+	for sector in snapshot.get("sectors", []):
+		if sector.get("coords", Vector2i(-1, -1)) == coords:
+			return {
+				"mud": "MUD",
+				"forest": "TREES",
+				"plains": "DIRT",
+			}.get(str(sector.get("surface_id", "")), "CONCRETE")
+	return "CONCRETE"
+
+
 func _actor_coords(actor_id: String) -> Vector2i:
 	for sector in snapshot.get("sectors", []):
 		if str(sector.get("occupant_id", "")) == actor_id:
@@ -407,4 +643,12 @@ func _arena_height() -> int:
 
 
 func _contains(coords: Vector2i) -> bool:
-	return coords.x >= 0 and coords.x < _arena_width() and coords.y >= 0 and coords.y < _arena_height()
+	if coords.x < 0 or coords.x >= _arena_width() or coords.y < 0 or coords.y >= _arena_height():
+		return false
+	var sectors: Array = snapshot.get("sectors", [])
+	if sectors.is_empty():
+		return true
+	for sector in sectors:
+		if sector.get("coords", Vector2i(-1, -1)) == coords:
+			return true
+	return false

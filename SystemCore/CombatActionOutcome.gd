@@ -14,6 +14,7 @@ class_name CombatActionOutcome
 @export var item_receipts: Array[Dictionary] = []
 @export var reactions: Array[Dictionary] = []
 @export var terrain_mutations: Array[Dictionary] = []
+@export var presentation_events: Array[Dictionary] = []
 @export var presentation_sequence: CombatPresentationSequence
 @export var message: String = ""
 
