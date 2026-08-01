@@ -340,6 +340,22 @@ func close_panel(notify: bool = true) -> void:
 func is_open() -> bool:
 	return visible
 
+
+func close_top_surface() -> bool:
+	if not visible:
+		return false
+	if _confirm_dialog != null and _confirm_dialog.visible:
+		_confirm_dialog.hide()
+		_pending_confirm = Callable()
+		return true
+	for node in get_tree().get_nodes_in_group("slot_context_menu_host"):
+		var menu := node.get_node_or_null("InventorySlotContextMenu") as InventorySlotContextMenu
+		if menu != null and menu.visible:
+			menu.close_menu()
+			return true
+	close_panel()
+	return true
+
 func show_item_details(descriptor: Dictionary) -> void:
 	if descriptor.is_empty():
 		_reset_inspector()
@@ -476,6 +492,7 @@ func _apply_presentation_layout() -> void:
 		return
 	var canvas_layer := get_parent() as CanvasLayer
 	if _presentation_mode == PresentationMode.SIDE_PANEL:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_backdrop.visible = false
 		_shell.scale = Vector2.ONE
 		_shell.set_anchors_preset(Control.PRESET_CENTER_LEFT)
@@ -492,6 +509,7 @@ func _apply_presentation_layout() -> void:
 		if canvas_layer:
 			canvas_layer.layer = 21
 	elif _presentation_mode == PresentationMode.EMBEDDED:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_backdrop.visible = false
 		_fit_shell_to_embedded_host()
 		if _ground_panel:
@@ -503,6 +521,9 @@ func _apply_presentation_layout() -> void:
 		if canvas_layer:
 			canvas_layer.layer = 8
 	else:
+		# Fullscreen inventory is a true modal work surface. PASS allowed clicks
+		# on transparent/backdrop areas to fall through into the hex world.
+		mouse_filter = Control.MOUSE_FILTER_STOP
 		_backdrop.visible = true
 		_shell.scale = Vector2.ONE
 		_shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1446,11 +1467,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	var key := event as InputEventKey
 	if key.keycode == KEY_ESCAPE:
-		if _confirm_dialog.visible:
-			_confirm_dialog.hide()
-			_pending_confirm = Callable()
-		else:
-			close_panel()
+		close_top_surface()
 		get_viewport().set_input_as_handled()
 		return
 	if key.keycode == KEY_F10 and key.shift_pressed and is_instance_valid(_selected_slot):

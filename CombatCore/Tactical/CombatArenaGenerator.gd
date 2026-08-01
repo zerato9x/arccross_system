@@ -23,6 +23,8 @@ func _init(profile_catalog: TacticalTerrainCatalog = null) -> void:
 
 func generate(encounter: CombatEncounterRecord) -> CombatArenaState:
 	var arena := CombatArenaState.new()
+	var topology := CombatTopologyProfile.load_profile(encounter.topology_id)
+	arena.configure_topology(topology)
 	arena.source_coords = encounter.source_coords
 	arena.orientation_step = _orientation_step(
 		encounter.source_coords - encounter.approach_from
@@ -31,17 +33,23 @@ func generate(encounter: CombatEncounterRecord) -> CombatArenaState:
 	arena.backdrop_asset_path = _backdrop_path(encounter)
 	arena.lighting = _lighting_descriptor(encounter.world_time)
 	var layer_assets := _layer_assets(encounter.presentation)
-	for index in range(CombatArenaState.SECTOR_COUNT):
+	for index in range(arena.sector_count()):
 		var sector := TacticalSectorRecord.new()
 		sector.index = index
-		sector.coords = CombatArenaState.coords_for_index(index)
+		sector.coords = arena.coords_for(index)
 		_configure_base(sector, encounter.center_hex, layer_assets)
+		if topology.movement_policy == CombatTopologyProfile.MovementPolicy.LINEAR_NO_PASS:
+			sector.cover_edges.clear()
+			sector.object_state.clear()
+			sector.blocked = false
+			sector.spawnable = true
 		arena.sectors.append(sector)
 
-	_apply_road(arena, encounter.center_hex, layer_assets)
-	_apply_water(arena, encounter, layer_assets)
-	_apply_scattered_layers(arena, encounter.center_hex, layer_assets)
-	_apply_presentation_props(arena, encounter.presentation, arena.baseline_seed)
+	if topology.movement_policy != CombatTopologyProfile.MovementPolicy.LINEAR_NO_PASS:
+		_apply_road(arena, encounter.center_hex, layer_assets)
+		_apply_water(arena, encounter, layer_assets)
+		_apply_scattered_layers(arena, encounter.center_hex, layer_assets)
+		_apply_presentation_props(arena, encounter.presentation, arena.baseline_seed)
 	_apply_traps(arena, encounter.traps)
 	_apply_persistent_state(arena, encounter.center_hex)
 	_configure_edges(arena)
@@ -79,7 +87,7 @@ func _apply_road(
 			ports.append(_edge_port_for_direction(arena, direction_index))
 	if ports.is_empty():
 		return
-	for coords in _connected_paths(ports):
+	for coords in _connected_paths(arena, ports):
 		var sector := arena.sector_at(coords)
 		sector.surface_id = "road"
 		sector.surface_label = "DIRT ROAD" if hex.composition_role == "dirt_service_spur" else "ROAD"
@@ -107,7 +115,7 @@ func _apply_water(
 	if ports.is_empty():
 		# A standalone authored water hex is a local pool crossing the center.
 		ports = [Vector2i(3, 1), Vector2i(3, 3)]
-	for coords in _connected_paths(ports):
+	for coords in _connected_paths(arena, ports):
 		var sector := arena.sector_at(coords)
 		_apply_profile(sector, profile)
 		sector.overlay_asset_path = str(assets.get("water", ""))
@@ -138,7 +146,7 @@ func _apply_scatter(
 	rng.seed = seed_value
 	var candidates: Array[TacticalSectorRecord] = []
 	for sector in arena.sectors:
-		if sector.coords.x in [0, CombatArenaState.WIDTH - 1]:
+		if sector.coords.x in [0, arena.width - 1]:
 			continue
 		if sector.surface_id in ["road", "shallow_water", "deep_water"]:
 			continue
@@ -184,8 +192,8 @@ func _apply_presentation_props(
 			continue
 		var anchor: Vector2 = prop.get("anchor", Vector2(0.5, 0.5))
 		var coords := Vector2i(
-			clampi(roundi(anchor.x * float(CombatArenaState.WIDTH - 1)), 1, CombatArenaState.WIDTH - 2),
-			clampi(roundi(anchor.y * float(CombatArenaState.HEIGHT - 1)), 0, CombatArenaState.HEIGHT - 1)
+			clampi(roundi(anchor.x * float(arena.width - 1)), 1, maxi(1, arena.width - 2)),
+			clampi(roundi(anchor.y * float(arena.height - 1)), 0, arena.height - 1)
 		)
 		var sector := arena.sector_at(coords)
 		if sector == null or not sector.object_state.is_empty():
@@ -208,9 +216,9 @@ func _apply_presentation_props(
 func _apply_traps(arena: CombatArenaState, traps: Array[Dictionary]) -> void:
 	for trap_index in range(traps.size()):
 		var trap := traps[trap_index]
-		var coords: Vector2i = trap.get("sector", Vector2i(1, CombatArenaState.HEIGHT / 2))
-		if not CombatArenaState.contains_coords(coords):
-			coords = Vector2i(1, CombatArenaState.HEIGHT / 2)
+		var coords: Vector2i = trap.get("sector", Vector2i(1, arena.height / 2))
+		if not arena.contains(coords):
+			coords = Vector2i(mini(1, arena.width - 1), arena.height / 2)
 		var sector := arena.sector_at(coords)
 		sector.trap_state = trap.duplicate(true)
 		sector.trap_state["armed"] = bool(trap.get("armed", true))
@@ -219,6 +227,11 @@ func _apply_traps(arena: CombatArenaState, traps: Array[Dictionary]) -> void:
 
 func _apply_persistent_state(arena: CombatArenaState, hex: HexRecord) -> void:
 	if hex == null or hex.combat_site_state.is_empty():
+		return
+	var stored_topology := str(hex.combat_site_state.get("topology_id", ""))
+	if not stored_topology.is_empty() and stored_topology != arena.topology_id:
+		return
+	if stored_topology.is_empty() and arena.topology_id != "squad_7x5":
 		return
 	arena.mutations = hex.combat_site_state.duplicate(true)
 	var patches: Dictionary = hex.combat_site_state.get("sector_patches", {})
@@ -243,17 +256,17 @@ func _apply_persistent_state(arena: CombatArenaState, hex: HexRecord) -> void:
 
 
 func _configure_edges(arena: CombatArenaState) -> void:
-	for y in range(CombatArenaState.HEIGHT):
+	for y in range(arena.height):
 		var player_edge := arena.sector_at(Vector2i(0, y))
 		player_edge.escape_side = "player" if not player_edge.blocked else ""
 		player_edge.territory_side = "player"
 		player_edge.spawnable = player_edge.spawnable and not player_edge.blocked
-		var enemy_edge := arena.sector_at(Vector2i(CombatArenaState.WIDTH - 1, y))
+		var enemy_edge := arena.sector_at(Vector2i(arena.width - 1, y))
 		enemy_edge.escape_side = "enemy" if not enemy_edge.blocked else ""
 		enemy_edge.territory_side = "enemy"
 		enemy_edge.spawnable = enemy_edge.spawnable and not enemy_edge.blocked
 	for sector in arena.sectors:
-		if sector.coords.x > 0 and sector.coords.x < CombatArenaState.WIDTH - 1:
+		if sector.coords.x > 0 and sector.coords.x < arena.width - 1:
 			sector.territory_side = "neutral"
 
 
@@ -293,8 +306,8 @@ func _nearest_free_object_sector(
 	_seed_value: int
 ) -> TacticalSectorRecord:
 	for radius in range(1, 5):
-		for y in range(CombatArenaState.HEIGHT):
-			for x in range(1, CombatArenaState.WIDTH - 1):
+		for y in range(arena.height):
+			for x in range(1, arena.width - 1):
 				var coords := Vector2i(x, y)
 				if absi(coords.x - origin.x) + absi(coords.y - origin.y) != radius:
 					continue
@@ -355,33 +368,36 @@ func _orientation_step(delta: Vector2i) -> int:
 func _edge_port_for_direction(arena: CombatArenaState, direction_index: int) -> Vector2i:
 	var incoming_direction := (arena.orientation_step + 3) % 6
 	var relative := (direction_index - incoming_direction + 6) % 6
+	var center_x := arena.width / 2
+	var center_y := arena.height / 2
 	match relative:
 		0:
-			return Vector2i(0, 2)
+			return Vector2i(0, center_y)
 		1:
-			return Vector2i(2, 0)
+			return Vector2i(maxi(0, center_x - 1), 0)
 		2:
-			return Vector2i(4, 0)
+			return Vector2i(mini(arena.width - 1, center_x + 1), 0)
 		3:
-			return Vector2i(6, 2)
+			return Vector2i(arena.width - 1, center_y)
 		4:
-			return Vector2i(4, 4)
+			return Vector2i(mini(arena.width - 1, center_x + 1), arena.height - 1)
 		_:
-			return Vector2i(2, 4)
+			return Vector2i(maxi(0, center_x - 1), arena.height - 1)
 
 
-func _connected_paths(ports: Array[Vector2i]) -> Array[Vector2i]:
-	var cells: Array[Vector2i] = [Vector2i(3, 2)]
+func _connected_paths(arena: CombatArenaState, ports: Array[Vector2i]) -> Array[Vector2i]:
+	var center := Vector2i(arena.width / 2, arena.height / 2)
+	var cells: Array[Vector2i] = [center]
 	for port in ports:
 		var cursor := port
-		while cursor.x != 3:
+		while cursor.x != center.x:
 			if cursor not in cells:
 				cells.append(cursor)
-			cursor.x += 1 if cursor.x < 3 else -1
-		while cursor.y != 2:
+			cursor.x += 1 if cursor.x < center.x else -1
+		while cursor.y != center.y:
 			if cursor not in cells:
 				cells.append(cursor)
-			cursor.y += 1 if cursor.y < 2 else -1
+			cursor.y += 1 if cursor.y < center.y else -1
 		if cursor not in cells:
 			cells.append(cursor)
 	return cells

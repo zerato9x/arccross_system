@@ -25,10 +25,11 @@ func _ready() -> void:
 
 func _initialize_empty_arena() -> void:
 	arena_state = CombatArenaState.new()
-	for index in range(CombatArenaState.SECTOR_COUNT):
+	arena_state.configure_topology(CombatTopologyProfile.load_profile("duel_12x1"))
+	for index in range(arena_state.sector_count()):
 		var record := TacticalSectorRecord.new()
 		record.index = index
-		record.coords = CombatArenaState.coords_for_index(index)
+		record.coords = arena_state.coords_for(index)
 		record.surface_id = "unresolved"
 		record.surface_label = "UNRESOLVED"
 		arena_state.sectors.append(record)
@@ -125,19 +126,19 @@ func neighboring_indices(index: int) -> Array[int]:
 	var result: Array[int] = []
 	if not _valid_index(index):
 		return result
-	var coords := CombatArenaState.coords_for_index(index)
+	var coords := arena_state.coords_for(index)
 	for delta: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
 		var candidate := coords + delta
-		if CombatArenaState.contains_coords(candidate):
-			result.append(CombatArenaState.index_for_coords(candidate))
+		if arena_state.contains(candidate):
+			result.append(arena_state.index_for(candidate))
 	return result
 
 
 func grid_distance(left: int, right: int) -> int:
 	if not _valid_index(left) or not _valid_index(right):
 		return 999
-	var a := CombatArenaState.coords_for_index(left)
-	var b := CombatArenaState.coords_for_index(right)
+	var a := arena_state.coords_for(left)
+	var b := arena_state.coords_for(right)
 	return absi(a.x - b.x) + absi(a.y - b.y)
 
 
@@ -148,9 +149,9 @@ func validate_path(actor: HumanoidCore, requested: Array[Vector2i]) -> Dictionar
 	var normalized: Array[int] = [origin]
 	var previous := origin
 	for coords in requested:
-		if not CombatArenaState.contains_coords(coords):
+		if not arena_state.contains(coords):
 			return {"valid": false, "code": "path_out_of_bounds", "path": normalized}
-		var index := CombatArenaState.index_for_coords(coords)
+		var index := arena_state.index_for(coords)
 		if index == previous:
 			continue
 		if index not in neighboring_indices(previous):
@@ -186,8 +187,8 @@ func commit_path(actor: HumanoidCore, path: Array, suppress_reactions: bool = fa
 		actor_cover_edges.erase(_actor_id(actor))
 		changes.append({
 			"actor_id": _actor_id(actor),
-			"from": CombatArenaState.coords_for_index(from_index),
-			"to": CombatArenaState.coords_for_index(to_index),
+			"from": arena_state.coords_for(from_index),
+			"to": arena_state.coords_for(to_index),
 			"suppress_reactions": suppress_reactions,
 		})
 		_resolve_entry(actor, sectors[to_index])
@@ -263,13 +264,13 @@ func reaction_threats(actor: HumanoidCore, path: Array) -> Array[String]:
 func has_line_of_sight(from_index: int, to_index: int) -> bool:
 	if not _valid_index(from_index) or not _valid_index(to_index):
 		return false
-	var start := Vector2(CombatArenaState.coords_for_index(from_index))
-	var finish := Vector2(CombatArenaState.coords_for_index(to_index))
+	var start := Vector2(arena_state.coords_for(from_index))
+	var finish := Vector2(arena_state.coords_for(to_index))
 	var steps := maxi(absi(int(finish.x - start.x)), absi(int(finish.y - start.y)))
 	for step in range(1, steps):
 		var point := start.lerp(finish, float(step) / float(steps))
 		var coords := Vector2i(roundi(point.x), roundi(point.y))
-		if sectors[CombatArenaState.index_for_coords(coords)].opaque:
+		if sectors[arena_state.index_for(coords)].opaque:
 			return false
 	return true
 
@@ -313,7 +314,7 @@ func get_facing(actor: HumanoidCore) -> String:
 func facing_toward(from_index: int, to_index: int) -> String:
 	if not _valid_index(from_index) or not _valid_index(to_index):
 		return "east"
-	var delta := CombatArenaState.coords_for_index(to_index) - CombatArenaState.coords_for_index(from_index)
+	var delta := arena_state.coords_for(to_index) - arena_state.coords_for(from_index)
 	if absi(delta.x) >= absi(delta.y):
 		return "east" if delta.x >= 0 else "west"
 	return "south" if delta.y >= 0 else "north"
@@ -355,36 +356,36 @@ func preview_shove(initiator: HumanoidCore, target: HumanoidCore) -> Dictionary:
 	var target_index := position_of(target)
 	if grid_distance(source_index, target_index) != 1:
 		return {"type": "invalid", "reason": "not_adjacent"}
-	var delta := CombatArenaState.coords_for_index(target_index) - CombatArenaState.coords_for_index(source_index)
-	var destination_coords := CombatArenaState.coords_for_index(target_index) + delta
+	var delta := arena_state.coords_for(target_index) - arena_state.coords_for(source_index)
+	var destination_coords := arena_state.coords_for(target_index) + delta
 	var direction := facing_toward(source_index, target_index)
-	if not CombatArenaState.contains_coords(destination_coords):
+	if not arena_state.contains(destination_coords):
 		var forced_edges: Array = sectors[target_index].record.object_state.get("forced_exit_edges", [])
 		return {
 			"type": "forced_exit" if direction in forced_edges else "boundary",
-			"from": CombatArenaState.coords_for_index(target_index),
+			"from": arena_state.coords_for(target_index),
 			"direction": direction,
 		}
-	var destination := CombatArenaState.index_for_coords(destination_coords)
+	var destination := arena_state.index_for(destination_coords)
 	var destination_sector := sectors[destination]
 	if destination_sector.occupant != null:
 		return {
 			"type": "actor_collision",
-			"from": CombatArenaState.coords_for_index(target_index),
+			"from": arena_state.coords_for(target_index),
 			"destination": destination_coords,
 			"other_actor_id": _actor_id(destination_sector.occupant),
 		}
 	if destination_sector.blocked:
 		return {
 			"type": "object_collision",
-			"from": CombatArenaState.coords_for_index(target_index),
+			"from": arena_state.coords_for(target_index),
 			"destination": destination_coords,
 			"object_id": str(destination_sector.record.object_state.get("id", "")),
 			"destructible": destination_sector.object_durability > 0.0,
 		}
 	return {
 		"type": "clear",
-		"from": CombatArenaState.coords_for_index(target_index),
+		"from": arena_state.coords_for(target_index),
 		"destination": destination_coords,
 		"hazard": destination_sector.hazard_state.duplicate(true),
 		"trap": destination_sector.trap_state.duplicate(true),
@@ -403,14 +404,14 @@ func commit_shove(
 	match str(preview.get("type", "invalid")):
 		"clear":
 			var from_index := position_of(target)
-			var destination := CombatArenaState.index_for_coords(preview.destination)
+			var destination := arena_state.index_for(preview.destination)
 			sectors[from_index].occupant = null
 			sectors[destination].occupant = target
 			set_facing(target, facing_toward(from_index, destination))
 			_resolve_entry(target, sectors[destination])
 			result["moved"] = true
 		"object_collision":
-			var destination := CombatArenaState.index_for_coords(preview.destination)
+			var destination := arena_state.index_for(preview.destination)
 			result["terrain_mutation"] = sectors[destination].damage_object(collision_damage)
 			set_condition(target, "off_balance", true)
 		"actor_collision":
@@ -440,8 +441,8 @@ func can_melee_reach(actor: HumanoidCore, target_index: int) -> bool:
 	var origin := position_of(actor)
 	if not _valid_index(origin) or not _valid_index(target_index):
 		return false
-	var from := CombatArenaState.coords_for_index(origin)
-	var target := CombatArenaState.coords_for_index(target_index)
+	var from := arena_state.coords_for(origin)
+	var target := arena_state.coords_for(target_index)
 	var delta := target - from
 	var distance := absi(delta.x) + absi(delta.y)
 	if distance < 1 or distance > weapon_reach(actor):
@@ -451,25 +452,34 @@ func can_melee_reach(actor: HumanoidCore, target_index: int) -> bool:
 	if distance > 1:
 		var step := Vector2i(signi(delta.x), signi(delta.y))
 		for offset in range(1, distance):
-			var intervening := sectors[CombatArenaState.index_for_coords(from + step * offset)]
+			var intervening := sectors[arena_state.index_for(from + step * offset)]
 			if intervening.opaque or intervening.occupant != null:
 				return false
 	return true
 
 
 func find_spawn_sector(side: String, preferred_row: int = 2) -> int:
-	var x := 0 if side == "player" else CombatArenaState.WIDTH - 1
-	for y in [preferred_row, 1, 3, 0, 4]:
-		var index := CombatArenaState.index_for_coords(Vector2i(x, y))
+	var profile := CombatTopologyProfile.load_profile(arena_state.topology_id)
+	var deployment := profile.player_deployment if side == "player" else profile.enemy_deployment
+	for coords in deployment:
+		if not arena_state.contains(coords):
+			continue
+		var index := arena_state.index_for(coords)
 		if sectors[index].spawnable and sectors[index].is_open_for():
 			return index
+	var fallback_x := 0 if side == "player" else arena_state.width - 1
+	var fallback := Vector2i(fallback_x, clampi(preferred_row, 0, arena_state.height - 1))
+	if arena_state.contains(fallback):
+		var fallback_index := arena_state.index_for(fallback)
+		if sectors[fallback_index].spawnable and sectors[fallback_index].is_open_for():
+			return fallback_index
 	return -1
 
 
 func find_nearest_open_sector(preferred_index: int) -> int:
 	if _valid_index(preferred_index) and sectors[preferred_index].spawnable and sectors[preferred_index].is_open_for():
 		return preferred_index
-	for radius in range(1, CombatArenaState.WIDTH + CombatArenaState.HEIGHT):
+	for radius in range(1, arena_state.width + arena_state.height):
 		for index in range(sectors.size()):
 			if grid_distance(preferred_index, index) == radius and sectors[index].spawnable and sectors[index].is_open_for():
 				return index
@@ -485,6 +495,7 @@ func capture_environment_patch() -> Dictionary:
 			patches[str(sector.index)] = current
 	return {
 		"schema_version": CombatArenaState.SCHEMA_VERSION,
+		"topology_id": arena_state.topology_id if arena_state != null else "duel_12x1",
 		"baseline_seed": arena_state.baseline_seed if arena_state != null else 0,
 		"sector_patches": patches,
 	}
@@ -495,8 +506,11 @@ func snapshot() -> Dictionary:
 	for sector in sectors:
 		sector_data.append(sector.presentation_descriptor())
 	return {
-		"width": CombatArenaState.WIDTH,
-		"height": CombatArenaState.HEIGHT,
+		"topology_id": arena_state.topology_id,
+		"width": arena_state.width,
+		"height": arena_state.height,
+		"movement_policy": arena_state.movement_policy,
+		"presentation_style": CombatTopologyProfile.load_profile(arena_state.topology_id).presentation_style,
 		"sectors": sector_data,
 		"facings": actor_facings.duplicate(true),
 		"cover_edges": actor_cover_edges.duplicate(true),

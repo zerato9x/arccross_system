@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CombatTopologyProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://SystemCore/CombatTopologyProfile.gd" id="1_profile"]
+
+[resource]
+script = ExtResource("1_profile")
+topology_id = "squad_7x5"
+columns = 7
+rows = 5
+movement_policy = 0
+player_deployment = Array[Vector2i]([Vector2i(0, 2), Vector2i(0, 1), Vector2i(0, 3), Vector2i(1, 2)])
+enemy_deployment = Array[Vector2i]([Vector2i(6, 2), Vector2i(6, 1), Vector2i(6, 3), Vector2i(5, 2)])
+presentation_style = "tactical_grid"

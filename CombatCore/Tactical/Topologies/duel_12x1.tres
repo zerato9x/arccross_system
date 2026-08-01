@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CombatTopologyProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://SystemCore/CombatTopologyProfile.gd" id="1_profile"]
+
+[resource]
+script = ExtResource("1_profile")
+topology_id = "duel_12x1"
+columns = 12
+rows = 1
+movement_policy = 1
+player_deployment = Array[Vector2i]([Vector2i(0, 0), Vector2i(1, 0)])
+enemy_deployment = Array[Vector2i]([Vector2i(11, 0), Vector2i(10, 0), Vector2i(9, 0)])
+presentation_style = "duel_lane"

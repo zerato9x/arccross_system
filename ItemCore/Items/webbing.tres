@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://20ivxxjbf77o"]
 
-[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+[ext_resource type="Script" uid="uid://jbxk0eeleei8" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
 
 [resource]
 script = ExtResource("1_itemdata")
@@ -8,34 +8,16 @@ id = "webbing"
 display_name = "Webbing"
 lore_description = "Webbing: Civilian protective gear. Coverage matters more than the label, and damaged layers stop earning their keep."
 item_type = 2
-armor_coverage = Array[int]([1, 2])
-armor_coverage = Array[int]([1, 2])
 catalog_category = 13
-item_grade = 1
-condition_enabled = true
-repair_domain = 2
-maintenance_constraint = ""
 tags = Array[String](["equipment"])
-size_cost = 1
-max_stack_size = 1
+repair_domain = 2
+capacity_bonus = 2
 target_slot = 9
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/Chest/webbing.png"
-weapon_type = 0
-flesh_damage = 0.0
-balance_impact = 0.0
-armor_penetration = 0.0
-accuracy_rating = 6.0
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Chest/equip_webbing.png", "res://Asset/Innawoods_Asset/Equipments/Chest/equip_webbing_service.png", "res://Asset/Innawoods_Asset/Equipments/Chest/equip_webbing_service_2.png"])
 protection_blunt = 1.0
 protection_sharp = 1.0
 protection_ballistic = 0.75
+armor_coverage = Array[int]([1, 2])
 bulk = 0.85
 weight = 1.0
-interaction_roles = Array[int]([])
-search_loot_bonus = 0.0
-search_safety_bonus = 0.0
-search_sneak_bonus = 0.0
-camp_shelter_bonus = 0.0
-camp_alertness_bonus = 0.0
-consumable_potency = 0.0
-capacity_bonus = 2
-equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Chest/equip_webbing.png", "res://Asset/Innawoods_Asset/Equipments/Chest/equip_webbing_service.png", "res://Asset/Innawoods_Asset/Equipments/Chest/equip_webbing_service_2.png"])

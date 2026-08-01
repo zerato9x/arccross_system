@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://d3kefwbda40nn"]
 
-[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+[ext_resource type="Script" uid="uid://jbxk0eeleei8" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
 
 [resource]
 script = ExtResource("1_itemdata")
@@ -8,33 +8,15 @@ id = "boot_brown"
 display_name = "Boot Brown"
 lore_description = "Boot Brown: Civilian protective gear. Coverage matters more than the label, and damaged layers stop earning their keep."
 item_type = 2
-armor_coverage = Array[int]([5, 6])
-armor_coverage = Array[int]([5, 6])
 catalog_category = 16
-item_grade = 1
-condition_enabled = true
-repair_domain = 2
-maintenance_constraint = ""
 tags = Array[String](["equipment"])
-size_cost = 1
-max_stack_size = 1
+repair_domain = 2
 target_slot = 5
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/Foot/boot_brown.png"
-weapon_type = 0
-flesh_damage = 0.0
-balance_impact = 0.0
-armor_penetration = 0.0
-accuracy_rating = 6.0
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Foot/equip_boot_brown.png"])
 protection_blunt = 1.25
 protection_sharp = 1.25
 protection_ballistic = 1.0
+armor_coverage = Array[int]([5, 6])
 bulk = 1.1
 weight = 1.3
-interaction_roles = Array[int]([])
-search_loot_bonus = 0.0
-search_safety_bonus = 0.0
-search_sneak_bonus = 0.0
-camp_shelter_bonus = 0.0
-camp_alertness_bonus = 0.0
-consumable_potency = 0.0
-equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Foot/equip_boot_brown.png"])

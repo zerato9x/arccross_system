@@ -2,6 +2,7 @@ extends Resource
 class_name CombatEncounterRecord
 
 @export var encounter_id: String = ""
+@export var topology_id: String = "duel_12x1"
 @export var source_coords: Vector2i = Vector2i.ZERO
 @export var approach_from: Vector2i = Vector2i.ZERO
 @export var initiator_id: String = ""
@@ -23,6 +24,7 @@ func to_dict() -> Dictionary:
 		neighbors.append(record.to_dict() if record != null else {})
 	return {
 		"encounter_id": encounter_id,
+		"topology_id": topology_id,
 		"source_coords": source_coords,
 		"approach_from": approach_from,
 		"initiator_id": initiator_id,
@@ -42,6 +44,7 @@ func to_dict() -> Dictionary:
 static func from_dict(data: Dictionary) -> CombatEncounterRecord:
 	var record := CombatEncounterRecord.new()
 	record.encounter_id = str(data.get("encounter_id", ""))
+	record.topology_id = str(data.get("topology_id", "duel_12x1"))
 	record.source_coords = data.get("source_coords", Vector2i.ZERO)
 	record.approach_from = data.get("approach_from", Vector2i.ZERO)
 	record.initiator_id = str(data.get("initiator_id", ""))

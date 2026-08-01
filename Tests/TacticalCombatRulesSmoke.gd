@@ -204,6 +204,7 @@ func _actor(actor_id: String, faction: int) -> HumanoidCore:
 
 func _encounter() -> CombatEncounterRecord:
 	var encounter := CombatEncounterRecord.new()
+	encounter.topology_id = "squad_7x5"
 	encounter.encounter_id = "tactical_rules_smoke"
 	encounter.world_seed = "TACTICAL_RULES_SMOKE"
 	encounter.center_hex = HexRecord.new()
@@ -251,7 +252,7 @@ func _indices(path: Array[Vector2i]) -> Array[int]:
 
 
 func _index(coords: Vector2i) -> int:
-	return CombatArenaState.index_for_coords(coords)
+	return _board.arena_state.index_for(coords)
 
 
 func _fail(message: String) -> bool:

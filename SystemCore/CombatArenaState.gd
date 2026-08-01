@@ -1,12 +1,15 @@
 extends Resource
 class_name CombatArenaState
 
-const WIDTH: int = 7
-const HEIGHT: int = 5
-const SECTOR_COUNT: int = WIDTH * HEIGHT
-const SCHEMA_VERSION: int = 1
+const LEGACY_WIDTH: int = 7
+const LEGACY_HEIGHT: int = 5
+const SCHEMA_VERSION: int = 2
 
 @export var schema_version: int = SCHEMA_VERSION
+@export var topology_id: String = "duel_12x1"
+@export var width: int = 12
+@export var height: int = 1
+@export var movement_policy: int = CombatTopologyProfile.MovementPolicy.LINEAR_NO_PASS
 @export var baseline_seed: int = 0
 @export var source_coords: Vector2i = Vector2i.ZERO
 @export var orientation_step: int = 0
@@ -19,31 +22,44 @@ const SCHEMA_VERSION: int = 1
 
 
 func is_valid() -> bool:
-	if sectors.size() != SECTOR_COUNT:
+	if sectors.size() != sector_count():
 		return false
 	for sector in sectors:
-		if sector == null or not contains_coords(sector.coords):
+		if sector == null or not contains(sector.coords):
 			return false
 	return true
 
 
 func sector_at(coords: Vector2i) -> TacticalSectorRecord:
-	if not contains_coords(coords):
+	if not contains(coords):
 		return null
-	var index := index_for_coords(coords)
+	var index := index_for(coords)
 	return sectors[index] if index >= 0 and index < sectors.size() else null
 
 
-static func contains_coords(coords: Vector2i) -> bool:
-	return coords.x >= 0 and coords.x < WIDTH and coords.y >= 0 and coords.y < HEIGHT
+func sector_count() -> int:
+	return width * height
 
 
-static func index_for_coords(coords: Vector2i) -> int:
-	return coords.y * WIDTH + coords.x
+func contains(coords: Vector2i) -> bool:
+	return coords.x >= 0 and coords.x < width and coords.y >= 0 and coords.y < height
 
 
-static func coords_for_index(index: int) -> Vector2i:
-	return Vector2i(index % WIDTH, index / WIDTH)
+func index_for(coords: Vector2i) -> int:
+	return coords.y * width + coords.x
+
+
+func coords_for(index: int) -> Vector2i:
+	return Vector2i(index % width, index / width)
+
+
+func configure_topology(profile: CombatTopologyProfile) -> void:
+	if profile == null:
+		return
+	topology_id = profile.topology_id
+	width = profile.columns
+	height = profile.rows
+	movement_policy = profile.movement_policy
 
 
 func to_dict() -> Dictionary:
@@ -52,6 +68,10 @@ func to_dict() -> Dictionary:
 		sector_states.append(sector.to_dict())
 	return {
 		"schema_version": schema_version,
+		"topology_id": topology_id,
+		"width": width,
+		"height": height,
+		"movement_policy": movement_policy,
 		"baseline_seed": baseline_seed,
 		"source_coords": source_coords,
 		"orientation_step": orientation_step,
@@ -67,6 +87,13 @@ func to_dict() -> Dictionary:
 static func from_dict(data: Dictionary) -> CombatArenaState:
 	var state := CombatArenaState.new()
 	state.schema_version = int(data.get("schema_version", SCHEMA_VERSION))
+	state.topology_id = str(data.get("topology_id", "squad_7x5"))
+	state.width = int(data.get("width", LEGACY_WIDTH))
+	state.height = int(data.get("height", LEGACY_HEIGHT))
+	state.movement_policy = int(data.get(
+		"movement_policy",
+		CombatTopologyProfile.MovementPolicy.ORTHOGONAL
+	))
 	state.baseline_seed = int(data.get("baseline_seed", 0))
 	state.source_coords = data.get("source_coords", Vector2i.ZERO)
 	state.orientation_step = int(data.get("orientation_step", 0))

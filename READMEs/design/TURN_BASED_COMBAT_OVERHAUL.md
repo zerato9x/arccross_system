@@ -1,94 +1,76 @@
-# Official Turn-Based Combat Overhaul
+# Official Tactical Combat
 
-Status updated on **July 23, 2026**.
+Status updated on **August 1, 2026**.
 
-Turn-based combat is ARCCROSS's official/default combat authority. Real-time
-combat remains available as an optional setting. Both modes consume the same
-canonical entity, anatomy, wound, inventory, ammunition, condition,
-malfunction, armor, shield, and persistence data. They do **not** share cadence,
-AI scoring, action costs, timing, or mode-specific balance modifiers.
+ARCCROSS has one production combat rules authority:
+`CombatCore/Tactical/TacticalCombatScene.tscn`. It consumes the canonical
+entity, anatomy, wound, inventory, ammunition, condition, malfunction, armor,
+shield, and persistence records. The former real-time and legacy turn-based
+duel runtimes are presentation and migration references, not selectable rules
+engines.
 
-## Runtime contract
+## Production contract
 
-- `GameSettingsStore.DEFAULT_COMBAT_MODE` is `turn_based`.
-- `GameDirector` routes combat entry to one authority; it never runs both
-  authorities in production.
-- `CombatTurnManager` treats every accepted action as a transaction. AP can be
-  committed immediately, but the turn cannot advance until rules resolution and
-  queued presentation complete.
-- `CombatAIEvaluator` awaits each action, observes the same transaction barrier,
-  limits decisions per turn, reserves defensive AP when appropriate, and treats
-  aimed shots as deliberate finishers rather than the universal best button.
-- `TurnBasedCombatBalance` owns turn-only presentation cadence and cue markers.
-  Durations sit near each humanoid clip's nominal length so timed stretch stays
-  inside roughly `0.75x–1.25x` of sheet FPS. `recovery_seconds` is consumed by
-  `CombatLaneView` after the action cue (full remaining clip for late cues such
-  as reload/cover; short recovery settle for early impact cues so projectiles
-  still start on the marker). Turn hit reacts stretch `TakeDamage` instead of
-  awaiting the full natural sheet.
-- Realtime `DuelWeaponProfile` resources remain independent.
-- `CombatLaneView`, projectile presentation, impact feedback, and the firearm
-  card consume the same turn action profile. Actor windup reaches its cue before
-  projectile/damage presentation begins.
-- `RealtimeWeaponCard` is a shared item presentation component despite its
-  historical name; `play_turn_action()` maps turn commands onto the firearm
-  sheets and stretches the complete sheet across the authored action duration.
-- Firearm atlas regions use integer row/column coordinates. Fractional row
-  sampling is forbidden because it slices between frames even on a one-row
-  source sheet.
-- The combat stage owns a local readability tint. Live inspection found no
-  shader, material, briefing shade, or non-white inherited modulation causing
-  the dim view; the plains source plate itself is dark.
-- `CombatLaneHUD` consumes the shared `HUDAssetLibrary` semantic palette. Its
-  top summaries and weapon cards retain visible frames, and the compact command
-  deck must not overlap its combat log.
-- Viewport-density scaling grows authored HUD content up to `1.45x` above the
-  1920x1080 reference while preserving logical card and label coordinates.
-- Projectile trails, bullets, and blood sprites unregister and free themselves
-  at the end of presentation; the active VFX registry must return to zero.
+- `GameDirector` always launches the tactical scene with `duel_12x1`.
+- The production board is one row of twelve unique cells. Occupants block the
+  only route, so actors cannot pass through one another.
+- Melee engagement is adjacency, not shared-cell overlap.
+- Encounters support one player against one hostile, plus one adjacent living
+  hostile with the same non-empty macro `squad_id`.
+- `skirmish_6x3` and `squad_7x5` use the same board, action, resolution, AI, and
+  presentation contracts. They remain topology-lab profiles until their wider
+  encounter and cover design is approved.
+- Every turn uses a discrete 12 AP pool. The authored action catalog, typed
+  previews, confirmation requirements, reaction windows, and transaction
+  barriers remain authoritative.
+- Macro shooting and terrain cover are macro-world interactions. Only durable
+  entity state such as wounds, blood, ammunition, item condition, and inventory
+  crosses the combat boundary.
 
-## Current acceptance evidence
+## HUD and presentation contract
 
-- Godot **4.7.1 Steam** imports and runs the turn-based scene.
-- Live MCP evaluation observed an active revolver action with the turn
-  transaction locked, `Attack1` playing, and all 10 firearm-sheet frames mapped
-  to the same `0.72s` action profile.
-- A second live MCP pass observed revolver frame `3/10` and actor `Attack1`
-  frame `1` active on the same turn timeline after the atlas-row correction.
-- The live stage carried no CanvasItem material and used white inherited
-  modulation before the explicit readability tint.
-- The lock released only after the projectile/presentation queue drained.
-- At the live 2860x1734 viewport the HUD selected `1.45x` density, produced
-  182.7px top and 312.12px bottom panels, and kept the command regions separate.
-- A live hit created two registered projectile nodes during flight, played one
-  impact sound, drained the presentation queue, and returned the VFX registry
-  to zero.
-- A full AI turn completed three sequential decisions without overlapping
-  transactions or leaving the HUD queue busy.
-- `Tests/TurnBasedCombatOverhaulSmoke.gd` covers the official default, timing
-  profiles, transaction barrier, and turn firearm-card playback.
-- `Tests/CombatLaneHUDSmoke.gd` covers high-resolution density and both miss and
-  hit VFX cleanup.
+- Pointer selection is primary. Selecting an enemy, the player, an item, or a
+  destination opens relevant actions near that selection.
+- Keyboard mirrors the same action buttons through visible numbers and
+  mnemonics; it does not maintain a second command model.
+- Movement is previewed and commits on confirmation or a second click.
+  Consequential actions retain authored confirmation.
+- Player anatomy, wounds, and systemic bars remain visible. Enemy tokens show
+  compact Blood and Consciousness bars; full anatomy and systemic details
+  appear only for the selected enemy.
+- The pack is a collapsible combat drawer. The active authored weapon sprite,
+  ammunition, condition, range, and readiness remain visible in
+  `CombatItemCard`.
+- `TacticalArenaView` instances the layered `HumanoidToken` renderer and plays
+  the existing authored animation IDs. Rules state is committed transactionally
+  while the visible snapshot waits for the short presentation sequence.
 
-## Next combat work
+## Acceptance evidence
 
-1. Continue presentation polish with weapon-specific cue overrides where source
-   sheets place muzzle flash or mechanical contact outside the generic shoot
-   cue.
-2. Expand enemy weapon-card animation beyond the current player command card
-   and actor animation.
-3. Run repeated archetype-versus-archetype simulations and tune turn-only action
-   costs, reaction reserve policy, and tactic weights **only when the deferred
-   AI overhaul resumes**.
-4. Audit every July 20 bulk-authored combat item against its focused mechanic
-   smoke; the shield rewrite already proved that a prettier catalog entry can
-   quietly amputate functional fields.
-5. Keep cross-mode tests focused on shared state invariants. Do not require
-   identical combat outcomes from different clocks and balance layers.
+- Godot **4.7.1 Steam** completed a headless editor import after the topology,
+  encounter, HUD, and presentation changes.
+- `Tests/CombatDuelTopologySmoke.gd` covers the three profile dimensions,
+  production 1v2 deployment, clutter-free duel sectors, and linear no-passing.
+- `Tests/CombatArenaOverhaulSmoke.gd` keeps deterministic `7 x 5` generation and
+  persistent terrain mutation covered as a laboratory profile.
+- `Tests/TacticalCombatRulesSmoke.gd` covers AP transactions, movement, posture,
+  shove geometry, melee reach, forecasts, and the current action catalog.
+- `Tests/TacticalHUDLayoutSmoke.gd` covers the tactical HUD scene contract.
+
+## Remaining work
+
+1. Perform a live editor/runtime usability pass at supported resolutions; the
+   current evidence proves parsing and focused behavior, not final visual taste.
+2. Tune popup density and shortcut labels from real play rather than adding
+   another abstract menu layer.
+3. Add cinematic camera/impact overrides only for finishers, aimed attacks, and
+   severe wounds; ordinary actions should remain snappy.
+4. Expand beyond 1v2 only with explicit encounter grouping and readable
+   deployment rules. The presence of larger topology resources is not approval
+   to ship squad soup.
 
 ## Campaign dependency
 
-The Central Core campaign implementation is paused until the complete
-categorized asset folder is available to pull from. Its design contract remains
-authoritative, but campaign scene/profile implementation must not invent a
-temporary asset taxonomy that will be thrown away on import.
+The Central Core campaign implementation remains dependent on its categorized
+asset library. Combat topology work must not invent substitute campaign art or
+conflate macro cover mechanics with the concise duel simulation.

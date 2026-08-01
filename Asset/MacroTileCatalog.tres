@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="MacroTileCatalog" format=3]
+[gd_resource type="Resource" script_class="MacroTileCatalog" format=3 uid="uid://t0lyhgndrleq"]
 
-[ext_resource type="Script" path="res://WorldCore/MacroTileCatalog.gd" id="1_16stl"]
+[ext_resource type="Script" uid="uid://csf28ubddbvgb" path="res://WorldCore/MacroTileCatalog.gd" id="1_16stl"]
 
 [resource]
 script = ExtResource("1_16stl")

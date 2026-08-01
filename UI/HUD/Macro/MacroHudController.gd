@@ -30,12 +30,21 @@ signal exploration_inventory_action_requested(
 signal exploration_interaction_closed
 signal location_action_requested(command: Dictionary)
 signal node_map_requested
+signal hex_map_requested
 signal minimap_hex_selected(coords: Vector2i)
+signal hex_map_hex_selected(coords: Vector2i)
+signal hex_map_travel_requested(coords: Vector2i)
+signal primary_surface_changed(surface_id: StringName)
 
 const MAX_SCALE := 12.0
+const HEX_WORLD_MAP_SCENE := preload(
+	"res://UI/HUD/Macro/MacroHexWorldMapOverlay.tscn"
+)
 
 var _snapshot: Dictionary = {}
 var _layout_manager := MacroHudLayoutManager.new()
+var _input_barrier: Control
+var _hex_world_map: MacroHexWorldMapOverlay
 
 @onready var _root: Control = %Root
 @onready var _health_panel: MacroHealthCornerPanel = %MacroHealthPanel
@@ -63,6 +72,18 @@ func _ready() -> void:
 	layer = 8
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_input_barrier = Control.new()
+	_input_barrier.name = "WorkSurfaceInputBarrier"
+	_input_barrier.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_input_barrier.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(_input_barrier)
+	_root.move_child(_input_barrier, 1)
+	_hex_world_map = HEX_WORLD_MAP_SCENE.instantiate() as MacroHexWorldMapOverlay
+	_hex_world_map.name = "MacroHexWorldMapOverlay"
+	_root.add_child(_hex_world_map)
+	_hex_world_map.closed.connect(_on_hex_world_map_closed)
+	_hex_world_map.hex_selected.connect(hex_map_hex_selected.emit)
+	_hex_world_map.travel_requested.connect(hex_map_travel_requested.emit)
 	_settings_panel.visible = false
 	_configure_scanline_overlay()
 	_restyle_settings_chrome()
@@ -77,6 +98,7 @@ func _ready() -> void:
 		func(count: int): _world_status.set_work_surface_active(count > 0)
 	)
 	_health_panel.medical_action_requested.connect(medical_action_requested.emit)
+	_health_panel.state_changed.connect(_on_primary_panel_state_changed)
 	_inventory_panel.fullscreen_requested.connect(inventory_requested.emit)
 	_hex_panel.expand_requested_hex.connect(hex_preview_expand_requested.emit)
 	_hex_panel.location_action_requested.connect(location_action_requested.emit)
@@ -88,6 +110,7 @@ func _ready() -> void:
 	_target_panel.travel_requested.connect(hex_preview_travel_requested.emit)
 	_world_status.settings_requested.connect(_open_settings)
 	_world_status.node_map_requested.connect(node_map_requested.emit)
+	_world_status.hex_map_requested.connect(_on_hex_map_requested)
 	_world_status.minimap_hex_selected.connect(minimap_hex_selected.emit)
 	_exploration_stage.choice_submitted.connect(event_choice_submitted.emit)
 	_exploration_stage.event_closed.connect(event_closed.emit)
@@ -115,7 +138,7 @@ func _ready() -> void:
 	_populate_hud_scheme_option()
 	_hud_scheme_option.item_selected.connect(_on_hud_scheme_selected)
 	if _save_load_menu:
-		_save_load_menu.menu_closed.connect(func(): _save_load_menu.visible = false)
+		_save_load_menu.menu_closed.connect(_on_save_load_closed)
 		_save_load_menu.slot_selected.connect(_on_save_load_slot_selected)
 	var settings := get_node_or_null("/root/GameSettings")
 	if settings != null:
@@ -155,10 +178,15 @@ func refresh(snapshot: Dictionary) -> void:
 	if _hex_panel.is_expanded():
 		_target_panel.visible = false
 	_world_status.apply_snapshot(snapshot)
+	if _hex_world_map != null and _hex_world_map.is_open():
+		_hex_world_map.refresh_map(snapshot.get("minimap", {}))
 
 
 func toggle_health_panel() -> void:
+	if not _health_panel.is_expanded():
+		close_primary_surfaces(&"health")
 	_health_panel.toggle_expanded()
+	_sync_primary_surface_state()
 
 
 func toggle_inventory_panel() -> void:
@@ -206,7 +234,9 @@ func present_poi(
 	location["fixture_count"] = session.get("site", {}).get("fixtures", []).size()
 	_snapshot["current_location"] = location
 	_hex_panel.apply_snapshot(_snapshot)
+	close_primary_surfaces(&"here")
 	_hex_panel.expand()
+	_sync_primary_surface_state()
 
 
 func bind_exploration_window(window: MacroExplorationWindow) -> void:
@@ -220,6 +250,7 @@ func get_exploration_stage() -> MacroExplorationStage:
 func open_event(session: Dictionary) -> void:
 	hide_entity_inspect()
 	_exploration_stage.open_event(session)
+	_sync_primary_surface_state()
 
 
 func show_entity_inspect(payload: Dictionary) -> void:
@@ -241,6 +272,7 @@ func show_event_result(result: Dictionary) -> void:
 
 func close_event(notify: bool = true) -> void:
 	_exploration_stage.close_event(notify)
+	_sync_primary_surface_state()
 
 
 func is_event_open() -> bool:
@@ -277,41 +309,101 @@ func is_any_panel_expanded() -> bool:
 	return _layout_manager.is_any_expanded()
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if not visible or not event is InputEventKey or not event.pressed or event.echo:
-		return
-	match event.keycode:
-		KEY_M:
-			toggle_health_panel()
-			get_viewport().set_input_as_handled()
-		KEY_I, KEY_TAB:
-			toggle_inventory_panel()
-			get_viewport().set_input_as_handled()
-		KEY_O:
-			if _settings_panel.visible:
-				_close_settings()
-			else:
-				_open_settings()
-			get_viewport().set_input_as_handled()
-		KEY_ESCAPE:
-			if _settings_panel.visible:
-				_close_settings()
-				get_viewport().set_input_as_handled()
+func _unhandled_input(_event: InputEvent) -> void:
+	# MacroGameManager owns shortcut priority so UI keys cannot race world keys.
+	# Individual fullscreen surfaces still consume their own Escape input.
+	return
+
+
+func open_settings() -> void:
+	close_primary_surfaces(&"settings")
+	_settings_panel.visible = true
+	_sync_primary_surface_state()
+
+
+func close_settings() -> void:
+	_settings_panel.visible = false
+	_sync_primary_surface_state()
+
+
+func toggle_settings() -> void:
+	if _settings_panel.visible:
+		close_settings()
+	else:
+		open_settings()
+
+
+func open_hex_world_map() -> void:
+	close_primary_surfaces(&"hex_map")
+	_hex_world_map.open_map(_snapshot.get("minimap", {}))
+	_sync_primary_surface_state()
+
+
+func close_hex_world_map() -> void:
+	if _hex_world_map != null:
+		_hex_world_map.close_map(false)
+	_sync_primary_surface_state()
+
+
+func is_hex_world_map_open() -> bool:
+	return _hex_world_map != null and _hex_world_map.is_open()
+
+
+func get_active_primary_surface() -> StringName:
+	if is_hex_world_map_open():
+		return &"hex_map"
+	if _save_load_menu != null and _save_load_menu.visible:
+		return &"save_load"
+	if _settings_panel != null and _settings_panel.visible:
+		return &"settings"
+	if _health_panel != null and _health_panel.is_expanded():
+		return &"health"
+	if _hex_panel != null and _hex_panel.is_expanded():
+		return &"here"
+	return &""
+
+
+func blocks_world_commands() -> bool:
+	return not get_active_primary_surface().is_empty() or is_event_open()
+
+
+func close_active_primary_surface() -> bool:
+	var active := get_active_primary_surface()
+	if active.is_empty():
+		return false
+	close_primary_surfaces()
+	return true
+
+
+func close_primary_surfaces(except: StringName = &"") -> void:
+	if except != &"health" and _health_panel != null and _health_panel.is_expanded():
+		_health_panel.collapse()
+	if except != &"here" and _hex_panel != null and _hex_panel.is_expanded():
+		_hex_panel.collapse()
+	if except != &"settings" and _settings_panel != null:
+		_settings_panel.visible = false
+	if except != &"save_load" and _save_load_menu != null:
+		_save_load_menu.visible = false
+	if except != &"hex_map" and _hex_world_map != null:
+		_hex_world_map.close_map(false)
+	_sync_primary_surface_state()
 
 
 func _open_settings() -> void:
-	_settings_panel.visible = true
+	open_settings()
 
 
 func _close_settings() -> void:
-	_settings_panel.visible = false
+	close_settings()
 
 
 func _open_save_load(mode: String) -> void:
+	close_primary_surfaces(&"save_load")
 	if _save_load_menu:
 		_save_load_menu.visible = true
 		_save_load_menu.setup_mode(mode)
 	_settings_panel.visible = false
+	_sync_primary_surface_state()
 
 
 func _on_save_load_slot_selected(slot: int) -> void:
@@ -348,9 +440,41 @@ func _set_hud_scale(value: float) -> void:
 
 func _on_here_panel_state_changed(_panel_id: String, state: int) -> void:
 	if state == MacroCornerPanel.PanelState.EXPANDED:
+		close_primary_surfaces(&"here")
 		_target_panel.visible = false
 	else:
 		_target_panel.apply_snapshot(_snapshot)
+	_sync_primary_surface_state()
+
+
+func _on_primary_panel_state_changed(panel_id: String, state: int) -> void:
+	if state == MacroCornerPanel.PanelState.EXPANDED:
+		close_primary_surfaces(StringName(panel_id))
+	_sync_primary_surface_state()
+
+
+func _on_hex_map_requested() -> void:
+	hex_map_requested.emit()
+
+
+func _on_hex_world_map_closed() -> void:
+	_sync_primary_surface_state()
+
+
+func _on_save_load_closed() -> void:
+	_save_load_menu.visible = false
+	_sync_primary_surface_state()
+
+
+func _sync_primary_surface_state() -> void:
+	var active := get_active_primary_surface()
+	if _input_barrier != null:
+		_input_barrier.mouse_filter = (
+			Control.MOUSE_FILTER_STOP
+			if not active.is_empty()
+			else Control.MOUSE_FILTER_IGNORE
+		)
+	primary_surface_changed.emit(active)
 
 
 func _on_screen_noise_toggled(enabled: bool) -> void:

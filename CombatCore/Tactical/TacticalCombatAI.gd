@@ -104,7 +104,7 @@ func enumerate_requests() -> Array[CombatActionRequest]:
 			request.action_id = action_id
 			request.final_facing = board.facing_toward(int(path[-2]), int(path[-1]))
 			for index in path.slice(1):
-				request.path.append(CombatArenaState.coords_for_index(int(index)))
+				request.path.append(board.arena_state.coords_for(int(index)))
 			requests.append(request)
 	return requests
 
@@ -115,8 +115,8 @@ func _score(request: CombatActionRequest, action_quote: CombatActionQuote) -> fl
 	var tags := definition.ai_tags
 	var target_index := board.position_of(target)
 	var destination := (
-		CombatArenaState.index_for_coords(action_quote.target_sector)
-		if CombatArenaState.contains_coords(action_quote.target_sector)
+		board.arena_state.index_for(action_quote.target_sector)
+		if board.arena_state.contains(action_quote.target_sector)
 		else board.position_of(actor)
 	)
 	var distance := board.grid_distance(destination, target_index)

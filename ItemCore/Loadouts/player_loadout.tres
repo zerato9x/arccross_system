@@ -1,21 +1,22 @@
 [gd_resource type="Resource" script_class="SpawnLoadout" format=3 uid="uid://uqkjvhfm33sc"]
 
 [ext_resource type="Script" uid="uid://dtqcfhk0wbwug" path="res://ItemCore/SpawnLoadout.gd" id="1_loadout"]
-[ext_resource type="Resource" path="res://ItemCore/Items/revolver.tres" id="2_weapon"]
-[ext_resource type="Resource" path="res://ItemCore/Items/coat_leather.tres" id="3_armor"]
-[ext_resource type="Resource" path="res://ItemCore/Items/boot_brown.tres" id="4_boots"]
-[ext_resource type="Resource" path="res://ItemCore/Items/mre.tres" id="5_food"]
+[ext_resource type="Resource" uid="uid://s083iesua7su" path="res://ItemCore/Items/revolver.tres" id="2_weapon"]
+[ext_resource type="Resource" uid="uid://bsyw4sepbyijl" path="res://ItemCore/Items/coat_leather.tres" id="3_armor"]
+[ext_resource type="Resource" uid="uid://d3kefwbda40nn" path="res://ItemCore/Items/boot_brown.tres" id="4_boots"]
+[ext_resource type="Resource" uid="uid://cxsm81efox4xp" path="res://ItemCore/Items/mre.tres" id="5_food"]
+[ext_resource type="Script" uid="uid://jbxk0eeleei8" path="res://ItemCore/ItemData.gd" id="5_upu7a"]
 [ext_resource type="Resource" path="res://ItemCore/Items/water_bottle.tres" id="6_water"]
-[ext_resource type="Resource" path="res://ItemCore/Items/revolver_speedloader.tres" id="11_magazine"]
-[ext_resource type="Resource" path="res://ItemCore/Items/pistol_round.tres" id="12_round"]
-[ext_resource type="Resource" path="res://ItemCore/Items/backpack_survivalist.tres" id="13_pack"]
-[ext_resource type="Resource" path="res://ItemCore/Items/webbing.tres" id="14_rig"]
+[ext_resource type="Resource" uid="uid://p6fnkh8addsx" path="res://ItemCore/Items/revolver_speedloader.tres" id="11_magazine"]
+[ext_resource type="Resource" uid="uid://byoordq035xsd" path="res://ItemCore/Items/pistol_round.tres" id="12_round"]
+[ext_resource type="Resource" uid="uid://d4dd2nd2c33q5" path="res://ItemCore/Items/backpack_survivalist.tres" id="13_pack"]
+[ext_resource type="Resource" uid="uid://20ivxxjbf77o" path="res://ItemCore/Items/webbing.tres" id="14_rig"]
 
 [resource]
 script = ExtResource("1_loadout")
 weapon = ExtResource("2_weapon")
 outer_torso = ExtResource("3_armor")
 feet = ExtResource("4_boots")
-backpack_gear = ExtResource("13_pack")
-starting_items = [ExtResource("5_food"), ExtResource("6_water"), ExtResource("11_magazine"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round")]
 vest = ExtResource("14_rig")
+backpack_gear = ExtResource("13_pack")
+starting_items = Array[ExtResource("5_upu7a")]([ExtResource("5_food"), ExtResource("6_water"), ExtResource("11_magazine"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round"), ExtResource("12_round")])

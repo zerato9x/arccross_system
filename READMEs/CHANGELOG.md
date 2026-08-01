@@ -1,5 +1,25 @@
 # ARCCROSS Changelog
 
+## August 1, 2026
+
+### Concise Tactical Duel Lane
+
+- Made `duel_12x1` the production combat topology while retaining `skirmish_6x3`
+  and `squad_7x5` as configurable laboratory profiles on the same rules engine.
+- Generalized arena geometry, generation, snapshots, deployment, movement,
+  previews, AI, and persistence away from hard-coded `7 x 5` dimensions.
+- Added supported 1v2 assembly for one adjacent hostile sharing the initiating
+  enemy's squad ID; other macro actors do not teleport into the encounter.
+- Reworked the tactical HUD around near-selection action popups, numbered and
+  mnemonic shortcuts, always-visible player vitals, selection-gated detailed
+  enemy health, minimal in-lane health bars, a compact pack drawer, and the
+  existing authored weapon sprite card.
+- Kept current 12 AP transactions, forecasts, wounds, ammunition, condition,
+  inventory, and reactions authoritative while retaining the layered Humanoid
+  Token animations and snappy presentation sequence.
+- Repurposed the obsolete combat-mode comparison scene into a topology lab and
+  added focused duel topology, tactical rules, arena, and HUD smoke coverage.
+
 ## July 29, 2026
 
 ### Hex World Generator V2 — Fixed Logistics And One Starter Settlement

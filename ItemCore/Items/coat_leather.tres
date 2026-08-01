@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://bsyw4sepbyijl"]
 
-[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+[ext_resource type="Script" uid="uid://jbxk0eeleei8" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
 
 [resource]
 script = ExtResource("1_itemdata")
@@ -8,36 +8,18 @@ id = "coat_leather"
 display_name = "Scavenger Leather Coat"
 lore_description = "Scavenger Leather Coat: Civilian protective gear. Coverage matters more than the label, and damaged layers stop earning their keep."
 item_type = 2
-armor_coverage = Array[int]([1, 2])
-armor_coverage = Array[int]([1, 2])
 catalog_category = 21
-item_grade = 1
-condition_enabled = true
-repair_domain = 2
-maintenance_constraint = ""
 tags = Array[String](["equipment"])
-size_cost = 1
-max_stack_size = 1
+repair_domain = 2
+capacity_bonus = 4
 target_slot = 2
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Equipments/Outer_Torso/coat_leather.png"
-weapon_type = 0
-flesh_damage = 0.0
-balance_impact = 0.0
-armor_penetration = 0.0
-accuracy_rating = 6.0
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Outer_Torso/equip_coat_leather.png", "res://Asset/Innawoods_Asset/Equipments/Outer_Torso/equip2_coat_leather.png", "res://Asset/Innawoods_Asset/Equipments/Outer_Torso/equip3_coat_leather.png", "res://Asset/Innawoods_Asset/Equipments/Outer_Torso/equip4_coat_leather.png"])
 protection_blunt = 2.0
 protection_sharp = 4.0
 protection_ballistic = 1.0
+armor_coverage = Array[int]([1, 2])
 bulk = 2.0
 weight = 2.0
-interaction_roles = Array[int]([])
-search_loot_bonus = 0.0
-search_safety_bonus = 0.0
-search_sneak_bonus = 0.0
-camp_shelter_bonus = 0.0
-camp_alertness_bonus = 0.0
-consumable_potency = 0.0
-equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Outer_Torso/equip_coat_leather.png", "res://Asset/Innawoods_Asset/Equipments/Outer_Torso/equip2_coat_leather.png", "res://Asset/Innawoods_Asset/Equipments/Outer_Torso/equip3_coat_leather.png", "res://Asset/Innawoods_Asset/Equipments/Outer_Torso/equip4_coat_leather.png"])
 threat = 1.0
-capacity_bonus = 4
 insulation = 7.0

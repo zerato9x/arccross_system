@@ -57,23 +57,23 @@ profile.
 
 - **Phase 1** is closed and verified. The persistent vertical slice remains the
   regression baseline.
-- **Phase 2 systems foundations are closed/shipped:** both duel authorities,
+- **Phase 2 systems foundations are closed/shipped:** the tactical combat authority,
   inventory/condition/repair, directional Node Web, exploration window + trap
   loop, persistent wounds, Field Health HUD, entity-collision Event HUD path,
   authored-zone tooling.
-- Official/default combat runs through
-  `CombatCore/TurnBased/TurnBasedDuelScene.tscn`. `RealtimeDuelRuntime` is the
-  optional Settings mode. Both share canonical ItemCore and persistent entity
-  state, while cadence, AI, timing, action costs, and balance remain independent.
+- Official combat runs through `CombatCore/Tactical/TacticalCombatScene.tscn`.
+  Production encounters use a concise `12 x 1` duel topology with the current
+  AP, forecast, health, wound, inventory, and action rules. `6 x 3` and `7 x 5`
+  profiles remain laboratory scaffolding rather than player settings.
 - **Active world track:** [Hex World Generator V2](READMEs/design/HEX_WORLD_GENERATOR_V2.md).
 - **Campaign framing:** [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
 ### Core Systems
 
 - Combat uses a twelve-slot lane, localized Limb Region damage, and
-  encounter-local Stance. Official turn-based combat grants a discrete AP pool
-  per turn and banks leftover AP for reactions. Optional real-time combat
-  regenerates AP continuously and owns separate cadence/balance tuning.
+  encounter-local Stance. Each turn grants a discrete 12 AP pool and can bank
+  leftover AP for reactions. Occupied cells enforce linear no-passing and
+  adjacent same-squad enemies can enter as a supported 1v2 encounter.
 - Ballistic hits deal no Stance Damage. A successful shot applies the weapon's
   authored Flesh Damage directly to one Limb Region.
 - Firearms enforce authored range, accuracy, ammunition, magazine or loading
@@ -107,8 +107,8 @@ profile.
 - Core biological and system states live in explicit resource classes
   (`BodyState`, `HumanoidState`, `InventoryState`, `EntityRecord`,
   `HexRecord`).
-- `CombatCore/CombatModeComparison.tscn` runs both combat authorities against
-  identical standalone records (`F1` real-time, `F2` turn-based).
+- `CombatCore/CombatModeComparison.tscn` is the topology lab (`F1` production
+  `12 x 1`, `F2` future `7 x 5`) and never saves laboratory state.
 - Automated smoke scripts cover the vertical slice and focused system contracts.
 
 ### Known Gaps
@@ -120,7 +120,8 @@ profile.
   coverage; ordinary melee guard/parry does not magically stop bullets.
 - Humanoid token art coverage remains incomplete for several rigs, face/eye
   equipment, and unsupported weapons.
-- Gameplay remains 1v1; squad combat infrastructure is not player-facing.
+- Production supports 1v1 and 1v2. Larger squads and the `6 x 3` / `7 x 5`
+  topologies are not player-facing.
 - TRADE after Ceasefire is a placeholder pending an economy pass.
 - The authored-zone toolchain is complete, but campaign profiles still need a
   real library of hand-painted presets; unassigned random nodes retain the

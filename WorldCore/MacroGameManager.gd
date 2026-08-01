@@ -8,6 +8,19 @@ signal load_requested
 signal core_activated
 signal campaign_node_changed(node_id: String)
 signal campaign_nodes_unlocked(node_ids: Array)
+signal work_surface_changed(surface: int)
+
+enum WorkSurface {
+	NONE,
+	INVENTORY,
+	HEALTH,
+	HERE,
+	HEX_MAP,
+	SETTINGS,
+	SAVE_LOAD,
+	NODE_MAP,
+	EVENT,
+}
 
 @export_group("The Strings")
 @export var world_generator: HexWorldGenerator
@@ -232,16 +245,19 @@ func _ensure_node_map_system() -> void:
 
 
 func open_node_map() -> void:
+	_close_ordinary_work_surfaces(WorkSurface.NODE_MAP)
 	_pending_exit_direction = GameEnums.MacroTravelDirection.NONE
 	_open_node_map_with_context()
 
 
 func _open_node_map_with_context() -> void:
+	_close_ordinary_work_surfaces(WorkSurface.NODE_MAP)
 	_ensure_campaign()
 	_ensure_node_map_system()
 	if node_map_system == null:
 		return
 	node_map_system.call("open", build_node_map_ui_snapshot())
+	_emit_work_surface_changed()
 
 
 func close_node_map() -> void:
@@ -258,6 +274,124 @@ func toggle_node_map() -> void:
 
 func is_node_map_open() -> bool:
 	return node_map_system != null and bool(node_map_system.call("is_open"))
+
+
+func get_active_work_surface() -> int:
+	if is_node_map_open():
+		return WorkSurface.NODE_MAP
+	if (
+		macro_hud != null
+		and macro_hud.is_event_open()
+	) or (
+		_pending_interaction.get("type", GameEnums.MacroInteractionType.NONE)
+		in [
+			GameEnums.MacroInteractionType.MACRO_EVENT,
+			GameEnums.MacroInteractionType.ENTITY_COLLISION,
+		]
+	):
+		return WorkSurface.EVENT
+	if inventory_panel != null and inventory_panel.is_open():
+		return WorkSurface.INVENTORY
+	if macro_hud == null:
+		return WorkSurface.NONE
+	match macro_hud.get_active_primary_surface():
+		&"health":
+			return WorkSurface.HEALTH
+		&"here":
+			return WorkSurface.HERE
+		&"hex_map":
+			return WorkSurface.HEX_MAP
+		&"settings":
+			return WorkSurface.SETTINGS
+		&"save_load":
+			return WorkSurface.SAVE_LOAD
+	return WorkSurface.NONE
+
+
+func blocks_world_commands() -> bool:
+	return (
+		get_active_work_surface() != WorkSurface.NONE
+		or not _pending_interaction.is_empty()
+	)
+
+
+func close_active_work_surface() -> bool:
+	if is_node_map_open():
+		if _node_map_medical != null and _node_map_medical.visible:
+			_close_node_map_medical()
+			return true
+		if (
+			inventory_panel != null
+			and inventory_panel.is_open()
+			and _inventory_home_layer != null
+			and _inventory_home_layer.layer == _NODE_MAP_INVENTORY_LAYER
+		):
+			inventory_panel.close_top_surface()
+			return true
+		close_node_map()
+		return true
+	if macro_hud != null and macro_hud.is_event_open():
+		close_macro_interaction()
+		return true
+	if inventory_panel != null and inventory_panel.is_open():
+		inventory_panel.close_top_surface()
+		return true
+	if macro_hud != null and macro_hud.close_active_primary_surface():
+		return true
+	return false
+
+
+func open_hex_world_map() -> void:
+	if macro_hud == null or macro_hud.is_event_open():
+		return
+	_close_ordinary_work_surfaces(WorkSurface.HEX_MAP)
+	macro_hud.open_hex_world_map()
+	_emit_work_surface_changed()
+
+
+func _on_hex_world_map_selected(coords: Vector2i) -> void:
+	_select_hex_for_hud(coords, true)
+
+
+func _on_hex_world_map_travel_requested(coords: Vector2i) -> void:
+	_selected_hex_coords = coords
+	if macro_hud != null:
+		macro_hud.close_hex_world_map()
+	_try_travel_to_selected_hex()
+
+
+func _on_hud_primary_surface_changed(_surface_id: StringName) -> void:
+	_emit_work_surface_changed()
+
+
+func _emit_work_surface_changed() -> void:
+	work_surface_changed.emit(int(get_active_work_surface()))
+
+
+func _close_ordinary_work_surfaces(except: int = WorkSurface.NONE) -> void:
+	if except != WorkSurface.NODE_MAP and is_node_map_open():
+		close_node_map()
+	if (
+		except != WorkSurface.INVENTORY
+		and inventory_panel != null
+		and inventory_panel.is_open()
+	):
+		inventory_panel.close_panel(false)
+	if macro_hud != null:
+		var hud_except := &""
+		match except:
+			WorkSurface.HEALTH:
+				hud_except = &"health"
+			WorkSurface.HERE:
+				hud_except = &"here"
+			WorkSurface.HEX_MAP:
+				hud_except = &"hex_map"
+			WorkSurface.SETTINGS:
+				hud_except = &"settings"
+			WorkSurface.SAVE_LOAD:
+				hud_except = &"save_load"
+		macro_hud.close_primary_surfaces(hud_except)
+	_emit_work_surface_changed()
 
 
 ## Full graph + player presentation for the fullscreen Node Map System window.
@@ -287,6 +421,7 @@ func build_node_map_ui_snapshot() -> Dictionary:
 func _on_node_map_closed() -> void:
 	_close_node_map_overlays()
 	_pending_exit_direction = GameEnums.MacroTravelDirection.NONE
+	_emit_work_surface_changed()
 
 
 func _on_node_map_enter_requested(node_id: String) -> void:
@@ -961,7 +1096,11 @@ func _ready() -> void:
 		macro_hud.event_choice_submitted.connect(_on_macro_hud_choice_submitted)
 		macro_hud.event_closed.connect(_on_macro_hud_event_closed)
 		macro_hud.node_map_requested.connect(open_node_map)
+		macro_hud.hex_map_requested.connect(open_hex_world_map)
 		macro_hud.minimap_hex_selected.connect(_select_hex_for_hud)
+		macro_hud.hex_map_hex_selected.connect(_on_hex_world_map_selected)
+		macro_hud.hex_map_travel_requested.connect(_on_hex_world_map_travel_requested)
+		macro_hud.primary_surface_changed.connect(_on_hud_primary_surface_changed)
 		if inventory_panel:
 			macro_hud.get_inventory_corner_panel().inventory_ui = inventory_panel
 		macro_hud.poi_action_submitted.connect(resolve_poi_action)
@@ -1201,7 +1340,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				and _inventory_home_layer != null
 				and _inventory_home_layer.layer == _NODE_MAP_INVENTORY_LAYER
 			):
-				inventory_panel.close_panel()
+				inventory_panel.close_top_surface()
 				get_viewport().set_input_as_handled()
 				return
 			close_node_map()
@@ -1230,24 +1369,44 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event is InputEventKey or event is InputEventMouseButton:
 			get_viewport().set_input_as_handled()
 		return
-	if (
-		event is InputEventKey
-		and event.pressed
-		and not event.echo
-		and (event.keycode == KEY_I or event.keycode == KEY_TAB)
-	):
-		if macro_hud:
-			macro_hud.toggle_inventory_panel()
-		get_viewport().set_input_as_handled()
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_ESCAPE:
+				if close_active_work_surface():
+					get_viewport().set_input_as_handled()
+					return
+			KEY_I, KEY_TAB:
+				_toggle_fullscreen_inventory()
+				get_viewport().set_input_as_handled()
+				return
+			KEY_M:
+				if macro_hud:
+					if get_active_work_surface() != WorkSurface.HEALTH:
+						_close_ordinary_work_surfaces(WorkSurface.HEALTH)
+					macro_hud.toggle_health_panel()
+				get_viewport().set_input_as_handled()
+				return
+			KEY_O:
+				if macro_hud:
+					if get_active_work_surface() == WorkSurface.SETTINGS:
+						macro_hud.close_settings()
+					else:
+						_close_ordinary_work_surfaces(WorkSurface.SETTINGS)
+						macro_hud.open_settings()
+				get_viewport().set_input_as_handled()
+				return
+			KEY_P:
+				open_node_map()
+				get_viewport().set_input_as_handled()
+				return
+	if blocks_world_commands():
+		if event is InputEventKey or event is InputEventMouseButton:
+			get_viewport().set_input_as_handled()
 		return
 	if not _pending_interaction.is_empty():
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
-			KEY_P:
-				toggle_node_map()
-				get_viewport().set_input_as_handled()
-				return
 			KEY_E:
 				_resolve_current_hex_action()
 				get_viewport().set_input_as_handled()
@@ -1272,6 +1431,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_attempt_move_to_mouse()
 
 func _attempt_move_to_mouse() -> bool:
+	if blocks_world_commands():
+		return false
 	var mouse_pos = map_visualizer.get_local_mouse_position()
 	var clicked_hex_coords = map_visualizer.local_to_map(mouse_pos)
 	
@@ -1294,7 +1455,7 @@ func _attempt_move_to_mouse() -> bool:
 	return true
 
 func _execute_player_step(target_coords: Vector2i) -> void:
-	if not _pending_interaction.is_empty():
+	if blocks_world_commands():
 		return
 	if not world_generator.is_in_zone_bounds(target_coords):
 		_try_begin_directional_exit(player_token.current_hex_coords, target_coords)
@@ -1415,6 +1576,8 @@ func _try_begin_directional_exit(
 	origin_coords: Vector2i,
 	target_coords: Vector2i
 ) -> bool:
+	if blocks_world_commands():
+		return false
 	if campaign == null or campaign.active_node_id.is_empty():
 		return false
 	if HexCoordUtils.distance_from_origin(origin_coords) != MacroZoneGenerator.ZONE_RADIUS:
@@ -1460,10 +1623,14 @@ func advance_macro_world(turns: int = 1, bypass_interaction_check: bool = false)
 			break
 
 func _select_hex_at_mouse() -> void:
+	if blocks_world_commands():
+		return
 	var mouse_pos = map_visualizer.get_local_mouse_position()
 	_select_hex_for_hud(map_visualizer.local_to_map(mouse_pos))
 
-func _select_hex_for_hud(coords: Vector2i) -> void:
+func _select_hex_for_hud(coords: Vector2i, allow_while_blocked: bool = false) -> void:
+	if blocks_world_commands() and not allow_while_blocked:
+		return
 	_selected_hex_coords = coords
 	if map_visualizer and map_visualizer.has_method("show_selection"):
 		map_visualizer.call("show_selection", coords)
@@ -1481,6 +1648,8 @@ func _resolve_hex_hud_action(action: String) -> void:
 			_resolve_current_hex_action()
 
 func _try_travel_to_selected_hex() -> void:
+	if blocks_world_commands():
+		return
 	if _selected_hex_coords == player_token.current_hex_coords:
 		_resolve_current_hex_action()
 		return
@@ -1501,13 +1670,19 @@ func _try_travel_to_selected_hex() -> void:
 	_execute_player_step(_selected_hex_coords)
 
 func _resolve_current_hex_action() -> void:
+	if blocks_world_commands():
+		return
 	_expand_hex_at(player_token.current_hex_coords)
 
 func _on_hex_preview_travel(coords: Vector2i) -> void:
+	if blocks_world_commands():
+		return
 	_selected_hex_coords = coords
 	_try_travel_to_selected_hex()
 
 func _expand_hex_at(coords: Vector2i) -> void:
+	if blocks_world_commands() and get_active_work_surface() != WorkSurface.HERE:
+		return
 	if coords != player_token.current_hex_coords:
 		_on_hex_preview_travel(coords)
 		return
@@ -1772,6 +1947,7 @@ func begin_macro_event(
 ) -> void:
 	if not _pending_interaction.is_empty():
 		return
+	_close_ordinary_work_surfaces()
 	if coords == Vector2i(2147483647, 2147483647):
 		coords = player_token.current_hex_coords
 	var hex_data := world_generator.get_hex_at(coords)
@@ -1859,6 +2035,7 @@ func begin_entity_collision(
 	coords: Vector2i,
 	approach_from: Vector2i = Vector2i(2147483647, 2147483647)
 ) -> void:
+	_close_ordinary_work_surfaces()
 	if not queue_entity_collision(enemy_id, coords, approach_from):
 		return
 	player_token.play_interaction()
@@ -2675,12 +2852,16 @@ func _toggle_fullscreen_inventory() -> void:
 	if inventory_panel.is_open():
 		inventory_panel.close_panel()
 		return
+	if macro_hud != null and macro_hud.is_event_open():
+		return
+	_close_ordinary_work_surfaces(WorkSurface.INVENTORY)
 	if (
 		_inventory_home_layer != null
 		and inventory_panel.get_parent() != _inventory_home_layer
 	):
 		inventory_panel.reparent(_inventory_home_layer)
 	inventory_panel.open_inventory(_build_inventory_snapshot())
+	_emit_work_surface_changed()
 
 
 func _on_hud_viewport_insets_changed(insets: Rect2i) -> void:
@@ -2706,6 +2887,7 @@ func _on_medical_action_requested(instance_id: String, limb_region: int) -> void
 
 func _on_inventory_closed() -> void:
 	_restore_node_map_inventory_layer()
+	_emit_work_surface_changed()
 
 
 func _build_macro_event_context(
@@ -3069,6 +3251,7 @@ func _build_minimap_snapshot() -> Dictionary:
 			"is_poi": hex_data.is_poi,
 			"has_landmark": not hex_data.landmark_id.is_empty(),
 			"label": label,
+			"passable": hex_data.is_passable(),
 		})
 	var visible_hostiles: Array[Vector2i] = []
 	for coords in active_enemies.keys():
@@ -3697,9 +3880,10 @@ func _build_combat_encounter_record(request: Dictionary) -> CombatEncounterRecor
 		trap_record["armed"] = true
 		trap_record["damage"] = float(trap.get("trap_damage", 2.5))
 		trap_record["owner_side"] = "player"
+		var combat_topology := CombatTopologyProfile.load_profile(encounter.topology_id)
 		trap_record["sector"] = Vector2i(
-			clampi(int(trap.get("sector_x", 1)), 0, CombatArenaState.WIDTH - 1),
-			clampi(int(trap.get("sector_y", 2)), 0, CombatArenaState.HEIGHT - 1)
+			clampi(int(trap.get("sector_x", 1)), 0, combat_topology.columns - 1),
+			clampi(int(trap.get("sector_y", 0)), 0, combat_topology.rows - 1)
 		)
 		encounter.traps.append(trap_record)
 	var encounter_ground_items: Array[Dictionary] = []

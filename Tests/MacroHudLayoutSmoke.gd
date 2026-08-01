@@ -112,11 +112,11 @@ func _run() -> void:
 
 	hud.toggle_inventory_panel()
 	await process_frame
-	if not health.is_expanded() or inventory.is_expanded():
-		_fail("Inventory should open as a modal without expanding its corner preview.")
+	if health.is_expanded() or inventory.is_expanded():
+		_fail("Inventory should replace Health without expanding its corner preview.")
 		return
-	if hud.get_layout_manager().get_expanded_count() != 1:
-		_fail("Fullscreen inventory must not reserve a second corner inset.")
+	if hud.get_layout_manager().get_expanded_count() != 0:
+		_fail("Fullscreen inventory must not reserve a corner-panel inset.")
 		return
 	if not macro_map.inventory_panel.is_fullscreen():
 		_fail("PACK did not open the authored fullscreen inventory route.")
@@ -174,11 +174,11 @@ func _run() -> void:
 		_fail("Hex corner is not using MacroHexPreviewPanel as preview.")
 		return
 	var insets := hud.get_layout_manager().compute_viewport_insets()
-	if insets == Rect2i():
-		_fail("Viewport insets should be non-zero with expanded panels.")
+	if insets != Rect2i():
+		_fail("Fullscreen inventory should not leave stale corner-panel insets.")
 		return
-	if not world_status.is_work_surface_compact():
-		_fail("World status panel unexpectedly unfolded over an active work surface.")
+	if world_status.is_work_surface_compact():
+		_fail("Fullscreen inventory should not reserve compact-HUD layout beneath its modal.")
 		return
 	macro_map.open_inventory()
 	await process_frame
@@ -200,10 +200,10 @@ func _run() -> void:
 	macro_map.debug_begin_poi_interaction(poi_coords, poi_hex)
 	await process_frame
 	await process_frame
-	if not health.is_expanded() or inventory.is_expanded():
-		_fail("Opening exploration disturbed the corner-preview/modal separation.")
+	if health.is_expanded() or inventory.is_expanded() or not hex.is_expanded():
+		_fail("Opening exploration did not claim the exclusive HERE work surface.")
 		return
-	if not _assert_panel_size(vp, health, "health"):
+	if not _assert_panel_size(vp, hex, "HERE exploration"):
 		return
 	if not macro_map.macro_hud.is_location_open():
 		_fail("HERE location board did not open as the exploration work surface.")
@@ -235,7 +235,7 @@ func _run() -> void:
 		_fail("Minimap/ticker reappeared beneath the expanded HERE surface.")
 		return
 	if not macro_map.macro_hud.is_location_open():
-		_fail("Closing health should not dismiss HERE exploration.")
+		_fail("A redundant Health collapse should not dismiss HERE exploration.")
 		return
 
 	hud.get_layout_manager().collapse_all()

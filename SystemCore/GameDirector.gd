@@ -10,6 +10,7 @@ var _active_arena: Node = null
 var _combat_coords: Vector2i = Vector2i.ZERO
 var _combat_approach_from: Vector2i = Vector2i.ZERO
 var _combat_enemy_id: String = ""
+var _combat_enemy_ids: Array[String] = []
 var _combat_request: Dictionary = {}
 var _macro_canvas_visibility: Dictionary = {}
 var _world_state: RuntimeStateStore
@@ -93,6 +94,7 @@ func _on_combat_requested(request: Dictionary) -> void:
 		macro_map.player_token.current_hex_coords
 	)
 	_combat_enemy_id = enemy_id
+	_combat_enemy_ids.clear()
 	_combat_request = request.duplicate(true)
 	
 	# Production and Combat Lab combat share the authoritative turn-based arena.
@@ -111,18 +113,21 @@ func _on_combat_requested(request: Dictionary) -> void:
 	var encounter := CombatEncounterRecord.from_dict(
 		request.get("encounter", {})
 	)
+	encounter.topology_id = "duel_12x1"
 	encounter.actors = [
 		{
 			"actor_id": "player",
 			"team_id": "player",
 			"runtime_record": macro_map.player_token.capture_runtime_record(),
 		},
-		{
-			"actor_id": enemy_id,
-			"team_id": "enemy",
-			"runtime_record": enemy_record.to_dict(),
-		},
 	]
+	for combat_enemy in _combat_enemy_records(enemy_record):
+		_combat_enemy_ids.append(combat_enemy.entity_id)
+		encounter.actors.append({
+			"actor_id": combat_enemy.entity_id,
+			"team_id": "enemy",
+			"runtime_record": combat_enemy.to_dict(),
+		})
 	_active_arena.combat_finished.connect(_on_combat_finished)
 	_active_arena.setup_encounter(encounter)
 	
@@ -134,7 +139,6 @@ func _on_combat_finished(result: CombatResultRecord) -> void:
 		push_error("Combat finished without a result record.")
 		return
 	var player_runtime := _runtime_from_result(result, "player")
-	var enemy_runtime := _runtime_from_result(result, _combat_enemy_id)
 	_world_state.advance_world_time(result.elapsed_minutes)
 	macro_map.player_token.restore_runtime_record({
 		"entity_id": "player",
@@ -148,7 +152,10 @@ func _on_combat_finished(result: CombatResultRecord) -> void:
 		1.5
 	)
 	player_runtime = macro_map.player_token.get_humanoid_core().capture_runtime_state().to_dict()
-	_world_state.update_entity_runtime(_combat_enemy_id, enemy_runtime)
+	for combat_enemy_id in _combat_enemy_ids:
+		var enemy_runtime := _runtime_from_result(result, combat_enemy_id)
+		if not enemy_runtime.is_empty():
+			_world_state.update_entity_runtime(combat_enemy_id, enemy_runtime)
 	_world_state.update_player_runtime(
 		player_runtime,
 		macro_map.player_token.current_hex_coords
@@ -160,12 +167,15 @@ func _on_combat_finished(result: CombatResultRecord) -> void:
 	var should_retreat_player := false
 	match result.outcome:
 		GameEnums.CombatOutcome.PLAYER_VICTORY:
-			if result.reason == "death":
-				_world_state.set_entity_life_state(
-					_combat_enemy_id,
-					GameEnums.EntityLifeState.DEAD
-				)
-			macro_map.unload_enemy_token(_combat_coords)
+			for combat_enemy_id in _combat_enemy_ids:
+				var runtime := _runtime_from_result(result, combat_enemy_id)
+				if bool(runtime.get("is_dead", false)):
+					_world_state.set_entity_life_state(combat_enemy_id, GameEnums.EntityLifeState.DEAD)
+				elif bool(runtime.get("is_comatose", false)):
+					_world_state.set_entity_world_status(combat_enemy_id, GameEnums.EntityWorldStatus.WITHDRAWN)
+				var record := _world_state.get_entity(combat_enemy_id)
+				if record != null:
+					macro_map.unload_enemy_token(record.coords)
 		GameEnums.CombatOutcome.PLAYER_DEFEAT:
 			if result.reason == "death":
 				_on_player_defeat_preserve_mutations()
@@ -181,11 +191,11 @@ func _on_combat_finished(result: CombatResultRecord) -> void:
 		GameEnums.CombatOutcome.PLAYER_SURRENDERED:
 			should_retreat_player = true
 		GameEnums.CombatOutcome.ENEMY_SURRENDERED:
-			_world_state.set_entity_world_status(
-				_combat_enemy_id,
-				GameEnums.EntityWorldStatus.WITHDRAWN
-			)
-			macro_map.unload_enemy_token(_combat_coords)
+			for combat_enemy_id in _combat_enemy_ids:
+				_world_state.set_entity_world_status(combat_enemy_id, GameEnums.EntityWorldStatus.WITHDRAWN)
+				var record := _world_state.get_entity(combat_enemy_id)
+				if record != null:
+					macro_map.unload_enemy_token(record.coords)
 		_:
 			pass
 
@@ -213,6 +223,26 @@ func _runtime_from_result(result: CombatResultRecord, actor_id: String) -> Dicti
 	return {}
 
 
+func _combat_enemy_records(primary: EntityRecord) -> Array[EntityRecord]:
+	var result: Array[EntityRecord] = [primary]
+	var squad_id := str(primary.runtime.get("squad_id", ""))
+	if squad_id.is_empty():
+		return result
+	for candidate in _world_state.get_all_entity_records():
+		if result.size() >= 2:
+			break
+		if candidate == null or candidate.entity_id == primary.entity_id:
+			continue
+		if not _world_state.is_entity_alive(candidate.entity_id) or not _world_state.is_entity_hostile(candidate.entity_id):
+			continue
+		if str(candidate.runtime.get("squad_id", "")) != squad_id:
+			continue
+		if HexCoordUtils.distance(primary.coords, candidate.coords) > 1:
+			continue
+		result.append(candidate)
+	return result
+
+
 func _apply_combat_site_result(result: CombatResultRecord) -> void:
 	var record := _world_state.get_hex_record(result.source_coords)
 	if record == null:
@@ -228,6 +258,7 @@ func _teardown_arena() -> void:
 		_active_arena.queue_free()
 		_active_arena = null
 	_combat_request.clear()
+	_combat_enemy_ids.clear()
 	_combat_approach_from = Vector2i.ZERO
 
 

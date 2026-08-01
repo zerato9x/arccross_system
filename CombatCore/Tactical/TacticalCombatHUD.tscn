@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://CombatCore/Tactical/TacticalCombatHUD.gd" id="1_hud"]
 [ext_resource type="Script" path="res://CombatCore/Tactical/TacticalArenaView.gd" id="2_view"]
 [ext_resource type="Script" path="res://CombatCore/Tactical/CombatBodyTargetView.gd" id="3_body"]
+[ext_resource type="PackedScene" path="res://UI/Inventory/CombatItemCard.tscn" id="4_item_card"]
 
 [node name="TacticalCombatHUD" type="Control"]
 layout_mode = 3
@@ -65,7 +66,7 @@ grow_vertical = 2
 theme_override_constants/separation = 8
 
 [node name="Left" type="PanelContainer" parent="Main"]
-custom_minimum_size = Vector2(232, 0)
+custom_minimum_size = Vector2(268, 0)
 layout_mode = 2
 
 [node name="LeftMargin" type="MarginContainer" parent="Main/Left"]
@@ -94,6 +95,10 @@ text = "ACTOR"
 unique_name_in_owner = true
 layout_mode = 2
 text = "STANDING • FACING EAST"
+
+[node name="ActiveWeaponCard" parent="Main/Left/LeftMargin/LeftScroll/LeftContent" instance=ExtResource("4_item_card")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(244, 118)
 
 [node name="ActorBody" type="Control" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
 unique_name_in_owner = true
@@ -137,13 +142,16 @@ text = "WOUNDS"
 [node name="Wounds" type="VBoxContainer" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
 unique_name_in_owner = true
 layout_mode = 2
-[node name="ItemHeading" type="Label" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+[node name="ItemHeading" type="Button" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.72, 0.5, 1)
-text = "ACCESSIBLE ITEMS"
+text = "PACK [I]  >"
+alignment = 0
 [node name="Items" type="VBoxContainer" parent="Main/Left/LeftMargin/LeftScroll/LeftContent"]
 unique_name_in_owner = true
 layout_mode = 2
+visible = false
 
 [node name="Arena" type="PanelContainer" parent="Main"]
 layout_mode = 2
@@ -157,8 +165,10 @@ mouse_filter = 0
 script = ExtResource("2_view")
 
 [node name="Right" type="PanelContainer" parent="Main"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(252, 0)
 layout_mode = 2
+visible = false
 [node name="RightMargin" type="MarginContainer" parent="Main/Right"]
 layout_mode = 2
 theme_override_constants/margin_left = 8
@@ -179,6 +189,34 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(220, 220)
 layout_mode = 2
 script = ExtResource("3_body")
+[node name="TargetBloodLabel" type="Label" parent="Main/Right/RightMargin/RightContent"]
+layout_mode = 2
+text = "BLOOD"
+[node name="TargetBloodBar" type="ProgressBar" parent="Main/Right/RightMargin/RightContent"]
+unique_name_in_owner = true
+layout_mode = 2
+show_percentage = false
+[node name="TargetPainLabel" type="Label" parent="Main/Right/RightMargin/RightContent"]
+layout_mode = 2
+text = "PAIN"
+[node name="TargetPainBar" type="ProgressBar" parent="Main/Right/RightMargin/RightContent"]
+unique_name_in_owner = true
+layout_mode = 2
+show_percentage = false
+[node name="TargetShockLabel" type="Label" parent="Main/Right/RightMargin/RightContent"]
+layout_mode = 2
+text = "SHOCK"
+[node name="TargetShockBar" type="ProgressBar" parent="Main/Right/RightMargin/RightContent"]
+unique_name_in_owner = true
+layout_mode = 2
+show_percentage = false
+[node name="TargetConsciousnessLabel" type="Label" parent="Main/Right/RightMargin/RightContent"]
+layout_mode = 2
+text = "CONSCIOUSNESS"
+[node name="TargetConsciousnessBar" type="ProgressBar" parent="Main/Right/RightMargin/RightContent"]
+unique_name_in_owner = true
+layout_mode = 2
+show_percentage = false
 [node name="TargetLabel" type="RichTextLabel" parent="Main/Right/RightMargin/RightContent"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(220, 150)
@@ -222,7 +260,7 @@ text_overrun_behavior = 3
 unique_name_in_owner = true
 custom_minimum_size = Vector2(118, 38)
 layout_mode = 2
-text = "COMMAND"
+text = "ACTIONS [Q]"
 [node name="CancelButton" type="Button" parent="Bottom/BottomMargin/BottomContent/ForecastRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(96, 38)

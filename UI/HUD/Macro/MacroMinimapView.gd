@@ -23,6 +23,11 @@ const SELECTED_COLOR := Color("#f6d05e")
 const HOVER_COLOR := Color(1.0, 1.0, 1.0, 0.70)
 const LEGEND_HEIGHT := 15.0
 const MAP_PADDING := 4.0
+const NAVIGATION_ZOOM_MIN := 1.0
+const NAVIGATION_ZOOM_MAX := 4.0
+const NAVIGATION_ZOOM_STEP := 0.18
+
+@export var navigation_enabled: bool = false
 
 var _snapshot: Dictionary = {}
 var _cells: Dictionary = {} # Vector2i -> cell descriptor
@@ -35,6 +40,10 @@ var _hovered_coords := Vector2i(999999, 999999)
 var _hex_polygon := PackedVector2Array()
 var _drawn_bounds := Rect2()
 var _hex_scale := 1.0
+var _view_zoom := 1.0
+var _pan_offset := Vector2.ZERO
+var _is_panning := false
+var _pan_anchor := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -86,6 +95,13 @@ func get_cell_color(coords: Vector2i) -> Color:
 		return UNKNOWN_COLOR
 	var color := _terrain_color(cell)
 	return color if bool(cell.get("visible", false)) else color.darkened(EXPLORED_DARKEN)
+
+
+func reset_view() -> void:
+	_view_zoom = 1.0
+	_pan_offset = Vector2.ZERO
+	_is_panning = false
+	_rebuild_geometry()
 
 
 func has_poi_symbol_at(coords: Vector2i) -> bool:
@@ -148,7 +164,44 @@ func _draw() -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
+	if navigation_enabled and event is InputEventMouseButton:
+		var mouse_button := event as InputEventMouseButton
+		if mouse_button.button_index == MOUSE_BUTTON_WHEEL_UP and mouse_button.pressed:
+			_view_zoom = clampf(
+				_view_zoom + NAVIGATION_ZOOM_STEP,
+				NAVIGATION_ZOOM_MIN,
+				NAVIGATION_ZOOM_MAX
+			)
+			_rebuild_geometry()
+			accept_event()
+			return
+		if mouse_button.button_index == MOUSE_BUTTON_WHEEL_DOWN and mouse_button.pressed:
+			_view_zoom = clampf(
+				_view_zoom - NAVIGATION_ZOOM_STEP,
+				NAVIGATION_ZOOM_MIN,
+				NAVIGATION_ZOOM_MAX
+			)
+			if is_equal_approx(_view_zoom, NAVIGATION_ZOOM_MIN):
+				_pan_offset = Vector2.ZERO
+			_rebuild_geometry()
+			accept_event()
+			return
+		if mouse_button.button_index == MOUSE_BUTTON_MIDDLE:
+			_is_panning = mouse_button.pressed
+			_pan_anchor = mouse_button.position
+			mouse_default_cursor_shape = (
+				Control.CURSOR_DRAG if _is_panning else Control.CURSOR_POINTING_HAND
+			)
+			accept_event()
+			return
 	if event is InputEventMouseMotion:
+		if navigation_enabled and _is_panning:
+			var motion := event as InputEventMouseMotion
+			_pan_offset += motion.position - _pan_anchor
+			_pan_anchor = motion.position
+			_rebuild_geometry()
+			accept_event()
+			return
 		var coords := _cell_at_position(event.position)
 		if coords != _hovered_coords:
 			_hovered_coords = coords
@@ -190,9 +243,15 @@ func _rebuild_geometry() -> void:
 		)
 	)
 	var raw_size := raw_max - raw_min
-	_hex_scale = minf(available.size.x / raw_size.x, available.size.y / raw_size.y)
+	var fit_scale := minf(available.size.x / raw_size.x, available.size.y / raw_size.y)
+	_hex_scale = fit_scale * _view_zoom
 	var fitted_size := raw_size * _hex_scale
-	var origin := available.position + (available.size - fitted_size) * 0.5 - raw_min * _hex_scale
+	var origin := (
+		available.position
+		+ (available.size - fitted_size) * 0.5
+		- raw_min * _hex_scale
+		+ _pan_offset
+	)
 	_hex_polygon = PackedVector2Array([
 		Vector2(0.0, -0.5), Vector2(0.5, -0.25), Vector2(0.5, 0.25),
 		Vector2(0.0, 0.5), Vector2(-0.5, 0.25), Vector2(-0.5, -0.25),
@@ -201,7 +260,10 @@ func _rebuild_geometry() -> void:
 		_hex_polygon[index] *= _hex_scale
 	for coords in _cells.keys():
 		_centers[coords] = origin + HexCoordUtils.axial_to_visual_vector(coords) * _hex_scale
-	_drawn_bounds = Rect2(available.position + (available.size - fitted_size) * 0.5, fitted_size)
+	_drawn_bounds = Rect2(
+		available.position + (available.size - fitted_size) * 0.5 + _pan_offset,
+		fitted_size
+	)
 	queue_redraw()
 
 

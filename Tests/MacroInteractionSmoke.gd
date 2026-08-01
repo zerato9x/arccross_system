@@ -341,10 +341,10 @@ func _verify_failed_talk_deployment() -> bool:
 	if arena == null:
 		_fail("Guaranteed failed negotiation did not start combat.")
 		return false
-	if arena.board.position_of(arena.player_core) != CombatArenaState.index_for_coords(Vector2i(0, 2)):
+	if arena.board.position_of(arena.player_core) != arena.board.arena_state.index_for(Vector2i(0, 0)):
 		_fail("Failed negotiation did not use the ordinary player deployment.")
 		return false
-	if arena.board.position_of(arena.enemy_core) != CombatArenaState.index_for_coords(Vector2i(6, 2)):
+	if arena.board.position_of(arena.enemy_core) != arena.board.arena_state.index_for(Vector2i(11, 0)):
 		_fail("Failed negotiation did not use the ordinary enemy deployment.")
 		return false
 	if arena.turn_manager.get_active_entity() != arena.player_core:

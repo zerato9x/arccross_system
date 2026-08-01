@@ -89,7 +89,7 @@ func quote(request: CombatActionRequest) -> CombatActionQuote:
 	if actor == null:
 		return result.deny("unknown_actor", "The acting entity is not present.")
 	var origin_index := board.position_of(actor)
-	result.origin_sector = CombatArenaState.coords_for_index(origin_index) if origin_index >= 0 else Vector2i(-1, -1)
+	result.origin_sector = board.arena_state.coords_for(origin_index) if origin_index >= 0 else Vector2i(-1, -1)
 	if _busy:
 		return result.deny("busy", "Another action is resolving.")
 	if turn_manager == null or turn_manager.get_active_entity() != actor:
@@ -107,8 +107,8 @@ func quote(request: CombatActionRequest) -> CombatActionQuote:
 	if definition.target_mode == CombatActionDefinition.TARGET_ACTOR:
 		if target == null or target == actor:
 			return result.deny("invalid_target_actor", "Select another actor.")
-		result.target_sector = CombatArenaState.coords_for_index(board.position_of(target))
-	if definition.target_mode == CombatActionDefinition.TARGET_SECTOR and not CombatArenaState.contains_coords(request.target_sector):
+		result.target_sector = board.arena_state.coords_for(board.position_of(target))
+	if definition.target_mode == CombatActionDefinition.TARGET_SECTOR and not board.arena_state.contains(request.target_sector):
 		return result.deny("invalid_target_sector", "Select a sector inside the arena.")
 
 	if definition.target_mode == CombatActionDefinition.TARGET_PATH:
@@ -117,15 +117,15 @@ func quote(request: CombatActionRequest) -> CombatActionQuote:
 			return result.deny(str(path_check.code), _path_denial(str(path_check.code)))
 		var indices: Array = path_check.path
 		for index in indices:
-			result.path.append(CombatArenaState.coords_for_index(int(index)))
+			result.path.append(board.arena_state.coords_for(int(index)))
 		result.target_sector = result.path.back()
 		result.movement_cost = board.path_cost(indices, movement_step_base(actor))
 		if request.action_id != "disengage":
 			result.reaction_threat_ids = board.reaction_threats(actor, indices)
 
 	var target_index := board.position_of(target) if target != null else (
-		CombatArenaState.index_for_coords(result.target_sector)
-		if CombatArenaState.contains_coords(result.target_sector)
+		board.arena_state.index_for(result.target_sector)
+		if board.arena_state.contains(result.target_sector)
 		else origin_index
 	)
 	result.range_cells = board.grid_distance(origin_index, target_index)
@@ -216,7 +216,8 @@ func request_action(request: CombatActionRequest) -> CombatActionOutcome:
 	action_committed.emit(outcome)
 	if outcome.presentation_sequence != null and not DisplayServer.get_name().contains("headless"):
 		presentation_requested.emit(outcome.presentation_sequence)
-	refresh_snapshot()
+	else:
+		refresh_snapshot()
 	return outcome
 
 
@@ -305,7 +306,7 @@ func _validate_specific(
 				return {"code": "standing_required", "message": "Crouching begins from standing."}
 		"move", "disengage":
 			if request.final_facing.is_empty():
-				result.final_facing = board.facing_toward(board.position_of(actor), CombatArenaState.index_for_coords(result.target_sector))
+				result.final_facing = board.facing_toward(board.position_of(actor), board.arena_state.index_for(result.target_sector))
 		"shove":
 			if target == null or board.grid_distance(board.position_of(actor), board.position_of(target)) != 1:
 				return {"code": "cardinal_adjacency_required", "message": "This action requires cardinal adjacency."}
@@ -350,7 +351,7 @@ func _validate_specific(
 			var sector := board.arena_state.sector_at(request.target_sector)
 			if sector == null or request.target_item_instance_id not in sector.ground_item_instance_ids:
 				return {"code": "ground_item_sector", "message": "The item is not in the selected sector."}
-			var target_index := CombatArenaState.index_for_coords(request.target_sector)
+			var target_index := board.arena_state.index_for(request.target_sector)
 			if board.grid_distance(board.position_of(actor), target_index) > 1:
 				return {"code": "adjacency_required", "message": "Ground items require path-valid adjacency."}
 		"strip":
@@ -737,21 +738,14 @@ func _actor_snapshot(actor: HumanoidCore) -> Dictionary:
 				wounds.append(wound.to_dict())
 	var items: Array[Dictionary] = []
 	for item in actor.inventory.get_all_items():
-		items.append({
-			"instance_id": item.instance_id,
-			"definition_id": item.id,
-			"name": item.display_name,
-			"access": actor.inventory.get_access_tier(item),
-			"location": item.physical_location,
-			"equipped_slot": item.equipped_slot,
-			"condition": item.current_condition,
-			"quantity": item.stack_count,
-		})
+		items.append(_item_snapshot(item, actor.inventory.get_access_tier(item)))
+	var ranged_weapon := actor.inventory.get_active_weapon(false)
+	var melee_weapon := actor.inventory.get_active_weapon(true)
 	return {
 		"actor_id": _actor_id(actor),
 		"name": actor.name,
 		"team_id": str(actor.get_meta("combat_side", "")),
-		"sector": CombatArenaState.coords_for_index(board.position_of(actor)) if board.position_of(actor) >= 0 else Vector2i(-1, -1),
+		"sector": board.arena_state.coords_for(board.position_of(actor)) if board.position_of(actor) >= 0 else Vector2i(-1, -1),
 		"facing": board.get_facing(actor),
 		"posture": board.posture(actor),
 		"conditions": board._tactics(actor).duplicate(true),
@@ -762,8 +756,47 @@ func _actor_snapshot(actor: HumanoidCore) -> Dictionary:
 		"region_function": _region_function(actor),
 		"wounds": wounds,
 		"items": items,
+		"ranged_weapon": _item_snapshot(ranged_weapon, "equipped") if ranged_weapon != null else {},
+		"melee_weapon": _item_snapshot(melee_weapon, "equipped") if melee_weapon != null else {},
 		"dead": actor.is_dead,
 		"incapacitated": actor.is_comatose,
+	}
+
+
+func _item_snapshot(item: ItemData, access: String) -> Dictionary:
+	if item == null:
+		return {}
+	var readiness_reason := "ready"
+	if item.is_ranged():
+		if item.current_condition <= 0.0:
+			readiness_reason = "broken"
+		elif item.is_jammed:
+			readiness_reason = "jammed"
+		elif item.needs_cycling:
+			readiness_reason = "cycle"
+		elif item.current_magazine <= 0:
+			readiness_reason = "empty"
+	return {
+		"instance_id": item.instance_id,
+		"definition_id": item.id,
+		"id": item.id,
+		"name": item.display_name,
+		"display_name": item.display_name,
+		"access": access,
+		"location": item.physical_location,
+		"equipped_slot": item.equipped_slot,
+		"condition": item.current_condition,
+		"current_condition": item.current_condition,
+		"quantity": item.stack_count,
+		"item_grade": item.item_grade,
+		"weapon_type": item.weapon_type,
+		"current_magazine": item.current_magazine,
+		"max_magazine": item.max_magazine,
+		"optimal_range_cells": item.optimal_range_cells,
+		"maximum_range_cells": item.maximum_range_cells,
+		"inventory_sprite_path": item.inventory_sprite_path,
+		"sprite_path": item.equipped_sprite_path if not item.equipped_sprite_path.is_empty() else item.inventory_sprite_path,
+		"readiness": {"reason": readiness_reason},
 	}
 
 
@@ -784,7 +817,7 @@ func _reserved_snapshot() -> Dictionary:
 func _quote_path_indices(action_quote: CombatActionQuote) -> Array:
 	var indices: Array = []
 	for coords in action_quote.path:
-		indices.append(CombatArenaState.index_for_coords(coords))
+		indices.append(board.arena_state.index_for(coords))
 	return indices
 
 

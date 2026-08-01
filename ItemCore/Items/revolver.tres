@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://s083iesua7su"]
 
-[ext_resource type="Script" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
+[ext_resource type="Script" uid="uid://jbxk0eeleei8" path="res://ItemCore/ItemData.gd" id="1_itemdata"]
 
 [resource]
 script = ExtResource("1_itemdata")
@@ -9,41 +9,24 @@ display_name = "Civilian Revolver"
 lore_description = "Civilian Revolver: Civilian weapon. Check the working surfaces before trusting it; range and impact are listed, not implied."
 item_type = 1
 catalog_category = 10
-item_grade = 1
-condition_enabled = true
-repair_domain = 1
-maintenance_constraint = ""
 tags = Array[String](["weapon"])
+repair_domain = 1
 size_cost = 2
-max_stack_size = 1
 target_slot = 8
 inventory_sprite_path = "res://Asset/Innawoods_Asset/Weapons/Pistol/revolver.png"
+equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Weapons/Pistol/pistol_equip.png"])
 weapon_type = 3
-flesh_damage = 7.0
-balance_impact = 0.0
-armor_penetration = 6.0
-accuracy_rating = 6.0
-protection_blunt = 0.0
-protection_sharp = 0.0
-protection_ballistic = 0.0
-bulk = 0.7
-weight = 1.2
-interaction_roles = Array[int]([])
-search_loot_bonus = 0.0
-search_safety_bonus = 0.0
-search_sneak_bonus = 0.0
-camp_shelter_bonus = 0.0
-camp_alertness_bonus = 0.0
-consumable_potency = 0.0
 damage_type = 2
-threat = 6.0
-max_magazine = 6
-requires_two_hands = false
-starting_magazine = 6
+flesh_damage = 7.0
+armor_penetration = 6.0
 optimal_range_cells = Vector2i(2, 4)
 maximum_range_cells = 6
 range_falloff = 0.18
+bulk = 0.7
+weight = 1.2
+threat = 6.0
+max_magazine = 6
+starting_magazine = 6
 ammunition_id = "pistol_round"
-equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Weapons/Pistol/pistol_equip.png"])
 reload_aid_id = "revolver_speedloader"
 cycle_loads_one_round = true

@@ -35,6 +35,7 @@ func _run() -> void:
 
 func _make_encounter() -> CombatEncounterRecord:
 	var encounter := CombatEncounterRecord.new()
+	encounter.topology_id = "squad_7x5"
 	encounter.encounter_id = "combat_overhaul_smoke"
 	encounter.source_coords = Vector2i(4, -2)
 	encounter.approach_from = encounter.source_coords - DIRECTIONS[0]
@@ -115,9 +116,9 @@ func _verify_base_twelve_movement(
 	var actor := HumanoidCore.new()
 	actor.kinetic_tier = GameEnums.KineticTier.FLUID
 	var path: Array[int] = []
-	path.append(CombatArenaState.index_for_coords(Vector2i(0, 2)))
+	path.append(board.arena_state.index_for(Vector2i(0, 2)))
 	for x in range(1, 7):
-		path.append(CombatArenaState.index_for_coords(Vector2i(x, 2)))
+		path.append(board.arena_state.index_for(Vector2i(x, 2)))
 	if board.path_cost(path, 2) != 12:
 		actor.free()
 		board.queue_free()

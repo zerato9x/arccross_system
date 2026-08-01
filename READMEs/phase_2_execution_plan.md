@@ -22,17 +22,20 @@ Status updated on **July 23, 2026**:
   [July 16 changelog](CHANGELOG.md#july-16-2026).
 - Authored local-zone tooling **P2-08 is complete**. See
   [July 17 changelog](CHANGELOG.md#july-17-2026).
-- Real-time duel overhaul **P2-09 is implemented** and remains the optional
-  Settings mode.
+- The former real-time duel remains historical implementation evidence; it is
+  no longer a production-selectable combat authority.
 - Wound / item-stat overhaul and Field Health HUD shipped **July 18–19**.
 - Inventory condition, catalog, repair, and authored-HUD overhaul **P2-11 is
-  implemented**. Turn-based is the official/default route; real-time remains
-  optional. Both consume the same ItemCore outcomes and persistent records,
-  while scheduling and balance are intentionally not unified.
+  implemented**. The tactical controller is the single rules authority and
+  consumes the same persistent ItemCore and biological records as the macro
+  world.
 - Macro exploration window, trap-to-combat loop, and entity-collision Event HUD
   path (Threat / Ceasefire / Ask / Trade placeholder) are live; do not revive
   `MacroInteractionPanel`. Finished Macro HUD remake/repair plans were deleted.
-- **Active next:** official turn-based combat overhaul. Central Core campaign
+- **Active next:** production duel-lane presentation and live usability polish.
+  The `12 x 1` topology, 1v1/1v2 encounter assembly, contextual HUD, detailed
+  selected-target health, and compact inventory drawer are implemented.
+  Central Core campaign
   implementation is paused until the complete categorized asset folder is
   available.
 
@@ -60,10 +63,10 @@ Status updated on **July 23, 2026**:
 - Focused parity, catalog, inventory, real-time, and turn-mode smokes cover the
   shared contract without pretending seconds and discrete AP are equivalent.
 
-P2-01 through P2-04 remain implementation records for the command deck and
-turn/reaction surfaces. The complete official authority stays isolated under
-`CombatCore/TurnBased/`; optional real-time remains independently selectable and
-both can be inspected through `CombatModeComparison.tscn`.
+P2-01 through P2-04 remain historical implementation records for the command
+deck and turn/reaction surfaces. The current authority lives under
+`CombatCore/Tactical/`; `CombatModeComparison.tscn` now compares topology
+profiles, not competing rules engines.
 
 ### P2-09: Real-Time Duel Overhaul — Implemented July 17, 2026
 
@@ -208,9 +211,9 @@ The following plan shipped on **June 29, 2026**:
 
 ## Current Non-Goals
 
-- Squad or multi-lane combat beyond the strict duel.
+- Player-facing combat beyond the production `12 x 1` duel lane.
 - Reintroducing `CombatPanel`.
 - Implementing macro SNIPE.
 - Making every `Asset/Guns_Animation/` filename a permanent API.
 - Replacing humanoid token animation with HUD gun effects.
-- Squad combat beyond the current 1v1 slice.
+- Squads larger than the supported 1v2 slice.

@@ -134,7 +134,7 @@ func _run() -> void:
 		return
 
 	var enemy_sector_before: int = arena.board.position_of(arena.enemy_core)
-	var trap_index := CombatArenaState.index_for_coords(trap_sector_coords)
+	var trap_index := arena.board.arena_state.index_for(trap_sector_coords)
 	if enemy_sector_before == trap_index:
 		_fail("Enemy spawned directly on the trap sector; cannot verify entry trigger.")
 		return

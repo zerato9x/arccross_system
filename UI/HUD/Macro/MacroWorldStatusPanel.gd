@@ -3,6 +3,7 @@ class_name MacroWorldStatusPanel
 
 signal settings_requested
 signal node_map_requested
+signal hex_map_requested
 signal minimap_hex_selected(coords: Vector2i)
 
 const MAX_LOG_LINES := 12
@@ -40,6 +41,7 @@ var _signal_widget: SignalStrengthWidget
 @onready var _signal_label: Label = %SignalLabel
 @onready var _settings_button: Button = %SettingsButton
 @onready var _node_map_button: Button = %NodeMapButton
+@onready var _hex_map_button: Button = %HexMapButton
 @onready var _minimap_frame: PanelContainer = %MinimapFrame
 @onready var _minimap: MacroMinimapView = %MacroMinimapView
 @onready var _latest_event_ticker: Label = %LatestEventTicker
@@ -55,13 +57,17 @@ func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_apply_base_styles()
 	_node_map_button.text = "NODE MAP [P]"
+	_hex_map_button.text = "EXPAND MAP"
 	_settings_button.text = "SETTINGS [O]"
 	HUDAssetLibrary.apply_button(_settings_button, "settings")
 	HUDAssetLibrary.apply_button(_node_map_button, "map")
+	HUDAssetLibrary.apply_button(_hex_map_button, "discovery")
 	_settings_button.custom_minimum_size = HUDAssetLibrary.macro_button_minimum_size()
 	_node_map_button.custom_minimum_size = HUDAssetLibrary.macro_button_minimum_size()
+	_hex_map_button.custom_minimum_size = HUDAssetLibrary.macro_button_minimum_size()
 	_settings_button.pressed.connect(func(): settings_requested.emit())
 	_node_map_button.pressed.connect(func(): node_map_requested.emit())
+	_hex_map_button.pressed.connect(func(): hex_map_requested.emit())
 	_minimap.hex_selected.connect(minimap_hex_selected.emit)
 	_install_visual_widgets()
 	if _log_entries.is_empty():
@@ -86,9 +92,11 @@ func _apply_base_styles() -> void:
 func restyle() -> void:
 	_apply_base_styles()
 	_node_map_button.text = "NODE MAP [P]"
+	_hex_map_button.text = "EXPAND MAP"
 	_settings_button.text = "SETTINGS [O]"
 	HUDAssetLibrary.apply_button(_settings_button, "settings")
 	HUDAssetLibrary.apply_button(_node_map_button, "map")
+	HUDAssetLibrary.apply_button(_hex_map_button, "discovery")
 	if not _snapshot.is_empty():
 		apply_snapshot(_snapshot)
 	_render_log()

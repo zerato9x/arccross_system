@@ -94,7 +94,7 @@ func _on_action_pressed(entry: Dictionary) -> void:
 	menu_closed.emit()
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
 	if not visible:
 		return
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:

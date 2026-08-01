@@ -42,6 +42,10 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	var host := get_parent()
+	if host != null and host.has_method("blocks_world_commands"):
+		if bool(host.call("blocks_world_commands")):
+			return
 	if not (event is InputEventMouseButton):
 		return
 	var mouse := event as InputEventMouseButton

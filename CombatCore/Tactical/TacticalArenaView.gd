@@ -146,7 +146,7 @@ func _draw_preview() -> void:
 	if preview_quote == null:
 		return
 	var color := Color("78c78c") if preview_quote.legal else Color("c86658")
-	if CombatArenaState.contains_coords(preview_quote.origin_sector) and CombatArenaState.contains_coords(preview_quote.target_sector):
+	if _contains(preview_quote.origin_sector) and _contains(preview_quote.target_sector):
 		draw_line(
 			sector_center(preview_quote.origin_sector),
 			sector_center(preview_quote.target_sector),
@@ -161,7 +161,7 @@ func _draw_preview() -> void:
 			draw_circle(sector_center(coords), 16.0, Color(color, 0.20))
 		if points.size() > 1:
 			draw_polyline(points, color, 5.0, true)
-	if CombatArenaState.contains_coords(preview_quote.target_sector):
+	if _contains(preview_quote.target_sector):
 		var target_center := sector_center(preview_quote.target_sector)
 		draw_circle(target_center, 28.0, Color(color, 0.22))
 		draw_string(ThemeDB.fallback_font, target_center + Vector2(-28.0, -34.0), "%d AP" % preview_quote.ap_cost, HORIZONTAL_ALIGNMENT_CENTER, 56.0, 13, color)
@@ -172,7 +172,7 @@ func _draw_preview() -> void:
 		draw_circle(sector_center(collision.destination), 18.0, Color("d9824d"), false, 4.0)
 	for threat_id in preview_quote.reaction_threat_ids:
 		var threat_coords := _actor_coords(str(threat_id))
-		if CombatArenaState.contains_coords(threat_coords):
+		if _contains(threat_coords):
 			draw_string(ThemeDB.fallback_font, sector_center(threat_coords) + Vector2(-8.0, -32.0), "!", HORIZONTAL_ALIGNMENT_CENTER, 16.0, 20, Color("ef6f5b"))
 
 
@@ -193,7 +193,16 @@ func _draw_actors() -> void:
 		_draw_facing(center, str(facings.get(actor_id, "east")), color)
 		if bool(tactics.get(actor_id, {}).get("off_balance", false)):
 			draw_arc(center, radius + 6.0, 0.0, TAU, 18, Color("e0b75e"), 2.0)
-		draw_string(ThemeDB.fallback_font, center + Vector2(-radius, radius + 18.0), actor_id.to_upper(), HORIZONTAL_ALIGNMENT_CENTER, radius * 2.0, 10, Color("d9dfdc"))
+		var actor := _actor_snapshot(actor_id)
+		var display_name := str(actor.get("name", actor_id)).to_upper()
+		draw_string(ThemeDB.fallback_font, center + Vector2(-radius - 8.0, radius + 18.0), display_name, HORIZONTAL_ALIGNMENT_CENTER, radius * 2.0 + 16.0, 10, Color("d9dfdc"))
+		_draw_vital_bar(center + Vector2(-28.0, radius + 24.0), 56.0, float(actor.get("blood", 0.0)), Color("c85f55"))
+		_draw_vital_bar(center + Vector2(-28.0, radius + 31.0), 56.0, float(actor.get("consciousness", 0.0)), Color("d6b85e"))
+
+
+func _draw_vital_bar(origin: Vector2, width: float, value: float, color: Color) -> void:
+	draw_rect(Rect2(origin, Vector2(width, 5.0)), Color(0.02, 0.025, 0.028, 0.92), true)
+	draw_rect(Rect2(origin + Vector2.ONE, Vector2((width - 2.0) * clampf(value / GameEnums.SCALE_MAX, 0.0, 1.0), 3.0)), color, true)
 
 
 func _draw_presentation() -> void:
@@ -289,11 +298,16 @@ func _facing_vector(facing: String) -> Vector2:
 
 func _grid_rect() -> Rect2:
 	var margin := 12.0
-	return Rect2(Vector2(margin, margin), size - Vector2(margin * 2.0, margin * 2.0))
+	var rect := Rect2(Vector2(margin, margin), size - Vector2(margin * 2.0, margin * 2.0))
+	if str(snapshot.get("presentation_style", "")) == "duel_lane":
+		var lane_height := clampf(size.y * 0.34, 96.0, 220.0)
+		rect.position.y = size.y * 0.57 - lane_height * 0.5
+		rect.size.y = lane_height
+	return rect
 
 
 func _cell_size(rect: Rect2) -> Vector2:
-	return Vector2(rect.size.x / CombatArenaState.WIDTH, rect.size.y / CombatArenaState.HEIGHT)
+	return Vector2(rect.size.x / float(_arena_width()), rect.size.y / float(_arena_height()))
 
 
 func _sector_rect(coords: Vector2i, rect: Rect2) -> Rect2:
@@ -314,7 +328,7 @@ func _on_gui_input(event: InputEvent) -> void:
 		var coords := _coords_at(event.position)
 		if coords != hovered_sector:
 			hovered_sector = coords
-			if CombatArenaState.contains_coords(coords):
+			if _contains(coords):
 				sector_hovered.emit(coords)
 			else:
 				sector_unhovered.emit()
@@ -322,13 +336,13 @@ func _on_gui_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		grab_focus()
 		var coords := _coords_at(event.position)
-		if CombatArenaState.contains_coords(coords):
+		if _contains(coords):
 			select_sector(coords)
 			sector_selected.emit(coords)
 	elif event is InputEventKey and event.pressed:
-		var cursor := hovered_sector if CombatArenaState.contains_coords(hovered_sector) else selected_sector
-		if not CombatArenaState.contains_coords(cursor):
-			cursor = Vector2i(3, 2)
+		var cursor := hovered_sector if _contains(hovered_sector) else selected_sector
+		if not _contains(cursor):
+			cursor = Vector2i(_arena_width() / 2, _arena_height() / 2)
 		var delta := Vector2i.ZERO
 		if event.is_action("ui_left"):
 			delta = Vector2i.LEFT
@@ -339,7 +353,7 @@ func _on_gui_input(event: InputEvent) -> void:
 		elif event.is_action("ui_down"):
 			delta = Vector2i.DOWN
 		if delta != Vector2i.ZERO:
-			hovered_sector = Vector2i(clampi(cursor.x + delta.x, 0, CombatArenaState.WIDTH - 1), clampi(cursor.y + delta.y, 0, CombatArenaState.HEIGHT - 1))
+			hovered_sector = Vector2i(clampi(cursor.x + delta.x, 0, _arena_width() - 1), clampi(cursor.y + delta.y, 0, _arena_height() - 1))
 			sector_hovered.emit(hovered_sector)
 			queue_redraw()
 			accept_event()
@@ -382,3 +396,15 @@ func _actor_coords(actor_id: String) -> Vector2i:
 		if str(sector.get("occupant_id", "")) == actor_id:
 			return sector.get("coords", Vector2i(-1, -1))
 	return Vector2i(-1, -1)
+
+
+func _arena_width() -> int:
+	return maxi(1, int(snapshot.get("width", 12)))
+
+
+func _arena_height() -> int:
+	return maxi(1, int(snapshot.get("height", 1)))
+
+
+func _contains(coords: Vector2i) -> bool:
+	return coords.x >= 0 and coords.x < _arena_width() and coords.y >= 0 and coords.y < _arena_height()

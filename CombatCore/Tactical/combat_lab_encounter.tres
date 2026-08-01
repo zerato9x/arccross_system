@@ -1,20 +1,32 @@
-[gd_resource type="Resource" script_class="CombatEncounterRecord" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="CombatEncounterRecord" format=3 uid="uid://e0wlv30io02e"]
 
-[ext_resource type="Script" path="res://SystemCore/CombatEncounterRecord.gd" id="1_encounter"]
-[ext_resource type="Script" path="res://SystemCore/HexRecord.gd" id="2_hex"]
+[ext_resource type="Script" uid="uid://dqquppd0j4jly" path="res://SystemCore/CombatEncounterRecord.gd" id="1_encounter"]
+[ext_resource type="Script" uid="uid://bsrw5bgngqrj3" path="res://SystemCore/HexRecord.gd" id="2_hex"]
 
 [sub_resource type="Resource" id="HexRecord_lab"]
 script = ExtResource("2_hex")
 zone_id = "combat_lab"
 terrain_sprite_path = "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png"
-composition_role = "combat_lab"
-world_generation_version = 1
 visual_variant_hash = 1205
 
 [resource]
 script = ExtResource("1_encounter")
 encounter_id = "combat_lab"
 world_seed = "COMBAT_LAB"
-world_time = {"day": 1, "hour": 12, "minute": 0}
+world_time = {
+"day": 1,
+"hour": 12,
+"minute": 0
+}
 center_hex = SubResource("HexRecord_lab")
-presentation = {"layers": [{"kind": "terrain", "path": "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png", "z_index": 0}], "scene": {"background_path": "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png", "props": []}}
+presentation = {
+"layers": [{
+"kind": "terrain",
+"path": "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png",
+"z_index": 0
+}],
+"scene": {
+"background_path": "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png",
+"props": []
+}
+}

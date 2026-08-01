@@ -18,14 +18,21 @@ const DEFAULT_MENU_CATALOG := preload("res://CombatCore/Tactical/default_combat_
 @onready var actor_name: Label = %ActorName
 @onready var actor_body: CombatBodyTargetView = %ActorBody
 @onready var actor_status: Label = %ActorStatus
+@onready var active_weapon_card: CombatItemCard = %ActiveWeaponCard
 @onready var blood_bar: ProgressBar = %BloodBar
 @onready var pain_bar: ProgressBar = %PainBar
 @onready var shock_bar: ProgressBar = %ShockBar
 @onready var consciousness_bar: ProgressBar = %ConsciousnessBar
 @onready var wounds: VBoxContainer = %Wounds
 @onready var items: VBoxContainer = %Items
+@onready var item_heading: Button = %ItemHeading
+@onready var right_panel: PanelContainer = %Right
 @onready var target_name: Label = %TargetName
 @onready var target_body: CombatBodyTargetView = %TargetBody
+@onready var target_blood_bar: ProgressBar = %TargetBloodBar
+@onready var target_pain_bar: ProgressBar = %TargetPainBar
+@onready var target_shock_bar: ProgressBar = %TargetShockBar
+@onready var target_consciousness_bar: ProgressBar = %TargetConsciousnessBar
 @onready var target_label: RichTextLabel = %TargetLabel
 @onready var feedback_label: Label = %FeedbackLabel
 @onready var forecast_label: Label = %ForecastLabel
@@ -57,6 +64,7 @@ var _definitions: Dictionary = {}
 var _quote_by_action: Dictionary = {}
 var _pending_aim_action := ""
 var _menu_catalog: CombatCommandMenuCatalog = DEFAULT_MENU_CATALOG
+var _context_shortcuts: Array[Button] = []
 
 
 func _ready() -> void:
@@ -64,6 +72,7 @@ func _ready() -> void:
 	arena_view.sector_hovered.connect(_on_sector_hovered)
 	arena_view.sector_unhovered.connect(_render_target_context)
 	command_button.pressed.connect(_toggle_command_wheel)
+	item_heading.pressed.connect(_toggle_pack)
 	cancel_button.pressed.connect(_cancel_selection)
 	confirm_button.pressed.connect(func() -> void: action_confirmed.emit())
 	aim_body.region_selected.connect(_on_body_region_selected)
@@ -80,10 +89,29 @@ func _unhandled_input(event: InputEvent) -> void:
 		_cancel_selection()
 		get_viewport().set_input_as_handled()
 		return
-	if event is InputEventKey and event.pressed and event.keycode == KEY_Q:
-		_toggle_command_wheel()
-		get_viewport().set_input_as_handled()
-		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_Q:
+			_toggle_command_wheel()
+			get_viewport().set_input_as_handled()
+			return
+		if event.keycode == KEY_I:
+			_toggle_pack()
+			get_viewport().set_input_as_handled()
+			return
+		var number := int(event.keycode) - int(KEY_1)
+		if number >= 0 and number < _context_shortcuts.size() and context_menu.visible:
+			_context_shortcuts[number].pressed.emit()
+			get_viewport().set_input_as_handled()
+			return
+		var mnemonic := {
+			KEY_F: ["fire"], KEY_A: ["aimed_fire", "aimed_strike"],
+			KEY_S: ["strike"], KEY_R: ["reload"], KEY_C: ["cycle"],
+			KEY_B: ["brace"], KEY_E: ["end_turn"],
+		}.get(event.keycode, []) as Array
+		for action_id in mnemonic:
+			if _invoke_visible_action(str(action_id)):
+				get_viewport().set_input_as_handled()
+				return
 	if event.is_action_pressed("ui_accept") and current_quote != null and current_quote.legal and not aim_panel.visible:
 		action_confirmed.emit()
 		get_viewport().set_input_as_handled()
@@ -100,13 +128,17 @@ func configure_action_catalog(catalog: CombatActionCatalog) -> void:
 
 func show_snapshot(value: Dictionary) -> void:
 	snapshot = value.duplicate(true)
-	selected_actor_id = str(snapshot.get("active_actor_id", selected_actor_id))
+	for actor in snapshot.get("actors", []):
+		if str(actor.get("team_id", "")) == "player":
+			selected_actor_id = str(actor.get("actor_id", "player"))
+			break
 	var arena: Dictionary = snapshot.get("arena", {})
 	arena_view.set_meta("actor_snapshot", snapshot.get("actors", []))
 	arena_view.show_snapshot(arena)
 	_render_top()
 	_render_actor_context()
 	_render_target_context()
+	_render_context_actions()
 
 
 func show_quotes(value: Array[CombatActionQuote]) -> void:
@@ -141,6 +173,17 @@ func clear_staged_action() -> void:
 
 func show_feedback(message: String) -> void:
 	feedback_label.text = message
+
+
+func show_presentation_action(sequence: CombatPresentationSequence) -> void:
+	if sequence == null:
+		return
+	var duration := 0.0
+	for cue in sequence.cues:
+		if cue != null:
+			duration += cue.duration_seconds
+	active_weapon_card.play_turn_action(sequence.action_id, duration)
+	feedback_label.text = sequence.action_id.replace("_", " ").to_upper()
 
 
 func show_aim_targeter(action_id: String) -> void:
@@ -223,6 +266,8 @@ func _render_actor_context() -> void:
 	_set_vital(consciousness_bar, float(actor.get("consciousness", 0.0)))
 	_render_wounds(actor.get("wounds", []))
 	_render_items(actor.get("items", []))
+	var ranged_weapon: Dictionary = actor.get("ranged_weapon", {})
+	active_weapon_card.show_descriptor(ranged_weapon if not ranged_weapon.is_empty() else actor.get("melee_weapon", {}), not ranged_weapon.is_empty())
 
 
 func _render_target_context(data: Dictionary = {}) -> void:
@@ -231,13 +276,19 @@ func _render_target_context(data: Dictionary = {}) -> void:
 		target_name.text = "SECTOR CONTEXT"
 		target_label.text = "Select or hover a sector."
 		target_body.visible = false
+		right_panel.visible = false
 		return
 	var occupant_id := str(sector.get("occupant_id", ""))
 	var occupant := _actor(occupant_id)
 	target_body.visible = not occupant.is_empty()
+	right_panel.visible = not occupant.is_empty() and occupant_id != selected_actor_id and sector == _sector(selected_sector)
 	if not occupant.is_empty():
 		target_name.text = str(occupant.get("name", occupant_id)).to_upper()
 		target_body.set_actor_snapshot(occupant)
+		_set_vital(target_blood_bar, float(occupant.get("blood", 0.0)))
+		_set_vital(target_pain_bar, float(occupant.get("pain", 0.0)))
+		_set_vital(target_shock_bar, float(occupant.get("shock", 0.0)))
+		_set_vital(target_consciousness_bar, float(occupant.get("consciousness", 0.0)))
 	else:
 		target_name.text = "SECTOR %d,%d" % [sector.coords.x, sector.coords.y]
 	var object_state: Dictionary = sector.get("object", {})
@@ -297,20 +348,41 @@ func _render_context_actions() -> void:
 	if not is_node_ready() or selected_sector == Vector2i(-1, -1):
 		return
 	_clear_children(context_actions)
+	_context_shortcuts.clear()
 	var occupant_id := _occupant_at(selected_sector)
-	if occupant_id.is_empty() or occupant_id == selected_actor_id:
-		context_menu.visible = false
-		return
-	context_title.text = str(_actor(occupant_id).get("name", "TARGET")).to_upper()
+	context_title.text = str(_actor(occupant_id).get("name", "TARGET")).to_upper() if not occupant_id.is_empty() else "MOVE HERE"
+	if occupant_id.is_empty() and current_quote != null and current_quote.action_id in ["move", "disengage"]:
+		var move_definition := _definition(current_quote.action_id)
+		if move_definition != null:
+			_add_context_action(move_definition, current_quote)
 	for action_quote in _sorted_quotes():
 		var definition := _definition(action_quote.action_id)
-		if definition == null or definition.target_mode != CombatActionDefinition.TARGET_ACTOR:
+		if definition == null or definition.context_visibility == "reaction_only":
 			continue
-		if definition.menu_family not in ["attack", "aim", "maneuver", "guard", "interact"]:
+		var relevant := false
+		if not occupant_id.is_empty() and occupant_id != selected_actor_id:
+			relevant = definition.target_mode == CombatActionDefinition.TARGET_ACTOR
+		elif occupant_id == selected_actor_id:
+			relevant = definition.target_mode == CombatActionDefinition.TARGET_SELF or definition.action_id == "end_turn"
+		if not selected_item_id.is_empty() and definition.target_mode in [CombatActionDefinition.TARGET_ITEM, CombatActionDefinition.TARGET_WOUND]:
+			relevant = true
+		if definition.action_id == "end_turn":
+			relevant = true
+		if not relevant:
 			continue
-		context_actions.add_child(_action_button(definition, action_quote))
+		_add_context_action(definition, action_quote)
 	context_menu.visible = context_actions.get_child_count() > 0
 	call_deferred("_position_context_menu")
+
+
+func _add_context_action(definition: CombatActionDefinition, action_quote: CombatActionQuote) -> void:
+	var button := _action_button(definition, action_quote)
+	var index := _context_shortcuts.size()
+	if index < 9:
+		button.text = "[%d]  %s" % [index + 1, button.text]
+	button.set_meta("action_id", definition.action_id)
+	_context_shortcuts.append(button)
+	context_actions.add_child(button)
 
 
 func _show_family(family: String) -> void:
@@ -372,10 +444,17 @@ func _on_family_selected(family: String) -> void:
 
 
 func _toggle_command_wheel() -> void:
-	command_wheel.visible = not command_wheel.visible
-	context_menu.visible = false
-	if command_wheel.visible:
-		_show_family("move")
+	command_wheel.visible = false
+	if selected_sector == Vector2i(-1, -1):
+		selected_sector = _actor(selected_actor_id).get("sector", Vector2i.ZERO)
+	context_menu.visible = not context_menu.visible
+	if context_menu.visible:
+		_render_context_actions()
+
+
+func _toggle_pack() -> void:
+	items.visible = not items.visible
+	item_heading.text = "PACK [I]  %s" % ["v" if items.visible else ">"]
 
 
 func _cancel_selection() -> void:
@@ -392,12 +471,15 @@ func _on_sector_selected(coords: Vector2i) -> void:
 	selected_body_region = -1
 	sector_selected.emit(coords)
 	_render_target_context()
+	_render_context_actions()
 	if confirming_move:
 		action_confirmed.emit()
 
 
 func _on_sector_hovered(coords: Vector2i) -> void:
-	_render_target_context(_sector(coords))
+	var sector := _sector(coords)
+	if str(sector.get("occupant_id", "")).is_empty():
+		_render_target_context(sector)
 
 
 func _render_wounds(actor_wounds: Array) -> void:
@@ -424,6 +506,7 @@ func _render_items(actor_items: Array) -> void:
 		button.pressed.connect(func() -> void:
 			selected_item_id = instance_id
 			item_selected.emit(instance_id)
+			_render_context_actions()
 		)
 		items.add_child(button)
 
@@ -434,6 +517,14 @@ func _position_context_menu() -> void:
 	var desired := arena_view.global_position + arena_view.sector_center(selected_sector) + Vector2(24.0, -30.0)
 	var maximum := size - context_menu.size - Vector2(8.0, 112.0)
 	context_menu.global_position = desired.clamp(Vector2(8.0, 58.0), maximum)
+
+
+func _invoke_visible_action(action_id: String) -> bool:
+	for button in _context_shortcuts:
+		if button.has_meta("action_id") and str(button.get_meta("action_id")) == action_id:
+			button.pressed.emit()
+			return true
+	return false
 
 
 func _family_has_visible_actions(family: String) -> bool:
