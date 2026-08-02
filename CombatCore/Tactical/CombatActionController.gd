@@ -264,14 +264,29 @@ func refresh_snapshot() -> void:
 		if actor == null:
 			continue
 		actor_data.append(_actor_snapshot(actor))
+	var arena_snapshot := board.snapshot()
+	for sector in arena_snapshot.get("sectors", []):
+		if not sector is Dictionary:
+			continue
+		var visible_ground_items: Array[Dictionary] = []
+		for instance_id in sector.get("ground_item_instance_ids", []):
+			var item := ground_items.get(str(instance_id)) as ItemData
+			if item != null:
+				visible_ground_items.append(_item_snapshot(item, "ground"))
+		sector["ground_items"] = visible_ground_items
+	var initiative_order: Array[String] = []
+	for actor in turn_manager.combatants:
+		if actor != null:
+			initiative_order.append(_actor_id(actor))
 	snapshot_changed.emit({
 		"round": turn_manager.current_round,
 		"ap": turn_manager.current_ap_pool,
 		"reserved_ap": _reserved_snapshot(),
 		"active_actor_id": _actor_id(turn_manager.get_active_entity()),
+		"initiative_order": initiative_order,
 		"busy": _busy,
 		"actors": actor_data,
-		"arena": board.snapshot(),
+		"arena": arena_snapshot,
 	})
 
 
@@ -380,6 +395,10 @@ func _validate_specific(
 		"take_cover":
 			if target == null or board.cover_against(board.position_of(actor), board.position_of(target)) <= 0.0:
 				return {"code": "cover_edge_missing", "message": "No cover edge protects against that actor."}
+		"interact":
+			var object_sector := board.arena_state.sector_at(request.target_sector)
+			if object_sector == null or object_sector.object_state.is_empty():
+				return {"code": "object_missing", "message": "No usable object is present in that sector."}
 		"escape":
 			var sector := board.sectors[board.position_of(actor)].record
 			if sector.escape_side != str(actor.get_meta("combat_side", "")):

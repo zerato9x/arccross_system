@@ -13,6 +13,7 @@ signal reaction_selected(action_id: String)
 enum Availability { HIDDEN, DISABLED, AVAILABLE }
 
 const HUD_ASSETS := preload("res://UI/HUD/HUDAssetLibrary.gd")
+const INTERACTION_STATE_SCRIPT := preload("res://CombatCore/Tactical/CombatInteractionState.gd")
 
 @onready var arena_view: TacticalArenaView = %TacticalArenaView
 @onready var initiative_row: HBoxContainer = %InitiativeRow
@@ -31,12 +32,17 @@ const HUD_ASSETS := preload("res://UI/HUD/HUDAssetLibrary.gd")
 @onready var consciousness_bar: ProgressBar = %ConsciousnessBar
 @onready var consciousness_value: Label = %ConsciousnessValue
 @onready var player_warnings: Label = %PlayerWarnings
+@onready var target_heading: Label = %TargetHeading
 @onready var hex_panel: PanelContainer = %HexPanel
 @onready var hex_title: Label = %HexTitle
 @onready var hex_summary: Label = %HexSummary
 @onready var hex_details: RichTextLabel = %HexDetails
+@onready var ground_items: VBoxContainer = %GroundItems
+@onready var ground_item_heading: Label = %GroundItemHeading
 @onready var wounds: VBoxContainer = %Wounds
 @onready var wound_heading: Label = %WoundHeading
+@onready var target_items: VBoxContainer = %TargetItems
+@onready var target_item_heading: Label = %TargetItemHeading
 @onready var items: VBoxContainer = %Items
 @onready var item_heading: Button = %ItemHeading
 @onready var right_panel: PanelContainer = %Right
@@ -72,6 +78,7 @@ const HUD_ASSETS := preload("res://UI/HUD/HUDAssetLibrary.gd")
 @onready var context_actions: VBoxContainer = %ContextActions
 @onready var context_scroll: ScrollContainer = %ContextScroll
 @onready var reaction_panel: PanelContainer = %ReactionPanel
+@onready var reaction_title: Label = %ReactionTitle
 @onready var reaction_actions: HBoxContainer = %ReactionActions
 
 var snapshot: Dictionary = {}
@@ -82,11 +89,12 @@ var selected_item_id := ""
 var selected_wound_id := ""
 var selected_body_region := -1
 var current_quote: CombatActionQuote
-var interaction := CombatInteractionState.new()
+var interaction = INTERACTION_STATE_SCRIPT.new()
 var _definitions: Dictionary = {}
 var _quote_by_action: Dictionary = {}
 var _pending_aim_action := ""
 var _context_shortcuts: Array[Button] = []
+var _reaction_shortcuts: Array[Button] = []
 
 
 func _ready() -> void:
@@ -119,10 +127,10 @@ func _ready() -> void:
 
 
 func _compact_weapon_card() -> void:
-	active_weapon_card.custom_minimum_size = Vector2(218.0, 72.0)
+	active_weapon_card.custom_minimum_size = Vector2(250.0, 112.0)
 	var visual := active_weapon_card.get_node_or_null("Margin/Columns/Visual") as Control
 	if visual != null:
-		visual.custom_minimum_size = Vector2(76.0, 58.0)
+		visual.custom_minimum_size = Vector2(72.0, 94.0)
 	var margin := active_weapon_card.get_node_or_null("Margin") as MarginContainer
 	if margin != null:
 		for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
@@ -130,15 +138,16 @@ func _compact_weapon_card() -> void:
 	var grade := active_weapon_card.get_node_or_null("Margin/Columns/Info/GradeLabel") as Control
 	var condition := active_weapon_card.get_node_or_null("Margin/Columns/Info/ConditionBar") as Control
 	var details := active_weapon_card.get_node_or_null("Margin/Columns/Info/DetailLabel") as Control
-	if grade != null:
-		grade.visible = false
-	if condition != null:
-		condition.visible = false
-	if details != null:
-		details.visible = false
+	for field in [grade, condition, details]:
+		if field != null:
+			field.visible = true
 	active_weapon_card.weapon_name.add_theme_font_size_override("font_size", 13)
 	active_weapon_card.ammo_label.add_theme_font_size_override("font_size", 13)
 	active_weapon_card.state_label.add_theme_font_size_override("font_size", 11)
+	if grade != null:
+		grade.add_theme_font_size_override("font_size", 9)
+	if details != null:
+		details.add_theme_font_size_override("font_size", 9)
 
 
 func _style_vitals() -> void:
@@ -155,9 +164,9 @@ func _style_vitals() -> void:
 func _apply_macro_aesthetic() -> void:
 	for panel in [%TopStrip, player_card, inventory_panel, hex_panel, right_panel, aim_target_panel, context_menu, reaction_panel]:
 		HUD_ASSETS.apply_panel(panel as PanelContainer, "neutral")
-	for label in [actor_name, hex_title, target_name, aim_title]:
+	for label in [actor_name, hex_title, target_heading, target_name, aim_title, reaction_title]:
 		HUD_ASSETS.apply_label(label as Label, "title")
-	for label in [actor_status, hex_summary, target_summary, context_hint, aim_hint]:
+	for label in [actor_status, hex_summary, target_summary, context_hint, aim_hint, ground_item_heading, target_item_heading]:
 		HUD_ASSETS.apply_label(label as Label, "muted")
 	for label in [ap_label, forecast_label, aim_forecast]:
 		HUD_ASSETS.apply_label(label as Label, "caution")
@@ -186,7 +195,7 @@ func _layout_corner_panels() -> void:
 	hex_panel.size = Vector2(panel_width, top_height)
 	right_panel.position = Vector2(right_x, top_y + top_height + gap)
 	right_panel.size = Vector2(panel_width, bottom_height)
-	var aim_width := clampf(size.x * 0.31, 350.0, 430.0)
+	var aim_width := clampf(size.x * 0.31, 360.0, 430.0)
 	aim_target_panel.position = Vector2(size.x - margin - aim_width, top_y)
 	aim_target_panel.size = Vector2(aim_width, usable_height)
 	var camera_inset := panel_width + margin + gap
@@ -231,6 +240,19 @@ func _register_input_action(action: StringName, keycode: Key, joy_button: JoyBut
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if reaction_panel.visible:
+		if event.is_action_pressed("combat_cancel") or event.is_action_pressed("ui_cancel") or (
+			event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed
+		):
+			_decline_reaction()
+			get_viewport().set_input_as_handled()
+			return
+		if event is InputEventKey and event.pressed and not event.echo:
+			var reaction_index := int(event.keycode) - int(KEY_1)
+			if reaction_index >= 0 and reaction_index < _reaction_shortcuts.size():
+				_reaction_shortcuts[reaction_index].pressed.emit()
+				get_viewport().set_input_as_handled()
+				return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		_cancel_selection()
 		get_viewport().set_input_as_handled()
@@ -256,9 +278,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("combat_items"):
-		_select_player()
-		items.visible = true
-		item_heading.text = "ITEMS [I]  v"
+		var player := _actor(selected_actor_id)
+		var player_sector: Vector2i = player.get("sector", Vector2i(-1, -1))
+		if player_sector != selected_sector:
+			_select_player()
+		_toggle_pack()
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("combat_primary_attack"):
@@ -283,10 +307,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_I:
-			_toggle_pack()
-			get_viewport().set_input_as_handled()
-			return
 		var number := int(event.keycode) - int(KEY_1)
 		if number >= 0 and number < _context_shortcuts.size() and context_menu.visible:
 			_context_shortcuts[number].pressed.emit()
@@ -416,24 +436,45 @@ func show_aim_targeter(action_id: String) -> void:
 
 func show_reaction(prompt: Dictionary) -> void:
 	_clear_children(reaction_actions)
+	_reaction_shortcuts.clear()
+	reaction_title.text = str(prompt.get("title", "REACTION WINDOW")).to_upper()
 	reaction_panel.visible = true
+	var action_index := 0
 	for action_id in prompt.get("actions", []):
+		var reaction_id := str(action_id)
 		var button := Button.new()
-		button.text = str(action_id).replace("_", " ").to_upper()
+		button.text = "[%d]  %s" % [action_index + 1, reaction_id.replace("_", " ").to_upper()]
 		HUD_ASSETS.apply_button(button)
-		button.pressed.connect(func() -> void:
-			reaction_panel.visible = false
-			reaction_selected.emit(str(action_id))
-		)
+		button.pressed.connect(_on_reaction_button.bind(reaction_id))
 		reaction_actions.add_child(button)
+		_reaction_shortcuts.append(button)
+		action_index += 1
 	var decline := Button.new()
 	decline.text = "DECLINE"
 	HUD_ASSETS.apply_button(decline)
-	decline.pressed.connect(func() -> void:
-		reaction_panel.visible = false
-		reaction_selected.emit("decline")
-	)
+	decline.pressed.connect(_decline_reaction)
 	reaction_actions.add_child(decline)
+	_reaction_shortcuts.append(decline)
+	call_deferred("_focus_first_reaction")
+
+
+func _focus_first_reaction() -> void:
+	if reaction_panel.visible and not _reaction_shortcuts.is_empty():
+		_reaction_shortcuts[0].grab_focus()
+
+
+func _decline_reaction() -> void:
+	if not reaction_panel.visible:
+		return
+	reaction_panel.visible = false
+	reaction_selected.emit("decline")
+
+
+func _on_reaction_button(action_id: String) -> void:
+	if not reaction_panel.visible:
+		return
+	reaction_panel.visible = false
+	reaction_selected.emit(action_id)
 
 
 func hide_reaction() -> void:
@@ -453,9 +494,18 @@ func selected_context() -> Dictionary:
 
 func _render_top() -> void:
 	_clear_children(initiative_row)
+	var actors_by_id: Dictionary = {}
 	for actor in snapshot.get("actors", []):
+		actors_by_id[str(actor.get("actor_id", ""))] = actor
+	var order: Array = snapshot.get("initiative_order", [])
+	if order.is_empty():
+		order = actors_by_id.keys()
+	for actor_id in order:
+		var actor: Dictionary = actors_by_id.get(str(actor_id), {})
+		if actor.is_empty():
+			continue
 		var chip := Label.new()
-		var active := str(actor.get("actor_id", "")) == str(snapshot.get("active_actor_id", ""))
+		var active := str(actor_id) == str(snapshot.get("active_actor_id", ""))
 		chip.text = "%s%s" % ["> " if active else "", str(actor.get("name", "ACTOR")).to_upper()]
 		chip.add_theme_color_override("font_color", Color("f0ce76") if active else Color("8ea0a4"))
 		initiative_row.add_child(chip)
@@ -487,9 +537,10 @@ func _render_player_card() -> void:
 	if float(actor.get("shock", 0.0)) >= 2.0:
 		warnings.append("SHOCK %d" % roundi(float(actor.get("shock", 0.0))))
 	for wound in actor.get("wounds", []):
-		if float(wound.get("severity", 0.0)) >= 6.0 or float(wound.get("bleeding_rate", 0.0)) >= 1.0:
-			warnings.append("SEVERE WOUND")
-			break
+		var severity := float(wound.get("severity", 0.0))
+		var bleeding := float(wound.get("bleeding_rate", 0.0))
+		if severity >= 6.0 or bleeding >= 1.0:
+			warnings.append("%s BLEED %.1f" % [_region_label(int(wound.get("body_region", -1))).to_upper(), bleeding])
 	player_warnings.text = "  ".join(warnings)
 	var ranged_weapon: Dictionary = actor.get("ranged_weapon", {})
 	var weapon: Dictionary = ranged_weapon if not ranged_weapon.is_empty() else actor.get("melee_weapon", {})
@@ -503,25 +554,43 @@ func _render_inspector() -> void:
 	var showing_aim_targeter := aim_target_panel.visible
 	right_panel.visible = not showing_aim_targeter
 	hex_panel.visible = not showing_aim_targeter
-	var sector := _sector(selected_sector)
+	var has_selected_sector := selected_sector != Vector2i(-1, -1)
+	var sector := _sector(selected_sector) if has_selected_sector else {}
 	if sector.is_empty():
 		var player := _actor(selected_actor_id)
 		sector = _sector(player.get("sector", Vector2i(-1, -1)))
 	_render_sector_inspector(sector)
+	if not has_selected_sector:
+		_clear_target_inspector()
+		return
 	var occupant: Dictionary = {}
 	var selected_occupant := _actor(str(sector.get("occupant_id", "")))
-	if not selected_occupant.is_empty() and str(selected_occupant.get("team_id", "")) != "player":
+	if not selected_occupant.is_empty():
 		occupant = selected_occupant
-	if occupant.is_empty():
-		for candidate in snapshot.get("actors", []):
-			if str(candidate.get("team_id", "")) != "player":
-				occupant = candidate
-				break
 	if not occupant.is_empty():
 		_render_actor_inspector(occupant)
+	else:
+		_clear_target_inspector()
+
+
+func _clear_target_inspector() -> void:
+	target_heading.visible = false
+	target_heading.text = "SELECTED CONDITION"
+	target_name.text = "NO TARGET"
+	target_summary.text = "Select an actor to inspect injuries and equipment."
+	target_label.text = ""
+	target_body.visible = false
+	target_vitals.visible = false
+	wound_heading.visible = false
+	target_item_heading.visible = false
+	_clear_children(wounds)
+	_clear_children(target_items)
 
 
 func _render_actor_inspector(actor: Dictionary) -> void:
+	var is_player := str(actor.get("team_id", "")) == "player"
+	target_heading.visible = true
+	target_heading.text = "FIELD CONDITION" if is_player else "HOSTILE CONDITION"
 	target_name.text = str(actor.get("name", "ACTOR")).to_upper()
 	target_summary.text = "%s · FACING %s" % [
 		str(actor.get("posture", "standing")).to_upper(),
@@ -536,6 +605,7 @@ func _render_actor_inspector(actor: Dictionary) -> void:
 	_set_vital(target_shock_bar, target_shock_value, float(actor.get("shock", 0.0)))
 	_set_vital(target_consciousness_bar, target_consciousness_value, float(actor.get("consciousness", 0.0)))
 	_render_wounds(actor.get("wounds", []))
+	_render_target_items(actor.get("items", []), str(actor.get("actor_id", "")))
 	target_label.text = _weapon_summary(actor)
 
 
@@ -544,6 +614,7 @@ func _render_sector_inspector(sector: Dictionary) -> void:
 		hex_title.text = "BATTLE SITE"
 		hex_summary.text = "Select a sector to inspect it."
 		hex_details.text = "Terrain details remain pinned here."
+		_render_ground_items([])
 		return
 	hex_title.text = "SECTOR %d,%d" % [sector.coords.x, sector.coords.y]
 	hex_summary.text = str(sector.get("surface_label", "Terrain"))
@@ -562,8 +633,8 @@ func _render_sector_inspector(sector: Dictionary) -> void:
 	var object_state: Dictionary = sector.get("object", {})
 	if not object_state.is_empty() and not str(object_state.get("label", "")).is_empty():
 		details.append("Object: %s" % str(object_state.get("label", "")))
-	hex_details.text = "
-".join(details)
+	_render_ground_items(sector.get("ground_items", []))
+	hex_details.text = "\n".join(details)
 
 
 func _render_forecast(value: CombatActionQuote) -> void:
@@ -591,7 +662,15 @@ func _render_context_actions() -> void:
 	_context_shortcuts.clear()
 	var occupant_id := _occupant_at(selected_sector)
 	var context := _selection_context(occupant_id)
-	context_title.text = str(_actor(occupant_id).get("name", "MOVE HERE")).to_upper() if not occupant_id.is_empty() else "MOVE HERE"
+	var selected_sector_data := _sector(selected_sector)
+	if not occupant_id.is_empty():
+		context_title.text = str(_actor(occupant_id).get("name", "TARGET")).to_upper()
+	elif context == CombatActionDefinition.CONTEXT_OBJECT:
+		context_title.text = str(selected_sector_data.get("object", {}).get("label", "OBJECT")).to_upper()
+	elif context == CombatActionDefinition.CONTEXT_ITEM:
+		context_title.text = "ITEM AT SECTOR"
+	else:
+		context_title.text = "MOVE HERE"
 	if context == CombatActionDefinition.CONTEXT_SECTOR:
 		var move_quote := _quote("move")
 		var move_definition := _definition("move")
@@ -612,6 +691,19 @@ func _render_context_actions() -> void:
 		local_confirmation.visible = false
 		context_hint.text = "Choose what you want to do here."
 	call_deferred("_position_context_menu")
+	call_deferred("_focus_first_context_action")
+
+
+func _focus_first_context_action() -> void:
+	if not context_menu.visible:
+		return
+	for button in _context_shortcuts:
+		if button.has_focus():
+			return
+	for button in _context_shortcuts:
+		if not button.disabled:
+			button.grab_focus()
+			return
 
 
 func _add_context_action(
@@ -652,7 +744,7 @@ func _availability(
 ) -> Availability:
 	if definition.context_visibility == "reaction_only":
 		return Availability.HIDDEN
-	if context not in definition.inferred_selection_contexts():
+	if definition.context_visibility != "always" and context not in definition.inferred_selection_contexts():
 		return Availability.HIDDEN
 	var player := _actor(selected_actor_id)
 	if "ranged_weapon" in definition.required_equipment_tags and player.get("ranged_weapon", {}).is_empty():
@@ -692,7 +784,7 @@ func _confirm_aim_targeting() -> void:
 
 
 func _cancel_aim_targeting() -> void:
-	if interaction.phase == CombatInteractionState.Phase.PRESENTING:
+	if interaction.phase == INTERACTION_STATE_SCRIPT.Phase.PRESENTING:
 		return
 	current_quote = null
 	selected_body_region = -1
@@ -722,7 +814,7 @@ func _confirm_local() -> void:
 
 
 func _cancel_selection() -> void:
-	if interaction.phase == CombatInteractionState.Phase.PRESENTING:
+	if interaction.phase == INTERACTION_STATE_SCRIPT.Phase.PRESENTING:
 		return
 	if aim_target_panel.visible:
 		_cancel_aim_targeting()
@@ -730,7 +822,7 @@ func _cancel_selection() -> void:
 	interaction.cancel_one_step()
 	clear_staged_action()
 	selection_cancelled.emit()
-	if interaction.phase == CombatInteractionState.Phase.IDLE:
+	if interaction.phase == INTERACTION_STATE_SCRIPT.Phase.IDLE:
 		context_menu.visible = false
 		selected_sector = Vector2i(-1, -1)
 		arena_view.select_sector(selected_sector)
@@ -739,8 +831,18 @@ func _cancel_selection() -> void:
 
 
 func _on_sector_selected(coords: Vector2i) -> void:
-	if interaction.phase == CombatInteractionState.Phase.PRESENTING:
+	if interaction.phase == INTERACTION_STATE_SCRIPT.Phase.PRESENTING:
 		return
+	if (
+		coords == selected_sector
+		and current_quote != null
+		and current_quote.legal
+		and current_quote.action_id == "move"
+		and local_confirmation.visible
+	):
+		action_confirmed.emit()
+		return
+	clear_staged_action()
 	selected_sector = coords
 	selected_item_id = ""
 	selected_wound_id = ""
@@ -765,6 +867,10 @@ func _select_player() -> void:
 	var player := _actor(selected_actor_id)
 	var sector: Vector2i = player.get("sector", Vector2i(-1, -1))
 	if sector != Vector2i(-1, -1):
+		if sector == selected_sector:
+			_render_inspector()
+			_render_context_actions()
+			return
 		arena_view.select_sector(sector)
 		_on_sector_selected(sector)
 
@@ -798,6 +904,7 @@ func _on_sector_unhovered() -> void:
 
 func _render_wounds(actor_wounds: Array) -> void:
 	_clear_children(wounds)
+	wound_heading.visible = not actor_wounds.is_empty()
 	for wound in actor_wounds:
 		var button := Button.new()
 		HUD_ASSETS.apply_button(button)
@@ -811,18 +918,51 @@ func _render_wounds(actor_wounds: Array) -> void:
 		]
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var wound_id := str(wound.get("wound_id", ""))
-		button.pressed.connect(func() -> void:
-			selected_wound_id = wound_id
-			interaction.select("wound", {"wound_id": wound_id, "sector": selected_sector})
-			wound_selected.emit(wound_id)
-			_render_context_actions()
-		)
+		button.pressed.connect(_on_wound_button.bind(wound_id))
 		wounds.add_child(button)
 	if actor_wounds.is_empty():
 		var none := Label.new()
 		none.text = "No visible wounds"
 		none.add_theme_color_override("font_color", Color("70807d"))
 		wounds.add_child(none)
+		wound_heading.visible = true
+
+
+func _render_target_items(actor_items: Array, actor_id: String) -> void:
+	_clear_children(target_items)
+	var show_items := not actor_id.is_empty() and actor_id != selected_actor_id and not actor_items.is_empty()
+	target_item_heading.visible = show_items
+	if not show_items:
+		return
+	for item in actor_items:
+		var button := Button.new()
+		HUD_ASSETS.apply_button(button)
+		button.text = "%s · %s" % [
+			str(item.get("name", "ITEM")),
+			str(item.get("access", "carried")).capitalize(),
+		]
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var instance_id := str(item.get("instance_id", ""))
+		button.pressed.connect(_on_target_item_button.bind(instance_id, actor_id))
+		target_items.add_child(button)
+
+
+func _render_ground_items(ground_item_descriptors: Array) -> void:
+	_clear_children(ground_items)
+	ground_item_heading.visible = not ground_item_descriptors.is_empty()
+	if ground_item_descriptors.is_empty():
+		return
+	for item in ground_item_descriptors:
+		var button := Button.new()
+		HUD_ASSETS.apply_button(button)
+		button.text = "%s · %s" % [
+			str(item.get("name", "GROUND ITEM")),
+			str(item.get("access", "ground")).capitalize(),
+		]
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var instance_id := str(item.get("instance_id", ""))
+		button.pressed.connect(_on_ground_item_button.bind(instance_id))
+		ground_items.add_child(button)
 
 
 func _render_items(actor_items: Array) -> void:
@@ -837,18 +977,53 @@ func _render_items(actor_items: Array) -> void:
 		]
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var instance_id := str(item.get("instance_id", ""))
-		button.pressed.connect(func() -> void:
-			var player := _actor(selected_actor_id)
-			var player_sector: Vector2i = player.get("sector", Vector2i(-1, -1))
-			if player_sector != Vector2i(-1, -1):
-				selected_sector = player_sector
-				arena_view.select_sector(player_sector)
-			selected_item_id = instance_id
-			interaction.select("item", {"item_id": instance_id, "sector": selected_sector})
-			item_selected.emit(instance_id)
-			_render_context_actions()
-		)
+		button.pressed.connect(_on_inventory_item_button.bind(instance_id))
 		items.add_child(button)
+
+
+func _on_wound_button(wound_id: String) -> void:
+	clear_staged_action()
+	selected_wound_id = wound_id
+	selected_item_id = ""
+	interaction.select("wound", {"wound_id": wound_id, "sector": selected_sector})
+	wound_selected.emit(wound_id)
+	_render_context_actions()
+
+
+func _on_target_item_button(instance_id: String, actor_id: String) -> void:
+	clear_staged_action()
+	selected_item_id = instance_id
+	selected_wound_id = ""
+	interaction.select("item", {"item_id": instance_id, "sector": selected_sector, "actor_id": actor_id})
+	item_selected.emit(instance_id)
+	_render_context_actions()
+
+
+func _on_ground_item_button(instance_id: String) -> void:
+	clear_staged_action()
+	selected_item_id = instance_id
+	selected_wound_id = ""
+	interaction.select("item", {"item_id": instance_id, "sector": selected_sector})
+	item_selected.emit(instance_id)
+	_render_context_actions()
+
+
+func _on_inventory_item_button(instance_id: String) -> void:
+	clear_staged_action()
+	var player := _actor(selected_actor_id)
+	var player_sector: Vector2i = player.get("sector", Vector2i(-1, -1))
+	if player_sector != Vector2i(-1, -1) and player_sector != selected_sector:
+		selected_sector = player_sector
+		arena_view.select_sector(player_sector)
+		_render_inspector()
+	selected_item_id = instance_id
+	# Keep a selected wound active so the treatment action has both required targets.
+	if selected_wound_id.is_empty():
+		interaction.select("item", {"item_id": instance_id, "sector": selected_sector})
+	else:
+		interaction.select("wound", {"wound_id": selected_wound_id, "item_id": instance_id, "sector": selected_sector})
+	item_selected.emit(instance_id)
+	_render_context_actions()
 
 
 func _position_context_menu() -> void:
@@ -881,11 +1056,17 @@ func _selection_context(occupant_id: String) -> String:
 	if not selected_wound_id.is_empty():
 		return CombatActionDefinition.CONTEXT_WOUND
 	if not selected_item_id.is_empty():
+		var occupant := _actor(occupant_id)
+		if not occupant.is_empty() and occupant_id != selected_actor_id:
+			return CombatActionDefinition.CONTEXT_HOSTILE_ACTOR
 		return CombatActionDefinition.CONTEXT_ITEM
 	if occupant_id == selected_actor_id:
 		return CombatActionDefinition.CONTEXT_SELF
 	if not occupant_id.is_empty():
 		return CombatActionDefinition.CONTEXT_HOSTILE_ACTOR
+	var sector := _sector(selected_sector)
+	if not sector.get("object", {}).is_empty():
+		return CombatActionDefinition.CONTEXT_OBJECT
 	return CombatActionDefinition.CONTEXT_SECTOR
 
 
@@ -956,8 +1137,7 @@ func _weapon_summary(actor: Dictionary) -> String:
 			str(weapon.get("readiness", {}).get("reason", "ready")).capitalize(),
 		])
 	lines.append("Condition: %d/12" % roundi(float(weapon.get("condition", 0.0))))
-	return "
-".join(lines)
+	return "\n".join(lines)
 
 
 func _action_explanation(definition: CombatActionDefinition) -> String:
@@ -983,6 +1163,7 @@ func _short_denial(action_quote: CombatActionQuote) -> String:
 		"body_region_required": "CHOOSE REGION",
 		"invalid_target_item": "CHOOSE ITEM",
 		"invalid_target_wound": "CHOOSE WOUND",
+		"object_missing": "NO OBJECT",
 	}.get(action_quote.denial_code, action_quote.denial_code.replace("_", " ").to_upper())
 
 

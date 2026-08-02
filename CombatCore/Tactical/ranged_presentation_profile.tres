@@ -4,12 +4,12 @@
 [resource]
 script = ExtResource("1")
 profile_id = "ranged"
-wind_up_seconds = 0.14
-transit_seconds = 0.18
-contact_seconds = 0.05
-reaction_seconds = 0.10
-impact_seconds = 0.12
-settle_seconds = 0.10
+wind_up_seconds = 0.30
+transit_seconds = 0.24
+contact_seconds = 0.14
+reaction_seconds = 0.42
+impact_seconds = 0.26
+settle_seconds = 0.22
 actor_animation_id = "Attack1"
 target_animation_id = "TakeDamage"
 sfx_id = "weapon_fire"

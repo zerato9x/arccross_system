@@ -5,12 +5,12 @@
 [resource]
 script = ExtResource("1")
 profile_id = "neutral"
-wind_up_seconds = 0.06
-transit_seconds = 0.10
-contact_seconds = 0.06
-reaction_seconds = 0.08
-impact_seconds = 0.08
-settle_seconds = 0.10
+wind_up_seconds = 0.10
+transit_seconds = 0.16
+contact_seconds = 0.10
+reaction_seconds = 0.14
+impact_seconds = 0.14
+settle_seconds = 0.16
 actor_animation_id = "neutral"
 target_animation_id = "neutral"
 camera_cue_id = "frame_action"

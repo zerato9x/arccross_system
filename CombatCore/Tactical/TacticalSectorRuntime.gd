@@ -84,6 +84,8 @@ func presentation_descriptor() -> Dictionary:
 		"trap": trap_state.duplicate(true),
 		"escape_side": record.escape_side if record != null else "",
 		"occupant_id": _actor_id(occupant),
+		"ground_item_instance_ids": record.ground_item_instance_ids.duplicate() if record != null else [],
+		"body_entity_ids": record.body_entity_ids.duplicate() if record != null else [],
 	}
 
 

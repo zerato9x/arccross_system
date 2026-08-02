@@ -4,12 +4,12 @@
 [resource]
 script = ExtResource("1")
 profile_id = "shove"
-wind_up_seconds = 0.12
-transit_seconds = 0.08
-contact_seconds = 0.12
-reaction_seconds = 0.12
-impact_seconds = 0.14
-settle_seconds = 0.12
+wind_up_seconds = 0.24
+transit_seconds = 0.12
+contact_seconds = 0.18
+reaction_seconds = 0.36
+impact_seconds = 0.22
+settle_seconds = 0.20
 actor_animation_id = "Attack1"
 target_animation_id = "TakeDamage"
 sfx_id = "shove_contact"

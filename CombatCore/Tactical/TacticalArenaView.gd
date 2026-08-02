@@ -11,9 +11,20 @@ const CAMERA_ZOOM_MIN := 1.0
 const CAMERA_ZOOM_MAX := 2.25
 const CAMERA_ZOOM_STEP := 0.15
 const HUMANOID_TOKEN_SCENE := preload("res://UI/Humanoid/HumanoidToken.tscn")
+const BULLET_TEXTURE := preload("res://Asset/Guns_Animation/Bullet.png")
 const WEAPON_PRESENTATION_CATALOG: CombatWeaponPresentationCatalog = preload(
 	"res://CombatCore/Tactical/default_weapon_presentation_catalog.tres"
 )
+
+const PROJECTILE_TRAIL_LENGTH := 24.0
+const PROJECTILE_TRAIL_WIDTH := 1.25
+const PROJECTILE_BULLET_SCALE := Vector2(0.95, 0.58)
+const PROJECTILE_TRAIL_COLOR := Color(1.0, 0.78, 0.38, 0.56)
+const PROJECTILE_BULLET_COLOR := Color(1.0, 0.92, 0.62, 0.94)
+const BLOOD_FPS := 30.0
+const BLOOD_SCALE := 1.35
+const BLOOD_MAX_ACTIVE := 6
+const BLOOD_VARIANT_COUNT := 9
 
 var snapshot: Dictionary = {}
 var selected_sector := Vector2i(-1, -1)
@@ -30,17 +41,53 @@ var _view_pan := Vector2.ZERO
 var _is_panning := false
 var _pan_anchor := Vector2.ZERO
 var _camera_safe_rect := Rect2()
+var _projectile_trail: Line2D
+var _projectile_sprite: Sprite2D
+var _projectile_start := Vector2.ZERO
+var _projectile_end := Vector2.ZERO
+var _projectile_direction := Vector2.RIGHT
+var _projectile_active := false
+var _blood_vfx: Array[Dictionary] = []
+var _blood_texture_cache: Dictionary = {}
+var _blood_frame_count_cache: Dictionary = {}
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
+	set_process(false)
 	gui_input.connect(_on_gui_input)
 	mouse_exited.connect(_on_mouse_exited)
 	resized.connect(func() -> void:
 		queue_redraw()
 		_sync_actor_tokens()
 	)
+
+
+func _process(delta: float) -> void:
+	if _blood_vfx.is_empty():
+		set_process(false)
+		return
+	for index in range(_blood_vfx.size() - 1, -1, -1):
+		var effect: Dictionary = _blood_vfx[index]
+		var sprite := effect.get("sprite") as Sprite2D
+		if not is_instance_valid(sprite):
+			_blood_vfx.remove_at(index)
+			continue
+		var elapsed := float(effect.get("elapsed", 0.0)) + delta
+		var frame_count := int(effect.get("frame_count", 0))
+		var frame_index := floori(elapsed * BLOOD_FPS)
+		if frame_count <= 0 or frame_index >= frame_count:
+			sprite.queue_free()
+			_blood_vfx.remove_at(index)
+			continue
+		if frame_index != int(effect.get("frame_index", -1)):
+			var texture := _blood_texture(int(effect.get("variant", 1)), frame_index)
+			if texture != null:
+				sprite.texture = texture
+			effect["frame_index"] = frame_index
+		effect["elapsed"] = elapsed
+		_blood_vfx[index] = effect
 
 
 func show_snapshot(value: Dictionary) -> void:
@@ -99,6 +146,7 @@ func begin_cue(cue: CombatPresentationCue) -> void:
 	scale = Vector2.ONE
 	pivot_offset = sector_center(cue.end_sector) if _contains(cue.end_sector) else size * 0.5
 	var token := _actor_tokens.get(cue.actor_id) as HumanoidTokenView
+	var target_token := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
 	if token != null:
 		token.position = _presentation_positions.get(cue.actor_id, sector_center(cue.start_sector))
 		token.scale = Vector2.ONE
@@ -107,16 +155,20 @@ func begin_cue(cue: CombatPresentationCue) -> void:
 		if cue.facing.is_empty() and cue.start_sector != cue.end_sector:
 			facing_vector = sector_center(cue.start_sector).direction_to(sector_center(cue.end_sector))
 		token.face_direction(facing_vector)
-		if HumanoidVisualCatalog.supports_animation(cue.animation_id):
-			if HumanoidVisualCatalog.animation_loops(cue.animation_id):
-				token.play_animation(cue.animation_id)
-			else:
-				token.play_timed_one_shot(cue.animation_id, "Idle", cue.duration_seconds)
-	var target_token := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
+	if cue.phase_id == "reaction":
+		if token != null:
+			token.play_animation("Idle", true)
+		_play_cue_animation(target_token, cue)
+	else:
+		_play_cue_animation(token, cue)
 	if target_token != null:
 		target_token.position = _presentation_positions.get(cue.target_actor_id, sector_center(cue.end_sector))
 		target_token.scale = Vector2.ONE
 		target_token.rotation = 0.0
+	if cue.phase_id == "transit" and cue.vfx_id == "projectile":
+		_begin_projectile(cue)
+	elif cue.phase_id == "impact" and _cue_has_blood(cue):
+		_play_blood_vfx(_impact_position(cue), cue)
 	queue_redraw()
 
 
@@ -128,6 +180,8 @@ func update_cue(progress: float, cue: CombatPresentationCue) -> void:
 	var target_token := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
 	var start := sector_center(cue.start_sector)
 	var finish := sector_center(cue.end_sector)
+	if cue.phase_id == "transit" and cue.vfx_id == "projectile":
+		_update_projectile(progress)
 	var direction := start.direction_to(finish)
 	if token != null:
 		if cue.phase_id == "transit" and cue.moves_actor:
@@ -186,6 +240,10 @@ func end_cue(cue: CombatPresentationCue) -> void:
 			target_token.position = _presentation_positions.get(cue.target_actor_id, sector_center(cue.end_sector))
 			target_token.scale = Vector2.ONE
 			target_token.rotation = 0.0
+		if cue.phase_id == "transit" and cue.vfx_id == "projectile":
+			_end_projectile()
+		if cue.phase_id == "reaction" and target_token != null:
+			target_token.play_animation("Idle", true)
 		_cue = null
 		_cue_progress = 0.0
 		scale = Vector2.ONE
@@ -305,17 +363,25 @@ func _draw_actors() -> void:
 		var side := _actor_side(actor_id)
 		var color := Color("67a7c8") if side == "player" else Color("c76c5b")
 		var posture := str(tactics.get(actor_id, {}).get("posture", "standing"))
-		var radius := TOKEN_RADIUS if posture == "standing" else TOKEN_RADIUS * 0.82
+		var cell := _cell_size(_grid_rect())
+		var compact := minf(cell.x, cell.y) < 56.0
+		var radius := minf(TOKEN_RADIUS, minf(cell.x, cell.y) * 0.34)
+		if posture != "standing":
+			radius *= 0.82
 		draw_circle(center, radius, Color(0.04, 0.05, 0.05, 0.90))
-		draw_circle(center, radius, color, false, 4.0)
-		_draw_facing(center, str(facings.get(actor_id, "east")), color)
+		draw_circle(center, radius, color, false, minf(4.0, maxf(1.5, radius * 0.15)))
+		_draw_facing(center, str(facings.get(actor_id, "east")), color, minf(31.0, radius * 1.5))
 		if bool(tactics.get(actor_id, {}).get("off_balance", false)):
-			draw_arc(center, radius + 6.0, 0.0, TAU, 18, Color("e0b75e"), 2.0)
+			draw_arc(center, radius + minf(6.0, radius * 0.3), 0.0, TAU, 18, Color("e0b75e"), 2.0)
 		var actor := _actor_snapshot(actor_id)
-		var display_name := str(actor.get("name", actor_id)).to_upper()
-		draw_string(ThemeDB.fallback_font, center + Vector2(-radius - 8.0, radius + 18.0), display_name, HORIZONTAL_ALIGNMENT_CENTER, radius * 2.0 + 16.0, 10, Color("d9dfdc"))
-		_draw_vital_bar(center + Vector2(-28.0, radius + 24.0), 56.0, float(actor.get("blood", 0.0)), Color("c85f55"))
-		_draw_vital_bar(center + Vector2(-28.0, radius + 31.0), 56.0, float(actor.get("consciousness", 0.0)), Color("d6b85e"))
+		var full_name := str(actor.get("name", actor_id)).to_upper()
+		var display_name := full_name.left(2) if compact else full_name
+		var label_width := minf(56.0, maxf(24.0, cell.x * 0.82))
+		var label_font_size := 8 if compact else 10
+		draw_string(ThemeDB.fallback_font, center + Vector2(-label_width * 0.5, radius + (12.0 if compact else 18.0)), display_name, HORIZONTAL_ALIGNMENT_CENTER, label_width, label_font_size, Color("d9dfdc"))
+		var bar_y := radius + (17.0 if compact else 24.0)
+		_draw_vital_bar(center + Vector2(-label_width * 0.5, bar_y), label_width, float(actor.get("blood", 0.0)), Color("c85f55"))
+		_draw_vital_bar(center + Vector2(-label_width * 0.5, bar_y + (6.0 if compact else 7.0)), label_width, float(actor.get("consciousness", 0.0)), Color("d6b85e"))
 
 
 func _draw_vital_bar(origin: Vector2, width: float, value: float, color: Color) -> void:
@@ -329,12 +395,12 @@ func _draw_presentation() -> void:
 	_draw_weapon_sheet_frame()
 	var start := sector_center(_cue.start_sector)
 	var finish := sector_center(_cue.end_sector)
-	if _cue.phase_id == "transit" and not _cue.vfx_id.is_empty():
+	if _cue.phase_id == "transit" and not _cue.vfx_id.is_empty() and _cue.vfx_id != "projectile":
 		var point := start.lerp(finish, _cue_progress)
 		draw_line(start, point, Color("f0d487"), 3.0, true)
 		draw_circle(point, 4.0, Color.WHITE)
 	elif _cue.phase_id in ["contact", "impact"]:
-		var impact_color := Color("e7c56c") if _cue.outcome_tag in ["block", "cover"] else Color("ef6f52")
+		var impact_color := Color("e7c56c") if _cue.outcome_tag in ["block", "shield_block", "cover", "cover_impact"] else Color("ef6f52")
 		if _cue.outcome_tag == "miss":
 			impact_color = Color("8ca4a1")
 		draw_circle(finish, lerpf(8.0, 30.0, _cue_progress), Color(impact_color, 1.0 - _cue_progress), false, 4.0)
@@ -354,8 +420,8 @@ func _draw_weapon_sheet_frame() -> void:
 	var fps := definition.fps_for_action(_cue.action_id)
 	if sheet == null or frame_size.x <= 0 or frame_size.y <= 0 or fps <= 0.0:
 		return
-	var columns := maxi(1, sheet.get_width() / frame_size.x)
-	var rows := maxi(1, sheet.get_height() / frame_size.y)
+	var columns := maxi(1, floori(float(sheet.get_width()) / float(frame_size.x)))
+	var rows := maxi(1, floori(float(sheet.get_height()) / float(frame_size.y)))
 	var frame_count := columns * rows
 	var sequence_progress := lerpf(
 		_cue.sequence_progress_start,
@@ -364,7 +430,7 @@ func _draw_weapon_sheet_frame() -> void:
 	)
 	var frame_index := clampi(floori(sequence_progress * float(frame_count)), 0, frame_count - 1)
 	var source := Rect2(
-		Vector2((frame_index % columns) * frame_size.x, (frame_index / columns) * frame_size.y),
+		Vector2((frame_index % columns) * frame_size.x, floori(float(frame_index) / float(columns)) * frame_size.y),
 		Vector2(frame_size)
 	)
 	var actor_position: Vector2 = _presentation_positions.get(_cue.actor_id, sector_center(_cue.start_sector))
@@ -376,6 +442,164 @@ func _draw_weapon_sheet_frame() -> void:
 	draw_set_transform(actor_position, rotation_angle, Vector2(1.0, -1.0 if flip_y else 1.0))
 	draw_texture_rect_region(sheet, Rect2(-display_size * 0.5, display_size), source)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _play_cue_animation(token: HumanoidTokenView, cue: CombatPresentationCue) -> void:
+	if token == null or not HumanoidVisualCatalog.supports_animation(cue.animation_id):
+		return
+	if HumanoidVisualCatalog.animation_loops(cue.animation_id):
+		token.play_animation(cue.animation_id)
+	else:
+		token.play_timed_one_shot(cue.animation_id, "Idle", cue.duration_seconds)
+
+
+func _begin_projectile(cue: CombatPresentationCue) -> void:
+	_end_projectile()
+	var start := sector_center(cue.start_sector)
+	var finish := sector_center(cue.end_sector)
+	var direction := start.direction_to(finish)
+	if direction.length_squared() <= 0.001:
+		direction = _facing_vector(cue.facing)
+	var cell := _cell_size(_grid_rect())
+	var body_offset := Vector2(0.0, -minf(12.0, cell.y * 0.24))
+	var muzzle_offset := minf(10.0, cell.x * 0.16)
+	start += body_offset + direction * muzzle_offset
+	finish += body_offset - direction * muzzle_offset
+	if cue.outcome_tag == "miss":
+		finish += direction * minf(30.0, cell.x * 0.34)
+	_projectile_start = start
+	_projectile_end = finish
+	_projectile_direction = direction.normalized()
+	_projectile_trail = Line2D.new()
+	_projectile_trail.name = "ProjectileTrail"
+	_projectile_trail.z_index = 16
+	_projectile_trail.width = PROJECTILE_TRAIL_WIDTH
+	_projectile_trail.default_color = PROJECTILE_TRAIL_COLOR
+	_projectile_trail.texture_mode = Line2D.LINE_TEXTURE_NONE
+	_projectile_trail.antialiased = true
+	_projectile_trail.points = PackedVector2Array([start, start])
+	add_child(_projectile_trail)
+	_projectile_sprite = Sprite2D.new()
+	_projectile_sprite.name = "ProjectileBullet"
+	_projectile_sprite.z_index = 17
+	_projectile_sprite.texture = BULLET_TEXTURE
+	_projectile_sprite.centered = true
+	_projectile_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_projectile_sprite.position = start
+	_projectile_sprite.rotation = _projectile_direction.angle()
+	_projectile_sprite.scale = PROJECTILE_BULLET_SCALE
+	_projectile_sprite.modulate = PROJECTILE_BULLET_COLOR
+	add_child(_projectile_sprite)
+	_projectile_active = true
+	queue_redraw()
+
+
+func _update_projectile(progress: float) -> void:
+	if not _projectile_active or not is_instance_valid(_projectile_sprite) or not is_instance_valid(_projectile_trail):
+		return
+	var eased := 1.0 - pow(1.0 - clampf(progress, 0.0, 1.0), 1.35)
+	var current := _projectile_start.lerp(_projectile_end, eased)
+	_projectile_sprite.position = current
+	_projectile_trail.points = _projectile_trace_points(
+		_projectile_start,
+		current,
+		_projectile_direction
+	)
+
+
+func _end_projectile() -> void:
+	_projectile_active = false
+	if is_instance_valid(_projectile_trail):
+		_projectile_trail.queue_free()
+	if is_instance_valid(_projectile_sprite):
+		_projectile_sprite.queue_free()
+	_projectile_trail = null
+	_projectile_sprite = null
+
+
+func _projectile_trace_points(start: Vector2, current: Vector2, direction: Vector2) -> PackedVector2Array:
+	var travelled := start.distance_to(current)
+	if travelled <= 0.1 or direction.length_squared() <= 0.001:
+		return PackedVector2Array([start, current])
+	var tail_distance := minf(PROJECTILE_TRAIL_LENGTH, travelled)
+	return PackedVector2Array([current - direction * tail_distance, current])
+
+
+func _cue_has_blood(cue: CombatPresentationCue) -> bool:
+	return cue.vfx_id in ["projectile", "melee_contact", "heavy_contact"] and cue.outcome_tag in [
+		"hit", "wound", "damage", "collateral_hit"
+	]
+
+
+func _impact_position(cue: CombatPresentationCue) -> Vector2:
+	var sector := cue.target_end_sector if _contains(cue.target_end_sector) else cue.end_sector
+	return sector_center(sector)
+
+
+func _play_blood_vfx(impact_position: Vector2, cue: CombatPresentationCue) -> void:
+	var variant := _blood_variant(cue)
+	var frame_count := _blood_frame_count(variant)
+	if frame_count <= 0:
+		return
+	while _blood_vfx.size() >= BLOOD_MAX_ACTIVE:
+		var oldest: Dictionary = _blood_vfx.pop_front()
+		var old_sprite := oldest.get("sprite") as Sprite2D
+		if is_instance_valid(old_sprite):
+			old_sprite.queue_free()
+	var sprite := Sprite2D.new()
+	sprite.name = "BloodImpact"
+	sprite.z_index = 25
+	sprite.centered = true
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.position = impact_position
+	sprite.scale = Vector2.ONE * BLOOD_SCALE
+	sprite.modulate = Color(1.0, 0.92, 0.90, 0.92)
+	sprite.texture = _blood_texture(variant, 0)
+	add_child(sprite)
+	_blood_vfx.append({
+		"sprite": sprite,
+		"variant": variant,
+		"frame_count": frame_count,
+		"frame_index": 0,
+		"elapsed": 0.0,
+	})
+	set_process(true)
+
+
+func _blood_variant(cue: CombatPresentationCue) -> int:
+	var variant_seed: int = int(abs(
+		cue.start_sector.x * 31
+		+ cue.start_sector.y * 17
+		+ cue.end_sector.x * 13
+		+ cue.end_sector.y * 7
+		+ cue.target_actor_id.length()
+	))
+	return posmod(variant_seed, BLOOD_VARIANT_COUNT) + 1
+
+
+func _blood_frame_count(variant: int) -> int:
+	if _blood_frame_count_cache.has(variant):
+		return int(_blood_frame_count_cache[variant])
+	var count := 0
+	while count < 64:
+		var path := "res://Asset/VFX/BLOOD VFX/%d/1_%03d.png" % [variant, count]
+		if not ResourceLoader.exists(path):
+			break
+		count += 1
+	_blood_frame_count_cache[variant] = count
+	return count
+
+
+func _blood_texture(variant: int, frame_index: int) -> Texture2D:
+	var key := "%d:%d" % [variant, frame_index]
+	if _blood_texture_cache.has(key):
+		return _blood_texture_cache[key] as Texture2D
+	var path := "res://Asset/VFX/BLOOD VFX/%d/1_%03d.png" % [variant, frame_index]
+	if not ResourceLoader.exists(path):
+		return null
+	var texture := load(path) as Texture2D
+	_blood_texture_cache[key] = texture
+	return texture
 
 
 func _draw_cover_edges(rect: Rect2, edges: Dictionary) -> void:
@@ -391,9 +615,9 @@ func _draw_cover_edges(rect: Rect2, edges: Dictionary) -> void:
 			"east": draw_line(Vector2(rect.end.x, rect.position.y), rect.end, Color("d7d0b2"), width)
 
 
-func _draw_facing(center: Vector2, facing: String, color: Color) -> void:
+func _draw_facing(center: Vector2, facing: String, color: Color, length: float = 31.0) -> void:
 	var direction: Vector2 = {"north": Vector2.UP, "east": Vector2.RIGHT, "south": Vector2.DOWN, "west": Vector2.LEFT}.get(facing, Vector2.RIGHT)
-	draw_line(center, center + direction * 31.0, color, 5.0, true)
+	draw_line(center, center + direction * length, color, minf(5.0, maxf(1.5, length * 0.18)), true)
 
 
 func _actor_side(actor_id: String) -> String:
@@ -428,7 +652,8 @@ func _sync_actor_tokens() -> void:
 			token.set_slot_item_ids(slot_items)
 		token.visible = true
 		token.position = sector_center(sector.coords)
-		token.set_display_scale(clampf(minf(_cell_size(_grid_rect()).x, _cell_size(_grid_rect()).y) / 32.0, 1.1, 2.8))
+		var cell := _cell_size(_grid_rect())
+		token.set_display_scale(clampf(minf(cell.x, cell.y) / 72.0, 0.45, 2.4))
 		token.face_direction(_facing_vector(str(facings.get(actor_id, "east"))))
 		var posture := str(tactics.get(actor_id, {}).get("posture", "standing"))
 		var idle := "CrouchIdle" if posture == "crouched" and HumanoidVisualCatalog.supports_animation("CrouchIdle") else "Idle"
@@ -567,7 +792,7 @@ func _on_gui_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed:
 		var cursor := hovered_sector if _contains(hovered_sector) else selected_sector
 		if not _contains(cursor):
-			cursor = Vector2i(_arena_width() / 2, _arena_height() / 2)
+			cursor = Vector2i(floori(float(_arena_width()) / 2.0), floori(float(_arena_height()) / 2.0))
 		var delta := Vector2i.ZERO
 		if event.is_action("ui_left"):
 			delta = Vector2i.LEFT

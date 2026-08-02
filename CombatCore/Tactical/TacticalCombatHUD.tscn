@@ -216,27 +216,39 @@ theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 8
-[node name="Content" type="VBoxContainer" parent="HexPanel/Margin"]
+[node name="InspectorScroll" type="ScrollContainer" parent="HexPanel/Margin"]
 layout_mode = 2
+[node name="Content" type="VBoxContainer" parent="HexPanel/Margin/InspectorScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 5
-[node name="HexHeading" type="Label" parent="HexPanel/Margin/Content"]
+[node name="HexHeading" type="Label" parent="HexPanel/Margin/InspectorScroll/Content"]
 layout_mode = 2
 text = "BATTLE SITE"
-[node name="HexTitle" type="Label" parent="HexPanel/Margin/Content"]
+[node name="HexTitle" type="Label" parent="HexPanel/Margin/InspectorScroll/Content"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "ENCOUNTER"
-[node name="HexSummary" type="Label" parent="HexPanel/Margin/Content"]
+[node name="HexSummary" type="Label" parent="HexPanel/Margin/InspectorScroll/Content"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 2
-[node name="HexDetails" type="RichTextLabel" parent="HexPanel/Margin/Content"]
+[node name="HexDetails" type="RichTextLabel" parent="HexPanel/Margin/InspectorScroll/Content"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(270, 100)
 layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
 fit_content = true
+[node name="GroundItemHeading" type="Label" parent="HexPanel/Margin/InspectorScroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "GROUND ITEMS"
+visible = false
+[node name="GroundItems" type="VBoxContainer" parent="HexPanel/Margin/InspectorScroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+
 
 [node name="Right" type="PanelContainer" parent="."]
 unique_name_in_owner = true
@@ -259,9 +271,11 @@ horizontal_scroll_mode = 0
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 5
-[node name="EnemyHeading" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
+[node name="TargetHeading" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "HOSTILE CONDITION"
+visible = false
 [node name="TargetName" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -332,6 +346,14 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "WOUNDS"
 [node name="Wounds" type="VBoxContainer" parent="Right/RightMargin/InspectorScroll/RightContent"]
+unique_name_in_owner = true
+layout_mode = 2
+[node name="TargetItemHeading" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "CARRIED ITEMS"
+visible = false
+[node name="TargetItems" type="VBoxContainer" parent="Right/RightMargin/InspectorScroll/RightContent"]
 unique_name_in_owner = true
 layout_mode = 2
 [node name="TargetLabel" type="RichTextLabel" parent="Right/RightMargin/InspectorScroll/RightContent"]
@@ -471,7 +493,14 @@ offset_right = 280.0
 offset_bottom = -16.0
 grow_horizontal = 2
 grow_vertical = 0
-[node name="ReactionActions" type="HBoxContainer" parent="ReactionPanel"]
+[node name="ReactionContent" type="VBoxContainer" parent="ReactionPanel"]
+layout_mode = 2
+theme_override_constants/separation = 5
+[node name="ReactionTitle" type="Label" parent="ReactionPanel/ReactionContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "REACTION WINDOW"
+[node name="ReactionActions" type="HBoxContainer" parent="ReactionPanel/ReactionContent"]
 unique_name_in_owner = true
 layout_mode = 2
 alignment = 1

@@ -33,6 +33,8 @@ func _verify_size(viewport_size: Vector2i) -> void:
 	hud.show_quotes(_sample_quotes())
 	await process_frame
 	await process_frame
+	if hud.target_heading.visible:
+		_fail("Enemy condition was exposed before an actor was selected.")
 
 	if not hud.size.is_equal_approx(Vector2(viewport_size)):
 		_fail("HUD did not fill %s; got %s." % [viewport_size, hud.size])
@@ -71,6 +73,21 @@ func _verify_size(viewport_size: Vector2i) -> void:
 		_fail("Confirm/Cancel are not local to the contextual menu.")
 	if hud.context_menu.visible:
 		_assert_inside(arena.get_global_rect(), hud.context_menu.get_global_rect(), "context menu", viewport_size)
+	var target_item_button: Button
+	for child in hud.target_items.get_children():
+		if child is Button:
+			target_item_button = child
+			break
+	if target_item_button == null:
+		_fail("Selected enemy did not expose its carried item list.")
+	else:
+		target_item_button.pressed.emit()
+		var strip_visible := false
+		for child in hud.context_actions.get_children():
+			if child is Button and str(child.get_meta("action_id", "")) == "strip":
+				strip_visible = true
+		if not strip_visible:
+			_fail("Selecting a carried enemy item did not expose Strip Body.")
 	var aimed_button: Button
 	for child in hud.context_actions.get_children():
 		if child is Button and str(child.get_meta("action_id", "")) == "aimed_strike":
@@ -97,6 +114,75 @@ func _verify_size(viewport_size: Vector2i) -> void:
 		_fail("Aimed Strike was unavailable for targeting-panel verification.")
 	hud.arena_view.sector_selected.emit(Vector2i(2, 0))
 	await process_frame
+	if not hud.target_heading.visible or hud.target_heading.text != "FIELD CONDITION":
+		_fail("Selecting the player did not expose the player's condition inspector.")
+	var wound_button: Button
+	for child in hud.wounds.get_children():
+		if child is Button:
+			wound_button = child
+			break
+	if wound_button == null:
+		_fail("Player wounds were not selectable from the condition inspector.")
+	else:
+		wound_button.pressed.emit()
+		_toggle_items_for_test(hud)
+		var treat_visible := false
+		for child in hud.context_actions.get_children():
+			if child is Button and str(child.get_meta("action_id", "")) == "treat":
+				treat_visible = true
+		if not treat_visible:
+			_fail("Selecting a player wound and treatment item did not expose Treat Wound.")
+	var ground_button: Button
+	hud.arena_view.sector_selected.emit(Vector2i(5, 0))
+	await process_frame
+	for child in hud.ground_items.get_children():
+		if child is Button:
+			ground_button = child
+			break
+	if ground_button == null:
+		_fail("Selected sector did not expose its ground item.")
+	else:
+		ground_button.pressed.emit()
+		var pickup_visible := false
+		for child in hud.context_actions.get_children():
+			if child is Button and str(child.get_meta("action_id", "")) == "pick_up":
+				pickup_visible = true
+		if not pickup_visible:
+			_fail("Selecting a ground item did not expose Pick Up.")
+	hud.arena_view.sector_selected.emit(Vector2i(4, 0))
+	await process_frame
+	var interact_visible := false
+	for child in hud.context_actions.get_children():
+		if child is Button and str(child.get_meta("action_id", "")) == "interact":
+			interact_visible = true
+	if not interact_visible:
+		_fail("Selecting an object sector did not expose Interact.")
+	var movement_confirmed := false
+	hud.action_confirmed.connect(func() -> void: movement_confirmed = true)
+	hud.current_quote = null
+	hud.arena_view.sector_selected.emit(Vector2i(3, 0))
+	var move_quote := CombatActionQuote.new()
+	move_quote.action_id = "move"
+	move_quote.actor_id = "player"
+	move_quote.target_sector = Vector2i(3, 0)
+	move_quote.ap_cost = 2
+	move_quote.legal = true
+	hud.show_quote(move_quote)
+	hud.arena_view.sector_selected.emit(Vector2i(3, 0))
+	if not movement_confirmed:
+		_fail("A second click on a staged move did not confirm it.")
+	hud.show_reaction({"actions": ["block", "dodge"], "title": "TEST ATTACK"})
+	await process_frame
+	if hud.reaction_actions.get_child_count() != 3 or not hud.reaction_actions.get_child(0).has_focus():
+		_fail("Reaction prompt did not expose actions with initial focus.")
+	hud.hide_reaction()
+	hud.items.visible = false
+	hud._unhandled_input(_key_event(KEY_I))
+	if not hud.items.visible:
+		_fail("Inventory shortcut did not open the pack.")
+	hud._unhandled_input(_key_event(KEY_I))
+	if hud.items.visible:
+		_fail("Inventory shortcut did not close the pack.")
 	var end_turn_button: Button
 	for child in hud.context_actions.get_children():
 		if child is Button and str(child.get_meta("action_id", "")) == "end_turn":
@@ -150,7 +236,9 @@ func _sample_snapshot(width: int, height: int) -> Dictionary:
 			"concealment": 0.0,
 			"cover_edges": {},
 			"hazards": {},
-			"object": {},
+			"object": {"id": "crate", "label": "Supply Crate"} if x == 4 and y == center_y else {},
+			"ground_item_instance_ids": ["ground_item"] if x == 5 and y == center_y else [],
+			"ground_items": [{"instance_id": "ground_item", "name": "Loose Bandage", "access": "ground", "condition": 12.0}] if x == 5 and y == center_y else [],
 			"occupant_id": "player" if x == mini(2, width - 1) and y == center_y else ("enemy" if x == width - 1 and y == center_y else ""),
 			})
 	var function := {
@@ -166,10 +254,11 @@ func _sample_snapshot(width: int, height: int) -> Dictionary:
 		"round": 1,
 		"ap": 12,
 		"active_actor_id": "player",
+		"initiative_order": ["enemy", "player"],
 		"reserved_ap": {"player": 0},
 		"actors": [
-			{"actor_id": "player", "team_id": "player", "name": "Player", "sector": Vector2i(mini(2, width - 1), center_y), "posture": "standing", "facing": "east", "blood": 12.0, "pain": 0.0, "shock": 0.0, "consciousness": 12.0, "region_function": function, "wounds": [], "items": [], "ranged_weapon": {}, "melee_weapon": {}},
-			{"actor_id": "enemy", "team_id": "enemy", "name": "Scavenger", "sector": Vector2i(width - 1, center_y), "posture": "standing", "facing": "west", "blood": 10.0, "pain": 2.0, "shock": 1.0, "consciousness": 11.0, "region_function": function, "wounds": [], "items": [], "ranged_weapon": {}, "melee_weapon": {}},
+			{"actor_id": "player", "team_id": "player", "name": "Player", "sector": Vector2i(mini(2, width - 1), center_y), "posture": "standing", "facing": "east", "blood": 12.0, "pain": 0.0, "shock": 0.0, "consciousness": 12.0, "region_function": function, "wounds": [{"wound_id": "player_wound", "body_region": GameEnums.LimbRegion.LEFT_ARM, "wound_type": "laceration", "severity": 4.0, "bleeding_rate": 1.5, "stabilized": false}], "items": [{"instance_id": "bandage", "name": "Field Bandage", "access": "accessible", "condition": 12.0}], "ranged_weapon": {}, "melee_weapon": {}},
+			{"actor_id": "enemy", "team_id": "enemy", "name": "Scavenger", "sector": Vector2i(width - 1, center_y), "posture": "standing", "facing": "west", "blood": 10.0, "pain": 2.0, "shock": 1.0, "consciousness": 11.0, "dead": true, "incapacitated": true, "region_function": function, "wounds": [], "items": [{"instance_id": "enemy_weapon", "name": "Enemy Knife", "access": "carried", "condition": 12.0}], "ranged_weapon": {}, "melee_weapon": {}},
 		],
 		"arena": {"width": width, "height": height, "presentation_style": "duel_lane" if height == 1 else "tactical_grid", "sectors": sectors, "facings": {"player": "east", "enemy": "west"}, "tactics": {}},
 	}
@@ -188,6 +277,23 @@ func _sample_quotes() -> Array[CombatActionQuote]:
 		quote.has_line_of_sight = true
 		result.append(quote)
 	return result
+
+
+func _toggle_items_for_test(hud: TacticalCombatHUD) -> void:
+	if not hud.items.visible:
+		hud._toggle_pack()
+	for child in hud.items.get_children():
+		if child is Button:
+			child.pressed.emit()
+			return
+
+
+func _key_event(keycode: Key) -> InputEventKey:
+	var event := InputEventKey.new()
+	event.physical_keycode = keycode
+	event.keycode = keycode
+	event.pressed = true
+	return event
 
 
 func _assert_inside(parent_rect: Rect2, child_rect: Rect2, label: String, viewport_size: Vector2i) -> void:

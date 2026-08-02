@@ -84,6 +84,8 @@ func setup_encounter(encounter: CombatEncounterRecord) -> void:
 	resolution_engine.board = board
 	resolution_engine.turn_manager = turn_manager
 	action_controller.configure(actor_cores, board, turn_manager, resolution_engine)
+	_load_encounter_ground_items(encounter)
+	action_controller.refresh_snapshot()
 	hud.configure_action_catalog(action_controller.catalog)
 	for index in range(enemy_cores.size()):
 		var ai := TacticalCombatAI.new()
@@ -96,6 +98,38 @@ func setup_encounter(encounter: CombatEncounterRecord) -> void:
 func _fabricate_actor(actor_record: Dictionary, unit_name: String) -> HumanoidCore:
 	var runtime_record: Dictionary = actor_record.get("runtime_record", {})
 	return EntityFactory.record_to_humanoid_core(runtime_record, self, unit_name)
+
+
+func _load_encounter_ground_items(encounter: CombatEncounterRecord) -> void:
+	action_controller.ground_items.clear()
+	if encounter == null:
+		return
+	var player_index := board.position_of(player_core)
+	var fallback_coords := board.arena_state.coords_for(player_index) if player_index >= 0 else Vector2i.ZERO
+	for raw_state in encounter.ground_items:
+		if not raw_state is Dictionary:
+			continue
+		var item := ItemData.from_runtime_state(raw_state)
+		if item == null or item.instance_id.is_empty():
+			continue
+		action_controller.ground_items[item.instance_id] = item
+		var coords := _ground_item_sector(raw_state, fallback_coords)
+		if not board.arena_state.contains(coords):
+			coords = fallback_coords
+		var sector := board.arena_state.sector_at(coords)
+		if sector != null and item.instance_id not in sector.ground_item_instance_ids:
+			sector.ground_item_instance_ids.append(item.instance_id)
+
+
+func _ground_item_sector(raw_state: Dictionary, fallback_coords: Vector2i) -> Vector2i:
+	var raw_coords: Variant = raw_state.get("sector", raw_state.get("target_sector", fallback_coords))
+	if raw_coords is Vector2i:
+		return raw_coords
+	if raw_coords is Vector2:
+		return Vector2i(roundi(raw_coords.x), roundi(raw_coords.y))
+	if raw_coords is Dictionary:
+		return Vector2i(int(raw_coords.get("x", fallback_coords.x)), int(raw_coords.get("y", fallback_coords.y)))
+	return fallback_coords
 
 
 func _wire_actor(actor: HumanoidCore) -> void:
@@ -198,6 +232,9 @@ func _build_request(action_id: String) -> CombatActionRequest:
 	request.target_wound_id = str(context.wound_id)
 	request.target_body_region = int(context.body_region)
 	request.final_facing = str(context.facing)
+	var selected_sector := board.arena_state.sector_at(request.target_sector) if board.arena_state.contains(request.target_sector) else null
+	if action_id == "interact" and selected_sector != null:
+		request.metadata["interaction_id"] = str(selected_sector.object_state.get("id", "inspect"))
 	var actor_snapshot: Dictionary = {}
 	for actor in hud.snapshot.get("actors", []):
 		if str(actor.get("actor_id", "")) == request.actor_id:
@@ -246,7 +283,10 @@ func _on_reaction_window_opened(
 		var ids: Array[String] = []
 		for action in available:
 			ids.append(str(action))
-		hud.show_reaction({"actions": ids})
+		hud.show_reaction({
+			"actions": ids,
+			"title": "%s is attacking — choose a reaction" % _actor_display_name(_attacker),
+		})
 	else:
 		if available.is_empty():
 			turn_manager.decline_reaction(defender)
@@ -257,6 +297,12 @@ func _on_reaction_window_opened(
 func _on_reaction_selected(action_id: String) -> void:
 	if action_id == "decline" or not turn_manager.resolve_reaction(player_core, action_id):
 		turn_manager.decline_reaction(player_core)
+
+
+func _actor_display_name(actor: HumanoidCore) -> String:
+	if actor == null:
+		return "HOSTILE"
+	return str(actor.name)
 
 
 func _on_action_denied(action_quote: CombatActionQuote) -> void:
@@ -338,6 +384,7 @@ func _on_items_spilled(spilled: Array[ItemData], actor: HumanoidCore) -> void:
 		action_controller.ground_items[item.instance_id] = item
 		if item.instance_id not in board.sectors[index].record.ground_item_instance_ids:
 			board.sectors[index].record.ground_item_instance_ids.append(item.instance_id)
+	action_controller.refresh_snapshot()
 
 
 func _on_transfer_committed(receipt: Dictionary) -> void:
@@ -358,8 +405,21 @@ func _ground_item_states() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for item in action_controller.ground_items.values():
 		if item is ItemData:
-			result.append(item.to_runtime_state())
+			var state: Dictionary = item.to_runtime_state()
+			var coords := _ground_item_coords(item.instance_id)
+			if coords != Vector2i(-1, -1):
+				state["sector"] = coords
+			result.append(state)
 	return result
+
+
+func _ground_item_coords(instance_id: String) -> Vector2i:
+	if board == null:
+		return Vector2i(-1, -1)
+	for sector in board.sectors:
+		if sector != null and sector.record != null and instance_id in sector.record.ground_item_instance_ids:
+			return sector.coords
+	return Vector2i(-1, -1)
 
 
 func _find_team_actors(records: Array[Dictionary], team_id: String) -> Array[Dictionary]:

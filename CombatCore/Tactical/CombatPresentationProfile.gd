@@ -123,7 +123,11 @@ func _outcome_tag(outcome: CombatActionOutcome) -> String:
 		var result := str(event.get("result", event.get("type", "")))
 		if result == "damage":
 			return "hit"
-		if result in ["hit", "miss", "block", "dodge", "cover", "malfunction", "damage"]:
+		if result in [
+			"hit", "collateral_hit", "miss", "block", "shield_block", "dodge",
+			"cover", "cover_impact", "malfunction", "damage", "object_collision",
+			"actor_collision", "boundary"
+		]:
 			return result
 	if not outcome.wound_events.is_empty():
 		return "wound"
