@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CombatCommunicationProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://SystemCore/CombatCommunicationProfile.gd" id="1_profile"]
+
+[resource]
+script = ExtResource("1_profile")
+profile_id = "default_communication"
+base_communication_points = 2
+base_squad_points = 2
+will_divisor = 3
+morale_modifiers = {"critical": -1, "normal": 0, "confident": 1}
+cohesion_modifiers = {"isolated": -1, "normal": 0, "cohesive": 2}
+biological_crisis_penalty = 2
+intent_biases = {"offense": 1.0, "defense": 0.5, "support": 0.25, "flee": -0.5, "threaten": 0.0, "ceasefire": 1.0}
+agenda_biases = {"survivalist": 1.5, "belligerent": 0.5, "zealot": -2.0, "mindless": -99.0}
+acceptance_threshold = 0.0

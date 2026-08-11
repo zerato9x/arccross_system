@@ -1,0 +1,79 @@
+[gd_resource type="Resource" script_class="NpcBehaviorProfileCatalog" load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://SystemCore/NpcBehaviorProfileCatalog.gd" id="1_catalog"]
+[ext_resource type="Script" path="res://SystemCore/NpcBehaviorProfile.gd" id="2_profile"]
+
+[sub_resource type="Resource" id="Scavenger"]
+script = ExtResource("2_profile")
+profile_id = "scavenger"
+role_id = "scavenger"
+pursuit_radius = 2
+work_weights = {"repair": 0.4, "salvage": 0.8, "search": 1.0}
+tags = Array[String](["survivalist", "scavenge"])
+
+[sub_resource type="Resource" id="Default"]
+script = ExtResource("2_profile")
+profile_id = "default"
+role_id = "default"
+pursuit_radius = 3
+
+[sub_resource type="Resource" id="Resident"]
+script = ExtResource("2_profile")
+profile_id = "resident"
+role_id = "resident"
+pursuit_radius = 2
+work_weights = {"repair": 0.8, "search": 0.5}
+tags = Array[String](["stationary", "settlement"])
+
+[sub_resource type="Resource" id="Salvager"]
+script = ExtResource("2_profile")
+profile_id = "salvager"
+role_id = "salvager"
+pursuit_radius = 3
+work_weights = {"repair": 0.4, "salvage": 0.8, "search": 1.0}
+tags = Array[String](["survivalist", "scavenge"])
+
+[sub_resource type="Resource" id="Technician"]
+script = ExtResource("2_profile")
+profile_id = "technician"
+role_id = "technician"
+pursuit_radius = 2
+work_weights = {"repair": 1.0, "search": 0.4}
+tags = Array[String](["stationary", "technical"])
+
+[sub_resource type="Resource" id="Raider"]
+script = ExtResource("2_profile")
+profile_id = "raider"
+role_id = "raider"
+pursuit_radius = 7
+work_weights = {"salvage": 0.8, "search": 0.9}
+combat_weights = {"hunt": 1.0}
+tags = Array[String](["hostile", "scavenge"])
+
+[sub_resource type="Resource" id="Patrol"]
+script = ExtResource("2_profile")
+profile_id = "patrol"
+role_id = "patrol"
+pursuit_radius = 8
+work_weights = {"search": 0.3}
+combat_weights = {"hunt": 1.0, "patrol": 0.8}
+tags = Array[String](["hostile", "route"])
+
+[sub_resource type="Resource" id="Sentry"]
+script = ExtResource("2_profile")
+profile_id = "sentry"
+role_id = "sentry"
+pursuit_radius = 1
+tags = Array[String](["stationary", "guard"])
+
+[sub_resource type="Resource" id="Stalker"]
+script = ExtResource("2_profile")
+profile_id = "stalker"
+role_id = "stalker"
+pursuit_radius = 9
+combat_weights = {"hunt": 1.0}
+tags = Array[String](["hostile", "hunter"])
+
+[resource]
+script = ExtResource("1_catalog")
+profiles = Array[ExtResource("2_profile")]([SubResource("Default"), SubResource("Scavenger"), SubResource("Resident"), SubResource("Salvager"), SubResource("Technician"), SubResource("Raider"), SubResource("Patrol"), SubResource("Sentry"), SubResource("Stalker")])

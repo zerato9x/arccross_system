@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="ZoneGenerationProfileCatalog" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://WorldCore/GenerationV2/ZoneGenerationProfileCatalog.gd" id="1_catalog"]
+[ext_resource type="Script" path="res://WorldCore/GenerationV2/ZoneGenerationProfile.gd" id="2_profile"]
+
+[sub_resource type="Resource" id="Profile_north"]
+script = ExtResource("2_profile")
+profile_id = "starter_node_north_v3"
+climate_id = "north_cold_fringe"
+terrain_asset_ids = PackedStringArray("terrain.plains.green.5", "terrain.plains.green.6", "terrain.plains.green.7", "terrain.plains.green.8", "terrain.plains.green.9", "terrain.plains.green.13", "terrain.plains.green.14", "terrain.plains.green.15", "terrain.plains.green.16", "terrain.plains.green.17", "terrain.plains.green.18", "terrain.plains.green.19", "terrain.plains.green.20", "terrain.plains.green.21", "terrain.plains.green.22", "terrain.plains.green.23", "terrain.plains.green.26", "terrain.plains.green.27", "terrain.plains.green.28", "terrain.plains.green.29", "terrain.plains.green.30", "terrain.plains.green.31", "terrain.plains.green.32", "terrain.plains.green.33", "terrain.plains.green.34", "terrain.plains.green.35", "terrain.plains.green.36", "terrain.plains.green.37", "terrain.plains.green.38", "terrain.plains.green.39", "terrain.plains.green.40", "terrain.plains.green.44", "terrain.plains.green.45", "terrain.plains.green.46", "terrain.plains.green.47", "terrain.plains.green.48", "terrain.plains.green.49", "terrain.plains.green.50", "terrain.plains.green.51", "terrain.plains.green.52", "terrain.plains.green.53", "terrain.plains.green.54", "terrain.plains.green.55", "terrain.plains.green.56", "terrain.plains.green.59", "terrain.plains.green.60", "terrain.plains.green.61", "terrain.plains.green.62", "terrain.plains.green.63", "terrain.plains.green.64", "terrain.plains.green.65", "terrain.plains.green.69", "terrain.plains.green.70", "terrain.plains.green.71")
+rubble_search_min = 7
+rubble_search_max = 7
+loot_tier_id = "starter_poor"
+simulated_resident_count = 1
+
+[sub_resource type="Resource" id="Profile_east"]
+script = ExtResource("2_profile")
+profile_id = "starter_node_east_v3"
+climate_id = "central_fringe"
+terrain_asset_ids = PackedStringArray("terrain.plains.green.5", "terrain.plains.green.6", "terrain.plains.green.7", "terrain.plains.green.8", "terrain.plains.green.9", "terrain.plains.green.13", "terrain.plains.green.14", "terrain.plains.green.15", "terrain.plains.green.16", "terrain.plains.green.17", "terrain.plains.green.18", "terrain.plains.green.19", "terrain.plains.green.20", "terrain.plains.green.21", "terrain.plains.green.22", "terrain.plains.green.23", "terrain.plains.green.26", "terrain.plains.green.27", "terrain.plains.green.28", "terrain.plains.green.29", "terrain.plains.green.30", "terrain.plains.green.31", "terrain.plains.green.32", "terrain.plains.green.33", "terrain.plains.green.34", "terrain.plains.green.35", "terrain.plains.green.36", "terrain.plains.green.37", "terrain.plains.green.38", "terrain.plains.green.39", "terrain.plains.green.40", "terrain.plains.green.44", "terrain.plains.green.45", "terrain.plains.green.46", "terrain.plains.green.47", "terrain.plains.green.48", "terrain.plains.green.49", "terrain.plains.green.50", "terrain.plains.green.51", "terrain.plains.green.52", "terrain.plains.green.53", "terrain.plains.green.54", "terrain.plains.green.55", "terrain.plains.green.56", "terrain.plains.green.59", "terrain.plains.green.60", "terrain.plains.green.61", "terrain.plains.green.62", "terrain.plains.green.63", "terrain.plains.green.64", "terrain.plains.green.65", "terrain.plains.green.69", "terrain.plains.green.70", "terrain.plains.green.71")
+rubble_search_min = 7
+rubble_search_max = 7
+loot_tier_id = "starter_poor"
+simulated_resident_count = 1
+
+[sub_resource type="Resource" id="Profile_south"]
+script = ExtResource("2_profile")
+profile_id = "starter_node_south_v3"
+climate_id = "central_fringe"
+terrain_asset_ids = PackedStringArray("terrain.plains.green.5", "terrain.plains.green.6", "terrain.plains.green.7", "terrain.plains.green.8", "terrain.plains.green.9", "terrain.plains.green.13", "terrain.plains.green.14", "terrain.plains.green.15", "terrain.plains.green.16", "terrain.plains.green.17", "terrain.plains.green.18", "terrain.plains.green.19", "terrain.plains.green.20", "terrain.plains.green.21", "terrain.plains.green.22", "terrain.plains.green.23", "terrain.plains.green.26", "terrain.plains.green.27", "terrain.plains.green.28", "terrain.plains.green.29", "terrain.plains.green.30", "terrain.plains.green.31", "terrain.plains.green.32", "terrain.plains.green.33", "terrain.plains.green.34", "terrain.plains.green.35", "terrain.plains.green.36", "terrain.plains.green.37", "terrain.plains.green.38", "terrain.plains.green.39", "terrain.plains.green.40", "terrain.plains.green.44", "terrain.plains.green.45", "terrain.plains.green.46", "terrain.plains.green.47", "terrain.plains.green.48", "terrain.plains.green.49", "terrain.plains.green.50", "terrain.plains.green.51", "terrain.plains.green.52", "terrain.plains.green.53", "terrain.plains.green.54", "terrain.plains.green.55", "terrain.plains.green.56", "terrain.plains.green.59", "terrain.plains.green.60", "terrain.plains.green.61", "terrain.plains.green.62", "terrain.plains.green.63", "terrain.plains.green.64", "terrain.plains.green.65", "terrain.plains.green.69", "terrain.plains.green.70", "terrain.plains.green.71")
+rubble_search_min = 7
+rubble_search_max = 7
+loot_tier_id = "starter_poor"
+simulated_resident_count = 1
+
+[sub_resource type="Resource" id="Profile_west"]
+script = ExtResource("2_profile")
+profile_id = "starter_node_west_v3"
+climate_id = "central_fringe"
+terrain_asset_ids = PackedStringArray("terrain.plains.green.5", "terrain.plains.green.6", "terrain.plains.green.7", "terrain.plains.green.8", "terrain.plains.green.9", "terrain.plains.green.13", "terrain.plains.green.14", "terrain.plains.green.15", "terrain.plains.green.16", "terrain.plains.green.17", "terrain.plains.green.18", "terrain.plains.green.19", "terrain.plains.green.20", "terrain.plains.green.21", "terrain.plains.green.22", "terrain.plains.green.23", "terrain.plains.green.26", "terrain.plains.green.27", "terrain.plains.green.28", "terrain.plains.green.29", "terrain.plains.green.30", "terrain.plains.green.31", "terrain.plains.green.32", "terrain.plains.green.33", "terrain.plains.green.34", "terrain.plains.green.35", "terrain.plains.green.36", "terrain.plains.green.37", "terrain.plains.green.38", "terrain.plains.green.39", "terrain.plains.green.40", "terrain.plains.green.44", "terrain.plains.green.45", "terrain.plains.green.46", "terrain.plains.green.47", "terrain.plains.green.48", "terrain.plains.green.49", "terrain.plains.green.50", "terrain.plains.green.51", "terrain.plains.green.52", "terrain.plains.green.53", "terrain.plains.green.54", "terrain.plains.green.55", "terrain.plains.green.56", "terrain.plains.green.59", "terrain.plains.green.60", "terrain.plains.green.61", "terrain.plains.green.62", "terrain.plains.green.63", "terrain.plains.green.64", "terrain.plains.green.65", "terrain.plains.green.69", "terrain.plains.green.70", "terrain.plains.green.71")
+rubble_search_min = 7
+rubble_search_max = 7
+loot_tier_id = "starter_poor"
+simulated_resident_count = 1
+
+[resource]
+script = ExtResource("1_catalog")
+profiles = Array[ExtResource("2_profile")]([SubResource("Profile_north"), SubResource("Profile_east"), SubResource("Profile_south"), SubResource("Profile_west")])

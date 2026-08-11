@@ -1,23 +1,7 @@
-[gd_resource type="Resource" script_class="RouteObjectiveCatalog" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="RouteObjectiveCatalog" load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://WorldCore/RouteObjectiveCatalog.gd" id="1_catalog"]
-[ext_resource type="Script" path="res://WorldCore/RouteObjectiveDefinition.gd" id="2_objective"]
-
-[sub_resource type="Resource" id="NorthRelay"]
-script = ExtResource("2_objective")
-objective_id = "restore_north_fringe_relay"
-display_name = "Restore the North Fringe Relay"
-description = "Recover three relay components from roadside caches and install them at the North Fringe Relay."
-active_node_ids = PackedStringArray("north_random_1", "east_random_1", "south_random_1", "west_random_1")
-required_item_ids = PackedStringArray("relay_fuse_rack", "ceramic_signal_insulator", "fringe_authorization_seal")
-turn_in_poi_id = "north_fringe_relay"
-turn_in_fixture_id = "relay_control_cabinet"
-completion_event_id = "north_relay_restored"
-completion_trigger_ids = PackedStringArray("objective:north_relay_restored")
-consumes_items = true
-incomplete_text = "The cabinet needs the Relay Fuse Rack, Ceramic Signal Insulator, and Fringe Authorization Seal."
-completion_text = "The relay clears the northern road. North Route 2 is now reachable."
 
 [resource]
 script = ExtResource("1_catalog")
-objectives = Array[ExtResource("2_objective")]([SubResource("NorthRelay")])
+objectives = []

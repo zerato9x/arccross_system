@@ -1,6 +1,9 @@
 extends Node2D
 class_name TacticalCombatScene
 
+const _NpcBehaviorState := preload("res://SystemCore/NpcBehaviorState.gd")
+const _InteractionCoordinator := preload("res://CombatCore/Tactical/TacticalCombatInteractionCoordinator.gd")
+
 signal combat_finished(result: CombatResultRecord)
 
 @onready var board: CombatBoard = $CombatBoard
@@ -18,25 +21,36 @@ var enemy_entity_id := ""
 var actor_cores: Array[HumanoidCore] = []
 var enemy_cores: Array[HumanoidCore] = []
 var _resolving := false
-var _pending_request: CombatActionRequest
+var _interaction_coordinator := _InteractionCoordinator.new()
+var _pending_terminal: Dictionary = {}
+var _terminal_flush_scheduled := false
 var _transfer_receipts: Array[Dictionary] = []
 var _body_locations: Array[Dictionary] = []
+## Full evaluator traces are retained only for Lab/debug inspection. The HUD
+## consumes the coarse public intent projection from CombatActionController.
+var _ai_decision_traces: Dictionary = {}
 
 
 func _ready() -> void:
+	hud.set_interaction_state(_interaction_coordinator.state)
 	hud.sector_selected.connect(_on_sector_selected)
 	hud.action_selected.connect(_on_action_selected)
 	hud.action_confirmed.connect(_on_action_confirmed)
 	hud.selection_cancelled.connect(_on_selection_cancelled)
+	hud.route_context_selected.connect(_on_route_context_selected)
 	hud.item_selected.connect(_refresh_context_quotes.unbind(1))
 	hud.wound_selected.connect(_refresh_context_quotes.unbind(1))
 	hud.reaction_selected.connect(_on_reaction_selected)
 	action_controller.snapshot_changed.connect(hud.show_snapshot)
 	action_controller.quote_changed.connect(hud.show_quote)
 	action_controller.action_denied.connect(_on_action_denied)
+	action_controller.action_committed.connect(hud.show_result_events)
+	action_controller.action_committed.connect(_on_action_committed)
 	action_controller.presentation_requested.connect(_on_presentation_requested)
 	turn_manager.reaction_window_opened.connect(_on_reaction_window_opened)
+	turn_manager.combat_bleed_tick.connect(_on_combat_bleed_tick)
 	turn_manager.turn_started.connect(_on_turn_started)
+	turn_manager.action_resolution_finished.connect(_on_action_resolution_finished)
 	presentation_player.configure(hud.arena_view)
 	if get_parent() == get_tree().root and get_tree().current_scene == self:
 		var encounter := _combat_lab_encounter()
@@ -53,23 +67,30 @@ func setup_encounter(encounter: CombatEncounterRecord) -> void:
 	if encounter == null or encounter.actors.size() < 2:
 		push_error("Tactical combat requires at least two actor records.")
 		return
+	if encounter.actors.size() > 6:
+		push_error("Tactical combat supports at most six active actors.")
+		return
 	encounter_record = encounter
-	var player_records := _find_team_actors(encounter.actors, "player")
-	var enemy_records := _find_team_actors(encounter.actors, "enemy")
-	if player_records.is_empty() or enemy_records.is_empty():
-		push_error("Tactical combat requires player and enemy teams.")
+	var player_record: Dictionary = _find_direct_player_record(encounter)
+	var autonomous_records := _find_autonomous_actors(encounter.actors, player_record)
+	if player_record.is_empty() or autonomous_records.is_empty():
+		push_error("Tactical combat requires a player and at least one autonomous actor.")
 		return
 	_clear_actors()
-	var player_record: Dictionary = player_records[0]
 	player_core = _fabricate_actor(player_record, "Player_Unit")
 	player_core.set_meta("actor_id", str(player_record.get("actor_id", "player")))
+	player_core.set_meta("direct_player", true)
 	player_core.set_meta("combat_side", "player")
+	player_core.set_meta("combat_team_id", str(player_record.get("team_id", "player")))
 	actor_cores.append(player_core)
-	for index in range(mini(2, enemy_records.size())):
-		var enemy_record: Dictionary = enemy_records[index]
+	# Production encounters may contain up to five autonomous NPCs. The actor
+	# registry is authoritative; never silently discard an authored participant.
+	for index in range(autonomous_records.size()):
+		var enemy_record: Dictionary = autonomous_records[index]
 		var enemy := _fabricate_actor(enemy_record, "Enemy_Unit_%02d" % (index + 1))
 		enemy.set_meta("actor_id", str(enemy_record.get("actor_id", "enemy_%02d" % index)))
-		enemy.set_meta("combat_side", "enemy")
+		enemy.set_meta("combat_side", _combat_side_for_record(enemy_record, player_record))
+		enemy.set_meta("combat_team_id", str(enemy_record.get("team_id", "enemy")))
 		enemy_cores.append(enemy)
 		actor_cores.append(enemy)
 	enemy_core = enemy_cores[0]
@@ -77,8 +98,11 @@ func setup_encounter(encounter: CombatEncounterRecord) -> void:
 	for actor in actor_cores:
 		_wire_actor(actor)
 	_resolving = false
+	_pending_terminal.clear()
+	_terminal_flush_scheduled = false
 	_transfer_receipts.clear()
 	_body_locations.clear()
+	_ai_decision_traces.clear()
 	turn_manager.halt_loop()
 	encounter_builder.build(actor_cores, encounter)
 	resolution_engine.board = board
@@ -91,8 +115,13 @@ func setup_encounter(encounter: CombatEncounterRecord) -> void:
 		var ai := TacticalCombatAI.new()
 		ai.name = "TacticalCombatAI_%02d" % (index + 1)
 		add_child(ai)
+		ai.decision_trace_updated.connect(_on_ai_decision_trace_updated)
 		ai.configure(enemy_cores[index], action_controller, board, turn_manager)
 	_refresh_context_quotes()
+	# Hydrated zero-blood/zero-consciousness records must resolve through the
+	# same terminal path as live wounds; otherwise an old save can leave an
+	# immortal target or a battle that never reaches its terminal state.
+	call_deferred("_reevaluate_terminal_state")
 
 
 func _fabricate_actor(actor_record: Dictionary, unit_name: String) -> HumanoidCore:
@@ -133,6 +162,7 @@ func _ground_item_sector(raw_state: Dictionary, fallback_coords: Vector2i) -> Ve
 
 
 func _wire_actor(actor: HumanoidCore) -> void:
+	actor.reconcile_terminal_state()
 	actor.reset_combat_transients()
 	actor.died.connect(_on_actor_died.bind(actor))
 	actor.incapacitated.connect(_on_actor_incapacitated.bind(actor))
@@ -152,21 +182,40 @@ func _on_sector_selected(coords: Vector2i) -> void:
 		return
 	var destination := board.arena_state.index_for(coords)
 	if board.actor_at(destination) != null:
-		_pending_request = null
-		hud.clear_staged_action()
+		# Occupied-sector clicks are contextual target selection, not failed
+		# movement. The HUD has already selected the specific occupant (including
+		# cycling the two slots in a shared sector) and rendered its action rows.
+		# Do not clear that state here or a perfectly valid Attack/Shove menu is
+		# immediately erased by the scene-level signal handler.
 		_refresh_context_quotes()
 		return
 	var request := _build_request("move")
-	var origin := board.position_of(player_core)
-	var path := board.find_path(origin, destination, player_core)
-	for index in path.slice(1):
-		request.path.append(board.arena_state.coords_for(int(index)))
-	if path.size() >= 2:
-		request.final_facing = board.facing_toward(int(path[-2]), int(path[-1]))
 	_refresh_context_quotes()
 	var action_quote := action_controller.preview(request)
-	_pending_request = request if action_quote.legal else null
-	hud.show_quote(action_quote)
+	_interaction_coordinator.stage_request(request, action_quote)
+	# Movement owns a dedicated route-preview surface.  The generic action
+	# renderer intentionally preserves contextual verbs, so sending a move
+	# quote through it leaves stale Crouch/Escape rows over the route preview.
+	hud.show_route_quote(action_quote)
+
+
+func _on_route_context_selected(coords: Vector2i, approach_path: Array[Vector2i]) -> void:
+	if _resolving:
+		return
+	var route := approach_path.duplicate()
+	var context_quotes: Array[CombatActionQuote] = []
+	for definition in action_controller.catalog.all():
+		var request := _build_request(definition.action_id, route)
+		context_quotes.append(action_controller.quote(request))
+	hud.show_quotes(context_quotes)
+	var destination_index := board.arena_state.index_for(coords) if board.arena_state.contains(coords) else -1
+	if destination_index >= 0 and board.actor_at(destination_index) == null and route.size() > 1:
+		var move_request := _build_request("move", route)
+		var move_quote := action_controller.preview(move_request)
+		hud.show_route_quote(move_quote)
+		_interaction_coordinator.stage_request(move_request, move_quote)
+	else:
+		_interaction_coordinator.clear_request()
 
 
 func _on_action_selected(action_id: String) -> void:
@@ -176,9 +225,9 @@ func _on_action_selected(action_id: String) -> void:
 	var action_quote := action_controller.preview(request)
 	hud.show_quote(action_quote)
 	if not action_quote.legal:
-		_pending_request = null
+		_interaction_coordinator.clear_request()
 		return
-	_pending_request = request
+	_interaction_coordinator.stage_request(request, action_quote)
 	var definition := action_controller.catalog.definition(action_id)
 	if definition != null and not definition.requires_confirmation:
 		await _execute_pending_action()
@@ -190,11 +239,10 @@ func _on_action_confirmed() -> void:
 
 
 func _execute_pending_action() -> void:
-	if _pending_request == null:
+	if _interaction_coordinator.state.pending_request == null:
 		hud.show_feedback("Select and preview a legal action first.")
 		return
-	var request := _pending_request
-	_pending_request = null
+	var request := _interaction_coordinator.take_request()
 	var outcome := await action_controller.request_action(request)
 	if not outcome.committed:
 		hud.show_feedback(outcome.message)
@@ -203,7 +251,10 @@ func _execute_pending_action() -> void:
 			GameEnums.CombatOutcome.PLAYER_ESCAPED if request.actor_id == _actor_id(player_core) else GameEnums.CombatOutcome.ENEMY_ESCAPED,
 			"escape"
 		)
+	elif request.action_id == "leave_battle" and outcome.committed and request.actor_id == _actor_id(player_core):
+		_finish_combat(GameEnums.CombatOutcome.PLAYER_ESCAPED, "leave_battle")
 	hud.clear_staged_action()
+	_flush_pending_terminal()
 	_refresh_context_quotes()
 
 
@@ -211,17 +262,27 @@ func _on_presentation_requested(sequence: CombatPresentationSequence) -> void:
 	_resolving = true
 	hud.show_presentation_action(sequence)
 	await presentation_player.play(sequence)
-	action_controller.refresh_snapshot()
 	hud.finish_presentation()
+	action_controller.acknowledge_presentation(sequence.timeline_id)
 	_resolving = false
+	_flush_pending_terminal()
 	_refresh_context_quotes()
 
 
+func _on_action_resolution_finished(_actor: HumanoidCore) -> void:
+	# The controller clears its busy flag immediately after this signal. Defer
+	# the flush one frame so terminal outcomes are not rejected by that final
+	# transaction barrier.
+	if not _terminal_flush_scheduled:
+		_terminal_flush_scheduled = true
+		call_deferred("_flush_pending_terminal")
+
+
 func _on_selection_cancelled() -> void:
-	_pending_request = null
+	_interaction_coordinator.clear_request()
 
 
-func _build_request(action_id: String) -> CombatActionRequest:
+func _build_request(action_id: String, route_override: Array[Vector2i] = []) -> CombatActionRequest:
 	var request := CombatActionRequest.new()
 	request.actor_id = _actor_id(player_core)
 	request.action_id = action_id
@@ -231,7 +292,11 @@ func _build_request(action_id: String) -> CombatActionRequest:
 	request.target_item_instance_id = str(context.item_instance_id)
 	request.target_wound_id = str(context.wound_id)
 	request.target_body_region = int(context.body_region)
+	request.shove_direction = str(context.get("shove_direction", ""))
+	request.declared_neutral_attack_confirmation = bool(context.get("declared_neutral_attack_confirmation", false))
 	request.final_facing = str(context.facing)
+	if action_id in ["offense", "defense", "support", "flee", "threaten", "ceasefire"]:
+		request.communication_intent = action_id
 	var selected_sector := board.arena_state.sector_at(request.target_sector) if board.arena_state.contains(request.target_sector) else null
 	if action_id == "interact" and selected_sector != null:
 		request.metadata["interaction_id"] = str(selected_sector.object_state.get("id", "inspect"))
@@ -240,21 +305,45 @@ func _build_request(action_id: String) -> CombatActionRequest:
 		if str(actor.get("actor_id", "")) == request.actor_id:
 			actor_snapshot = actor
 			break
-	var weapon: Dictionary = actor_snapshot.get("ranged_weapon", {}) if action_id in ["fire", "aimed_fire", "reload", "cycle", "clear_malfunction"] else actor_snapshot.get("melee_weapon", {})
+	var weapon: Dictionary = actor_snapshot.get("ranged_weapon", {}) if action_id in ["fire", "aimed_fire", "reload", "cycle", "clear_malfunction", "ready"] else actor_snapshot.get("melee_weapon", {})
 	if not weapon.is_empty():
+		if action_id in ["reload", "cycle", "clear_malfunction", "ready"]:
+			request.target_item_instance_id = str(weapon.get("instance_id", ""))
 		request.metadata["weapon_class"] = int(weapon.get("weapon_type", GameEnums.WeaponClass.NONE))
 		request.metadata["weapon_id"] = str(weapon.get("definition_id", ""))
 	var definition := action_controller.catalog.definition(action_id)
+	var staged_route: Array[Vector2i] = route_override if not route_override.is_empty() else hud.staged_route()
 	if definition != null and definition.target_mode == CombatActionDefinition.TARGET_PATH:
-		var origin := board.position_of(player_core)
-		var path: Array[int] = []
-		var destination := board.arena_state.index_for(request.target_sector) if board.arena_state.contains(request.target_sector) else -1
-		path = board.find_path(origin, destination, player_core)
-		for index in path.slice(1):
-			request.path.append(board.arena_state.coords_for(int(index)))
-		if request.final_facing.is_empty() and path.size() >= 2:
-			request.final_facing = board.facing_toward(int(path[-2]), int(path[-1]))
+		if staged_route.size() > 1:
+			request.approach_path = staged_route.duplicate()
+			for coords in staged_route.slice(1):
+				request.path.append(coords)
+			if request.final_facing.is_empty():
+				request.final_facing = _route_facing(staged_route)
+		else:
+			var origin := board.position_of(player_core)
+			var path: Array[int] = []
+			var destination := board.arena_state.index_for(request.target_sector) if board.arena_state.contains(request.target_sector) else -1
+			path = board.find_path(origin, destination, player_core)
+			for index in path.slice(1):
+				request.path.append(board.arena_state.coords_for(int(index)))
+			if request.final_facing.is_empty() and path.size() >= 2:
+				request.final_facing = board.facing_toward(int(path[-2]), int(path[-1]))
+	elif not staged_route.is_empty() and action_id != "move":
+		request.approach_path = staged_route.duplicate()
+		request.path = staged_route.duplicate()
+		if request.final_facing.is_empty() and staged_route.size() >= 2:
+			request.final_facing = _route_facing(staged_route)
 	return request
+
+
+func _route_facing(route: Array[Vector2i]) -> String:
+	if route.size() < 2:
+		return ""
+	var delta := route[-1] - route[-2]
+	if absi(delta.x) >= absi(delta.y):
+		return "east" if delta.x >= 0 else "west"
+	return "south" if delta.y >= 0 else "north"
 
 
 func _refresh_context_quotes() -> void:
@@ -269,8 +358,44 @@ func _refresh_context_quotes() -> void:
 
 func _on_turn_started(actor: HumanoidCore) -> void:
 	board.set_condition(actor, "off_balance", false)
-	if actor == player_core:
+	if actor == player_core and not _resolving:
 		_refresh_context_quotes()
+
+
+func _on_combat_bleed_tick(actor: HumanoidCore, event: Dictionary) -> void:
+	if actor == null:
+		return
+	_resolving = true
+	action_controller.set_presentation_lock(true)
+	var sequence := CombatPresentationSequence.new()
+	sequence.action_id = "bleeding_tick"
+	sequence.timeline_id = "bleeding_%s_%s" % [_actor_id(actor), str(Time.get_ticks_usec())]
+	sequence.total_duration_seconds = 0.72
+	sequence.impact_marker_seconds = 0.22
+	var cue := CombatPresentationCue.new()
+	cue.phase_id = "impact"
+	cue.action_id = "bleeding_tick"
+	cue.actor_id = _actor_id(actor)
+	cue.target_actor_id = _actor_id(actor)
+	var sector_index := board.position_of(actor)
+	var coords := board.arena_state.coords_for(sector_index) if sector_index >= 0 else Vector2i(-1, -1)
+	cue.start_sector = coords
+	cue.end_sector = coords
+	cue.duration_seconds = 0.72
+	cue.animation_id = "TakeDamage"
+	cue.actor_animation_id = "TakeDamage"
+	cue.outcome_tag = "bleeding"
+	cue.vfx_id = "melee_contact"
+	sequence.cues.append(cue)
+	hud.show_presentation_action(sequence)
+	hud.push_consequence("BLEEDING: %s" % _actor_display_name(actor))
+	await presentation_player.play(sequence)
+	hud.finish_presentation()
+	action_controller.set_presentation_lock(false)
+	_resolving = false
+	_flush_pending_terminal()
+	action_controller.refresh_snapshot()
+	_refresh_context_quotes()
 
 
 func _on_reaction_window_opened(
@@ -290,8 +415,11 @@ func _on_reaction_window_opened(
 	else:
 		if available.is_empty():
 			turn_manager.decline_reaction(defender)
-		else:
-			turn_manager.resolve_reaction(defender, str(available[0]))
+		elif not turn_manager.resolve_reaction(defender, str(available[0])):
+			# An AI defender can lose reserved AP between enumeration and the
+			# reaction transaction. Never leave the attacker's commit blocked by
+			# a reaction that the defender can no longer pay for.
+			turn_manager.decline_reaction(defender)
 
 
 func _on_reaction_selected(action_id: String) -> void:
@@ -309,37 +437,108 @@ func _on_action_denied(action_quote: CombatActionQuote) -> void:
 	hud.show_feedback(action_quote.denial_message)
 
 
-func _on_actor_died(cause: String, actor: HumanoidCore) -> void:
-	if _resolving:
+func _on_ai_decision_trace_updated(actor_id: String, trace: Array) -> void:
+	_ai_decision_traces[actor_id] = trace.duplicate(true)
+	set_meta("combat_lab_decision_traces", _ai_decision_traces.duplicate(true))
+
+
+func get_combat_lab_decision_traces() -> Dictionary:
+	return _ai_decision_traces.duplicate(true)
+
+
+func _on_action_committed(outcome: CombatActionOutcome) -> void:
+	# AI and player requests both pass through CombatActionController.  Terminal
+	# state changes therefore need one scene-level reevaluation hook rather than
+	# relying on the player HUD callback (which AI never uses).
+	if outcome == null:
 		return
+	for event in outcome.result_events:
+		if event is Dictionary and str(event.get("type", "")) in ["incapacitated", "surrendered", "leave_battle"]:
+			call_deferred("_reevaluate_terminal_state")
+			return
+
+
+func _on_actor_died(cause: String, actor: HumanoidCore) -> void:
 	_record_body(actor)
+	turn_manager.remove_combatant(actor)
+	board.remove_actor(actor)
 	if actor == player_core:
-		_finish_combat(GameEnums.CombatOutcome.PLAYER_DEFEAT, "death", cause)
-	elif not _has_active_enemies():
-		_finish_combat(GameEnums.CombatOutcome.PLAYER_VICTORY, "death", cause)
+		_queue_terminal(GameEnums.CombatOutcome.PLAYER_DEFEAT, "death", cause)
+	elif not _has_active_enemies() and not _has_hostile_npc_conflict():
+		_queue_terminal(GameEnums.CombatOutcome.PLAYER_VICTORY, "death", cause)
 
 
 func _on_actor_incapacitated(reason: String, actor: HumanoidCore) -> void:
-	if _resolving:
+	if actor == null:
 		return
+	if board.position_of(actor) >= 0:
+		board.mark_incapacitated(actor, reason)
+	turn_manager.remove_combatant(actor)
 	var outcome := GameEnums.CombatOutcome.DRAW
 	if player_core.is_comatose and not _has_active_enemies():
 		outcome = GameEnums.CombatOutcome.DRAW
 	elif actor == player_core:
 		outcome = GameEnums.CombatOutcome.PLAYER_DEFEAT
-	elif not _has_active_enemies():
+	elif not _has_active_enemies() and not _has_hostile_npc_conflict():
 		outcome = GameEnums.CombatOutcome.PLAYER_VICTORY
 	else:
 		return
-	_finish_combat(outcome, "mutual_incapacity" if outcome == GameEnums.CombatOutcome.DRAW else "incapacity", reason)
+	_queue_terminal(outcome, "mutual_incapacity" if outcome == GameEnums.CombatOutcome.DRAW else "incapacity", reason)
+
+
+func _reevaluate_terminal_state() -> void:
+	if _resolving or player_core == null:
+		return
+	for actor in actor_cores:
+		if actor == null:
+			continue
+		actor.reconcile_terminal_state()
+		if actor.is_dead and board.position_of(actor) >= 0:
+			_record_body(actor)
+			turn_manager.remove_combatant(actor)
+			board.remove_actor(actor)
+	if player_core.is_dead:
+		_queue_terminal(GameEnums.CombatOutcome.PLAYER_DEFEAT, "death", "hydrated_zero_blood")
+	elif not _has_active_enemies() and not _has_hostile_npc_conflict():
+		_queue_terminal(
+			GameEnums.CombatOutcome.ENEMY_SURRENDERED if _has_surrendered_enemy() else GameEnums.CombatOutcome.PLAYER_VICTORY,
+			"surrender" if _has_surrendered_enemy() else "terminal_state",
+			"no_player_hostile_actors"
+		)
+
+
+func _queue_terminal(outcome: int, reason: String, detail: String = "") -> void:
+	# Terminal state is authoritative even while an action/presentation is busy.
+	# Keep the first conclusion, except a player defeat always outranks a later
+	# stale victory candidate.
+	if _pending_terminal.is_empty() or outcome == GameEnums.CombatOutcome.PLAYER_DEFEAT:
+		_pending_terminal = {"outcome": outcome, "reason": reason, "detail": detail}
+	if not _terminal_flush_scheduled:
+		_terminal_flush_scheduled = true
+		call_deferred("_flush_pending_terminal")
+
+
+func _flush_pending_terminal() -> void:
+	_terminal_flush_scheduled = false
+	if _pending_terminal.is_empty() or _resolving or action_controller.is_presentation_locked():
+		return
+	var terminal := _pending_terminal.duplicate(true)
+	_pending_terminal.clear()
+	_finish_combat(int(terminal.outcome), str(terminal.reason), str(terminal.detail))
 
 
 func _on_enemy_surrendered(enemy: HumanoidCore) -> void:
-	if _resolving or enemy == null or enemy.is_dead or enemy.is_mindless_hive_thrall:
+	if enemy == null or enemy.is_dead or enemy.is_mindless_hive_thrall:
 		return
-	enemy.set_meta("combat_surrendered", true)
-	if not _has_active_enemies():
+	var existing_state := board.combat_state(enemy)
+	if existing_state != null and existing_state.surrendered:
+		return
+	board.mark_surrendered(enemy, "morale")
+	turn_manager.remove_combatant(enemy)
+	if not _resolving and not _has_active_enemies() and not _has_hostile_npc_conflict():
 		_finish_combat(GameEnums.CombatOutcome.ENEMY_SURRENDERED, "surrender")
+	elif not _has_active_enemies() and not _has_hostile_npc_conflict():
+		_queue_terminal(GameEnums.CombatOutcome.ENEMY_SURRENDERED, "surrender")
 
 
 func _finish_combat(outcome: int, reason: String, detail: String = "") -> void:
@@ -356,15 +555,35 @@ func _finish_combat(outcome: int, reason: String, detail: String = "") -> void:
 	result.reason = reason
 	result.actor_runtime_updates.clear()
 	for actor in actor_cores:
+		var runtime_update := actor.capture_runtime_state().to_dict()
+		var combat_state := board.combat_state(actor)
+		if combat_state != null:
+			runtime_update["combat_actor_state"] = combat_state.to_dict()
+		if actor in enemy_cores:
+			var behavior_payload: Dictionary = actor.get_meta("npc_behavior_state", {})
+			var behavior_state: Resource = _NpcBehaviorState.from_runtime(
+				{_NpcBehaviorState.RUNTIME_KEY: behavior_payload},
+				actor.definition.to_state() if actor.definition != null else {}
+			)
+			behavior_state.decision_memory["last_combat_outcome"] = outcome
+			behavior_state.decision_memory["last_combat_reason"] = reason
+			behavior_state.decision_memory["last_combat_round"] = turn_manager.current_round
+			runtime_update[_NpcBehaviorState.RUNTIME_KEY] = behavior_state.to_dict()
 		result.actor_runtime_updates.append({
 			"actor_id": _actor_id(actor),
-			"runtime": actor.capture_runtime_state().to_dict(),
+			"runtime": runtime_update,
 		})
 	result.item_transfer_receipts = _transfer_receipts.duplicate(true)
 	result.body_locations = _body_locations.duplicate(true)
+	result.incapacitated_locations = _incapacitated_locations()
+	result.surrendered_actor_ids = _surrendered_actor_ids()
+	result.surrendered_locations = _surrendered_locations()
 	result.ground_items = _ground_item_states()
 	result.environment_patch = board.capture_environment_patch()
 	result.trap_outcomes = board.trap_outcomes.duplicate(true)
+	result.relationship_state = board.relationship_ledger.to_dict() if board.relationship_ledger != null else {}
+	result.communication_points_spent = board.communication_points_spent
+	result.communication_points_remaining = board.communication_points
 	result.elapsed_minutes = GameTimeRules.COMBAT_MINUTES
 	if reason == "escape":
 		var escaping := player_core if outcome == GameEnums.CombatOutcome.PLAYER_ESCAPED else enemy_core
@@ -401,6 +620,37 @@ func _record_body(actor: HumanoidCore) -> void:
 	_body_locations.append({"actor_id": actor_id, "sector_index": index})
 
 
+func _incapacitated_locations() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for sector in board.sectors:
+		if sector == null or sector.record == null:
+			continue
+		for actor_id in sector.record.incapacitated_entity_ids:
+			result.append({"actor_id": str(actor_id), "sector_index": sector.index})
+	return result
+
+
+func _surrendered_actor_ids() -> Array[String]:
+	var result: Array[String] = []
+	for sector in board.sectors:
+		if sector == null or sector.record == null:
+			continue
+		for actor_id in sector.record.surrendered_entity_ids:
+			if str(actor_id) not in result:
+				result.append(str(actor_id))
+	return result
+
+
+func _surrendered_locations() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for sector in board.sectors:
+		if sector == null or sector.record == null:
+			continue
+		for actor_id in sector.record.surrendered_entity_ids:
+			result.append({"actor_id": str(actor_id), "sector_index": sector.index})
+	return result
+
+
 func _ground_item_states() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for item in action_controller.ground_items.values():
@@ -430,11 +680,54 @@ func _find_team_actors(records: Array[Dictionary], team_id: String) -> Array[Dic
 	return matches
 
 
+func _find_direct_player_record(encounter: CombatEncounterRecord) -> Dictionary:
+	if encounter == null:
+		return {}
+	for record in encounter.actors:
+		if bool(record.get("direct_player", false)) or str(record.get("actor_id", "")) == "player" or (not encounter.initiator_id.is_empty() and str(record.get("actor_id", "")) == encounter.initiator_id):
+			return record
+	for record in encounter.actors:
+		if str(record.get("team_id", "")) == "player":
+			return record
+	return {}
+
+
+func _find_autonomous_actors(records: Array[Dictionary], player_record: Dictionary = {}) -> Array[Dictionary]:
+	var matches: Array[Dictionary] = []
+	var player_id := str(player_record.get("actor_id", ""))
+	for record in records:
+		if str(record.get("actor_id", "")) != player_id:
+			matches.append(record)
+	return matches
+
+
+func _combat_side_for_record(record: Dictionary, player_record: Dictionary) -> String:
+	var explicit := str(record.get("combat_side", ""))
+	if not explicit.is_empty():
+		return explicit
+	var player_team := str(player_record.get("team_id", "player"))
+	return "player" if str(record.get("team_id", "")) == player_team else "enemy"
+
+
 func _has_active_enemies() -> bool:
 	for enemy in enemy_cores:
-		if enemy != null and not enemy.is_dead and not enemy.is_comatose and not bool(enemy.get_meta("combat_surrendered", false)):
+		if enemy != null and not enemy.is_dead and not enemy.is_comatose and not bool(enemy.get_meta("combat_surrendered", false)) and board.is_hostile(player_core, enemy):
 			return true
 	return false
+
+
+func _has_surrendered_enemy() -> bool:
+	for enemy in enemy_cores:
+		if enemy == null or enemy.is_dead:
+			continue
+		var state := board.combat_state(enemy)
+		if state != null and state.surrendered:
+			return true
+	return false
+
+
+func _has_hostile_npc_conflict() -> bool:
+	return board != null and board.has_active_hostile_conflict(player_core)
 
 
 func _find_wound(actor: HumanoidCore, wound_id: String) -> Wound:

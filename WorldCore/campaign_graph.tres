@@ -68,10 +68,4 @@ start_arrival_directions = {
 open_inner_ring = true
 enable_legacy_fetch_branch = false
 central_unlock_milestone = ExtResource("3_milestone")
-discovery_rules = [{
-"id": "route_1_north_relay_handoff",
-"trigger_ids": ["objective:north_relay_restored"],
-"unlock_node_ids": ["north_random_2"],
-"reveal_details_node_ids": ["north_random_2"],
-"requirements": {}
-}]
+discovery_rules = []

@@ -23,7 +23,7 @@ func _init(profile_catalog: TacticalTerrainCatalog = null) -> void:
 
 func generate(encounter: CombatEncounterRecord) -> CombatArenaState:
 	var arena := CombatArenaState.new()
-	var topology := CombatTopologyProfile.load_profile(encounter.topology_id)
+	var topology := CombatTopologyCatalog.load_profile(encounter.topology_id)
 	arena.configure_topology(topology)
 	arena.source_coords = encounter.source_coords
 	arena.orientation_step = _orientation_step(
@@ -253,6 +253,32 @@ func _apply_persistent_state(arena: CombatArenaState, hex: HexRecord) -> void:
 			sector.blocked = bool(patch.blocked)
 		if patch.has("cover_edges"):
 			sector.cover_edges = patch.cover_edges.duplicate(true)
+	# Terminal handoffs are not active occupants, but their exact sector remains
+	# part of the persisted site so macro conversation/looting can find it.
+	for raw_handoff in arena.mutations.get("incapacitated", []):
+		if not raw_handoff is Dictionary:
+			continue
+		var handoff_index := int(raw_handoff.get("sector_index", -1))
+		var handoff_id := str(raw_handoff.get("actor_id", ""))
+		if handoff_index >= 0 and handoff_index < arena.sectors.size() and not handoff_id.is_empty():
+			if handoff_id not in arena.sectors[handoff_index].incapacitated_entity_ids:
+				arena.sectors[handoff_index].incapacitated_entity_ids.append(handoff_id)
+	for raw_body in arena.mutations.get("bodies", []):
+		if not raw_body is Dictionary:
+			continue
+		var body_index := int(raw_body.get("sector_index", -1))
+		var body_id := str(raw_body.get("actor_id", ""))
+		if body_index >= 0 and body_index < arena.sectors.size() and not body_id.is_empty():
+			if body_id not in arena.sectors[body_index].body_entity_ids:
+				arena.sectors[body_index].body_entity_ids.append(body_id)
+	for raw_surrender in arena.mutations.get("surrendered", []):
+		if not raw_surrender is Dictionary:
+			continue
+		var surrender_index := int(raw_surrender.get("sector_index", -1))
+		var surrender_id := str(raw_surrender.get("actor_id", ""))
+		if surrender_index >= 0 and surrender_index < arena.sectors.size() and not surrender_id.is_empty():
+			if surrender_id not in arena.sectors[surrender_index].surrendered_entity_ids:
+				arena.sectors[surrender_index].surrendered_entity_ids.append(surrender_id)
 
 
 func _configure_edges(arena: CombatArenaState) -> void:

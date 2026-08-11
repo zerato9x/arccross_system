@@ -1,6 +1,8 @@
 extends MacroCornerPanel
 class_name MacroHexCornerPanel
 
+const _LocationQueries := preload("res://PresentationCore/LocationSnapshotQueries.gd")
+
 signal expand_requested_hex(coords: Vector2i)
 signal travel_requested_hex(coords: Vector2i)
 signal location_action_requested(command: Dictionary)
@@ -26,6 +28,7 @@ var _board_bg: TextureRect
 var _board_composition: MacroHexCompositionView
 var _prop_layer: Control
 var _fixture_layer: Control
+var _action_flash: ColorRect
 var _location_title: Label
 var _location_meta: Label
 var _fixture_title: Label
@@ -37,6 +40,16 @@ var _ground_list: VBoxContainer
 var _confirm_button: Button
 var _outcome_box: PanelContainer
 var _outcome_label: Label
+var _timing_track: Control
+var _timing_window: ColorRect
+var _timing_cursor: ColorRect
+var _timing_input_button: Button
+var _timing_status: Label
+var _timing_active := false
+var _timing_elapsed := 0.0
+var _timing_cycle_seconds := 2.4
+var _timing_success_window := 0.28
+const _TIMED_VERBS := ["search", "repair", "dismantle", "force"]
 
 
 func _ready() -> void:
@@ -112,6 +125,13 @@ func _install_expanded_ui() -> void:
 	_fixture_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_fixture_layer.mouse_filter = Control.MOUSE_FILTER_PASS
 	_board.add_child(_fixture_layer)
+	_action_flash = ColorRect.new()
+	_action_flash.name = "WorldActionFlash"
+	_action_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_action_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_action_flash.color = Color(0.95, 0.78, 0.28, 0.0)
+	_action_flash.z_index = 20
+	_board.add_child(_action_flash)
 
 	var side_scroll := ScrollContainer.new()
 	side_scroll.custom_minimum_size = Vector2(310.0, 0.0)
@@ -144,6 +164,36 @@ func _install_expanded_ui() -> void:
 	_preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	HUDAssetLibrary.apply_label(_preview_label, "info")
 	side.add_child(_preview_label)
+	_timing_status = Label.new()
+	_timing_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	HUDAssetLibrary.apply_label(_timing_status, "muted")
+	_timing_status.text = "Timing assist is available for uncertain work."
+	side.add_child(_timing_status)
+	_timing_track = Control.new()
+	_timing_track.custom_minimum_size = Vector2(260.0, 32.0)
+	_timing_track.mouse_filter = Control.MOUSE_FILTER_STOP
+	_timing_track.gui_input.connect(_on_timing_track_input)
+	var timing_bg := ColorRect.new()
+	timing_bg.color = Color(0.05, 0.07, 0.09, 0.95)
+	timing_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	timing_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_timing_track.add_child(timing_bg)
+	_timing_window = ColorRect.new()
+	_timing_window.color = Color(0.25, 0.78, 0.47, 0.85)
+	_timing_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_timing_track.add_child(_timing_window)
+	_timing_cursor = ColorRect.new()
+	_timing_cursor.color = Color(0.96, 0.88, 0.50, 1.0)
+	_timing_cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_timing_track.add_child(_timing_cursor)
+	_timing_track.visible = false
+	side.add_child(_timing_track)
+	_timing_input_button = Button.new()
+	_timing_input_button.text = "PRESS SPACE / CLICK WHEN THE CURSOR IS IN THE WINDOW"
+	_timing_input_button.visible = false
+	HUDAssetLibrary.apply_button(_timing_input_button, "caution")
+	_timing_input_button.pressed.connect(_on_timing_input)
+	side.add_child(_timing_input_button)
 
 	var gear_header := Label.new()
 	gear_header.text = "ELIGIBLE GEAR"
@@ -189,6 +239,23 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	_render_preview()
 	if is_expanded():
 		_render_expanded()
+
+
+func _process(delta: float) -> void:
+	if not _timing_active or _timing_track == null:
+		return
+	_timing_elapsed += delta
+	var phase := fmod(_timing_elapsed / maxf(0.1, _timing_cycle_seconds), 2.0)
+	if phase > 1.0:
+		phase = 2.0 - phase
+	var track_width := maxf(1.0, _timing_track.size.x)
+	_timing_cursor.position = Vector2(phase * (track_width - 4.0), 0.0)
+	_timing_cursor.size = Vector2(4.0, _timing_track.size.y)
+	_timing_window.size = Vector2(track_width * _timing_success_window, _timing_track.size.y)
+	_timing_window.position = Vector2(
+		(track_width - _timing_window.size.x) * 0.5,
+		0.0
+	)
 
 
 func _render_preview() -> void:
@@ -320,7 +387,7 @@ func _layout_board_elements() -> void:
 
 
 func _select_fixture(fixture_id: String, user_initiated: bool = true) -> void:
-	var fixture := SiteCatalog.fixture_by_id(_session.get("site", {}), fixture_id)
+	var fixture := _LocationQueries.fixture_by_id(_session.get("site", {}), fixture_id)
 	if fixture.is_empty():
 		_fixture_title.text = "Choose a place"
 		_fixture_description.text = "Select a marked part of the scene to inspect it."
@@ -341,33 +408,23 @@ func _select_fixture(fixture_id: String, user_initiated: bool = true) -> void:
 
 func _render_verbs(verbs: Array) -> void:
 	_clear(_verb_row)
-	var fixture := SiteCatalog.fixture_by_id(_session.get("site", {}), _selected_fixture_id)
+	var fixture := _LocationQueries.fixture_by_id(_session.get("site", {}), _selected_fixture_id)
 	for verb_value in verbs:
 		var verb := str(verb_value)
 		var button := Button.new()
 		button.text = {
-			SiteCatalog.VERB_SEARCH: "Search",
-			SiteCatalog.VERB_SLEEP: "Sleep here",
-			SiteCatalog.VERB_TRAP: "Set trap",
-			SiteCatalog.VERB_INSTALL_RELICS: "Install relics",
+			_LocationQueries.VERB_SEARCH: "Search",
+			_LocationQueries.VERB_SLEEP: "Sleep here",
+			_LocationQueries.VERB_TRAP: "Set trap",
 		}.get(verb, verb.capitalize())
-		if verb == SiteCatalog.VERB_SLEEP and not bool(_session.get("camp_allowed", false)):
+		if verb == _LocationQueries.VERB_SLEEP and not bool(_session.get("camp_allowed", false)):
 			button.disabled = true
 			button.tooltip_text = str(_session.get("camp_block_reason", "This place is unsafe."))
-		if verb == SiteCatalog.VERB_SEARCH:
+		if verb == _LocationQueries.VERB_SEARCH:
 			var option := _search_option(str(fixture.get("search_option_id", "")))
 			if bool(option.get("locked", false)) or bool(option.get("depleted", false)):
 				button.disabled = true
 				button.tooltip_text = str(option.get("lock_reason", "Already searched."))
-		if verb == SiteCatalog.VERB_INSTALL_RELICS:
-			var missing: Array = _missing_required_item_ids(fixture.get("required_item_ids", []))
-			var completed := bool(_session.get("objective_completed", false))
-			button.disabled = completed or not missing.is_empty()
-			button.tooltip_text = (
-				"Relay already restored."
-				if completed
-				else ("Missing: " + ", ".join(missing) if not missing.is_empty() else "")
-			)
 		HUDAssetLibrary.apply_button(button)
 		button.pressed.connect(_select_verb.bind(verb))
 		_verb_row.add_child(button)
@@ -384,7 +441,7 @@ func _select_verb(verb: String) -> void:
 func _render_gear() -> void:
 	_clear(_gear_list)
 	var roles: Array = _roles_for_verb(_selected_verb)
-	var fixture := SiteCatalog.fixture_by_id(_session.get("site", {}), _selected_fixture_id)
+	var fixture := _LocationQueries.fixture_by_id(_session.get("site", {}), _selected_fixture_id)
 	var accepted_roles: Array = fixture.get("accepted_roles", [])
 	if not accepted_roles.is_empty():
 		roles = accepted_roles
@@ -417,32 +474,46 @@ func _toggle_item(enabled: bool, instance_id: String) -> void:
 
 
 func _update_action_preview() -> void:
-	var fixture := SiteCatalog.fixture_by_id(_session.get("site", {}), _selected_fixture_id)
+	var fixture := _LocationQueries.fixture_by_id(_session.get("site", {}), _selected_fixture_id)
 	if fixture.is_empty() or _selected_verb.is_empty():
 		_preview_label.text = "Select an action to see its cost."
 		_confirm_button.disabled = true
 		return
-	var minutes := int(fixture.get("minutes_search", GameTimeRules.SEARCH_MINUTES))
+	var minutes := int(fixture.get("minutes_search", _LocationQueries.DEFAULT_SEARCH_MINUTES))
 	var exertion := 1.0
 	var risk := "Unknown risk"
+	var task_profile_id := str(fixture.get("task_profile_id", ""))
+	var timing_profiles: Dictionary = fixture.get("timing_profiles", {})
+	var timing_profile: Dictionary = timing_profiles.get(
+		_method_id_for_selected_items(),
+		timing_profiles.get("hands", {})
+	)
+	if not task_profile_id.is_empty() and not timing_profile.is_empty():
+		_timing_cycle_seconds = float(timing_profile.get("cycle_seconds", 2.4))
+		_timing_success_window = float(timing_profile.get("base_success_window", 0.28))
+		_timing_track.visible = _TIMED_VERBS.has(_selected_verb)
+		_timing_status.text = "%s · %d cycle%s · %.1fs traversal" % [
+			task_profile_id.replace("_", " ").capitalize(),
+			int(timing_profile.get("work_units", 1)),
+			"" if int(timing_profile.get("work_units", 1)) == 1 else "s",
+			_timing_cycle_seconds,
+		]
+	else:
+		_timing_track.visible = false
+		_timing_status.text = "Direct action: no timing input required."
 	var metric_kind := (
-		"search" if _selected_verb == SiteCatalog.VERB_SEARCH else "camp"
+		"search" if _selected_verb == _LocationQueries.VERB_SEARCH else "camp"
 	)
 	var metrics: Dictionary = _session.get("preview_base_metrics", {}).get(
 		metric_kind, {}
 	).duplicate(true)
 	match _selected_verb:
-		SiteCatalog.VERB_INSTALL_RELICS:
-			minutes = GameTimeRules.ACTION_MINUTES
-			exertion = 0.0
-			risk = "Permanent route restoration"
-			metrics.clear()
-		SiteCatalog.VERB_SLEEP:
-			minutes = int(fixture.get("minutes_sleep_preview", GameTimeRules.CAMP_MINUTES))
+		_LocationQueries.VERB_SLEEP:
+			minutes = int(fixture.get("minutes_sleep_preview", _LocationQueries.DEFAULT_CAMP_MINUTES))
 			exertion = 0.0
 			risk = "Rest may be interrupted"
-		SiteCatalog.VERB_TRAP:
-			minutes = GameTimeRules.ACTION_MINUTES
+		_LocationQueries.VERB_TRAP:
+			minutes = _LocationQueries.DEFAULT_ACTION_MINUTES
 			exertion = 0.25
 			risk = "Consumes selected trap gear"
 		_:
@@ -479,20 +550,17 @@ func _update_action_preview() -> void:
 	_confirm_button.text = "%s %s" % [
 		_selected_verb.capitalize(), str(fixture.get("label", "place"))
 	]
-	var requires_gear := _selected_verb == SiteCatalog.VERB_TRAP
+	var requires_gear := _selected_verb == _LocationQueries.VERB_TRAP
 	_confirm_button.disabled = requires_gear and _selected_item_ids.is_empty()
-	if _selected_verb == SiteCatalog.VERB_INSTALL_RELICS:
-		_confirm_button.text = "Install relay relics"
-		_confirm_button.disabled = (
-			bool(_session.get("objective_completed", false))
-			or not _missing_required_item_ids(fixture.get("required_item_ids", [])).is_empty()
-		)
 
 
 func _confirm_action() -> void:
 	if _confirm_button.disabled or _selected_verb.is_empty():
 		return
-	var fixture := SiteCatalog.fixture_by_id(_session.get("site", {}), _selected_fixture_id)
+	var fixture := _LocationQueries.fixture_by_id(_session.get("site", {}), _selected_fixture_id)
+	if _requires_timing(fixture):
+		_start_timing()
+		return
 	_location_state = LocationState.RESOLVING
 	_confirm_button.disabled = true
 	_confirm_button.text = "Resolving…"
@@ -503,7 +571,81 @@ func _confirm_action() -> void:
 		"verb": _selected_verb,
 		"selected_item_ids": _selected_item_ids.duplicate(),
 		"search_option_id": str(fixture.get("search_option_id", "")),
+		"method_id": _method_id_for_selected_items(),
+		"hit_success_window": true,
 	})
+
+
+func _requires_timing(fixture: Dictionary) -> bool:
+	if fixture.is_empty():
+		return false
+	var profile_id := str(fixture.get("task_profile_id", ""))
+	var timing_profiles: Dictionary = fixture.get("timing_profiles", {})
+	return _TIMED_VERBS.has(_selected_verb) \
+		and not profile_id.is_empty() \
+		and not timing_profiles.is_empty()
+
+
+func _start_timing() -> void:
+	_timing_active = true
+	_timing_elapsed = 0.0
+	_location_state = LocationState.CONFIGURING
+	_timing_track.visible = true
+	_timing_input_button.visible = true
+	_confirm_button.disabled = true
+	_confirm_button.text = "Timing active..."
+	_timing_status.text = "Time is passing. Press Space or click the bar when the cursor is inside the window."
+
+
+func _on_timing_input() -> void:
+	if not _timing_active:
+		return
+	var phase := fmod(_timing_elapsed / maxf(0.1, _timing_cycle_seconds), 2.0)
+	if phase > 1.0:
+		phase = 2.0 - phase
+	var hit := absf(phase - 0.5) <= _timing_success_window * 0.5
+	var fixture := _LocationQueries.fixture_by_id(_session.get("site", {}), _selected_fixture_id)
+	_timing_active = false
+	_timing_track.visible = false
+	_timing_input_button.visible = false
+	_location_state = LocationState.RESOLVING
+	_confirm_button.disabled = true
+	_confirm_button.text = "Resolving..."
+	location_action_requested.emit({
+		"coords": _location.get("coords", Vector2i.ZERO),
+		"location_revision": int(_location.get("revision", 0)),
+		"fixture_id": _selected_fixture_id,
+		"verb": _selected_verb,
+		"selected_item_ids": _selected_item_ids.duplicate(),
+		"search_option_id": str(fixture.get("search_option_id", "")),
+		"method_id": _method_id_for_selected_items(),
+		"hit_success_window": hit,
+	})
+
+
+func _on_timing_track_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_on_timing_input()
+		accept_event()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not _timing_active:
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.is_action_pressed("macro_timing"):
+		_on_timing_input()
+		get_viewport().set_input_as_handled()
+
+
+func _method_id_for_selected_items() -> String:
+	for item_id in _selected_item_ids:
+		var item := _available_item(str(item_id))
+		var item_def := str(item.get("id", item.get("item_id", "")))
+		if item_def in ["crowbar", "bent_pry_bar"]:
+			return "crowbar"
+		if item_def in ["multitool", "lockpick"]:
+			return "multitool"
+	return "hands"
 
 
 func _render_ground_items() -> void:
@@ -531,19 +673,6 @@ func _render_ground_items() -> void:
 		_ground_list.add_child(empty)
 
 
-func _missing_required_item_ids(required_ids: Array) -> Array:
-	var carried: Dictionary = {}
-	for entry in _session.get("available_items", []):
-		if entry is Dictionary:
-			carried[str(entry.get("id", entry.get("item_id", "")))] = true
-	var missing: Array = []
-	for item_id_value in required_ids:
-		var item_id := str(item_id_value)
-		if not carried.has(item_id):
-			missing.append(item_id.replace("_", " ").capitalize())
-	return missing
-
-
 func _on_ground_action(item: Dictionary) -> void:
 	var instance_id := str(item.get("instance_id", ""))
 	location_action_requested.emit({
@@ -555,7 +684,33 @@ func _on_ground_action(item: Dictionary) -> void:
 	})
 
 
+func present_action_receipt(receipt: Dictionary) -> void:
+	## Presentation consumes the semantic receipt; it does not mutate the
+	## object or advance time. The flash is intentionally restrained and shares
+	## the same contact/miss cue that the SFX conductor receives.
+	if receipt.is_empty() or _action_flash == null:
+		return
+	var presentation: Dictionary = receipt.get("presentation", {})
+	var cue := str(presentation.get("vfx", ""))
+	if cue.is_empty() or cue == "none":
+		return
+	var tint := Color(0.95, 0.78, 0.28, 0.38)
+	if cue in ["work_slip", "damage", "breakage"]:
+		tint = Color(0.92, 0.25, 0.18, 0.42)
+	elif cue in ["door_open", "item_transfer"]:
+		tint = Color(0.30, 0.78, 0.92, 0.34)
+	_action_flash.color = Color(tint.r, tint.g, tint.b, 0.0)
+	var tween := create_tween()
+	tween.tween_property(_action_flash, "color:a", tint.a, 0.08)
+	tween.tween_property(_action_flash, "color:a", 0.0, 0.38)
+
+
 func show_outcome(title: String, message: String) -> void:
+	_timing_active = false
+	if _timing_track:
+		_timing_track.visible = false
+	if _timing_input_button:
+		_timing_input_button.visible = false
 	_location_state = LocationState.OUTCOME
 	_outcome_box.visible = true
 	_outcome_label.text = "%s\n%s" % [title.to_upper(), message]
@@ -606,11 +761,11 @@ func _sync_fixture_buttons() -> void:
 
 func _roles_for_verb(verb: String) -> Array[int]:
 	match verb:
-		SiteCatalog.VERB_SEARCH:
+		_LocationQueries.VERB_SEARCH:
 			return [GameEnums.InteractionItemRole.SEARCH_TOOL, GameEnums.InteractionItemRole.LIGHT_SOURCE]
-		SiteCatalog.VERB_SLEEP:
+		_LocationQueries.VERB_SLEEP:
 			return [GameEnums.InteractionItemRole.CAMP_GEAR]
-		SiteCatalog.VERB_TRAP:
+		_LocationQueries.VERB_TRAP:
 			return [GameEnums.InteractionItemRole.TRAP_GEAR]
 	return []
 

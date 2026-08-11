@@ -22,6 +22,7 @@ var _static_sprite_sheet_path := ""
 var _return_animation := "Idle"
 var _return_animation_speed_scale := 1.0
 var _animation_completion_emitted := false
+var _suppress_equipment_layers := false
 
 func _ready() -> void:
 	for child in $Layers.get_children():
@@ -90,6 +91,59 @@ func set_display_scale(value: float) -> void:
 	_display_scale = maxf(0.1, value)
 	for sprite in _layer_pool:
 		sprite.scale = Vector2.ONE * _display_scale
+
+
+func get_display_scale() -> float:
+	return _display_scale
+
+
+func combat_head_top_anchor() -> Vector2:
+	# The sprite sheet is centered on the token. Keep combat overlays outside
+	# the occupied body rectangle so weapon sheets never sit across the torso.
+	return Vector2(0.0, -64.0 * _display_scale - 30.0)
+
+
+func combat_weapon_muzzle_anchor(weapon_id: String) -> Vector2:
+	var normalized := HumanoidVisualCatalog.weapon_muzzle_anchor_for_item(weapon_id, _direction_row)
+	if normalized.x < 0.0 or normalized.y < 0.0:
+		push_warning("Missing token muzzle profile for firearm '%s'." % weapon_id)
+		normalized = _fallback_weapon_muzzle_anchor()
+	var frame_size := Vector2(HumanoidVisualCatalog.FRAME_SIZE)
+	return (normalized * frame_size - frame_size * 0.5) * _display_scale
+
+
+func combat_body_region_anchor(region: int) -> Vector2:
+	var normalized := Vector2(0.5, 0.43)
+	match region:
+		GameEnums.LimbRegion.HEAD:
+			normalized = Vector2(0.5, 0.27)
+		GameEnums.LimbRegion.UPPER_TORSO:
+			normalized = Vector2(0.5, 0.43)
+		GameEnums.LimbRegion.LOWER_TORSO:
+			normalized = Vector2(0.5, 0.56)
+		GameEnums.LimbRegion.LEFT_ARM:
+			normalized = Vector2(0.38, 0.45)
+		GameEnums.LimbRegion.RIGHT_ARM:
+			normalized = Vector2(0.62, 0.45)
+		GameEnums.LimbRegion.LEFT_LEG:
+			normalized = Vector2(0.43, 0.72)
+		GameEnums.LimbRegion.RIGHT_LEG:
+			normalized = Vector2(0.57, 0.72)
+	var frame_size := Vector2(HumanoidVisualCatalog.FRAME_SIZE)
+	return (normalized * frame_size - frame_size * 0.5) * _display_scale
+
+
+func _fallback_weapon_muzzle_anchor() -> Vector2:
+	var anchors := [
+		Vector2(0.74, 0.43), Vector2(0.68, 0.59), Vector2(0.5, 0.7), Vector2(0.32, 0.59),
+		Vector2(0.26, 0.43), Vector2(0.34, 0.3), Vector2(0.5, 0.24), Vector2(0.66, 0.3),
+	]
+	return anchors[posmod(_direction_row, anchors.size())]
+
+
+func set_action_equipment_suppressed(value: bool) -> void:
+	_suppress_equipment_layers = value
+	_apply_frame()
 
 func set_animation_speed(scale: float) -> void:
 	_animation_speed_scale = maxf(0.1, scale)
@@ -287,8 +341,12 @@ func _apply_frame() -> void:
 		_direction_row * HumanoidVisualCatalog.FRAME_COLUMNS
 		+ _frame_index
 	)
-	for sprite in _layer_sprites:
-		sprite.frame = sheet_frame
+	for index in range(_layer_sprites.size()):
+		var sprite := _layer_sprites[index]
+		var directory := _layer_directories[index] if index < _layer_directories.size() else ""
+		var layer_frames := HumanoidVisualCatalog.animation_frames_for_layer(_animation, directory)
+		sprite.visible = not _suppress_equipment_layers or "/weapons/" not in directory
+		sprite.frame = _direction_row * HumanoidVisualCatalog.FRAME_COLUMNS + mini(_frame_index, layer_frames - 1)
 
 func _apply_layer_depth() -> void:
 	for index in range(_layer_sprites.size()):

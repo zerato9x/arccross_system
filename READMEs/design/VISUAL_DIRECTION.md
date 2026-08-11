@@ -44,8 +44,8 @@ Live screenshots live under [`../Mockup/`](../Mockup/). Prefer those over the
 historical plates in [`mockups/`](mockups/), which are obsolete layout sketches
 only.
 
-The Central eviction office and North Route 1 fringe settlement are the
-canonical environmental-art pair for the campaign: high-resolution grounded
+The Central eviction office and current alpha's North Route 1 fringe settlement
+are the canonical environmental-art pair for the shipped slice: high-resolution grounded
 pixel-art realism, dense worn industrial materials, cold blue-gray atmosphere,
 restrained amber practical lights, and lived-in scarcity. New narrative
 backdrops should extend this language rather than introduce glossy neon sci-fi,
@@ -56,9 +56,18 @@ machinery, muddy/plains ground, dead scrub, and sparse frost in sheltered edges.
 It must not read as established snow country; continuous snow is reserved for
 Route 2 onward so the North journey has a visible climatic escalation.
 
-The settlement backdrop describes the sole alpha starter settlement, locked to
-North. East, South, and West Route 1 share the readable plains and logistics
-language but must not visually imply three additional inhabited settlements.
+The settlement backdrop describes the sole current alpha starter settlement,
+locked to North as an implementation choice. East, South, and West Route 1 share
+the readable plains and logistics language but must not visually imply three
+additional inhabited settlements. This does not make North the canonical first
+Core campaign.
+
+Starting Arm presentation may intentionally read as ambiguous, corrupted generic
+post-apocalypse: Glitch and failed barrier/history state obscure the source era.
+Core activation does not restore pristine history. It stabilizes an Arm into an
+authentic ruin dialect, making Warden/Barican, House, Western industrial/Zeta,
+or Guild/Crux/Xander remains historically legible. Red Mist, barrier remnants,
+and environmental presentation may change permanently through Meta progression.
 
 ## Hex World Generator V2
 

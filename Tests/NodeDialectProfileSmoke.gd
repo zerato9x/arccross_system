@@ -53,6 +53,7 @@ func _run() -> void:
 	if failures.is_empty():
 		print("[NodeDialectProfileSmoke] OK")
 		quit(0)
+		return
 	for failure in failures:
 		push_error("[NodeDialectProfileSmoke] " + failure)
 	quit(1)

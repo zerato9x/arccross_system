@@ -12,7 +12,6 @@ class_name SiteCatalog
 const VERB_SEARCH := "search"
 const VERB_SLEEP := "sleep"
 const VERB_TRAP := "trap"
-const VERB_INSTALL_RELICS := "install_relics"
 
 const HOMESTEAD_LANDMARKS := ["homestead_b", "homestead_d", "plains_homestead", "plains_homestead_d"]
 
@@ -24,10 +23,12 @@ static func site_for_hex(
 	world_seed: String,
 	coords: Vector2i
 ) -> Dictionary:
+	# V3 generation owns the physical truth. When records are present, expose
+	# only affordances derived from their components. The legacy fixture recipes
+	# below remain a read-only compatibility adapter for pre-V3 snapshots.
+	if not hex_data.world_objects.is_empty():
+		return _object_site(hex_data, camp_access)
 	var site: Dictionary = {}
-	if hex_data.world_generation_version >= 2 and hex_data.composition_role == "settlement_anchor":
-		site = _starter_settlement_site(hex_data, camp_access)
-		return _with_route_objective_fixture(site, hex_data)
 	var landmark_id := (
 		hex_data.landmark_id
 		if not hex_data.landmark_id.is_empty()
@@ -35,57 +36,63 @@ static func site_for_hex(
 	)
 	if _is_homestead(landmark_id, hex_data.poi_id):
 		site = _homestead_site(hex_data, search_options, camp_access, world_seed, coords)
-		return _with_route_objective_fixture(site, hex_data)
+		return site
 	if hex_data.has_landmark() or hex_data.is_poi:
 		site = _generic_landmark_site(hex_data, search_options, camp_access, landmark_id)
-		return _with_route_objective_fixture(site, hex_data)
+		return site
 	return _parcel_site(hex_data, search_options, camp_access, world_seed, coords)
 
 
-static func _with_route_objective_fixture(site: Dictionary, hex_data: MacroHexData) -> Dictionary:
-	var catalog := RouteObjectiveCatalog.data()
-	var objective := catalog.for_poi(hex_data.poi_id) if catalog != null else null
-	if objective == null:
-		return site
-	var fixtures: Array = site.get("fixtures", []).duplicate(true)
-	var fixture := _fixture(
-		objective.turn_in_fixture_id,
-		str(site.get("rooms", [{"id": "main"}])[0].get("id", "main")),
-		"Relay Control Cabinet",
-		"Install all three recovered relay relics to clear the northern road.",
-		[VERB_INSTALL_RELICS],
-		"",
-		Vector2(0.66, 0.40),
-		[],
-		0.0,
-		{"allowed": true, "reason": ""}
-	)
-	fixture["objective_id"] = objective.objective_id
-	fixture["required_item_ids"] = Array(objective.required_item_ids)
-	fixtures.append(fixture)
-	site["fixtures"] = fixtures
-	return site
-
-
-static func _starter_settlement_site(hex_data: MacroHexData, camp_access: Dictionary) -> Dictionary:
+static func _object_site(hex_data: MacroHexData, camp_access: Dictionary) -> Dictionary:
+	var fixtures: Array = []
+	var index := 0
+	for object_value in hex_data.world_objects:
+		if not object_value is Dictionary:
+			continue
+		var target := WorldObjectRecord.from_dict(object_value)
+		var capabilities: Array = camp_access.get("capabilities", [
+			"hands", "light_source", "search_tool", "repair_tool", "force_tool",
+			"sleep_gear"
+		])
+		var affordances := WorldActionResolver.query_affordances(
+			{"capabilities": capabilities},
+			target
+		)
+		for affordance in affordances:
+			if affordance == null:
+				continue
+			var verb := str(affordance.verb_id)
+			var accepted_roles: Array = []
+			if verb == WorldActionResolver.VERB_SEARCH:
+				accepted_roles = [GameEnums.InteractionItemRole.SEARCH_TOOL]
+			elif verb == WorldActionResolver.VERB_SLEEP:
+				accepted_roles = [GameEnums.InteractionItemRole.CAMP_GEAR]
+			elif verb in [WorldActionResolver.VERB_REPAIR, WorldActionResolver.VERB_DISMANTLE,
+				WorldActionResolver.VERB_FORCE]:
+				accepted_roles = [GameEnums.InteractionItemRole.SEARCH_TOOL]
+			fixtures.append(_fixture(
+				"object_%d_%s" % [index, verb],
+				"main",
+				affordance.label,
+				"Physical object: %s." % target.definition_id.replace("_", " "),
+				[verb],
+				str(target.object_id),
+				Vector2(0.24 + 0.17 * float(index % 4), 0.42 + 0.11 * float(index / 4)),
+				accepted_roles,
+				1.0 if verb == WorldActionResolver.VERB_SLEEP else 0.0,
+				camp_access if verb == WorldActionResolver.VERB_SLEEP else {"allowed": true, "reason": ""}
+			))
+			fixtures[-1]["target_id"] = target.object_id
+			fixtures[-1]["task_profile_id"] = affordance.task_profile_id
+			index += 1
 	return {
-		"site_id": "starter_settlement_v2",
-		"display_name": hex_data.poi_name,
-		"rooms": [_room("commons", "Settlement Commons", false)],
-		"fixtures": [
-			_fixture(
-				"settlement_sleep_spot", "commons", "Guest Cot",
-				"A guarded cot beside the wayfinder's post.", [VERB_SLEEP], "",
-				Vector2(0.50, 0.68), [GameEnums.InteractionItemRole.CAMP_GEAR], 1.0, camp_access
-			),
-			_fixture(
-				"settlement_perimeter", "commons", "Roadside Perimeter",
-				"The old paved approach is the settlement's only clear sightline.", [VERB_TRAP], "",
-				Vector2(0.76, 0.58), [GameEnums.InteractionItemRole.TRAP_GEAR], 0.0, camp_access
-			),
-		],
+		"site_id": "objects_%s" % str(hex_data.zone_id),
+		"display_name": hex_data.poi_name if not hex_data.poi_name.is_empty() else "Current Hex",
+		"rooms": [_room("main", "Immediate Area", false)],
+		"fixtures": fixtures,
+		"world_objects": hex_data.world_objects.duplicate(true),
 		"supports_story_rooms": false,
-		"story_rooms_deferred": true,
+		"story_rooms_deferred": false,
 	}
 
 

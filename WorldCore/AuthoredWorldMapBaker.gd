@@ -20,6 +20,13 @@ class_name AuthoredWorldMapBaker
 @export_file("*.tres") var output_path: String = (
 	"res://WorldCore/Maps/phase2_east_arm.tres"
 )
+## Legacy authored templates can contain water source IDs that predate the
+## generated catalog. Keep the fallback authored as a presentation resource
+## value so the bake remains deterministic while those IDs are migrated.
+@export_file("*.png") var water_fallback_sprite_path: String = (
+	"res://Asset/HexTiles/_BIOMES/biome_plains/water_default/"
+	+ "Waterway 1 - Open Water.png"
+)
 @export var map_id: String = "phase2_east"
 @export var display_name: String = "Phase 2 East Arm"
 @export var playable_arm: GameEnums.MacroArmDirection = (
@@ -187,6 +194,8 @@ func _apply_layer_tile(
 		return
 	var source_id := layer.get_cell_source_id(coords)
 	var asset_path := _path_for_source_id(source_id)
+	if asset_path.is_empty() and layer_kind == "water":
+		asset_path = water_fallback_sprite_path
 	if asset_path.is_empty():
 		return
 

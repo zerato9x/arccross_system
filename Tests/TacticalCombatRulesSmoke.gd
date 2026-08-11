@@ -47,6 +47,8 @@ func _run() -> void:
 		return
 	if not _melee_geometry_checks():
 		return
+	if not _composite_projected_origin_checks():
+		return
 	if not _forecast_and_catalog_checks():
 		return
 	print("[TACTICAL_COMBAT_RULES] PASS")
@@ -108,38 +110,42 @@ func _posture_checks() -> bool:
 func _shove_checks() -> bool:
 	_clear_occupants()
 	_deploy(_alpha, Vector2i(1, 2), "player")
-	_deploy(_bravo, Vector2i(2, 2), "enemy")
-	if _board.preview_shove(_alpha, _bravo).get("type") != "clear":
+	_deploy(_bravo, Vector2i(1, 2), "enemy", true)
+	if _board.preview_shove(_alpha, _bravo, "east").get("type") != "clear":
 		return _fail("Clear shove displacement was not predicted.")
-	var clear_result := _board.commit_shove(_alpha, _bravo, 4.0, 2.0)
+	var clear_result := _board.commit_shove(_alpha, _bravo, 4.0, 2.0, "east")
 	if not clear_result.get("moved", false) or not _board.has_condition(_bravo, "off_balance"):
 		return _fail("Strong clear shove did not move and apply off-balance.")
 
 	_clear_occupants()
 	_deploy(_alpha, Vector2i(1, 2), "player")
-	_deploy(_bravo, Vector2i(2, 2), "enemy")
-	var obstacle := _board.sectors[_index(Vector2i(3, 2))]
+	_deploy(_bravo, Vector2i(1, 2), "enemy", true)
+	var obstacle := _board.sectors[_index(Vector2i(2, 2))]
 	obstacle.record.blocked = true
 	obstacle.record.object_state = {"id": "crate", "durability": 4.0}
 	obstacle.configure(obstacle.record)
-	if _board.commit_shove(_alpha, _bravo, 2.0, 2.0).get("type") != "object_collision":
+	if _board.commit_shove(_alpha, _bravo, 2.0, 2.0, "east").get("type") != "object_collision":
 		return _fail("Stable obstacle collision was not resolved without displacement.")
 
 	obstacle.record.blocked = false
 	obstacle.record.object_state.clear()
 	obstacle.configure(obstacle.record)
-	_deploy(_charlie, Vector2i(3, 2), "enemy")
-	var actor_collision := _board.commit_shove(_alpha, _bravo, 2.0, 2.0)
+	_deploy(_charlie, Vector2i(2, 2), "enemy")
+	var actor_collision := _board.commit_shove(_alpha, _bravo, 2.0, 2.0, "east")
 	if actor_collision.get("type") != "actor_collision" or not _board.has_condition(_charlie, "off_balance"):
-		return _fail("Actor collision recursively displaced or missed balance effects.")
+		return _fail("Actor collision did not relocate the target or missed balance effects.")
+	if _board.position_of(_bravo) != _index(Vector2i(2, 2)):
+		return _fail("Actor collision did not relocate the shoved target.")
+	if _charlie.body.get_total_wound_count() != 0:
+		return _fail("Actor-to-actor shove collision applied a wound; collisions are Stance-only.")
 
 	_clear_occupants()
-	_deploy(_alpha, Vector2i(1, 2), "player")
-	_deploy(_bravo, Vector2i(0, 2), "enemy")
-	if _board.preview_shove(_alpha, _bravo).get("type") != "boundary":
+	_deploy(_alpha, Vector2i(0, 2), "player")
+	_deploy(_bravo, Vector2i(0, 2), "enemy", true)
+	if _board.preview_shove(_alpha, _bravo, "west").get("type") != "boundary":
 		return _fail("Ordinary arena edge did not behave as a boundary.")
 	_board.sectors[_index(Vector2i(0, 2))].record.object_state["forced_exit_edges"] = ["west"]
-	if _board.preview_shove(_alpha, _bravo).get("type") != "forced_exit":
+	if _board.preview_shove(_alpha, _bravo, "west").get("type") != "forced_exit":
 		return _fail("Authored forced-exit edge was ignored.")
 	return true
 
@@ -155,8 +161,46 @@ func _melee_geometry_checks() -> bool:
 	_clear_occupants()
 	_deploy(_alpha, Vector2i(2, 2), "player")
 	_deploy(_bravo, Vector2i(3, 2), "enemy")
+	if _board.can_melee_reach(_alpha, _board.position_of(_bravo)):
+		return _fail("Default melee weapon illegally reached an adjacent sector.")
+	_equip_melee(_alpha, 2)
 	if not _board.can_melee_reach(_alpha, _board.position_of(_bravo)):
-		return _fail("Cardinal adjacency did not enable reach-one melee.")
+		return _fail("Authored reach weapon did not enable cardinal adjacency.")
+	_clear_occupants()
+	_deploy(_alpha, Vector2i(2, 2), "player")
+	_deploy(_bravo, Vector2i(2, 2), "enemy", true)
+	if not _board.can_melee_reach(_alpha, _board.position_of(_bravo)):
+		return _fail("Same-sector co-occupancy did not enable ordinary melee.")
+	return true
+
+
+func _composite_projected_origin_checks() -> bool:
+	_clear_occupants()
+	_deploy(_alpha, Vector2i(1, 2), "player")
+	_deploy(_bravo, Vector2i(3, 2), "enemy")
+	_turns.current_ap_pool = 12
+	var approach: Array[Vector2i] = [Vector2i(1, 2), Vector2i(2, 2)]
+	var shove := _request("shove")
+	shove.target_actor_id = "bravo"
+	shove.approach_path.append_array(approach)
+	shove.path.append(Vector2i(2, 2))
+	var shove_quote := _controller.quote(shove)
+	if shove_quote.legal or shove_quote.denial_code != "co_occupancy_required":
+		return _fail("Projected-origin shove remained legal without co-occupancy.")
+
+	var engage := _request("engage")
+	engage.target_actor_id = "bravo"
+	engage.approach_path = [Vector2i(1, 2), Vector2i(2, 2), Vector2i(3, 2)]
+	var engage_quote := _controller.quote(engage)
+	if not engage_quote.legal or engage_quote.projected_origin != Vector2i(3, 2):
+		return _fail("Explicit Engage did not validate its projected target-sector arrival.")
+	if engage_quote.movement_ap_cost <= 0 or engage_quote.action_ap_cost <= 0:
+		return _fail("Engage quote did not separate movement and action AP.")
+	if engage_quote.ap_cost != engage_quote.movement_ap_cost + engage_quote.action_ap_cost:
+		return _fail("Engage quote total AP is not the sum of its parts.")
+	_clear_occupants()
+	_deploy(_alpha, Vector2i(2, 2), "player")
+	_deploy(_bravo, Vector2i(3, 2), "enemy")
 	return true
 
 
@@ -164,7 +208,7 @@ func _forecast_and_catalog_checks() -> bool:
 	for removed_id in ["go_prone", "rush", "reserve", "grapple", "drag", "takedown", "throw", "restrain", "release", "break_free", "heavy_strike"]:
 		if _controller.catalog.definition(removed_id) != null:
 			return _fail("Removed action remained in the production catalog: %s" % removed_id)
-	for required_id in ["move", "strike", "power_strike", "aimed_strike", "shove", "fire", "aimed_fire", "end_turn"]:
+	for required_id in ["move", "engage", "strike", "power_strike", "aimed_strike", "shove", "fire", "aimed_fire", "end_turn"]:
 		if _controller.catalog.definition(required_id) == null:
 			return _fail("Required contextual action is missing: %s" % required_id)
 	_turns.current_ap_pool = 12
@@ -202,6 +246,17 @@ func _actor(actor_id: String, faction: int) -> HumanoidCore:
 	return actor
 
 
+func _equip_melee(actor: HumanoidCore, reach: int) -> void:
+	var definition := ItemData.new()
+	definition.id = "tactical_rules_reach_weapon"
+	definition.item_type = GameEnums.ItemType.WEAPON
+	definition.weapon_type = GameEnums.WeaponClass.BLADE
+	definition.flesh_damage = 1.0
+	definition.weapon_reach_cells = reach
+	var weapon := definition.create_runtime_instance()
+	actor.inventory.equip_item(weapon, GameEnums.EquipmentSlot.HAND)
+
+
 func _encounter() -> CombatEncounterRecord:
 	var encounter := CombatEncounterRecord.new()
 	encounter.topology_id = "squad_7x5"
@@ -232,8 +287,8 @@ func _clear_occupants() -> void:
 		sector.configure(sector.record)
 
 
-func _deploy(actor: HumanoidCore, coords: Vector2i, side: String) -> void:
-	if not _board.force_spawn_actor(actor, _index(coords), side):
+func _deploy(actor: HumanoidCore, coords: Vector2i, side: String, forced: bool = false) -> void:
+	if not _board.force_spawn_actor(actor, _index(coords), side, forced):
 		_fail("Could not deploy %s at %s." % [actor.name, coords])
 
 

@@ -33,7 +33,7 @@ func _init() -> void:
 	var transit := _cue(move_sequence, "transit")
 	if transit == null or transit.path.size() != 4:
 		failures.append("Movement presentation did not preserve every traversed sector.")
-	elif not is_equal_approx(transit.duration_seconds, 0.54):
+	elif not is_equal_approx(transit.duration_seconds, 0.84):
 		failures.append("Movement duration is not per-sector: %.3f." % transit.duration_seconds)
 	if transit != null and not transit.moves_actor:
 		failures.append("Movement transit was not marked as actor movement.")
@@ -119,10 +119,51 @@ func _init() -> void:
 			failures.append("Ranged actor/target animation windows are still too compressed.")
 		if ranged_sequence.total_duration() < 1.20:
 			failures.append("Ranged presentation remains too short for readable wind-up, flight, and impact.")
-		if ranged_reaction == null or ranged_reaction.animation_id != "TakeDamage":
-			failures.append("Ranged reaction cue does not carry the target damage animation.")
+		if ranged_impact == null or ranged_impact.target_animation_id != "TakeDamage":
+			failures.append("Ranged impact does not own the target damage one-shot.")
+		if ranged_reaction == null or ranged_reaction.target_animation_id != "neutral":
+			failures.append("Ranged reaction restarts the target damage one-shot instead of holding it.")
 		if ranged_impact == null or ranged_impact.vfx_id != "projectile" or ranged_impact.outcome_tag != "hit":
 			failures.append("Ranged impact cue does not carry the blood-capable hit result.")
+		if ranged_definition.presentation_profile.actor_animation_id != "Attack1":
+			failures.append("Fire does not use the firearm body animation.")
+		if ranged_sequence.timeline_id.is_empty() or ranged_sequence.release_marker_seconds < 0.0 or ranged_sequence.impact_marker_seconds < 0.0:
+			failures.append("Ranged presentation is missing its timeline identity or release/impact markers.")
+		if ranged_sequence.release_marker_seconds >= ranged_sequence.impact_marker_seconds:
+			failures.append("Fire release occurs after impact in the authored timeline.")
+		if ranged_reaction == null or ranged_reaction.start_time_seconds <= ranged_impact.start_time_seconds:
+			failures.append("Fire target reaction is not scheduled after impact.")
+		var actor_animation_starts := 0
+		var target_animation_starts := 0
+		for cue in ranged_sequence.cues:
+			if cue.actor_animation_id != "neutral":
+				actor_animation_starts += 1
+			if cue.target_animation_id != "neutral":
+				target_animation_starts += 1
+		if actor_animation_starts != 1 or target_animation_starts != 1:
+			failures.append("Ranged timeline does not start actor and target one-shots exactly once.")
+		for cue in ranged_sequence.cues:
+			if cue.lunge_pixels > 8.0 or cue.shake_amplitude > 1.5 or cue.camera_impulse_pixels > 1.0:
+				failures.append("Ranged cue escaped deliberate motion caps.")
+			if not is_zero_approx(cue.impact_scale) or not is_zero_approx(cue.impact_rotation_degrees):
+				failures.append("Ranged cue reintroduced squash/stretch or rotation wobble.")
+		if _cue(ranged_sequence, "contact") == null or _cue(ranged_sequence, "contact").sfx_id != "weapon_fire":
+			failures.append("Firearm release cue lost its weapon sound marker.")
+		if ranged_sequence.total_duration_seconds < 1.20:
+			failures.append("Sequence did not retain its typed total duration.")
+
+	for semantic_pair in [
+		["strike", "Attack2"],
+		["power_strike", "Attack4"],
+		["shove", "Attack3"],
+	]:
+		var semantic_definition := catalog.definition(str(semantic_pair[0]))
+		if semantic_definition == null or semantic_definition.presentation_profile.actor_animation_id != str(semantic_pair[1]):
+			failures.append("%s is mapped to the wrong semantic animation." % str(semantic_pair[0]))
+	if HumanoidVisualCatalog.animation_frames("Attack1") != HumanoidVisualCatalog.FRAME_COLUMNS:
+		failures.append("Attack1 body animation still uses the firearm sheet frame override.")
+	if HumanoidVisualCatalog.animation_frames_for_layer("Attack1", "res://Asset/humanoid_spritesheets/weapons/guns/pistol") != 5:
+		failures.append("Firearm equipment layer does not use its authored five-frame track.")
 
 	if not ResourceLoader.exists("res://Asset/Guns_Animation/Bullet.png"):
 		failures.append("Compact projectile sprite asset is missing.")
@@ -130,6 +171,27 @@ func _init() -> void:
 		failures.append("Blood impact animation asset is missing.")
 	if TacticalArenaView.PROJECTILE_TRAIL_LENGTH > 32.0:
 		failures.append("Projectile trail regressed to an oversized legacy streak.")
+
+	var visual_profile = load("res://CombatCore/Tactical/readable_moody_visual_profile.tres")
+	if visual_profile == null:
+		failures.append("Readable moody combat visual profile is missing.")
+	else:
+		if visual_profile.backdrop_modulate.get_luminance() < 0.70 or visual_profile.duel_surface_alpha < 0.30:
+			failures.append("Combat visual profile regressed to an unreadably dark battlefield.")
+		if visual_profile.grid_alpha < 0.30 or visual_profile.panel_opacity > 0.92:
+			failures.append("Combat visual profile lost grid separation or battlefield context through opaque panels.")
+	var arena_source := FileAccess.get_file_as_string("res://CombatCore/Tactical/TacticalArenaView.gd")
+	if arena_source.find("token.z_index = 10") < 0 or arena_source.find("top.z_index = 40") < 0:
+		failures.append("Weapon overlay is no longer explicitly layered above the humanoid token.")
+
+	var presentation_player := TacticalPresentationPlayer.new()
+	root.add_child(presentation_player)
+	var completed_timelines: Array[String] = []
+	presentation_player.timeline_finished.connect(func(timeline_id: String) -> void: completed_timelines.append(timeline_id))
+	await presentation_player.play(move_sequence)
+	await presentation_player.play(shove_sequence)
+	if completed_timelines != [move_sequence.timeline_id, shove_sequence.timeline_id]:
+		failures.append("Presentation acknowledgements did not preserve timeline identity and order.")
 
 	if failures.is_empty():
 		print("COMBAT_EXPERIENCE_REBUILD_SMOKE: PASS")

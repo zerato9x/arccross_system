@@ -45,6 +45,7 @@ var _signal_widget: SignalStrengthWidget
 @onready var _minimap_frame: PanelContainer = %MinimapFrame
 @onready var _minimap: MacroMinimapView = %MacroMinimapView
 @onready var _latest_event_ticker: Label = %LatestEventTicker
+@onready var _log_list: VBoxContainer = %LogList
 @onready var _button_row: HBoxContainer = %ButtonRow
 @onready var _clock_stack: VBoxContainer = %ClockStack
 @onready var _signal_row: HBoxContainer = %SignalRow
@@ -157,6 +158,11 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	var hour := int(clock.get("hour", 0))
 	var minute := int(clock.get("minute", 0))
 	var clock_text := "%02d:%02d" % [hour, minute]
+	# Keep the neutral label synchronized even when the authored digit widget
+	# owns the visible presentation. Compatibility callers and smoke tests read
+	# this snapshot-facing label directly.
+	if _time_label:
+		_time_label.text = clock_text
 	if _digit_clock:
 		_digit_clock.set_clock_text(clock_text, not _last_clock_text.is_empty())
 	elif _time_label:
@@ -236,6 +242,22 @@ func _render_log() -> void:
 	]
 	HUDAssetLibrary.apply_label(_latest_event_ticker, kind)
 	_latest_event_ticker.add_theme_font_size_override("font_size", 10)
+	if _log_list == null:
+		return
+	for child in _log_list.get_children():
+		child.queue_free()
+	for entry_value in _log_entries:
+		if not entry_value is Dictionary:
+			continue
+		var log_entry: Dictionary = entry_value
+		var row := Label.new()
+		row.text = "%s %s  %s" % [
+			str(log_entry.get("stamp", "--:--")),
+			str(LOG_KIND_TOKENS.get(str(log_entry.get("kind", "world")), "WORLD")),
+			str(log_entry.get("message", "")),
+		]
+		row.set_meta("log_kind", str(log_entry.get("kind", "world")))
+		_log_list.add_child(row)
 
 
 func _apply_frame_severity(kind: String) -> void:

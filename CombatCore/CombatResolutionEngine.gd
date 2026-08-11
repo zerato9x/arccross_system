@@ -13,6 +13,13 @@ signal presentation_resolved(event: Dictionary)
 @export var board: CombatBoard
 @export var turn_manager: TacticalTurnManager
 
+## Resolution never uses the process-global RNG. The controller seeds this
+## stream from the encounter arena so repeated encounters are replayable.
+var rng := RandomNumberGenerator.new()
+## Per-action draw ledger. Preview/quote never touches this stream; the
+## controller clears it at commit and attaches the draws to the outcome.
+var random_trace: Array[Dictionary] = []
+
 const MELEE_REGIONS := [
 	GameEnums.LimbRegion.UPPER_TORSO,
 	GameEnums.LimbRegion.LOWER_TORSO,
@@ -31,6 +38,32 @@ const BALLISTIC_REGIONS := [
 	GameEnums.LimbRegion.LEFT_LEG,
 	GameEnums.LimbRegion.RIGHT_LEG,
 ]
+
+
+func begin_random_trace() -> void:
+	random_trace.clear()
+
+
+func consume_random_trace() -> Array[Dictionary]:
+	var result := random_trace.duplicate(true)
+	random_trace.clear()
+	return result
+
+
+func draw_int(min_value: int, max_value: int, purpose: String) -> int:
+	return _draw_int(min_value, max_value, purpose)
+
+
+func _draw_float(purpose: String) -> float:
+	var value := rng.randf()
+	random_trace.append({"purpose": purpose, "distribution": "uniform_0_1", "value": value})
+	return value
+
+
+func _draw_int(min_value: int, max_value: int, purpose: String) -> int:
+	var value := rng.randi_range(min_value, max_value)
+	random_trace.append({"purpose": purpose, "distribution": "integer", "min": min_value, "max": max_value, "value": value})
+	return value
 
 
 func build_forecast(
@@ -57,13 +90,20 @@ func build_forecast(
 		accuracy_modifier += targeting.accuracy_modifier(region)
 	var is_melee := request.action_id in ["strike", "power_strike", "aimed_strike"]
 	var weapon := attacker.inventory.get_active_weapon(is_melee)
+	var projected_origin := board.position_of(attacker)
+	if action_quote.projected_origin != Vector2i(-1, -1) and board.arena_state.contains(action_quote.projected_origin):
+		projected_origin = board.arena_state.index_for(action_quote.projected_origin)
+	var defender_index := board.position_of(defender)
 	if is_melee:
-		forecast.hit_probability = _melee_hit_chance(attacker, defender, accuracy_modifier)
+		forecast.hit_probability = _melee_hit_chance(attacker, defender, accuracy_modifier, projected_origin)
 	elif weapon != null:
 		forecast.hit_probability = _ranged_hit_chance(
-			attacker, defender, weapon, board.position_of(attacker), board.position_of(defender), accuracy_modifier
+			attacker, defender, weapon, projected_origin, defender_index, accuracy_modifier
 		)
-	forecast.attack_arc = str(board.attack_arc(attacker, defender).get("arc", "front"))
+	# Directional facing is no longer a gameplay modifier. Keep a stable
+	# presentation label for legacy forecast consumers without reading actor
+	# facing or rear/flank state.
+	forecast.attack_arc = "direct"
 	if weapon == null:
 		forecast.bleeding_risk = "low"
 		forecast.severe_wound_risk = _risk_band(2.0 * forecast.hit_probability)
@@ -86,9 +126,10 @@ func execute_ranged_strike(
 	attacker: HumanoidCore,
 	target_index: int,
 	effect_profile: CombatActionEffectProfile = null,
-	targeting_profile: CombatTargetingProfile = null
+	targeting_profile: CombatTargetingProfile = null,
+	target_actor: HumanoidCore = null
 ) -> bool:
-	return await _execute_shot(attacker, target_index, false, -1, effect_profile, targeting_profile)
+	return await _execute_shot(attacker, target_index, false, -1, effect_profile, targeting_profile, target_actor)
 
 
 func execute_aimed_shot(
@@ -96,9 +137,10 @@ func execute_aimed_shot(
 	target_index: int,
 	target_region: int,
 	effect_profile: CombatActionEffectProfile = null,
-	targeting_profile: CombatTargetingProfile = null
+	targeting_profile: CombatTargetingProfile = null,
+	target_actor: HumanoidCore = null
 ) -> bool:
-	return await _execute_shot(attacker, target_index, true, target_region, effect_profile, targeting_profile)
+	return await _execute_shot(attacker, target_index, true, target_region, effect_profile, targeting_profile, target_actor)
 
 
 func _execute_shot(
@@ -107,11 +149,12 @@ func _execute_shot(
 	aimed: bool,
 	target_region: int,
 	effect_profile: CombatActionEffectProfile,
-	targeting_profile: CombatTargetingProfile
+	targeting_profile: CombatTargetingProfile,
+	target_actor: HumanoidCore = null
 ) -> bool:
 	if board == null or attacker == null or target_index < 0 or target_index >= board.sectors.size():
 		return false
-	var victim := board.actor_at(target_index)
+	var victim := target_actor if target_actor != null else board.actor_at(target_index)
 	var weapon := attacker.inventory.get_active_weapon(false)
 	if victim == null or weapon == null or not weapon.is_ready_to_fire():
 		return false
@@ -122,10 +165,12 @@ func _execute_shot(
 	action_started.emit(attacker, "aimed_fire" if aimed else "fire")
 	var condition := ItemConditionRules.resolve_use(weapon, ItemConditionRules.EVENT_FIREARM)
 	weapon.current_magazine = maxi(0, weapon.current_magazine - 1)
+	# Chamber, bolt, and pump cycling is part of the ordinary Fire/Reload
+	# authority.  Keep the legacy runtime marker clear instead of making CYCLE
+	# a second, player-visible firing prerequisite.
+	weapon.needs_cycling = false
 	if not weapon.fitted_magazine_state.is_empty():
 		weapon.fitted_magazine_state["loaded_rounds"] = weapon.current_magazine
-	if weapon.requires_cycle_after_shot:
-		weapon.needs_cycling = true
 	if bool(condition.get("faulted", false)):
 		_emit_shot(attacker, victim, origin_index, target_index, "malfunction", target_region, {})
 		return true
@@ -141,15 +186,24 @@ func _execute_shot(
 	if aimed and targeting_profile != null:
 		accuracy_modifier += targeting_profile.accuracy_modifier(region)
 	var hit_chance := _ranged_hit_chance(attacker, victim, weapon, origin_index, target_index, accuracy_modifier)
-	if randf() > hit_chance:
+	if _draw_float("ranged_hit") > hit_chance:
 		_emit_shot(attacker, victim, origin_index, target_index, "miss", region, {})
 		return true
 	var cover := board.cover_against(target_index, origin_index)
-	if cover > 0.0 and randf() < cover:
+	if cover > 0.0 and _draw_float("cover_intercept") < cover:
 		var mutation := board.sectors[target_index].damage_object(weapon.flesh_damage)
 		_emit_shot(attacker, victim, origin_index, target_index, "cover", region, {"terrain_mutation": mutation})
 		return true
 	var damage := _apply_weapon_damage(
+		attacker,
+		victim,
+		weapon,
+		region,
+		weapon.damage_multiplier_at_distance(distance) * (effect_profile.damage_multiplier if effect_profile != null else 1.0),
+		effect_profile.penetration_modifier if effect_profile != null else 0.0,
+		"aimed_fire" if aimed else "fire"
+	)
+	_maybe_apply_crowded_collateral(
 		attacker,
 		victim,
 		weapon,
@@ -175,7 +229,6 @@ func execute_melee_strike(
 	var weapon := attacker.inventory.get_active_weapon(true)
 	if not board.can_melee_reach(attacker, board.position_of(defender)):
 		return false
-	board.set_facing(attacker, board.facing_toward(board.position_of(attacker), board.position_of(defender)))
 	action_started.emit(attacker, action_id)
 	var reaction := await _request_reaction(defender, attacker, action_id)
 	if reaction == "dodge" and _resolve_dodge(defender, attacker, 1):
@@ -189,13 +242,22 @@ func execute_melee_strike(
 	var accuracy_modifier := effect_profile.accuracy_modifier if effect_profile != null else 0.0
 	if aimed and targeting_profile != null:
 		accuracy_modifier += targeting_profile.accuracy_modifier(region)
-	if randf() > _melee_hit_chance(attacker, defender, accuracy_modifier):
+	if _draw_float("melee_hit") > _melee_hit_chance(attacker, defender, accuracy_modifier):
 		presentation_resolved.emit(_melee_presentation_event(attacker, defender, action_id, "miss", region))
 		return true
 	if weapon != null:
 		var condition := ItemConditionRules.resolve_use(weapon, ItemConditionRules.EVENT_MELEE)
 		var multiplier := float(condition.get("performance_multiplier", 1.0)) * (effect_profile.damage_multiplier if effect_profile != null else 1.0)
 		_apply_weapon_damage(
+			attacker,
+			defender,
+			weapon,
+			region,
+			multiplier,
+			effect_profile.penetration_modifier if effect_profile != null else 0.0,
+			action_id
+		)
+		_maybe_apply_crowded_collateral(
 			attacker,
 			defender,
 			weapon,
@@ -260,26 +322,18 @@ func execute_cycle(actor: HumanoidCore) -> bool:
 	var weapon := actor.inventory.get_active_weapon(false) if actor != null else null
 	if weapon == null or not weapon.is_ranged():
 		return false
-	if weapon.needs_cycling:
-		weapon.needs_cycling = false
+	if not weapon.is_jammed:
+		return false
+	if ItemConditionRules.clear_malfunction(weapon):
 		action_started.emit(actor, "cycle")
 		return true
-	if not weapon.cycle_loads_one_round or weapon.current_magazine >= weapon.max_magazine:
-		return false
-	var loaded := actor.inventory.consume_ammunition(weapon.ammunition_id, 1, true)
-	if loaded != 1:
-		return false
-	weapon.current_magazine += 1
-	action_started.emit(actor, "cycle")
-	return true
+	return false
 
 
 func execute_clear_malfunction(actor: HumanoidCore) -> bool:
-	var weapon := actor.inventory.get_active_weapon(false) if actor != null else null
-	if not ItemConditionRules.clear_malfunction(weapon):
-		return false
-	action_started.emit(actor, "clear_malfunction")
-	return true
+	# Compatibility entry point for old callers.  The authoritative action is
+	# now CYCLE; keep the alias from creating a second malfunction pathway.
+	return execute_cycle(actor)
 
 
 func _ranged_hit_chance(
@@ -300,16 +354,12 @@ func _ranged_hit_chance(
 	var range_pressure := float(cells_outside) * maxf(0.0, weapon.range_falloff)
 	var visibility := board.sectors[target_index].record.visibility_penalty
 	var injury := 1.0 - clampf(attacker.body.get_limb_function(GameEnums.LimbRegion.RIGHT_ARM) / GameEnums.SCALE_MAX, 0.0, 1.0)
-	var arc := board.attack_arc(attacker, defender)
-	var posture_modifier := 0.03 if board.posture(attacker) == "crouched" else 0.0
-	if board.posture(defender) == "crouched":
-		posture_modifier -= 0.08
+	var engaged_penalty := weapon.engaged_fire_accuracy_penalty if board.grid_distance(origin_index, target_index) == 0 and weapon.engaged_fire_policy == "penalized" else 0.0
 	return clampf(
 		0.42
 		+ attacker.get_combat_accuracy(true) * 0.42
 		+ accuracy_modifier
-		+ float(arc.get("accuracy", 0.0))
-		+ posture_modifier
+		- engaged_penalty
 		- range_pressure
 		- visibility
 		- injury * 0.25,
@@ -318,18 +368,19 @@ func _ranged_hit_chance(
 	)
 
 
-func _melee_hit_chance(attacker: HumanoidCore, defender: HumanoidCore, accuracy_modifier: float) -> float:
-	var arc := board.attack_arc(attacker, defender)
+func _melee_hit_chance(
+	attacker: HumanoidCore,
+	defender: HumanoidCore,
+	accuracy_modifier: float,
+	origin_index: int = -1
+) -> float:
 	var injury := 1.0 - clampf(attacker.body.get_limb_function(GameEnums.LimbRegion.RIGHT_ARM) / GameEnums.SCALE_MAX, 0.0, 1.0)
-	var posture_modifier := -0.05 if board.posture(attacker) == "crouched" else 0.0
-	if board.has_condition(attacker, "off_balance"):
-		posture_modifier -= 0.12
+	var balance_modifier := -0.12 if board.has_condition(attacker, "off_balance") else 0.0
 	return clampf(
 		0.50
 		+ attacker.get_combat_accuracy(false) * 0.34
-		+ float(arc.get("accuracy", 0.0))
 		+ accuracy_modifier
-		+ posture_modifier
+		+ balance_modifier
 		- injury * 0.22,
 		0.05,
 		0.95
@@ -338,7 +389,7 @@ func _melee_hit_chance(attacker: HumanoidCore, defender: HumanoidCore, accuracy_
 
 func _pick_region(profile: CombatTargetingProfile, fallback: Array) -> int:
 	var regions: Array = profile.weighted_regions() if profile != null else fallback
-	return int(regions.pick_random()) if not regions.is_empty() else GameEnums.LimbRegion.UPPER_TORSO
+	return int(regions[_draw_int(0, regions.size() - 1, "body_region")]) if not regions.is_empty() else GameEnums.LimbRegion.UPPER_TORSO
 
 
 func _risk_band(value: float) -> String:
@@ -368,7 +419,9 @@ func _apply_weapon_damage(
 	region: int,
 	multiplier: float,
 	penetration_modifier: float,
-	source: String
+	source: String,
+	is_collateral: bool = false,
+	intended_victim_id: String = ""
 ) -> Dictionary:
 	var protection := victim.inventory.resolve_protection_event(weapon.damage_type, region)
 	var defense := float(protection.get("total_protection", 0.0))
@@ -376,7 +429,8 @@ func _apply_weapon_damage(
 	var raw := maxf(0.0, weapon.flesh_damage * multiplier)
 	var flesh := maxf(0.05, raw - maxf(0.0, defense - weapon.armor_penetration) * 0.5)
 	victim.body.apply_targeted_hit(region, flesh, penetration, weapon.damage_type)
-	_apply_balance_impact(victim, weapon.balance_impact * multiplier)
+	if weapon.damage_type != GameEnums.DamageType.BALLISTIC:
+		_apply_balance_impact(victim, weapon.balance_impact * multiplier)
 	var event := {
 		"type": "damage",
 		"action_id": source,
@@ -387,9 +441,49 @@ func _apply_weapon_damage(
 		"balance_impact": weapon.balance_impact * multiplier,
 		"damage_type": weapon.damage_type,
 		"source_item_instance_id": weapon.instance_id,
+		"collateral": is_collateral,
+		"intended_victim_id": intended_victim_id,
 	}
 	damage_applied.emit(victim)
 	damage_resolved.emit(event)
+	return event
+
+
+func _maybe_apply_crowded_collateral(
+	attacker: HumanoidCore,
+	victim: HumanoidCore,
+	weapon: ItemData,
+	region: int,
+	multiplier: float,
+	penetration_modifier: float,
+	source: String
+) -> Dictionary:
+	if board == null or attacker == null or victim == null or weapon == null:
+		return {}
+	var target_index := board.position_of(victim)
+	if target_index < 0 or board.occupancy_kind(target_index) != "crowded":
+		return {}
+	var collateral: HumanoidCore
+	for candidate in board.actors_at(target_index):
+		if candidate != null and candidate != victim and not candidate.is_dead and not candidate.is_comatose:
+			collateral = candidate
+			break
+	if collateral == null:
+		return {}
+	var risk := clampf(board.balance_profile.crowded_collateral_risk, 0.0, 1.0)
+	if _draw_float("crowded_collateral") >= risk:
+		return {}
+	var event := _apply_weapon_damage(
+		attacker,
+		collateral,
+		weapon,
+		region,
+		multiplier * board.balance_profile.crowded_collateral_multiplier,
+		penetration_modifier,
+		source,
+		true,
+		_actor_id(victim)
+	)
 	return event
 
 
@@ -418,36 +512,19 @@ func _apply_unarmed_damage(attacker: HumanoidCore, victim: HumanoidCore, region:
 func _apply_balance_impact(victim: HumanoidCore, amount: float) -> void:
 	if amount <= 0.0 or board == null:
 		return
-	var threshold := 3.0 + float(victim.definition.brawn) * 0.25
-	if board.has_condition(victim, "braced"):
-		threshold += 2.0
+	board.apply_stance_damage(victim, amount, false, "weapon_balance")
+	# Brace was retired from the player verb model. A single data-authored
+	# critical-margin threshold keeps off-balance behaviour deterministic without
+	# smuggling a hidden reaction/posture bonus back into resolution.
+	var threshold := board.balance_profile.critical_margin
 	if amount >= threshold:
 		board.set_condition(victim, "off_balance", true)
 
 
 func _request_reaction(defender: HumanoidCore, attacker: HumanoidCore, trigger_id: String) -> String:
-	if turn_manager == null:
-		return ""
-	# Lambdas capture scalar values in GDScript, so keep callback state in a
-	# mutable record. Reassigning captured locals would leave this scope stale.
-	var reaction_state := {"selected": "", "resolved": false}
-	var callback := func(resolved_defender: HumanoidCore, action, success: bool) -> void:
-		if resolved_defender == defender:
-			reaction_state.resolved = true
-			reaction_state.selected = str(action) if success else ""
-	turn_manager.reaction_resolved.connect(callback)
-	var available := turn_manager.open_reaction_window(defender, attacker, trigger_id)
-	# Headless simulations have no prompt surface. Resolve the first authored
-	# option deterministically so combat remains presentation-independent.
-	if turn_manager._reaction_pending and DisplayServer.get_name().contains("headless"):
-		if available.is_empty():
-			turn_manager.decline_reaction(defender)
-		else:
-			turn_manager.resolve_reaction(defender, available[0])
-	if turn_manager._reaction_pending and not bool(reaction_state.resolved):
-		await turn_manager.reaction_resolved
-	turn_manager.reaction_resolved.disconnect(callback)
-	return str(reaction_state.selected)
+	# Reactions were removed from the canonical action economy. This method is
+	# retained only so older resolver call sites remain source-compatible.
+	return ""
 
 
 func _resolve_block(
@@ -469,7 +546,7 @@ func _resolve_dodge(defender: HumanoidCore, attacker: HumanoidCore, distance: in
 	var chance := 0.22 + float(defender.definition.finesse - attacker.definition.finesse) / 48.0
 	chance += 0.08 if distance > 3 else 0.0
 	chance -= 0.12 if board.has_condition(defender, "off_balance") else 0.0
-	return randf() < clampf(chance, 0.05, 0.65)
+	return _draw_float("dodge") < clampf(chance, 0.05, 0.65)
 
 
 func _readied_shield(defender: HumanoidCore, damage_type: int, region: int) -> ItemData:

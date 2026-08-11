@@ -339,8 +339,10 @@ static func build_landmark_search_options(
 		world_seed,
 		coords
 	)
+	var searched: Array = hex_data.searched_targets
+	var options: Array = []
 	if props.is_empty():
-		return [{
+		options.append({
 			"id": "primary_search",
 			"label": (
 				hex_data.poi_name
@@ -353,35 +355,33 @@ static func build_landmark_search_options(
 			"priority": 0,
 			"locked": false,
 			"lock_reason": "",
-		}]
-
-	var options: Array = []
-	var searched: Array = hex_data.searched_targets
-	for index in range(props.size()):
-		if not props[index] is Dictionary:
-			continue
-		var prop: Dictionary = props[index]
-		var option_id := str(prop.get("search_option_id", "structure_%d" % index))
-		var depleted := searched.has(option_id)
-		options.append({
-			"id": option_id,
-			"label": str(prop.get("label", "Search Target")),
-			"description": "Search this structure for salvage.",
-			"requirements": {},
-			"metric_modifiers": {
-				"loot": 1.0 + float(index) * 0.35,
-				"safety": -0.25 * float(index),
-				"sneak": -0.15 * float(index),
-			},
-			"priority": index,
-			"locked": depleted,
-			"depleted": depleted,
-			"lock_reason": (
-				"This structure has already been searched."
-				if depleted
-				else ""
-			),
 		})
+	else:
+		for index in range(props.size()):
+			if not props[index] is Dictionary:
+				continue
+			var prop: Dictionary = props[index]
+			var option_id := str(prop.get("search_option_id", "structure_%d" % index))
+			var depleted := searched.has(option_id)
+			options.append({
+				"id": option_id,
+				"label": str(prop.get("label", "Search Target")),
+				"description": "Search this structure for salvage.",
+				"requirements": {},
+				"metric_modifiers": {
+					"loot": 1.0 + float(index) * 0.35,
+					"safety": -0.25 * float(index),
+					"sneak": -0.15 * float(index),
+				},
+				"priority": index,
+				"locked": depleted,
+				"depleted": depleted,
+				"lock_reason": (
+					"This structure has already been searched."
+					if depleted
+					else ""
+				),
+			})
 	if hex_data.poi_id == "plains_homestead":
 		var event_option_id := "event_locked_treatment_room"
 		var event_completed := searched.has(event_option_id)

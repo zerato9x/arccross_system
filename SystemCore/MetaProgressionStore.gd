@@ -13,9 +13,11 @@ signal codex_entry_recorded(entry_id: String)
 
 const SAVE_PATH := "user://arccross_meta_progression.json"
 const LEGACY_WORLD_PROFILE_PATH := "user://arccross_world_profile.json"
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 const VARIANT_TYPE_KEY := "__arccross_type"
-const CENTRAL_MILESTONE_PATH := "res://SystemCore/central_unlock_milestone.tres"
+const _MetaCodec := preload("res://SystemCore/MetaProfileCodec.gd")
+const _MetaMutations := preload("res://SystemCore/MetaMutationService.gd")
+const _Milestones := preload("res://SystemCore/CampaignMilestoneEvaluator.gd")
 const STRUCTURAL_FIELDS := [
 	"biome",
 	"terrain_tile",
@@ -40,6 +42,7 @@ const STRUCTURAL_FIELDS := [
 	"poi_name",
 	"search_site_id",
 	"hazard_level",
+	"world_objects",
 ]
 
 var completed_events: Dictionary = {} # event_id -> true
@@ -47,6 +50,9 @@ var gateway_states: Dictionary = {} # gateway_id -> bool
 var core_states: Dictionary = {} # core_id -> neutral Dictionary
 var node_profile_patches: Dictionary = {} # node_id -> neutral Dictionary
 var permanent_node_hex_patches: Dictionary = {} # node_id -> Vector2i -> patch
+## Small explicit hub summary used by UI and migration. Detailed condition and
+## service mutations still live on the permanent node's world objects.
+var shelter_states: Dictionary = {} # node_id -> state descriptor
 var codex_entries: Dictionary = {} # knowledge_id -> true
 ## After eviction, Central Core refuses re-entry until endgame unlock.
 ## Defaults true so Route 1 guards diegetically hold the lock.
@@ -137,9 +143,10 @@ func apply_effects(effects: Array, save_after: bool = true) -> void:
 				var node_id := str(effect.get("node_id", ""))
 				var patch: Dictionary = effect.get("patch", {})
 				if not node_id.is_empty() and not patch.is_empty():
-					var merged: Dictionary = node_profile_patches.get(node_id, {}).duplicate(true)
-					merged.merge(patch, true)
-					node_profile_patches[node_id] = merged
+					node_profile_patches[node_id] = _MetaMutations.merged_patch(
+					 node_profile_patches.get(node_id, {}),
+					 patch
+				)
 			"set_core_state":
 				var core_id := str(effect.get("core_id", ""))
 				if not core_id.is_empty():
@@ -181,6 +188,21 @@ func get_node_profile_patch(node_id: String) -> Dictionary:
 	return node_profile_patches.get(node_id, {}).duplicate(true)
 
 
+func get_shelter_state(node_id: String) -> Dictionary:
+	return shelter_states.get(node_id, {"state": "ruined"}).duplicate(true)
+
+
+func set_shelter_state(node_id: String, state: Dictionary, save_after: bool = true) -> void:
+	if node_id.is_empty():
+		return
+	var next := state.duplicate(true)
+	if shelter_states.get(node_id, {}) == next:
+		return
+	shelter_states[node_id] = next
+	if save_after:
+		save_profile()
+
+
 func get_core_state(core_id: String) -> Dictionary:
 	return core_states.get(core_id, {}).duplicate(true)
 
@@ -199,8 +221,8 @@ func set_core_state(core_id: String, state: Dictionary, save_after: bool = true)
 
 
 func evaluate_campaign_milestones(save_after: bool = true) -> bool:
-	var milestone := load(CENTRAL_MILESTONE_PATH) as CampaignMilestoneDefinition
-	if milestone == null or not milestone.is_satisfied(core_states):
+	var milestone := _Milestones.evaluate(core_states)
+	if milestone == null:
 		return false
 	var newly_completed := not bool(completed_events.get(milestone.completion_event_id, false))
 	central_locked = false
@@ -215,8 +237,7 @@ func evaluate_campaign_milestones(save_after: bool = true) -> bool:
 
 
 func apply_eviction_lock() -> void:
-	var milestone := load(CENTRAL_MILESTONE_PATH) as CampaignMilestoneDefinition
-	central_locked = not (milestone != null and milestone.is_satisfied(core_states))
+	central_locked = _Milestones.evaluate(core_states) == null
 	save_profile()
 
 
@@ -272,6 +293,7 @@ func reset_profile() -> void:
 	core_states.clear()
 	node_profile_patches.clear()
 	permanent_node_hex_patches.clear()
+	shelter_states.clear()
 	codex_entries.clear()
 	central_locked = true
 	save_profile()
@@ -288,24 +310,16 @@ func save_profile(path: String = "") -> bool:
 		]
 		push_error("[MetaProgressionStore] " + _last_save_error)
 		return false
-	var node_patch_entries: Array = []
-	for node_id in permanent_node_hex_patches.keys():
-		var hex_entries: Array = []
-		var node_patches: Dictionary = permanent_node_hex_patches[node_id]
-		for coords in node_patches.keys():
-			hex_entries.append({"coords": coords, "patch": node_patches[coords]})
-		node_patch_entries.append({"node_id": node_id, "hexes": hex_entries})
-	var payload := {
-		"version": SAVE_VERSION,
-		"completed_events": completed_events.duplicate(true),
-		"gateway_states": gateway_states.duplicate(true),
-		"core_states": core_states.duplicate(true),
-		"node_profile_patches": node_profile_patches.duplicate(true),
-		"permanent_node_hex_patches": node_patch_entries,
-		"codex_entries": codex_entries.duplicate(true),
-		"central_locked": central_locked,
-	}
-	file.store_string(JSON.stringify(_encode_variant(payload), "\t"))
+	var state := MetaProfileState.new()
+	state.completed_events = completed_events
+	state.gateway_states = gateway_states
+	state.core_states = core_states
+	state.node_profile_patches = node_profile_patches
+	state.permanent_node_hex_patches = permanent_node_hex_patches
+	state.shelter_states = shelter_states
+	state.codex_entries = codex_entries
+	state.central_locked = central_locked
+	file.store_string(JSON.stringify(_MetaCodec.encode_state(state, SAVE_VERSION), "\t"))
 	file.close()
 	profile_saved.emit(path)
 	return true
@@ -320,6 +334,7 @@ func load_profile(path: String = "") -> bool:
 	core_states.clear()
 	node_profile_patches.clear()
 	permanent_node_hex_patches.clear()
+	shelter_states.clear()
 	codex_entries.clear()
 	central_locked = true
 	if not FileAccess.file_exists(path):
@@ -335,29 +350,20 @@ func load_profile(path: String = "") -> bool:
 	if parse_error != OK or not json.data is Dictionary:
 		_last_save_error = "Invalid Meta Progress JSON."
 		return false
-	var data: Dictionary = _decode_variant(json.data)
+	var data: Dictionary = _MetaCodec.decode_variant(json.data)
 	if int(data.get("version", -1)) != SAVE_VERSION:
 		_backup_incompatible_profile(path, int(data.get("version", -1)))
 		_last_save_error = "Older Meta Progress was backed up and reset."
 		return save_profile(path)
-	completed_events = data.get("completed_events", {}).duplicate(true)
-	gateway_states = data.get("gateway_states", {}).duplicate(true)
-	core_states = data.get("core_states", {}).duplicate(true)
-	node_profile_patches = data.get("node_profile_patches", {}).duplicate(true)
-	codex_entries = data.get("codex_entries", {}).duplicate(true)
-	central_locked = bool(data.get("central_locked", true))
-	for node_entry in data.get("permanent_node_hex_patches", []):
-		if not node_entry is Dictionary:
-			continue
-		var node_id := str(node_entry.get("node_id", ""))
-		var node_patches: Dictionary = {}
-		for hex_entry in node_entry.get("hexes", []):
-			if not hex_entry is Dictionary:
-				continue
-			var coords: Variant = hex_entry.get("coords")
-			if coords is Vector2i:
-				node_patches[coords] = hex_entry.get("patch", {}).duplicate(true)
-		permanent_node_hex_patches[node_id] = node_patches
+	var profile_state := MetaProfileState.from_dict(data)
+	completed_events = profile_state.completed_events
+	gateway_states = profile_state.gateway_states
+	core_states = profile_state.core_states
+	node_profile_patches = profile_state.node_profile_patches
+	permanent_node_hex_patches = profile_state.permanent_node_hex_patches
+	shelter_states = profile_state.shelter_states
+	codex_entries = profile_state.codex_entries
+	central_locked = profile_state.central_locked
 	evaluate_campaign_milestones(false)
 	return true
 
@@ -401,34 +407,8 @@ func _migrate_legacy_profile() -> void:
 
 
 func _encode_variant(value: Variant) -> Variant:
-	match typeof(value):
-		TYPE_VECTOR2I:
-			return {VARIANT_TYPE_KEY: "Vector2i", "x": value.x, "y": value.y}
-		TYPE_ARRAY:
-			var encoded_array: Array = []
-			for item in value:
-				encoded_array.append(_encode_variant(item))
-			return encoded_array
-		TYPE_DICTIONARY:
-			var encoded_dictionary: Dictionary = {}
-			for key in value.keys():
-				encoded_dictionary[str(key)] = _encode_variant(value[key])
-			return encoded_dictionary
-		_:
-			return value
+	return _MetaCodec.encode_variant(value)
 
 
 func _decode_variant(value: Variant) -> Variant:
-	if value is Array:
-		var decoded_array: Array = []
-		for item in value:
-			decoded_array.append(_decode_variant(item))
-		return decoded_array
-	if value is Dictionary:
-		if str(value.get(VARIANT_TYPE_KEY, "")) == "Vector2i":
-			return Vector2i(int(value.get("x", 0)), int(value.get("y", 0)))
-		var decoded_dictionary: Dictionary = {}
-		for key in value.keys():
-			decoded_dictionary[key] = _decode_variant(value[key])
-		return decoded_dictionary
-	return value
+	return _MetaCodec.decode_variant(value)

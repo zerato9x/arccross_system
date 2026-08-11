@@ -26,12 +26,16 @@ enum PresentationMode {
 	EMBEDDED,
 }
 
-const SLOT_SCENE := preload("res://UI/Inventory/InventorySlot.tscn")
 const PAPERDOLL_SCENE := preload("res://UI/Inventory/PaperDollModel.tscn")
 const SLOT_ACTION_BUILDER := preload("res://UI/Inventory/InventorySlotActionBuilder.gd")
-const CONTEXT_MENU_HOST := preload("res://UI/Inventory/InventorySlotContextMenuHost.gd")
 const STAT_GAUGE_SCENE := preload("res://UI/Inventory/StatGaugeRow.tscn")
 const EFFECT_CHIP_SCENE := preload("res://UI/Inventory/EffectChip.tscn")
+const _SnapshotPresenter := preload("res://UI/Inventory/InventorySnapshotPresenter.gd")
+const _CommandRouter := preload("res://UI/Inventory/InventoryCommandRouter.gd")
+const _SlotRenderer := preload("res://UI/Inventory/InventorySlotRenderer.gd")
+const _ContextMenuPresenter := preload(
+	"res://UI/Inventory/InventoryContextMenuPresenter.gd"
+)
 
 const WEIGHT_DISPLAY_MAX := 24.0
 const BULK_DISPLAY_MAX := 24.0
@@ -134,6 +138,10 @@ var ground_list: GridContainer
 var paperdoll_model: PaperDollModel
 
 var _snapshot: Dictionary = {}
+var _snapshot_presenter := _SnapshotPresenter.new()
+var _command_router := _CommandRouter.new()
+var _slot_renderer := _SlotRenderer.new()
+var _context_menu_presenter := _ContextMenuPresenter.new()
 var _feedback: String = ""
 var _selected_slot: InventorySlot
 var _presentation_mode := PresentationMode.FULLSCREEN
@@ -415,30 +423,10 @@ func _reset_inspector() -> void:
 		_clear_container(_effect_chip_row)
 
 func _comparison_text(descriptor: Dictionary) -> String:
-	var equipped: Dictionary = {}
-	var preferred := int(descriptor.get("preferred_equipment_slot", GameEnums.EquipmentSlot.NONE))
-	for candidate: Dictionary in _snapshot.get("equipment", []):
-		if int(candidate.get("equipment_slot", GameEnums.EquipmentSlot.NONE)) == preferred:
-			equipped = candidate
-			break
-	if equipped.is_empty() or equipped.get("instance_id", "") == descriptor.get("instance_id", ""):
-		return "COMPARISON: no different equipped item in the relevant slot"
-	return "VS %s  |  Flesh %+.1f  Impact %+.1f  Pen %+.1f  Prot %+.1f  Weight %+.1f  Bulk %+.1f" % [
-		str(equipped.get("name", "EQUIPPED")).to_upper(),
-		float(descriptor.get("flesh_damage", 0.0)) - float(equipped.get("flesh_damage", 0.0)),
-		float(descriptor.get("balance_impact", 0.0)) - float(equipped.get("balance_impact", 0.0)),
-		float(descriptor.get("armor_penetration", 0.0)) - float(equipped.get("armor_penetration", 0.0)),
-		_total_protection(descriptor) - _total_protection(equipped),
-		float(descriptor.get("weight", 0.0)) - float(equipped.get("weight", 0.0)),
-		float(descriptor.get("bulk", 0.0)) - float(equipped.get("bulk", 0.0)),
-	]
+	return _snapshot_presenter.comparison_text(_snapshot, descriptor)
 
 func _total_protection(descriptor: Dictionary) -> float:
-	return (
-		float(descriptor.get("protection_blunt", 0.0))
-		+ float(descriptor.get("protection_sharp", 0.0))
-		+ float(descriptor.get("protection_ballistic", 0.0))
-	)
+	return _snapshot_presenter.total_protection(descriptor)
 
 func _build_interface() -> void:
 	_backdrop = ColorRect.new()
@@ -927,28 +915,7 @@ func _set_filter(filter_id: String) -> void:
 	_render()
 
 func _matches_filter(descriptor: Dictionary) -> bool:
-	if _active_filter == "all":
-		return true
-	var item_type := int(descriptor.get("item_type", GameEnums.ItemType.JUNK))
-	var category := int(descriptor.get("catalog_category", GameEnums.ItemCategory.MISC))
-	match _active_filter:
-		"weapons":
-			return item_type == GameEnums.ItemType.WEAPON
-		"armor":
-			return item_type == GameEnums.ItemType.ARMOR
-		"aid":
-			return category == GameEnums.ItemCategory.MEDICINE
-		"tools":
-			return item_type == GameEnums.ItemType.TOOL
-		"ammunition":
-			return item_type == GameEnums.ItemType.AMMUNITION
-		"materials_misc":
-			return item_type in [
-				GameEnums.ItemType.MATERIAL,
-				GameEnums.ItemType.JUNK,
-				GameEnums.ItemType.ATTACHMENT,
-			]
-	return true
+	return _snapshot_presenter.matches_filter(_active_filter, descriptor)
 
 func _render_backpack(
 	containers: Array,
@@ -1092,12 +1059,15 @@ func _make_slot(
 	_empty_texture_path: String,
 	container_slot: GameEnums.EquipmentSlot = GameEnums.EquipmentSlot.NONE
 ) -> InventorySlot:
-	var slot := SLOT_SCENE.instantiate() as InventorySlot
-	parent.add_child(slot)
-	slot.configure(source_kind, index, label, null, container_slot)
-	slot.set_text_only_mode(_presentation_mode == PresentationMode.SIDE_PANEL)
-	_bind_slot_signals(slot)
-	return slot
+	return _slot_renderer.create(
+		parent,
+		source_kind,
+		index,
+		label,
+		container_slot,
+		_presentation_mode == PresentationMode.SIDE_PANEL,
+		Callable(self, "_bind_slot_signals")
+	)
 
 func _bind_slot_signals(slot: InventorySlot) -> void:
 	slot.slot_clicked.connect(_on_slot_clicked)
@@ -1127,7 +1097,7 @@ func _open_slot_context_menu(slot: InventorySlot, global_pos: Vector2) -> void:
 		return
 	hide_item_details()
 	_context_menu_slot = slot
-	CONTEXT_MENU_HOST.request_open(
+	_context_menu_presenter.present(
 		get_tree(),
 		global_pos,
 		SLOT_ACTION_BUILDER.menu_header_for_slot(slot),
@@ -1166,7 +1136,7 @@ func _on_item_dropped(
 
 	match to_slot.source_kind:
 		InventorySlot.SOURCE_EQUIPMENT:
-			inventory_action_requested.emit(
+			_emit_inventory_action(
 				ACTION_EQUIP,
 				instance_id,
 				to_slot.equipment_slot,
@@ -1174,14 +1144,14 @@ func _on_item_dropped(
 			)
 		InventorySlot.SOURCE_BACKPACK:
 			if from_slot.source_kind == InventorySlot.SOURCE_EQUIPMENT:
-				inventory_action_requested.emit(
+				_emit_inventory_action(
 					ACTION_UNEQUIP,
 					instance_id,
 					from_slot.equipment_slot,
 					{}
 				)
 			elif from_slot.source_kind == InventorySlot.SOURCE_GROUND:
-				inventory_action_requested.emit(
+				_emit_inventory_action(
 					ACTION_TAKE,
 					instance_id,
 					to_slot.container_slot,
@@ -1191,7 +1161,7 @@ func _on_item_dropped(
 				from_slot.source_kind == InventorySlot.SOURCE_BACKPACK
 				and from_slot.container_slot != to_slot.container_slot
 			):
-				inventory_action_requested.emit(
+				_emit_inventory_action(
 					ACTION_MOVE,
 					instance_id,
 					to_slot.container_slot,
@@ -1318,7 +1288,7 @@ func _execute_inventory_action(
 	if action_id.is_empty() or not slot.has_item():
 		return
 	var instance_id := str(slot.item_descriptor.get("instance_id", ""))
-	if action_id in [ACTION_CONSUME, ACTION_DROP]:
+	if _command_router.requires_confirmation(action_id):
 		_request_confirmation(
 			"%s %s?" % [action_id.capitalize(), str(slot.item_descriptor.get("name", "item"))],
 			Callable(self, "_emit_inventory_action").bind(
@@ -1342,7 +1312,18 @@ func _emit_inventory_action(
 	equipment_slot: int,
 	payload: Dictionary
 ) -> void:
-	inventory_action_requested.emit(action_id, instance_id, equipment_slot, payload)
+	var command := _command_router.intent(
+		action_id,
+		instance_id,
+		equipment_slot,
+		payload
+	)
+	inventory_action_requested.emit(
+		str(command.get("action_id", "")),
+		str(command.get("instance_id", "")),
+		int(command.get("equipment_slot", GameEnums.EquipmentSlot.NONE)),
+		command.get("payload", {}).duplicate(true)
+	)
 
 func request_repair(
 	target_instance_id: String,

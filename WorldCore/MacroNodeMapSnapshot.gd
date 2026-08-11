@@ -149,18 +149,16 @@ static func zone_flavor(node: MacroNodeData) -> String:
 
 static func objective_text(node: MacroNodeData) -> String:
 	if node.arm_tier == 1 and node.arm_direction != GameEnums.MacroArmDirection.NONE:
-		if node.arm_direction == GameEnums.MacroArmDirection.NORTH:
-			return "The North Fringe Relay is the Act 1 gate. Bring it the three relay relics recovered from the surrounding Route 1 arms."
 		var landmarks := Route1LandmarkCatalog.data()
 		var landmark := landmarks.for_arm(_arm_id(node.arm_direction)) if landmarks != null else null
 		if landmark != null:
-			return "Search %s and its roadside caches. Recover supplies, world evidence, and anything that points back to the North relay." % landmark.display_name
+			return "Search %s and its roadside structures. Follow fresh tracks, signals, and knowledge to decide where the road leads next." % landmark.display_name
 	if node.role == GameEnums.MacroNodeRole.GATEWAY and not node.unlocked:
 		return "Sealed by Meta Progress."
 	if node.role == GameEnums.MacroNodeRole.CENTRAL_CORE:
 		return "Return recovered core components here."
 	if node.role == GameEnums.MacroNodeRole.META_BRANCH:
-		return "Recover the North Core Regulator."
+		return "Investigate the connected route and make the physical infrastructure useful."
 	return "Traverse the zone through a graph-connected rim."
 
 

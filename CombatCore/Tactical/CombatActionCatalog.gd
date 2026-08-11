@@ -1,9 +1,56 @@
+@tool
 extends Resource
 class_name CombatActionCatalog
 
 @export var definitions: Array[CombatActionDefinition] = []
 
 var _by_id: Dictionary = {}
+
+const RETIRED_PLAYER_ACTIONS := {
+	"stand": true,
+	"crouch": true,
+	"disengage": true,
+	"aimed_strike": true,
+	"aimed_fire": true,
+	"clear_malfunction": true,
+	"block": true,
+	"dodge": true,
+	"opportunity_strike": true,
+}
+
+
+func is_player_visible(action_id: String) -> bool:
+	if RETIRED_PLAYER_ACTIONS.has(action_id):
+		return false
+	var entry := definition(action_id)
+	return entry != null and entry.visibility_tier != "compatibility"
+
+
+func player_definitions() -> Array[CombatActionDefinition]:
+	var result: Array[CombatActionDefinition] = []
+	for entry in all():
+		if entry != null and is_player_visible(entry.action_id):
+			result.append(entry)
+	return result
+
+
+func canonical_definitions() -> Array[CombatActionDefinition]:
+	"""Return authored entries that belong to the unified combat model.
+
+	Compatibility resolvers remain loadable for old replay/save callers, but
+	new HUD, AI, and catalog tooling should consume this projection instead of
+	filtering retired IDs independently.
+	"""
+	var result: Array[CombatActionDefinition] = []
+	for entry in all():
+		if entry != null and is_player_visible(entry.action_id):
+			result.append(entry)
+	return result
+
+
+func is_ai_visible(action_id: String) -> bool:
+	var entry := definition(action_id)
+	return entry != null and entry.visibility_tier != "compatibility" and action_id not in RETIRED_PLAYER_ACTIONS
 
 
 func definition(action_id: String) -> CombatActionDefinition:

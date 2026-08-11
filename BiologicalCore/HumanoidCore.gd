@@ -105,14 +105,15 @@ func _derive_physical_reality() -> void:
 # THE HIDDEN COMBAT MECHANICS (Base-12 Getters)
 # ---------------------------------------------------------
 
-func get_initiative_roll() -> float:
+func get_initiative_roll(random_source: RandomNumberGenerator = null) -> float:
 	var reaction_speed: float = float(definition.finesse)
 	
 	# Encumbrance penalty (Maxes at a -6 to the roll if 100% full)
 	var encumbrance_ratio: float = float(inventory.current_size) / float(max(1, inventory.current_max_capacity))
 	var encumbrance_penalty: float = encumbrance_ratio * 6.0 
 	
-	return (randf() * 12.0) + reaction_speed - encumbrance_penalty
+	var roll := random_source.randf() if random_source != null else randf()
+	return (roll * 12.0) + reaction_speed - encumbrance_penalty
 
 func get_combat_accuracy(is_ranged: bool) -> float:
 	if is_ranged:
@@ -125,6 +126,20 @@ func get_combat_accuracy(is_ranged: bool) -> float:
 func reset_combat_transients() -> void:
 	is_fleeing = false
 	is_escaping = false
+
+
+func reconcile_terminal_state() -> void:
+	# Older runtime records could persist zero blood without the corresponding
+	# terminal flag. Combat must never resurrect that actor as a living target.
+	if is_dead:
+		current_max_ap = 0
+		return
+	if body != null and body.blood_level <= 0.0:
+		is_dead = true
+		current_max_ap = 0
+	elif body != null and body.consciousness <= 0.0:
+		is_comatose = true
+		current_max_ap = 0
 
 
 func get_effective_threat() -> float:
@@ -475,6 +490,21 @@ func _on_incapacitated(reason: String) -> void:
 	current_max_ap = 0
 	print(name, " is incapacitated. Cause: ", reason)
 	incapacitated.emit(reason)
+
+
+func apply_combat_lethal_wound(reason: String = "Execution", region: GameEnums.LimbRegion = GameEnums.LimbRegion.HEAD) -> bool:
+	## Combat may request a terminal outcome, but biology still owns the wound
+	## and death signal. This keeps execution, bleeding, and save hydration on
+	## one lifecycle instead of toggling a UI flag in the tactical layer.
+	if is_dead:
+		return true
+	if body != null:
+		var lethal_depth := body.get_limb_max(region)
+		body.apply_targeted_hit(region, lethal_depth, lethal_depth, GameEnums.DamageType.SHARP)
+	reconcile_terminal_state()
+	if not is_dead:
+		_on_vital_failure(reason)
+	return is_dead
 
 # ---------------------------------------------------------
 # RUNTIME STATE CONTRACT

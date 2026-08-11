@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="ItemConditionProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ItemCore/ItemConditionProfile.gd" id="1_condition"]
+
+[resource]
+script = ExtResource("1_condition")
+profile_id = "default"
+condition_thresholds = {"critical": 3.0, "damaged": 6.0, "worn": 9.0}
+grade_multipliers = {0: 1.25, 1: 1.0, 2: 0.8, 3: 0.65, 4: 0.5}
+wear_rates = {"firearm": 0.10, "melee": 0.20, "armor": 0.15, "shield": 0.15, "tool": 0.25}
+tool_method_wear = {"crowbar": 0.10, "multitool": 0.16}
+fault_chances = {"Worn": 0.0416667, "Damaged": 0.0833333, "Critical": 0.25}
+repair_costs = {
+"poor": 2,
+"worn": 1,
+"material_units": 1,
+"recipes": {
+"1": {"tool_id": "gun_cleaner", "material_id": "rag"},
+"2": {"tool_id": "sewing_kit", "material_id": "rag"},
+"3": {"tool_id": "multitool", "material_id": "bolts"}
+},
+"universal": {"tool_id": "pliers", "material_id": "ducttape"},
+"camp_cap": 12.0,
+"field_cap": 8.0,
+"universal_cap": 6.0,
+"unique_field_cap": 6.0,
+"camp_amount": 4.0,
+"field_amount": 2.0
+}
+readiness_threshold = 0.25

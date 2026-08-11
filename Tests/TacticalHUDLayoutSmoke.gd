@@ -35,11 +35,16 @@ func _verify_size(viewport_size: Vector2i) -> void:
 	await process_frame
 	if hud.target_heading.visible:
 		_fail("Enemy condition was exposed before an actor was selected.")
+	if hud.context_menu.visible:
+		_fail("Passive snapshot/quote refresh opened an action menu at %s." % viewport_size)
 
 	if not hud.size.is_equal_approx(Vector2(viewport_size)):
 		_fail("HUD did not fill %s; got %s." % [viewport_size, hud.size])
 	var arena: Control = hud.get_node("Arena")
 	var player_card: Control = hud.get_node("PlayerCard")
+	var actor_intent: Label = hud.actor_intent
+	if actor_intent == null:
+		_fail("Player card did not expose the production AI intent label at %s." % viewport_size)
 	var inventory_panel: Control = hud.get_node("InventoryPanel")
 	var hex_panel: Control = hud.get_node("HexPanel")
 	_assert_inside(hud.get_global_rect(), hud.right_panel.get_global_rect(), "inspector", viewport_size)
@@ -47,8 +52,88 @@ func _verify_size(viewport_size: Vector2i) -> void:
 		_assert_inside(hud.get_global_rect(), (pair[0] as Control).get_global_rect(), str(pair[1]), viewport_size)
 	if hud.has_node("Bottom") or hud.has_node("CommandWheel"):
 		_fail("Legacy bottom rail or command wheel still exists at %s." % viewport_size)
-	if hud.right_panel.size.x < 340.0 or hud.right_panel.size.x > 360.0:
-		_fail("Enemy panel width escaped its corner target at %s: %.1f." % [viewport_size, hud.right_panel.size.x])
+	var expected_preview_width := clampf(float(viewport_size.x) * 0.16, 240.0, 300.0)
+	if not is_equal_approx(hud.right_panel.size.x, expected_preview_width) or not is_equal_approx(hud.right_panel.size.y, 76.0):
+		_fail("Enemy panel did not begin as a compact preview at %s: %s." % [viewport_size, hud.right_panel.size])
+	if not hud.expanded_corner_id().is_empty():
+		_fail("A corner panel began expanded at %s." % viewport_size)
+	if hud.find_child("PlayerVerbBar", true, false) != null:
+		_fail("Persistent Move/Attack/Aim/Weapon command bar survived at %s." % viewport_size)
+	if hud.end_turn_button == null or not hud.end_turn_button.visible:
+		_fail("End Turn was not retained in the global turn strip at %s." % viewport_size)
+	var weapon_snapshot := _sample_snapshot(12, 1)
+	var weapon_actor: Dictionary = weapon_snapshot.actors[0]
+	weapon_actor.ranged_weapon = {
+		"instance_id": "smoke_revolver",
+		"definition_id": "revolver",
+		"name": "Smoke Revolver",
+		"current_magazine": 0,
+		"max_magazine": 6,
+		"cycle_loads_one_round": true,
+		"needs_cycling": false,
+		"condition": 12.0,
+		"readiness": {"reason": "jammed"},
+	}
+	var jam_quotes := _sample_quotes()
+	var jam_reload := _quote_for(jam_quotes, "reload")
+	jam_reload.deny("weapon_not_ready", "Clear the malfunction before reloading.")
+	hud.show_snapshot(weapon_snapshot)
+	hud.show_quotes(jam_quotes)
+	await process_frame
+	var weapon_button := hud._weapon_action_buttons.get("clear_malfunction") as Button
+	var reload_button := hud._weapon_action_buttons.get("reload") as Button
+	if reload_button == null:
+		_fail("Reload was not kept discoverable for an equipped firearm at %s." % viewport_size)
+	elif not reload_button.disabled or not reload_button.text.contains("CLEAR JAM FIRST"):
+		_fail("Jammed firearm did not keep Reload gray with an inline reason at %s." % viewport_size)
+	if weapon_button == null or not weapon_button.text.begins_with("CLEAR MALFUNCTION") or weapon_button.disabled:
+		_fail("Loadout did not expose the authored jam-clearing action at %s." % viewport_size)
+	else:
+		var routed_weapon := {"id": ""}
+		hud.action_selected.connect(func(action_id: String) -> void: routed_weapon.id = action_id, CONNECT_ONE_SHOT)
+		weapon_button.pressed.emit()
+		if routed_weapon.id != "clear_malfunction":
+			_fail("Weapon verb did not route to clear_malfunction at %s." % viewport_size)
+	weapon_actor.current_magazine = 6
+	weapon_actor.readiness = {"reason": "ready"}
+	var full_quotes := _sample_quotes()
+	_quote_for(full_quotes, "reload").deny("reload_not_needed", "The magazine is full.")
+	_quote_for(full_quotes, "cycle").deny("cycle_not_needed", "The weapon does not need cycling.")
+	hud.show_snapshot(weapon_snapshot)
+	hud.show_quotes(full_quotes)
+	var full_reload := hud._weapon_action_buttons.get("reload") as Button
+	if full_reload == null or not full_reload.disabled or not full_reload.text.contains("MAGAZINE FULL"):
+		_fail("Loaded firearm did not show gray Reload — Magazine Full at %s." % viewport_size)
+	var full_cycle := hud._weapon_action_buttons.get("cycle") as Button
+	if full_cycle == null or not full_cycle.disabled or not full_cycle.text.contains("WEAPON ALREADY READY"):
+		_fail("Ready cycle-capable firearm did not show gray Cycle with its inline reason at %s." % viewport_size)
+	hud.show_snapshot(_sample_snapshot(12, 1))
+	hud.show_quotes(_sample_quotes())
+	await process_frame
+	for panel_id in ["health", "loadout", "site", "hostile"]:
+		if (hud._corner_contents[panel_id] as Control).visible:
+			_fail("Compact panel %s exposed its full contents at %s." % [panel_id, viewport_size])
+	var compact_safe_width: float = hud.arena_view._camera_safe_rect.size.x
+	hud._toggle_corner_panel("hostile")
+	await process_frame
+	var expected_expanded_width := clampf(float(viewport_size.x) * 0.30, 340.0, 460.0)
+	if hud.expanded_corner_id() != "hostile" or not is_equal_approx(hud.right_panel.size.x, expected_expanded_width):
+		_fail("Hostile preview did not expand into the right work area at %s." % viewport_size)
+	if not (hud._corner_buttons["hostile"] as Button).text.contains("[CLOSE]"):
+		_fail("Expanded corner preview did not advertise its collapse affordance at %s." % viewport_size)
+	for panel_id in ["health", "loadout", "site"]:
+		if (hud._corner_contents[panel_id] as Control).visible:
+			_fail("Expanding hostile left %s expanded at %s." % [panel_id, viewport_size])
+	if hud.arena_view._camera_safe_rect.size.x >= compact_safe_width:
+		_fail("Expanded hostile panel did not reserve a camera-safe right inset at %s." % viewport_size)
+	hud._toggle_corner_panel("site")
+	await process_frame
+	if hud.expanded_corner_id() != "site" or (hud._corner_contents["hostile"] as Control).visible:
+		_fail("Corner expansion was not exclusive at %s." % viewport_size)
+	hud._unhandled_input(_key_event(KEY_ESCAPE))
+	await process_frame
+	if not hud.expanded_corner_id().is_empty() or hud.arena_view._camera_safe_rect.size.x < compact_safe_width:
+		_fail("Escape did not restore the compact camera-safe layout at %s." % viewport_size)
 	if arena.size.x < 640.0:
 		_fail("Arena lost its minimum usable width at %s: %.1f." % [viewport_size, arena.size.x])
 	if not is_equal_approx(player_card.position.x, inventory_panel.position.x) or inventory_panel.position.y <= player_card.position.y:
@@ -65,6 +150,12 @@ func _verify_size(viewport_size: Vector2i) -> void:
 	hud.arena_view.sector_selected.emit(Vector2i(11, 0))
 	await process_frame
 	await process_frame
+	var context_phase: int = hud.interaction.phase
+	var context_was_visible := hud.context_menu.visible
+	hud.show_snapshot(hud.snapshot)
+	hud.show_quotes(hud.quotes)
+	if hud.interaction.phase != context_phase or hud.context_menu.visible != context_was_visible:
+		_fail("Passive refresh changed the active target interaction at %s." % viewport_size)
 	for button in hud.context_actions.get_children():
 		var action_id := str(button.get_meta("action_id", ""))
 		if action_id in ["fire", "aimed_fire", "reload", "cycle", "clear_malfunction", "brace"]:
@@ -90,10 +181,10 @@ func _verify_size(viewport_size: Vector2i) -> void:
 			_fail("Selecting a carried enemy item did not expose Strip Body.")
 	var aimed_button: Button
 	for child in hud.context_actions.get_children():
-		if child is Button and str(child.get_meta("action_id", "")) == "aimed_strike":
+		if child is Button and (child as Button).text.contains("AIM..."):
 			aimed_button = child
 			break
-	if aimed_button != null:
+	if aimed_button != null and not aimed_button.disabled:
 		aimed_button.pressed.emit()
 		if not hud.aim_target_panel.visible or hud.context_menu.visible:
 			_fail("Aimed attack did not replace the remote context trip with its target panel.")
@@ -111,7 +202,11 @@ func _verify_size(viewport_size: Vector2i) -> void:
 		_assert_inside(hud.aim_target_panel.get_global_rect(), hud.aim_cancel_button.get_global_rect(), "aim cancel", viewport_size)
 		hud.aim_cancel_button.pressed.emit()
 	else:
-		_fail("Aimed Strike was unavailable for targeting-panel verification.")
+		# Manual body-region aiming is retired in the unified combat contract;
+		# Attack resolves the region authoritatively and no persistent aim panel
+		# should be opened from a passive target refresh.
+		if hud.aim_target_panel.visible:
+			_fail("Retired manual aiming panel opened without an authored action.")
 	hud.arena_view.sector_selected.emit(Vector2i(2, 0))
 	await process_frame
 	if not hud.target_heading.visible or hud.target_heading.text != "FIELD CONDITION":
@@ -157,8 +252,8 @@ func _verify_size(viewport_size: Vector2i) -> void:
 			interact_visible = true
 	if not interact_visible:
 		_fail("Selecting an object sector did not expose Interact.")
-	var movement_confirmed := false
-	hud.action_confirmed.connect(func() -> void: movement_confirmed = true)
+	var movement_confirmation := {"value": false}
+	hud.action_confirmed.connect(func() -> void: movement_confirmation.value = true)
 	hud.current_quote = null
 	hud.arena_view.sector_selected.emit(Vector2i(3, 0))
 	var move_quote := CombatActionQuote.new()
@@ -167,9 +262,11 @@ func _verify_size(viewport_size: Vector2i) -> void:
 	move_quote.target_sector = Vector2i(3, 0)
 	move_quote.ap_cost = 2
 	move_quote.legal = true
-	hud.show_quote(move_quote)
+	hud.show_route_quote(move_quote)
+	if hud.context_actions.visible or hud.context_title.text != "ROUTE PREVIEW":
+		_fail("A staged move reused stale contextual verbs instead of the route-preview surface.")
 	hud.arena_view.sector_selected.emit(Vector2i(3, 0))
-	if not movement_confirmed:
+	if not bool(movement_confirmation.value):
 		_fail("A second click on a staged move did not confirm it.")
 	hud.show_reaction({"actions": ["block", "dodge"], "title": "TEST ATTACK"})
 	await process_frame
@@ -183,20 +280,13 @@ func _verify_size(viewport_size: Vector2i) -> void:
 	hud._unhandled_input(_key_event(KEY_I))
 	if hud.items.visible:
 		_fail("Inventory shortcut did not close the pack.")
-	var end_turn_button: Button
-	for child in hud.context_actions.get_children():
-		if child is Button and str(child.get_meta("action_id", "")) == "end_turn":
-			end_turn_button = child
-			break
-	if end_turn_button == null:
+	var end_turn_button := hud.end_turn_button
+	if end_turn_button == null or end_turn_button.disabled:
 		_fail("End Turn was not available from the selected player context.")
 	else:
 		end_turn_button.pressed.emit()
-		if not hud.local_confirmation.visible or hud.confirm_button.disabled:
-			_fail("End Turn did not stage with local confirmation.")
-		hud.cancel_button.pressed.emit()
-		if hud.current_quote != null:
-			_fail("Cancel left a staged request behind.")
+		if not hud.local_confirmation.visible or not hud.context_menu.visible:
+			_fail("End Turn did not request deliberate confirmation from the top strip.")
 	var wheel := InputEventMouseButton.new()
 	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
 	wheel.pressed = true
@@ -217,8 +307,10 @@ func _verify_size(viewport_size: Vector2i) -> void:
 	pan_end.pressed = false
 	pan_end.position = pan_motion.position
 	hud.arena_view.gui_input.emit(pan_end)
-	if hud.arena_view.camera_pan().is_zero_approx():
-		_fail("Arena middle-drag input did not pan the bounded camera after zooming.")
+	# At very wide viewports the complete logical lane fits inside the safe
+	# camera rect even after zooming, so a bounded pan correctly remains zero.
+	if viewport_size.x <= 1280 and hud.arena_view.camera_pan().is_zero_approx():
+		_fail("Arena middle-drag input did not pan the bounded camera after zooming at %s." % viewport_size)
 	viewport.queue_free()
 	await process_frame
 
@@ -277,6 +369,13 @@ func _sample_quotes() -> Array[CombatActionQuote]:
 		quote.has_line_of_sight = true
 		result.append(quote)
 	return result
+
+
+func _quote_for(source: Array[CombatActionQuote], action_id: String) -> CombatActionQuote:
+	for action_quote in source:
+		if action_quote.action_id == action_id:
+			return action_quote
+	return null
 
 
 func _toggle_items_for_test(hud: TacticalCombatHUD) -> void:

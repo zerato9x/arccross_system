@@ -95,9 +95,21 @@ Templated hexes do **not** receive random-offset scatter on the same slots.
 | Budgets | Hard caps so towers stay rare |
 | Adjacency | Compatible neighbors; cluster rubble/rocks; space tall silhouettes |
 | Palette | One shrub/crate/tank family per zone seed |
+| History state | `ambiguous_glitch` before stabilization; authentic regional ruin dialect after Core restore |
 
 Central Act 1: ring recipes for hub silhouette (multi-hex HUB / TOWER /
 WAREHOUSE stamps), then remnant scrub outward.
+
+Arm dressing has two presentation states without changing gameplay authority:
+
+1. **Unresolved:** corrupted generic post-apocalypse pools conceal exact history.
+2. **Stabilized:** permanent Meta patches select historically legible regional
+   pools (North Warden/Barican, East House, West industry/Zeta, South
+   Guild/Crux/Xander).
+
+Stabilization is not time travel and never rebuilds a pristine past. It changes
+which ruins, barrier remnants, and Glitch traces can resolve while preserving
+radius-12 composition, sockets, roads, and persistence contracts.
 
 ---
 
@@ -135,9 +147,10 @@ with POI kits, and do not retune hex area toward 0.5.
 
 See [Hex World Asset Overhaul](HEX_WORLD_ASSET_OVERHAUL.md) Phases B–F.
 
-1. Maintain the shipped starter settlement, rubble, forest, rock, scrub, and
-   quiet-landscape recipes.
-2. Expand Central and later-arm template libraries without bypassing
+1. Maintain the current alpha's single North starter settlement, rubble,
+   forest, rock, scrub, and quiet-landscape recipes.
+2. Expand all four Arm template libraries as peer campaign dialects without
+   encoding North as the mandatory first Core or bypassing
    `GeneratedZonePlan` roles.
 3. Add pipe/power overlays using the same fitted, non-authoritative separation.
 4. Expand single-hex exploration templates independently from map dressing.

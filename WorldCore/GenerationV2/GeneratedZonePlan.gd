@@ -1,7 +1,7 @@
 extends RefCounted
 class_name GeneratedZonePlan
 
-const VERSION := 2
+const VERSION := 3
 
 var profile_id: String = ""
 var zone_seed: String = ""

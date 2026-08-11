@@ -140,15 +140,25 @@ const SOUNDS_FOOTSTEP_DIRT := [
 	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsStoneDirt3.wav"),
 	preload("res://SoundCore/Sound/sfx/Footsteps/FootstepsStoneDirt4.wav")
 ]
+const SOUNDS_WORLD_CONTACT := [
+	preload("res://SoundCore/Sound/sfx/Environment/MetalCabinet1.wav"),
+	preload("res://SoundCore/Sound/sfx/Environment/WoodLogHandling1.wav"),
+	preload("res://SoundCore/Sound/sfx/Environment/Gravelfall1.wav"),
+]
+const SOUNDS_WORLD_MISS := [
+	preload("res://SoundCore/Sound/sfx/Environment/Gravelfall2.wav"),
+	preload("res://SoundCore/Sound/sfx/Environment/OldDoorCreak.wav"),
+]
 
 func _ready() -> void:
+	_ensure_world_sfx_bus()
 	_init_pool()
 	_connect_to_bus()
 
 func _init_pool() -> void:
 	for i in range(POOL_SIZE):
 		var p := AudioStreamPlayer.new()
-		p.bus = "Master" # We can route this to an SFX bus later if needed
+		p.bus = "WorldSfxBus"
 		add_child(p)
 		_players.append(p)
 
@@ -162,6 +172,17 @@ func _connect_to_bus() -> void:
 		bus.humanoid_exhausted.connect(_on_humanoid_exhausted)
 		bus.item_used.connect(_on_item_used)
 		bus.humanoid_footstep_taken.connect(_on_humanoid_footstep)
+		if not bus.world_action_presentation.is_connected(_on_world_action_presentation):
+			bus.world_action_presentation.connect(_on_world_action_presentation)
+
+
+func _ensure_world_sfx_bus() -> void:
+	if AudioServer.get_bus_index("WorldSfxBus") >= 0:
+		return
+	var bus_index := AudioServer.get_bus_count()
+	AudioServer.add_bus(bus_index)
+	AudioServer.set_bus_name(bus_index, "WorldSfxBus")
+	AudioServer.set_bus_send(bus_index, "Master")
 
 func _play_sound(stream: AudioStream, pitch_variance: float = 0.05, volume_db: float = 0.0) -> void:
 	if not stream:
@@ -248,6 +269,15 @@ func _on_item_used(_entity: Node, category: GameEnums.ItemCategory) -> void:
 			_play_sound(SOUNDS_PILLS.pick_random())
 		_:
 			pass # Hook for future item categories
+
+
+func _on_world_action_presentation(receipt: Dictionary) -> void:
+	var presentation: Dictionary = receipt.get("presentation", {})
+	var cue := str(presentation.get("sfx", ""))
+	if cue in ["work_contact", "repair", "search", "force", "door_open", "item_transfer", "conversation"]:
+		_play_sound(SOUNDS_WORLD_CONTACT.pick_random(), 0.08, -4.0)
+	elif cue in ["work_miss", "work_slip"]:
+		_play_sound(SOUNDS_WORLD_MISS.pick_random(), 0.08, -5.0)
 
 func _on_humanoid_footstep(_entity: Node, background: String) -> void:
 	match background:

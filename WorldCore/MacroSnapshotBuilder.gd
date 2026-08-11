@@ -418,7 +418,11 @@ static func build_hex_descriptor(
 		"travel_km": travel_km,
 		"travel_exertion": hex_data.travel_exertion(),
 		"is_current": coords == player_coords,
-		"can_travel": distance == 1 and hex_data.is_passable(),
+		"can_travel": (
+			distance > 0
+			and hex_data.is_explored
+			and hex_data.is_passable()
+		),
 		"can_interact": coords == player_coords,
 		"is_poi": hex_data.is_poi,
 		"poi_name": hex_data.poi_name,

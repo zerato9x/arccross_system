@@ -140,6 +140,11 @@ layout_mode = 2
 text = "--:-- SYS  World channel synchronized."
 text_overrun_behavior = 3
 
+[node name="LogList" type="VBoxContainer" parent="Frame/Margin/Column"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
 [node name="ButtonRow" type="HBoxContainer" parent="Frame/Margin/Column" unique_id=163022250]
 unique_name_in_owner = true
 layout_mode = 2

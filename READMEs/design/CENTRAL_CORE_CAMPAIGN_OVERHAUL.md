@@ -1,7 +1,7 @@
 # Central Core Campaign Overhaul
 
-Authoritative Act 1 implementation contract for Cursor/agents.
-Docs-first build bible for eviction → North-tutorial play on the live
+Authoritative campaign implementation contract for Cursor/agents.
+Docs-first build bible for eviction, the four-Arm Core campaign, and the live
 Directional Node Web.
 
 **Where this conflicts with soft Act 1 language elsewhere, this file wins.**
@@ -29,8 +29,11 @@ The post-eviction Node Web is governed by
 [`WorldCore/campaign_graph.tres`](../../WorldCore/campaign_graph.tres):
 
 - All four `*_random_1` nodes and their inner-ring links are open.
-- The North Route 1 -> Route 2 -> Route 3 spine is open immediately.
-- East, South, and West Route 2/3, gateways, and Cores are visible but locked.
+- **Current alpha:** the North Route 1 -> Route 2 -> Route 3 spine is open;
+  East, South, and West Route 2/3, gateways, and Cores are visible but locked.
+- **Long-term canon:** all four Arms become complete regional campaigns and the
+  four Cores may be restored in any order. The alpha's North-only deep content
+  is a delivery limitation, not canonical campaign order.
 - Central is visible but cannot be entered until all four regional Core states
   have `restored = true`.
 - North Route 2 and Route 3 own deterministic interior clusters. Hidden nodes
@@ -52,10 +55,9 @@ the generated/revealed graph remain run-local state. The four-Core requirement
 is authored in
 [`SystemCore/central_unlock_milestone.tres`](../../SystemCore/central_unlock_milestone.tres).
 
-Any older section below that says only North Route 1 is selectable, that the
-inner ring is closed, that the player spawns on a Central fringe, or that an
-NPC North Pointer is required is retained only as historical planning context
-and is not an implementation requirement.
+Any older instruction that says only North Route 1 is selectable, the inner
+ring is closed, the player spawns on a Central fringe, or an NPC North Pointer
+is required is retired and must not be implemented.
 
 | Owns | Defers to |
 | --- | --- |
@@ -85,32 +87,25 @@ columns above.
 - Player-facing cosmic exposition (Marks, Primal Civilization, The
   Transcendence, full Core purpose)
 - Baking roads, pipes, or power lines into terrain-base hex PNGs
-- Shipping four full arms in Act 1
+- Shipping four complete Arms in the current alpha milestone
 - Treating Central as free midgame home after eviction
-- Optional thin E/S/W wander loops in Act 1
+- Treating temporary locked E/S/W deep routes as long-term canon
 - Rewriting Node Web radius, Meta persistence, or domain ownership
 - TRADE economy, SNIPE, EXECUTE, Pocket Map, squad combat (Known Gaps only)
 
 ---
 
-## 2. Locked Act 1 contract
+## 2. Campaign contract and alpha boundary
 
 ```mermaid
 flowchart TD
   newGame[NewGame_OccupationChoice]
   exile[EvictionSequence_OccupationFlavored]
-  centralFringe[CentralFringe_PostEviction]
-  pointer[NPC_or_Event_NorthPointer]
-  nodeMapTut[NodeMap_Tutorial_HighlightNorth]
-  northR1[Enter_north_random_1]
-  northSpine[North_Route_1_to_3]
-  northGate[North_Gateway_Meta]
-  northCore[North_Core_Restore]
+  armChoice[Choose_Any_Route_1_Arm]
+  fourArms[Restore_Regional_Cores_Any_Order]
   endgame[FourCores_Unlock_Central]
 
-  newGame --> exile --> centralFringe --> pointer
-  pointer --> nodeMapTut --> northR1 --> northSpine --> northGate --> northCore
-  northCore -.-> endgame
+  newGame --> exile --> armChoice --> fourArms --> endgame
 ```
 
 ### Hard rules
@@ -121,16 +116,14 @@ flowchart TD
   midgame home.
 - After eviction, **Central is locked** for that character until all four
   regional Cores are restored (endgame).
-- Player starts on the **Central fringe / first exit**, not inside the locked hub.
-- An **NPC or scripted event** (North Pointer Tutorial) points the player North,
-  opens the Node Map, and **highlights the northern path with transition
-  animation**.
-- **E/S/W arms are greyed and non-traversable** for Act 1 (rim travel and Node
-  Map both blocked). Inner-ring edges between `*_random_1` nodes do not open
-  side-arm play.
+- Player deploys directly to any chosen `*_random_1` node, facing inward from
+  Central; the run does not enter Central first.
+- All four Route 1 nodes and inner-ring links are open.
+- Current alpha locks only the unfinished deep East/South/West content. Future
+  milestones remove those locks without changing the campaign premise.
 - Occupation choice **flavors exile text / starting kit**, not which arm opens.
-- Act 1 play begins at `north_random_1`; deeper north nodes unlock in order.
-  Other `*_random_1` nodes stay visible-but-sealed teases.
+- Regional Cores are non-linear. Central unlock observes all four persistent
+  restore states and never requires North to be first.
 
 ### Eviction sequence (stub)
 
@@ -141,9 +134,9 @@ sealed gates — never cosmology.
 | --- | --- |
 | Occupation select | Scavenger first; other occupations TBD stubs |
 | Exile briefing | Occupation-flavored copy; triage language |
-| Fringe spawn | Outside locked hub; Central re-entry refused |
-| North pointer | Tutorial NPC/event; sets Meta tutorial flags |
-| Node Map coach | One-shot open-map focus on `central_core → north_random_1` |
+| Arm selection | Choose any Route 1 deployment after eviction |
+| Direct deployment | Enter chosen node from its Central-facing rim |
+| Central lock | Re-entry refused until four regional restores |
 
 #### Occupation flavor (exile text / kit only)
 
@@ -154,52 +147,48 @@ sealed gates — never cosmology.
 
 ### Post-eviction spawn rules
 
-1. Set Meta: `eviction_completed = true`, `central_locked = true`.
-2. Place player on Central fringe (rim / first-exit cell), **not** on the hub
-   CORE stamp hex.
+1. Set run state: `eviction_completed = true`, `central_locked = true`.
+2. Place player at the chosen Route 1 node's Central-facing rim, **not** inside
+   `central_core`.
 3. Refuse travel into `central_core` interior / re-entry while `central_locked`.
-4. Unlock for travel: `north_random_1` only among arm Route-1 nodes.
-5. Leave E/S/W Route-1 nodes **discovered or visible as teases** but sealed
-   (`act1_arm_seals`).
+4. Unlock all four Route 1 nodes and their inner-ring travel.
+5. In the alpha only, leave unfinished deep E/S/W nodes visible but locked.
 
-### North Pointer Tutorial
+### North guidance (optional alpha content hint)
 
 | Field | Spec |
 | --- | --- |
-| Trigger | First time player is on Central fringe after eviction and has not set `tutorial_north_pointed` |
-| Actor | NPC or scripted POI/event (paperwork / scarcity tone) |
-| Player outcome | Coach to open Node Map; does not auto-travel |
-| Meta flag | `tutorial_north_pointed = true` (one-shot; persist across save/load) |
+| Trigger | Player requests guidance or encounters the starter wayfinder |
+| Actor | NPC or scripted POI/event (directions and survival tone) |
+| Player outcome | Identifies currently complete North content without making it canonically mandatory |
+| State | Optional one-shot guidance; never a Core-order prerequisite |
 | Dialogue tone | Directions and survival tips; never destiny briefing |
 
-### Node Map tutorial animation
+### Node Map onboarding
 
 | Step | Behavior |
 | --- | --- |
 | 1 | Open Node Map (coach / forced once) |
-| 2 | Camera tween / fit toward north edge |
-| 3 | Pulse highlight on edge `central_core → north_random_1` and both nodes |
-| 4 | Render E/S/W nodes and edges **grey / muted**; non-selectable for travel |
-| 5 | Badge or caption: next destination = North Route 1 |
-| 6 | Closing map does not repeat coach if `tutorial_north_pointed` |
+| 2 | Fit all four Route 1 choices and Central lock state |
+| 3 | Highlight the player's selected/occupied Route 1 node |
+| 4 | Render unfinished deep routes as locked alpha content, not forbidden canon |
+| 5 | Closing map does not force a regional Core order |
 
-### Hard travel seals (Act 1)
+### Temporary deep-content locks (current alpha)
 
 Owners: `MacroProgressController` (destination legality) + Meta flags +
 `NodeMapGraphView` (grey presentation).
 
 Refuse when any of:
 
-- Destination arm is East, South, or West while `act1_arm_seals` is active
-- Destination is `*_gateway` / `*_core` for E/S/W
-- Destination is any `east_random_*`, `south_random_*`, `west_random_*`
+- Destination is an unfinished East/South/West Route 2/3, gateway, or Core while
+  the alpha content-lock profile is active
 - Destination is Central interior while `central_locked`
-- Inner-ring edges that would hop Central-adjacent Route-1 nodes into a sealed arm
 
 Allow:
 
 - Local wander inside current radius-12 zone
-- Central fringe ↔ `north_random_1` once tutorial has pointed North
+- Travel among all four Route 1 nodes through authored inner-ring links
 - North Route 1→2→3 unlock progression
 - North gateway / core only via existing Meta unseal rules
 
@@ -209,10 +198,10 @@ Allow:
 
 | File | Job |
 | --- | --- |
-| [`WorldCore/MacroGraphGenerator.gd`](../../WorldCore/MacroGraphGenerator.gd) | Initial unlock: Central + North Route 1; E/S/W start locked/grey |
-| [`WorldCore/MacroProgressController.gd`](../../WorldCore/MacroProgressController.gd) | Directional destination filter + Act 1 arm seal |
-| [`SystemCore/MetaProgressionStore.gd`](../../SystemCore/MetaProgressionStore.gd) | Flags: `eviction_completed`, `central_locked`, `tutorial_north_pointed`, `act1_arm_seals` |
-| [`WorldCore/MacroGameManager.gd`](../../WorldCore/MacroGameManager.gd) | Post-exile spawn; pointer POI; refuse Central re-entry |
+| [`WorldCore/MacroGraphGenerator.gd`](../../WorldCore/MacroGraphGenerator.gd) | Four-node starter-ring unlocks and authored deep-content availability |
+| [`WorldCore/MacroProgressController.gd`](../../WorldCore/MacroProgressController.gd) | Directional destination legality and Central lock |
+| [`SystemCore/MetaProgressionStore.gd`](../../SystemCore/MetaProgressionStore.gd) | Persistent Core state and structural patches; not regional order |
+| [`WorldCore/MacroGameManager.gd`](../../WorldCore/MacroGameManager.gd) | Direct chosen-arm deployment and Central re-entry refusal |
 | [`UI/NodeMap/NodeMapGraphView.gd`](../../UI/NodeMap/NodeMapGraphView.gd) | Grey locked nodes/edges; pulse highlight |
 | [`UI/NodeMap/NodeMapSystem.gd`](../../UI/NodeMap/NodeMapSystem.gd) | Open-with-focus animation; tutorial coach |
 | [`BiologicalCore/Identity/OccupationDefinition.gd`](../../BiologicalCore/Identity/OccupationDefinition.gd) | Occupation + exile copy hooks |
@@ -229,8 +218,8 @@ Presentation emits intent only. Travel legality and Meta flags live in WorldCore
 | --- | --- |
 | `eviction_completed` | Exile sequence finished this character/run contract |
 | `central_locked` | Refuse Central re-entry until four-Core endgame |
-| `tutorial_north_pointed` | North Pointer + Node Map coach done (one-shot) |
-| `act1_arm_seals` | E/S/W travel and Node Map selection sealed |
+| `tutorial_north_pointed` | Legacy/optional alpha hint; never a progression prerequisite |
+| `act1_arm_seals` | Legacy alpha lock name; must not encode long-term Core order |
 | `gateway_north_unsealed` | Existing Meta restore flag (north climax) |
 
 ---
@@ -325,32 +314,34 @@ Agent-checkable bullets (extends [Hex Dressing Templates](HEX_DRESSING_TEMPLATES
 - **Done when:** hub stamp path resolves; biome folders obey taxonomy
 - **Acceptance:** visualizer loads hub CORE; catalog smoke / manual Godot check
 
-### Phase 2 — Act 1 seals
+### Phase 2 — Starter-ring topology and alpha content locks
 
 - **Files:** `MacroGraphGenerator.gd`, `MacroProgressController.gd`,
   `MetaProgressionStore.gd`
-- **Jobs:** unlock defaults Central+North Route 1; refuse E/S/W travel; Central
-  lock flag after eviction
-- **Done when:** rim + Node Map cannot enter E/S/W; Central re-entry refused when
+- **Jobs:** keep all four Route 1 nodes and inner-ring links open; refuse only
+  unfinished deep E/S/W content; enforce Central lock after eviction
+- **Done when:** every Route 1 start works and Central re-entry is refused while
   `central_locked`
-- **Acceptance:** Node Map / travel smokes or live probe on sealed edges
+- **Acceptance:** Node Map/travel smokes cover four starts, inner-ring travel,
+  deep alpha locks, and Central refusal
 
 ### Phase 3 — Eviction + occupation flavor
 
 - **Files:** `MacroGameManager.gd`, Occupation defs, Meta flags, exile copy
 - **Jobs:** eviction sequence; scavenger-first flavor; set `eviction_completed`
   / `central_locked`
-- **Done when:** new run always ends on fringe with Central locked
-- **Acceptance:** New Game → fringe spawn; Central travel refused
+- **Done when:** new run deploys to the chosen Route 1 rim with Central locked
+- **Acceptance:** New Game → each arm choice; Central travel refused
 
-### Phase 4 — North pointer tutorial
+### Phase 4 — Node Map onboarding / optional North hint
 
 - **Files:** pointer POI/event, `NodeMapGraphView.gd`, `NodeMapSystem.gd`, Meta
   `tutorial_north_pointed`
-- **Jobs:** NPC/event → open map → pulse `central_core → north_random_1`; grey
-  locked arms
-- **Done when:** one-shot coach works; flag prevents repeat spam
-- **Acceptance:** live tutorial probe; flag persists across save/load
+- **Jobs:** teach starter-ring selection and lock presentation; optional NPC may
+  point toward the alpha's complete North content without gating travel
+- **Done when:** onboarding works and never forces a canonical first Core
+- **Acceptance:** live probe from all four starts; optional hint persists without
+  affecting legality
 
 ### Phase 5 — Central look
 
@@ -386,22 +377,26 @@ Agent-checkable bullets (extends [Hex Dressing Templates](HEX_DRESSING_TEMPLATES
 - **Acceptance:** overlays place without altering terrain bases; road asset,
   determinism, composition, persistence, and visual smokes pass.
 
-### Phase 9 — Later acts
+### Phase 9 — Complete non-linear regional campaigns
 
-- **Jobs:** unseal E/S/W chapters; four-Core Central re-entry endgame
-- **Done when:** out of Act 1 scope by definition
-- **Acceptance:** separate chapter plans; do not start here
+- **Jobs:** complete E/S/W chapters; expose all four Core campaigns without an
+  authored order; combine restored simulation layers; finish Central endgame
+- **Done when:** every Core order is legal and all-four milestone opens Central
+- **Acceptance:** order/permutation coverage plus persistent Meta inheritance
 
 ---
 
-## 8. Success criteria (Act 1)
+## 8. Success criteria
 
 - One agent can implement Act 1 without reading five other delivery plans first
-- After eviction tutorial, E/S/W cannot be traversed
-- North path is the only highlighted open route
+- After eviction, all four Route 1 choices and inner-ring links are traversable
+- Alpha-only deep locks are presented as unfinished content, not world canon
+- No tutorial or milestone forces North as the first regional Core
 - Assets from S: land in correct biome folders with hex rules obeyed
 - Central hub reads as the official city and stays inaccessible post-eviction
 - Same seed → stable zone composition / dressing
+- Long-term design assigns North/network, East/people, West/industry, and
+  South/economy layers that combine without changing Node Web or Meta ownership
 
 ---
 

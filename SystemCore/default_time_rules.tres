@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="TimeRulesProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://SystemCore/TimeRulesProfile.gd" id="1_time"]
+
+[resource]
+script = ExtResource("1_time")
+profile_id = "default"
+action_minutes = {"action": 15, "open": 5, "search": 30, "sleep": 360, "travel": 15}
+travel_minutes_per_step = 15
+camp_minutes = 480
+sleep_minutes = 360

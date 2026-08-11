@@ -4,7 +4,7 @@
 **Locks:** [World Timeline Codex](../WORLD_TIMELINE_CODEX.md) chronology ·  
 [Macro World Overhaul](MACRO_WORLD_OVERHAUL.md) Node Web ·  
 [Hex Dressing Templates](HEX_DRESSING_TEMPLATES.md) FRAME/CORE ·  
-[Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md) Act 1 seals ·
+[Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md) campaign/alpha boundary ·
 [Hex World Generator V2](HEX_WORLD_GENERATOR_V2.md) local-zone composition,
 roads, and settlement uniqueness.
 
@@ -89,9 +89,15 @@ inhabited POI. Seeded terrain, forests, rocks, rubble, and dressing vary around
 the fixed logistics skeleton. The complete contract lives in
 [Hex World Generator V2](HEX_WORLD_GENERATOR_V2.md).
 
-Act 1 shipping may still **hard-seal E/S/W** travel
-([Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)). The
-**same mix rule** applies; only North path is playable until seals lift.
+Current alpha shipping locks unfinished **deep E/S/W** routes while all four
+Route 1 starts and inner-ring links remain playable
+([Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)). This is a
+content boundary, not a mandatory North-first campaign rule.
+
+Before Core stabilization, shared pools may intentionally make Arms read as
+ambiguous Glitch-corrupted post-apocalypse. Restoration selects historically
+legible regional ruin dialects; it does not time-travel or rebuild pristine
+landscapes.
 
 ---
 
@@ -291,7 +297,7 @@ SystemCore ([Central Core](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)).
 ## Cross-links
 
 - Chronology: [World Timeline Codex](../WORLD_TIMELINE_CODEX.md)  
-- Act 1 seals / eviction: [Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)  
+- Campaign availability / eviction: [Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
 - Node Web: [Macro World Overhaul](MACRO_WORLD_OVERHAUL.md)  
 - Dressing schema: [Hex Dressing Templates](HEX_DRESSING_TEMPLATES.md)  
 - Generator contract: [Hex World Generator V2](HEX_WORLD_GENERATOR_V2.md)

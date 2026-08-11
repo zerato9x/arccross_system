@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="CombatActionCatalog" load_steps=42 format=3]
+[gd_resource type="Resource" script_class="CombatActionCatalog" load_steps=52 format=3]
 
 [ext_resource type="Script" path="res://CombatCore/Tactical/CombatActionCatalog.gd" id="1_catalog"]
 [ext_resource type="Script" path="res://CombatCore/Tactical/CombatActionDefinition.gd" id="2_action"]
@@ -20,7 +20,7 @@
 script = ExtResource("2_action")
 action_id = "move"
 label = "Move"
-description = "Traverse a selected orthogonal path and choose final facing."
+description = "Traverse a selected orthogonal path after route confirmation."
 menu_family = "move"
 menu_priority = 0
 icon_id = "move"
@@ -30,12 +30,13 @@ movement_cost_policy = "path"
 target_mode = "path"
 resolver_id = "move"
 reaction_tags = Array[String](["movement", "provokes_control_zone"])
-ai_tags = Array[String](["position", "cover", "flank"])
+ai_tags = Array[String](["position", "cover", "flank", "movement", "retreat"])
 presentation_profile = ExtResource("8_move_profile")
 effect_profile = ExtResource("5_standard")
 
 [sub_resource type="Resource" id="Action_stand"]
 script = ExtResource("2_action")
+visibility_tier = "compatibility"
 action_id = "stand"
 label = "Stand"
 description = "Stand upright to recover normal movement and weapon handling."
@@ -48,8 +49,26 @@ resolver_id = "change_posture"
 ai_tags = Array[String](["posture", "mobility"])
 presentation_profile = ExtResource("13_guard_profile")
 
+[sub_resource type="Resource" id="Action_engage"]
+script = ExtResource("2_action")
+action_id = "engage"
+label = "Engage"
+description = "Close into one hostile sector and establish same-sector Engagement without attacking."
+menu_family = "maneuver"
+menu_priority = 5
+icon_id = "engage"
+context_visibility = "target_context"
+ap_category = "major"
+movement_cost_policy = "path_plus_action"
+target_mode = "actor"
+maximum_range_cells = 12
+resolver_id = "engage"
+ai_tags = Array[String](["engagement", "position"])
+presentation_profile = ExtResource("8_move_profile")
+
 [sub_resource type="Resource" id="Action_crouch"]
 script = ExtResource("2_action")
+visibility_tier = "compatibility"
 action_id = "crouch"
 label = "Crouch"
 description = "Lower your profile where terrain or cover makes that useful."
@@ -64,6 +83,7 @@ presentation_profile = ExtResource("13_guard_profile")
 
 [sub_resource type="Resource" id="Action_disengage"]
 script = ExtResource("2_action")
+visibility_tier = "compatibility"
 action_id = "disengage"
 label = "Disengage"
 description = "Move deliberately without triggering opportunity strikes."
@@ -75,11 +95,12 @@ movement_cost_policy = "path_plus_action"
 target_mode = "path"
 resolver_id = "disengage"
 reaction_tags = Array[String](["movement", "suppresses_control_zone"])
-ai_tags = Array[String](["escape_control", "survival"])
+ai_tags = Array[String](["escape_control", "survival", "retreat", "break_engagement"])
 presentation_profile = ExtResource("8_move_profile")
 
 [sub_resource type="Resource" id="Action_take_cover"]
 script = ExtResource("2_action")
+visibility_tier = "rare"
 action_id = "take_cover"
 label = "Take Cover"
 description = "Protect yourself from this threat using a real cover edge."
@@ -95,6 +116,7 @@ presentation_profile = ExtResource("13_guard_profile")
 
 [sub_resource type="Resource" id="Action_escape"]
 script = ExtResource("2_action")
+visibility_tier = "rare"
 action_id = "escape"
 label = "Escape"
 description = "Commit the rest of the turn to leaving through a valid edge."
@@ -104,14 +126,16 @@ icon_id = "escape"
 ap_category = "committed"
 target_mode = "self"
 resolver_id = "escape"
-ai_tags = Array[String](["escape", "survival"])
+ai_tags = Array[String](["escape", "survival", "retreat", "break_engagement"])
 presentation_profile = ExtResource("3_profile")
 
 [sub_resource type="Resource" id="Action_end_turn"]
 script = ExtResource("2_action")
+visibility_tier = "global"
+surface_id = "top_strip"
 action_id = "end_turn"
 label = "End Turn"
-description = "End your turn and preserve only explicitly reserved reactions."
+description = "End your turn and discard unused AP."
 menu_family = "end_turn"
 menu_priority = 100
 icon_id = "end_turn"
@@ -120,7 +144,25 @@ requires_confirmation = true
 ap_category = "free"
 target_mode = "self"
 resolver_id = "end_turn"
-ai_tags = Array[String](["reaction", "defense"])
+ai_tags = Array[String](["reaction", "defense", "terminal"])
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_leave_battle"]
+script = ExtResource("2_action")
+visibility_tier = "rare"
+action_id = "leave_battle"
+label = "Leave Battle"
+description = "Leave when no active actor remains hostile to the player."
+menu_family = "interact"
+menu_priority = 99
+icon_id = "leave_battle"
+context_visibility = "target_context"
+relevant_selection_contexts = Array[String](["self"])
+requires_confirmation = true
+ap_category = "free"
+target_mode = "self"
+resolver_id = "leave_battle"
+ai_tags = Array[String](["terminal", "survival", "retreat", "break_engagement"])
 presentation_profile = ExtResource("3_profile")
 
 [sub_resource type="Resource" id="Action_strike"]
@@ -140,7 +182,8 @@ required_postures = Array[String](["standing", "crouched"])
 required_limb_tags = Array[String](["one_arm"])
 resolver_id = "strike"
 reaction_tags = Array[String](["melee_attack", "blockable", "dodgeable"])
-ai_tags = Array[String](["damage", "melee"])
+ai_tags = Array[String](["damage", "melee", "offense", "attack"])
+planning_outcome = "uncertain"
 presentation_profile = ExtResource("9_melee_profile")
 targeting_profile = ExtResource("4_targeting")
 effect_profile = ExtResource("5_standard")
@@ -162,13 +205,15 @@ required_postures = Array[String](["standing"])
 required_limb_tags = Array[String](["one_arm"])
 resolver_id = "power_strike"
 reaction_tags = Array[String](["melee_attack", "blockable", "dodgeable"])
-ai_tags = Array[String](["damage", "melee", "committed"])
+ai_tags = Array[String](["damage", "melee", "committed", "offense", "attack"])
+planning_outcome = "uncertain"
 presentation_profile = ExtResource("10_power_profile")
 targeting_profile = ExtResource("4_targeting")
 effect_profile = ExtResource("6_power")
 
 [sub_resource type="Resource" id="Action_aimed_strike"]
 script = ExtResource("2_action")
+visibility_tier = "compatibility"
 action_id = "aimed_strike"
 label = "Aimed Strike"
 description = "Choose a body region and make a deliberate melee attack."
@@ -184,7 +229,8 @@ required_postures = Array[String](["standing", "crouched"])
 required_limb_tags = Array[String](["one_arm"])
 resolver_id = "aimed_strike"
 reaction_tags = Array[String](["melee_attack", "blockable", "dodgeable"])
-ai_tags = Array[String](["damage", "melee", "precision"])
+ai_tags = Array[String](["damage", "melee", "precision", "attack"])
+planning_outcome = "uncertain"
 presentation_profile = ExtResource("9_melee_profile")
 targeting_profile = ExtResource("4_targeting")
 effect_profile = ExtResource("7_aim")
@@ -206,7 +252,8 @@ required_postures = Array[String](["standing", "crouched"])
 required_limb_tags = Array[String](["one_arm"])
 resolver_id = "shove"
 reaction_tags = Array[String](["melee_control"])
-ai_tags = Array[String](["collision", "hazard", "control"])
+ai_tags = Array[String](["collision", "hazard", "control", "break_engagement", "attack"])
+planning_outcome = "uncertain"
 presentation_profile = ExtResource("12_shove_profile")
 
 [sub_resource type="Resource" id="Action_fire"]
@@ -227,13 +274,15 @@ required_limb_tags = Array[String](["one_arm"])
 required_equipment_tags = Array[String](["ranged_weapon"])
 resolver_id = "fire"
 reaction_tags = Array[String](["ranged_attack", "dodgeable"])
-ai_tags = Array[String](["damage", "ranged"])
+ai_tags = Array[String](["damage", "ranged", "offense", "attack"])
+planning_outcome = "uncertain"
 presentation_profile = ExtResource("11_ranged_profile")
 targeting_profile = ExtResource("4_targeting")
 effect_profile = ExtResource("5_standard")
 
 [sub_resource type="Resource" id="Action_aimed_fire"]
 script = ExtResource("2_action")
+visibility_tier = "compatibility"
 action_id = "aimed_fire"
 label = "Aimed Fire"
 description = "Choose a body region before firing a deliberate shot."
@@ -250,69 +299,82 @@ required_limb_tags = Array[String](["one_arm"])
 required_equipment_tags = Array[String](["ranged_weapon"])
 resolver_id = "aimed_fire"
 reaction_tags = Array[String](["ranged_attack", "dodgeable"])
-ai_tags = Array[String](["damage", "ranged", "precision"])
+ai_tags = Array[String](["damage", "ranged", "precision", "attack"])
+planning_outcome = "uncertain"
 presentation_profile = ExtResource("11_ranged_profile")
 targeting_profile = ExtResource("4_targeting")
 effect_profile = ExtResource("7_aim")
 
 [sub_resource type="Resource" id="Action_reload"]
 script = ExtResource("2_action")
+visibility_tier = "maintenance"
+surface_id = "weapon_card"
 action_id = "reload"
 label = "Reload"
 description = "Insert the selected compatible magazine and place the ejected one."
 menu_family = "item"
 menu_priority = 0
 icon_id = "reload"
+requires_confirmation = false
 ap_category = "minor"
 target_mode = "item"
 required_limb_tags = Array[String](["one_arm"])
 required_equipment_tags = Array[String](["ranged_weapon"])
 resolver_id = "reload"
-ai_tags = Array[String](["ammunition"])
+ai_tags = Array[String](["ammunition", "reload"])
 presentation_profile = ExtResource("14_reload_profile")
 
 [sub_resource type="Resource" id="Action_cycle"]
 script = ExtResource("2_action")
+visibility_tier = "maintenance"
+surface_id = "weapon_card"
 action_id = "cycle"
 label = "Cycle"
-description = "Cycle the weapon action so it can fire again."
+description = "Cycle a jammed weapon to clear its malfunction."
 menu_family = "item"
 menu_priority = 1
 icon_id = "cycle"
+requires_confirmation = false
 ap_category = "quick"
 target_mode = "item"
 required_equipment_tags = Array[String](["ranged_weapon"])
 resolver_id = "cycle"
-ai_tags = Array[String](["ammunition"])
+ai_tags = Array[String](["ammunition", "weapon_service", "unjam"])
 presentation_profile = ExtResource("15_cycle_profile")
 
 [sub_resource type="Resource" id="Action_clear_malfunction"]
 script = ExtResource("2_action")
+visibility_tier = "compatibility"
+surface_id = "weapon_card"
 action_id = "clear_malfunction"
 label = "Clear Malfunction"
 description = "Attempt to return a malfunctioning weapon to service."
 menu_family = "item"
 menu_priority = 2
 icon_id = "malfunction"
+requires_confirmation = false
 ap_category = "quick"
 target_mode = "item"
 required_equipment_tags = Array[String](["ranged_weapon"])
 resolver_id = "clear_malfunction"
-ai_tags = Array[String](["weapon_service"])
+ai_tags = Array[String](["weapon_service", "unjam"])
 presentation_profile = ExtResource("15_cycle_profile")
 
 [sub_resource type="Resource" id="Action_ready"]
 script = ExtResource("2_action")
+visibility_tier = "maintenance"
+surface_id = "weapon_card"
 action_id = "ready"
 label = "Ready"
 description = "Move this exact item into a usable hand or equipment position."
 menu_family = "item"
 menu_priority = 10
 icon_id = "ready"
+requires_confirmation = false
 ap_category = "minor"
 target_mode = "item"
 resolver_id = "ready"
-ai_tags = Array[String](["inventory"])
+ai_tags = Array[String](["inventory", "ready"])
 presentation_profile = ExtResource("3_profile")
 
 [sub_resource type="Resource" id="Action_rummage"]
@@ -416,8 +478,160 @@ resolver_id = "interact"
 ai_tags = Array[String](["object", "terrain"])
 presentation_profile = ExtResource("3_profile")
 
+[sub_resource type="Resource" id="Action_incapacitate"]
+script = ExtResource("2_action")
+action_id = "incapacitate"
+label = "Incapacitate"
+description = "Put a broken hostile out of the turn order without killing them."
+menu_family = "attack"
+menu_priority = 4
+icon_id = "incapacitate"
+context_visibility = "target_context"
+ap_category = "major"
+target_mode = "actor"
+minimum_range_cells = 1
+maximum_range_cells = 1
+resolver_id = "incapacitate"
+ai_tags = Array[String](["control", "terminal"])
+planning_outcome = "uncertain"
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_execute"]
+script = ExtResource("2_action")
+action_id = "execute"
+label = "Execute"
+description = "Resolve a lethal wound against a broken or incapacitated hostile."
+menu_family = "attack"
+menu_priority = 5
+icon_id = "execute"
+context_visibility = "target_context"
+ap_category = "heavy"
+target_mode = "actor"
+minimum_range_cells = 1
+maximum_range_cells = 1
+requires_confirmation = true
+resolver_id = "execute"
+ai_tags = Array[String](["damage", "terminal"])
+planning_outcome = "uncertain"
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_offense"]
+script = ExtResource("2_action")
+action_id = "offense"
+label = "Offense"
+description = "Ask a friendly actor to favor pressure and attacks."
+menu_family = "interact"
+menu_priority = 40
+icon_id = "offense"
+context_visibility = "target_context"
+relevant_selection_contexts = Array[String](["friendly_actor"])
+requires_confirmation = true
+ap_category = "quick"
+target_mode = "actor"
+maximum_range_cells = 12
+resolver_id = "communication"
+ai_tags = Array[String](["communication", "offense"])
+planning_outcome = "uncertain"
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_defense"]
+script = ExtResource("2_action")
+action_id = "defense"
+label = "Defense"
+description = "Ask a friendly actor to prioritize cover and safe attacks."
+menu_family = "interact"
+menu_priority = 41
+icon_id = "defense"
+context_visibility = "target_context"
+relevant_selection_contexts = Array[String](["friendly_actor"])
+requires_confirmation = true
+ap_category = "quick"
+target_mode = "actor"
+maximum_range_cells = 12
+resolver_id = "communication"
+ai_tags = Array[String](["communication", "defense"])
+planning_outcome = "uncertain"
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_support"]
+script = ExtResource("2_action")
+action_id = "support"
+label = "Support"
+description = "Ask a friendly actor to protect allies and assist where legal."
+menu_family = "interact"
+menu_priority = 42
+icon_id = "support"
+context_visibility = "target_context"
+relevant_selection_contexts = Array[String](["friendly_actor"])
+requires_confirmation = true
+ap_category = "quick"
+target_mode = "actor"
+maximum_range_cells = 12
+resolver_id = "communication"
+ai_tags = Array[String](["communication", "support"])
+planning_outcome = "uncertain"
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_flee"]
+script = ExtResource("2_action")
+action_id = "flee"
+label = "Flee"
+description = "Ask a friendly actor to withdraw when a legal route exists."
+menu_family = "interact"
+menu_priority = 43
+icon_id = "flee"
+context_visibility = "target_context"
+relevant_selection_contexts = Array[String](["friendly_actor"])
+requires_confirmation = true
+ap_category = "quick"
+target_mode = "actor"
+maximum_range_cells = 12
+resolver_id = "communication"
+ai_tags = Array[String](["communication", "survival"])
+planning_outcome = "uncertain"
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_threaten"]
+script = ExtResource("2_action")
+action_id = "threaten"
+label = "Threaten"
+description = "Spend a Communication Point to demand that a neutral or hostile actor flee or surrender."
+menu_family = "interact"
+menu_priority = 44
+icon_id = "threaten"
+context_visibility = "target_context"
+relevant_selection_contexts = Array[String](["neutral_actor", "hostile_actor"])
+requires_confirmation = true
+ap_category = "quick"
+target_mode = "actor"
+maximum_range_cells = 12
+resolver_id = "communication"
+ai_tags = Array[String](["communication", "control"])
+planning_outcome = "uncertain"
+presentation_profile = ExtResource("3_profile")
+
+[sub_resource type="Resource" id="Action_ceasefire"]
+script = ExtResource("2_action")
+action_id = "ceasefire"
+label = "Ceasefire"
+description = "Spend a Communication Point to request a temporary friendly independent relation."
+menu_family = "interact"
+menu_priority = 45
+icon_id = "ceasefire"
+context_visibility = "target_context"
+relevant_selection_contexts = Array[String](["neutral_actor", "hostile_actor"])
+requires_confirmation = true
+ap_category = "quick"
+target_mode = "actor"
+maximum_range_cells = 12
+resolver_id = "communication"
+ai_tags = Array[String](["communication", "relation"])
+planning_outcome = "uncertain"
+presentation_profile = ExtResource("3_profile")
+
 [sub_resource type="Resource" id="Action_block"]
 script = ExtResource("2_action")
+visibility_tier = "compatibility"
 action_id = "block"
 label = "Block"
 description = "Spend a reserved reaction to absorb or deflect the incoming melee hit."
@@ -432,6 +646,7 @@ presentation_profile = ExtResource("3_profile")
 
 [sub_resource type="Resource" id="Action_dodge"]
 script = ExtResource("2_action")
+visibility_tier = "compatibility"
 action_id = "dodge"
 label = "Dodge"
 description = "Spend a reserved reaction to evade the incoming attack."
@@ -447,6 +662,7 @@ presentation_profile = ExtResource("3_profile")
 
 [sub_resource type="Resource" id="Action_opportunity_strike"]
 script = ExtResource("2_action")
+visibility_tier = "compatibility"
 action_id = "opportunity_strike"
 label = "Opportunity Strike"
 description = "Strike an exposed target that leaves your control zone."
@@ -464,4 +680,4 @@ presentation_profile = ExtResource("3_profile")
 
 [resource]
 script = ExtResource("1_catalog")
-definitions = Array[ExtResource("2_action")]([SubResource("Action_move"), SubResource("Action_stand"), SubResource("Action_crouch"), SubResource("Action_disengage"), SubResource("Action_take_cover"), SubResource("Action_escape"), SubResource("Action_end_turn"), SubResource("Action_strike"), SubResource("Action_power_strike"), SubResource("Action_aimed_strike"), SubResource("Action_shove"), SubResource("Action_fire"), SubResource("Action_aimed_fire"), SubResource("Action_reload"), SubResource("Action_cycle"), SubResource("Action_clear_malfunction"), SubResource("Action_ready"), SubResource("Action_rummage"), SubResource("Action_use"), SubResource("Action_treat"), SubResource("Action_pick_up"), SubResource("Action_drop"), SubResource("Action_strip"), SubResource("Action_interact"), SubResource("Action_block"), SubResource("Action_dodge"), SubResource("Action_opportunity_strike")])
+definitions = Array[ExtResource("2_action")]([SubResource("Action_move"), SubResource("Action_stand"), SubResource("Action_engage"), SubResource("Action_crouch"), SubResource("Action_disengage"), SubResource("Action_take_cover"), SubResource("Action_escape"), SubResource("Action_end_turn"), SubResource("Action_leave_battle"), SubResource("Action_strike"), SubResource("Action_power_strike"), SubResource("Action_aimed_strike"), SubResource("Action_shove"), SubResource("Action_fire"), SubResource("Action_aimed_fire"), SubResource("Action_reload"), SubResource("Action_cycle"), SubResource("Action_clear_malfunction"), SubResource("Action_ready"), SubResource("Action_rummage"), SubResource("Action_use"), SubResource("Action_treat"), SubResource("Action_pick_up"), SubResource("Action_drop"), SubResource("Action_strip"), SubResource("Action_interact"), SubResource("Action_incapacitate"), SubResource("Action_execute"), SubResource("Action_block"), SubResource("Action_dodge"), SubResource("Action_offense"), SubResource("Action_defense"), SubResource("Action_support"), SubResource("Action_flee"), SubResource("Action_threaten"), SubResource("Action_ceasefire"), SubResource("Action_opportunity_strike")])

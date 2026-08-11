@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CombatVisualProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://CombatCore/Tactical/CombatVisualProfile.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+profile_id = "readable_moody"
+arena_base_color = Color(0.12, 0.15, 0.14, 1)
+backdrop_modulate = Color(0.94, 0.96, 0.90, 0.98)
+duel_surface_alpha = 0.44
+ground_texture_alpha = 0.9
+grid_alpha = 0.44
+panel_opacity = 0.78
+token_modulate = Color(1, 1, 0.96, 1)

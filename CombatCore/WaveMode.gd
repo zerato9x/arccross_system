@@ -1,14 +1,17 @@
 extends Node2D
 class_name WaveMode
 
-## COMBAT LAB — sole production entry point for real-time duels.
-## Macro/campaign combat always uses turn-based via GameDirector.
+## COMBAT LAB — the shared production/lab entry point for turn-based encounters.
+## Macro/campaign combat and lab runs use the same TacticalCombatScene authority.
 
 const TACTICAL_SCENE := preload(
 	"res://CombatCore/Tactical/TacticalCombatScene.tscn"
 )
 const LAB_ENCOUNTER := preload(
 	"res://CombatCore/Tactical/combat_lab_encounter.tres"
+)
+const LAB_ROSTER_CATALOG := preload(
+	"res://CombatCore/Tactical/combat_lab_roster_catalog.tres"
 )
 const PLAYER_DEFINITION := preload("res://BiologicalCore/player_def.tres")
 const PROFILE_TEXTURE := preload("res://Asset/Innawoods_Asset/Humanoid/Body/Body_Nude.png")
@@ -98,6 +101,16 @@ var _player_stage := WaveLoadoutStaging.new()
 var _enemy_stage := WaveLoadoutStaging.new()
 var _staged_enemy_record: Dictionary = {}
 var _target_enemy: bool = false
+var _roster_catalog: Resource = LAB_ROSTER_CATALOG
+var _roster_entries: Array[Dictionary] = []
+var _roster_preset_id: String = "duel"
+var _selected_roster_index: int = 0
+var _primary_enemy_actor_id: String = "lab_enemy_01"
+var _roster_preset_button: OptionButton
+var _roster_list: ItemList
+var _roster_add_button: Button
+var _roster_remove_button: Button
+var _roster_status: Label
 
 var _item_catalog: Array[Dictionary] = []
 var _visible_catalog: Array[Dictionary] = []
@@ -109,6 +122,8 @@ var _selected_inventory_index: int = -1
 var _selection_source: String = ""
 
 func _ready() -> void:
+	_build_roster_controls()
+	_make_start_button_camera_safe()
 	_collect_slot_buttons()
 	for button in [
 		exit_button,
@@ -149,9 +164,35 @@ func _ready() -> void:
 	_populate_category_filter()
 	_populate_catalog()
 	_load_weapon_supply_presets()
+	_populate_roster_presets()
 	run_over.visible = false
 	combat_hud.visible = false
 	_show_loadout_selection()
+
+
+func _make_start_button_camera_safe() -> void:
+	## The authored workstation columns can exceed a narrow viewport because
+	## their paper-doll/catalog content has meaningful minimum widths.  Keep the
+	## decisive action reachable without changing those authored panels: the
+	## button is rendered in a bottom-right overlay owned by the setup screen.
+	if start_button == null or precombat_screen == null:
+		return
+	var old_parent: Node = start_button.get_parent()
+	if old_parent == null:
+		return
+	old_parent.remove_child(start_button)
+	var overlay := Control.new()
+	overlay.name = "StartActionOverlay"
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	precombat_screen.add_child(overlay)
+	overlay.add_child(start_button)
+	start_button.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	start_button.offset_left = -210.0
+	start_button.offset_top = -50.0
+	start_button.offset_right = -20.0
+	start_button.offset_bottom = -12.0
+	start_button.mouse_filter = Control.MOUSE_FILTER_STOP
 
 func _collect_slot_buttons() -> void:
 	_slot_buttons.clear()
@@ -162,7 +203,322 @@ func _collect_slot_buttons() -> void:
 			push_error("[WaveMode] Missing authored slot button: %s" % SLOT_BUTTON_NAMES[slot])
 			continue
 		_slot_buttons[slot] = button
+		button.clip_text = true
 		button.pressed.connect(_on_slot_pressed.bind(slot))
+
+
+func _build_roster_controls() -> void:
+	## The roster is intentionally created here as a small Lab surface rather
+	## than added to the tactical HUD.  It is setup state, not a second combat
+	## interaction owner, and it consumes only the authored roster catalog.
+	var profile_vbox := get_node_or_null(
+		"UILayer/PreCombatScreen/Workspace/MainVBox/BodyRow/ProfilePanel/ProfileMargin/ProfileScroll/ProfileVBox"
+	) as VBoxContainer
+	if profile_vbox == null:
+		push_error("[WaveMode] ProfileVBox is required for the Lab roster.")
+		return
+	var roster_box := VBoxContainer.new()
+	roster_box.name = "LabSquadRoster"
+	roster_box.add_theme_constant_override("separation", 4)
+	var title := Label.new()
+	title.text = "SQUAD ROSTER // CP TEST SETUP"
+	title.add_theme_font_size_override("font_size", 15)
+	title.add_theme_color_override("font_color", Color("d69a43"))
+	roster_box.add_child(title)
+	var hint := Label.new()
+	hint.text = "UP TO 6 ACTORS // PLAYER DIRECT // NPCs AUTONOMOUS"
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.add_theme_font_size_override("font_size", 10)
+	roster_box.add_child(hint)
+	_roster_preset_button = OptionButton.new()
+	_roster_preset_button.name = "RosterPreset"
+	_roster_preset_button.tooltip_text = "Select a data-authored encounter roster."
+	_roster_preset_button.custom_minimum_size = Vector2(0, 30)
+	_roster_preset_button.fit_to_longest_item = false
+	_roster_preset_button.clip_text = true
+	roster_box.add_child(_roster_preset_button)
+	_roster_preset_button.item_selected.connect(_on_roster_preset_selected)
+	var roster_actions := HBoxContainer.new()
+	roster_actions.add_theme_constant_override("separation", 4)
+	_roster_add_button = Button.new()
+	_roster_add_button.text = "ADD ACTOR"
+	_roster_add_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_roster_add_button.pressed.connect(_on_roster_add_pressed)
+	_roster_remove_button = Button.new()
+	_roster_remove_button.text = "REMOVE"
+	_roster_remove_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_roster_remove_button.pressed.connect(_on_roster_remove_pressed)
+	roster_actions.add_child(_roster_add_button)
+	roster_actions.add_child(_roster_remove_button)
+	roster_box.add_child(roster_actions)
+	_roster_list = ItemList.new()
+	_roster_list.name = "RosterList"
+	_roster_list.custom_minimum_size = Vector2(0, 92)
+	_roster_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_roster_list.allow_reselect = true
+	_roster_list.item_selected.connect(_on_roster_actor_selected)
+	roster_box.add_child(_roster_list)
+	_roster_status = Label.new()
+	_roster_status.name = "RosterStatus"
+	_roster_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_roster_status.add_theme_font_size_override("font_size", 10)
+	roster_box.add_child(_roster_status)
+	profile_vbox.add_child(roster_box)
+	profile_vbox.move_child(roster_box, 0)
+	for button in [_roster_preset_button, _roster_add_button, _roster_remove_button]:
+		HUDAssetLibrary.apply_button(button)
+
+
+func _populate_roster_presets() -> void:
+	if _roster_preset_button == null or _roster_catalog == null:
+		return
+	_roster_preset_button.clear()
+	for raw_preset in _roster_catalog.get("presets") as Array:
+		if not raw_preset is Dictionary:
+			continue
+		var preset: Dictionary = raw_preset
+		var index := _roster_preset_button.item_count
+		_roster_preset_button.add_item(str(preset.get("label", preset.get("preset_id", "ROSTER"))))
+		_roster_preset_button.set_item_metadata(index, str(preset.get("preset_id", "")))
+	var selected := 0
+	for index in range(_roster_preset_button.item_count):
+		if str(_roster_preset_button.get_item_metadata(index)) == _roster_preset_id:
+			selected = index
+			break
+	_roster_preset_button.select(selected)
+
+
+func _on_roster_preset_selected(index: int) -> void:
+	if _roster_preset_button == null or index < 0 or index >= _roster_preset_button.item_count:
+		return
+	_roster_preset_id = str(_roster_preset_button.get_item_metadata(index))
+	_apply_roster_preset(_roster_preset_id)
+
+
+func _on_roster_add_pressed() -> void:
+	var result := add_lab_actor()
+	feedback_label.text = ("OK // " if result.get("ok", false) else "REJECTED // ") + str(result.get("message", ""))
+	feedback_label.modulate = Color("#9fcf91") if result.get("ok", false) else Color("#ef7468")
+	_render_all()
+
+
+func _on_roster_remove_pressed() -> void:
+	if _selected_roster_index <= 0 or _selected_roster_index >= _roster_entries.size():
+		return
+	var actor_id := str(_roster_entries[_selected_roster_index].get("actor_id", ""))
+	var result := remove_lab_actor(actor_id)
+	feedback_label.text = ("OK // " if result.get("ok", false) else "REJECTED // ") + str(result.get("message", ""))
+	feedback_label.modulate = Color("#9fcf91") if result.get("ok", false) else Color("#ef7468")
+	_render_all()
+
+
+func _on_roster_actor_selected(index: int) -> void:
+	if index < 0 or index >= _roster_entries.size():
+		return
+	_selected_roster_index = index
+	# Player and the primary editable hostile retain the existing loadout
+	# workstation tabs. Extra actors are deliberately data-authored presets.
+	if index == 0:
+		_target_enemy = false
+	elif str(_roster_entries[index].get("actor_id", "")) == _primary_enemy_actor_id:
+		_target_enemy = true
+	_selected_equipment_slot = GameEnums.EquipmentSlot.NONE
+	_selected_inventory_index = -1
+	_selection_source = ""
+	_selected_item_path = ""
+	_render_all()
+
+
+func _render_roster() -> void:
+	if _roster_list == null:
+		return
+	_roster_list.clear()
+	for entry in _roster_entries:
+		var role := str(entry.get("role", "hostile")).to_upper()
+		var prefix: String = str({
+			"PLAYER": "P",
+			"ALLY": "A",
+			"NEUTRAL": "N",
+			"HOSTILE": "H",
+		}.get(role, "N"))
+		_roster_list.add_item("[%s] %s  // %s" % [prefix, str(entry.get("label", entry.get("actor_id", "ACTOR"))), role])
+		_roster_list.set_item_metadata(_roster_list.item_count - 1, str(entry.get("actor_id", "")))
+	if not _roster_entries.is_empty():
+		_selected_roster_index = clampi(_selected_roster_index, 0, _roster_entries.size() - 1)
+		_roster_list.select(_selected_roster_index)
+	_roster_remove_button.disabled = _roster_entries.size() <= 2 or _selected_roster_index <= 0
+	_roster_add_button.disabled = _roster_entries.size() >= 6
+	_roster_status.text = "ACTIVE %d/6 // PRIMARY EDITOR %s // CP IS SPENT IN COMBAT" % [
+		_roster_entries.size(),
+		_primary_enemy_actor_id,
+	]
+
+
+func _apply_roster_preset(preset_id: String) -> Dictionary:
+	var preset: Dictionary = _catalog_preset_for_id(preset_id)
+	if preset.is_empty():
+		return {"ok": false, "message": "Unknown authored Lab roster: %s" % preset_id}
+	_roster_entries.clear()
+	_roster_entries.append({
+		"actor_id": "player",
+		"label": "PLAYER UNIT",
+		"role": "player",
+		"team_id": "player",
+		"combat_side": "player",
+		"relation": "FRIENDLY",
+		"start_coords": Vector2i(0, 2),
+	})
+	_primary_enemy_actor_id = ""
+	for raw_spec in preset.get("actors", []):
+		if _roster_entries.size() >= 6 or not raw_spec is Dictionary:
+			break
+		var spec: Dictionary = raw_spec.duplicate(true)
+		var actor_id := str(spec.get("actor_id", ""))
+		if actor_id.is_empty() or _roster_entry_by_id(actor_id).size() > 0:
+			continue
+		var role := str(spec.get("role", "hostile")).to_lower()
+		if _primary_enemy_actor_id.is_empty() and role == "hostile":
+			_primary_enemy_actor_id = actor_id
+		_roster_entries.append({
+			"actor_id": actor_id,
+			"label": str(spec.get("label", actor_id.replace("_", " "))).to_upper(),
+			"role": role,
+			"team_id": "player" if role == "ally" else ("neutral" if role == "neutral" else "enemy"),
+			"combat_side": "player" if role == "ally" else "enemy",
+			"relation": str(spec.get("relation", "HOSTILE")).to_upper(),
+			"spec": spec,
+		})
+	if _primary_enemy_actor_id.is_empty() and _roster_entries.size() > 1:
+		_primary_enemy_actor_id = str(_roster_entries[1].get("actor_id", ""))
+	var primary_entry: Dictionary = _roster_entry_by_id(_primary_enemy_actor_id)
+	var primary_spec: Dictionary = primary_entry.get("spec", {})
+	_staged_enemy_record = _generate_lab_actor_record(primary_spec, 1)
+	if _staged_enemy_record.is_empty():
+		_staged_enemy_record = _generate_enemy_record(1)
+	var enemy_definition: Dictionary = _staged_enemy_record.get("definition", {}).duplicate(true)
+	_enemy_stage.configure("ENEMY", enemy_definition, enemy_definition.get("loadout", {}))
+	_selected_roster_index = 0
+	_target_enemy = false
+	_render_roster()
+	return {"ok": true, "message": "Loaded authored roster %s (%d actors)." % [preset_id, _roster_entries.size()]}
+
+
+func _roster_entry_by_id(actor_id: String) -> Dictionary:
+	for entry in _roster_entries:
+		if str(entry.get("actor_id", "")) == actor_id:
+			return entry
+	return {}
+
+
+func _catalog_preset_for_id(preset_id: String) -> Dictionary:
+	if _roster_catalog == null:
+		return {}
+	for raw_preset in _roster_catalog.get("presets") as Array:
+		if raw_preset is Dictionary and str(raw_preset.get("preset_id", "")) == preset_id:
+			return (raw_preset as Dictionary).duplicate(true)
+	return {}
+
+
+func add_lab_actor(actor_preset_id: String = "") -> Dictionary:
+	if _roster_entries.size() >= 6:
+		return {"ok": false, "message": "The tactical encounter supports at most six actors."}
+	var candidates: Array[Dictionary] = []
+	var mixed: Dictionary = _catalog_preset_for_id("mixed_squad")
+	for raw_spec in mixed.get("actors", []):
+		if raw_spec is Dictionary:
+			candidates.append((raw_spec as Dictionary).duplicate(true))
+	if not actor_preset_id.is_empty():
+		candidates = candidates.filter(func(spec: Dictionary) -> bool:
+			return str(spec.get("actor_id", "")) == actor_preset_id
+		)
+	var selected: Dictionary = {}
+	for spec in candidates:
+		if _roster_entry_by_id(str(spec.get("actor_id", ""))).is_empty():
+			selected = spec
+			break
+	if selected.is_empty():
+		return {"ok": false, "message": "No unused authored actor preset is available."}
+	var role := str(selected.get("role", "hostile")).to_lower()
+	var actor_id := str(selected.get("actor_id", ""))
+	_roster_entries.append({
+		"actor_id": actor_id,
+		"label": str(selected.get("label", actor_id.replace("_", " "))).to_upper(),
+		"role": role,
+		"team_id": "player" if role == "ally" else ("neutral" if role == "neutral" else "enemy"),
+		"combat_side": "player" if role == "ally" else "enemy",
+		"relation": str(selected.get("relation", "HOSTILE")).to_upper(),
+		"spec": selected,
+	})
+	if _primary_enemy_actor_id.is_empty() and role == "hostile":
+		_primary_enemy_actor_id = actor_id
+		var generated := _generate_lab_actor_record(selected, _roster_entries.size())
+		_staged_enemy_record = generated
+		_enemy_stage.configure(
+			"ENEMY",
+			generated.get("definition", {}).duplicate(true),
+			generated.get("definition", {}).get("loadout", {})
+		)
+	_selected_roster_index = _roster_entries.size() - 1
+	_render_roster()
+	return {"ok": true, "message": "Added %s; encounter now has %d actors." % [actor_id, _roster_entries.size()]}
+
+
+func remove_lab_actor(actor_id: String) -> Dictionary:
+	if actor_id == "player":
+		return {"ok": false, "message": "The direct player actor cannot be removed."}
+	var remove_index := -1
+	for index in range(_roster_entries.size()):
+		if str(_roster_entries[index].get("actor_id", "")) == actor_id:
+			remove_index = index
+			break
+	if remove_index < 0:
+		return {"ok": false, "message": "Unknown Lab actor: %s" % actor_id}
+	_roster_entries.remove_at(remove_index)
+	if actor_id == _primary_enemy_actor_id:
+		_primary_enemy_actor_id = ""
+		for entry in _roster_entries:
+			if str(entry.get("role", "")) == "hostile":
+				_primary_enemy_actor_id = str(entry.get("actor_id", ""))
+				break
+		if _primary_enemy_actor_id.is_empty() and _roster_entries.size() > 1:
+			_primary_enemy_actor_id = str(_roster_entries[1].get("actor_id", ""))
+		var replacement := _roster_entry_by_id(_primary_enemy_actor_id)
+		var generated := _generate_lab_actor_record(replacement.get("spec", {}), _roster_entries.size())
+		_staged_enemy_record = generated
+		_enemy_stage.configure(
+			"ENEMY",
+			generated.get("definition", {}).duplicate(true),
+			generated.get("definition", {}).get("loadout", {})
+		)
+	_selected_roster_index = clampi(remove_index - 1, 0, maxi(0, _roster_entries.size() - 1))
+	_target_enemy = _selected_roster_index > 0 and str(_roster_entries[_selected_roster_index].get("actor_id", "")) == _primary_enemy_actor_id
+	_render_roster()
+	return {"ok": true, "message": "Removed %s; encounter now has %d actors." % [actor_id, _roster_entries.size()]}
+
+
+func get_lab_roster() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for entry in _roster_entries:
+		result.append(entry.duplicate(true))
+	return result
+
+
+func get_lab_actor_count() -> int:
+	return _roster_entries.size()
+
+
+func set_lab_roster_preset(preset_id: String) -> Dictionary:
+	if not precombat_screen.visible or is_instance_valid(_arena):
+		return {"ok": false, "message": "Roster presets can only change before combat."}
+	_roster_preset_id = preset_id
+	if _roster_preset_button != null:
+		for index in range(_roster_preset_button.item_count):
+			if str(_roster_preset_button.get_item_metadata(index)) == preset_id:
+				_roster_preset_button.select(index)
+				break
+	var result := _apply_roster_preset(preset_id)
+	_render_all()
+	return result
 
 func _populate_category_filter() -> void:
 	category_filter.clear()
@@ -278,10 +634,9 @@ func _reset_staging() -> void:
 	var player_loadout: Dictionary = player_definition.get("loadout", {}).duplicate(true)
 	_player_stage.configure("PLAYER", player_definition, player_loadout)
 
-	_staged_enemy_record = _generate_enemy_record(1)
-	var enemy_definition: Dictionary = _staged_enemy_record.get("definition", {}).duplicate(true)
-	var enemy_loadout: Dictionary = enemy_definition.get("loadout", {}).duplicate(true)
-	_enemy_stage.configure("ENEMY", enemy_definition, enemy_loadout)
+	# The selected roster owns the participant list.  The legacy enemy stage is
+	# still retained as the editable primary hostile loadout for compatibility.
+	_apply_roster_preset(_roster_preset_id)
 
 	_target_enemy = false
 	_selected_equipment_slot = GameEnums.EquipmentSlot.NONE
@@ -292,7 +647,7 @@ func _reset_staging() -> void:
 		catalog_list.select(0)
 		_selected_item_path = str(catalog_list.get_item_metadata(0))
 		_selection_source = "catalog"
-	feedback_label.text = "RESET POLICY // authored player kit + deterministic wave-one enemy"
+	feedback_label.text = "RESET POLICY // authored player kit + deterministic combat encounter"
 	feedback_label.modulate = Color("#b9a789")
 	_render_all()
 
@@ -308,6 +663,7 @@ func _render_all() -> void:
 	player_tab.button_pressed = not _target_enemy
 	enemy_tab.button_pressed = _target_enemy
 	_render_profile()
+	_render_roster()
 	_render_slots()
 	_render_inventory()
 	_render_summaries()
@@ -421,10 +777,14 @@ func _render_inventory() -> void:
 
 func _render_summaries() -> void:
 	player_summary.text = _player_stage.get_summary()
-	enemy_summary.text = _enemy_stage.get_summary()
+	enemy_summary.text = "%s // ROSTER %d/6" % [_enemy_stage.get_summary(), _roster_entries.size()]
 
 func _render_validation() -> void:
 	var errors: Array[String] = []
+	if _roster_entries.size() < 2:
+		errors.append("ROSTER // PLAYER + ONE AUTONOMOUS ACTOR REQUIRED")
+	elif _roster_entries.size() > 6:
+		errors.append("ROSTER // MAXIMUM SIX ACTORS")
 	for pair in [
 		{"name": "PLAYER", "validation": _player_stage.validate()},
 		{"name": "ENEMY", "validation": _enemy_stage.validate()},
@@ -699,7 +1059,9 @@ func _start_selected_run() -> void:
 		feedback_label.modulate = Color("#ef7468")
 		return
 	precombat_screen.visible = false
-	combat_hud.visible = true
+	# TacticalCombatScene owns the complete combat HUD. Keep the legacy Lab
+	# wrapper hidden so its Exit button and status bar cannot compete for input.
+	combat_hud.visible = false
 	_start_run()
 
 func _start_run() -> void:
@@ -720,27 +1082,23 @@ func _start_wave() -> void:
 	_cleanup_arena()
 	await get_tree().process_frame
 
-	var enemy_record := _build_enemy_record(wave_number)
-	if enemy_record.is_empty():
-		status_label.text = "WAVE LAB ERROR // enemy fabrication failed"
+	var actor_records := _build_lab_actor_records(wave_number)
+	if actor_records.size() < 2:
+		status_label.text = "COMBAT LAB ERROR // roster requires a player and one autonomous actor"
 		_transitioning = false
 		return
 	_arena = TACTICAL_SCENE.instantiate()
 	arena_root.add_child(_arena)
 	_arena.combat_finished.connect(_on_combat_finished, CONNECT_ONE_SHOT)
 
-	var player_definition := PLAYER_DEFINITION.to_state().duplicate(true)
-	player_definition["loadout"] = _player_stage.to_loadout_state()
-	var player_record := {
-		"entity_id": "wave_player",
-		"definition": player_definition,
-		"runtime": _player_runtime.duplicate(true),
-	}
-	var faction := int(enemy_record.get("definition", {}).get(
+	var primary_enemy := _record_for_actor_id(actor_records, _primary_enemy_actor_id)
+	if primary_enemy.is_empty():
+		primary_enemy = actor_records[1]
+	var faction := int(primary_enemy.get("runtime_record", {}).get("definition", {}).get(
 		"faction",
 		GameEnums.Faction.UNALIGNED
 	))
-	wave_label.text = "WAVE %02d // %s" % [
+	wave_label.text = "ROUND %02d // %s" % [
 		wave_number,
 		_enum_name(GameEnums.Faction.keys(), faction),
 	]
@@ -749,20 +1107,108 @@ func _start_wave() -> void:
 	encounter.encounter_id = "combat_lab_wave_%d" % wave_number
 	encounter.context = GameEnums.EncounterContext.NEUTRAL_MEET
 	encounter.initiator_id = "player"
-	encounter.actors = [
-		{
-			"actor_id": "player",
-			"team_id": "player",
-			"runtime_record": player_record,
-		},
-		{
-			"actor_id": str(enemy_record.get("entity_id", "wave_enemy")),
-			"team_id": "enemy",
-			"runtime_record": enemy_record,
-		},
-	]
+	encounter.actors = actor_records
+	encounter.relationship_state = _build_lab_relationship_state(actor_records)
+	encounter.communication_points = 4
+	encounter.communication_point_inputs = {}
+	encounter.actor_starting_sectors = _build_lab_starting_sectors(actor_records)
 	_arena.setup_encounter(encounter)
 	_transitioning = false
+
+
+func _build_lab_actor_records(for_wave: int) -> Array[Dictionary]:
+	if _roster_entries.is_empty():
+		_apply_roster_preset(_roster_preset_id)
+	var result: Array[Dictionary] = []
+	var player_definition := PLAYER_DEFINITION.to_state().duplicate(true)
+	player_definition["loadout"] = _player_stage.to_loadout_state()
+	result.append({
+		"actor_id": "player",
+		"team_id": "player",
+		"combat_side": "player",
+		"direct_player": true,
+		"role": "player",
+		"runtime_record": {
+			"entity_id": "wave_player",
+			"definition": player_definition,
+			"runtime": _player_runtime.duplicate(true),
+		},
+		"starting_sector": Vector2i(0, 2),
+	})
+	for entry_index in range(1, _roster_entries.size()):
+		var entry: Dictionary = _roster_entries[entry_index]
+		var actor_id := str(entry.get("actor_id", "lab_actor_%02d" % entry_index))
+		var spec: Dictionary = entry.get("spec", {})
+		var record: Dictionary
+		if for_wave == 1 and actor_id == _primary_enemy_actor_id:
+			record = _build_enemy_record(for_wave)
+		else:
+			record = _generate_lab_actor_record(spec, entry_index + 1)
+		if record.is_empty():
+			continue
+		record["entity_id"] = actor_id
+		record["runtime"] = {}
+		result.append({
+			"actor_id": actor_id,
+			"team_id": str(entry.get("team_id", "enemy")),
+			"combat_side": str(entry.get("combat_side", "enemy")),
+			"role": str(entry.get("role", "hostile")),
+			"runtime_record": record,
+			"starting_sector": spec.get("start_coords", Vector2i(6, 2)),
+		})
+	return result
+
+
+func _record_for_actor_id(records: Array[Dictionary], actor_id: String) -> Dictionary:
+	for record in records:
+		if str(record.get("actor_id", "")) == actor_id:
+			return record
+	return {}
+
+
+func _build_lab_starting_sectors(records: Array[Dictionary]) -> Dictionary:
+	var result: Dictionary = {}
+	for record in records:
+		var raw: Variant = record.get("starting_sector", Vector2i(-1, -1))
+		if raw is Vector2i:
+			result[str(record.get("actor_id", ""))] = raw
+		elif raw is Dictionary:
+			result[str(record.get("actor_id", ""))] = Vector2i(int(raw.get("x", -1)), int(raw.get("y", -1)))
+	return result
+
+
+func _build_lab_relationship_state(records: Array[Dictionary]) -> Dictionary:
+	var relations: Dictionary = {}
+	for left_index in range(records.size()):
+		var left := records[left_index]
+		var left_id := str(left.get("actor_id", ""))
+		for right_index in range(left_index + 1, records.size()):
+			var right := records[right_index]
+			var right_id := str(right.get("actor_id", ""))
+			var relation := CombatRelationshipLedger.Relation.HOSTILE
+			var left_role := str(left.get("role", "hostile"))
+			var right_role := str(right.get("role", "hostile"))
+			if left_role == "player" or left_role == "ally":
+				relation = _relation_for_lab_role(str(right.get("role", "hostile")))
+			elif right_role == "player" or right_role == "ally":
+				relation = _relation_for_lab_role(left_role)
+			elif left_role == "neutral" or right_role == "neutral":
+				relation = CombatRelationshipLedger.Relation.NEUTRAL
+			relations[CombatRelationshipLedger.pair_key(left_id, right_id)] = relation
+	return {
+		"schema_version": 1,
+		"relation_by_pair": relations,
+	}
+
+
+func _relation_for_lab_role(role: String) -> int:
+	match role:
+		"player", "ally":
+			return CombatRelationshipLedger.Relation.FRIENDLY
+		"neutral":
+			return CombatRelationshipLedger.Relation.NEUTRAL
+		_:
+			return CombatRelationshipLedger.Relation.HOSTILE
 
 func _generate_enemy_record(for_wave: int) -> Dictionary:
 	var mob_spawner := get_node_or_null("/root/MobSpawner") as MobSpawner
@@ -801,6 +1247,46 @@ func _generate_enemy_record(for_wave: int) -> Dictionary:
 	record["runtime"] = {}
 	return record
 
+
+func _generate_lab_actor_record(spec: Dictionary, ordinal: int = 1) -> Dictionary:
+	var mob_spawner := get_node_or_null("/root/MobSpawner") as MobSpawner
+	if mob_spawner == null:
+		push_error("[WaveMode] MobSpawner is unavailable for Lab roster actor.")
+		return {}
+	var actor_id := str(spec.get("actor_id", "lab_actor_%02d" % ordinal))
+	var faction := _enum_from_name(GameEnums.Faction.keys(), str(spec.get("faction", "SCAVENGER_CELL")), GameEnums.Faction.SCAVENGER_CELL)
+	var record := mob_spawner.generate_mob_record(
+		Vector2i.ZERO,
+		faction as GameEnums.Faction,
+		0,
+		actor_id
+	).to_dict()
+	var definition: Dictionary = record.get("definition", {}).duplicate(true)
+	definition["faction"] = faction
+	definition["combat_tactic"] = _enum_from_name(
+		GameEnums.CombatTactic.keys(),
+		str(spec.get("tactic", "OPPORTUNIST")),
+		GameEnums.CombatTactic.OPPORTUNIST
+	)
+	definition["agenda"] = _enum_from_name(
+		GameEnums.Agenda.keys(),
+		str(spec.get("agenda", "BELLIGERENT")),
+		GameEnums.Agenda.BELLIGERENT
+	)
+	definition["archetype_name"] = str(spec.get("label", actor_id.replace("_", " "))).to_upper()
+	record["entity_id"] = actor_id
+	record["definition"] = definition
+	record["runtime"] = {}
+	return record
+
+
+func _enum_from_name(keys: Array, requested: String, fallback: int) -> int:
+	var normalized := requested.strip_edges().to_upper()
+	for index in range(keys.size()):
+		if str(keys[index]).to_upper() == normalized:
+			return index
+	return fallback
+
 func _build_enemy_record(for_wave: int) -> Dictionary:
 	var record := (
 		_staged_enemy_record.duplicate(true)
@@ -832,7 +1318,7 @@ func _on_combat_finished(result: CombatResultRecord) -> void:
 	]:
 		waves_cleared += 1
 		_player_runtime = player_runtime.duplicate(true)
-		status_label.text = "WAVE %02d CLEARED // next hostile inbound" % wave_number
+		status_label.text = "ROUND %02d CLEARED // next hostile inbound" % wave_number
 		if intermission_seconds > 0.0:
 			await get_tree().create_timer(intermission_seconds).timeout
 		wave_number += 1
@@ -841,7 +1327,7 @@ func _on_combat_finished(result: CombatResultRecord) -> void:
 		return
 	status_label.text = "RUN ENDED"
 	run_summary.text = (
-		"WAVE RUN OVER\n\nCLEARED: %d\nREACHED: %d\n\nRestart returns to a clean authored loadout workstation."
+		"COMBAT RUN OVER\n\nCLEARED: %d\nREACHED: %d\n\nRestart returns to a clean authored loadout workstation."
 		% [waves_cleared, wave_number]
 	)
 	run_over.visible = true
@@ -877,17 +1363,24 @@ func get_staged_loadout_state(target_enemy: bool) -> Dictionary:
 func get_staging_validation() -> Dictionary:
 	var player_validation := _player_stage.validate()
 	var enemy_validation := _enemy_stage.validate()
-	var valid := bool(player_validation.get("valid", false)) and bool(enemy_validation.get("valid", false))
+	var roster_valid := _roster_entries.size() >= 2 and _roster_entries.size() <= 6
+	var valid := bool(player_validation.get("valid", false)) and bool(enemy_validation.get("valid", false)) and roster_valid
 	var reason := ""
 	if not bool(player_validation.get("valid", false)):
 		reason = "PLAYER // %s" % player_validation.get("reason", "Invalid loadout")
 	elif not bool(enemy_validation.get("valid", false)):
 		reason = "ENEMY // %s" % enemy_validation.get("reason", "Invalid loadout")
+	elif _roster_entries.size() < 2:
+		reason = "ROSTER // PLAYER + ONE AUTONOMOUS ACTOR REQUIRED"
+	elif _roster_entries.size() > 6:
+		reason = "ROSTER // MAXIMUM SIX ACTORS"
 	return {
 		"valid": valid,
 		"reason": reason,
 		"player": player_validation,
 		"enemy": enemy_validation,
+		"roster": get_lab_roster(),
+		"actor_count": _roster_entries.size(),
 	}
 
 func select_target_enemy(target_enemy: bool) -> void:

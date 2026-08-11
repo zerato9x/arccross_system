@@ -210,6 +210,13 @@ func present_poi(
 	_play_mode_fx()
 
 
+func cache_poi_snapshot(session: Dictionary) -> void:
+	_session = session.duplicate(true)
+	_mode = "poi"
+	if _exploration_window != null:
+		_exploration_window.cache_session_snapshot(_session)
+
+
 func show_result(result: Dictionary) -> void:
 	_result = result.duplicate(true)
 	_mode = "result"

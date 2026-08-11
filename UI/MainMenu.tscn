@@ -53,7 +53,7 @@ text = "CONTINUE"
 unique_name_in_owner = true
 custom_minimum_size = Vector2(200, 50)
 layout_mode = 2
-text = "WAVE // COMBAT LAB"
+text = "COMBAT LAB"
 
 [node name="BtnSettings" type="Button" parent="CenterContainer/VBoxContainer"]
 unique_name_in_owner = true

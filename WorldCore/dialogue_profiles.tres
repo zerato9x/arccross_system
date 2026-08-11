@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="DialogueCatalog" load_steps=6 format=3]
+[gd_resource type="Resource" script_class="DialogueCatalog" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://WorldCore/DialogueCatalog.gd" id="1_catalog"]
 [ext_resource type="Script" path="res://WorldCore/DialogueProfileDefinition.gd" id="2_profile"]
@@ -9,14 +9,6 @@ dialogue_id = "generic"
 title = "ASK"
 body = "They keep a wary distance, but they will answer a few words."
 choices = Array[Dictionary]([{"effects": {"elapsed_minutes": 2, "exertion": 0.1}, "id": "ask_intent", "label": "Ask what they want", "preview": "Probe their immediate agenda.", "reason": "Available.", "result_body": "They watch the nearest wreckage and count the distance to the next safe place.", "result_title": "INTENT"}, {"effects": {"elapsed_minutes": 3, "exertion": 0.1}, "id": "ask_area", "label": "Ask about the area", "preview": "Local hazards and traffic.", "reason": "Available.", "result_body": "They point toward denser wreckage and warn that quiet places may already be claimed.", "result_title": "THE AREA"}])
-
-[sub_resource type="Resource" id="Wayfinder"]
-script = ExtResource("2_profile")
-dialogue_id = "starter_wayfinder:"
-match_prefix = true
-title = "ASK // {ARM_UPPER} WAYFINDER"
-body = "A fringe resident keeps watch beside the relay homesteads. They know which tracks still carry people and which only carry trouble."
-choices = Array[Dictionary]([{"effects": {"elapsed_minutes": 2, "exertion": 0.05}, "id": "ask_wayfinder_route", "label": "Ask about the road ahead", "preview": "Get a direction beyond the settlement.", "reason": "Available.", "result_body": "'Take the marked trail away from Central. Search the old relay stock before you commit to Route 2.'", "result_title": "{ARM_UPPER} ROUTE"}, {"effects": {"elapsed_minutes": 2, "exertion": 0.05}, "id": "ask_wayfinder_ring", "label": "Ask about the inner ring", "preview": "Learn how the four approaches connect.", "reason": "Available.", "result_body": "'Four approaches still ring Central's lock, but this is the only settled camp. The other arms kept records even after they lost their people.'", "result_title": "FRINGE RING"}])
 
 [sub_resource type="Resource" id="Guard"]
 script = ExtResource("2_profile")
@@ -34,4 +26,4 @@ choices = Array[Dictionary]([{"effects": {"elapsed_minutes": 2, "exertion": 0.05
 
 [resource]
 script = ExtResource("1_catalog")
-profiles = Array[ExtResource("2_profile")]([SubResource("Courier"), SubResource("Wayfinder"), SubResource("Guard"), SubResource("Generic")])
+profiles = Array[ExtResource("2_profile")]([SubResource("Courier"), SubResource("Guard"), SubResource("Generic")])

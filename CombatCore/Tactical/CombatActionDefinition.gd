@@ -1,3 +1,4 @@
+@tool
 extends Resource
 class_name CombatActionDefinition
 
@@ -18,6 +19,8 @@ const TARGET_WOUND := "wound"
 
 const CONTEXT_SELF := "self"
 const CONTEXT_HOSTILE_ACTOR := "hostile_actor"
+const CONTEXT_FRIENDLY_ACTOR := "friendly_actor"
+const CONTEXT_NEUTRAL_ACTOR := "neutral_actor"
 const CONTEXT_SECTOR := "sector"
 const CONTEXT_ITEM := "item"
 const CONTEXT_WOUND := "wound"
@@ -31,6 +34,12 @@ const CONTEXT_BODY := "body"
 @export var menu_priority: int = 0
 @export var icon_id: String = ""
 @export_enum("always", "target_context", "when_relevant", "reaction_only") var context_visibility: String = "when_relevant"
+## UI metadata is authored with the action definition so the HUD can remain a
+## passive renderer.  Compatibility actions may still resolve internally, but
+## only core/maintenance/global entries are surfaced to players by default.
+@export_enum("core", "rare", "maintenance", "global", "compatibility") var visibility_tier: String = "core"
+@export var surface_id: String = "context"
+@export var capability_applicability: Array[String] = []
 @export var relevant_selection_contexts: Array[String] = []
 @export var capability_requirements: Array[String] = []
 @export var keep_temporary_denial_visible: bool = true
@@ -51,6 +60,9 @@ const CONTEXT_BODY := "body"
 @export var resolver_id: String = ""
 @export var reaction_tags: Array[String] = []
 @export var ai_tags: Array[String] = []
+## Planning semantics are authored with the action.  Uncertain outcomes end a
+## projected plan instead of letting AI guess through a random resolution.
+@export_enum("deterministic", "uncertain") var planning_outcome: String = "deterministic"
 @export var presentation_profile: CombatPresentationProfile
 @export var targeting_profile: CombatTargetingProfile
 @export var effect_profile: CombatActionEffectProfile

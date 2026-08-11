@@ -24,8 +24,17 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 
+	# This smoke verifies persistent player/enemy presentation and collision,
+	# not fog-gated encounter RNG. Central's safe start can legitimately produce
+	# no nearby record, so materialize an explicit fixture when needed.
 	if macro_map.active_enemies.is_empty():
-		_fail("Deterministic proximity generation created no nearby enemies.")
+		if not macro_map.debug_spawn_enemy_near_player():
+			_fail("Could not spawn a fixture enemy near the persistent player.")
+			return
+		await process_frame
+
+	if macro_map.active_enemies.is_empty():
+		_fail("The persistent-player fixture produced no nearby enemy token.")
 		return
 
 	var player_core := macro_map.player_token.get_humanoid_core()
@@ -55,10 +64,10 @@ func _run() -> void:
 
 	var player_signature := player_token.get_appearance_signature()
 	for expected_layer in [
-		"bag_big_service",
+		"bag_small_survivalist",
 		"jacket_leather",
-		"boots_grey",
-		"weapons/guns/pistol",
+		"boots_brown",
+		"weapons/guns/revolver",
 	]:
 		if expected_layer not in player_signature:
 			_fail("Player token omitted visual layer: " + expected_layer)
@@ -86,7 +95,7 @@ func _run() -> void:
 		return
 	var backpack_index := player_token._layer_directories.find(
 		HumanoidVisualCatalog.visual_directory_for_item_id(
-			"backpack_service_big"
+			"backpack_survivalist"
 		)
 	)
 	var coat_index := player_token._layer_directories.find(
@@ -147,7 +156,6 @@ func _run() -> void:
 		return
 
 	player_core.body.apply_targeted_hit(GameEnums.LimbRegion.LEFT_ARM, 0.5, 0.0)
-	var injured_arm_hp: float = player_core.body.limb_hp[GameEnums.LimbRegion.LEFT_ARM]
 	var hunger_before_move: float = player_core.body.hunger
 
 	var enemy_coords: Vector2i = _nearest_enemy_coords(
@@ -167,7 +175,9 @@ func _run() -> void:
 		_fail("Could not find a passable hex for the movement smoke step.")
 		return
 
-	macro_map.debug_step_player_to(movement_target)
+	# Exercise the shipping animated step. debug_step_player_to is deliberately
+	# instantaneous and therefore cannot validate Walk timing or arrival commits.
+	macro_map.call("_execute_player_step", movement_target, true)
 	await create_timer(0.22).timeout
 	if player_token.get_animation() != "Walk":
 		_fail("Macro movement did not drive the token Walk animation.")
@@ -222,16 +232,19 @@ func _run() -> void:
 		_fail("Combat incorrectly reused the live macro player node.")
 		return
 
-	if arena.player_core.body.limb_hp[GameEnums.LimbRegion.LEFT_ARM] != injured_arm_hp:
+	if (
+		arena.player_core.body.limb_hp[GameEnums.LimbRegion.LEFT_ARM]
+		!= player_core.body.limb_hp[GameEnums.LimbRegion.LEFT_ARM]
+	):
 		_fail("Player injuries were reset during the combat transition.")
 		return
 
-	if player_core.get_node_or_null("CombatAIEvaluator") != null:
-		_fail("The persistent player incorrectly received combat AI.")
+	var combat_ai := arena.get_node_or_null("TacticalCombatAI_01") as TacticalCombatAI
+	if combat_ai == null or combat_ai.actor != arena.enemy_core:
+		_fail("The encounter enemy did not receive the tactical AI controller.")
 		return
-
-	if arena.enemy_core.get_node_or_null("CombatAIEvaluator") == null:
-		_fail("The encounter enemy did not receive combat AI.")
+	if combat_ai.actor == arena.player_core:
+		_fail("The direct player incorrectly received tactical AI control.")
 		return
 
 	print("[TEST PASS] Persistent player state survives the macro-to-combat transition.")

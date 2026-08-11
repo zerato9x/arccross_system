@@ -1,6 +1,8 @@
 extends Control
 class_name MacroCornerPanel
 
+const _SharedCornerPanelState := preload("res://UI/HUD/Shared/CornerPanelState.gd")
+
 signal state_changed(panel_id: String, state: int)
 signal expand_requested
 signal collapse_requested
@@ -25,6 +27,7 @@ const DEFAULT_EXPANDED_MAX_SIZE := Vector2(1040.0, 760.0)
 @export var use_authored_preview_rect: bool = false
 
 var _state: PanelState = PanelState.PREVIEW
+var _shared_state: RefCounted
 var _snapshot: Dictionary = {}
 var _authored_anchor_left := 0.0
 var _authored_anchor_top := 0.0
@@ -44,6 +47,8 @@ var _state_tween: Tween
 
 
 func _ready() -> void:
+	_shared_state = _SharedCornerPanelState.new()
+	_shared_state.configure(panel_id, _SharedCornerPanelState.State.PREVIEW)
 	_capture_authored_rect()
 	if _close_button:
 		_close_button.pressed.connect(collapse)
@@ -134,6 +139,7 @@ func set_hud_scale(value: float) -> void:
 
 func _set_state(state: PanelState) -> void:
 	_state = state
+	_shared_state.set_expanded(state == PanelState.EXPANDED)
 	if _preview_root:
 		_preview_root.visible = state == PanelState.PREVIEW
 	if _expanded_root:

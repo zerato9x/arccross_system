@@ -75,6 +75,7 @@ func _run() -> void:
 		_fail("Taking an item did not add it to the backpack.")
 		return
 
+	var water_stack_before := water.stack_count
 	player_core.body.thirst = 2.0
 	macro_map.resolve_inventory_action(
 		InventoryPanel.ACTION_CONSUME,
@@ -82,8 +83,13 @@ func _run() -> void:
 		GameEnums.EquipmentSlot.NONE
 	)
 	await process_frame
-	if player_core.inventory.find_item_by_instance_id(water.instance_id) != null:
-		_fail("Using a consumable did not remove its runtime item.")
+	var water_after := player_core.inventory.find_item_by_instance_id(water.instance_id)
+	if water_stack_before <= 1:
+		if water_after != null:
+			_fail("Using a single-unit consumable did not remove its runtime item.")
+			return
+	elif water_after == null or water_after.stack_count != water_stack_before - 1:
+		_fail("Using a stacked consumable did not decrement its runtime stack.")
 		return
 	if player_core.body.thirst <= 2.0:
 		_fail("Using clean water did not route its biological effect.")

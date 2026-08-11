@@ -28,6 +28,15 @@ class_name MacroHexData
 @export var loot_tier_id: String = ""
 @export var search_site_id: String = ""
 @export var trace_records: Array[Dictionary] = []
+## Last world-minute for which this hex was simulated.  Keep this mirror of
+## HexRecord explicit so cached runtime data and save records round-trip
+## symmetrically.
+@export var last_simulated_minute: int = 0
+## Physical world objects. Presentation derives fixtures from these records;
+## landmarks do not grant verbs by themselves.
+@export var world_objects: Array[Dictionary] = []
+@export var active_work: Array[Dictionary] = []
+@export var world_signals: Array[Dictionary] = []
 
 # POI Variables
 @export var is_poi: bool = false
@@ -79,6 +88,10 @@ func to_state() -> HexRecord:
 	record.loot_tier_id = loot_tier_id
 	record.search_site_id = search_site_id
 	record.trace_records = trace_records.duplicate(true)
+	record.last_simulated_minute = last_simulated_minute
+	record.world_objects = world_objects.duplicate(true)
+	record.active_work = active_work.duplicate(true)
+	record.world_signals = world_signals.duplicate(true)
 	record.is_poi = is_poi
 	record.poi_id = poi_id
 	record.poi_name = poi_name
@@ -133,6 +146,10 @@ func apply_state(state) -> void:
 	loot_tier_id = source.loot_tier_id
 	search_site_id = source.search_site_id
 	trace_records = source.trace_records.duplicate(true)
+	last_simulated_minute = source.last_simulated_minute
+	world_objects = source.world_objects.duplicate(true)
+	active_work = source.active_work.duplicate(true)
+	world_signals = source.world_signals.duplicate(true)
 	is_poi = source.is_poi
 	poi_id = source.poi_id
 	poi_name = source.poi_name
@@ -173,17 +190,23 @@ func coords_is_service_hub() -> bool:
 	return poi_id in ["alpha_central_hub", "central_core"]
 
 func travel_time_multiplier() -> float:
+	var terrain_multiplier := 1.0
 	if rock_layer == GameEnums.MacroRockLayer.HILLS:
-		return 2.0
-	if water_layer == GameEnums.MacroWaterLayer.SHALLOW_RIVER:
-		return 1.75
-	if terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW:
-		return 1.5
-	if terrain_tile == GameEnums.MacroTerrainTile.SNOW_TRANSITION:
-		return 1.5
-	if flora_layer == GameEnums.MacroFloraLayer.TREES and flora_sprite_path.is_empty():
-		return 1.2
-	return 1.0
+		terrain_multiplier = 2.0
+	elif water_layer == GameEnums.MacroWaterLayer.SHALLOW_RIVER:
+		terrain_multiplier = 1.75
+	elif terrain_tile == GameEnums.MacroTerrainTile.MUD_YELLOW:
+		terrain_multiplier = 1.5
+	elif terrain_tile == GameEnums.MacroTerrainTile.SNOW_TRANSITION:
+		terrain_multiplier = 1.5
+	elif flora_layer == GameEnums.MacroFloraLayer.TREES and flora_sprite_path.is_empty():
+		terrain_multiplier = 1.2
+	# A road is a physical surface, not a decorative mask. It shortens the
+	# same travel/exertion cost used by the player and NPC planner while never
+	# making difficult terrain faster than the authored road surface permits.
+	if road_mask != 0:
+		return maxf(0.72, terrain_multiplier * 0.72)
+	return terrain_multiplier
 
 
 func travel_exertion() -> float:

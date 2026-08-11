@@ -1,14 +1,14 @@
 [gd_resource type="Resource" script_class="LootProfile" load_steps=4 format=3]
 [ext_resource type="Script" path="res://ItemCore/LootProfile.gd" id="1_profile"]
 [ext_resource type="Script" path="res://ItemCore/LootEntry.gd" id="2_entry"]
-[sub_resource type="Resource" id="Relic"]
+[sub_resource type="Resource" id="Salvage"]
 script = ExtResource("2_entry")
 item_id = "relay_fuse_rack"
 weight = 0.0
-once_key = "route1:north:relic:fuse"
+once_key = "route1:north:material:signal_housing"
 [resource]
 script = ExtResource("1_profile")
-profile_id = "loot_route1_relic_fuse"
+profile_id = "loot_route1_signal_housing"
 max_searches = 1
 max_items_per_search = 1
-guaranteed_entries = Array[ExtResource("2_entry")]([SubResource("Relic")])
+guaranteed_entries = Array[ExtResource("2_entry")]([SubResource("Salvage")])

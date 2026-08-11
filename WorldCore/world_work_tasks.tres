@@ -1,0 +1,69 @@
+[gd_resource type="Resource" script_class="WorldWorkTaskCatalog" load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://WorldCore/WorldWorkTaskCatalog.gd" id="1_catalog"]
+[ext_resource type="Script" path="res://WorldCore/WorldWorkTaskProfile.gd" id="2_profile"]
+[ext_resource type="Script" path="res://WorldCore/WorldWorkMethodDefinition.gd" id="3_method"]
+
+[sub_resource type="Resource" id="Profile_repair"]
+script = ExtResource("2_profile")
+profile_id = "repair_manual"
+work_units = 4
+base_success_window = 0.24
+miss_resets_stage = true
+base_noise = 1.25
+base_tool_wear = 0.08
+
+[sub_resource type="Resource" id="Profile_salvage"]
+script = ExtResource("2_profile")
+profile_id = "salvage_manual"
+work_units = 2
+base_success_window = 0.3
+base_noise = 0.85
+
+[sub_resource type="Resource" id="Profile_search"]
+script = ExtResource("2_profile")
+profile_id = "search_manual"
+work_units = 2
+base_success_window = 0.3
+base_noise = 0.85
+
+[sub_resource type="Resource" id="Profile_force"]
+script = ExtResource("2_profile")
+profile_id = "force_manual"
+work_units = 3
+base_success_window = 0.2
+miss_resets_stage = true
+base_noise = 2.0
+base_tool_wear = 0.12
+
+[sub_resource type="Resource" id="Profile_trap"]
+script = ExtResource("2_profile")
+profile_id = "trap_manual"
+work_units = 1
+base_success_window = 0.36
+base_noise = 0.55
+
+[sub_resource type="Resource" id="Method_hands"]
+script = ExtResource("3_method")
+method_id = "hands"
+success_window_bonus = -0.08
+noise_delta = 0.35
+
+[sub_resource type="Resource" id="Method_crowbar"]
+script = ExtResource("3_method")
+method_id = "crowbar"
+success_window_bonus = 0.12
+noise_delta = 1.0
+tool_wear_delta = 0.1
+
+[sub_resource type="Resource" id="Method_multitool"]
+script = ExtResource("3_method")
+method_id = "multitool"
+work_units_delta = -1
+noise_delta = -0.25
+tool_wear_delta = 0.16
+
+[resource]
+script = ExtResource("1_catalog")
+profiles = Array[ExtResource("2_profile")]([SubResource("Profile_repair"), SubResource("Profile_salvage"), SubResource("Profile_search"), SubResource("Profile_force"), SubResource("Profile_trap")])
+methods = Array[ExtResource("3_method")]([SubResource("Method_hands"), SubResource("Method_crowbar"), SubResource("Method_multitool")])

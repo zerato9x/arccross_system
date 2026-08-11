@@ -89,7 +89,33 @@ var active_enemies: Dictionary:
 var _visible_hexes: Dictionary = {} # Vector2i -> true for the current line of sight
 var _world_state: RuntimeStateStore
 var _loot_catalog: Node
+## Shared world-action application kernel. Legacy static callers remain valid,
+## while player and NPC orchestration now resolve through the same instance.
+var _world_action_kernel := WorldActionKernel.new()
+var _world_action_coordinator := _WorldActionCoordinator.new()
+var _world_action_execution_service := _WorldActionExecutionService.new()
+var _receipt_application_service := _ReceiptApplicationService.new()
+var _world_bootstrap_service := _BootstrapService.new()
+var _active_zone_service := _ActiveZoneService.new()
 var _world_bootstrapped := false
+var _movement_service := MacroMovementService.new()
+var _visibility_service := MacroVisibilityService.new()
+var _time_rules_service := MacroTimeRulesService.new()
+var _snapshot_facade := MacroSnapshotFacade.new()
+var _npc_runtime_service := _NpcRuntimeService.new()
+var _npc_turn_service := _NpcTurnService.new()
+var _npc_perception_service := _NpcPerceptionService.new()
+var _npc_work_service := _NpcWorkService.new()
+var _location_snapshot_service := _LocationSnapshotService.new()
+var _persistence_bridge := _PersistenceBridge.new()
+var _shelter_runtime_service := _ShelterRuntimeService.new()
+var _campaign_progression_service := _CampaignProgressionService.new()
+var _combat_encounter_service := _CombatEncounterService.new()
+var _search_resource_service := _SearchResourceService.new()
+var _search_action_service := _SearchActionService.new()
+var _camp_action_service := _CampActionService.new()
+var _campaign_content_service := _CampaignContentService.new()
+var _population_service := _PopulationService.new()
 var _interaction_state := MacroInteractionState.new()
 var _collision_coordinator: MacroCollisionCoordinator
 var _proximity_director: MacroProximityDirector
@@ -108,6 +134,8 @@ var _mutation_store: Node
 var _meta_progress: Node
 var _pending_exit_direction: GameEnums.MacroTravelDirection = GameEnums.MacroTravelDirection.NONE
 var _debug_console: MacroDebugConsole
+var _pending_player_step: Dictionary = {}
+var _travel_route: Array[Vector2i] = []
 
 const HEX_NEIGHBORS = [
 	Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1), 
@@ -117,8 +145,53 @@ const _SnapshotBuilder := preload("res://WorldCore/MacroSnapshotBuilder.gd")
 const _PoiController := preload("res://WorldCore/MacroPoiController.gd")
 const _HexPresentation := preload("res://PresentationCore/HexPresentationDescriptor.gd")
 const _NpcSimulator := preload("res://WorldCore/MacroNpcSimulator.gd")
+const _WorldActionCoordinator := preload("res://WorldCore/MacroWorldActionCoordinator.gd")
+const _WorldActionExecutionService := preload(
+	"res://WorldCore/MacroWorldActionExecutionService.gd"
+)
+const _ReceiptApplicationService := preload(
+	"res://WorldCore/MacroReceiptApplicationService.gd"
+)
+const _BootstrapService := preload("res://WorldCore/MacroWorldBootstrapService.gd")
+const _ActiveZoneService := preload("res://WorldCore/MacroActiveZoneService.gd")
+const _NpcRuntimeService := preload("res://WorldCore/MacroNpcRuntimeService.gd")
+const _NpcTurnService := preload("res://WorldCore/MacroNpcTurnService.gd")
+const _NpcPerceptionService := preload(
+	"res://WorldCore/MacroNpcPerceptionService.gd"
+)
+const _NpcWorkService := preload("res://WorldCore/MacroNpcWorkService.gd")
+const _LocationSnapshotService := preload(
+	"res://WorldCore/MacroLocationSnapshotService.gd"
+)
+const _PersistenceBridge := preload("res://WorldCore/MacroPersistenceBridge.gd")
+const _CampaignProgressionService := preload(
+	"res://WorldCore/MacroCampaignProgressionService.gd"
+)
+const _CombatEncounterService := preload(
+	"res://WorldCore/MacroCombatEncounterService.gd"
+)
+const _SearchResourceService := preload(
+	"res://WorldCore/MacroSearchResourceService.gd"
+)
+const _SearchActionService := preload(
+	"res://WorldCore/MacroSearchActionService.gd"
+)
+const _CampActionService := preload(
+	"res://WorldCore/MacroCampActionService.gd"
+)
+const _CampaignContentService := preload(
+	"res://WorldCore/MacroCampaignContentService.gd"
+)
+const _ShelterRuntimeService := preload(
+	"res://WorldCore/MacroShelterRuntimeService.gd"
+)
+const _PopulationService := preload(
+	"res://WorldCore/MacroCampaignPopulationService.gd"
+)
+const _ShelterProfile: ShelterProgressionProfile = preload(
+	"res://WorldCore/default_shelter_progression_profile.tres"
+)
 const _PlotDirector := preload("res://WorldCore/NpcPlotDirector.gd")
-const _RoutePopulationCatalog := preload("res://WorldCore/RoutePopulationCatalog.gd")
 const _NODE_MAP_INVENTORY_LAYER := 36
 const _NODE_MAP_OVERLAY_LAYER := 36
 
@@ -128,6 +201,8 @@ func configure_services(
 ) -> void:
 	_world_state = world_state
 	_loot_catalog = loot_catalog
+	_world_action_coordinator.configure(_world_action_kernel)
+	_configure_extracted_world_services()
 	if world_generator:
 		world_generator.configure_services(world_state)
 	_ensure_campaign()
@@ -136,11 +211,184 @@ func configure_services(
 		_bootstrap_world()
 
 
+func _configure_extracted_world_services() -> void:
+	_movement_service.configure(world_generator)
+	_shelter_runtime_service.configure(
+		_world_state,
+		world_generator,
+		_meta_progress,
+		_ShelterProfile
+	)
+	_active_zone_service.configure(
+		_world_state,
+		world_generator,
+		player_token,
+		map_visualizer
+	)
+	_combat_encounter_service.configure(
+		_world_state,
+		world_generator,
+		map_visualizer
+	)
+	_search_resource_service.configure(_world_state, world_generator)
+	_visibility_service.configure(_world_state, world_generator, vision_radius)
+	_time_rules_service.configure()
+	_search_action_service.configure(
+		_world_state,
+		world_generator,
+		_loot_catalog,
+		{
+			"get_loot_profile": Callable(self, "_get_loot_profile"),
+			"find_inventory_item": Callable(
+				self,
+				"_find_inventory_item_by_instance_id"
+			),
+			"resolve_shared_work": Callable(self, "_resolve_shared_work_action"),
+			"method_id_for_item_ids": Callable(self, "_method_id_for_item_ids"),
+			"search_minutes": Callable(_time_rules_service, "search_minutes"),
+			"world_object_record_at": Callable(self, "_world_object_record_at"),
+			"inventory_has_any_item_id": Callable(
+				self,
+				"_inventory_has_any_item_id"
+			),
+			"inventory_has_any_tag": Callable(self, "_inventory_has_any_tag"),
+			"inventory_has_any_role": Callable(self, "_inventory_has_any_role"),
+			"player_body": Callable(self, "_player_body_for_survival"),
+			"advance_survival_time": Callable(self, "_advance_survival_time"),
+			"capture_player_runtime": Callable(
+				self,
+				"_capture_player_runtime_for_survival"
+			),
+			"deplete_resource": Callable(self, "_deplete_rubble_after_search"),
+			"apply_campaign_trigger": Callable(
+				self,
+				"apply_campaign_discovery_trigger"
+			),
+			"refresh_hud": Callable(self, "_refresh_world_hud"),
+			"format_world_time": Callable(self, "_format_world_time"),
+			"set_event": Callable(self, "_set_macro_event"),
+			"last_event": Callable(self, "_last_macro_event_text"),
+			"notify_noise": Callable(self, "_notify_npcs_of_noise"),
+			"advance_world": Callable(self, "advance_macro_world"),
+			"has_pending_collision": Callable(self, "_has_pending_entity_collision"),
+			"is_exploration_open": Callable(
+				self,
+				"_is_exploration_window_open"
+			),
+			"present_poi_session": Callable(self, "_present_poi_session"),
+			"refresh_exploration_ground": Callable(
+				self,
+				"_refresh_exploration_ground"
+			),
+			"spawn_intruder": Callable(self, "_spawn_search_intruder"),
+			"show_result": Callable(self, "_show_interaction_result"),
+		}
+	)
+	_camp_action_service.configure(
+		_world_state,
+		{
+			"find_inventory_item": Callable(
+				self,
+				"_find_inventory_item_by_instance_id"
+			),
+			"player_body": Callable(self, "_player_body_for_survival"),
+			"advance_survival_time": Callable(self, "_advance_survival_time"),
+			"camp_minutes": Callable(_time_rules_service, "camp_minutes"),
+			"advance_world": Callable(self, "advance_macro_world"),
+			"has_pending_collision": Callable(self, "_has_pending_entity_collision"),
+			"capture_player_runtime": Callable(
+				self,
+				"_capture_player_runtime_for_survival"
+			),
+			"refresh_hud": Callable(self, "_refresh_world_hud"),
+			"spawn_intruder": Callable(self, "_spawn_search_intruder"),
+			"set_event": Callable(self, "_set_macro_event"),
+			"show_result": Callable(self, "_show_interaction_result"),
+			"format_world_time": Callable(self, "_format_world_time"),
+		}
+	)
+	_world_action_execution_service.configure(
+		_world_state,
+		world_generator,
+		_world_action_coordinator,
+		_time_rules_service,
+		{
+			"actor_context": Callable(self, "_world_actor_context"),
+			"commit_receipt": Callable(self, "_commit_world_action_receipt"),
+			"consume_repair_material": Callable(
+				self,
+				"_consume_player_repair_material"
+			),
+			"set_event": Callable(self, "_set_macro_event"),
+		}
+	)
+	_npc_turn_service.configure(_world_state)
+	_npc_work_service.configure(
+		_world_state,
+		world_generator,
+		_world_action_coordinator,
+		_loot_catalog
+	)
+	_campaign_content_service.configure(_world_state, _loot_catalog)
+	_location_snapshot_service.configure(
+		player_token,
+		_world_state,
+		world_generator,
+		map_visualizer,
+		{
+			"build_hex_descriptor": Callable(self, "_build_hex_descriptor"),
+			"build_travel_route": Callable(self, "_build_travel_route"),
+			"camp_access": Callable(self, "_get_camp_access"),
+			"hex_label": Callable(self, "_hex_label"),
+			"inventory_has_item_id": Callable(self, "_inventory_has_any_item_id"),
+			"inventory_has_tag": Callable(self, "_inventory_has_any_tag"),
+			"inventory_has_role": Callable(self, "_inventory_has_any_role"),
+			"enrich_session": Callable(self, "_enrich_location_session"),
+		}
+	)
+	_receipt_application_service.configure(
+		_world_state,
+		world_generator,
+		player_token,
+		Callable(self, "_notify_npcs_of_signal"),
+		Callable(self, "_apply_player_tool_wear"),
+		Callable(self, "_emit_world_action_presentation"),
+		Callable(self, "_refresh_world_hud")
+	)
+	_visible_hexes = _visibility_service.visible_hexes
+	_configure_snapshot_facade()
+
+
+func _configure_snapshot_facade() -> void:
+	_snapshot_facade.configure(
+		player_token,
+		_world_state,
+		world_generator,
+		campaign,
+		_selected_hex_coords,
+		_visible_hexes,
+		active_enemies,
+		_last_macro_event,
+		_macro_turn_index,
+		{
+			"can_offer_equip": Callable(self, "_can_offer_equip"),
+			"allowed_equipment_slots": Callable(self, "_allowed_equipment_slots"),
+			"ensure_npc_purpose": Callable(self, "_ensure_npc_purpose"),
+			"hex_distance": Callable(self, "_hex_distance"),
+			"hex_label": Callable(self, "_hex_label"),
+			"next_incomplete_nodes": Callable(self, "_next_incomplete_available_nodes"),
+			"pending_exit_direction": int(_pending_exit_direction),
+		}
+	)
+
+
 func _connect_world_time_lighting() -> void:
 	if _world_state == null:
 		return
 	if not _world_state.world_time_advanced.is_connected(_on_world_time_advanced_lighting):
 		_world_state.world_time_advanced.connect(_on_world_time_advanced_lighting)
+	if not _world_state.world_time_advanced.is_connected(_on_world_time_advanced_npcs):
+		_world_state.world_time_advanced.connect(_on_world_time_advanced_npcs)
 	_apply_world_lighting_from_minutes(_world_state.world_time_minutes)
 
 
@@ -150,6 +398,27 @@ func _on_world_time_advanced_lighting(
 	_elapsed: int
 ) -> void:
 	_apply_world_lighting_from_minutes(current)
+
+
+func _on_world_time_advanced_npcs(
+	_previous_minutes: int,
+	current_minutes: int,
+	elapsed_minutes: int
+) -> void:
+	_npc_runtime_service.advance(_world_state, current_minutes, elapsed_minutes)
+	return
+
+
+func _reconcile_active_node_elapsed() -> void:
+	## A dormant node does not invent a pre-arrival story, but actors and
+	## evidence that already existed there still age deterministically while the
+	## player was elsewhere. This is the coarse boundary before full hourly AI
+	## planning is introduced.
+	if _world_state == null:
+		return
+	var current := _world_state.world_time_minutes
+	_npc_runtime_service.reconcile_dormant(_world_state, current)
+	return
 
 
 func _apply_world_lighting_from_minutes(total_minutes: int) -> void:
@@ -164,11 +433,25 @@ func _ensure_campaign() -> void:
 		campaign.node_entered.connect(_on_campaign_node_entered)
 	if not campaign.nodes_unlocked.is_connected(_on_campaign_nodes_unlocked):
 		campaign.nodes_unlocked.connect(_on_campaign_nodes_unlocked)
+	_campaign_progression_service.configure(
+		campaign,
+		{
+			"search_minutes": Callable(_time_rules_service, "search_minutes"),
+			"advance_time": Callable(self, "_advance_survival_time"),
+			"persist_hex": Callable(self, "_persist_campaign_hex"),
+			"apply_trigger": Callable(self, "apply_campaign_discovery_trigger"),
+			"close_interaction": Callable(self, "close_macro_interaction"),
+			"set_event": Callable(self, "_set_macro_event"),
+			"refresh_hud": Callable(self, "_refresh_world_hud"),
+			"emit_core_activated": Callable(self, "_emit_core_activated"),
+			"show_result": Callable(self, "_show_interaction_result"),
+		}
+	)
 
 
 func get_available_nodes() -> Array[String]:
 	_ensure_campaign()
-	return campaign.get_available_nodes()
+	return _campaign_progression_service.available_nodes()
 
 
 func enter_campaign_node(
@@ -176,7 +459,7 @@ func enter_campaign_node(
 	exit_direction: int = GameEnums.MacroTravelDirection.NONE
 ) -> bool:
 	_ensure_campaign()
-	if not campaign.can_enter_node(node_id, exit_direction):
+	if not _campaign_progression_service.can_enter(node_id, exit_direction):
 		if (
 			node_id == MacroGraphGenerator.CENTRAL_ID
 			and campaign.active_node_id != MacroGraphGenerator.CENTRAL_ID
@@ -186,31 +469,32 @@ func enter_campaign_node(
 		return false
 	# Keep player inventory; unload tokens before zone swap.
 	_unload_all_enemy_tokens()
-	var ok := campaign.enter_node(node_id, exit_direction)
+	var ok := _campaign_progression_service.enter(node_id, exit_direction)
 	if not ok:
 		return false
 	_pending_exit_direction = GameEnums.MacroTravelDirection.NONE
 	_apply_active_zone_to_world()
+	_reconcile_active_node_elapsed()
 	_ensure_central_rim_guards()
-	_ensure_starter_wayfinder()
 	_ensure_route_one_population()
+	_ensure_route_two_shelter_ecology()
 	_ensure_meta_component_source()
 	return true
 
 
 func mark_node_completed(node_id: String) -> void:
 	_ensure_campaign()
-	campaign.mark_node_completed(node_id)
+	_campaign_progression_service.mark_completed(node_id)
 
 
 func evaluate_unlocks(player_progress: Dictionary = {}) -> Array[String]:
 	_ensure_campaign()
-	return campaign.evaluate_unlocks(player_progress)
+	return _campaign_progression_service.evaluate_unlocks(player_progress)
 
 
 func apply_campaign_discovery_trigger(trigger_id: String) -> PackedStringArray:
 	_ensure_campaign()
-	var revealed := campaign.apply_discovery_trigger(trigger_id)
+	var revealed := _campaign_progression_service.apply_discovery_trigger(trigger_id)
 	if revealed.is_empty():
 		return revealed
 	_last_macro_event = "Route intelligence revealed: %s" % ", ".join(revealed)
@@ -224,7 +508,7 @@ func apply_campaign_discovery_trigger(trigger_id: String) -> PackedStringArray:
 
 func debug_print_campaign_map() -> String:
 	_ensure_campaign()
-	return campaign.debug_print_map()
+	return _campaign_progression_service.debug_map()
 
 
 func _ensure_node_map_system() -> void:
@@ -312,6 +596,7 @@ func blocks_world_commands() -> bool:
 	return (
 		get_active_work_surface() != WorkSurface.NONE
 		or not _pending_interaction.is_empty()
+		or not _pending_player_step.is_empty()
 	)
 
 
@@ -581,32 +866,10 @@ func _unload_all_enemy_tokens() -> void:
 
 
 func _apply_active_zone_to_world() -> void:
-	if campaign == null or campaign.zone_generator == null:
+	var activation := _active_zone_service.apply(campaign)
+	if not bool(activation.get("applied", false)):
 		return
-	var zone := campaign.zone_generator
-	world_generator.enable_zone_bounds(MacroZoneGenerator.ZONE_RADIUS)
-	world_generator.configure_seed(_world_state.world_seed + ":node:" + zone.node_id)
-	world_generator.inject_zone_hexes(zone.world_hex_cache)
-	world_generator.inject_zone_decorations(zone.zone_decorations)
-	for coords in zone.world_hex_cache.keys():
-		var hex: MacroHexData = zone.world_hex_cache[coords]
-		_world_state.set_hex_record(coords, hex.to_state())
-
-	var start_coords := zone.start_coords
-	# Preserve player runtime (inventory) across node swaps.
-	if player_token.get_humanoid_core() != null and _world_state.player_record != null:
-		_world_state.update_player_runtime(
-			player_token.get_humanoid_core().capture_runtime_state().to_dict(),
-			start_coords
-		)
-	else:
-		_world_state.set_player_record(
-			player_token.capture_runtime_record(),
-			start_coords
-		)
-
-	var start_pixel := map_visualizer.map_to_local(start_coords)
-	player_token.snap_to_hex(start_coords, start_pixel)
+	var start_coords: Vector2i = activation.get("start_coords", Vector2i.ZERO)
 	_visible_hexes.clear()
 	_mark_hex_explored(start_coords)
 	_select_hex_for_hud(start_coords)
@@ -620,263 +883,43 @@ func _apply_active_zone_to_world() -> void:
 ## Posts one pair of Central Guards on the rim edge facing locked Central Core.
 func _ensure_central_rim_guards() -> void:
 	_ensure_campaign()
-	if campaign == null or mob_spawner == null:
-		return
-	var node_id := str(campaign.active_node_id)
-	if not _is_route_one_node(node_id):
-		return
-	if _has_central_guard_pair(node_id):
-		return
-
-	var toward_central := _central_facing_direction_for_route_one(node_id)
-	if toward_central == GameEnums.MacroTravelDirection.NONE:
-		return
-	var pair_coords := _pick_central_rim_pair_coords(toward_central)
-	if pair_coords.size() < 2:
-		push_warning(
-			"[MacroGameManager] Could not place Central Guard pair on %s rim."
-			% node_id
-		)
-		return
-
-	var squad_id := "central_guard_pair_%s" % node_id
-	var seed_base := "%s:%s:central_guard" % [_world_state.world_seed, node_id]
-	var variants := [false, true] # AK-47, then Kar98k
-	for i in range(2):
-		var coords: Vector2i = pair_coords[i]
-		var record := mob_spawner.generate_central_guard_record(
-			coords,
-			bool(variants[i]),
-			squad_id,
-			"%s:%d" % [seed_base, i]
-		)
-		_initialize_npc_runtime(record)
-		# Posted rim pair: hold hex, never wander.
-		record.runtime["macro_purpose"] = GameEnums.NPC_PURPOSE_HOLD
-		record.runtime["macro_purpose_label"] = "Hold"
-		record.runtime["macro_origin_coords"] = coords
-		record.runtime["macro_target_coords"] = coords
-		var entity_id := _world_state.register_entity(record)
-		var hex_data := world_generator.get_hex_at(coords)
-		hex_data.encounter_entity_id = entity_id
-		hex_data.encounter_evaluated = true
-		_world_state.set_hex_record(coords, hex_data.to_state())
-		_spawn_enemy_token_from_record(record)
-		_macro_log(
-			"Posted Central Guard %s @%s facing Central."
-			% [entity_id, str(coords)]
-		)
-	_last_macro_event = (
-		"A posted pair in service kit holds the Central-facing rim."
+	var placed := _population_service.ensure_central_rim_guards(
+		campaign,
+		_world_state,
+		world_generator,
+		mob_spawner,
+		active_enemies,
+		player_token.current_hex_coords if player_token != null else Vector2i(9999, 9999),
+		Callable(self, "_initialize_npc_runtime"),
+		Callable(self, "_spawn_enemy_token_from_record"),
+		Callable(self, "_macro_log")
 	)
-
-
-func _ensure_starter_wayfinder() -> void:
-	_ensure_campaign()
-	if campaign == null or campaign.zone_generator == null or mob_spawner == null:
-		return
-	var node_id := str(campaign.active_node_id)
-	if node_id != "north_random_1":
-		return
-	for entity in _world_state.entity_records.values():
-		if not entity is EntityRecord:
-			continue
-		var record := entity as EntityRecord
-		if str(record.runtime.get("template_id", "")) == "starter_wayfinder":
-			return
-	var zone: MacroZoneGenerator = campaign.zone_generator
-	var coords := zone.starter_npc_coords
-	if not _is_guard_spawn_hex(coords):
-		return
-	var arm_id := node_id.trim_suffix("_random_1")
-	var record := mob_spawner.generate_starter_wayfinder_record(
-		coords,
-		arm_id,
-		"%s:%s:starter_wayfinder" % [_world_state.world_seed, node_id]
-	)
-	_initialize_npc_runtime(record)
-	var entity_id := _world_state.register_entity(record)
-	var hex_data := world_generator.get_hex_at(coords)
-	hex_data.encounter_entity_id = entity_id
-	hex_data.encounter_evaluated = true
-	_world_state.set_hex_record(coords, hex_data.to_state())
-	_spawn_enemy_token_from_record(record)
+	if placed:
+		_last_macro_event = "A posted pair in service kit holds the Central-facing rim."
 
 
 func _ensure_route_one_population() -> void:
 	_ensure_campaign()
-	if campaign == null or mob_spawner == null or not _is_route_one_node(campaign.active_node_id):
-		return
-	var population_catalog: Variant = _RoutePopulationCatalog.data()
-	var profile: RoutePopulationProfile = (
-		population_catalog.for_node(campaign.active_node_id)
-		if population_catalog != null
-		else null
-	)
-	if profile == null:
-		return
-	var existing_templates: Dictionary = {}
-	for entity_value in _world_state.entity_records.values():
-		if entity_value is EntityRecord:
-			existing_templates[str(entity_value.runtime.get("template_id", ""))] = true
-	var used_coords: Dictionary = {}
-	for entry_value in profile.entries():
-		var entry: Dictionary = entry_value
-		for index in range(int(entry.get("count", 1))):
-			var template_id := "%s_%d" % [str(entry.get("template_prefix", "route_npc")), index]
-			if existing_templates.has(template_id):
-				continue
-			var coords := _pick_route_population_coords(str(entry.get("placement", "search_near")), used_coords)
-			if coords == Vector2i(9999, 9999):
-				continue
-			var record := mob_spawner.generate_role_record(
-				coords,
-				str(entry.get("role_id", "salvager")),
-				int(entry.get("faction", GameEnums.Faction.UNALIGNED)),
-				int(entry.get("world_status", GameEnums.EntityWorldStatus.CEASEFIRE)),
-				template_id,
-				"%s:%s:%s" % [_world_state.world_seed, campaign.active_node_id, template_id]
-			)
-			_initialize_npc_runtime(record)
-			var entity_id := _world_state.register_entity(record)
-			var hex_data := world_generator.get_hex_at(coords)
-			hex_data.encounter_entity_id = entity_id
-			hex_data.encounter_evaluated = true
-			_world_state.set_hex_record(coords, hex_data.to_state())
-			used_coords[coords] = true
-			_spawn_enemy_token_from_record(record)
-
-
-func _pick_route_population_coords(placement: String, used_coords: Dictionary) -> Vector2i:
-	var candidates: Array[Vector2i] = []
-	var poi_coords := Vector2i(9999, 9999)
-	for coords_value in world_generator.world_hex_cache.keys():
-		var coords: Vector2i = coords_value
-		var hex_data: MacroHexData = world_generator.get_hex_at(coords)
-		if hex_data.is_poi:
-			poi_coords = coords
-		if (
-			not hex_data.search_site_id.is_empty()
-			and not hex_data.search_site_id.begins_with("route1_relic_")
-			and hex_data.is_passable()
-			and _world_state.get_entity_at(coords) == null
-			and not used_coords.has(coords)
-		):
-			candidates.append(coords)
-	if placement == "poi_neighbor" and poi_coords != Vector2i(9999, 9999):
-		for offset_value in _NpcSimulator.HEX_NEIGHBORS:
-			var coords: Vector2i = poi_coords + Vector2i(offset_value)
-			var hex_data := world_generator.get_hex_at(coords)
-			if hex_data.is_passable() and _world_state.get_entity_at(coords) == null and not used_coords.has(coords):
-				return coords
-	if candidates.is_empty():
-		return Vector2i(9999, 9999)
-	var start_coords := campaign.zone_generator.start_coords
-	candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-		return _NpcSimulator.hex_distance(start_coords, a) < _NpcSimulator.hex_distance(start_coords, b)
-	)
-	return candidates.back() if placement == "search_far" else candidates.front()
-
-
-func _is_route_one_node(node_id: String) -> bool:
-	return (
-		node_id == "north_random_1"
-		or node_id == "east_random_1"
-		or node_id == "south_random_1"
-		or node_id == "west_random_1"
+	_population_service.ensure_route_one_population(
+		campaign,
+		_world_state,
+		world_generator,
+		mob_spawner,
+		Callable(self, "_initialize_npc_runtime"),
+		Callable(self, "_spawn_enemy_token_from_record")
 	)
 
 
-func _central_facing_direction_for_route_one(node_id: String) -> int:
-	match node_id:
-		"north_random_1":
-			return GameEnums.MacroTravelDirection.SOUTH
-		"east_random_1":
-			return GameEnums.MacroTravelDirection.WEST
-		"south_random_1":
-			return GameEnums.MacroTravelDirection.NORTH
-		"west_random_1":
-			return GameEnums.MacroTravelDirection.EAST
-		_:
-			return GameEnums.MacroTravelDirection.NONE
-
-
-func _has_central_guard_pair(node_id: String) -> bool:
-	var count := 0
-	var expected_squad := "central_guard_pair_%s" % node_id
-	for entity in _world_state.entity_records.values():
-		if not (entity is EntityRecord):
-			continue
-		var record := entity as EntityRecord
-		if record.kind != GameEnums.RuntimeEntityKind.NPC:
-			continue
-		var template_id := str(record.definition.get("template_id", ""))
-		if template_id.is_empty():
-			template_id = str(record.runtime.get("template_id", ""))
-		if (
-			template_id == "central_guard"
-			and str(record.runtime.get("squad_id", "")) == expected_squad
-		):
-			count += 1
-	return count >= 2
-
-
-func _pick_central_rim_pair_coords(toward_central: int) -> Array[Vector2i]:
-	var radius := MacroZoneGenerator.ZONE_RADIUS
-	var primary := HexCoordUtils.rim_anchor(toward_central, radius)
-	var candidates: Array[Vector2i] = []
-	if _is_guard_spawn_hex(primary):
-		candidates.append(primary)
-	for neighbor in HexCoordUtils.AXIAL_DIRECTIONS:
-		var coords: Vector2i = primary + neighbor
-		if HexCoordUtils.distance_from_origin(coords) != radius:
-			continue
-		if not _is_guard_spawn_hex(coords):
-			continue
-		if not candidates.has(coords):
-			candidates.append(coords)
-	# Prefer hexes that still face Central strongly.
-	candidates.sort_custom(
-		func(a: Vector2i, b: Vector2i) -> bool:
-			var target := HexCoordUtils.travel_direction_vector(toward_central)
-			var score_a := HexCoordUtils.axial_to_visual_vector(a).normalized().dot(target)
-			var score_b := HexCoordUtils.axial_to_visual_vector(b).normalized().dot(target)
-			return score_a > score_b
+func _ensure_route_two_shelter_ecology() -> void:
+	_population_service.ensure_shelter_ecology(
+		campaign,
+		_world_state,
+		world_generator,
+		mob_spawner,
+		_ShelterProfile,
+		Callable(self, "_initialize_npc_runtime"),
+		Callable(self, "_spawn_enemy_token_from_record")
 	)
-	var pair: Array[Vector2i] = []
-	for coords in candidates:
-		if pair.size() >= 2:
-			break
-		pair.append(coords)
-	if pair.size() >= 2:
-		return pair
-	# Fallback: walk the ring for any two passable rim hexes near primary.
-	for coords in HexCoordUtils.cells_in_ring(radius):
-		if HexCoordUtils.distance(primary, coords) > 2:
-			continue
-		if not _is_guard_spawn_hex(coords):
-			continue
-		if not pair.has(coords):
-			pair.append(coords)
-		if pair.size() >= 2:
-			break
-	return pair
-
-
-func _is_guard_spawn_hex(coords: Vector2i) -> bool:
-	var hex_data := world_generator.get_hex_at(coords)
-	if hex_data == null or not hex_data.is_passable():
-		return false
-	if _world_state.has_entity_at(coords):
-		return false
-	if active_enemies.has(coords):
-		return false
-	if (
-		player_token != null
-		and player_token.current_hex_coords == coords
-	):
-		return false
-	return true
 
 
 func _refresh_boundary_previews() -> void:
@@ -908,61 +951,17 @@ func _refresh_boundary_previews() -> void:
 
 
 func _ensure_meta_component_source() -> void:
-	if campaign == null or campaign.active_node_id != MacroGraphGenerator.FETCH_BRANCH_ID:
-		return
-	if (
-		_meta_progress != null
-		and _meta_progress.has_method("is_event_completed")
-		and _meta_progress.is_event_completed(MacroGraphGenerator.META_FETCH_EVENT_ID)
-	):
-		return
-	if _run_has_meta_component():
-		return
-	if _loot_catalog == null or not _loot_catalog.has_item(MacroGraphGenerator.FETCH_ITEM_ID):
+	var result := _campaign_content_service.ensure_meta_component_source(
+		campaign,
+		_meta_progress,
+		player_token
+	)
+	var status := str(result.get("status", "inactive"))
+	if status == "missing_catalog":
 		push_error("[MacroGameManager] Missing authored Meta quest item.")
 		return
-	var item_state: Dictionary = _loot_catalog.create_runtime_item_state(
-		MacroGraphGenerator.FETCH_ITEM_ID
-	)
-	if item_state.is_empty():
-		return
-	_world_state.add_ground_items(Vector2i.ZERO, [item_state])
-	_last_macro_event = "A North Core Regulator rests inside the Component Vault."
-
-
-func _run_has_meta_component() -> bool:
-	if player_token != null and player_token.get_humanoid_core() != null:
-		for item in player_token.get_humanoid_core().inventory.get_all_items():
-			if item.id == MacroGraphGenerator.FETCH_ITEM_ID:
-				return true
-	for ground_stack in _world_state.ground_item_records.values():
-		for item_state in ground_stack:
-			if (
-				item_state is Dictionary
-				and _runtime_item_state_id(item_state) == MacroGraphGenerator.FETCH_ITEM_ID
-			):
-				return true
-	for snapshot in _world_state.node_runtime_snapshots.values():
-		if not snapshot is Dictionary:
-			continue
-		for ground_entry in snapshot.get("ground_items", []):
-			if not ground_entry is Dictionary:
-				continue
-			for item_state in ground_entry.get("items", []):
-				if (
-					item_state is Dictionary
-					and _runtime_item_state_id(item_state) == MacroGraphGenerator.FETCH_ITEM_ID
-				):
-					return true
-	return false
-
-
-func _runtime_item_state_id(item_state: Dictionary) -> String:
-	var item_id := str(item_state.get("id", ""))
-	if not item_id.is_empty():
-		return item_id
-	var definition: Dictionary = item_state.get("definition", {})
-	return str(definition.get("id", ""))
+	if status == "seeded":
+		_last_macro_event = "A North Core Regulator rests inside the Component Vault."
 
 
 func get_runtime_state_store() -> RuntimeStateStore:
@@ -970,7 +969,9 @@ func get_runtime_state_store() -> RuntimeStateStore:
 
 
 func debug_step_player_to(target_coords: Vector2i) -> void:
-	_execute_player_step(target_coords)
+	# Debug stepping is intentionally instantaneous; shipping movement uses the
+	# arrival signal below so the domain never commits before the token arrives.
+	_execute_player_step(target_coords, false)
 
 
 ## Debug tooling: instantly relocate the player to any hex without walking,
@@ -1052,9 +1053,10 @@ func _npc_has_ground_items(coords: Vector2i) -> bool:
 
 
 func _npc_get_occupying_entity_id(coords: Vector2i) -> String:
-	return _world_state.entity_ids_by_coords.get(coords, "")
+	return _world_state.get_entity_id_at(coords)
 
 func _ready() -> void:
+	_ensure_macro_input_actions()
 	if _world_state == null:
 		_world_state = get_node("/root/WorldState") as RuntimeStateStore
 	_mutation_store = get_node_or_null("/root/WorldMutationStore")
@@ -1065,10 +1067,13 @@ func _ready() -> void:
 		mob_spawner = get_node_or_null("/root/MobSpawner") as MobSpawner
 	if world_generator and _world_state:
 		world_generator.configure_services(_world_state)
+	_configure_extracted_world_services()
 
 	if not world_generator or not map_visualizer or not player_token or not mob_spawner:
 		push_error("The Puppet Master is missing its strings. Check the inspector.")
 		return
+	if not player_token.movement_arrived.is_connected(_on_player_movement_arrived):
+		player_token.movement_arrived.connect(_on_player_movement_arrived)
 
 	if exploration_window_scene:
 		exploration_window = (
@@ -1114,10 +1119,34 @@ func _ready() -> void:
 	var player_inventory := player_token.get_humanoid_core().inventory
 	player_inventory.inventory_error.connect(_on_player_inventory_error)
 	player_inventory.items_spilled.connect(_on_player_items_spilled)
-		
 	if not _world_bootstrapped:
 		_bootstrap_world()
 	_connect_world_time_lighting()
+
+
+func _ensure_macro_input_actions() -> void:
+	_register_macro_input_action("macro_here", KEY_E)
+	_register_macro_input_action("macro_travel", KEY_T)
+	_register_macro_input_action("macro_inventory", KEY_I)
+	_register_macro_input_action("macro_inventory", KEY_TAB)
+	_register_macro_input_action("macro_health", KEY_H)
+	_register_macro_input_action("macro_hex_map", KEY_M)
+	_register_macro_input_action("macro_node_map", KEY_N)
+	_register_macro_input_action("macro_node_map", KEY_P)
+	_register_macro_input_action("macro_reset_map", KEY_F)
+	_register_macro_input_action("macro_settings", KEY_O)
+	_register_macro_input_action("macro_confirm", KEY_ENTER)
+	_register_macro_input_action("macro_cancel", KEY_ESCAPE)
+	_register_macro_input_action("macro_timing", KEY_SPACE)
+
+
+func _register_macro_input_action(action: StringName, keycode: Key) -> void:
+	if not InputMap.has_action(action):
+		InputMap.add_action(action)
+	var key := InputEventKey.new()
+	key.physical_keycode = keycode
+	if not InputMap.action_has_event(action, key):
+		InputMap.action_add_event(action, key)
 
 
 func _process(_delta: float) -> void:
@@ -1128,113 +1157,132 @@ func _bootstrap_world() -> void:
 	if _world_bootstrapped or _world_state == null:
 		return
 	_world_bootstrapped = true
-	if _world_state.consume_pending_loaded_world():
-		_initialize_loaded_world()
-	elif _world_state.has_pending_new_run_setup():
-		_initialize_new_run(_world_state.consume_pending_new_run_setup())
-	else:
-		_initialize_demo()
+	var startup := _world_bootstrap_service.select_startup(_world_state)
+	match str(startup.get("mode", _BootstrapService.MODE_DEMO)):
+		_BootstrapService.MODE_LOADED:
+			_initialize_loaded_world()
+		_BootstrapService.MODE_NEW_RUN:
+			_initialize_new_run(startup.get("setup", {}))
+		_:
+			_initialize_demo()
 	_refresh_world_hud()
 
 
-func _initialize_new_run(setup: Dictionary) -> void:
-	var definition_state: Dictionary = setup.get("definition", {})
-	var start_node_id := str(setup.get("start_node_id", ""))
-	var arrival_direction := int(setup.get(
-		"arrival_direction",
-		MacroGraphGenerator.arrival_direction_for_start(start_node_id)
-	))
-	if definition_state.is_empty() or start_node_id.is_empty():
-		push_error("[MacroGameManager] New-run setup is incomplete.")
-		_initialize_demo()
+func _build_bootstrap_callbacks() -> Dictionary:
+	var callbacks := {
+		"world_state": _world_state,
+		"initialize_player": Callable(player_token, "initialize_new_definition"),
+		"restore_player": Callable(player_token, "restore_runtime_record"),
+		"capture_player_record": Callable(player_token, "capture_runtime_record"),
+		"player_definition": Callable(self, "_bootstrap_player_definition"),
+		"ensure_campaign": Callable(self, "_ensure_campaign"),
+		"configure_player_capabilities": Callable(
+			self,
+			"_configure_campaign_player_capabilities"
+		),
+		"begin_campaign": Callable(self, "_bootstrap_begin_campaign"),
+		"load_campaign": Callable(self, "_bootstrap_load_campaign"),
+		"enter_initial_node": Callable(self, "_bootstrap_enter_initial_node"),
+		"enter_campaign_node": Callable(self, "enter_campaign_node"),
+		"configure_world": Callable(self, "_bootstrap_configure_world"),
+		"set_player_record": Callable(_world_state, "set_player_record"),
+		"unload_enemy_tokens": Callable(self, "_unload_all_enemy_tokens"),
+		"reset_pending_exit": Callable(self, "_bootstrap_reset_pending_exit"),
+		"apply_active_zone": Callable(self, "_apply_active_zone_to_world"),
+		"ensure_central_rim_guards": Callable(self, "_ensure_central_rim_guards"),
+		"ensure_route_one_population": Callable(self, "_ensure_route_one_population"),
+		"ensure_shelter_ecology": Callable(self, "_ensure_route_two_shelter_ecology"),
+		"ensure_meta_component_source": Callable(self, "_ensure_meta_component_source"),
+		"is_in_zone_bounds": Callable(world_generator, "is_in_zone_bounds"),
+		"restore_loaded_player_position": Callable(
+			self,
+			"_bootstrap_restore_loaded_player_position"
+		),
+		"current_player_coords": Callable(self, "_bootstrap_current_player_coords"),
+		"log": Callable(self, "_macro_log"),
+		"error": Callable(self, "_bootstrap_error"),
+	}
+	if _meta_progress != null and _meta_progress.has_method("apply_eviction_lock"):
+		callbacks["apply_eviction_lock"] = Callable(
+			_meta_progress,
+			"apply_eviction_lock"
+		)
+	return callbacks
+
+
+func _bootstrap_configure_world() -> void:
+	if world_generator == null or _world_state == null:
 		return
-	if not player_token.initialize_new_definition(definition_state):
-		push_error("[MacroGameManager] Could not apply the selected player identity.")
-		_initialize_demo()
-		return
-	_ensure_campaign()
-	_configure_campaign_player_capabilities(player_token.get_humanoid_core().definition)
-	campaign.begin_campaign(_world_state.world_seed)
 	world_generator.configure_services(_world_state)
 	world_generator.enable_zone_bounds(MacroZoneGenerator.ZONE_RADIUS)
-	_world_state.set_player_record(player_token.capture_runtime_record(), Vector2i.ZERO)
-	if _meta_progress != null and _meta_progress.has_method("apply_eviction_lock"):
-		_meta_progress.apply_eviction_lock()
-	_unload_all_enemy_tokens()
-	if not campaign.enter_initial_node(start_node_id, arrival_direction):
-		push_error("[MacroGameManager] Failed to enter selected start node: %s" % start_node_id)
-		return
-	_pending_exit_direction = GameEnums.MacroTravelDirection.NONE
-	_apply_active_zone_to_world()
-	_ensure_central_rim_guards()
-	_ensure_starter_wayfinder()
-	_ensure_route_one_population()
-	_ensure_meta_component_source()
-	_last_macro_event = "Search the roadside rubble. The first open pile contains a basic pry tool; locked caches teach what better access requires. Recover three relay relics and return north."
-	_macro_log("Eviction complete. Deployed to %s." % start_node_id)
 
-func _initialize_demo() -> void:
-	var seed := "ARCCROSS_DIRECTIONAL_WEB_01"
-	_world_state.begin_new_world(seed)
+
+func _bootstrap_begin_campaign(seed: String) -> void:
 	_ensure_campaign()
 	campaign.begin_campaign(seed)
-	world_generator.configure_services(_world_state)
-	world_generator.enable_zone_bounds(MacroZoneGenerator.ZONE_RADIUS)
 
-	# Preserve freshly created player token inventory into the run, then enter hub.
-	_world_state.set_player_record(
-		player_token.capture_runtime_record(),
-		Vector2i.ZERO
-	)
-	if not enter_campaign_node(MacroGraphGenerator.HUB_ID):
-		push_error("[MacroGameManager] Failed to enter hub campaign node.")
+
+func _bootstrap_load_campaign(graph: Dictionary, active_node_id: String) -> void:
+	_ensure_campaign()
+	campaign.load_campaign(graph, active_node_id)
+
+
+func _bootstrap_enter_initial_node(
+	start_node_id: String,
+	arrival_direction: int
+) -> bool:
+	_ensure_campaign()
+	return campaign.enter_initial_node(start_node_id, arrival_direction)
+
+
+func _bootstrap_player_definition() -> EntityDefinition:
+	if player_token == null or player_token.get_humanoid_core() == null:
+		return null
+	return player_token.get_humanoid_core().definition
+
+
+func _bootstrap_reset_pending_exit() -> void:
+	_pending_exit_direction = GameEnums.MacroTravelDirection.NONE
+
+
+func _bootstrap_restore_loaded_player_position(coords: Vector2i) -> void:
+	if player_token == null or _world_state == null or map_visualizer == null:
 		return
-	_macro_log("Directional campaign initialized at the Central Core south rim.")
+	player_token.snap_to_hex(coords, map_visualizer.map_to_local(coords))
+	_world_state.update_player_runtime(
+		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
+		coords
+	)
+	_mark_hex_explored(coords)
+	_select_hex_for_hud(coords)
+	_refresh_map_visuals(coords, true)
+	refresh_proximity(coords)
+
+
+func _bootstrap_current_player_coords() -> Vector2i:
+	if player_token == null:
+		return Vector2i.ZERO
+	return player_token.current_hex_coords
+
+
+func _bootstrap_error(message: String) -> void:
+	push_error(message)
+
+
+func _initialize_new_run(setup: Dictionary) -> void:
+	var result := _world_bootstrap_service.initialize_new_run(
+		setup,
+		_build_bootstrap_callbacks()
+	)
+	if result.has("last_event"):
+		_last_macro_event = str(result.get("last_event", ""))
+
+func _initialize_demo() -> void:
+	_world_bootstrap_service.initialize_demo(_build_bootstrap_callbacks())
 
 
 func _initialize_loaded_world() -> void:
-	if _world_state.world_seed.is_empty() or _world_state.player_record == null:
-		push_error("Loaded world state is incomplete. Starting a new demo world.")
-		_initialize_demo()
-		return
-
-	_ensure_campaign()
-	world_generator.configure_services(_world_state)
-	world_generator.enable_zone_bounds(MacroZoneGenerator.ZONE_RADIUS)
-	player_token.restore_runtime_record(_world_state.player_record)
-	_configure_campaign_player_capabilities(player_token.get_humanoid_core().definition)
-
-	if not _world_state.campaign_graph.is_empty():
-		var loaded_coords := _world_state.player_coords
-		campaign.load_campaign(
-			_world_state.campaign_graph,
-			_world_state.active_node_id
-		)
-		_apply_active_zone_to_world()
-		_ensure_central_rim_guards()
-		_ensure_starter_wayfinder()
-		_ensure_route_one_population()
-		if world_generator.is_in_zone_bounds(loaded_coords):
-			player_token.snap_to_hex(
-				loaded_coords,
-				map_visualizer.map_to_local(loaded_coords)
-			)
-			_world_state.update_player_runtime(
-				player_token.get_humanoid_core().capture_runtime_state().to_dict(),
-				loaded_coords
-			)
-			_mark_hex_explored(loaded_coords)
-			_select_hex_for_hud(loaded_coords)
-			_refresh_map_visuals(loaded_coords, true)
-			refresh_proximity(loaded_coords)
-	else:
-		campaign.begin_campaign(_world_state.world_seed)
-		enter_campaign_node(MacroGraphGenerator.HUB_ID)
-
-	_macro_log(
-		"Loaded campaign node=%s at %s."
-		% [_world_state.active_node_id, str(player_token.current_hex_coords)]
-	)
+	_world_bootstrap_service.initialize_loaded_world(_build_bootstrap_callbacks())
 
 
 func _configure_campaign_player_capabilities(definition: EntityDefinition) -> void:
@@ -1247,64 +1295,24 @@ func _configure_campaign_player_capabilities(definition: EntityDefinition) -> vo
 	))
 
 func synchronize_runtime_state() -> void:
-	_world_state.set_player_record(
+	_persistence_bridge.synchronize(
+		_world_state,
 		player_token.capture_runtime_record(),
-		player_token.current_hex_coords
+		player_token.current_hex_coords,
+		world_generator.world_hex_cache,
+		campaign,
+		_meta_progress
 	)
-	for coords in world_generator.world_hex_cache.keys():
-		var hex_data: MacroHexData = world_generator.world_hex_cache[coords]
-		_world_state.set_hex_record(coords, hex_data.to_state())
-	if campaign != null and campaign.graph != null:
-		_world_state.campaign_graph = campaign.graph.to_dict()
-		_world_state.active_node_id = campaign.active_node_id
-		_world_state.active_arrival_direction = int(campaign.last_arrival_direction)
-		_world_state.capture_node_runtime(campaign.active_node_id)
-		var active_node := campaign.get_active_node()
-		if (
-			active_node != null
-			and active_node.persistence == GameEnums.MacroNodePersistence.PERMANENT_META
-			and _meta_progress != null
-			and _meta_progress.has_method("capture_node_mutations")
-		):
-			_meta_progress.capture_node_mutations(
-				active_node.id,
-				campaign.zone_generator.permanent_baseline_records,
-				_world_state.hex_records
-			)
 	flush_world_mutations()
 
 
 func flush_world_mutations() -> void:
-	if campaign != null and not campaign.active_node_id.is_empty():
-		# Directional node worlds use node-scoped Meta patches. The legacy
-		# coordinate-only store must never receive these overlapping coordinates.
-		return
-	if _mutation_store == null or world_generator.authored_map == null:
-		return
-	if not _mutation_store.has_method("capture_run_mutations"):
-		return
-	_mutation_store.capture_run_mutations(
-		world_generator.authored_map.map_id,
-		_build_mutation_baseline_records(_world_state.hex_records.keys()),
-		_world_state.hex_records
+	_persistence_bridge.flush_world_mutations(
+		_mutation_store,
+		_world_state,
+		campaign,
+		world_generator
 	)
-
-
-func _build_mutation_baseline_records(coords_list: Array) -> Dictionary:
-	var baseline_records: Dictionary = {}
-	for coords in coords_list:
-		if not coords is Vector2i:
-			continue
-		var baseline_hex: MacroHexData
-		if world_generator.authored_map.has_hex(coords):
-			baseline_hex = world_generator.authored_map.build_hex_data(
-				coords,
-				_world_state.world_seed
-			)
-		else:
-			baseline_hex = HexWorldGenerator.build_void_hex(coords)
-		baseline_records[coords] = baseline_hex.to_state()
-	return baseline_records
 
 
 func _bind_authored_map_profile() -> void:
@@ -1328,7 +1336,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			event is InputEventKey
 			and event.pressed
 			and not event.echo
-			and event.keycode == KEY_ESCAPE
+			and event.is_action_pressed("macro_cancel")
 		):
 			if _node_map_medical != null and _node_map_medical.visible:
 				_close_node_map_medical()
@@ -1354,7 +1362,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			event is InputEventKey
 			and event.pressed
 			and not event.echo
-			and event.keycode == KEY_ESCAPE
+			and event.is_action_pressed("macro_cancel")
 		):
 			close_macro_interaction()
 			get_viewport().set_input_as_handled()
@@ -1370,33 +1378,36 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		match event.keycode:
-			KEY_ESCAPE:
-				if close_active_work_surface():
-					get_viewport().set_input_as_handled()
-					return
-			KEY_I, KEY_TAB:
-				_toggle_fullscreen_inventory()
-				get_viewport().set_input_as_handled()
-				return
-			KEY_M:
-				if macro_hud:
-					if get_active_work_surface() != WorkSurface.HEALTH:
-						_close_ordinary_work_surfaces(WorkSurface.HEALTH)
-					macro_hud.toggle_health_panel()
-				get_viewport().set_input_as_handled()
-				return
-			KEY_O:
-				if macro_hud:
-					if get_active_work_surface() == WorkSurface.SETTINGS:
-						macro_hud.close_settings()
-					else:
-						_close_ordinary_work_surfaces(WorkSurface.SETTINGS)
-						macro_hud.open_settings()
-				get_viewport().set_input_as_handled()
-				return
-			KEY_P:
-				open_node_map()
+		if event.is_action_pressed("macro_inventory"):
+			_toggle_fullscreen_inventory()
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed("macro_health"):
+			if macro_hud:
+				if get_active_work_surface() != WorkSurface.HEALTH:
+					_close_ordinary_work_surfaces(WorkSurface.HEALTH)
+				macro_hud.toggle_health_panel()
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed("macro_hex_map"):
+			open_hex_world_map()
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed("macro_node_map"):
+			open_node_map()
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed("macro_settings"):
+			if macro_hud:
+				if get_active_work_surface() == WorkSurface.SETTINGS:
+					macro_hud.close_settings()
+				else:
+					_close_ordinary_work_surfaces(WorkSurface.SETTINGS)
+					macro_hud.open_settings()
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed("macro_cancel"):
+			if close_active_work_surface():
 				get_viewport().set_input_as_handled()
 				return
 	if blocks_world_commands():
@@ -1406,64 +1417,101 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not _pending_interaction.is_empty():
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		match event.keycode:
-			KEY_E:
-				_resolve_current_hex_action()
+		if event.is_action_pressed("macro_here"):
+			_resolve_current_hex_action()
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed("macro_travel"):
+			_try_travel_to_selected_hex()
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed("macro_cancel"):
+			if close_active_work_surface():
 				get_viewport().set_input_as_handled()
 				return
-			KEY_T:
-				_try_travel_to_selected_hex()
-				get_viewport().set_input_as_handled()
-				return
-			KEY_R:
-				_select_hex_for_hud(_selected_hex_coords)
-				get_viewport().set_input_as_handled()
-				return
-	if (
-		event is InputEventMouseButton
-		and event.pressed
-		and event.button_index == MOUSE_BUTTON_RIGHT
-	):
-		_select_hex_at_mouse()
-		get_viewport().set_input_as_handled()
-		return
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_attempt_move_to_mouse()
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			_travel_route.clear()
+			if not close_active_work_surface():
+				_selected_hex_coords = player_token.current_hex_coords
+				_refresh_world_hud()
+			get_viewport().set_input_as_handled()
+			return
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			_select_hex_at_mouse()
+			get_viewport().set_input_as_handled()
+			return
 
 func _attempt_move_to_mouse() -> bool:
 	if blocks_world_commands():
 		return false
-	var mouse_pos = map_visualizer.get_local_mouse_position()
-	var clicked_hex_coords = map_visualizer.local_to_map(mouse_pos)
-	
-	var distance_vector = clicked_hex_coords - player_token.current_hex_coords
-	if not HEX_NEIGHBORS.has(distance_vector):
-		return false # Ignored. Too far away.
-
-	if not world_generator.is_in_zone_bounds(clicked_hex_coords):
-		return _try_begin_directional_exit(
-			player_token.current_hex_coords,
-			clicked_hex_coords
-		)
-	_select_hex_for_hud(clicked_hex_coords)
-		
-	var target_hex := world_generator.get_hex_at(clicked_hex_coords)
-	if not target_hex.is_passable():
-		return false # Ignored. Rock fields are unpassable.
-
-	_execute_player_step(clicked_hex_coords)
+	_select_hex_at_mouse()
 	return true
 
-func _execute_player_step(target_coords: Vector2i) -> void:
-	if blocks_world_commands():
+func _execute_player_step(target_coords: Vector2i, animate: bool = true) -> void:
+	if blocks_world_commands() and (animate or not _pending_player_step.is_empty()):
 		return
 	if not world_generator.is_in_zone_bounds(target_coords):
 		_try_begin_directional_exit(player_token.current_hex_coords, target_coords)
 		return
 	var origin_coords := player_token.current_hex_coords
-	var pixel_pos = map_visualizer.map_to_local(target_coords)
-	player_token.walk_to_hex(target_coords, pixel_pos)
+	var target_hex := world_generator.get_hex_at(target_coords)
+	if not target_hex.is_passable():
+		_last_macro_event = "That hex is not passable."
+		_refresh_world_hud()
+		return
 	_select_hex_for_hud(target_coords)
+	if not animate:
+		player_token.snap_to_hex(target_coords, map_visualizer.map_to_local(target_coords))
+		_commit_player_step(origin_coords, target_coords)
+		return
+	var pixel_pos = map_visualizer.map_to_local(target_coords)
+	var movement_id := player_token.walk_to_hex(target_coords, pixel_pos)
+	_pending_player_step = {
+		"kind": "travel",
+		"movement_id": movement_id,
+		"from": origin_coords,
+		"to": target_coords,
+		"started_minute": _world_state.world_time_minutes,
+	}
+	_last_macro_event = "Travelling to HEX %d,%d..." % [target_coords.x, target_coords.y]
+	_refresh_world_hud()
+
+
+func _on_player_movement_arrived(
+	from_coords: Vector2i,
+	target_coords: Vector2i,
+	movement_id: int
+) -> void:
+	if _pending_player_step.is_empty():
+		return
+	if int(_pending_player_step.get("movement_id", -1)) != movement_id:
+		return
+	var movement_kind := str(_pending_player_step.get("kind", "travel"))
+	_pending_player_step.clear()
+	if movement_kind == "retreat":
+		_commit_player_retreat(target_coords)
+		return
+	_commit_player_step(from_coords, target_coords)
+
+
+func _commit_player_retreat(target_coords: Vector2i) -> void:
+	var retreat_hex := world_generator.get_hex_at(target_coords)
+	_world_state.update_player_runtime(
+		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
+		target_coords
+	)
+	_mark_hex_explored(target_coords, retreat_hex)
+	_refresh_map_visuals(target_coords, false)
+	refresh_proximity(target_coords)
+	_last_macro_event = "Escaped combat; fell back to HEX %d,%d." % [
+		target_coords.x,
+		target_coords.y,
+	]
+	_refresh_world_hud()
+
+
+func _commit_player_step(origin_coords: Vector2i, target_coords: Vector2i) -> void:
 	_world_state.update_player_runtime(
 		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
 		target_coords
@@ -1474,20 +1522,32 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 
 	var hex_data := world_generator.get_hex_at(target_coords)
 	_mark_hex_explored(target_coords, hex_data)
-	_advance_survival_time(
-		GameTimeRules.move_minutes_for_hex(hex_data),
-		_get_exertion_for_hex(hex_data),
-		target_coords
+	var move_request := WorldActionRequest.new()
+	move_request.actor_id = "player"
+	move_request.target_id = "hex:%s" % str(target_coords)
+	move_request.target_coords = target_coords
+	move_request.verb_id = "travel"
+	move_request.payload["world_time_minutes"] = _world_state.world_time_minutes
+	var move_receipt := _world_action_coordinator.resolve_direct_action(
+		move_request,
+		_time_rules_service.move_minutes_for_hex(hex_data),
+		_time_rules_service.exertion_for_hex(hex_data),
+		0.0,
+		"Arrived at HEX %d,%d." % [target_coords.x, target_coords.y]
 	)
+	_commit_world_action_receipt(move_receipt, target_coords)
+	_emit_movement_trace("player", origin_coords, target_coords)
 	
-	var target_entity := _world_state.get_entity_at(target_coords)
-	if target_entity != null:
+	var target_snapshot := _world_state.get_entity_snapshot_at(target_coords)
+	if not target_snapshot.is_empty():
+		var target_entity := EntityRecord.from_dict(target_snapshot)
 		if not _world_state.is_entity_alive(target_entity.entity_id):
 			unload_enemy_token(target_coords)
 		else:
 			_force_project_npc_token(target_entity)
 			if _world_state.is_entity_hostile(target_entity.entity_id):
 				advance_macro_world(1)
+			_travel_route.clear()
 			begin_entity_collision(
 				target_entity.entity_id,
 				target_coords,
@@ -1497,6 +1557,7 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 
 	var has_ground_loot := _world_state.has_ground_items(target_coords)
 	if has_ground_loot:
+		_travel_route.clear()
 		_last_macro_event = "Ground items detected at HEX %d,%d." % [
 			target_coords.x,
 			target_coords.y,
@@ -1513,6 +1574,10 @@ func _execute_player_step(target_coords: Vector2i) -> void:
 	# Campaign progress resolves via directional rim departure / node map — not
 	# a hard-coded objective hex on ordinary steps.
 	_refresh_world_hud()
+
+	if not _travel_route.is_empty() and _pending_interaction.is_empty():
+		_execute_player_step(_travel_route.pop_front())
+		return
 
 
 func _present_travel_beat(
@@ -1653,21 +1718,28 @@ func _try_travel_to_selected_hex() -> void:
 	if _selected_hex_coords == player_token.current_hex_coords:
 		_resolve_current_hex_action()
 		return
-	var distance_vector := _selected_hex_coords - player_token.current_hex_coords
-	if not HEX_NEIGHBORS.has(distance_vector):
-		_last_macro_event = "Selected hex is not adjacent."
-		_refresh_world_hud()
-		return
 	if not world_generator.is_in_zone_bounds(_selected_hex_coords):
 		_last_macro_event = "Selected hex is outside this zone."
 		_refresh_world_hud()
 		return
-	var target_hex := world_generator.get_hex_at(_selected_hex_coords)
-	if not target_hex.is_passable():
-		_last_macro_event = "Selected hex is blocked by rock fields."
+	var selected_hex := world_generator.get_hex_at(_selected_hex_coords)
+	if not selected_hex.is_explored:
+		_last_macro_event = "That hex is not known well enough to plot a route."
 		_refresh_world_hud()
 		return
-	_execute_player_step(_selected_hex_coords)
+	_travel_route = _build_travel_route(
+		player_token.current_hex_coords,
+		_selected_hex_coords
+	)
+	if _travel_route.is_empty():
+		_last_macro_event = "No passable route is known to the selected hex."
+		_refresh_world_hud()
+		return
+	_execute_player_step(_travel_route.pop_front())
+
+
+func _build_travel_route(from_coords: Vector2i, to_coords: Vector2i) -> Array[Vector2i]:
+	return _movement_service.build_known_route(from_coords, to_coords)
 
 func _resolve_current_hex_action() -> void:
 	if blocks_world_commands():
@@ -1712,29 +1784,20 @@ func _macro_log(message: String) -> void:
 	if debug_macro_logging:
 		print("[MacroMap] ", message)
 
+
+func _set_macro_event(message: String) -> void:
+	_last_macro_event = message
+
 ## Recompute the player's line of sight around a center and reveal it.
 ## "Visible" = currently in sight this turn. "Explored" = seen at least once.
 ## Returns axial coords newly marked explored this call.
 func _update_fog_of_war(center_coords: Vector2i) -> Array[Vector2i]:
-	_visible_hexes.clear()
-	var newly_explored: Array[Vector2i] = []
-	for coords in _coords_in_radius(center_coords, vision_radius):
-		if (
-			world_generator.zone_bounds_enabled
-			and not world_generator.is_in_zone_bounds(coords)
-		):
-			continue
-		_visible_hexes[coords] = true
-		var hex_data := world_generator.get_hex_at(coords)
-		if not hex_data.is_explored:
-			hex_data.is_explored = true
-			_world_state.set_hex_record(coords, hex_data.to_state())
-			newly_explored.append(coords)
-	_macro_log(
-		"Fog update @%s: %d visible hex(es), %d newly explored."
-		% [str(center_coords), _visible_hexes.size(), newly_explored.size()]
+	_configure_extracted_world_services()
+	return _visibility_service.update_fog(
+		center_coords,
+		_world_actor_context(),
+		Callable(self, "_macro_log")
 	)
-	return newly_explored
 
 
 ## Paint / refresh zone visuals and push black fog states to the visualizer.
@@ -1796,43 +1859,244 @@ func _apply_enemy_visibility(enemy: MacroEnemy, coords: Vector2i) -> void:
 	enemy.visible = _is_hex_visible(coords)
 
 func _is_hex_visible(coords: Vector2i) -> bool:
-	return _visible_hexes.has(coords)
+	return _visibility_service.is_visible(coords)
 
 func _is_hex_explored(coords: Vector2i) -> bool:
-	return world_generator.get_hex_at(coords).is_explored
+	return _visibility_service.is_explored(coords)
 
 func _advance_survival_time(
 	elapsed_minutes: int,
 	exertion: float,
 	target_coords: Vector2i,
-	insulation_bonus: float = 0.0
+	insulation_bonus: float = 0.0,
+	verb_id: String = "time_advance"
 ) -> void:
-	_world_state.advance_world_time(elapsed_minutes)
-	var current_player_core := player_token.get_humanoid_core()
-	if current_player_core:
-		current_player_core.process_survival_time(
-			elapsed_minutes,
-			15.0,
-			exertion,
-			insulation_bonus
-		)
-		_world_state.update_player_runtime(
-			current_player_core.capture_runtime_state().to_dict(),
-			target_coords
-		)
-	_refresh_world_hud()
+	var request := WorldActionRequest.new()
+	request.actor_id = "player"
+	request.target_id = "hex:%s" % str(target_coords)
+	request.target_coords = target_coords
+	request.verb_id = verb_id
+	request.method_id = "survival"
+	var receipt := _world_action_coordinator.resolve_direct_action(
+		request,
+		elapsed_minutes,
+		exertion,
+		0.0,
+		"Elapsed time committed."
+	)
+	receipt.presentation["insulation_bonus"] = insulation_bonus
+	_commit_world_action_receipt(receipt, target_coords)
 
-func _get_exertion_for_biome(biome: GameEnums.GridBiome) -> float:
-	if biome == GameEnums.GridBiome.HILLS:
-		return 2.0
-	if biome == GameEnums.GridBiome.SWAMP or biome == GameEnums.GridBiome.MUD:
-		return 1.5
-	if biome == GameEnums.GridBiome.FOREST:
-		return 1.2
-	return 1.0
 
-func _get_exertion_for_hex(hex_data: MacroHexData) -> float:
-	return hex_data.travel_exertion()
+func _player_body_for_survival() -> HumanoidBody:
+	if player_token == null or player_token.get_humanoid_core() == null:
+		return null
+	return player_token.get_humanoid_core().body
+
+
+func _capture_player_runtime_for_survival() -> Dictionary:
+	if player_token == null or player_token.get_humanoid_core() == null:
+		return {}
+	return player_token.get_humanoid_core().capture_runtime_state().to_dict()
+
+
+func _persist_campaign_hex(coords: Vector2i, state: Variant) -> void:
+	if _world_state != null:
+		_world_state.set_hex_record(coords, state)
+
+
+func _emit_core_activated() -> void:
+	core_activated.emit()
+
+
+func _has_pending_entity_collision() -> bool:
+	return (
+		not _pending_interaction.is_empty()
+		and _pending_interaction.get("type")
+		== GameEnums.MacroInteractionType.ENTITY_COLLISION
+	)
+
+
+func _last_macro_event_text() -> String:
+	return _last_macro_event
+
+
+func _is_exploration_window_open() -> bool:
+	return exploration_window != null and exploration_window.is_open()
+
+
+func _world_object_record_at(coords: Vector2i, preferred_id: String = "") -> WorldObjectRecord:
+	return _world_action_execution_service.world_object_record_at(coords, preferred_id)
+
+
+func _world_actor_context() -> Dictionary:
+	var capabilities: Array[String] = ["hands", "light_source"]
+	var inventory := player_token.get_humanoid_core().inventory
+	for item in inventory.get_all_items():
+		if item == null:
+			continue
+		if item.get_functional_roles().has("repair_material") or item.tags.has("materials"):
+			if not capabilities.has("material"):
+				capabilities.append("material")
+		if item.has_interaction_role(GameEnums.InteractionItemRole.SEARCH_TOOL):
+			if not capabilities.has("search_tool"):
+				capabilities.append("search_tool")
+		if item.has_interaction_role(GameEnums.InteractionItemRole.CAMP_GEAR):
+			if not capabilities.has("sleep_gear"):
+				capabilities.append("sleep_gear")
+		if item.has_interaction_role(GameEnums.InteractionItemRole.TRAP_GEAR):
+			if not capabilities.has("trap_gear"):
+				capabilities.append("trap_gear")
+		if item.id in ["crowbar", "bent_pry_bar"]:
+			if not capabilities.has("force_tool"):
+				capabilities.append("force_tool")
+		if item.id in ["multitool", "lockpick"]:
+			if not capabilities.has("repair_tool"):
+				capabilities.append("repair_tool")
+	return {
+		"actor_id": "player",
+		"revision": _world_state.player_revision,
+		"capabilities": capabilities,
+		"work_skill": float(player_token.get_humanoid_core().definition.finesse) / 12.0,
+	}
+
+
+func _commit_world_action_receipt(
+	receipt: WorldActionReceipt,
+	coords: Vector2i,
+	target: WorldObjectRecord = null,
+	actor_id: String = "player"
+) -> void:
+	_receipt_application_service.commit(receipt, coords, target, actor_id)
+
+
+func _emit_world_action_presentation(presentation_receipt: Dictionary) -> void:
+	var event_bus := get_node_or_null("/root/GameEventBus")
+	if event_bus != null and event_bus.has_method("emit_world_action_presentation"):
+		event_bus.emit_world_action_presentation(presentation_receipt)
+
+
+func _emit_movement_trace(
+	actor_id: String,
+	from_coords: Vector2i,
+	to_coords: Vector2i
+) -> void:
+	_movement_service.emit_trace(
+		_world_state,
+		actor_id,
+		from_coords,
+		to_coords,
+		str(campaign.active_node_id) if campaign != null else ""
+	)
+
+
+func _resolve_shared_work_action(
+	coords: Vector2i,
+	verb_id: String,
+	preferred_target_id: String = "",
+	method_id: String = "",
+	noise_intensity: float = 0.0,
+	elapsed_minutes: int = 15,
+	hit_success_window: bool = true
+) -> WorldActionReceipt:
+	return _world_action_execution_service.resolve_shared_work_action(
+		coords,
+		verb_id,
+		preferred_target_id,
+		method_id,
+		noise_intensity,
+		elapsed_minutes,
+		hit_success_window
+	)
+
+
+func _resolve_world_object_direct_action(
+	coords: Vector2i,
+	target_id: String,
+	verb_id: String
+) -> WorldActionReceipt:
+	return _world_action_execution_service.resolve_direct_action(
+		coords,
+		target_id,
+		verb_id
+	)
+
+
+func _consume_player_repair_material() -> Dictionary:
+	var inventory := player_token.get_humanoid_core().inventory
+	for item in inventory.get_all_items():
+		if item == null:
+			continue
+		if not (
+			item.get_functional_roles().has("repair_material")
+			or item.tags.has("materials")
+		):
+			continue
+		var state := item.to_runtime_state()
+		if inventory.consume_item_units(item):
+			return {
+				"instance_id": state.get("instance_id", ""),
+				"item_id": item.id,
+			}
+	return {}
+
+
+func _apply_player_tool_wear(receipt: WorldActionReceipt) -> void:
+	if receipt == null or player_token == null or player_token.get_humanoid_core() == null:
+		return
+	var inventory := player_token.get_humanoid_core().inventory
+	inventory.condition_service.apply_tool_wear(
+		inventory,
+		receipt.method_id,
+		receipt.tool_wear
+	)
+
+
+func _npc_actor_context(record: EntityRecord) -> Dictionary:
+	return _npc_work_service.actor_context(record)
+
+
+func _npc_has_material(record: EntityRecord) -> bool:
+	return _npc_work_service.has_material(record)
+
+
+func _npc_carried_item_states(record: EntityRecord) -> Array:
+	return _npc_work_service.carried_item_states(record)
+
+
+func _materialize_npc_loadout(record: EntityRecord) -> void:
+	_npc_work_service.materialize_loadout(record)
+
+
+func _npc_method_for_record(record: EntityRecord) -> String:
+	return _npc_work_service.method_for_record(record)
+
+
+func _apply_work_method_profile(profile: WorldWorkTaskProfile, method_id: String) -> void:
+	_world_action_coordinator.apply_method_profile(profile, method_id)
+
+
+func _npc_try_work(record: EntityRecord) -> void:
+	_npc_work_service.try_work(record, _macro_turn_index, {
+		"commit_receipt": Callable(self, "_commit_world_action_receipt"),
+		"deplete_after_search": Callable(self, "_deplete_rubble_after_search"),
+	})
+
+
+func _apply_npc_tool_wear(record: EntityRecord, receipt: WorldActionReceipt) -> void:
+	_npc_work_service.apply_tool_wear(record, receipt)
+
+
+func _consume_npc_repair_material(record: EntityRecord) -> Dictionary:
+	return _npc_work_service.consume_repair_material(record)
+
+
+func _remove_npc_loadout_template(record: EntityRecord, template_path: String) -> void:
+	_npc_work_service.remove_loadout_template(record, template_path)
+
+
+func _npc_generate_salvage(record: EntityRecord, target: WorldObjectRecord) -> void:
+	_npc_work_service.generate_salvage(record, target, _macro_turn_index)
 
 func begin_poi_interaction(
 	coords: Vector2i,
@@ -1855,65 +2119,26 @@ func begin_poi_interaction(
 
 
 func _try_handle_campaign_site(coords: Vector2i, hex_data: MacroHexData) -> bool:
-	if campaign == null or campaign.active_node_id.is_empty():
-		return false
-	var node := campaign.get_active_node()
-	if node == null:
-		return false
-	if node.role == GameEnums.MacroNodeRole.CENTRAL_CORE and hex_data.poi_id == "central_core":
-		_begin_central_core_debug_hub(coords)
-		return true
-
-	if str(hex_data.poi_id).begins_with("macro_event_"):
-		var event_id := node.event_id
-		if event_id.is_empty():
-			event_id = MacroEventResolver.EVENT_LOCKED_TREATMENT_ROOM
-		begin_macro_event(event_id, coords)
-		return true
-
-	return false
+	return _campaign_content_service.resolve_campaign_site(
+		campaign,
+		coords,
+		hex_data,
+		{
+			"begin_central_core": Callable(self, "_begin_central_core_debug_hub"),
+			"begin_macro_event": Callable(self, "begin_macro_event"),
+		}
+	)
 
 
 func _handle_central_meta_quest() -> void:
-	player_token.play_interaction()
-	if _meta_progress == null:
-		_last_macro_event = "Meta Progress profile is unavailable."
-		_refresh_world_hud()
-		return
-	if _meta_progress.is_event_completed(MacroGraphGenerator.META_FETCH_EVENT_ID):
-		_last_macro_event = "North Core Regulator installed. The north gateway is permanently unsealed."
-		_refresh_world_hud()
-		return
-	var inventory := player_token.get_humanoid_core().inventory
-	var component: ItemData = null
-	for item in inventory.get_all_items():
-		if item.id == MacroGraphGenerator.FETCH_ITEM_ID:
-			component = item
-			break
-	if component == null:
-		campaign.reveal_fetch_branch()
-		_last_macro_event = (
-			"META QUEST: Recover the North Core Regulator from the revealed east-arm branch "
-			+ "and return it to the Central Core."
-		)
-		_world_state.campaign_graph = campaign.graph.to_dict()
-		_refresh_world_hud()
-		return
-	inventory.remove_item_by_instance_id(component.instance_id)
-	_meta_progress.complete_event(
-		MacroGraphGenerator.META_FETCH_EVENT_ID,
-		[{
-			"type": "set_gateway",
-			"gateway_id": "north",
-			"unsealed": true,
-		}]
+	var result := _campaign_content_service.resolve_central_meta_quest(
+		campaign,
+		_meta_progress,
+		player_token
 	)
-	campaign.refresh_meta_unlocks()
-	_last_macro_event = (
-		"META EVENT COMPLETE: North Core Regulator installed. "
-		+ "The north gateway is unsealed for every future character."
-	)
-	_macro_log(_last_macro_event)
+	_last_macro_event = str(result.get("message", ""))
+	if bool(result.get("log", false)):
+		_macro_log(_last_macro_event)
 	_refresh_world_hud()
 
 
@@ -1985,6 +2210,10 @@ func _present_poi_session(
 	hex_data: MacroHexData
 ) -> void:
 	var camp_access := _get_camp_access(coords, hex_data)
+	# SiteCatalog is only a presentation adapter; give it the same live actor
+	# capabilities used by the authoritative affordance query so the HUD never
+	# advertises repair or force work that the actor cannot actually perform.
+	camp_access["capabilities"] = _world_actor_context().get("capabilities", [])
 	var inventory_snapshot := _build_inventory_snapshot()
 	var player_record := player_token.capture_runtime_record()
 	var session := (
@@ -2021,6 +2250,18 @@ func _present_poi_session(
 		)
 	)
 	_enrich_location_session(session, hex_data)
+	var affordances: Array = []
+	for object_value in hex_data.world_objects:
+		if not object_value is Dictionary:
+			continue
+		var object := WorldObjectRecord.from_dict(object_value)
+		for affordance in _world_action_coordinator.query_affordances(_world_actor_context(), object):
+			if affordance != null:
+				affordances.append(affordance.to_dict())
+	session["world_objects"] = hex_data.world_objects.duplicate(true)
+	session["world_affordances"] = affordances
+	session["world_signals"] = hex_data.world_signals.duplicate(true)
+	session["active_work"] = hex_data.active_work.duplicate(true)
 	session["player_record"] = player_record
 	if macro_hud:
 		macro_hud.present_poi(session, inventory_snapshot, player_record)
@@ -2047,7 +2288,12 @@ func begin_entity_collision(
 		push_error("Entity interaction opened without a HUD subscriber.")
 		close_macro_interaction()
 		return
-	var record := _world_state.get_entity(enemy_id)
+	var record_snapshot := _world_state.get_entity_snapshot(enemy_id)
+	var record := (
+		EntityRecord.from_dict(record_snapshot)
+		if not record_snapshot.is_empty()
+		else null
+	)
 	var opening_mode := (
 		MacroEntityCollisionResolver.MODE_ROOT
 		if record != null and record.world_status == GameEnums.EntityWorldStatus.HOSTILE
@@ -2098,7 +2344,9 @@ func preview_poi_action(
 func resolve_poi_action(
 	action: GameEnums.PoiAction,
 	selected_item_ids: Array,
-	selected_search_option_id: String = ""
+	selected_search_option_id: String = "",
+	selected_target_id: String = "",
+	work_hit_success_window: bool = true
 ) -> void:
 	if _pending_interaction.get("type") != GameEnums.MacroInteractionType.POI:
 		return
@@ -2131,7 +2379,9 @@ func resolve_poi_action(
 			hex_data,
 			profile["search"],
 			selected_item_ids,
-			selected_search_option_id
+			selected_search_option_id,
+			selected_target_id,
+			work_hit_success_window
 		)
 	elif action == GameEnums.PoiAction.STOP_REST:
 		hex_data.rest_in_progress = false
@@ -2221,6 +2471,11 @@ func resolve_location_action(command: Dictionary) -> void:
 		if not available_by_id.has(item_id):
 			_show_interaction_result("GEAR CHANGED", "Selected gear is no longer carried.")
 			return
+		if verb == WorldActionResolver.VERB_REPAIR:
+			# Repair consumes an actual material instance through the shared
+			# resolver; the optional timing selection may be a tool, a material, or
+			# both, so do not reject a valid material as if it were search gear.
+			continue
 		var item_roles: Array = available_by_id[item_id].get("interaction_roles", [])
 		var eligible := accepted_roles.is_empty()
 		for role in item_roles:
@@ -2231,16 +2486,57 @@ func resolve_location_action(command: Dictionary) -> void:
 			_show_interaction_result("GEAR INELIGIBLE", "That item cannot be used at this fixture.")
 			return
 	match verb:
-		SiteCatalog.VERB_INSTALL_RELICS:
-			_resolve_route_objective(coords, fixture)
 		SiteCatalog.VERB_SEARCH:
 			resolve_poi_action(
 				GameEnums.PoiAction.SEARCH,
 				selected_item_ids,
-				str(fixture.get("search_option_id", ""))
+				str(fixture.get("search_option_id", "")),
+				str(fixture.get("target_id", "")),
+				bool(command.get("hit_success_window", true))
+			)
+		WorldActionResolver.VERB_OPEN, WorldActionResolver.VERB_INSPECT:
+			var direct_receipt := _resolve_world_object_direct_action(
+				coords,
+				str(fixture.get("target_id", "")),
+				verb
+			)
+			if direct_receipt == null:
+				_show_interaction_result("ACTION BLOCKED", _last_macro_event)
+				return
+			_show_interaction_result("INSPECTED" if verb == WorldActionResolver.VERB_INSPECT else "OPENED", direct_receipt.message)
+		WorldActionResolver.VERB_REPAIR, WorldActionResolver.VERB_DISMANTLE, \
+		WorldActionResolver.VERB_FORCE:
+			var work_receipt := _resolve_shared_work_action(
+				coords,
+				verb,
+				str(fixture.get("target_id", "")),
+				str(command.get("method_id", _method_id_for_item_ids(selected_item_ids))),
+				1.25 if verb == WorldActionResolver.VERB_REPAIR else 2.0,
+				_time_rules_service.search_minutes(),
+				bool(command.get("hit_success_window", true))
+			)
+			if work_receipt == null:
+				_show_interaction_result("WORK BLOCKED", _last_macro_event)
+				return
+			if verb == WorldActionResolver.VERB_REPAIR:
+				_apply_shelter_repair_progress(coords, str(fixture.get("target_id", "")), work_receipt)
+			_show_interaction_result(
+				"WORK COMPLETE" if work_receipt.work_completed else "WORK INTERRUPTED",
+				str(work_receipt.message)
 			)
 		SiteCatalog.VERB_SLEEP:
-			resolve_poi_action(GameEnums.PoiAction.REST, selected_item_ids)
+			if str(fixture.get("target_id", "")).is_empty():
+				resolve_poi_action(GameEnums.PoiAction.REST, selected_item_ids)
+			else:
+				var sleep_receipt := _resolve_world_object_direct_action(
+					coords,
+					str(fixture.get("target_id", "")),
+					WorldActionResolver.VERB_SLEEP
+				)
+				if sleep_receipt == null:
+					_show_interaction_result("REST BLOCKED", _last_macro_event)
+					return
+				_show_interaction_result("REST COMPLETE", sleep_receipt.message)
 		SiteCatalog.VERB_TRAP:
 			_resolve_location_trap(coords, selected_item_ids)
 		_:
@@ -2261,13 +2557,60 @@ func _resolve_location_trap(coords: Vector2i, selected_item_ids: Array) -> void:
 			"Choose an eligible trap from the gear tray."
 		)
 		return
-	_advance_survival_time(GameTimeRules.ACTION_MINUTES, 0.25, coords)
+	var request := WorldActionRequest.new()
+	request.actor_id = "player"
+	request.target_id = "trap:%s" % str(coords)
+	request.target_coords = coords
+	request.verb_id = WorldActionResolver.VERB_TRAP
+	request.method_id = "trap_gear"
+	request.payload["world_time_minutes"] = _world_state.world_time_minutes
+	var receipt := _world_action_coordinator.resolve_direct_action(
+		request,
+		_time_rules_service.action_minutes("action"),
+		0.25,
+		0.55,
+		"Trap armed at the selected approach."
+	)
+	receipt.mutations.append({
+		"type": "trap_armed",
+		"coords": coords,
+		"gear_instance_ids": selected_item_ids.duplicate(),
+	})
+	_commit_world_action_receipt(receipt, coords)
 	_last_macro_event = "Trap armed at HEX %d,%d." % [coords.x, coords.y]
 	_refresh_world_hud()
 	_show_interaction_result(
 		"TRAP ARMED",
 		"The selected approach is trapped. The device remains here until triggered."
 	)
+
+
+func _method_id_for_item_ids(item_ids: Array) -> String:
+	for item_id_value in item_ids:
+		var item := _find_inventory_item_by_instance_id(str(item_id_value))
+		if item == null:
+			continue
+		if item.id in ["crowbar", "bent_pry_bar"]:
+			return "crowbar"
+		if item.id in ["multitool", "lockpick"]:
+			return "multitool"
+	return "hands"
+
+
+func _apply_shelter_repair_progress(
+	coords: Vector2i,
+	target_id: String,
+	receipt: WorldActionReceipt
+) -> void:
+	_shelter_runtime_service.apply_repair(campaign, coords, target_id, receipt)
+
+
+func preserve_shelter_after_player_defeat() -> void:
+	_shelter_runtime_service.preserve_after_player_defeat(campaign)
+
+
+func reconcile_shelter_after_hostile_change() -> void:
+	_shelter_runtime_service.reconcile_after_hostile_change(campaign)
 
 
 func _enrich_location_session(session: Dictionary, hex_data: MacroHexData) -> void:
@@ -2284,90 +2627,31 @@ func _enrich_location_session(session: Dictionary, hex_data: MacroHexData) -> vo
 	}
 	session["search_count"] = hex_data.search_count
 	session["max_searches"] = int(loot_profile.get("max_searches", 4))
-	var objective_catalog := RouteObjectiveCatalog.data()
-	var objective := (
-		objective_catalog.for_poi(hex_data.poi_id)
-		if objective_catalog != null
-		else null
-	)
-	if objective != null:
-		var descriptor := objective.to_descriptor()
-		var missing_ids: Array[String] = []
-		for item_id_value in objective.required_item_ids:
-			var item_id := str(item_id_value)
-			if not _inventory_has_any_item_id([item_id]):
-				missing_ids.append(item_id)
-		session["route_objective"] = descriptor
-		session["objective_completed"] = (
-			_meta_progress != null
-			and _meta_progress.is_event_completed(objective.completion_event_id)
-		)
-		session["objective_missing_item_ids"] = missing_ids
-		session["objective_progress"] = {
-			"found": objective.required_item_ids.size() - missing_ids.size(),
-			"required": objective.required_item_ids.size(),
-		}
+	_attach_work_timing_snapshots(session)
 
 
-func _resolve_route_objective(coords: Vector2i, fixture: Dictionary) -> void:
-	var catalog := RouteObjectiveCatalog.data()
-	var objective_id := str(fixture.get("objective_id", ""))
-	var objective := catalog.get_objective(objective_id) if catalog != null else null
-	if objective == null:
-		_show_interaction_result("RELAY UNAVAILABLE", "The relay objective data is missing.")
+func _attach_work_timing_snapshots(session: Dictionary) -> void:
+	var method_ids := _world_action_coordinator.method_ids()
+	if method_ids.is_empty():
 		return
-	if (
-		_meta_progress != null
-		and _meta_progress.is_event_completed(objective.completion_event_id)
-	):
-		_show_interaction_result("RELAY ONLINE", objective.completion_text)
-		return
-
-	var inventory := player_token.get_humanoid_core().inventory
-	var required_items: Array[ItemData] = []
-	var missing_names: Array[String] = []
-	for item_id_value in objective.required_item_ids:
-		var item_id := str(item_id_value)
-		var found: ItemData = null
-		for carried in inventory.get_all_items():
-			if carried != null and carried.id == item_id and carried not in required_items:
-				found = carried
-				break
-		if found == null:
-			var definition := _loot_catalog.call("get_item_definition", item_id) as ItemData
-			missing_names.append(definition.display_name if definition != null else item_id.capitalize())
-		else:
-			required_items.append(found)
-	if not missing_names.is_empty():
-		_show_interaction_result(
-			"RELICS MISSING",
-			objective.incomplete_text + "\nMissing: " + ", ".join(missing_names)
-		)
-		return
-
-	if objective.consumes_items:
-		for item in required_items:
-			inventory.remove_item_by_instance_id(item.instance_id)
-	_advance_survival_time(GameTimeRules.ACTION_MINUTES, 0.0, coords)
-	if _meta_progress != null:
-		_meta_progress.complete_event(objective.completion_event_id)
-	var revealed: PackedStringArray = []
-	for trigger_id in objective.completion_trigger_ids:
-		revealed.append_array(apply_campaign_discovery_trigger(str(trigger_id)))
-	_world_state.update_player_runtime(
-		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
-		coords
-	)
-	_last_macro_event = objective.completion_text
-	_refresh_world_hud()
-	_show_interaction_result(
-		"NORTH RELAY RESTORED",
-		objective.completion_text + (
-			"\nRevealed: " + ", ".join(revealed)
-			if not revealed.is_empty()
-			else ""
-		)
-	)
+	var site: Dictionary = session.get("site", {})
+	for fixture_value in site.get("fixtures", []):
+		if not fixture_value is Dictionary:
+			continue
+		var fixture: Dictionary = fixture_value
+		var profile_id := str(fixture.get("task_profile_id", ""))
+		if profile_id.is_empty():
+			continue
+		var base_profile := _world_action_coordinator.profile_for_id(profile_id)
+		if base_profile == null:
+			continue
+		var timing_profiles: Dictionary = {}
+		for method_id_value in method_ids:
+			var method_id := str(method_id_value)
+			var method_profile := base_profile.duplicate(true) as WorldWorkTaskProfile
+			_world_action_coordinator.apply_method_profile(method_profile, method_id)
+			timing_profiles[method_id] = method_profile.to_dict()
+		fixture["timing_profiles"] = timing_profiles
 
 
 func _on_macro_hud_choice_submitted(choice_id: String) -> void:
@@ -2495,9 +2779,12 @@ func _resolve_central_core_debug_choice(choice_id: String) -> void:
 			var enemy_id := ""
 			for delta in HEX_NEIGHBORS:
 				var probe: Vector2i = coords + delta
-				var record := _world_state.get_entity_at(probe)
-				if record != null and _world_state.is_entity_hostile(record.entity_id):
-					enemy_id = record.entity_id
+				var record_snapshot := _world_state.get_entity_snapshot_at(probe)
+				if (
+					not record_snapshot.is_empty()
+					and _world_state.is_entity_hostile(str(record_snapshot.get("entity_id", "")))
+				):
+					enemy_id = str(record_snapshot.get("entity_id", ""))
 					_world_state.move_entity(enemy_id, coords)
 					break
 			if enemy_id.is_empty():
@@ -2697,9 +2984,10 @@ func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 		]
 		interaction_enemy.play_interaction()
 	var enemy_id: String = _pending_interaction.get("enemy_id", "")
-	var enemy_record := _world_state.get_entity(enemy_id)
-	if enemy_record == null:
+	var enemy_snapshot := _world_state.get_entity_snapshot(enemy_id)
+	if enemy_snapshot.is_empty():
 		return
+	var enemy_record := EntityRecord.from_dict(enemy_snapshot)
 	var attempt: int = enemy_record.negotiation_attempts
 	var player_core := player_token.get_humanoid_core()
 	var outcome := MacroInteractionResolver.resolve_negotiation(
@@ -2713,8 +3001,15 @@ func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 			"finesse": player_core.definition.finesse,
 			"will": player_core.definition.will,
 		},
-		enemy_record.definition
+			enemy_record.definition
 	)
+	# Conversation is a real action atom even when the answer is hostile. The
+	# same receipt boundary advances biology, signal reactions, and presentation
+	# timing as every other macro interaction.
+	_apply_macro_event_effects({
+		"elapsed_minutes": _time_rules_service.action_minutes("action"),
+		"exertion": 0.1,
+	})
 	_world_state.patch_entity_record(
 		enemy_id,
 		{"negotiation_attempts": attempt + 1}
@@ -2779,8 +3074,9 @@ func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 		enemy_id,
 		GameEnums.EntityWorldStatus.CEASEFIRE
 	)
-	var updated_record := _world_state.get_entity(enemy_id)
-	if updated_record != null and active_enemies.has(interaction_coords):
+	var updated_snapshot := _world_state.get_entity_snapshot(enemy_id)
+	if not updated_snapshot.is_empty() and active_enemies.has(interaction_coords):
+		var updated_record := EntityRecord.from_dict(updated_snapshot)
 		active_enemies[interaction_coords].setup_from_record(updated_record)
 	_open_entity_collision_session(
 		MacroEntityCollisionResolver.MODE_PEACEFUL
@@ -2821,7 +3117,12 @@ func queue_entity_collision(
 ) -> bool:
 	if not _pending_interaction.is_empty():
 		return false
-	var enemy_record := _world_state.get_entity(enemy_id)
+	var enemy_snapshot := _world_state.get_entity_snapshot(enemy_id)
+	var enemy_record := (
+		EntityRecord.from_dict(enemy_snapshot)
+		if not enemy_snapshot.is_empty()
+		else null
+	)
 	if (
 		enemy_record == null
 		or enemy_record.kind != GameEnums.RuntimeEntityKind.NPC
@@ -2877,6 +3178,28 @@ func _on_medical_action_requested(instance_id: String, limb_region: int) -> void
 		instance_id,
 		limb_region
 	)
+	if bool(result.get("attempted", false)):
+		var treatment_request := WorldActionRequest.new()
+		treatment_request.actor_id = "player"
+		treatment_request.target_id = instance_id
+		treatment_request.target_coords = player_token.current_hex_coords
+		treatment_request.verb_id = "treat"
+		treatment_request.method_id = "medical_item"
+		treatment_request.payload["world_time_minutes"] = _world_state.world_time_minutes
+		var treatment_receipt := _world_action_coordinator.resolve_direct_action(
+			treatment_request,
+			_time_rules_service.action_minutes("action"),
+			0.35,
+			0.15,
+			str(result.get("message", "Treatment attempted."))
+		)
+		treatment_receipt.mutations.append({
+			"type": "medical_application",
+			"instance_id": instance_id,
+			"limb_region": limb_region,
+			"success": bool(result.get("success", false)),
+		})
+		_commit_world_action_receipt(treatment_receipt, player_token.current_hex_coords)
 	if not bool(result.get("success", false)):
 		_last_inventory_error = str(result.get("message", "Treatment failed."))
 	_world_state.update_player_runtime(
@@ -2978,11 +3301,19 @@ func _apply_macro_event_effects(effects: Dictionary) -> void:
 	)
 	var elapsed_minutes := int(effects.get("elapsed_minutes", 0))
 	if elapsed_minutes > 0:
-		_advance_survival_time(
+		var request := WorldActionRequest.new()
+		request.actor_id = "player"
+		request.target_id = str(_pending_interaction.get("enemy_id", _pending_interaction.get("event_id", "social")))
+		request.target_coords = coords
+		request.verb_id = "talk"
+		var receipt := _world_action_coordinator.resolve_direct_action(
+			request,
 			elapsed_minutes,
 			float(effects.get("exertion", 0.0)),
-			coords
+			0.0,
+			"Conversation or event choice committed."
 		)
+		_commit_world_action_receipt(receipt, coords)
 
 func resolve_inventory_action(
 	action_id: String,
@@ -3016,9 +3347,37 @@ func resolve_inventory_action(
 			result.get("ground_mutations", [])
 		)
 	var elapsed_minutes := int(result.get("elapsed_minutes", 0))
-	if elapsed_minutes > 0:
-		_world_state.advance_world_time(elapsed_minutes)
-		player_core.process_survival_time(elapsed_minutes, 15.0, 0.0)
+	var committed_inventory_action := bool(result.get("committed", false))
+	if committed_inventory_action and elapsed_minutes <= 0 and action_id in [
+		GameEnums.MACRO_INV_TAKE,
+		GameEnums.MACRO_INV_DROP,
+		GameEnums.MACRO_INV_EQUIP,
+		GameEnums.MACRO_INV_UNEQUIP,
+		GameEnums.MACRO_INV_CONSUME,
+		GameEnums.MACRO_INV_MOVE,
+		GameEnums.MACRO_INV_LOAD_MAGAZINE,
+	]:
+		elapsed_minutes = _time_rules_service.action_minutes("action")
+	if committed_inventory_action:
+		var request := WorldActionRequest.new()
+		request.actor_id = "player"
+		request.target_id = instance_id
+		request.target_coords = coords
+		request.verb_id = (
+			WorldActionResolver.VERB_PICK_UP
+			if action_id == GameEnums.MACRO_INV_TAKE
+			else action_id
+		)
+		request.payload["world_time_minutes"] = _world_state.world_time_minutes
+		var receipt := _world_action_coordinator.resolve_direct_action(
+			request,
+			elapsed_minutes,
+			0.0,
+			0.0,
+			"Inventory action committed."
+		)
+		_commit_world_action_receipt(receipt, coords)
+		result["action_receipt"] = receipt.to_dict()
 		result["player_runtime"] = player_core.capture_runtime_state().to_dict()
 
 	_world_state.update_player_runtime(
@@ -3173,242 +3532,35 @@ func _refresh_exploration_ground() -> void:
 	)
 
 func _build_inventory_snapshot() -> Dictionary:
-	return _SnapshotBuilder.build_inventory_snapshot(
-		player_token.get_humanoid_core(),
-		player_token.current_hex_coords,
-		_world_state,
-		_can_offer_equip,
-		_allowed_equipment_slots
-	)
+	_configure_snapshot_facade()
+	return _snapshot_facade.build_inventory_snapshot()
 
 func _build_world_hud_snapshot() -> Dictionary:
-	if not player_token:
-		return {}
-	var snapshot := _SnapshotBuilder.build_world_hud_snapshot(
-		player_token.get_humanoid_core(),
-		player_token.current_hex_coords,
-		_selected_hex_coords,
-		_world_state.get_world_time_snapshot(),
-		_last_macro_event,
-		_macro_turn_index,
-		active_enemies.size(),
-		_world_state,
-		world_generator,
-		Callable(self, "_ensure_npc_purpose"),
-		Callable(self, "_hex_distance"),
-		Callable(self, "_hex_label"),
-		Callable(_world_state, "is_entity_alive"),
-		Callable(_world_state, "is_entity_hostile")
-	)
-	if campaign != null:
-		var active := campaign.get_active_node()
-		var next_ids := _next_incomplete_available_nodes()
-		snapshot["campaign"] = {
-			"active_node_id": campaign.active_node_id,
-			"available_nodes": campaign.get_available_nodes(),
-			"next_nodes": next_ids,
-			"active_display_name": (
-				active.display_name if active != null else ""
-			),
-			"active_traversed": active != null and active.traversed,
-			"pending_exit_direction": int(_pending_exit_direction),
-			"advance_hint": (
-				"Leave through the active rim sector to reach %s." % next_ids[0]
-				if not next_ids.is_empty()
-				else ""
-			),
-		}
-	snapshot["minimap"] = _build_minimap_snapshot()
-	return snapshot
+	_configure_snapshot_facade()
+	return _snapshot_facade.build_world_hud_snapshot()
 
 
 func _build_minimap_snapshot() -> Dictionary:
-	if world_generator == null or player_token == null:
-		return {}
-	var cells: Array[Dictionary] = []
-	for coords in world_generator.world_hex_cache.keys():
-		if not coords is Vector2i:
-			continue
-		if world_generator.zone_bounds_enabled and not world_generator.is_in_zone_bounds(coords):
-			continue
-		var hex_data := world_generator.world_hex_cache.get(coords) as MacroHexData
-		if hex_data == null:
-			continue
-		var label := hex_data.poi_name
-		if label.is_empty():
-			label = hex_data.landmark_id.replace("_", " ").capitalize()
-		if label.is_empty():
-			label = _SnapshotBuilder.feature_title(hex_data)
-		cells.append({
-			"coords": coords,
-			"terrain": int(hex_data.terrain_tile),
-			"flora": int(hex_data.flora_layer),
-			"rock": int(hex_data.rock_layer),
-			"water": int(hex_data.water_layer),
-			"structure": int(hex_data.structure_layer),
-			"explored": hex_data.is_explored,
-			"visible": _visible_hexes.has(coords),
-			"is_poi": hex_data.is_poi,
-			"has_landmark": not hex_data.landmark_id.is_empty(),
-			"label": label,
-			"passable": hex_data.is_passable(),
-		})
-	var visible_hostiles: Array[Vector2i] = []
-	for coords in active_enemies.keys():
-		if coords is Vector2i and _visible_hexes.has(coords):
-			visible_hostiles.append(coords)
-	var exits: Array[Dictionary] = []
-	if campaign != null and campaign.graph != null:
-		for direction in [
-			GameEnums.MacroTravelDirection.NORTH,
-			GameEnums.MacroTravelDirection.NORTHEAST,
-			GameEnums.MacroTravelDirection.EAST,
-			GameEnums.MacroTravelDirection.SOUTHEAST,
-			GameEnums.MacroTravelDirection.SOUTH,
-			GameEnums.MacroTravelDirection.SOUTHWEST,
-			GameEnums.MacroTravelDirection.WEST,
-			GameEnums.MacroTravelDirection.NORTHWEST,
-		]:
-			if campaign.get_directional_destinations(direction).is_empty():
-				continue
-			var anchor := HexCoordUtils.rim_anchor(direction, world_generator.zone_radius)
-			var anchor_hex := world_generator.world_hex_cache.get(anchor) as MacroHexData
-			if anchor_hex == null or not anchor_hex.is_explored:
-				continue
-			exits.append({
-				"coords": anchor,
-				"direction": int(direction),
-			})
-	return {
-		"radius": world_generator.zone_radius,
-		"cells": cells,
-		"player_coords": player_token.current_hex_coords,
-		"selected_coords": _selected_hex_coords,
-		"visible_hostiles": visible_hostiles,
-		"exits": exits,
-	}
+	_configure_snapshot_facade()
+	return _snapshot_facade.build_minimap_snapshot()
 
 
 func _build_current_location_snapshot(inventory_snapshot: Dictionary) -> Dictionary:
-	var coords := player_token.current_hex_coords
-	var hex_data := world_generator.get_hex_at(coords)
-	var hex_descriptor := _build_hex_descriptor(coords)
-	var camp_access := _get_camp_access(coords, hex_data)
-	var available_items := _PoiController.available_interaction_options(
-		player_token.get_humanoid_core().inventory.get_all_items()
-	)
-	var ground_items: Array = inventory_snapshot.get("ground", [])
-	var session := (
-		_PoiController.build_landmark_session_snapshot(
-			coords,
-			hex_data,
-			_world_state.world_seed,
-			_world_state.get_world_time_snapshot(),
-			_hex_label(coords, hex_data),
-			camp_access,
-			available_items,
-			ground_items,
-			Callable(self, "_inventory_has_any_item_id"),
-			Callable(self, "_inventory_has_any_tag"),
-			Callable(self, "_inventory_has_any_role")
-		)
-		if hex_data.has_landmark()
-		else _PoiController.build_hex_session_snapshot(
-			coords,
-			hex_data,
-			_world_state.world_seed,
-			_world_state.get_world_time_snapshot(),
-			_hex_label(coords, hex_data),
-			camp_access,
-			available_items,
-			ground_items,
-			Callable(self, "_inventory_has_any_item_id"),
-			Callable(self, "_inventory_has_any_tag"),
-			Callable(self, "_inventory_has_any_role")
-		)
-	)
-	_enrich_location_session(session, hex_data)
-	var decorations: Array = []
-	if world_generator.has_method("get_decorations_at"):
-		decorations = world_generator.get_decorations_at(coords)
-	var catalog: MacroTileCatalog = map_visualizer.tile_catalog if map_visualizer else null
-	var presentation := _HexPresentation.build(
-		hex_data,
-		catalog,
-		decorations,
-		_world_state.world_seed,
-		coords,
-		hex_descriptor.get("entity_inspect", {}),
-		ground_items
-	)
-	presentation["scene"] = _HexPresentation.merge_scene(
-		presentation.get("scene", {}),
-		session.get("scene_descriptor", {})
-	)
-	var revision_payload := {
-		"coords": str(coords),
-		"hex": hex_data.to_state().to_dict(),
-		"ground": ground_items,
-		"available_item_ids": available_items.map(
-			func(item: Dictionary): return str(item.get("instance_id", ""))
-		),
-		"world_time": _world_state.get_world_time_snapshot(),
-	}
-	return {
-		"coords": coords,
-		"revision": hash(str(revision_payload)),
-		"hex": hex_descriptor,
-		"presentation": presentation,
-		"session": session,
-		"fixture_count": session.get("site", {}).get("fixtures", []).size(),
-		"can_open": true,
-	}
+	return _location_snapshot_service.build_current(inventory_snapshot)
 
 
 func _build_target_location_snapshot(snapshot: Dictionary) -> Dictionary:
-	var target: Dictionary = snapshot.get("selected_hex", {}).duplicate(true)
-	var current_coords := player_token.current_hex_coords
-	var target_coords: Vector2i = target.get("coords", current_coords)
-	if target_coords == current_coords:
-		return {}
-	var blocked_reason := ""
-	if not world_generator.is_in_zone_bounds(target_coords):
-		blocked_reason = "Outside this zone"
-	elif int(target.get("distance", 0)) != 1:
-		blocked_reason = "Choose an adjacent hex"
-	elif not bool(target.get("passable", false)):
-		blocked_reason = "Blocked terrain"
-	target["blocked_reason"] = blocked_reason
-	target["can_travel"] = blocked_reason.is_empty()
-	return target
+	return _location_snapshot_service.build_target(snapshot)
 
 
 func _build_hex_descriptor(coords: Vector2i) -> Dictionary:
-	var hex_data := world_generator.get_hex_at(coords)
-	var player_coords := player_token.current_hex_coords
-	return _SnapshotBuilder.build_hex_descriptor(
-		coords,
-		player_coords,
-		hex_data,
-		_world_state.get_entity_at(coords),
-		_world_state.get_ground_items(coords),
-		_hex_label(coords, hex_data),
-		Callable(_world_state, "is_entity_alive"),
-		Callable(_world_state, "is_entity_hostile"),
-		Callable(self, "_ensure_npc_purpose"),
-		Callable(self, "_hex_distance")
-	)
+	_configure_snapshot_facade()
+	return _snapshot_facade.build_hex_descriptor(coords)
 
 
 func _build_macro_activity_snapshot() -> Dictionary:
-	return _SnapshotBuilder.build_macro_activity_snapshot(
-		player_token.current_hex_coords,
-		_macro_turn_index,
-		active_enemies.size(),
-		_world_state.get_all_entity_records(),
-		Callable(self, "_ensure_npc_purpose"),
-		Callable(self, "_hex_distance")
-	)
+	_configure_snapshot_facade()
+	return _snapshot_facade.build_macro_activity_snapshot()
 
 
 func _refresh_world_hud() -> void:
@@ -3457,69 +3609,18 @@ func _on_player_items_spilled(spilled_items: Array[ItemData]) -> void:
 	_world_state.add_ground_items(player_token.current_hex_coords, item_states)
 
 func _resolve_core_activation(coords: Vector2i, hex_data: MacroHexData) -> void:
-	if hex_data.poi_id != "central_core":
-		_show_interaction_result(
-			"ACTIVATION BLOCKED",
-			"This location cannot bring the Alpha Core online."
-		)
-		return
-	var core_state: Dictionary = (
-		_meta_progress.get_core_state("central_core")
-		if _meta_progress != null and _meta_progress.has_method("get_core_state")
-		else {}
+	_campaign_progression_service.resolve_central_core_activation(
+		coords,
+		hex_data,
+		_meta_progress
 	)
-	if bool(core_state.get("activated", false)):
-		_show_interaction_result(
-			"CORE ONLINE",
-			"The Alpha Core is already active. The wasteland remembers."
-		)
-		return
-
-	_advance_survival_time(GameTimeRules.SEARCH_MINUTES, 1.5, coords)
-	if _meta_progress != null:
-		_meta_progress.complete_event(
-			"central_core_activated",
-			[{"type": "set_core_state", "core_id": "central_core", "state": {"activated": true}}]
-		)
-	close_macro_interaction()
-	_last_macro_event = "Alpha Core activated at %s." % str(coords)
-	_refresh_world_hud()
-	core_activated.emit()
 
 
 func _resolve_regional_core_restoration(coords: Vector2i, hex_data: MacroHexData) -> void:
-	var active_node := campaign.get_active_node() if campaign != null else null
-	if (
-		active_node == null
-		or active_node.role != GameEnums.MacroNodeRole.ARM_CORE
-		or hex_data.poi_id != "arm_core"
-	):
-		_show_interaction_result("RESTORATION BLOCKED", "No regional Core is connected here.")
-		return
-	var core_id := active_node.id
-	var state: Dictionary = (
-		_meta_progress.get_core_state(core_id)
-		if _meta_progress != null and _meta_progress.has_method("get_core_state")
-		else {}
-	)
-	if bool(state.get("restored", false)):
-		_show_interaction_result("CORE STABLE", "This regional Core is already restored.")
-		return
-	_advance_survival_time(GameTimeRules.SEARCH_MINUTES, 1.5, coords)
-	state["restored"] = true
-	if _meta_progress != null and _meta_progress.has_method("set_core_state"):
-		_meta_progress.set_core_state(core_id, state)
-	if not hex_data.searched_targets.has("restore_regional_core"):
-		hex_data.searched_targets.append("restore_regional_core")
-	_world_state.set_hex_record(coords, hex_data.to_state())
-	campaign.refresh_meta_unlocks()
-	apply_campaign_discovery_trigger("core_restored:%s" % core_id)
-	close_macro_interaction()
-	_last_macro_event = "%s restored." % active_node.display_name
-	_refresh_world_hud()
-	_show_interaction_result(
-		"REGIONAL CORE RESTORED",
-		"%s is back in the infrastructure network." % active_node.display_name
+	_campaign_progression_service.resolve_regional_core_restoration(
+		coords,
+		hex_data,
+		_meta_progress
 	)
 
 func _resolve_search(
@@ -3527,128 +3628,27 @@ func _resolve_search(
 	hex_data: MacroHexData,
 	base_metrics: Dictionary,
 	selected_item_ids: Array,
-	selected_search_option_id: String = ""
+	selected_search_option_id: String = "",
+	preferred_target_id: String = "",
+	work_hit_success_window: bool = true
 ) -> void:
-	var loot_profile := _get_loot_profile(hex_data)
-	var available_guaranteed: Array = []
-	for entry_value in loot_profile.get("guaranteed_entries", []):
-		if not entry_value is Dictionary:
-			continue
-		var entry: Dictionary = entry_value
-		var once_key := str(entry.get("once_key", ""))
-		if once_key.is_empty() or not bool(_world_state.run_flags.get("loot_once:" + once_key, false)):
-			available_guaranteed.append(entry)
-	loot_profile["guaranteed_entries"] = available_guaranteed
-	var tool_descriptors := _PoiController.inventory_descriptors_for_ids(
-		selected_item_ids,
-		GameEnums.InteractionItemRole.SEARCH_TOOL,
-		Callable(self, "_find_inventory_item_by_instance_id")
-	)
-	var outcome := _PoiController.resolve_search_outcome(
-		_world_state.world_seed,
+	_search_action_service.resolve(
 		coords,
 		hex_data,
 		base_metrics,
 		selected_item_ids,
 		selected_search_option_id,
-		tool_descriptors,
-		loot_profile,
-		Callable(self, "_inventory_has_any_item_id"),
-		Callable(self, "_inventory_has_any_tag"),
-		Callable(self, "_inventory_has_any_role")
-	)
-	if bool(outcome.get("blocked", false)):
-		_show_interaction_result(
-			str(outcome.get("title", "SEARCH BLOCKED")),
-			str(outcome.get("message", ""))
-		)
-		return
-
-	var result: Dictionary = outcome.get("search_result", {})
-	var search_label: String = outcome.get("search_label", "Search")
-	_advance_survival_time(
-		GameTimeRules.SEARCH_MINUTES,
-		1.0,
-		coords
+		preferred_target_id,
+		work_hit_success_window
 	)
 
-	var found_names: Array[String] = []
-	for entry_value in available_guaranteed:
-		var entry: Dictionary = entry_value
-		var once_key := str(entry.get("once_key", ""))
-		if (
-			not once_key.is_empty()
-			and outcome.get("loot_ids", []).has(str(entry.get("item_id", "")))
-		):
-			_world_state.run_flags["loot_once:" + once_key] = true
-	for loot_id in outcome.get("loot_ids", []):
-		var item_state: Dictionary = _loot_catalog.call(
-			"create_runtime_item_state",
-			loot_id
-		)
-		if item_state.is_empty():
-			continue
-		found_names.append(
-			str(item_state.get("definition", {}).get("display_name", loot_id))
-		)
-		_world_state.add_ground_items(coords, [item_state])
 
-	if bool(outcome.get("injured", false)):
-		player_token.get_humanoid_core().body.apply_targeted_hit(
-			outcome.get("injury_limb", GameEnums.LimbRegion.LEFT_ARM),
-			outcome.get("injury_damage", 0.0),
-			0.0
-		)
-
-	_world_state.set_hex_record(coords, outcome.get("hex_state", {}))
-	if not selected_search_option_id.is_empty():
-		apply_campaign_discovery_trigger("poi_resolved:%s" % selected_search_option_id)
-	if not hex_data.poi_id.is_empty():
-		apply_campaign_discovery_trigger("poi_resolved:%s" % hex_data.poi_id)
-	_world_state.update_player_runtime(
-		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
-		coords
-	)
-	_refresh_world_hud()
-
-	var message := "Target: %s\n" % search_label
-	message += (
-		"Found: " + ", ".join(found_names)
-		if not found_names.is_empty()
-		else "The search produced no usable supplies."
-	)
-	message += "\nTime: " + _format_world_time()
-	if not found_names.is_empty():
-		message += "\nThe recovered items are on the ground below. Take them before leaving."
-	if bool(outcome.get("injured", false)):
-		message += "\nUnstable debris caused an injury."
-
-	if bool(outcome.get("attracted_enemy", false)):
-		message += "\nThe noise attracted a hostile."
-		advance_macro_world(1, true)
-		_spawn_search_intruder(coords)
-		return
-	_last_macro_event = "Searched %s at HEX %d,%d." % [
-		search_label,
-		coords.x,
-		coords.y,
-	]
-	_notify_npcs_of_noise(coords, "search_noise")
-
-	advance_macro_world(1, true)
-	if (
-		not _pending_interaction.is_empty()
-		and _pending_interaction.get("type")
-		== GameEnums.MacroInteractionType.ENTITY_COLLISION
-	):
-		return
-
-	if exploration_window and exploration_window.is_open():
-		hex_data = world_generator.get_hex_at(coords)
-		_present_poi_session(coords, hex_data)
-		_refresh_exploration_ground()
-
-	_show_interaction_result("SEARCH COMPLETE", message)
+func _deplete_rubble_after_search(
+	coords: Vector2i,
+	target_id: String,
+	actor_id: String
+) -> void:
+	_search_resource_service.deplete(coords, target_id, actor_id)
 
 func _resolve_camp(
 	coords: Vector2i,
@@ -3656,148 +3656,34 @@ func _resolve_camp(
 	base_metrics: Dictionary,
 	_selected_item_ids: Array
 ) -> void:
-	var descriptors: Array = _PoiController.camp_item_descriptors(
-		hex_data.camp_item_states
-	)
-	if not hex_data.sleep_gear_instance_id.is_empty():
-		var sleep_item := _find_inventory_item_by_instance_id(
-			hex_data.sleep_gear_instance_id
-		)
-		if sleep_item != null:
-			descriptors.append(sleep_item.to_interaction_descriptor())
-	var metrics := MacroInteractionResolver.calculate_camp_metrics(
-		base_metrics,
-		descriptors
-	)
-	var result := MacroInteractionResolver.resolve_camp(
-		_world_state.world_seed,
+	_camp_action_service.resolve(
 		coords,
-		hex_data.camp_rest_count,
-		metrics
-	)
-	if hex_data.region in [
-		GameEnums.MacroRegion.CENTRAL_HUB,
-		GameEnums.MacroRegion.HUB_BORDER,
-	]:
-		result["interrupted"] = false
-	hex_data.camp_rest_count += 1
-
-	var body := player_token.get_humanoid_core().body
-	
-	var missing_fatigue = body.fatigue
-	var fatigue_rec = float(result.get("fatigue_recovery", 0.0))
-	var fatigue_turns = ceil(missing_fatigue / maxf(0.1, fatigue_rec))
-	
-	var total_missing_limb: float = 0.0
-	for limb in body.limb_hp.keys():
-		total_missing_limb += maxf(0.0, body.get_limb_max(limb) - body.limb_hp[limb])
-	var healing_amount: float = result.get("healing_amount", 0.0)
-	var healing_turns = ceil(total_missing_limb / maxf(0.1, healing_amount)) if healing_amount > 0 else 0
-	
-	var turns_to_rest = maxi(1, mini(8, int(maxf(fatigue_turns, healing_turns))))
-	
-	var turns_rested = 0
-	var total_healed = 0.0
-	var total_fatigue = 0.0
-	
-	for i in range(turns_to_rest):
-		if i > 0:
-			result = MacroInteractionResolver.resolve_camp(
-				_world_state.world_seed,
-				coords,
-				hex_data.camp_rest_count,
-				metrics
-			)
-			if hex_data.region in [
-				GameEnums.MacroRegion.CENTRAL_HUB,
-				GameEnums.MacroRegion.HUB_BORDER,
-			]:
-				result["interrupted"] = false
-				
-		var healed_this_turn = 0.0
-		body.fatigue = maxf(
-			0.0,
-			body.fatigue - float(result.get("fatigue_recovery", 0.0))
-		)
-		total_fatigue += float(result.get("fatigue_recovery", 0.0))
-		
-		for limb in body.limb_hp.keys():
-			if body.limb_hp[limb] > 0.0:
-				var to_heal = minf(
-					body.get_limb_max(limb) - body.limb_hp[limb],
-					healing_amount
-				)
-				body.limb_hp[limb] += to_heal
-				healed_this_turn += to_heal
-		total_healed += healed_this_turn
-		
-		_advance_survival_time(
-			GameTimeRules.CAMP_MINUTES,
-			0.25,
-			coords,
-			float(metrics.get("shelter", 0.0))
-		)
-		
-		hex_data.camp_rest_count += 1
-		turns_rested += 1
-		advance_macro_world(1, true)
-		
-		if result.get("interrupted", false):
-			_world_state.set_hex_record(coords, hex_data.to_state())
-			_world_state.update_player_runtime(
-				player_token.get_humanoid_core().capture_runtime_state().to_dict(),
-				coords
-			)
-			_refresh_world_hud()
-			_spawn_search_intruder(coords)
-			return
-			
-		if not _pending_interaction.is_empty() and _pending_interaction.get("type") == GameEnums.MacroInteractionType.ENTITY_COLLISION:
-			_world_state.set_hex_record(coords, hex_data.to_state())
-			_world_state.update_player_runtime(
-				player_token.get_humanoid_core().capture_runtime_state().to_dict(),
-				coords
-			)
-			_refresh_world_hud()
-			return
-
-	_world_state.set_hex_record(coords, hex_data.to_state())
-	_world_state.update_player_runtime(
-		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
-		coords
-	)
-	_refresh_world_hud()
-
-	_last_macro_event = "Camp rest resolved at HEX %d,%d." % [
-		coords.x,
-		coords.y,
-	]
-	_show_interaction_result(
-		"REST COMPLETE",
-		(
-			"Rested for %d turn(s). Fatigue recovered by %.1f. Camp healing restored %.1f limb health."
-			+ "\nTime: %s"
-		) % [
-			turns_rested,
-			total_fatigue,
-			total_healed,
-			_format_world_time(),
-		]
+		hex_data,
+		base_metrics,
+		_selected_item_ids
 	)
 
 func _spawn_search_intruder(coords: Vector2i) -> void:
-	var occupying := _world_state.get_entity_at(coords)
-	if occupying == null or not _world_state.is_entity_alive(occupying.entity_id):
-		spawn_procedural_enemy(
-			coords,
-			GameEnums.Faction.SCAVENGER_CELL,
-			0
-		)
-	var record := _world_state.get_entity_at(coords)
+	# Search pressure comes from an inhabitant that can physically react to the
+	# emitted signal. Do not conjure a disposable intruder at the work marker.
+	var record: EntityRecord = null
+	var closest_distance := 999
+	for candidate_snapshot in _world_state.get_all_entity_snapshots():
+		if not candidate_snapshot is Dictionary:
+			continue
+		var candidate := EntityRecord.from_dict(candidate_snapshot)
+		if not _world_state.is_entity_alive(candidate.entity_id):
+			continue
+		if candidate.world_status != GameEnums.EntityWorldStatus.HOSTILE:
+			continue
+		var distance := _NpcSimulator.hex_distance(candidate.coords, coords)
+		if distance <= 3 and distance < closest_distance:
+			record = candidate
+			closest_distance = distance
 	if record == null or not _world_state.is_entity_alive(record.entity_id):
 		_show_interaction_result(
 			"INTERRUPTED",
-			"A hostile was heard nearby, but no encounter could be projected."
+			"The noise carried, but no hostile was close enough to reach you yet."
 		)
 		return
 	_pending_interaction = {
@@ -3845,66 +3731,7 @@ func _request_pending_combat(
 
 
 func _build_combat_encounter_record(request: Dictionary) -> CombatEncounterRecord:
-	var coords: Vector2i = request.get("coords", Vector2i.ZERO)
-	if world_generator == null or not world_generator.is_in_zone_bounds(coords):
-		return null
-	var center := world_generator.get_hex_at(coords)
-	if center == null:
-		return null
-	var encounter := CombatEncounterRecord.new()
-	encounter.encounter_id = "%s:%s:%d" % [
-		str(_world_state.world_seed),
-		str(coords),
-		int(_world_state.world_time_minutes),
-	]
-	encounter.source_coords = coords
-	encounter.approach_from = request.get("approach_from", coords)
-	encounter.initiator_id = str(request.get("initiator_id", "player"))
-	encounter.context = int(request.get("context", GameEnums.EncounterContext.NEUTRAL_MEET))
-	encounter.ambush_position = int(request.get("ambush_position", GameEnums.AmbushPosition.STANDARD))
-	encounter.world_seed = str(_world_state.world_seed)
-	encounter.world_time = _world_state.get_world_time_snapshot()
-	encounter.center_hex = center.to_state()
-	for direction in HexCoordUtils.AXIAL_DIRECTIONS:
-		var neighbor_coords: Vector2i = coords + direction
-		var neighbor_record: HexRecord = null
-		if world_generator.is_in_zone_bounds(neighbor_coords):
-			neighbor_record = world_generator.get_hex_at(neighbor_coords).to_state()
-		encounter.neighbor_hexes.append(neighbor_record)
-	for trap in center.camp_traps:
-		if not trap is Dictionary:
-			continue
-		var trap_record: Dictionary = trap.duplicate(true)
-		trap_record["id"] = str(trap.get("item_id", "trap_makeshift"))
-		trap_record["instance_id"] = str(trap.get("instance_id", ""))
-		trap_record["armed"] = true
-		trap_record["damage"] = float(trap.get("trap_damage", 2.5))
-		trap_record["owner_side"] = "player"
-		var combat_topology := CombatTopologyProfile.load_profile(encounter.topology_id)
-		trap_record["sector"] = Vector2i(
-			clampi(int(trap.get("sector_x", 1)), 0, combat_topology.columns - 1),
-			clampi(int(trap.get("sector_y", 0)), 0, combat_topology.rows - 1)
-		)
-		encounter.traps.append(trap_record)
-	var encounter_ground_items: Array[Dictionary] = []
-	for ground_item in _world_state.get_ground_items(coords):
-		if ground_item is Dictionary:
-			encounter_ground_items.append(ground_item.duplicate(true))
-	encounter.ground_items = encounter_ground_items
-	var decorations: Array = []
-	if world_generator.has_method("get_decorations_at"):
-		decorations = world_generator.get_decorations_at(coords)
-	var catalog: MacroTileCatalog = map_visualizer.tile_catalog if map_visualizer else null
-	encounter.presentation = _HexPresentation.build(
-		center,
-		catalog,
-		decorations,
-		encounter.world_seed,
-		coords,
-		{},
-		encounter.ground_items
-	)
-	return encounter
+	return _combat_encounter_service.build(request)
 
 func _get_loot_profile(hex_data: MacroHexData) -> Dictionary:
 	var profile_id := WorldRules.get_loot_profile_id(
@@ -3922,9 +3749,9 @@ func _get_camp_access(
 	hex_data: MacroHexData
 ) -> Dictionary:
 	var hostile_present := false
-	var entity_record := _world_state.get_entity_at(coords)
-	if entity_record != null:
-		var entity_id: String = entity_record.entity_id
+	var entity_snapshot := _world_state.get_entity_snapshot_at(coords)
+	if not entity_snapshot.is_empty():
+		var entity_id := str(entity_snapshot.get("entity_id", ""))
 		hostile_present = (
 			_world_state.is_entity_alive(entity_id)
 			and _world_state.is_entity_hostile(entity_id)
@@ -4076,7 +3903,12 @@ func _on_enemy_entity_hovered(entity_id: String, _coords: Vector2i) -> void:
 		return
 	if macro_hud.get_exploration_stage() != null and macro_hud.get_exploration_stage().is_open():
 		return
-	var record := _world_state.get_entity(entity_id) if _world_state else null
+	var record_snapshot := _world_state.get_entity_snapshot(entity_id) if _world_state else {}
+	var record := (
+		EntityRecord.from_dict(record_snapshot)
+		if not record_snapshot.is_empty()
+		else null
+	)
 	if record == null:
 		return
 	macro_hud.show_entity_inspect(
@@ -4130,12 +3962,13 @@ func retreat_player_from_combat(
 		]
 		_refresh_world_hud()
 		return false
+	if not _pending_player_step.is_empty():
+		_last_macro_event = "Cannot retreat while another movement is still resolving."
+		_refresh_world_hud()
+		return false
 
-	var occupying_record := _world_state.get_entity_at(retreat_coords)
-	if (
-		occupying_record != null
-		and _world_state.is_entity_alive(occupying_record.entity_id)
-	):
+	var occupying_id := _world_state.get_entity_id_at(retreat_coords)
+	if not occupying_id.is_empty() and _world_state.is_entity_alive(occupying_id):
 		_last_macro_event = "Escape route occupied at HEX %d,%d." % [
 			retreat_coords.x,
 			retreat_coords.y,
@@ -4143,18 +3976,18 @@ func retreat_player_from_combat(
 		_refresh_world_hud()
 		return false
 
-	player_token.walk_to_hex(
+	_select_hex_for_hud(retreat_coords)
+	var movement_id := player_token.walk_to_hex(
 		retreat_coords,
 		map_visualizer.map_to_local(retreat_coords)
 	)
-	_select_hex_for_hud(retreat_coords)
-	_world_state.update_player_runtime(
-		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
-		retreat_coords
-	)
-	_mark_hex_explored(retreat_coords, retreat_hex)
-	_refresh_map_visuals(retreat_coords, false)
-	refresh_proximity(retreat_coords)
+	_pending_player_step = {
+		"kind": "retreat",
+		"movement_id": movement_id,
+		"from": current_coords,
+		"to": retreat_coords,
+		"started_minute": _world_state.world_time_minutes,
+	}
 	_last_macro_event = "Escaped combat; fell back to HEX %d,%d." % [
 		retreat_coords.x,
 		retreat_coords.y,
@@ -4173,16 +4006,7 @@ func _advance_npc_macro_turn(allow_during_interaction: bool = false) -> bool:
 		return false
 	_macro_turn_index += 1
 	var player_coords := player_token.current_hex_coords
-	_macro_log(
-		"NPC macro turn %d begins (player @%s, %d total records)."
-		% [
-			_macro_turn_index,
-			str(player_coords),
-			_world_state.get_all_entity_records().size(),
-		]
-	)
-	var plan := _NpcSimulator.plan_macro_turn(
-		_world_state.get_all_entity_records(),
+	var turn_result := _npc_turn_service.advance_turn(
 		player_coords,
 		_world_state.world_seed,
 		_macro_turn_index,
@@ -4190,21 +4014,26 @@ func _advance_npc_macro_turn(allow_during_interaction: bool = false) -> bool:
 		npc_wander_chance,
 		npc_pursuit_radius,
 		craven_pursuit_radius,
-		Callable(self, "_npc_get_hex_at"),
-		Callable(self, "_npc_has_ground_items"),
-		Callable(self, "_npc_get_occupying_entity_id"),
+		{
+			"get_hex_at": Callable(self, "_npc_get_hex_at"),
+			"has_ground_items": Callable(self, "_npc_has_ground_items"),
+			"get_occupying_entity_id": Callable(self, "_npc_get_occupying_entity_id"),
+			"move_record": Callable(self, "_move_npc_record"),
+			"collect_ground": Callable(self, "_npc_try_collect_ground"),
+			"try_work": Callable(self, "_npc_try_work"),
+			"refresh_proximity": Callable(self, "refresh_proximity"),
+		}
 	)
-	var moved_count := 0
-	for move in plan.get("moves", []):
-		var record := _world_state.get_entity(str(move.get("entity_id", "")))
-		if record == null:
-			continue
-		if _move_npc_record(record, move.get("to", record.coords)):
-			moved_count += 1
-			_npc_try_collect_ground(record)
-
-	refresh_proximity(player_coords)
-	var collision: Dictionary = plan.get("collision", {})
+	_macro_log(
+		"NPC macro turn %d begins (player @%s, %d total records)."
+		% [
+			_macro_turn_index,
+			str(player_coords),
+			int(turn_result.get("planning_record_count", 0)),
+		]
+	)
+	var moved_count := int(turn_result.get("moved_count", 0))
+	var collision: Dictionary = turn_result.get("collision", {})
 	if not collision.is_empty():
 		_last_macro_event = "A hostile closes on your hex."
 		_macro_log("NPC macro turn %d ended in a collision." % _macro_turn_index)
@@ -4250,63 +4079,63 @@ func _ensure_npc_purpose(record: EntityRecord) -> String:
 
 
 func _notify_npcs_of_noise(coords: Vector2i, event_id: String) -> void:
-	for record_value in _world_state.get_all_entity_records():
-		var record := record_value as EntityRecord
-		if record == null or record.life_state != GameEnums.EntityLifeState.ALIVE:
-			continue
-		var role := _NpcSimulator.role_descriptor(record)
-		if not bool(role.get("investigates_noise", false)):
-			continue
-		if _NpcSimulator.hex_distance(record.coords, coords) > int(role.get("detection_radius", 5)):
-			continue
-		_NpcSimulator.remember_player_event(
-			record,
-			event_id,
-			_macro_turn_index,
-			coords,
-			0.0,
-			1.0 if record.world_status == GameEnums.EntityWorldStatus.HOSTILE else 0.25
-		)
-		record.runtime["macro_target_coords"] = coords
-		if record.world_status == GameEnums.EntityWorldStatus.HOSTILE:
-			record.runtime["macro_purpose"] = GameEnums.NPC_PURPOSE_HUNT
-			record.runtime["macro_purpose_label"] = "Investigate noise"
-		else:
-			record.runtime["macro_purpose"] = GameEnums.NPC_PURPOSE_PATROL
-			record.runtime["macro_purpose_label"] = "Check noise"
+	_npc_perception_service.emit_noise(
+		_world_state,
+		world_generator,
+		coords,
+		event_id,
+		_macro_turn_index
+	)
+
+
+func _notify_npcs_of_signal(signal_record: WorldSignalRecord) -> void:
+	_npc_perception_service.notify_signal(
+		_world_state,
+		world_generator,
+		signal_record,
+		_macro_turn_index
+	)
 
 
 func _npc_try_collect_ground(record: EntityRecord) -> void:
-	var role := _NpcSimulator.role_descriptor(record)
-	if not bool(role.get("can_scavenge", false)):
-		return
-	for item_state_value in _world_state.get_ground_items(record.coords):
-		if not item_state_value is Dictionary:
-			continue
-		var item_state: Dictionary = item_state_value
-		var definition: Dictionary = item_state.get("definition", {})
-		var tags: Array = definition.get("tags", [])
-		if tags.has("quest") or tags.has("relic"):
-			continue
-		var instance_id := str(item_state.get("instance_id", ""))
-		var taken := _world_state.take_ground_item(record.coords, instance_id)
-		if taken.is_empty():
-			continue
-		var salvage_inventory: Array = record.runtime.get("salvage_inventory", [])
-		salvage_inventory.append(taken)
-		record.runtime["salvage_inventory"] = salvage_inventory
-		record.runtime["macro_purpose_label"] = "Carrying salvage"
-		break
+	_npc_runtime_service.collect_ground_items(
+		_world_state,
+		record,
+		Callable(self, "_build_npc_pickup_receipt"),
+		Callable(self, "_commit_world_action_receipt"),
+	)
+
+
+func _build_npc_pickup_receipt(
+	record: EntityRecord,
+	instance_id: String
+) -> WorldActionReceipt:
+	if record == null:
+		return null
+	var pickup_request := WorldActionRequest.new()
+	pickup_request.actor_id = record.entity_id
+	pickup_request.target_id = instance_id
+	pickup_request.target_coords = record.coords
+	pickup_request.verb_id = WorldActionResolver.VERB_PICK_UP
+	pickup_request.payload["world_time_minutes"] = _world_state.world_time_minutes
+	return _world_action_coordinator.resolve_direct_action(
+		pickup_request,
+		_time_rules_service.action_minutes("action"),
+		0.05,
+		0.0,
+		"%s picked up carried salvage." % record.entity_id
+	)
 
 
 func _initialize_npc_runtime(record: EntityRecord) -> void:
-	_NpcSimulator.initialize_npc_runtime(
+	_npc_runtime_service.initialize_runtime(
+		_world_state,
 		record,
-		_world_state.world_seed,
 		_macro_turn_index,
 		player_token.current_hex_coords,
+		Callable(self, "_materialize_npc_loadout"),
 		Callable(self, "_npc_get_hex_at"),
-		Callable(self, "_npc_has_ground_items"),
+		Callable(self, "_npc_has_ground_items")
 	)
 
 func _move_npc_record(
@@ -4316,6 +4145,30 @@ func _move_npc_record(
 	var old_coords := record.coords
 	if not _world_state.move_entity(record.entity_id, target_coords):
 		return false
+	# NPC travel is the same committed action as player travel. The token can
+	# animate after this point, but the actor's location and elapsed time have a
+	# single authoritative receipt boundary.
+	var target_hex := world_generator.get_hex_at(target_coords)
+	var move_request := WorldActionRequest.new()
+	move_request.actor_id = record.entity_id
+	move_request.target_id = "hex:%s" % str(target_coords)
+	move_request.target_coords = target_coords
+	move_request.verb_id = "travel"
+	move_request.payload["world_time_minutes"] = _world_state.world_time_minutes
+	var move_receipt := _world_action_coordinator.resolve_direct_action(
+		move_request,
+		_time_rules_service.move_minutes_for_hex(target_hex),
+		_time_rules_service.exertion_for_hex(target_hex),
+		0.0,
+		"NPC arrived at HEX %d,%d." % [target_coords.x, target_coords.y]
+	)
+	_commit_world_action_receipt(
+		move_receipt,
+		target_coords,
+		null,
+		record.entity_id
+	)
+	_emit_movement_trace(record.entity_id, old_coords, target_coords)
 	var token: MacroEnemy = active_enemies.get(old_coords, null)
 	if token != null:
 		active_enemies.erase(old_coords)
@@ -4333,9 +4186,11 @@ func _move_npc_record(
 	return true
 
 func _ensure_encounter_records(center_coords: Vector2i) -> void:
-	for outcome in _NpcSimulator.plan_encounter_refresh(
+	_npc_runtime_service.refresh_encounters(
+		_world_state,
+		world_generator,
+		mob_spawner,
 		center_coords,
-		_world_state.world_seed,
 		generation_radius,
 		max_new_encounters_per_refresh,
 		safe_start_radius,
@@ -4343,37 +4198,26 @@ func _ensure_encounter_records(center_coords: Vector2i) -> void:
 		fog_gated_spawning,
 		Callable(self, "_is_hex_visible"),
 		Callable(self, "_npc_get_hex_at"),
-	):
-		var coords: Vector2i = outcome.get("coords", Vector2i.ZERO)
-		var hex_data := world_generator.get_hex_at(coords)
-		if bool(outcome.get("mark_evaluated", false)):
-			hex_data.encounter_evaluated = true
-		var spawn: Variant = outcome.get("spawn")
-		if spawn is Dictionary and not spawn.is_empty():
-			var spawn_info: Dictionary = spawn
-			var faction: GameEnums.Faction = spawn_info.get(
-				"faction",
-				GameEnums.Faction.SCAVENGER_CELL
-			)
-			var record := mob_spawner.generate_mob_record(
-				coords,
-				faction,
-				int(spawn_info.get("difficulty", 0)),
-				str(spawn_info.get("deterministic_key", ""))
-			)
-			_initialize_npc_runtime(record)
-			var entity_id := _world_state.register_entity(record)
-			hex_data.encounter_entity_id = entity_id
-			_macro_log(
-				"Seeded encounter %s (%s) @%s [chance %.3f, out-of-sight fog]."
-				% [
-					entity_id,
-					GameEnums.Faction.keys()[faction],
-					str(coords),
-					float(spawn_info.get("spawn_chance", 0.0)),
-				]
-			)
-		_world_state.set_hex_record(coords, hex_data.to_state())
+		Callable(self, "_initialize_npc_runtime"),
+		Callable(self, "_log_seeded_encounter"),
+	)
+
+
+func _log_seeded_encounter(
+	entity_id: String,
+	faction: GameEnums.Faction,
+	coords: Vector2i,
+	spawn_chance: float
+) -> void:
+	_macro_log(
+		"Seeded encounter %s (%s) @%s [chance %.3f, out-of-sight fog]."
+		% [
+			entity_id,
+			GameEnums.Faction.keys()[faction],
+			str(coords),
+			spawn_chance,
+		]
+	)
 
 
 func _coords_in_radius(center_coords: Vector2i, radius: int) -> Array[Vector2i]:

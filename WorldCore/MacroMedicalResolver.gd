@@ -6,7 +6,7 @@ static func resolve_apply_to_limb(
 	instance_id: String,
 	limb_region: int
 ) -> Dictionary:
-	var result := {"success": false, "message": ""}
+	var result := {"success": false, "attempted": false, "message": ""}
 	if player_core == null:
 		result["message"] = "No patient signal."
 		return result
@@ -20,6 +20,7 @@ static func resolve_apply_to_limb(
 	if not _can_apply_to_limb(item, player_core.body, limb_region):
 		result["message"] = "Cannot apply item to that limb."
 		return result
+	result["attempted"] = true
 	result["success"] = player_core.apply_consumable_to_limb(item, limb_region)
 	if not result["success"]:
 		result["message"] = "Treatment failed."

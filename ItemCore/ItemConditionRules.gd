@@ -2,6 +2,9 @@ extends RefCounted
 class_name ItemConditionRules
 
 ## Combat-independent item wear and fault resolver shared by every scheduler.
+const DEFAULT_PROFILE: ItemConditionProfile = preload(
+	"res://ItemCore/default_item_condition_profile.tres"
+)
 const EVENT_FIREARM := "firearm"
 const EVENT_MELEE := "melee"
 const EVENT_ARMOR := "armor"
@@ -31,28 +34,37 @@ const GRADE_WEAR_MULTIPLIER := {
 }
 
 static func condition_band(condition: float) -> String:
-	if condition <= 0.0:
-		return CONDITION_BROKEN
-	if condition < 3.0:
-		return CONDITION_CRITICAL
-	if condition < 6.0:
-		return CONDITION_DAMAGED
-	if condition < 9.0:
-		return CONDITION_WORN
-	return CONDITION_FINE
+	return DEFAULT_PROFILE.band_for_condition(condition)
 
 static func fault_chance(condition: float) -> float:
-	match condition_band(condition):
-		CONDITION_WORN:
-			return 1.0 / 24.0
-		CONDITION_DAMAGED:
-			return 1.0 / 12.0
-		CONDITION_CRITICAL:
-			return 1.0 / 4.0
-	return 0.0
+	return float(DEFAULT_PROFILE.fault_chances.get(condition_band(condition), 0.0))
 
 static func grade_wear_multiplier(grade: GameEnums.ItemGrade) -> float:
-	return float(GRADE_WEAR_MULTIPLIER.get(grade, 1.0))
+	return float(DEFAULT_PROFILE.grade_multipliers.get(int(grade), GRADE_WEAR_MULTIPLIER.get(grade, 1.0)))
+
+
+static func repair_recipe(domain: int) -> Dictionary:
+	return DEFAULT_PROFILE.repair_recipe(domain)
+
+
+static func universal_repair_recipe() -> Dictionary:
+	return DEFAULT_PROFILE.universal_repair_recipe()
+
+
+static func repair_material_units() -> int:
+	return DEFAULT_PROFILE.repair_material_units()
+
+
+static func repair_cap(context: String, universal: bool, unique_field_repair: bool) -> float:
+	return DEFAULT_PROFILE.repair_cap(context, universal, unique_field_repair)
+
+
+static func repair_amount(context: String) -> float:
+	return DEFAULT_PROFILE.repair_amount(context)
+
+
+static func tool_wear_for_method(method_id: String, fallback: float = 0.0) -> float:
+	return DEFAULT_PROFILE.tool_wear_for_method(method_id, fallback)
 
 static func readiness_descriptor(item: ItemData) -> Dictionary:
 	if item == null:
@@ -61,8 +73,6 @@ static func readiness_descriptor(item: ItemData) -> Dictionary:
 		return {"ready": false, "reason": "broken"}
 	if item.is_ranged() and item.is_jammed:
 		return {"ready": false, "reason": "jammed"}
-	if item.is_ranged() and item.needs_cycling:
-		return {"ready": false, "reason": "cycle"}
 	if item.is_ranged() and item.current_magazine <= 0:
 		return {"ready": false, "reason": "empty"}
 	return {"ready": true, "reason": "ready"}
@@ -96,7 +106,10 @@ static func resolve_use(
 
 	var roll := randf() if roll_override < 0.0 else clampf(roll_override, 0.0, 1.0)
 	var faulted := chance > 0.0 and roll < chance
-	var wear := float(EVENT_WEAR.get(event_kind, 0.0))
+	var wear := float(DEFAULT_PROFILE.wear_rates.get(
+		event_kind,
+		EVENT_WEAR.get(event_kind, 0.0)
+	))
 	wear *= grade_wear_multiplier(item.item_grade)
 	item.current_condition = clampf(before - wear, 0.0, GameEnums.SCALE_MAX)
 

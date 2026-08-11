@@ -19,7 +19,13 @@ func _run() -> void:
 	):
 		_fail("RuntimeStateStore did not retain elapsed world minutes.")
 		return
-	if snapshot.get("hour", -1) != 9 or snapshot.get("minute", -1) != 0:
+	var expected_clock := GameTimeRules.clock_snapshot(
+		GameTimeRules.STARTING_WORLD_MINUTES + GameTimeRules.SEARCH_MINUTES
+	)
+	if (
+		int(snapshot.get("hour", -1)) != int(expected_clock.get("hour", -2))
+		or int(snapshot.get("minute", -1)) != int(expected_clock.get("minute", -2))
+	):
 		_fail("World clock snapshot did not translate minutes correctly.")
 		return
 

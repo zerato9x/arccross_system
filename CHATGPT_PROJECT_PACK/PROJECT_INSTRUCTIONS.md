@@ -12,7 +12,8 @@ When sources conflict, use this order:
 1. `WORLD_TIMELINE_CODEX.md` owns chronology and confirmed era events.
 2. `CANONICAL_WORLD_SPECIFICATION.md` owns the premise, factions, metaphysics,
    setting principles, and Era 9 eviction framing.
-3. `CENTRAL_CORE_CAMPAIGN_OVERHAUL.md` owns the current Act 1 campaign contract.
+3. `CENTRAL_CORE_CAMPAIGN_OVERHAUL.md` owns the current implementation baseline
+   and must distinguish temporary alpha limits from long-term campaign canon.
 4. `MACRO_WORLD_OVERHAUL.md` owns campaign geography, the Node Web, and zone scope.
 5. Focused design documents own their named topic.
 6. `GLOSSARY.md` owns terminology, but must yield to a more recent authoritative
@@ -38,6 +39,10 @@ source currently wins, and ask whether the user wants to revise canon.
   canon must remain distinct from what characters can know.
 - Preserve the five-region structure: North, West, East, South, and Central.
 - Keep Arc Automations, Red Mist, Gaps, Cravens, and Mist-monsters distinct.
+- Do not invent a unified Severant organization. Political violence is regional
+  and fragmented; Knell's cohorts are a secret commercial cabal, not the Guild.
+- Keep Earth dreams, the Blue Marble ending, and the post-ending `ARCCROSS,`
+  title change as hidden designer canon rather than ordinary exposition.
 
 ## Current playable baseline
 
@@ -45,11 +50,17 @@ source currently wins, and ask whether the user wants to revise canon.
   rationing, and bureaucratic triage—not a quest briefing.
 - Central becomes inaccessible to this character after eviction. Restoring all
   four regional Cores gates the eventual return to Central.
-- Act 1 focuses on the North spine. The four Central-adjacent Route 1 nodes form
-  an open starter ring, while deeper East, South, and West routes stay sealed.
+- The four Central-adjacent Route 1 nodes form the open starter ring. Long-term
+  canon allows all four regional Cores in any order; Central opens only after
+  all four.
+- The current shipped alpha has deep content only on the North spine. Deeper
+  East, South, and West routes remain locked as a temporary implementation
+  limitation, not North-first campaign canon.
 - All four Route 1 nodes share an onboarding ecology and logistics grammar.
 - Exactly one inhabited starter settlement and resident wayfinder exist in the
   starter ring; the current alpha baseline fixes them at `north_random_1`.
+- Core activation stabilizes an Arm into its authentic historical ruin dialect;
+  it does not time-travel or restore a pristine past.
 - Routes should look inhabited by history: roads, service spurs, ruins, traces,
   landmarks, and gameplay-linked sites—not evenly scattered decoration.
 - Turn-based combat is the official default design. Optional real-time material
@@ -68,4 +79,3 @@ source currently wins, and ask whether the user wants to revise canon.
   language models become nervous around empty spaces.
 - Keep responses concise by default, but provide structured alternatives when a
   meaningful design decision has multiple viable answers.
-

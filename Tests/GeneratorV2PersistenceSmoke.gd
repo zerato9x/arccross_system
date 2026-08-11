@@ -46,8 +46,8 @@ func _run() -> void:
 	for trace in restored_trace_hex.trace_records:
 		if str(trace.get("trace_id", "")) == "temporary_weather_mark":
 			return _fail("Expired trace survived the enter-node checkpoint.")
-	if RuntimeStateStore.SAVE_VERSION != 8 or int(state.run_flags.get("world_generation_version", 0)) != 2:
-		return _fail("New-run versioning was not reset to Generator V2.")
+	if RuntimeStateStore.SAVE_VERSION != 12 or int(state.run_flags.get("world_generation_version", 0)) != 3:
+		return _fail("Run state was not migrated to the systemic Generator V3 contract.")
 	var save_path := ProjectSettings.globalize_path(
 		"res://.godot/test-logs/generator_v2_persistence_save.json"
 	)

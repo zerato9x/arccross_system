@@ -65,6 +65,11 @@ static func generate_web(seed_value: String, meta_flags: Dictionary = {}) -> Mac
 		if arm != null:
 			_build_arm(graph, arm, definition.graph_spacing, meta_flags)
 
+	# The North Route 2 shelter is a permanent physical branch, not a quest
+	# reward. It is always reachable from the seeded North Route 2 network;
+	# shelter services and occupancy are resolved by the local world simulation.
+	_add_north_r2_shelter(graph, definition.graph_spacing)
+
 	if definition.open_inner_ring:
 		_add_bidirectional(graph, "north_random_1", "east_random_1",
 			GameEnums.MacroTravelDirection.SOUTHEAST, GameEnums.MacroTravelDirection.NORTHWEST)
@@ -111,13 +116,12 @@ static func _build_arm(
 			tier,
 			zone_profile_id
 		)
-		node.unlocked = tier <= arm.initial_open_depth
-		if (
-			arm.prefix == "north"
-			and tier == 2
-			and bool(meta_flags.get("north_relay_restored", false))
-		):
-			node.unlocked = true
+		# Route 1 arms are open starts. North Route 2 is a physical destination,
+		# not a private objective permission check; later tiers may still use their
+		# authored gateway state.
+		node.unlocked = tier <= arm.initial_open_depth or (
+			arm.prefix == "north" and tier == 2
+		)
 		node.discovered = true
 		node.details_revealed = tier == 1
 		graph.add_node(node)
@@ -131,6 +135,7 @@ static func _build_arm(
 		previous_id = node_id
 		if arm.author_interior_clusters and tier in [2, 3]:
 			_build_interior_cluster(graph, arm, tier, node, graph.seed_value)
+
 
 	var gateway_id := "%s_gateway" % arm.prefix
 	var gateway_flag := "gateway_%s_unsealed" % arm.prefix
@@ -171,6 +176,33 @@ static func _build_arm(
 	graph.add_node(core)
 	_add_bidirectional(graph, gateway_id, core_id, arm.outward_direction,
 		arm.inward_direction, gateway_flag)
+
+
+static func _add_north_r2_shelter(graph: MacroMapGraph, spacing: int) -> void:
+	if graph.has_node("north_r2_shelter"):
+		return
+	var shelter := _def(
+		"north_r2_shelter",
+		"North Route 2 Shelter",
+		Vector2i(-spacing, spacing * 2),
+		GameEnums.MacroNodeType.SPECIAL,
+		GameEnums.MacroNodeRole.META_BRANCH,
+		GameEnums.MacroNodePersistence.PERMANENT_META,
+		GameEnums.MacroArmDirection.NORTH,
+		2,
+		"north_r2_shelter"
+	)
+	shelter.unlocked = true
+	shelter.discovered = true
+	shelter.details_revealed = true
+	graph.add_node(shelter)
+	_add_bidirectional(
+		graph,
+		"north_random_2",
+		"north_r2_shelter",
+		GameEnums.MacroTravelDirection.NORTHWEST,
+		GameEnums.MacroTravelDirection.SOUTHEAST
+	)
 
 
 static func _build_interior_cluster(

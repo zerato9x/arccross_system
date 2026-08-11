@@ -6,7 +6,7 @@
 [sub_resource type="Resource" id="North"]
 script = ExtResource("2_profile")
 node_id = "north_random_1"
-spawn_entries = [{"count": 2, "faction": 0, "placement": "search_near", "role_id": "salvager", "template_prefix": "north_road_salvager", "world_status": 1}, {"count": 1, "faction": 1, "placement": "search_far", "role_id": "raider", "template_prefix": "north_road_raider", "world_status": 0}, {"count": 1, "faction": 0, "placement": "poi_neighbor", "role_id": "sentry", "template_prefix": "north_relay_sentry", "world_status": 1}]
+spawn_entries = [{"count": 2, "faction": 0, "placement": "search_near", "role_id": "salvager", "template_prefix": "north_rubble_scavenger", "world_status": 1}, {"count": 1, "faction": 1, "placement": "search_far", "role_id": "raider", "template_prefix": "north_road_raider", "world_status": 0}, {"count": 1, "faction": 0, "placement": "search_far", "role_id": "salvager", "template_prefix": "north_fringe_scavenger", "world_status": 1}]
 
 [sub_resource type="Resource" id="East"]
 script = ExtResource("2_profile")

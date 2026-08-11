@@ -37,5 +37,5 @@ search_sneak_bonus = 0.0
 camp_shelter_bonus = 0.0
 camp_alertness_bonus = 0.0
 consumable_potency = 0.0
-capacity_bonus = 2
+capacity_bonus = 4
 equipped_sprite_paths = Array[String](["res://Asset/Innawoods_Asset/Equipments/Chest/equip_webbing_service.png", "res://Asset/Innawoods_Asset/Equipments/Chest/equip_webbing_service_2.png"])

@@ -1,3 +1,4 @@
+@tool
 extends Resource
 class_name CombatTopologyProfile
 
@@ -6,13 +7,15 @@ enum MovementPolicy {
 	LINEAR_NO_PASS,
 }
 
-@export var topology_id: String = "duel_12x1"
-@export_range(1, 32) var columns: int = 12
-@export_range(1, 32) var rows: int = 1
-@export var movement_policy: MovementPolicy = MovementPolicy.LINEAR_NO_PASS
-@export var player_deployment: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
-@export var enemy_deployment: Array[Vector2i] = [Vector2i(11, 0), Vector2i(10, 0), Vector2i(9, 0)]
-@export var presentation_style: String = "duel_lane"
+## Canonical production topology. Legacy duel resources remain loadable for
+## old Lab fixtures, but no newly-authored encounter should default to them.
+@export var topology_id: String = "squad_7x5"
+@export_range(1, 32) var columns: int = 7
+@export_range(1, 32) var rows: int = 5
+@export var movement_policy: MovementPolicy = MovementPolicy.ORTHOGONAL
+@export var player_deployment: Array[Vector2i] = [Vector2i(0, 2), Vector2i(0, 1), Vector2i(0, 3), Vector2i(1, 2)]
+@export var enemy_deployment: Array[Vector2i] = [Vector2i(6, 2), Vector2i(6, 1), Vector2i(6, 3), Vector2i(5, 2)]
+@export var presentation_style: String = "tactical_grid"
 
 
 func sector_count() -> int:
@@ -29,12 +32,3 @@ func index_for(coords: Vector2i) -> int:
 
 func coords_for(index: int) -> Vector2i:
 	return Vector2i(index % columns, index / columns)
-
-
-static func load_profile(requested_id: String) -> CombatTopologyProfile:
-	var profile_id := requested_id if not requested_id.is_empty() else "duel_12x1"
-	var path := "res://CombatCore/Tactical/Topologies/%s.tres" % profile_id
-	if not ResourceLoader.exists(path):
-		push_warning("Unknown combat topology '%s'; using duel_12x1." % profile_id)
-		path = "res://CombatCore/Tactical/Topologies/duel_12x1.tres"
-	return load(path) as CombatTopologyProfile

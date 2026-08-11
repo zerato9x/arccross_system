@@ -206,8 +206,8 @@ collar — and called it freedom.
 
 **Theme:** The collar becomes an org chart; Core heat becomes industry.  
 **Begins:** Handle “liberation” order; Guild favor politics.  
-**Ends:** Northern Core blast; North terraformed; mountains rise; Warden
-founder entombed in crystal.
+**Ends:** Northern Core catastrophe; the Passing is deliberately collapsed;
+North is permanently cut off.
 
 ### Bureaucracy
 
@@ -216,7 +216,8 @@ founder entombed in crystal.
 - **Handler Units** appear as offices, not secret labs.
 - First full Arcborn exploitation system:
   - **West:** Arcborn as fodder for **Man-Eater Mountain**
-  - **East:** Arcborn as slavery under Handle
+  - **East:** House-controlled Arcborn labor, service, prestige, and lethal
+    entertainment under Handle authority
   - **South:** licenses control via Handle + logistics
 
 ### Tech
@@ -229,6 +230,9 @@ founder entombed in crystal.
 
 - Tribal, relative harmony.
 - Region still **temperate** — not Crystal Valley, not arctic yet.
+- **Orin Vey**, a human prison warden and early Handler at a western Arcborn
+  prison, is remembered as unusually empathetic toward inmates while still
+  participating in the Handle system.
 
 ### Catalyst
 
@@ -243,53 +247,70 @@ founder entombed in crystal.
 
 ### End
 
-- Central Army marches on the Northern Core.
+- The Final March against King Baric conscripts Vey as the Handler commanding
+  an Arcborn unit.
+- Central and coalition armies march on the Northern Core.
 - Baric and elite Arcborn attempt to focus Northern Core power into a blast
   against Central. It backfires.
-- A Central Army lieutenant Arcborn — later **founder of the Wardens** —
-  interrupts the focus and **touches the Core** during detonation.
-- Huge blast wipes Baric’s army and the Central Army.
-- Blast **terraforms the North** into later arctic character.
-- **Mountain ranges** rise that wall the North off from the rest.
-- Founder is the **sole survivor**, **encased in a crystal tomb**.
+- Armies and generals on both sides are largely annihilated.
+- A storm expands outward from the destroyed Core and **terraforms the North**
+  into its later arctic character.
+- Central deliberately blasts and collapses the mountain **Passing** to prevent
+  the disaster spreading south. North is cut off.
+- Survivors include old Northerners, Baricans, coalition soldiers, humans, and
+  Arcborn. Vey gathers them near the destroyed Passing, survives the **Coldest
+  Night**, and organizes routes, shelters, communication, and mutual survival.
+- The Wardens grow from this connective survival function. Vey is their human
+  founder, not a crystal-entombed Arcborn or the catastrophe's sole survivor.
+- Early North persists in scattered survivable **Patches** around the storm's
+  outer edges. The interior becomes **No Man's Land**, a vast perpetual-
+  blizzard zone. Crystal Valley has not yet been discovered.
 
-**Era III sentence:** Someone tries to turn a Core into a gun — and the North
-becomes the crater that proves Cores don’t forgive focus.
+**Era III sentence:** Someone tries to turn a Core into a gun; Vey turns the
+survivors into a lifeline after Central buries the road home.
 
 ---
 
-## ERA IV — Dual Rebuild / Electricity / The Passing Reopens
+## ERA IV — Dual Rebuild / Electricity / Reconnection
 
-**Theme:** Funeral quiet, then greed opens the wall.  
+**Theme:** Two civilizations rebuild on opposite sides of a buried road.
 **Begins:** Aftermath of the northern wipe.  
-**Ends:** The Passing reopens for Arc-snow electricity.
+**Ends:** Reconnection begins; Baricans settle Crystal Valley beyond reliable
+Central reach.
 
 ### North track (isolated)
 
-- Survivors from North and stranded Central remnants rebuild behind the
-  mountains.
-- Crystal-tomb **Warden founder** leads the rebuilding.
-- Seedbed of later Northern / Warden culture. Off-grid; largely unknown south
-  of the wall.
+- Vey and the first Wardens connect scattered Patches around No Man's Land with
+  routes, shelters, communication, and frontier security.
+- Isolated survivors rebuild a northern society from old Northerners, Baricans,
+  coalition soldiers, humans, and Arcborn. It remains largely unknown south of
+  the collapsed Passing.
+- Reconnection attempts trigger political backlash against Central and Guild
+  expansion.
+- The **Barican movement** forms from Northerners who adopt late King Baric as
+  a symbol of sovereignty. Its doctrine rejects imposed Handle authority and
+  later centers the **Free Mark**.
+- Near the end of the era, Baricans cross No Man's Land in a near-suicidal
+  migration and discover and settle **Crystal Valley**.
 
 ### South-of-wall track
 
 - Guild recalculates hard: a Core can **explode**; Arcborn can **amplify**
   that power. Technology accelerates.
-- Relatively peaceful — mostly because most fighting-age people died in the
-  northern war. Manpower exhaustion, not virtue.
-- Pockets of rebellion; mostly rebuilding.
-- **Electricity** first appears at civilizational scale.
+- Reconstruction, **electricity**, and Merchant Guild expansion proceed across
+  the four south-of-wall Arms.
+- Pockets of rebellion persist, but exhaustion limits another general war.
 
 ### End
 
-- **The Passing** (way to the North) **reopens**.
-- Motive: northern snow is ridden with **Arc-filled energy** that lets Core
-  systems produce electricity at desired scale.
+- South-of-wall interests begin reconnecting through the destroyed Passing and
+  discover that northern snow carries concentrated Arc energy.
+- Crystal Valley initially remains beyond reliable Central access; reaching it
+  still requires No Man's Land and Warden knowledge.
 - Public language: reconnect / progress. Private language: harvest.
 
-**Era IV sentence:** The quiet after a funeral — until someone realizes the
-graveyard snow runs the lights.
+**Era IV sentence:** Both sides rebuild; the Wardens reconnect the Patches, and
+the Baricans cross the blizzard to found a country the Guild cannot yet reach.
 
 ---
 
@@ -302,24 +323,24 @@ graveyard snow runs the lights.
 **Confirmed events:**
 
 1. Arccross industrialization era. Era IV rebuild becomes a rush.
-2. North becomes the **frontier** — competition of bidding contracts to
-   explore.
+2. Central, Guild, and Wardens progressively build hardened infrastructure
+   through **No Man's Land**, making deep northern travel possible.
 3. Era III blast upheaval further affects the barrier that had protected the
    North from Red Mist; expansion/upheaval reveals thin clues of a previous
    civilization (Primal traces — never cleanly named).
 4. Gold-rush mentality into northern yield (literal and Arc-wealth).
 5. **Gaps** and **Red Mist** begin corrupting the northern vast region.
-6. **Barican Coalition** (named after late King Baric) rules **Crystal
-   Valley** — a deep settlement in the great arctic wasteland that exists as
-   part of this frontier age. Its infrastructure is crucial to extracting
-   Arc-filled snow.
-7. Central tries to seize the land; labels Baricans terrorists; fails —
-   weather + resistance.
-8. Civilization absorbs Warden philosophy into bureaucracy: first **Warden
-   Unit**.
-9. Guild does what it does best: trades, agreements, contracts, secret deals
-   with Baricans; fabricates raids; keeps Central posters and ledgers in
-   different realities.
+6. The **Barican Coalition**, named for late King Baric, rules **Crystal
+   Valley** and remains politically autonomous enough to resist Central while
+   becoming economically entangled with it.
+7. The Merchant Guild avoids conquest. It uses contracts for transit access,
+   caravan safety, extraction rights, conditional recognition, and vague future
+   sovereignty guarantees.
+8. Crystal Valley becomes the major Arc-snow and crystal extraction center.
+   Barican raids and resistance, Guild manipulation, and proxy interests keep
+   frontier peace unstable.
+9. Warden infrastructure becomes the indispensable northern network; Wardens
+   retain navigation and security authority where southern institutions cannot.
 10. **End:** Gaps discovered in **Man-Eater Mountain**. Humanity realizes the
     crisis is not only northern. **Zeta Corps** formed to combat appearing
     **Cravens**.
@@ -332,28 +353,69 @@ filled with bodies.
 
 ## ERA VI — Peak Arccross
 
-**Theme:** Best gear into a leaking world.  
+**Theme:** A prosperous civilization sells control as safety.
 **Begins:** Inheritance of Era V systems pushed to maximum.  
 **Ends:** Delta’s Barican mission “succeeds”; Passing sealed; North lost to
 sight.
 
 ### Peak condition
 
-- Tech pushed to max to deal with northern weather and Gaps appearing
-  everywhere.
-- Peak of Arccross infrastructure and general competence.
+- Peak Arccross is prosperous and broadly stable, with infrastructure and
+  institutional competence at full reach.
 - Standard kit face: **Service Rifle** (Kar98k-class) and sidearm/equipment
   (M1911-class).
 - Institutions at full burn: Warden Units, Zeta, Guild logistics, Core grid;
   Crystal Valley still the awkward northern keystone.
+- **Central** remains shared, no-owner territory governed by a rotating
+  Council/Court that predates Guild dominance. It administers Core power,
+  standards, certification, courts, bureaucracy, and shared infrastructure.
+  People come to Central to work, serve, study, or administer, then return home.
+- Guild influence outlasts Council terms through finance, logistics,
+  contractors, technology, and institutions.
+- **Crux**, Merchant Guild headquarters beside the Great Sea and its barriers,
+  is the Rome of civilization: Great Exchange, finance, logistics, technology,
+  and contracts. Making and circulating value is a near-religious civic ethic.
+- Hundreds of **Master Traders** cooperate in Crux while backstabbing and
+  projecting power through East, West, and North. The Guild is not one political
+  mind.
+- The **Western Coalition** controls Man-Eater minerals, steel, construction
+  inputs, and heavy industry. Its architecture is brutalist, but its prosperity
+  supports strong worker and public amenities.
+- Eastern royal Houses use culture, status, patronage, allegiance, and
+  populations as leverage. Arcborn commonly serve as entertainers, servants,
+  athletes, retainers, workers, and prestige assets; some royal circles stage
+  lethal Arcborn sports. East is not the technical-academy leader.
+- South and the Guild dominate technology, Handler systems, major technical
+  institutions, and logistics. Northern extraction and much Central
+  infrastructure are Guild-linked.
+- Political violence remains fragmented into regional sects and cells. Human
+  armies handle organized human military and terror threats; **SAP does not
+  wage wars on terror**. Southern anti-Arcborn cells may receive covert funding
+  from Knell-aligned Master Traders to manufacture fear and Handler demand.
+- **SAP — Special Arcborn Platoon** is Council-controlled and paired with
+  Handler Units for peacekeeping, rescue, containment, civil protection, and
+  extraordinary Arc incidents across Central/East/West/South. North is a
+  Warden-owned no-go jurisdiction. SAP Arcborn are revered as the shield of
+  mankind, and that prestige normalizes Handle technology; human armies still
+  dominate war through numbers and attrition.
+- The **Xander Program** fields nine five-Arcborn teams: Alpha offense, Beta
+  defense, Charlie support, Delta specialist, Echo recon. 1st/2nd serve Central,
+  3rd/4th East, 5th/6th West, 7th/8th South, and 9th is contingency/later-crisis
+  use. Xander is the poster-child of Handle ideology, not yet mecha.
 - Story pillars: **Warden 17**; **Delta** as era-ending Catalyst.
 
 ### End
 
-- Delta’s mission: **stop deals with the Baricans; deny them legitimacy**
-  (Crystal Valley is the Era V+ Barican Arc-snow keystone).
-- He kind of does that — and in the process releases **huge Gaps** across
-  northern lands; massive **Craven** hordes pour in.
+- Knell, heir to the first Handle lineage and owner of a control-technology
+  empire, treats Barican Free Mark legitimacy as an existential business threat.
+  Other Master Traders are already preparing for a possible post-Handle economy.
+- Knell uses **7th X Delta** to stop Barican legitimacy, not to destroy Crystal
+  Valley. Delta officially exists on public rosters and trading cards under a
+  deliberately generic profile; only Knell knows his erased origin and adaptive,
+  changeable Mark experiment.
+- Delta's operation triggers an unintended cascade: **huge Gaps** tear northern
+  lands and massive **Craven** hordes pour in. This catastrophe is collateral,
+  not Knell's desired outcome.
 - Humanity **seals The Passing again**.
 - Last time the wider world sees the northern land as an open frontier (until
   much later archaeology / player-era exceptions).
@@ -361,8 +423,9 @@ sight.
 **Era VI sentence:** Delta completes the paperwork — and the North answers with
 Gaps; civilization’s last honest look north ends with a closed gate.
 
-**Tech note for later eras:** Era VII stagnates on Era VI peak tools. Era VIII
-Southern “high tech” (carbon weapons) exists but is not widely adopted.
+**Tech note for later eras:** Era VII largely stagnates on Era VI peak tools.
+Era VIII advances narrowly in carbon equipment, barriers, and later Xander/
+mecha evolution without becoming a recovery age.
 
 Character/system detail for Delta, Wardens, Zeta:
 [Canonical World Specification](CANONICAL_WORLD_SPECIFICATION.md) — dates must
@@ -372,7 +435,7 @@ match this Codex.
 
 ## ERA VII — Cold War Stagnation / Civil War / Core Deaths
 
-**Theme:** Same peak tools; politics and war shred the world.  
+**Theme:** Scarcity fractures every alliance; one worker ends two catastrophes.
 **Tech:** Stagnates on Era VI standard (Service Rifle world). No new general
 age. North is behind a sealed Passing.
 
@@ -380,36 +443,51 @@ age. North is behind a sealed Passing.
 
 - Political Arms, Merchant Guild, and sealed-North aftermath coexist under
   rising tension.
-- Academy / Mark / Xander program culture matures in this stagnant peak.
-- Delta’s Era VII arc (after the northern seal): Master Trader killed; own
-  Handler destroyed (survives); Free Mark trajectory; Arcborn rebellion.
-- **Early / mid Era VII:** **Western Core** destroyed; **Man-Eater Mountain**
-  sealed by Delta’s sacrifice redirecting Core detonation.
-- Civil war: Arcborn rebellion escalates; infrastructure neglected; Arc
-  maintenance declines.
-- **End of Era VII:** **Eastern Core** destroyed in the Arcborn–Human war /
-  Red Mist breach / Craven swarms.
+- North Arc-snow access is gone. Energy scarcity destabilizes civilization.
+- Delta returns with Free Mark knowledge and regained personal identity. He
+  initially intends to kill Knell and find a safe way to break Handles, then
+  develops or helps spread safe Handle removal.
+- After confronting his erased past, Delta stops using his Mark to intentionally
+  harm and turns toward liberation and aid. He is not a long-lived revolutionary
+  messiah.
+- **Mid Era VII:** Gap and Craven pressure inside Man-Eater threatens to spill
+  across Arccross. Delta uses his adaptive Mark with the Western Core to focus a
+  massive release successfully, sealing the mountain without extreme continental
+  terraforming. Western Core power fades afterward; Delta dies and remains
+  buried beneath the collapse.
+- The parallel is deliberate: Baric and the Shaman fail to focus the Northern
+  Core in Era III; Delta succeeds with the Western Core in Era VII.
+- After the Western Coalition collapses, fragmented civil wars spread: human
+  against human, Arcborn against human, Arcborn against Arcborn, and faction
+  against faction. Scarcity, refugees, resources, and Handle versus Free Mark
+  politics intersect without forming one clean species war.
+- East subsequently collapses under those wars and Red Mist pressure. Eastern
+  Core power is lost or fades by the end of Era VII.
 
 ---
 
 ## ERA VIII — The Last Empire / Long Decay
 
-**Theme:** One empire starves slowly.  
-**Political:** Merchant Guild / **Southern Core** as final surviving power.
+**Theme:** The last empire buys time and calls the shrinking balance sheet growth.
+**Political:** South/Crux dominates while Southern and Central Cores remain.
 
 **Confirmed framing:**
 
-- No meaningful expansion; resources exhaust; population declines.
-- Arc infrastructure decays; Red Mist expands.
-- South develops a thin “high tech” edge: **carbon** weapons (in-game carbon
-  rifle/pistol ≈ SCAR-H / Glock analogues).
-- These exist; they are **not** widely adopted. Most material culture remains
-  rotting Era VI peak.
-- The empire does not explode. It slowly starves.
-- Civilization shrinks toward **Central** under Mist, extremes, and neglect.
+- Only the **Southern Core** and **Central Core** remain intact through the main
+  decline.
+- South/Crux believes money, technology, efficiency, and superior infrastructure
+  can outrun apocalypse. For a time, advanced barriers and concentrated systems
+  buy decades and years.
+- Narrow high technology advances: carbon-tier equipment, barrier systems, and
+  possible later Xander/mecha evolution. Most material culture remains rotting
+  Era VI peak.
+- Core and barrier loss lets Red Mist advance year by year. Civilization keeps
+  shrinking while Crux becomes an enormous advanced megahub and last empire.
+- Southern defenses eventually fail; Red Mist swallows Crux and South. By Era
+  IX, only Central Core civilization remains.
 
-**Era VIII sentence:** The last empire invents better toys for a funeral and
-forgets to feed the grid.
+**Era VIII sentence:** Crux turns efficiency into faith, buys civilization more
+years, and discovers that apocalypse accepts delayed payment.
 
 ---
 
@@ -426,6 +504,9 @@ forgets to feed the grid.
 - Central houses residual population and the last functioning civil Core seat.
 - Capacity maxed. Through bureaucratic triage, an ordinary resident (**Steve** /
   Catalyst Agent) is **evicted**.
+- Immediately outside Central, displaced people survive in tents, huts, and
+  improvised settlements. Nutrient processing extracts usable matter even from
+  poor or dead soil.
 - Survive → repair infrastructure → settlements return → reconnect logistics →
   restore Arc Core network → recover lost history.
 
@@ -442,6 +523,12 @@ forgets to feed the grid.
 - Arms in Era 9 are not live rival capitals. They are **fragment dialects** —
   wreckage of different centuries coexisting because decay and the Glitch will
   not let one era own the map.
+- Era VIII barrier remnants create fragmented safe-haven bubbles where historical
+  inconsistency is physically embedded.
+- Starting Arms may read as ambiguous generic post-apocalypse. Core activation
+  does not time-travel or restore a pristine past; it stabilizes an Arm into its
+  authentic historical ruin-state and may permanently change barrier, Mist, and
+  presentation state.
 
 ### Meta
 
@@ -449,6 +536,19 @@ forgets to feed the grid.
 - Steve dies. Infrastructure remains. Knowledge accumulates.
 - Long-term realization: civilization was never saved by heroes. It was
   rebuilt by ordinary workers maintaining extraordinary infrastructure.
+- The four regional Cores may be restored in **any order**; Central opens only
+  after all four. Each introduces a major global simulation layer: North =
+  network/logistics, East = people/community/identity, West = industry/
+  fabrication, South = economy/commerce. Pair and triple combinations create
+  supply, migration, trade, profession, organization, production, and larger
+  settlement systems; all four create a civilization-level phase change.
+- Hidden ending canon only: the restored Central system aims a beam toward Earth,
+  reveals the Blue Marble, and approaches a generic figure using the same device
+  category as the real player. Never use a webcam or player likeness.
+- The title begins as **ARCCROSS**. After the ending it becomes **ARCCROSS,**:
+  eight letters for eight historical civilization eras; the comma for Era IX,
+  the game/player transition, and continuation rather than a final period. Do
+  not explain this directly in ordinary player-facing material.
 
 **Eviction / Central lock / Core restore shipping contract:**
 [Canonical World Specification](CANONICAL_WORLD_SPECIFICATION.md) ·
@@ -464,13 +564,13 @@ forgets to feed the grid.
 | Primal | Transcendence; PC refuses, builds Arccross, stays through Mist |
 | I | Central opens; Automations clear paths; North shares Mark; Automations end |
 | II | Council + Guild; assassination war; Handle “liberation”; fear Arcborn |
-| III | Bureaucracy + Converter; Baric refuses; blast terraforms North; crystal Warden |
-| IV | Dual rebuild; electricity; Passing reopens for Arc-snow power |
-| V | Industrial North rush; Baricans/Crystal Valley; Guild secrets; Man-Eater Gaps; Zeta |
-| VI | Peak kit; Warden 17; Delta breaks Barican deals; Passing sealed |
-| VII | Stagnation; West Core / Man-Eater seal; East Core falls |
-| VIII | Southern last empire; rare carbon; slow starve into Central |
-| IX | The Glitch; eviction; repair; past eras fragment into present |
+| III | Baric catastrophe; Passing collapsed; Vey connects survivor Patches |
+| IV | Dual rebuild; Wardens; Barican migration discovers Crystal Valley |
+| V | Hardened northern routes; contract frontier; Man-Eater Gaps; Zeta |
+| VI | Prosperous peak; SAP/Xander ideology; Delta cascade seals North |
+| VII | Scarcity wars; Delta seals Man-Eater and dies; West/East Cores fade |
+| VIII | Southern last empire; narrow high tech; Crux falls; retreat to Central |
+| IX | The Glitch; eviction; four Cores in any order; Central endgame |
 
 ---
 
@@ -480,7 +580,7 @@ forgets to feed the grid.
 | --- | --- |
 | VI | Peak standard — Service Rifle / 1911-class world |
 | VII | Same tools; politics shreds Cores |
-| VIII | Rare Southern carbon high-tech; not mass adopted |
+| VIII | Narrow carbon/barrier advances; later mecha possible; imperial decline |
 | IX | Scavenge peak + rare carbon; Glitch mixes centuries |
 
 ---
@@ -492,8 +592,8 @@ forgets to feed the grid.
 - Full Warden 17 sequence interior
 - Beat-by-beat interior of Delta’s Era VI Barican / Crystal Valley operation
   (outcome locked: Gaps, Cravens, Passing resealed)
-- Northern Core “final death” as a later dated Core-kill, if any, beyond
-  Era III blast + Era VI quarantine
+- Exact identity/title of the Northern Shaman who helps Baric attempt the failed
+  Era III Core focus
 
 Do not fill these in player-facing exposition until a future expansion locks
 them.

@@ -11,7 +11,7 @@ class_name RouteObjectiveDefinition
 @export var completion_event_id: String = ""
 @export var completion_trigger_ids: PackedStringArray = []
 @export var consumes_items: bool = true
-@export_multiline var incomplete_text: String = "Required relics are still missing."
+@export_multiline var incomplete_text: String = "The physical leads or services required for this route are still unresolved."
 @export_multiline var completion_text: String = "The route objective is complete."
 
 

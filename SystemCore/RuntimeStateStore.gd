@@ -14,15 +14,20 @@ signal save_completed(path: String)
 signal load_completed(path: String)
 signal persistence_failed(operation: String, message: String)
 
-const SAVE_VERSION: int = 11
-const WORLD_GENERATION_VERSION: int = 2
+const SAVE_VERSION: int = 12
+const WORLD_GENERATION_VERSION: int = 3
 const DEFAULT_SAVE_PATH: String = "user://arccross_run.json"
 const VARIANT_TYPE_KEY: String = "__arccross_type"
+const _PersistenceCodec := preload("res://SystemCore/RuntimePersistenceCodec.gd")
+const _RecordRepository := preload("res://SystemCore/RuntimeRecordRepository.gd")
+const _NodeSnapshots := preload("res://SystemCore/NodeRuntimeSnapshotRepository.gd")
+const _RunSlots := preload("res://SystemCore/RunSlotRepository.gd")
 
 var world_seed: String = ""
 var world_time_minutes: int = GameTimeRules.STARTING_WORLD_MINUTES
 var player_coords: Vector2i = Vector2i.ZERO
 var player_record: EntityRecord = null
+var player_revision: int = 0
 ## Campaign node-graph state (MacroMapGraph.to_dict()). Empty until a campaign begins.
 var campaign_graph: Dictionary = {}
 var active_node_id: String = ""
@@ -37,21 +42,34 @@ var entity_records: Dictionary = {} # String entity_id -> EntityRecord
 var entity_ids_by_coords: Dictionary = {} # Vector2i -> String entity_id
 var hex_records: Dictionary = {} # Vector2i -> HexRecord
 var ground_item_records: Dictionary = {} # Vector2i -> Array[Dictionary]
+## Shared action/signal state. These records remain neutral and are serialized
+## with the active node snapshot so presentation cannot become authoritative.
+var active_world_actions: Dictionary = {} # action_id -> request/work state
+var world_signal_records: Dictionary = {} # signal_id -> WorldSignalRecord
 
 var _pending_loaded_world: bool = false
 var _pending_new_run_setup: Dictionary = {}
 var _last_persistence_error: String = ""
+var _item_ownership_ledger: RuntimeItemOwnershipLedger
 
 func _ready() -> void:
 	if Engine.is_editor_hint() or OS.get_cmdline_args().has("--script"):
 		return
 	# Start waiting for MainMenu to load/start instead of autoloading.
+	_ensure_item_ownership_ledger()
+
+
+func _ensure_item_ownership_ledger() -> RuntimeItemOwnershipLedger:
+	if _item_ownership_ledger == null:
+		_item_ownership_ledger = RuntimeItemOwnershipLedger.new(self)
+	return _item_ownership_ledger
 
 func begin_new_world(seed_value: String, setup_state: Dictionary = {}) -> void:
 	world_seed = seed_value
 	world_time_minutes = GameTimeRules.STARTING_WORLD_MINUTES
 	player_coords = Vector2i.ZERO
 	player_record = null
+	player_revision = 0
 	campaign_graph = {}
 	active_node_id = ""
 	active_arrival_direction = GameEnums.MacroTravelDirection.SOUTH
@@ -69,6 +87,8 @@ func begin_new_world(seed_value: String, setup_state: Dictionary = {}) -> void:
 	entity_ids_by_coords.clear()
 	hex_records.clear()
 	ground_item_records.clear()
+	active_world_actions.clear()
+	world_signal_records.clear()
 	_pending_loaded_world = false
 
 
@@ -88,12 +108,60 @@ func advance_world_time(elapsed_minutes: int) -> Dictionary:
 	world_time_advanced.emit(previous, world_time_minutes, elapsed)
 	return get_world_time_snapshot()
 
+
+func register_world_signal(signal_record: WorldSignalRecord) -> void:
+	if signal_record == null or signal_record.signal_id.is_empty():
+		return
+	world_signal_records[signal_record.signal_id] = signal_record
+
+
+func reserve_world_action(action_id: String, state: Dictionary) -> bool:
+	## Reservations are the lightweight concurrency boundary for work. A target
+	## can only have one active actor/method until the receipt is committed or
+	## interrupted; planners must re-query after a rejected reservation.
+	if action_id.is_empty() or active_world_actions.has(action_id):
+		return false
+	active_world_actions[action_id] = state.duplicate(true)
+	return true
+
+
+func update_world_action(action_id: String, state: Dictionary) -> void:
+	if action_id.is_empty():
+		return
+	active_world_actions[action_id] = state.duplicate(true)
+
+
+func release_world_action(action_id: String) -> void:
+	if not action_id.is_empty():
+		active_world_actions.erase(action_id)
+
+
+func get_world_action(action_id: String) -> Dictionary:
+	return active_world_actions.get(action_id, {}).duplicate(true)
+
+
+func get_active_world_signals() -> Array[WorldSignalRecord]:
+	var active: Array[WorldSignalRecord] = []
+	for value in world_signal_records.values():
+		var signal_record := value as WorldSignalRecord
+		if signal_record != null and signal_record.is_active(world_time_minutes):
+			active.append(signal_record)
+	return active
+
+
+func prune_world_signals() -> void:
+	for signal_id in world_signal_records.keys():
+		var signal_record := world_signal_records[signal_id] as WorldSignalRecord
+		if signal_record == null or not signal_record.is_active(world_time_minutes):
+			world_signal_records.erase(signal_id)
+
 func get_world_time_snapshot() -> Dictionary:
 	return GameTimeRules.clock_snapshot(world_time_minutes)
 
 func set_player_record(record: Dictionary, coords: Vector2i) -> void:
 	player_record = EntityRecord.from_dict(record)
 	player_coords = coords
+	player_revision = maxi(player_revision, player_record.revision)
 
 func update_player_runtime(runtime_state: Dictionary, coords: Vector2i) -> void:
 	player_coords = coords
@@ -103,6 +171,8 @@ func update_player_runtime(runtime_state: Dictionary, coords: Vector2i) -> void:
 		player_record.kind = GameEnums.RuntimeEntityKind.PLAYER
 		player_record.life_state = GameEnums.EntityLifeState.ALIVE
 	player_record.coords = coords
+	player_record.revision = maxi(player_record.revision + 1, player_revision + 1)
+	player_revision = player_record.revision
 	player_record.runtime = runtime_state.duplicate(true)
 	player_record.life_state = (
 		GameEnums.EntityLifeState.DEAD
@@ -132,9 +202,25 @@ func get_entity(entity_id: String) -> EntityRecord:
 		return null
 	return entity_records[entity_id]
 
+
+## Snapshot-only boundary for extracted services. Legacy callers may still use
+## get_entity(), but new application services must not receive the authority.
+func get_entity_snapshot(entity_id: String) -> Dictionary:
+	var record := get_entity(entity_id)
+	return record.to_dict().duplicate(true) if record != null else {}
+
 func get_entity_at(coords: Vector2i) -> EntityRecord:
 	var entity_id: String = entity_ids_by_coords.get(coords, "")
 	return get_entity(entity_id)
+
+
+func get_entity_snapshot_at(coords: Vector2i) -> Dictionary:
+	var entity_id: String = entity_ids_by_coords.get(coords, "")
+	return get_entity_snapshot(entity_id)
+
+
+func get_entity_id_at(coords: Vector2i) -> String:
+	return str(entity_ids_by_coords.get(coords, ""))
 
 func has_entity_at(coords: Vector2i) -> bool:
 	return entity_ids_by_coords.has(coords)
@@ -144,6 +230,14 @@ func get_all_entity_records() -> Array:
 	for record in entity_records.values():
 		records.append(record)
 	return records
+
+
+func get_all_entity_snapshots() -> Array:
+	var snapshots: Array = []
+	for record_value in entity_records.values():
+		if record_value is EntityRecord:
+			snapshots.append((record_value as EntityRecord).to_dict().duplicate(true))
+	return snapshots
 
 func update_entity_runtime(entity_id: String, runtime_state: Dictionary) -> void:
 	if not entity_records.has(entity_id):
@@ -234,11 +328,43 @@ func get_hex_record(coords: Vector2i) -> HexRecord:
 		return null
 	return hex_records[coords]
 
+
+func get_hex_snapshot(coords: Vector2i) -> Dictionary:
+	var record := get_hex_record(coords)
+	return record.to_dict().duplicate(true) if record != null else {}
+
+
+func get_hex_coordinates() -> Array:
+	return hex_records.keys().duplicate()
+
 func add_ground_items(coords: Vector2i, item_states: Array) -> void:
-	if not ground_item_records.has(coords):
-		ground_item_records[coords] = []
 	for item_state in item_states:
-		ground_item_records[coords].append(item_state.duplicate(true))
+		if not item_state is Dictionary:
+			continue
+		var normalized: Dictionary = (item_state as Dictionary).duplicate(true)
+		var instance_id := str(normalized.get("instance_id", ""))
+		if instance_id.is_empty():
+			continue
+		# Ground insertion is an ownership transfer. Remove stale copies first so
+		# an item cannot exist in rubble, on the ground, and in an actor inventory.
+		_ensure_item_ownership_ledger().remove_item_instance(instance_id)
+		normalized["owner_id"] = ""
+		normalized["physical_location"] = "ground"
+		if not ground_item_records.has(coords):
+			ground_item_records[coords] = []
+		ground_item_records[coords].append(normalized)
+
+
+func find_item_ownership(instance_id: String) -> Dictionary:
+	return _ensure_item_ownership_ledger().find_item_ownership(instance_id)
+
+
+func transfer_item_to_entity(entity_id: String, item_state: Dictionary) -> bool:
+	return _ensure_item_ownership_ledger().transfer_item_to_entity(entity_id, item_state)
+
+
+func _remove_item_instance(instance_id: String) -> void:
+	_ensure_item_ownership_ledger().remove_item_instance(instance_id)
 
 func get_ground_items(coords: Vector2i) -> Array:
 	if not ground_item_records.has(coords):
@@ -264,29 +390,10 @@ func has_ground_items(coords: Vector2i) -> bool:
 	return ground_item_records.has(coords) and ground_item_records[coords].size() > 0
 
 func get_slot_path(slot: int) -> String:
-	return "user://arccross_save_%d.json" % slot
+	return _RunSlots.path_for(slot)
 
 func get_save_metadata(slot: int) -> Dictionary:
-	var path := get_slot_path(slot)
-	if not FileAccess.file_exists(path):
-		return {}
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		return {}
-	var json := JSON.new()
-	var error := json.parse(file.get_as_text())
-	file.close()
-	if error != OK or not json.data is Dictionary:
-		return {}
-	var data: Dictionary = json.data
-	return {
-		"slot": slot,
-		"timestamp": Time.get_datetime_string_from_unix_time(FileAccess.get_modified_time(path)),
-		"world_time_minutes": int(data.get("world_time_minutes", 0)),
-		"world_seed": str(data.get("world_seed", "")),
-		"version": int(data.get("version", -1)),
-		"compatible": int(data.get("version", -1)) == SAVE_VERSION,
-	}
+	return _RunSlots.metadata_for(slot, SAVE_VERSION, WORLD_GENERATION_VERSION)
 
 func save_to_slot(slot: int) -> bool:
 	return save_to_disk(get_slot_path(slot))
@@ -338,10 +445,19 @@ func load_from_disk(path: String = DEFAULT_SAVE_PATH) -> bool:
 		return _fail_persistence("load", "Save root is not a Dictionary.")
 	var file_version := int(decoded.get("version", -1))
 	if file_version != SAVE_VERSION:
+		_backup_incompatible_save(path, file_version)
 		return _fail_persistence(
 			"load",
-			"Unsupported pre-combat-overhaul save version %s. Expected %d; a new run is required."
+			"This run save uses world-system version %s; version %d is required after the pre-combat-overhaul and hex-world migration. A new run is required; permanent meta progression is preserved."
 			% [str(decoded.get("version", "missing")), SAVE_VERSION]
+		)
+	var file_generation := int(decoded.get("world_generation_version", -1))
+	if file_generation != WORLD_GENERATION_VERSION:
+		_backup_incompatible_save(path, file_generation)
+		return _fail_persistence(
+			"load",
+			"This run was generated with world version %s; version %d is required after the pre-combat-overhaul and hex-world migration. A new run is required; permanent meta progression is preserved."
+			% [str(decoded.get("world_generation_version", "missing")), WORLD_GENERATION_VERSION]
 		)
 	if not _restore_save_snapshot(decoded):
 		return false
@@ -378,26 +494,15 @@ func get_last_persistence_error() -> String:
 func capture_node_runtime(node_id: String) -> void:
 	if node_id.is_empty():
 		return
-	var entities: Array = []
-	for entity in entity_records.values():
-		if entity is EntityRecord:
-			entities.append(entity.to_dict())
-	var hexes: Array = []
-	for coords in hex_records.keys():
-		var record: HexRecord = hex_records[coords]
-		if record != null:
-			hexes.append({"coords": coords, "record": record.to_dict()})
-	var ground_items: Array = []
-	for coords in ground_item_records.keys():
-		ground_items.append({
-			"coords": coords,
-			"items": ground_item_records[coords].duplicate(true),
-		})
-	node_runtime_snapshots[node_id] = {
-		"entities": entities,
-		"hexes": hexes,
-		"ground_items": ground_items,
-	}
+	node_runtime_snapshots[node_id] = _NodeSnapshots.capture(
+		entity_records,
+		hex_records,
+		ground_item_records,
+		active_world_actions,
+		world_signal_records,
+		world_time_minutes,
+		player_revision
+	)
 
 
 func has_node_runtime(node_id: String) -> bool:
@@ -408,29 +513,31 @@ func restore_node_runtime(node_id: String) -> bool:
 	if not node_runtime_snapshots.has(node_id):
 		return false
 	var snapshot: Dictionary = node_runtime_snapshots[node_id]
+	player_revision = maxi(player_revision, int(snapshot.get("player_revision", 0)))
 	entity_records.clear()
 	entity_ids_by_coords.clear()
 	hex_records.clear()
 	ground_item_records.clear()
-	for record_data in snapshot.get("entities", []):
-		if record_data is Dictionary:
-			register_entity(EntityRecord.from_dict(record_data))
-	for entry in snapshot.get("hexes", []):
-		if not entry is Dictionary:
-			continue
-		var coords: Variant = entry.get("coords")
-		if coords is Vector2i:
-			var restored_record := HexRecord.from_dict(entry.get("record", {}))
+	active_world_actions.clear()
+	world_signal_records.clear()
+	var restored := _NodeSnapshots.restore_records(snapshot)
+	player_revision = maxi(player_revision, int(restored.get("player_revision", 0)))
+	_RecordRepository.restore_entities(
+		restored.get("entities", []),
+		Callable(self, "register_entity")
+	)
+	hex_records = restored.get("hexes", {})
+	for coords in hex_records.keys():
+		var restored_record := hex_records[coords] as HexRecord
+		if restored_record != null:
 			restored_record.trace_records = _active_trace_records(
 				restored_record.trace_records, world_time_minutes
 			)
-			hex_records[coords] = restored_record
-	for entry in snapshot.get("ground_items", []):
-		if not entry is Dictionary:
-			continue
-		var coords: Variant = entry.get("coords")
-		if coords is Vector2i:
-			ground_item_records[coords] = entry.get("items", []).duplicate(true)
+	ground_item_records = restored.get("ground_items", {})
+	active_world_actions = restored.get("active_world_actions", {})
+	for signal_record in restored.get("world_signals", []):
+		if signal_record is WorldSignalRecord:
+			register_world_signal(signal_record)
 	return true
 
 
@@ -447,28 +554,16 @@ func _active_trace_records(records: Array[Dictionary], current_minute: int) -> A
 # ---------------------------------------------------------
 
 func _capture_save_snapshot() -> Dictionary:
-	var entities: Array = []
-	for entity in entity_records.values():
-		entities.append(entity.to_dict())
-
-	var hexes: Array = []
-	for coords in hex_records.keys():
-		hexes.append({
-			"coords": coords,
-			"record": hex_records[coords].to_dict(),
-		})
-
-	var ground_items: Array = []
-	for coords in ground_item_records.keys():
-		ground_items.append({
-			"coords": coords,
-			"items": ground_item_records[coords].duplicate(true),
-		})
+	var entities: Array = _RecordRepository.capture_entities(entity_records)
+	var hexes: Array = _RecordRepository.capture_hexes(hex_records)
+	var ground_items: Array = _RecordRepository.capture_ground_items(ground_item_records)
 
 	return {
 		"version": SAVE_VERSION,
+		"world_generation_version": WORLD_GENERATION_VERSION,
 		"world_seed": world_seed,
 		"world_time_minutes": world_time_minutes,
+		"player_revision": player_revision,
 		"player_coords": player_coords,
 		"player_record": player_record.to_dict() if player_record else {},
 		"entities": entities,
@@ -479,6 +574,8 @@ func _capture_save_snapshot() -> Dictionary:
 		"active_arrival_direction": active_arrival_direction,
 		"run_flags": run_flags.duplicate(true),
 		"node_runtime_snapshots": node_runtime_snapshots.duplicate(true),
+		"active_world_actions": active_world_actions.duplicate(true),
+		"world_signals": _world_signals_to_dict(),
 	}
 
 func _restore_save_snapshot(snapshot: Dictionary) -> bool:
@@ -495,6 +592,7 @@ func _restore_save_snapshot(snapshot: Dictionary) -> bool:
 		))
 	)
 	player_coords = snapshot.get("player_coords", Vector2i.ZERO)
+	player_revision = maxi(0, int(snapshot.get("player_revision", 0)))
 	campaign_graph = snapshot.get("campaign_graph", {}).duplicate(true)
 	active_node_id = str(snapshot.get("active_node_id", ""))
 	active_arrival_direction = int(snapshot.get(
@@ -507,104 +605,65 @@ func _restore_save_snapshot(snapshot: Dictionary) -> bool:
 
 	var player_data: Dictionary = snapshot.get("player_record", {})
 	player_record = EntityRecord.from_dict(player_data) if not player_data.is_empty() else null
+	if player_record != null:
+		player_revision = maxi(player_revision, player_record.revision)
 
 	entity_records.clear()
 	entity_ids_by_coords.clear()
 	hex_records.clear()
 	ground_item_records.clear()
+	active_world_actions.clear()
+	world_signal_records.clear()
 
-	for record_data in snapshot.get("entities", []):
-		if record_data is Dictionary:
-			register_entity(EntityRecord.from_dict(record_data))
-
-	for entry in snapshot.get("hexes", []):
-		if not entry is Dictionary:
-			continue
-		var coords = entry.get("coords")
-		if coords is Vector2i:
-			hex_records[coords] = HexRecord.from_dict(entry.get("record", {}))
-
-	for entry in snapshot.get("ground_items", []):
-		if not entry is Dictionary:
-			continue
-		var coords = entry.get("coords")
-		if coords is Vector2i:
-			ground_item_records[coords] = entry.get("items", []).duplicate(true)
+	_RecordRepository.restore_entities(
+		snapshot.get("entities", []),
+		Callable(self, "register_entity")
+	)
+	hex_records = _RecordRepository.restore_hexes(snapshot.get("hexes", []))
+	ground_item_records = _RecordRepository.restore_ground_items(
+		snapshot.get("ground_items", [])
+	)
+	active_world_actions = snapshot.get("active_world_actions", {}).duplicate(true)
+	for signal_data in snapshot.get("world_signals", []):
+		if signal_data is Dictionary:
+			register_world_signal(WorldSignalRecord.from_dict(signal_data))
 
 	return true
 
+
+func _world_signals_to_dict() -> Array:
+	var result: Array = []
+	for signal_record in world_signal_records.values():
+		if signal_record is WorldSignalRecord:
+			result.append(signal_record.to_dict())
+	return result
+
 func _encode_variant(value):
-	match typeof(value):
-		TYPE_VECTOR2I:
-			return {
-				VARIANT_TYPE_KEY: "Vector2i",
-				"x": value.x,
-				"y": value.y,
-			}
-		TYPE_VECTOR2:
-			return {
-				VARIANT_TYPE_KEY: "Vector2",
-				"x": value.x,
-				"y": value.y,
-			}
-		TYPE_COLOR:
-			return {
-				VARIANT_TYPE_KEY: "Color",
-				"r": value.r,
-				"g": value.g,
-				"b": value.b,
-				"a": value.a,
-			}
-		TYPE_ARRAY:
-			var encoded_array: Array = []
-			for item in value:
-				encoded_array.append(_encode_variant(item))
-			return encoded_array
-		TYPE_DICTIONARY:
-			var encoded_dictionary: Dictionary = {}
-			for key in value.keys():
-				encoded_dictionary[str(key)] = _encode_variant(value[key])
-			return encoded_dictionary
-		_:
-			return value
+	return _PersistenceCodec.encode_variant(value)
 
 func _decode_variant(value):
-	if value is Array:
-		var decoded_array: Array = []
-		for item in value:
-			decoded_array.append(_decode_variant(item))
-		return decoded_array
-
-	if value is Dictionary:
-		var encoded_type: String = value.get(VARIANT_TYPE_KEY, "")
-		match encoded_type:
-			"Vector2i":
-				return Vector2i(int(value.get("x", 0)), int(value.get("y", 0)))
-			"Vector2":
-				return Vector2(
-					float(value.get("x", 0.0)),
-					float(value.get("y", 0.0))
-				)
-			"Color":
-				return Color(
-					float(value.get("r", 0.0)),
-					float(value.get("g", 0.0)),
-					float(value.get("b", 0.0)),
-					float(value.get("a", 1.0))
-				)
-
-		var decoded_dictionary: Dictionary = {}
-		for key in value.keys():
-			decoded_dictionary[key] = _decode_variant(value[key])
-		return decoded_dictionary
-
-	return value
+	return _PersistenceCodec.decode_variant(value)
 
 func _fail_persistence(operation: String, message: String) -> bool:
 	_last_persistence_error = message
 	push_error("[PERSISTENCE] " + message)
 	persistence_failed.emit(operation, message)
 	return false
+
+
+func _backup_incompatible_save(path: String, old_version: int) -> void:
+	## Keep rejected user saves recoverable without polluting project fixtures.
+	if not path.begins_with("user://") or not FileAccess.file_exists(path):
+		return
+	var absolute_path := ProjectSettings.globalize_path(path)
+	var contents := FileAccess.get_file_as_string(path)
+	if contents.is_empty():
+		return
+	var backup_path := "%s.v%s.bak" % [absolute_path, old_version]
+	var backup := FileAccess.open(backup_path, FileAccess.WRITE)
+	if backup != null:
+		backup.store_string(contents)
+		backup.close()
 
 func _create_entity_id() -> String:
 	return "entity_" + str(ResourceUID.create_id())

@@ -1,5 +1,9 @@
 extends RefCounted
 
+const _Perception := preload("res://WorldCore/WorldPerceptionQuery.gd")
+const _NpcBehaviorState := preload("res://SystemCore/NpcBehaviorState.gd")
+const _NpcBehaviorCatalog := preload("res://SystemCore/NpcBehaviorProfileCatalog.gd")
+
 ## Neutral NPC macro AI, projection scoring, and encounter roll planning.
 ## MacroGameManager applies moves, spawns tokens, and handles collisions.
 
@@ -9,6 +13,7 @@ const HEX_NEIGHBORS := [
 ]
 const AI_SCHEMA_VERSION := 1
 const ROLE_CATALOG_PATH := "res://WorldCore/npc_roles.tres"
+const BEHAVIOR_PROFILE_PATH := "res://WorldCore/npc_behavior_profiles.tres"
 
 
 static func role_descriptor(record: EntityRecord) -> Dictionary:
@@ -19,7 +24,36 @@ static func role_descriptor(record: EntityRecord) -> Dictionary:
 		role_id = _fallback_role_id(record)
 	record.runtime["npc_role_id"] = role_id
 	var catalog := load(ROLE_CATALOG_PATH) as NpcRoleCatalog
-	return catalog.descriptor(role_id) if catalog != null else {}
+	var descriptor := catalog.descriptor(role_id) if catalog != null else {}
+	var behavior_catalog := load(BEHAVIOR_PROFILE_PATH) as NpcBehaviorProfileCatalog
+	var behavior := (
+		behavior_catalog.profile_for_role(role_id)
+		if behavior_catalog != null
+		else null
+	)
+	if behavior != null:
+		descriptor["behavior_profile_id"] = behavior.profile_id
+		descriptor["hunger_threshold"] = behavior.hunger_threshold
+		descriptor["thirst_threshold"] = behavior.thirst_threshold
+		if behavior.pursuit_radius > 0:
+			descriptor["pursuit_radius"] = behavior.pursuit_radius
+		descriptor["work_weights"] = behavior.work_weights.duplicate(true)
+		descriptor["combat_weights"] = behavior.combat_weights.duplicate(true)
+	var shared_catalog: Resource = _NpcBehaviorCatalog.load_default()
+	var shared_state: Resource = _NpcBehaviorState.from_runtime(record.runtime, record.definition)
+	record.runtime[_NpcBehaviorState.RUNTIME_KEY] = shared_state.to_dict()
+	var shared_profile: Resource = (
+		shared_catalog.profile_for_id(shared_state.profile_id)
+		if shared_catalog != null
+		else null
+	)
+	if shared_profile != null:
+		var exploration: Dictionary = shared_profile.exploration_projection()
+		descriptor["behavior_profile_id"] = shared_profile.profile_id
+		descriptor["goal_weights"] = exploration.get("goal_weights", {}).duplicate(true)
+		descriptor["survival_pressure"] = shared_state.survival_pressure
+		descriptor["retreat_pressure"] = shared_profile.retreat_pressure
+	return descriptor
 
 
 static func _fallback_role_id(record: EntityRecord) -> String:
@@ -98,6 +132,11 @@ static func select_goal(
 		memory["last_player_turn"] = macro_turn_index
 	if float(memory.get("player_threat", 0.0)) >= 6.0 and record.world_status != GameEnums.EntityWorldStatus.HOSTILE:
 		weights["evade"] = float(weights.get("evade", 0.0)) + 8.0
+	var pressure := float(role.get("survival_pressure", 0.0))
+	var retreat_pressure := float(role.get("retreat_pressure", GameEnums.SCALE_MAX))
+	if pressure >= retreat_pressure:
+		weights["scavenge"] = float(weights.get("scavenge", 0.0)) + pressure
+		weights["evade"] = float(weights.get("evade", 0.0)) + pressure * 0.75
 	var best_goal := str(role.get("default_goal_id", "roam"))
 	var best_score := -INF
 	for goal_key in weights.keys():
@@ -206,7 +245,8 @@ static func initialize_npc_runtime(
 	macro_turn_index: int,
 	player_coords: Vector2i,
 	get_hex_at: Callable,
-	has_ground_items: Callable
+	has_ground_items: Callable,
+	world_time_minutes: int = 0
 ) -> void:
 	if record == null:
 		return
@@ -224,7 +264,8 @@ static func initialize_npc_runtime(
 			macro_turn_index,
 			player_coords,
 			get_hex_at,
-			has_ground_items
+			has_ground_items,
+			world_time_minutes
 		)
 
 
@@ -235,7 +276,8 @@ static func purpose_target_for(
 	macro_turn_index: int,
 	player_coords: Vector2i,
 	get_hex_at: Callable,
-	has_ground_items: Callable
+	has_ground_items: Callable,
+	world_time_minutes: int = 0
 ) -> Vector2i:
 	var existing = record.runtime.get("macro_target_coords", null)
 	if existing is Vector2i:
@@ -246,10 +288,11 @@ static func purpose_target_for(
 			target = find_scavenge_target(
 				record.coords,
 				get_hex_at,
-				has_ground_items
+				has_ground_items,
+				world_time_minutes
 			)
 		GameEnums.NPC_PURPOSE_PATROL:
-			target = patrol_target(record)
+			target = patrol_target(record, get_hex_at)
 		GameEnums.NPC_PURPOSE_HUNT:
 			target = player_coords
 		GameEnums.NPC_PURPOSE_HOLD:
@@ -267,7 +310,8 @@ static func purpose_target_for(
 static func find_scavenge_target(
 	origin: Vector2i,
 	get_hex_at: Callable,
-	has_ground_items: Callable
+	has_ground_items: Callable,
+	now_minutes: int = 0
 ) -> Vector2i:
 	var best := origin
 	var best_score := -999999.0
@@ -287,11 +331,25 @@ static func find_scavenge_target(
 				if site_catalog != null
 				else null
 			)
-			if site != null and site.quest_protected:
-				continue
 			score += 16.0
+		# V3 objects are the physical source of truth. A generated rubble parcel
+		# remains interesting even when its legacy search-site adapter is empty.
+		for object_value in hex_data.world_objects:
+			if not object_value is Dictionary:
+				continue
+			var object_components: Dictionary = object_value.get("components", {})
+			if object_components.has("rubble") or object_components.has("container"):
+				score += 10.0
+			if object_components.has("repairable"):
+				score += 4.0
 		if has_ground_items.call(coords):
 			score += 6.0
+		for trace_value in hex_data.trace_records:
+			if not trace_value is Dictionary:
+				continue
+			var trace_confidence := _Perception.track_confidence(trace_value, now_minutes, 1.0, 1.0)
+			if trace_confidence > 0.1:
+				score += 3.0 * trace_confidence
 		if hex_data.region == GameEnums.MacroRegion.CENTRAL_HUB:
 			score -= 20.0
 		if score > best_score:
@@ -300,17 +358,41 @@ static func find_scavenge_target(
 	return best
 
 
-static func patrol_target(record: EntityRecord) -> Vector2i:
-	var patrol_points := [
-		Vector2i(3, 0),
-		Vector2i(3, -2),
-		Vector2i(1, -3),
-		Vector2i(-2, -1),
-		Vector2i(-1, 3),
-		Vector2i(2, 2),
-	]
-	var index := absi((record.entity_id + ":patrol").hash()) % patrol_points.size()
-	return patrol_points[index]
+static func patrol_target(
+	record: EntityRecord,
+	get_hex_at: Callable = Callable()
+) -> Vector2i:
+	## Patrol is a utility bias, not a private route. Choose a reachable,
+	## world-backed point near roads, structures, signals, or recent traces.
+	## This keeps patrols meaningful when generation changes and avoids actors
+	## walking toward a coordinate that has no physical reason to matter.
+	if record == null:
+		return Vector2i.ZERO
+	var best := record.coords
+	var best_score := -INF
+	for coords in coords_in_radius(record.coords, 4):
+		var hex: MacroHexData = null
+		if get_hex_at.is_valid():
+			hex = get_hex_at.call(coords) as MacroHexData
+		if hex != null and not hex.is_passable():
+			continue
+		var distance := hex_distance(record.coords, coords)
+		var score := -float(distance) * 0.65
+		if hex != null:
+			if hex.road_mask != 0:
+				score += 5.0
+			if hex.structure_layer != GameEnums.MacroStructureLayer.NONE:
+				score += 2.5
+			if not hex.world_objects.is_empty():
+				score += 1.0
+			if not hex.trace_records.is_empty():
+				score += 2.0
+		var jitter := float(absi((record.entity_id + ":patrol:" + str(coords)).hash()) % 1000) / 100000.0
+		score += jitter
+		if score > best_score:
+			best_score = score
+			best = coords
+	return best
 
 
 static func roam_target(

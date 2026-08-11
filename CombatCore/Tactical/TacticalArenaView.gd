@@ -10,10 +10,11 @@ const TOKEN_RADIUS := 22.0
 const CAMERA_ZOOM_MIN := 1.0
 const CAMERA_ZOOM_MAX := 2.25
 const CAMERA_ZOOM_STEP := 0.15
-const HUMANOID_TOKEN_SCENE := preload("res://UI/Humanoid/HumanoidToken.tscn")
+const HUMANOID_TOKEN_SCENE := PresentationSceneRegistry.HUMANOID_TOKEN_SCENE
+const TOKEN_OVERLAY_SCRIPT := preload("res://CombatCore/Tactical/CombatTokenOverlay.gd")
 const BULLET_TEXTURE := preload("res://Asset/Guns_Animation/Bullet.png")
-const WEAPON_PRESENTATION_CATALOG: CombatWeaponPresentationCatalog = preload(
-	"res://CombatCore/Tactical/default_weapon_presentation_catalog.tres"
+const VISUAL_PROFILE = preload(
+	"res://CombatCore/Tactical/readable_moody_visual_profile.tres"
 )
 
 const PROJECTILE_TRAIL_LENGTH := 24.0
@@ -33,6 +34,9 @@ var preview_quote: CombatActionQuote
 var _texture_cache: Dictionary = {}
 var _cue: CombatPresentationCue
 var _cue_progress := 0.0
+var _sequence: CombatPresentationSequence
+var _sequence_weapon_cue: CombatPresentationCue
+var _actor_slot_offsets: Dictionary = {}
 var _actor_tokens: Dictionary = {}
 var _presentation_positions: Dictionary = {}
 var _last_path_segment := -1
@@ -114,8 +118,59 @@ func clear_quote() -> void:
 	queue_redraw()
 
 
+func clear_presentation() -> void:
+	_end_projectile()
+	for effect in _blood_vfx:
+		var sprite := effect.get("sprite") as Sprite2D
+		if is_instance_valid(sprite):
+			sprite.queue_free()
+	_blood_vfx.clear()
+	set_process(false)
+	for actor_id in _actor_tokens:
+		var token := _actor_tokens[actor_id] as HumanoidTokenView
+		if token == null:
+			continue
+		token.set_action_equipment_suppressed(false)
+		var top := token.get_meta("combat_top_overlay", null) as CombatTokenOverlay
+		if top != null:
+			top.set_weapon_cue(null)
+	_cue = null
+	_cue_progress = 0.0
+	_sequence = null
+	_sequence_weapon_cue = null
+	scale = Vector2.ONE
+	queue_redraw()
+
+
+func begin_sequence(sequence: CombatPresentationSequence) -> void:
+	_sequence = sequence
+	_sequence_weapon_cue = null
+	if sequence == null:
+		return
+	for candidate in sequence.cues:
+		if _is_firearm_cue(candidate):
+			_sequence_weapon_cue = candidate
+			break
+	if _sequence_weapon_cue == null:
+		return
+	var token := _actor_tokens.get(_sequence_weapon_cue.actor_id) as HumanoidTokenView
+	if token == null:
+		return
+	# The composited token weapon is the physical firearm. The overhead sheet is
+	# an illustrative readout and must never replace the gun that fires the shot.
+	token.set_action_equipment_suppressed(false)
+	var top_overlay := token.get_meta("combat_top_overlay", null) as CombatTokenOverlay
+	if top_overlay != null:
+		top_overlay.set_weapon_cue(_sequence_weapon_cue, 0.0)
+
+
+func end_sequence(_sequence_value: CombatPresentationSequence) -> void:
+	clear_presentation()
+
+
 func select_sector(coords: Vector2i) -> void:
 	selected_sector = coords
+	_focus_camera_on(coords)
 	queue_redraw()
 
 
@@ -148,7 +203,7 @@ func begin_cue(cue: CombatPresentationCue) -> void:
 	var token := _actor_tokens.get(cue.actor_id) as HumanoidTokenView
 	var target_token := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
 	if token != null:
-		token.position = _presentation_positions.get(cue.actor_id, sector_center(cue.start_sector))
+		token.position = _presentation_positions.get(cue.actor_id, _actor_position(cue.actor_id, cue.start_sector))
 		token.scale = Vector2.ONE
 		token.rotation = 0.0
 		var facing_vector := _facing_vector(cue.facing)
@@ -158,11 +213,16 @@ func begin_cue(cue: CombatPresentationCue) -> void:
 	if cue.phase_id == "reaction":
 		if token != null:
 			token.play_animation("Idle", true)
-		_play_cue_animation(target_token, cue)
+	elif cue.phase_id == "impact":
+		_play_cue_animation(token, cue)
+		# Impact owns the one target animation start. Reaction is only a readable
+		# hold/settle window and must not replay the same one-shot.
+		if target_token != null and cue.target_animation_id != "neutral":
+			target_token.play_timed_one_shot(cue.target_animation_id, "Idle", maxf(0.75, cue.duration_seconds + 0.40))
 	else:
 		_play_cue_animation(token, cue)
 	if target_token != null:
-		target_token.position = _presentation_positions.get(cue.target_actor_id, sector_center(cue.end_sector))
+		target_token.position = _presentation_positions.get(cue.target_actor_id, _actor_position(cue.target_actor_id, cue.end_sector))
 		target_token.scale = Vector2.ONE
 		target_token.rotation = 0.0
 	if cue.phase_id == "transit" and cue.vfx_id == "projectile":
@@ -176,16 +236,26 @@ func update_cue(progress: float, cue: CombatPresentationCue) -> void:
 	if cue != _cue:
 		return
 	_cue_progress = progress
+	if _sequence_weapon_cue != null:
+		var cue_token := _actor_tokens.get(_sequence_weapon_cue.actor_id) as HumanoidTokenView
+		if cue_token != null:
+			var top_overlay := cue_token.get_meta("combat_top_overlay", null) as CombatTokenOverlay
+			if top_overlay != null:
+				top_overlay.set_cue_progress(lerpf(
+					cue.sequence_progress_start,
+					cue.sequence_progress_end,
+					progress
+				))
 	var token := _actor_tokens.get(cue.actor_id) as HumanoidTokenView
 	var target_token := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
-	var start := sector_center(cue.start_sector)
-	var finish := sector_center(cue.end_sector)
+	var start := _actor_position(cue.actor_id, cue.start_sector)
+	var finish := _actor_position(cue.actor_id, cue.end_sector)
 	if cue.phase_id == "transit" and cue.vfx_id == "projectile":
 		_update_projectile(progress)
 	var direction := start.direction_to(finish)
 	if token != null:
 		if cue.phase_id == "transit" and cue.moves_actor:
-			token.position = _path_position(cue.path, progress, cue.start_sector, cue.end_sector)
+			token.position = _path_position(cue.path, progress, cue.start_sector, cue.end_sector, cue.actor_id)
 			if cue.path.size() >= 2:
 				var scaled := clampf(progress, 0.0, 1.0) * float(cue.path.size() - 1)
 				var segment := mini(floori(scaled), cue.path.size() - 2)
@@ -206,7 +276,7 @@ func update_cue(progress: float, cue: CombatPresentationCue) -> void:
 	var impacts_now := cue.phase_id == "impact" and cue.outcome_tag not in ["miss", "neutral", "malfunction"]
 	if target_token != null and (reacts_now or impacts_now):
 		var target_start: Vector2 = _presentation_positions.get(cue.target_actor_id, finish)
-		var target_finish := sector_center(cue.target_end_sector) if _contains(cue.target_end_sector) else target_start
+		var target_finish := _actor_position(cue.target_actor_id, cue.target_end_sector) if _contains(cue.target_end_sector) else target_start
 		if cue.outcome_tag == "dodge":
 			var perpendicular := Vector2(-direction.y, direction.x)
 			target_token.position = target_start + perpendicular * 18.0 * sin(progress * PI)
@@ -214,8 +284,6 @@ func update_cue(progress: float, cue: CombatPresentationCue) -> void:
 			var travel := target_start.lerp(target_finish, progress)
 			var shake := direction * sin(progress * cue.shake_frequency) * cue.shake_amplitude * (1.0 - progress)
 			target_token.position = travel + shake
-			target_token.scale = Vector2(1.0 - cue.impact_scale * sin(progress * PI), 1.0 + cue.impact_scale * sin(progress * PI))
-			target_token.rotation = deg_to_rad(cue.impact_rotation_degrees) * sin(progress * PI)
 	if cue.phase_id in ["contact", "impact"] and cue.camera_impulse_pixels > 0.0:
 		var camera_punch := cue.camera_impulse_pixels * 0.0025 * sin(progress * PI)
 		scale = Vector2.ONE * (1.0 + camera_punch)
@@ -227,36 +295,38 @@ func end_cue(cue: CombatPresentationCue) -> void:
 		var token := _actor_tokens.get(cue.actor_id) as HumanoidTokenView
 		var target_token := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
 		if cue.phase_id == "transit" and cue.moves_actor:
-			_presentation_positions[cue.actor_id] = sector_center(cue.end_sector)
+			_presentation_positions[cue.actor_id] = _actor_position(cue.actor_id, cue.end_sector)
 		if cue.phase_id == "impact" and target_token != null and _contains(cue.target_end_sector):
-			_presentation_positions[cue.target_actor_id] = sector_center(cue.target_end_sector)
+			_presentation_positions[cue.target_actor_id] = _actor_position(cue.target_actor_id, cue.target_end_sector)
 		if token != null:
-			token.position = _presentation_positions.get(cue.actor_id, sector_center(cue.start_sector))
+			token.position = _presentation_positions.get(cue.actor_id, _actor_position(cue.actor_id, cue.start_sector))
 			token.scale = Vector2.ONE
 			token.rotation = 0.0
 			if cue.phase_id == "transit" and cue.moves_actor:
 				token.play_animation("Idle", true)
 		if target_token != null:
-			target_token.position = _presentation_positions.get(cue.target_actor_id, sector_center(cue.end_sector))
+			target_token.position = _presentation_positions.get(cue.target_actor_id, _actor_position(cue.target_actor_id, cue.end_sector))
 			target_token.scale = Vector2.ONE
 			target_token.rotation = 0.0
 		if cue.phase_id == "transit" and cue.vfx_id == "projectile":
 			_end_projectile()
-		if cue.phase_id == "reaction" and target_token != null:
-			target_token.play_animation("Idle", true)
 		_cue = null
 		_cue_progress = 0.0
 		scale = Vector2.ONE
 		queue_redraw()
 
 
-func _path_position(path: Array[Vector2i], progress: float, start: Vector2i, finish: Vector2i) -> Vector2:
+func _is_firearm_cue(cue: CombatPresentationCue) -> bool:
+	return cue != null and cue.action_id in ["fire", "aimed_fire", "reload", "cycle", "clear_malfunction"]
+
+
+func _path_position(path: Array[Vector2i], progress: float, start: Vector2i, finish: Vector2i, actor_id: String = "") -> Vector2:
 	if path.size() < 2:
-		return sector_center(start).lerp(sector_center(finish), progress)
+		return _actor_position(actor_id, start).lerp(_actor_position(actor_id, finish), progress)
 	var scaled := clampf(progress, 0.0, 1.0) * float(path.size() - 1)
 	var segment := mini(floori(scaled), path.size() - 2)
 	var local_progress := scaled - float(segment)
-	return sector_center(path[segment]).lerp(sector_center(path[segment + 1]), local_progress)
+	return _actor_position(actor_id, path[segment]).lerp(_actor_position(actor_id, path[segment + 1]), local_progress)
 
 
 func sector_center(coords: Vector2i) -> Vector2:
@@ -270,7 +340,7 @@ func sector_center(coords: Vector2i) -> Vector2:
 
 func _draw() -> void:
 	var rect := _grid_rect()
-	draw_rect(Rect2(Vector2.ZERO, size), Color("101418"), true)
+	draw_rect(Rect2(Vector2.ZERO, size), VISUAL_PROFILE.arena_base_color, true)
 	_draw_backdrop()
 	var sectors: Array = snapshot.get("sectors", [])
 	for raw in sectors:
@@ -285,7 +355,7 @@ func _draw_backdrop() -> void:
 	var path := str(snapshot.get("backdrop_asset_path", ""))
 	var texture := _texture(path)
 	if texture != null:
-		draw_texture_rect(texture, Rect2(Vector2.ZERO, size), false, Color(0.42, 0.46, 0.42, 0.72))
+		draw_texture_rect(texture, Rect2(Vector2.ZERO, size), false, VISUAL_PROFILE.backdrop_modulate)
 
 
 func _draw_sector(data: Dictionary, rect: Rect2) -> void:
@@ -295,9 +365,9 @@ func _draw_sector(data: Dictionary, rect: Rect2) -> void:
 	var overlay := _texture(str(data.get("overlay_asset", "")))
 	var tint := _surface_color(str(data.get("surface_id", "unresolved")))
 	var scene_first := str(snapshot.get("presentation_style", "")) == "duel_lane"
-	draw_rect(cell_rect, Color(tint, 0.20) if scene_first else tint, true)
+	draw_rect(cell_rect, Color(tint, VISUAL_PROFILE.duel_surface_alpha) if scene_first else tint, true)
 	if ground != null and not scene_first:
-		draw_texture_rect(ground, cell_rect, false, Color(1, 1, 1, 0.78))
+		draw_texture_rect(ground, cell_rect, false, Color(1, 1, 1, VISUAL_PROFILE.ground_texture_alpha))
 	if overlay != null and not scene_first:
 		draw_texture_rect(overlay, cell_rect, false, Color.WHITE)
 	if bool(data.get("blocked", false)):
@@ -315,7 +385,7 @@ func _draw_sector(data: Dictionary, rect: Rect2) -> void:
 	elif coords == hovered_sector:
 		draw_rect(cell_rect, Color("9ac5c4"), false, 2.0)
 	else:
-		draw_rect(cell_rect, Color(0.45, 0.50, 0.49, 0.22), false, 1.0)
+		draw_rect(cell_rect, Color(0.62, 0.68, 0.64, VISUAL_PROFILE.grid_alpha), false, 1.0)
 
 
 func _draw_preview() -> void:
@@ -350,38 +420,16 @@ func _draw_preview() -> void:
 		var threat_coords := _actor_coords(str(threat_id))
 		if _contains(threat_coords):
 			draw_string(ThemeDB.fallback_font, sector_center(threat_coords) + Vector2(-8.0, -32.0), "!", HORIZONTAL_ALIGNMENT_CENTER, 16.0, 20, Color("ef6f5b"))
+	_draw_offscreen_indicator(preview_quote.target_sector, color)
+	if _contains(preview_quote.projected_origin):
+		_draw_offscreen_indicator(preview_quote.projected_origin, Color("f0d487"))
 
 
 func _draw_actors() -> void:
-	var tactics: Dictionary = snapshot.get("tactics", {})
-	var facings: Dictionary = snapshot.get("facings", {})
-	for sector in snapshot.get("sectors", []):
-		var actor_id := str(sector.get("occupant_id", ""))
-		if actor_id.is_empty():
-			continue
-		var center := sector_center(sector.coords)
-		var side := _actor_side(actor_id)
-		var color := Color("67a7c8") if side == "player" else Color("c76c5b")
-		var posture := str(tactics.get(actor_id, {}).get("posture", "standing"))
-		var cell := _cell_size(_grid_rect())
-		var compact := minf(cell.x, cell.y) < 56.0
-		var radius := minf(TOKEN_RADIUS, minf(cell.x, cell.y) * 0.34)
-		if posture != "standing":
-			radius *= 0.82
-		draw_circle(center, radius, Color(0.04, 0.05, 0.05, 0.90))
-		draw_circle(center, radius, color, false, minf(4.0, maxf(1.5, radius * 0.15)))
-		_draw_facing(center, str(facings.get(actor_id, "east")), color, minf(31.0, radius * 1.5))
-		if bool(tactics.get(actor_id, {}).get("off_balance", false)):
-			draw_arc(center, radius + minf(6.0, radius * 0.3), 0.0, TAU, 18, Color("e0b75e"), 2.0)
-		var actor := _actor_snapshot(actor_id)
-		var full_name := str(actor.get("name", actor_id)).to_upper()
-		var display_name := full_name.left(2) if compact else full_name
-		var label_width := minf(56.0, maxf(24.0, cell.x * 0.82))
-		var label_font_size := 8 if compact else 10
-		draw_string(ThemeDB.fallback_font, center + Vector2(-label_width * 0.5, radius + (12.0 if compact else 18.0)), display_name, HORIZONTAL_ALIGNMENT_CENTER, label_width, label_font_size, Color("d9dfdc"))
-		var bar_y := radius + (17.0 if compact else 24.0)
-		_draw_vital_bar(center + Vector2(-label_width * 0.5, bar_y), label_width, float(actor.get("blood", 0.0)), Color("c85f55"))
-		_draw_vital_bar(center + Vector2(-label_width * 0.5, bar_y + (6.0 if compact else 7.0)), label_width, float(actor.get("consciousness", 0.0)), Color("d6b85e"))
+	# Actor presentation is owned by HumanoidTokenView and its overlays. Keeping
+	# bars and facing in the arena's parent draw pass put them beneath token
+	# children, which is how the old HUD managed to hide its own information.
+	return
 
 
 func _draw_vital_bar(origin: Vector2, width: float, value: float, color: Color) -> void:
@@ -392,14 +440,18 @@ func _draw_vital_bar(origin: Vector2, width: float, value: float, color: Color) 
 func _draw_presentation() -> void:
 	if _cue == null:
 		return
-	_draw_weapon_sheet_frame()
 	var start := sector_center(_cue.start_sector)
 	var finish := sector_center(_cue.end_sector)
 	if _cue.phase_id == "transit" and not _cue.vfx_id.is_empty() and _cue.vfx_id != "projectile":
 		var point := start.lerp(finish, _cue_progress)
 		draw_line(start, point, Color("f0d487"), 3.0, true)
 		draw_circle(point, 4.0, Color.WHITE)
-	elif _cue.phase_id in ["contact", "impact"]:
+	elif _cue.phase_id == "contact" and _cue.action_id in ["fire", "aimed_fire"]:
+		var muzzle := _projectile_start_for(_cue)
+		var flash_radius := lerpf(2.0, 8.0, _cue_progress)
+		draw_circle(muzzle, flash_radius, Color(1.0, 0.82, 0.36, _cue_progress))
+		draw_circle(muzzle + Vector2(0.0, -4.0), lerpf(2.0, 7.0, _cue_progress), Color(0.72, 0.76, 0.72, 0.24 * _cue_progress), false, 2.0)
+	elif _cue.phase_id == "impact" or (_cue.phase_id == "contact" and _cue.vfx_id != ""):
 		var impact_color := Color("e7c56c") if _cue.outcome_tag in ["block", "shield_block", "cover", "cover_impact"] else Color("ef6f52")
 		if _cue.outcome_tag == "miss":
 			impact_color = Color("8ca4a1")
@@ -409,39 +461,6 @@ func _draw_presentation() -> void:
 				var angle := float(index) * TAU / 5.0
 				var debris := finish + Vector2.from_angle(angle) * lerpf(5.0, 24.0, _cue_progress)
 				draw_rect(Rect2(debris - Vector2(2.0, 2.0), Vector2(4.0, 4.0)), Color(0.68, 0.58, 0.43, 1.0 - _cue_progress), true)
-
-
-func _draw_weapon_sheet_frame() -> void:
-	var definition := WEAPON_PRESENTATION_CATALOG.definition_for(_cue.weapon_id)
-	if definition == null:
-		return
-	var sheet := definition.sheet_for_action(_cue.action_id)
-	var frame_size := definition.frame_size_for_action(_cue.action_id)
-	var fps := definition.fps_for_action(_cue.action_id)
-	if sheet == null or frame_size.x <= 0 or frame_size.y <= 0 or fps <= 0.0:
-		return
-	var columns := maxi(1, floori(float(sheet.get_width()) / float(frame_size.x)))
-	var rows := maxi(1, floori(float(sheet.get_height()) / float(frame_size.y)))
-	var frame_count := columns * rows
-	var sequence_progress := lerpf(
-		_cue.sequence_progress_start,
-		_cue.sequence_progress_end,
-		_cue_progress
-	)
-	var frame_index := clampi(floori(sequence_progress * float(frame_count)), 0, frame_count - 1)
-	var source := Rect2(
-		Vector2((frame_index % columns) * frame_size.x, floori(float(frame_index) / float(columns)) * frame_size.y),
-		Vector2(frame_size)
-	)
-	var actor_position: Vector2 = _presentation_positions.get(_cue.actor_id, sector_center(_cue.start_sector))
-	var display_scale := clampf(minf(_cell_size(_grid_rect()).x, _cell_size(_grid_rect()).y) / 44.0, 1.0, 2.2)
-	var display_size := Vector2(frame_size) * display_scale
-	var facing := _facing_vector(_cue.facing)
-	var rotation_angle := facing.angle()
-	var flip_y := facing.x < -0.5
-	draw_set_transform(actor_position, rotation_angle, Vector2(1.0, -1.0 if flip_y else 1.0))
-	draw_texture_rect_region(sheet, Rect2(-display_size * 0.5, display_size), source)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _play_cue_animation(token: HumanoidTokenView, cue: CombatPresentationCue) -> void:
@@ -455,18 +474,13 @@ func _play_cue_animation(token: HumanoidTokenView, cue: CombatPresentationCue) -
 
 func _begin_projectile(cue: CombatPresentationCue) -> void:
 	_end_projectile()
-	var start := sector_center(cue.start_sector)
-	var finish := sector_center(cue.end_sector)
+	var start := _projectile_start_for(cue)
+	var finish := _projectile_end_for(cue)
 	var direction := start.direction_to(finish)
 	if direction.length_squared() <= 0.001:
 		direction = _facing_vector(cue.facing)
-	var cell := _cell_size(_grid_rect())
-	var body_offset := Vector2(0.0, -minf(12.0, cell.y * 0.24))
-	var muzzle_offset := minf(10.0, cell.x * 0.16)
-	start += body_offset + direction * muzzle_offset
-	finish += body_offset - direction * muzzle_offset
 	if cue.outcome_tag == "miss":
-		finish += direction * minf(30.0, cell.x * 0.34)
+		finish += direction * minf(30.0, _cell_size(_grid_rect()).x * 0.34)
 	_projectile_start = start
 	_projectile_end = finish
 	_projectile_direction = direction.normalized()
@@ -491,7 +505,26 @@ func _begin_projectile(cue: CombatPresentationCue) -> void:
 	_projectile_sprite.modulate = PROJECTILE_BULLET_COLOR
 	add_child(_projectile_sprite)
 	_projectile_active = true
-	queue_redraw()
+
+
+func _projectile_start_for(cue: CombatPresentationCue) -> Vector2:
+	var start := sector_center(cue.start_sector)
+	var shooter := _actor_tokens.get(cue.actor_id) as HumanoidTokenView
+	if shooter != null:
+		return shooter.position + shooter.combat_weapon_muzzle_anchor(cue.weapon_id)
+	var direction := _facing_vector(cue.facing)
+	return start + Vector2(0.0, -10.0) + direction * 10.0
+
+
+func _projectile_end_for(cue: CombatPresentationCue) -> Vector2:
+	var finish := sector_center(cue.end_sector)
+	var target := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
+	if target == null:
+		return finish + Vector2(0.0, -10.0)
+	var region := cue.target_body_region
+	if region < 0:
+		region = GameEnums.LimbRegion.UPPER_TORSO
+	return target.position + target.combat_body_region_anchor(region)
 
 
 func _update_projectile(progress: float) -> void:
@@ -532,6 +565,13 @@ func _cue_has_blood(cue: CombatPresentationCue) -> bool:
 
 
 func _impact_position(cue: CombatPresentationCue) -> Vector2:
+	if cue != null and not cue.target_actor_id.is_empty():
+		var target := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
+		if target != null:
+			var region := cue.target_body_region
+			if region < 0:
+				region = GameEnums.LimbRegion.UPPER_TORSO
+			return target.position + target.combat_body_region_anchor(region)
 	var sector := cue.target_end_sector if _contains(cue.target_end_sector) else cue.end_sector
 	return sector_center(sector)
 
@@ -631,38 +671,114 @@ func _sync_actor_tokens() -> void:
 	if not is_node_ready():
 		return
 	var active_ids: Array[String] = []
+	_actor_slot_offsets.clear()
 	var tactics: Dictionary = snapshot.get("tactics", {})
 	var facings: Dictionary = snapshot.get("facings", {})
 	for sector in snapshot.get("sectors", []):
-		var actor_id := str(sector.get("occupant_id", ""))
-		if actor_id.is_empty():
-			continue
-		active_ids.append(actor_id)
-		var token := _actor_tokens.get(actor_id) as HumanoidTokenView
-		if token == null:
-			token = HUMANOID_TOKEN_SCENE.instantiate()
-			token.name = "Token_%s" % actor_id
-			token.z_index = 10
-			add_child(token)
-			_actor_tokens[actor_id] = token
+		var occupant_ids: Array = sector.get("occupant_ids", [])
+		if occupant_ids.is_empty():
+			var legacy_id := str(sector.get("occupant_id", ""))
+			if not legacy_id.is_empty():
+				occupant_ids = [legacy_id]
+		for slot in range(occupant_ids.size()):
+			var actor_id := str(occupant_ids[slot])
+			if actor_id.is_empty():
+				continue
+			active_ids.append(actor_id)
+			_actor_slot_offsets[actor_id] = _shared_sector_offset(slot, occupant_ids.size())
+			var token := _actor_tokens.get(actor_id) as HumanoidTokenView
+			if token == null:
+				token = PresentationSceneRegistry.instantiate_scene(HUMANOID_TOKEN_SCENE) as HumanoidTokenView
+				token.name = "Token_%s" % actor_id
+				token.z_index = 10
+				add_child(token)
+				_actor_tokens[actor_id] = token
+				_ensure_token_overlays(token)
 			var slot_items: Dictionary = {}
 			for item in _actor_snapshot(actor_id).get("items", []):
 				if str(item.get("location", "")) == "equipped":
 					slot_items[int(item.get("equipped_slot", GameEnums.EquipmentSlot.NONE))] = str(item.get("definition_id", ""))
+			# Equipment is authoritative snapshot data and may change after reload,
+			# disarm, strip, or a persistent inventory transfer.
 			token.set_slot_item_ids(slot_items)
-		token.visible = true
-		token.position = sector_center(sector.coords)
-		var cell := _cell_size(_grid_rect())
-		token.set_display_scale(clampf(minf(cell.x, cell.y) / 72.0, 0.45, 2.4))
-		token.face_direction(_facing_vector(str(facings.get(actor_id, "east"))))
-		var posture := str(tactics.get(actor_id, {}).get("posture", "standing"))
-		var idle := "CrouchIdle" if posture == "crouched" and HumanoidVisualCatalog.supports_animation("CrouchIdle") else "Idle"
-		if _cue == null or _cue.actor_id != actor_id:
-			token.play_animation(idle, false)
+			token.visible = true
+			token.modulate = VISUAL_PROFILE.token_modulate
+			token.position = _actor_position(actor_id, sector.coords)
+			var cell := _cell_size(_grid_rect())
+			var display_scale := clampf(minf(cell.x, cell.y) / 96.0, 0.55, 1.5)
+			token.set_display_scale(display_scale)
+			token.face_direction(_facing_vector(str(facings.get(actor_id, "east"))))
+			_configure_token_overlays(token, actor_id, sector.coords, display_scale, cell.x * 0.80)
+			var posture := str(tactics.get(actor_id, {}).get("posture", "standing"))
+			var idle := "CrouchIdle" if posture == "crouched" and HumanoidVisualCatalog.supports_animation("CrouchIdle") else "Idle"
+			if _cue == null or _cue.actor_id != actor_id:
+				token.play_animation(idle, false)
 	for actor_id in _actor_tokens:
 		var token := _actor_tokens[actor_id] as HumanoidTokenView
 		if token != null:
 			token.visible = str(actor_id) in active_ids
+
+
+func _ensure_token_overlays(token: HumanoidTokenView) -> void:
+	if token.get_meta("combat_overlays_ready", false):
+		return
+	var ground := TOKEN_OVERLAY_SCRIPT.new() as CombatTokenOverlay
+	ground.name = "GroundFootprint"
+	ground.mode = CombatTokenOverlay.Mode.GROUND
+	ground.z_index = -20
+	token.add_child(ground)
+	var top := TOKEN_OVERLAY_SCRIPT.new() as CombatTokenOverlay
+	top.name = "CombatTopOverlay"
+	top.mode = CombatTokenOverlay.Mode.TOP
+	top.z_index = 40
+	token.add_child(top)
+	token.set_meta("combat_ground_overlay", ground)
+	token.set_meta("combat_top_overlay", top)
+	token.set_meta("combat_overlays_ready", true)
+
+
+func _configure_token_overlays(
+	token: HumanoidTokenView,
+	actor_id: String,
+	coords: Vector2i,
+	display_scale: float,
+	footprint_width: float
+) -> void:
+	var actor := _actor_snapshot(actor_id)
+	var side := _actor_side(actor_id)
+	var color := Color("67a7c8") if side == "player" else Color("c76c5b")
+	var threat_ids: Array = preview_quote.reaction_threat_ids if preview_quote != null else []
+	var ground := token.get_meta("combat_ground_overlay", null) as CombatTokenOverlay
+	if ground != null:
+		ground.configure_ground(
+			actor,
+			color,
+			coords == selected_sector,
+			str(snapshot.get("active_actor_id", "")) == actor_id,
+			actor_id in threat_ids,
+			str(snapshot.get("facings", {}).get(actor_id, "east")),
+			maxf(34.0, footprint_width),
+			display_scale
+		)
+	var top := token.get_meta("combat_top_overlay", null) as CombatTokenOverlay
+	if top != null:
+		top.configure_top(
+			actor,
+			maxf(34.0, footprint_width),
+			display_scale,
+			token.combat_head_top_anchor(),
+			str(snapshot.get("facings", {}).get(actor_id, "east"))
+		)
+		if _sequence_weapon_cue != null and _sequence_weapon_cue.actor_id == actor_id:
+			top.set_weapon_cue(_sequence_weapon_cue, _sequence_progress_for_current_cue())
+		else:
+			top.set_weapon_cue(null)
+
+
+func _sequence_progress_for_current_cue() -> float:
+	if _cue == null:
+		return 0.0
+	return lerpf(_cue.sequence_progress_start, _cue.sequence_progress_end, _cue_progress)
 
 
 func _actor_snapshot(actor_id: String) -> Dictionary:
@@ -670,6 +786,18 @@ func _actor_snapshot(actor_id: String) -> Dictionary:
 		if str(actor.get("actor_id", "")) == actor_id:
 			return actor
 	return {}
+
+
+func _shared_sector_offset(slot: int, count: int) -> Vector2:
+	if count <= 1:
+		return Vector2.ZERO
+	var cell := _cell_size(_grid_rect())
+	var spacing := minf(cell.x, cell.y) * 0.24
+	return Vector2((float(slot) - float(count - 1) * 0.5) * spacing, 0.0)
+
+
+func _actor_position(actor_id: String, coords: Vector2i) -> Vector2:
+	return sector_center(coords) + _actor_slot_offsets.get(actor_id, Vector2.ZERO)
 
 
 func _facing_vector(facing: String) -> Vector2:
@@ -695,6 +823,12 @@ func _base_grid_rect() -> Rect2:
 		rect.position.x += (rect.size.x - 1440.0) * 0.5
 		rect.size.x = 1440.0
 	if str(snapshot.get("presentation_style", "")) == "duel_lane":
+		var lane_width := maxi(1, _arena_width())
+		var logical_cell_width := clampf(rect.size.x / float(lane_width), 64.0, 112.0)
+		var logical_width := logical_cell_width * float(lane_width)
+		if rect.size.x < logical_width:
+			rect.size.x = logical_width
+			rect.position.x = available.get_center().x - rect.size.x * 0.5
 		var lane_height := clampf(size.y * 0.34, 96.0, 220.0)
 		rect.position.y = size.y * 0.57 - lane_height * 0.5
 		rect.size.y = lane_height
@@ -717,13 +851,36 @@ func _set_camera_zoom(next_zoom: float, focus: Vector2) -> void:
 
 
 func _clamp_camera_pan() -> void:
-	if _view_zoom <= CAMERA_ZOOM_MIN:
-		_view_pan = Vector2.ZERO
-		return
 	var base := _base_grid_rect()
-	var allowance := (base.size * _view_zoom - base.size) * 0.5
+	var viewport_size := _camera_safe_rect.size if _camera_safe_rect.size.x > 0.0 else size
+	var allowance := (base.size * _view_zoom - viewport_size) * 0.5
+	allowance.x = maxf(0.0, allowance.x)
+	allowance.y = maxf(0.0, allowance.y)
 	_view_pan.x = clampf(_view_pan.x, -allowance.x, allowance.x)
 	_view_pan.y = clampf(_view_pan.y, -allowance.y, allowance.y)
+
+
+func _focus_camera_on(coords: Vector2i) -> void:
+	if str(snapshot.get("presentation_style", "")) != "duel_lane" or not _contains(coords):
+		return
+	var base := _base_grid_rect()
+	var cell := _cell_size(base)
+	var point := base.position + Vector2((float(coords.x) + 0.5) * cell.x, (float(coords.y) + 0.5) * cell.y)
+	var viewport_center := _camera_safe_rect.get_center() if _camera_safe_rect.size.x > 0.0 else size * 0.5
+	_view_pan = viewport_center - point
+	_clamp_camera_pan()
+
+
+func _draw_offscreen_indicator(coords: Vector2i, color: Color) -> void:
+	if not _contains(coords):
+		return
+	var point := sector_center(coords)
+	var bounds := Rect2(Vector2(18.0, 18.0), size - Vector2(36.0, 36.0))
+	if bounds.has_point(point):
+		return
+	var edge := Vector2(clampf(point.x, bounds.position.x, bounds.end.x), clampf(point.y, bounds.position.y, bounds.end.y))
+	draw_circle(edge, 7.0, Color(0.04, 0.05, 0.05, 0.9))
+	draw_circle(edge, 5.0, color)
 
 
 func _refresh_camera_geometry() -> void:
@@ -854,7 +1011,10 @@ func _surface_footstep(coords: Vector2i) -> String:
 
 func _actor_coords(actor_id: String) -> Vector2i:
 	for sector in snapshot.get("sectors", []):
-		if str(sector.get("occupant_id", "")) == actor_id:
+		var ids: Array = sector.get("occupant_ids", [])
+		if ids.is_empty() and not str(sector.get("occupant_id", "")).is_empty():
+			ids = [str(sector.get("occupant_id", ""))]
+		if actor_id in ids:
 			return sector.get("coords", Vector2i(-1, -1))
 	return Vector2i(-1, -1)
 

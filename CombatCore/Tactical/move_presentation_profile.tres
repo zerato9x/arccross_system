@@ -5,12 +5,12 @@
 script = ExtResource("1")
 profile_id = "move"
 wind_up_seconds = 0.0
-transit_seconds = 0.18
+transit_seconds = 0.28
 contact_seconds = 0.0
 reaction_seconds = 0.0
 impact_seconds = 0.0
 settle_seconds = 0.08
 actor_animation_id = "Walk"
 target_animation_id = "Idle"
-movement_seconds_per_sector = 0.18
+movement_seconds_per_sector = 0.28
 effect_recipe = ExtResource("2")

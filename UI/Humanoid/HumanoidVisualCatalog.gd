@@ -48,11 +48,10 @@ const NON_LOOPING_ANIMATIONS := [
 	"Die",
 ]
 
-# Attack1 is intentionally truncated to the firearm windup/muzzle columns.
-# Other one-shots use the full sheet width (FRAME_COLUMNS).
-const ANIMATION_FRAMES := {
-	"Attack1": 5,
-}
+# Animation length belongs to the authored track, not a global action name.
+# Firearm equipment layers expose only their authored handling columns through
+# animation_frames_for_layer(); the body track remains a full semantic action.
+const ANIMATION_FRAMES := {}
 
 
 # Item IDs are presentation aliases, not unique looks. Multiple definitions
@@ -255,6 +254,12 @@ static func supports_animation(animation: String) -> bool:
 static func animation_frames(animation: String) -> int:
 	return int(ANIMATION_FRAMES.get(animation, FRAME_COLUMNS))
 
+
+static func animation_frames_for_layer(animation: String, directory: String) -> int:
+	if animation == "Attack1" and "/weapons/guns/" in directory:
+		return 5
+	return animation_frames(animation)
+
 static func animation_fps(animation: String) -> float:
 	return float(ANIMATION_FPS.get(animation, ANIMATION_FPS["Idle"]))
 
@@ -292,6 +297,20 @@ static func visual_directory_for_item_id(item_id: String) -> String:
 		if not relative_directory.is_empty()
 		else ""
 	)
+
+
+static func weapon_muzzle_anchor_for_item(item_id: String, direction_row: int) -> Vector2:
+	if _equipment_visual_catalog == null and ResourceLoader.exists(EQUIPMENT_VISUAL_CATALOG_PATH):
+		_equipment_visual_catalog = load(EQUIPMENT_VISUAL_CATALOG_PATH) as HumanoidEquipmentVisualCatalog
+	if _equipment_visual_catalog == null:
+		return Vector2(-1.0, -1.0)
+	return _equipment_visual_catalog.muzzle_anchor_for(item_id, direction_row)
+
+
+static func has_weapon_muzzle_profile(item_id: String) -> bool:
+	if _equipment_visual_catalog == null and ResourceLoader.exists(EQUIPMENT_VISUAL_CATALOG_PATH):
+		_equipment_visual_catalog = load(EQUIPMENT_VISUAL_CATALOG_PATH) as HumanoidEquipmentVisualCatalog
+	return _equipment_visual_catalog != null and _equipment_visual_catalog.has_muzzle_profile(item_id)
 
 static func _animation_texture_fallbacks(animation: String) -> Array[String]:
 	match animation:

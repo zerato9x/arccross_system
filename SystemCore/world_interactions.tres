@@ -1,0 +1,132 @@
+[gd_resource type="Resource" script_class="WorldInteractionCatalog" load_steps=20 format=3]
+
+[ext_resource type="Script" path="res://SystemCore/WorldInteractionCatalog.gd" id="1_catalog"]
+[ext_resource type="Script" path="res://SystemCore/WorldActionDefinition.gd" id="2_action"]
+[ext_resource type="Script" path="res://SystemCore/WorldObjectDefinition.gd" id="3_object"]
+
+[sub_resource type="Resource" id="Action_inspect"]
+script = ExtResource("2_action")
+action_id = "inspect"
+verb_id = "inspect"
+label = "Inspect"
+method_ids = Array[String](["hands"])
+
+[sub_resource type="Resource" id="Action_search"]
+script = ExtResource("2_action")
+action_id = "search"
+verb_id = "search"
+label = "Search"
+task_profile_id = "search_manual"
+
+[sub_resource type="Resource" id="Action_repair"]
+script = ExtResource("2_action")
+action_id = "repair"
+verb_id = "repair"
+label = "Repair"
+task_profile_id = "repair_manual"
+requirements = Array[String](["material"])
+
+[sub_resource type="Resource" id="Action_dismantle"]
+script = ExtResource("2_action")
+action_id = "dismantle"
+verb_id = "dismantle"
+label = "Dismantle"
+task_profile_id = "salvage_manual"
+
+[sub_resource type="Resource" id="Action_open"]
+script = ExtResource("2_action")
+action_id = "open"
+verb_id = "open"
+label = "Open"
+method_ids = Array[String](["hands"])
+
+[sub_resource type="Resource" id="Action_force"]
+script = ExtResource("2_action")
+action_id = "force"
+verb_id = "force"
+label = "Force"
+task_profile_id = "force_manual"
+requirements = Array[String](["force_tool"])
+method_ids = Array[String](["crowbar"])
+
+[sub_resource type="Resource" id="Action_sleep"]
+script = ExtResource("2_action")
+action_id = "sleep"
+verb_id = "sleep"
+label = "Sleep"
+method_ids = Array[String](["hands"])
+
+[sub_resource type="Resource" id="Action_pickup"]
+script = ExtResource("2_action")
+action_id = "pick_up"
+verb_id = "pick_up"
+label = "Pick up"
+
+[sub_resource type="Resource" id="Action_trap"]
+script = ExtResource("2_action")
+action_id = "trap"
+verb_id = "trap"
+label = "Set trap"
+task_profile_id = "trap_manual"
+requirements = Array[String](["trap_gear"])
+
+[sub_resource type="Resource" id="Object_rubble"]
+script = ExtResource("3_object")
+definition_id = "rubble"
+label = "Rubble"
+component_ids = Array[String](["rubble"])
+affordance_ids = Array[String](["search", "dismantle"])
+
+[sub_resource type="Resource" id="Object_shelter"]
+script = ExtResource("3_object")
+definition_id = "shelter"
+label = "Shelter"
+component_ids = Array[String](["shelter", "repairable"])
+affordance_ids = Array[String](["repair", "sleep"])
+
+[sub_resource type="Resource" id="Object_container"]
+script = ExtResource("3_object")
+definition_id = "container"
+label = "Container"
+component_ids = Array[String](["container"])
+affordance_ids = Array[String](["search"])
+
+[sub_resource type="Resource" id="Object_door"]
+script = ExtResource("3_object")
+definition_id = "door"
+label = "Door"
+component_ids = Array[String](["door"])
+affordance_ids = Array[String](["open", "force", "inspect"])
+
+[sub_resource type="Resource" id="Object_structure"]
+script = ExtResource("3_object")
+definition_id = "structure"
+label = "Structure"
+component_ids = Array[String](["structure", "container", "door", "trap_anchor"])
+affordance_ids = Array[String](["search", "open", "force", "inspect", "sleep", "trap"])
+
+[sub_resource type="Resource" id="Object_salvage_rubble"]
+script = ExtResource("3_object")
+definition_id = "salvage_rubble"
+label = "Salvage rubble"
+component_ids = Array[String](["rubble", "container", "dismantlable"])
+affordance_ids = Array[String](["search", "dismantle"])
+
+[sub_resource type="Resource" id="Object_utility_access"]
+script = ExtResource("3_object")
+definition_id = "utility_access"
+label = "Utility access"
+component_ids = Array[String](["power", "water", "repairable"])
+affordance_ids = Array[String](["repair", "inspect"])
+
+[sub_resource type="Resource" id="Object_craven_approach"]
+script = ExtResource("3_object")
+definition_id = "craven_approach"
+label = "Approach territory"
+component_ids = Array[String](["signal_source", "trap_anchor"])
+affordance_ids = Array[String](["trap", "inspect"])
+
+[resource]
+script = ExtResource("1_catalog")
+actions = Array[ExtResource("2_action")]([SubResource("Action_inspect"), SubResource("Action_search"), SubResource("Action_repair"), SubResource("Action_dismantle"), SubResource("Action_open"), SubResource("Action_force"), SubResource("Action_sleep"), SubResource("Action_pickup"), SubResource("Action_trap")])
+object_definitions = Array[ExtResource("3_object")]([SubResource("Object_rubble"), SubResource("Object_shelter"), SubResource("Object_container"), SubResource("Object_door"), SubResource("Object_structure"), SubResource("Object_salvage_rubble"), SubResource("Object_utility_access"), SubResource("Object_craven_approach")])

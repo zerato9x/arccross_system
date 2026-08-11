@@ -54,8 +54,21 @@ Unmarked terms are established. Terms still in motion are labeled
   refuses, builds Arccross, survives the following Red Mist wipe. Pre-Arccross
   begins after. Never UI exposition. See Codex.
 - **The Passing:** Corridor between the North and the rest of the Arms.
-  Reopened in Era 4 for Arc-snow electricity; resealed at the end of Era 6
-  after Delta’s northern Gaps catastrophe. Later reused as geography and trauma.
+  Deliberately collapsed by Central during the Era III northern catastrophe;
+  progressively rebuilt through Warden infrastructure; resealed at the end of
+  Era VI after Delta’s unintended northern cascade.
+- **Orin Vey:** Human prison warden/Handler conscripted for the Final March;
+  gathers mixed survivors after the Coldest Night and founds the Wardens through
+  routes, shelters, communication, and mutual survival.
+- **Patch:** One of the scattered survivable northern communities around the
+  perpetual storm's outer edges after Era III.
+- **No Man's Land:** Vast perpetual-blizzard interior separating northern
+  Patches and Crystal Valley; crossing depends on Warden infrastructure.
+- **Barican:** Northern sovereignty movement named for late King Baric. Rejects
+  imposed Handle authority and centers Free Mark; settles Crystal Valley late
+  Era IV.
+- **Free Mark:** Self-directed Mark specialization and the political/economic
+  antithesis of Knell's Handle-control business.
 - **Arc Automations:** Era I hive machines clearing Core paths. Ended in Era I.
   Not the same threat as Red Mist / Gaps / Cravens.
 - **Cravens:** Humans corrupted by Red Mist into mindless hostiles. Distinct
@@ -65,18 +78,13 @@ Unmarked terms are established. Terms still in motion are labeled
 - **Starter Ring:** The four open Central-adjacent Route 1 nodes and their
   inner-ring links. Each owns a fixed Central-facing-to-outward arterial, but
   the ring contains only one inhabited starter settlement.
-- **North Spine (Act 1):** The first deep campaign highway —
+- **North Spine (alpha):** The first implemented deep campaign highway —
   `north_random_1..3`, north gateway, and north arm core. All four Route 1 nodes
-  are available as starter-ring locations; East/South/West routes beyond that
-  ring remain locked.
-- **North Pointer Tutorial:** One-shot Act 1 beat after eviction: an NPC or
-  scripted event points the player North, opens the Node Map, and highlights
-  `central_core → north_random_1` with a focus animation. Sets Meta flag
-  `tutorial_north_pointed`. See
-  [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
-- **Act 1 Arm Seal:** Travel refusal for East/South/West routes beyond the open
-  Route 1 starter ring. Deeper nodes, gateways, and Cores remain visible but
-  locked; the seal does not block movement among the four starter nodes. Detail:
+  are available as starter-ring locations. East/South/West depth is temporarily
+  locked by content readiness; long-term Core order is non-linear.
+- **Alpha Content Lock:** Temporary travel refusal for unfinished deep
+  East/South/West routes. It does not block the four-node starter ring and must
+  not be interpreted as lore or mandatory Core order. Detail:
   [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 - **Fixed Logistics Skeleton:** Seed-invariant paved arterial and dirt service
   spur authored for a main node. It is oriented by the node's arm and cannot be
@@ -97,6 +105,25 @@ Unmarked terms are established. Terms still in motion are labeled
 - **Regional Dialect:** Arm- or profile-specific art, landmark, and environmental
   copy bias (Central admin remnant, North frontier scraps, East war debris,
   South Guild logistics, West mining/steel) without cosmic exposition.
+- **Core Stabilization:** Permanent Meta transition that resolves an Arm from
+  ambiguous Glitch ruins into its authentic historical ruin dialect. It is not
+  time travel or pristine restoration.
+- **Core Simulation Layer:** Global system direction introduced by a restored
+  regional Core: North network/logistics, East people/community/identity, West
+  industry/fabrication, South economy/commerce. Combination mechanics remain
+  design direction until implemented.
+- **SAP:** **Special Arcborn Platoon**; Central Council-controlled Arcborn civil
+  protection units paired with Handler Units across Central/East/West/South.
+  North is Warden jurisdiction. SAP peacekeeps, rescues, and contains; it does
+  not wage wars.
+- **Xander Team:** Era VI five-Arcborn Handle super-unit: Alpha offense, Beta
+  defense, Charlie support, Delta specialist, Echo recon. Nine teams exist;
+  Xander is not yet mecha in Era VI.
+- **Crux:** Merchant Guild headquarters and Great Exchange by the Great Sea;
+  peak civilization's finance/logistics/technology center and Era VIII last-
+  empire megahub.
+- **Master Trader:** One of hundreds of Merchant Guild principals. They
+  cooperate in Crux but are not politically unified.
 
 ## Character Identity
 
@@ -305,8 +332,9 @@ describes a tool; Damage Type describes a hit.
 - **World Time:** Authoritative elapsed run time shared by movement, SEARCH,
   CAMP, combat, and biological processing.
 - **Core Restore:** Meta work that reseats a regional Core / unseals its gateway
-  and may apply permanent terraform-style patches to that arm. Spoken as
-  infrastructure recovery. Four restores gate Central re-entry after eviction.
+  and may apply permanent stabilization/dialect patches to that Arm. Spoken as
+  infrastructure recovery, not time travel. Four restores in any order gate
+  Central re-entry after eviction.
 
 ## Architecture
 

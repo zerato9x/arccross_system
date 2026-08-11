@@ -18,6 +18,11 @@ mono_crash.*.json
 Tools/Godot_v4.6.3-stable_win64_console.exe
 Tools/Godot_v4.6.3-stable_win64.exe
 
-# Local debug / editor backup noise
+# Local smoke/debug output and editor backup noise
+*.TMP
+*.tmp
+.codex-*.log
+codex-*.log
+codex_*.log
 debug-*.log
 *.png~

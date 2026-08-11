@@ -3,7 +3,7 @@ class_name CombatBodyTargetView
 
 signal region_selected(region: int)
 
-const PAPER_DOLL_SCENE := preload("res://UI/Inventory/PaperDollModel.tscn")
+const PAPER_DOLL_SCENE := PresentationSceneRegistry.PAPER_DOLL_SCENE
 const DISPLAY_REGIONS := [
 	{"label": "HEAD", "region": GameEnums.LimbRegion.HEAD, "side": "left", "y": 38.0},
 	{"label": "TORSO", "region": GameEnums.LimbRegion.UPPER_TORSO, "paired": GameEnums.LimbRegion.LOWER_TORSO, "side": "right", "y": 78.0},
@@ -32,7 +32,7 @@ var _region_rects: Dictionary = {}
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
-	_paper_doll = PAPER_DOLL_SCENE.instantiate()
+	_paper_doll = PresentationSceneRegistry.instantiate_scene(PAPER_DOLL_SCENE) as PaperDollModel
 	_paper_doll.custom_minimum_size = Vector2.ZERO
 	_paper_doll.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_paper_doll.mouse_filter = Control.MOUSE_FILTER_IGNORE

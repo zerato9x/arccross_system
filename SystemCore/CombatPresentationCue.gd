@@ -5,11 +5,15 @@ class_name CombatPresentationCue
 @export var action_id: String = ""
 @export var actor_id: String = ""
 @export var target_actor_id: String = ""
+@export var target_body_region: int = -1
+@export var start_time_seconds: float = 0.0
 @export var start_sector: Vector2i = Vector2i(-1, -1)
 @export var end_sector: Vector2i = Vector2i(-1, -1)
 @export var facing: String = ""
 @export var duration_seconds: float = 0.0
 @export var animation_id: String = "neutral"
+@export var actor_animation_id: String = ""
+@export var target_animation_id: String = ""
 @export var sfx_id: String = ""
 @export var vfx_id: String = ""
 @export var camera_cue_id: String = ""
@@ -27,6 +31,8 @@ class_name CombatPresentationCue
 @export var target_end_sector: Vector2i = Vector2i(-1, -1)
 @export var weapon_class: int = 0
 @export var weapon_id: String = ""
+@export var weapon_action_id: String = ""
+@export var weapon_release_sequence_progress: float = -1.0
 @export var sequence_progress_start: float = 0.0
 @export var sequence_progress_end: float = 1.0
 
@@ -37,22 +43,34 @@ func to_dict() -> Dictionary:
 		"action_id": action_id,
 		"actor_id": actor_id,
 		"target_actor_id": target_actor_id,
+		"target_body_region": target_body_region,
+		"start_time_seconds": start_time_seconds,
 		"start_sector": start_sector,
 		"end_sector": end_sector,
 		"facing": facing,
 		"duration_seconds": duration_seconds,
 		"animation_id": animation_id,
+		"actor_animation_id": actor_animation_id,
+		"target_animation_id": target_animation_id,
 		"sfx_id": sfx_id,
 		"vfx_id": vfx_id,
 		"camera_cue_id": camera_cue_id,
 		"path": path.duplicate(),
 		"outcome_tag": outcome_tag,
+		"lunge_pixels": lunge_pixels,
+		"recoil_pixels": recoil_pixels,
 		"hit_stop_seconds": hit_stop_seconds,
 		"shake_amplitude": shake_amplitude,
+		"shake_frequency": shake_frequency,
+		"camera_impulse_pixels": camera_impulse_pixels,
+		"impact_scale": impact_scale,
+		"impact_rotation_degrees": impact_rotation_degrees,
 		"moves_actor": moves_actor,
 		"target_end_sector": target_end_sector,
 		"weapon_class": weapon_class,
 		"weapon_id": weapon_id,
+		"weapon_action_id": weapon_action_id,
+		"weapon_release_sequence_progress": weapon_release_sequence_progress,
 		"sequence_progress_start": sequence_progress_start,
 		"sequence_progress_end": sequence_progress_end,
 	}

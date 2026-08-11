@@ -36,11 +36,10 @@ static func profile_for_node(node_id: String) -> Dictionary:
 		return _profile(
 			arm,
 			"cold_fringe" if arm == "north" else "homestead",
-			GameEnums.BIOME_PACK_PLAINS,
+			theme_pack,
 			GameEnums.BIOME_PACK_DEFAULT_ERA8,
 			theme_weight,
-			0.02,
-			theme_pack
+			0.02
 		)
 
 	# Non-north arms stay plains/homestead until those packs ship.

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ShelterProgressionProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://WorldCore/ShelterProgressionProfile.gd" id="1_shelter"]
+
+[resource]
+script = ExtResource("1_shelter")
+profile_id = "north_r2_shelter"
+initial_state = "ruined"
+habitable_state = "habitable"
+overrun_state = "repaired_overrun"
+secured_state = "secured"
+secured_damaged_state = "secured_damaged"
+ecology_offsets = {"north_r2_shelter": [Vector2i(2, 0), Vector2i(1, -1), Vector2i(-1, 1)], "north_random_2": [Vector2i(-2, 0), Vector2i(-1, 1)]}
+ecology_template_prefix = "craven_shelter_approach"
+ecology_squad_prefix = "craven_shelter_approach"
+habitable_stage = 2
+overrun_stage = 4
+secure_without_hostile_stage = 4
+stages = Array[String](["roof", "access", "power", "water", "storage", "bed"])
+stage_state_overrides = {"default": "usable", "power": "online", "water": "online"}
+stage_integrity = 0.85
+state_component_patches = {"habitable": {"roof": {"integrity": 0.82}, "door": {"integrity": 0.7, "state": "closed"}, "bed": {"count": 1, "state": "usable"}}, "repaired_overrun": {"roof": {"integrity": 0.92}, "door": {"integrity": 0.85, "state": "barricaded"}, "power": {"state": "online"}, "water": {"state": "online"}, "bed": {"count": 1, "state": "usable"}}, "secured": {"roof": {"integrity": 1.0}, "door": {"integrity": 1.0, "state": "secured"}, "power": {"state": "online"}, "water": {"state": "online"}, "storage": {"state": "usable"}, "bed": {"count": 1, "state": "usable"}}, "secured_damaged": {"roof": {"integrity": 0.9}, "door": {"integrity": 0.75, "state": "secured"}, "power": {"state": "online"}, "water": {"state": "online"}, "bed": {"count": 1, "state": "usable"}, "storage": {"state": "damaged"}}}

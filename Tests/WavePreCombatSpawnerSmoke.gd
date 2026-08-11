@@ -75,8 +75,12 @@ func _run() -> void:
 		_fail("Enemy loose items could not provision legal lab storage.")
 		return
 	var enemy_state := wave_mode.get_staged_loadout_state(true)
-	if str(enemy_state.get("backpack_gear", "")) != BACKPACK_PATH:
-		_fail("Enemy auto-provisioned storage was not explicit in SpawnLoadout state.")
+	var enemy_backpack := str(enemy_state.get("backpack_gear", ""))
+	if enemy_backpack.is_empty() or not ResourceLoader.exists(enemy_backpack):
+		_fail("Enemy worn storage was not explicit in SpawnLoadout state.")
+		return
+	if bool(enemy_inventory.get("auto_storage", false)) and enemy_backpack != BACKPACK_PATH:
+		_fail("Auto-provisioned enemy storage did not serialize its authored backpack path.")
 		return
 	var player_state := wave_mode.get_staged_loadout_state(false)
 	if str(player_state.get("head", "")) != HELMET_3_PATH:

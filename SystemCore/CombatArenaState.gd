@@ -6,10 +6,10 @@ const LEGACY_HEIGHT: int = 5
 const SCHEMA_VERSION: int = 2
 
 @export var schema_version: int = SCHEMA_VERSION
-@export var topology_id: String = "duel_12x1"
-@export var width: int = 12
-@export var height: int = 1
-@export var movement_policy: int = CombatTopologyProfile.MovementPolicy.LINEAR_NO_PASS
+@export var topology_id: String = "squad_7x5"
+@export var width: int = 7
+@export var height: int = 5
+@export var movement_policy: int = CombatTopologyProfile.MovementPolicy.ORTHOGONAL
 @export var baseline_seed: int = 0
 @export var source_coords: Vector2i = Vector2i.ZERO
 @export var orientation_step: int = 0

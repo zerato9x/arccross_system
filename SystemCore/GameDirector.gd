@@ -113,21 +113,45 @@ func _on_combat_requested(request: Dictionary) -> void:
 	var encounter := CombatEncounterRecord.from_dict(
 		request.get("encounter", {})
 	)
-	encounter.topology_id = "duel_12x1"
-	encounter.actors = [
-		{
-			"actor_id": "player",
-			"team_id": "player",
-			"runtime_record": macro_map.player_token.capture_runtime_record(),
-		},
-	]
-	for combat_enemy in _combat_enemy_records(enemy_record):
-		_combat_enemy_ids.append(combat_enemy.entity_id)
-		encounter.actors.append({
-			"actor_id": combat_enemy.entity_id,
-			"team_id": "enemy",
-			"runtime_record": combat_enemy.to_dict(),
-		})
+	# Production always enters the canonical squad arena. Legacy duel fixtures
+	# remain available to isolated Lab tests but never drive runtime handoff.
+	encounter.topology_id = "squad_7x5"
+	# A production request may carry an authored multi-allegiance encounter
+	# (Combat Lab uses the same path). Preserve those actor records and their
+	# relationship ledger instead of rebuilding a two-team duel. The ordinary
+	# macro collision path still receives its nearby world records below.
+	var authored_actors: Array = encounter.actors.duplicate(true)
+	encounter.actors.clear()
+	encounter.actors.append({
+		"actor_id": "player",
+		"team_id": "player",
+		"direct_player": true,
+		"runtime_record": macro_map.player_token.capture_runtime_record(),
+	})
+	var seen_actor_ids := {"player": true}
+	if not authored_actors.is_empty():
+		for raw_actor in authored_actors:
+			if not raw_actor is Dictionary:
+				continue
+			var actor_id := str(raw_actor.get("actor_id", ""))
+			if actor_id.is_empty() or seen_actor_ids.has(actor_id):
+				continue
+			if encounter.actors.size() >= 6:
+				break
+			seen_actor_ids[actor_id] = true
+			encounter.actors.append(raw_actor.duplicate(true))
+			_combat_enemy_ids.append(actor_id)
+	else:
+		for combat_enemy in _combat_enemy_records(enemy_record):
+			if combat_enemy == null or seen_actor_ids.has(combat_enemy.entity_id):
+				continue
+			seen_actor_ids[combat_enemy.entity_id] = true
+			_combat_enemy_ids.append(combat_enemy.entity_id)
+			encounter.actors.append({
+				"actor_id": combat_enemy.entity_id,
+				"team_id": "enemy",
+				"runtime_record": combat_enemy.to_dict(),
+			})
 	_active_arena.combat_finished.connect(_on_combat_finished)
 	_active_arena.setup_encounter(encounter)
 	
@@ -156,6 +180,10 @@ func _on_combat_finished(result: CombatResultRecord) -> void:
 		var enemy_runtime := _runtime_from_result(result, combat_enemy_id)
 		if not enemy_runtime.is_empty():
 			_world_state.update_entity_runtime(combat_enemy_id, enemy_runtime)
+		if bool(enemy_runtime.get("is_dead", false)):
+			for item_state in _carried_item_states(enemy_runtime):
+				if not _contains_item_instance(result.ground_items, item_state):
+					result.ground_items.append(item_state)
 	_world_state.update_player_runtime(
 		player_runtime,
 		macro_map.player_token.current_hex_coords
@@ -176,6 +204,7 @@ func _on_combat_finished(result: CombatResultRecord) -> void:
 				var record := _world_state.get_entity(combat_enemy_id)
 				if record != null:
 					macro_map.unload_enemy_token(record.coords)
+			macro_map.reconcile_shelter_after_hostile_change()
 		GameEnums.CombatOutcome.PLAYER_DEFEAT:
 			if result.reason == "death":
 				_on_player_defeat_preserve_mutations()
@@ -216,6 +245,40 @@ func _on_combat_finished(result: CombatResultRecord) -> void:
 	_start_macro_audio()
 
 
+func _carried_item_states(runtime: Dictionary) -> Array:
+	var result: Array = []
+	var inventory: Dictionary = runtime.get("inventory", {})
+	for item_state in inventory.get("equipment", {}).values():
+		if item_state is Dictionary:
+			result.append(_ground_item_state(item_state))
+	for item_state in inventory.get("backpack", []):
+		if item_state is Dictionary:
+			result.append(_ground_item_state(item_state))
+	for item_state in runtime.get("inventory_items", []):
+		if item_state is Dictionary:
+			result.append(_ground_item_state(item_state))
+	return result
+
+
+func _ground_item_state(item_state: Dictionary) -> Dictionary:
+	var ground := item_state.duplicate(true)
+	ground["owner_id"] = ""
+	ground["physical_location"] = "ground"
+	ground.erase("container_instance_id")
+	ground["equipped_slot"] = GameEnums.EquipmentSlot.NONE
+	return ground
+
+
+func _contains_item_instance(items: Array, candidate: Dictionary) -> bool:
+	var instance_id := str(candidate.get("instance_id", ""))
+	if instance_id.is_empty():
+		return false
+	for existing in items:
+		if existing is Dictionary and str(existing.get("instance_id", "")) == instance_id:
+			return true
+	return false
+
+
 func _runtime_from_result(result: CombatResultRecord, actor_id: String) -> Dictionary:
 	for update in result.actor_runtime_updates:
 		if str(update.get("actor_id", "")) == actor_id:
@@ -226,10 +289,16 @@ func _runtime_from_result(result: CombatResultRecord, actor_id: String) -> Dicti
 func _combat_enemy_records(primary: EntityRecord) -> Array[EntityRecord]:
 	var result: Array[EntityRecord] = [primary]
 	var squad_id := str(primary.runtime.get("squad_id", ""))
+	# Production encounters are no longer a player plus one truncated duel
+	# opponent.  Keep the encounter actor cap in one place (six total, so five
+	# autonomous records) and let the authored relationship ledger decide which
+	# of those actors are actually hostile.  The old two-record limit silently
+	# dropped squad members before they ever reached TacticalCombatScene.
+	const MAX_COMBAT_ACTORS := 6
 	if squad_id.is_empty():
 		return result
 	for candidate in _world_state.get_all_entity_records():
-		if result.size() >= 2:
+		if result.size() >= MAX_COMBAT_ACTORS:
 			break
 		if candidate == null or candidate.entity_id == primary.entity_id:
 			continue
@@ -249,6 +318,9 @@ func _apply_combat_site_result(result: CombatResultRecord) -> void:
 		return
 	var state := result.environment_patch.duplicate(true)
 	state["bodies"] = result.body_locations.duplicate(true)
+	state["incapacitated"] = result.incapacitated_locations.duplicate(true)
+	state["surrendered_actor_ids"] = result.surrendered_actor_ids.duplicate()
+	state["surrendered"] = result.surrendered_locations.duplicate(true)
 	state["ground_items"] = result.ground_items.duplicate(true)
 	record.combat_site_state = state
 	_world_state.set_hex_record(result.source_coords, record)
@@ -311,6 +383,8 @@ func _on_core_activated() -> void:
 
 func _on_player_defeat_preserve_mutations() -> void:
 	if macro_map:
+		if macro_map.has_method("preserve_shelter_after_player_defeat"):
+			macro_map.preserve_shelter_after_player_defeat()
 		macro_map.flush_world_mutations()
 
 func save_game(path: String = RuntimeStateStore.DEFAULT_SAVE_PATH) -> bool:

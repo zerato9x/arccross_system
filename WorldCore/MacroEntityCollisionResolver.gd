@@ -186,7 +186,7 @@ static func build_peaceful_session(enemy_record: EntityRecord) -> Dictionary:
 				"TRADE",
 				"trade",
 				(
-					"Trade screen placeholder."
+					"Trade uses their actual carried goods and current wants."
 					if allows_trade
 					else "This contact refuses to barter."
 				),
@@ -213,6 +213,10 @@ static func build_ask_session(enemy_record: EntityRecord) -> Dictionary:
 	var opponent := build_opponent_summary(enemy_record)
 	var dialogue_id := str(opponent.get("dialogue_id", ""))
 	var profile := _ask_profile(dialogue_id)
+	var knowledge_body := _knowledge_statement(enemy_record)
+	if not knowledge_body.is_empty():
+		profile = profile.duplicate(true)
+		profile["body"] = str(profile.get("body", "")) + "\n\n" + knowledge_body
 	var choices: Array = []
 	for entry in profile.get("choices", []):
 		if entry is Dictionary:
@@ -285,8 +289,9 @@ static func trade_placeholder_result() -> Dictionary:
 	}
 
 
-## Auto-barter one backpack offer for one enemy pack item using barter value.
-## Returns a result dictionary plus optional mutation payloads for MacroGameManager.
+## Offer one actual backpack instance and evaluate one actual enemy-carried item.
+## The definition loadout is only materialized as a compatibility fallback for
+## actors that have not crossed a persistence boundary yet.
 static func resolve_trade(
 	player_core: HumanoidCore,
 	enemy_record: EntityRecord,
@@ -311,39 +316,32 @@ static func resolve_trade(
 			"resume": MODE_PEACEFUL,
 		}
 
-	var loadout: Dictionary = enemy_record.definition.get("loadout", {}).duplicate(true)
-	var starting_items: Array = loadout.get("starting_items", []).duplicate()
-	var trade_index := -1
-	var trade_path := ""
-	for index in range(starting_items.size()):
-		var path := str(starting_items[index])
-		if path.is_empty():
-			continue
-		trade_index = index
-		trade_path = path
-		break
-	if trade_index < 0 or trade_path.is_empty():
+	var inventory_states := _enemy_trade_inventory_states(enemy_record, loot_catalog)
+	if inventory_states.is_empty():
 		return {
 			"title": "NO DEAL",
-			"body": "Their pack is empty. Nothing changes hands.",
+			"body": "Their actual pack is empty. Nothing changes hands.",
 			"effects": {},
 			"resume": MODE_PEACEFUL,
 		}
-
-	var received_state: Dictionary = loot_catalog.create_runtime_item_from_template_path(
-		trade_path
-	)
+	var preferences: Dictionary = enemy_record.runtime.get("trade", {}).duplicate(true)
+	var wants: Array = preferences.get("wants", [])
+	var received_state := _choose_trade_item(inventory_states, wants)
 	if received_state.is_empty():
 		return {
 			"title": "NO DEAL",
-			"body": "The offered goods fall apart before the swap completes.",
+			"body": "They have nothing they currently want to risk trading.",
 			"effects": {},
 			"resume": MODE_PEACEFUL,
 		}
 	var received := ItemData.from_runtime_state(received_state)
 	var offer_value := offer.get_barter_value()
 	var received_value := received.get_barter_value()
-	if received_value > offer_value * 1.75:
+	var wanted_offer := _item_matches_wants(offer, wants)
+	var value_tolerance := maxf(0.5, float(preferences.get("value_tolerance", 1.35)))
+	if not wanted_offer:
+		value_tolerance *= 0.82
+	if received_value > offer_value * value_tolerance:
 		return {
 			"title": "NO DEAL",
 			"body": (
@@ -354,24 +352,135 @@ static func resolve_trade(
 			"resume": MODE_PEACEFUL,
 		}
 
-	starting_items.remove_at(trade_index)
-	var offer_template := offer.template_path
-	if not offer_template.is_empty():
-		starting_items.append(offer_template)
-	loadout["starting_items"] = starting_items
+	var offer_state := offer.to_runtime_state()
+	offer_state["owner_id"] = enemy_record.entity_id
+	offer_state["physical_location"] = "inventory"
+	var received_for_player := received_state.duplicate(true)
+	received_for_player.erase("_fallback_index")
+	received_for_player["owner_id"] = "player"
+	received_for_player["physical_location"] = "inventory"
+	var had_runtime_inventory: bool = not Array(enemy_record.runtime.get("inventory_items", [])).is_empty()
+	var runtime_inventory: Array = enemy_record.runtime.get("inventory_items", []).duplicate(true)
+	var received_instance := str(received_state.get("instance_id", ""))
+	for index in range(runtime_inventory.size() - 1, -1, -1):
+		if str(runtime_inventory[index].get("instance_id", "")) == received_instance:
+			runtime_inventory.remove_at(index)
+			break
+	if had_runtime_inventory:
+		runtime_inventory.append(offer_state)
+	var loadout: Dictionary = enemy_record.definition.get("loadout", {}).duplicate(true)
+	var fallback_trade_index := int(received_state.get("_fallback_index", -1))
+	if fallback_trade_index >= 0:
+		var starting_items: Array = loadout.get("starting_items", []).duplicate()
+		if fallback_trade_index < starting_items.size():
+			starting_items.remove_at(fallback_trade_index)
+		var offer_template := offer.template_path
+		if not offer_template.is_empty():
+			starting_items.append(offer_template)
+		loadout["starting_items"] = starting_items
+	elif bool(received_state.get("_authored_loadout", false)):
+		_remove_loadout_template(loadout, str(received_state.get("template_path", "")))
 
 	return {
 		"title": "TRADE COMPLETE",
 		"body": (
-			"You hand over %s and take %s."
+			"You hand over %s and take %s. Their pack now contains your offer."
 			% [offer.display_name, received.display_name]
 		),
-		"effects": {},
+		"effects": {
+			"elapsed_minutes": 5,
+			"exertion": 0.15,
+			"trust_delta": 1.0 if wanted_offer else 0.25,
+		},
 		"resume": MODE_PEACEFUL,
 		"remove_player_instance_id": offer.instance_id,
-		"received_item_state": received_state,
+		"received_item_state": received_for_player,
+		"enemy_received_item_state": offer_state,
+		"enemy_inventory_items": runtime_inventory,
 		"kept_loadout": loadout,
-	}
+}
+
+
+static func _remove_loadout_template(loadout: Dictionary, template_path: String) -> void:
+	if template_path.is_empty():
+		return
+	for key in [
+		"weapon", "offhand", "inner_torso", "outer_torso", "legs", "feet", "vest",
+		"backpack_gear", "head", "eyes", "face", "neck", "arms", "belt", "sling",
+	]:
+		if str(loadout.get(key, "")) == template_path:
+			loadout[key] = ""
+			return
+	var starting_items: Array = loadout.get("starting_items", []).duplicate()
+	for index in range(starting_items.size()):
+		if str(starting_items[index]) == template_path:
+			starting_items.remove_at(index)
+			loadout["starting_items"] = starting_items
+			return
+
+
+static func _enemy_trade_inventory_states(
+	enemy_record: EntityRecord,
+	loot_catalog: Node
+) -> Array[Dictionary]:
+	var states: Array[Dictionary] = []
+	for value in enemy_record.runtime.get("inventory_items", []):
+		if value is Dictionary and not str(value.get("instance_id", "")).is_empty():
+			states.append(value.duplicate(true))
+	if not states.is_empty():
+		return states
+	var starting_items: Array = enemy_record.definition.get("loadout", {}).get("starting_items", [])
+	for index in range(starting_items.size()):
+		var path := str(starting_items[index])
+		if path.is_empty() or loot_catalog == null:
+			continue
+		var state: Dictionary = loot_catalog.create_runtime_item_from_template_path(path)
+		if state.is_empty():
+			continue
+		state["owner_id"] = enemy_record.entity_id
+		state["physical_location"] = "inventory"
+		state["_fallback_index"] = index
+		states.append(state)
+	return states
+
+
+static func _choose_trade_item(states: Array[Dictionary], wants: Array) -> Dictionary:
+	var best: Dictionary = {}
+	var best_score := -INF
+	for state in states:
+		var item := ItemData.from_runtime_state(state)
+		if item == null or item.item_type == GameEnums.ItemType.WEAPON:
+			continue
+		var score := item.get_barter_value() * 0.05
+		if _item_matches_wants(item, wants):
+			score += 10.0
+		if score > best_score:
+			best_score = score
+			best = state.duplicate(true)
+	return best
+
+
+static func _item_matches_wants(item: ItemData, wants: Array) -> bool:
+	if item == null:
+		return false
+	for want_value in wants:
+		var want := str(want_value)
+		if want == item.id or want == str(item.item_type) or item.tags.has(want):
+			return true
+	return false
+
+
+static func _knowledge_statement(enemy_record: EntityRecord) -> String:
+	if enemy_record == null or enemy_record.knowledge.is_empty():
+		return ""
+	var lines: Array[String] = []
+	for key in enemy_record.knowledge.keys():
+		var clue: Dictionary = enemy_record.knowledge[key] if enemy_record.knowledge[key] is Dictionary else {}
+		var confidence := clampf(float(clue.get("confidence", 0.0)), 0.0, 1.0)
+		if confidence <= 0.0:
+			continue
+		lines.append("They remember %s (confidence %.0f%%)." % [str(key).replace("_", " "), confidence * 100.0])
+	return "KNOWLEDGE // " + " ".join(lines) if not lines.is_empty() else ""
 
 
 static func _pick_player_trade_offer(player_core: HumanoidCore) -> ItemData:
@@ -653,46 +762,7 @@ static func _ask_profile(dialogue_id: String) -> Dictionary:
 		return _unique_sample_broker()
 	if dialogue_id == "central_guard":
 		return _central_guard_ask()
-	if dialogue_id.begins_with("starter_wayfinder:"):
-		return _starter_wayfinder_ask(dialogue_id.trim_prefix("starter_wayfinder:"))
 	return _generic_ask()
-
-
-static func _starter_wayfinder_ask(arm_id: String) -> Dictionary:
-	var arm_label := arm_id.capitalize()
-	return {
-		"title": "ASK // %s WAYFINDER" % arm_label.to_upper(),
-		"body": (
-			"A fringe resident keeps watch beside the homesteads. They know which "
-			+ "tracks still carry people, and which only carry trouble."
-		),
-		"choices": [
-			{
-				"id": "ask_wayfinder_route",
-				"label": "Ask about the road ahead",
-				"preview": "Get a direction beyond the settlement.",
-				"reason": "Available.",
-				"result_title": "%s ROUTE" % arm_label.to_upper(),
-				"result_body": (
-					"'Take the marked trail away from Central. The old route marker still "
-					+ "points toward %s Route 2. Check it before you commit.'" % arm_label
-				),
-				"effects": {"elapsed_minutes": 2, "exertion": 0.05},
-			},
-			{
-				"id": "ask_wayfinder_ring",
-				"label": "Ask about the inner ring",
-				"preview": "Learn how the four old approaches connect.",
-				"reason": "Available.",
-				"result_title": "FRINGE RING",
-				"result_body": (
-					"'Four old approaches still ring Central's lock, but this is the only "
-					+ "settled camp. The paved bones remain even where nobody stayed.'"
-				),
-				"effects": {"elapsed_minutes": 2, "exertion": 0.05},
-			},
-		],
-	}
 
 
 static func _central_guard_ask() -> Dictionary:

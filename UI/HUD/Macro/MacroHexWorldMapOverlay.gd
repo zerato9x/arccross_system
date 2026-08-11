@@ -75,10 +75,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
 	if not key.pressed or key.echo:
 		return
-	if key.keycode == KEY_ESCAPE:
+	if key.is_action_pressed("macro_cancel"):
 		close_map()
 		get_viewport().set_input_as_handled()
-	elif key.keycode == KEY_F:
+	elif key.is_action_pressed("macro_reset_map"):
 		_map_view.reset_view()
 		get_viewport().set_input_as_handled()
 
@@ -101,7 +101,8 @@ func _render_selection() -> void:
 	var cell := _cell_at(_selected_coords)
 	var player_coords: Vector2i = _snapshot.get("player_coords", Vector2i.ZERO)
 	var distance := HexCoordUtils.distance(player_coords, _selected_coords)
-	if cell.is_empty() or not bool(cell.get("explored", false)):
+	var explored := bool(cell.get("explored", false))
+	if cell.is_empty() or not explored:
 		_selection_title.text = "UNEXPLORED HEX"
 		_selection_details.text = (
 			"HEX %d, %d\nNo field intelligence is available."
@@ -135,7 +136,7 @@ func _render_selection() -> void:
 			"  //  ".join(status),
 		]
 	)
-	var can_travel := distance == 1 and passable
+	var can_travel := explored and distance > 0 and passable
 	_travel_button.disabled = not can_travel
 	_travel_button.text = (
 		"TRAVEL TO HEX"

@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="CombatBalanceProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://SystemCore/CombatBalanceProfile.gd" id="1_balance"]
+
+[resource]
+script = ExtResource("1_balance")
+profile_id = "default_tactical"
+base_stance = 2.0
+brawn_stance_weight = 0.35
+fortitude_stance_weight = 0.35
+will_stance_weight = 0.1
+critical_margin = 4.0
+collision_stance_damage = 2.0
+shove_stance_damage = 2.0
+collision_wound_min = 1.0
+collision_wound_max = 5.0
+collision_wound_per_margin = 0.35
+crowded_collateral_risk = 0.25
+crowded_collateral_multiplier = 0.5
+off_balance_margin = 4.0
+communication_point_base = 2
+squad_point_base = 2
+ap_costs_by_category = {"quick": [1, 2, 3], "minor": [2, 3, 4], "major": [3, 4, 6], "heavy": [4, 6, 12]}
+critical_stance_multiplier = 1.5
+broken_recovery_ratio = 0.25
+broken_recovery_minimum = 1.0

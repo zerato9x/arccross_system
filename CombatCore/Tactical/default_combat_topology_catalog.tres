@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="CombatTopologyCatalog" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://CombatCore/Tactical/CombatTopologyCatalog.gd" id="1_catalog"]
+[ext_resource type="Resource" path="res://CombatCore/Tactical/Topologies/duel_12x1.tres" id="2_duel"]
+[ext_resource type="Resource" path="res://CombatCore/Tactical/Topologies/skirmish_6x3.tres" id="3_skirmish"]
+[ext_resource type="Resource" path="res://CombatCore/Tactical/Topologies/squad_7x5.tres" id="4_squad"]
+
+[resource]
+script = ExtResource("1_catalog")
+profiles = Array[ExtResource("2_duel")]([ExtResource("2_duel"), ExtResource("3_skirmish"), ExtResource("4_squad")])

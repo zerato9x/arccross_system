@@ -8,6 +8,7 @@ class_name MacroCollisionCoordinator
 
 var host: MacroGameManager
 var interaction_state: MacroInteractionState
+const _NpcSimulator := preload("res://WorldCore/MacroNpcSimulator.gd")
 
 
 func _init(
@@ -101,6 +102,7 @@ func resolve_trade() -> void:
 		enemy_record,
 		host._loot_catalog
 	)
+	host._apply_macro_event_effects(result.get("effects", {}))
 	var remove_id := str(result.get("remove_player_instance_id", ""))
 	if not remove_id.is_empty() and player_core != null:
 		player_core.inventory.remove_item_by_instance_id(remove_id)
@@ -115,7 +117,25 @@ func resolve_trade() -> void:
 	if result.has("kept_loadout"):
 		var definition: Dictionary = enemy_record.definition.duplicate(true)
 		definition["loadout"] = result.get("kept_loadout", {})
-		host._world_state.patch_entity_record(enemy_id, {"definition": definition})
+		var runtime := enemy_record.runtime.duplicate(true)
+		var memory_record := host._world_state.get_entity(enemy_id)
+		if memory_record != null:
+			_NpcSimulator.remember_player_event(
+				memory_record,
+				"trade_completed",
+				host._macro_turn_index,
+				host.player_token.current_hex_coords,
+				float(result.get("effects", {}).get("trust_delta", 0.0)),
+				0.0
+			)
+			runtime = memory_record.runtime
+		if result.has("enemy_inventory_items"):
+			runtime["inventory_items"] = result.get("enemy_inventory_items", [])
+		host._world_state.patch_entity_record(enemy_id, {
+			"definition": definition,
+			"runtime": runtime,
+			"revision": enemy_record.revision + 1,
+		})
 	interaction_state.set_value(
 		"resume_after_result",
 		str(result.get("resume", MacroEntityCollisionResolver.MODE_PEACEFUL))

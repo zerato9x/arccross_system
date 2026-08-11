@@ -6,9 +6,9 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	var duel := CombatTopologyProfile.load_profile("duel_12x1")
-	var skirmish := CombatTopologyProfile.load_profile("skirmish_6x3")
-	var squad := CombatTopologyProfile.load_profile("squad_7x5")
+	var duel := CombatTopologyCatalog.load_profile("duel_12x1")
+	var skirmish := CombatTopologyCatalog.load_profile("skirmish_6x3")
+	var squad := CombatTopologyCatalog.load_profile("squad_7x5")
 	if duel.columns != 12 or duel.rows != 1 or duel.sector_count() != 12:
 		return _fail("Production duel profile is not 12 x 1.")
 	if skirmish.columns != 6 or skirmish.rows != 3 or squad.columns != 7 or squad.rows != 5:
@@ -55,6 +55,19 @@ func _actor(actor_id: String, side: String) -> HumanoidCore:
 	actor.name = actor_id
 	actor.set_meta("actor_id", actor_id)
 	actor.set_meta("combat_side", side)
+	var body := HumanoidBody.new()
+	body.name = "HumanoidBody"
+	actor.add_child(body)
+	var inventory := InventorySystem.new()
+	inventory.name = "InventorySystem"
+	actor.add_child(inventory)
+	var definition := EntityDefinition.new()
+	definition.archetype_name = actor_id
+	definition.brawn = 6
+	definition.finesse = 6
+	definition.fortitude = 6
+	definition.will = 6
+	actor.definition = definition
 	root.add_child(actor)
 	return actor
 

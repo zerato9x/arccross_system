@@ -24,6 +24,7 @@ static func resolve_action(
 	var ground_restore: Array = []
 	var elapsed_minutes := 0
 	var neutral_action := {}
+	var committed := false
 
 	match action_id:
 		GameEnums.MACRO_INV_TAKE:
@@ -40,6 +41,7 @@ static func resolve_action(
 					equipment_slot as GameEnums.EquipmentSlot
 				):
 					message = "Took %s." % ground_item.display_name
+					committed = true
 				else:
 					ground_restore.append(item_state)
 					message = inventory_error_callback.call(
@@ -50,6 +52,7 @@ static func resolve_action(
 			if dropped:
 				ground_mutations.append(dropped.to_runtime_state())
 				message = "Dropped %s." % dropped.display_name
+				committed = true
 			else:
 				message = "That carried item is no longer available."
 		GameEnums.MACRO_INV_EQUIP:
@@ -69,6 +72,7 @@ static func resolve_action(
 				equipment_slot as GameEnums.EquipmentSlot
 			):
 				message = "Equipped %s." % equippable.display_name
+				committed = true
 			else:
 				message = inventory_error_callback.call(
 					"The equipment change failed."
@@ -83,18 +87,21 @@ static func resolve_action(
 				else:
 					inventory.unequip_item(equipment_slot)
 					message = "Unequipped %s." % equipped.display_name
+					committed = true
 		GameEnums.MACRO_INV_CONSUME:
 			var consumable := inventory.find_item_by_instance_id(instance_id)
 			if consumable == null or not inventory.backpack_array.has(consumable):
 				message = "Only backpack consumables can be used."
 			elif player_core.use_consumable_item(consumable):
 				message = "Used %s." % consumable.display_name
+				committed = true
 				return {
 					"message": message,
 					"player_runtime": player_core.capture_runtime_state().to_dict(),
 					"ground_mutations": ground_mutations,
 					"ground_restore": ground_restore,
 					"item_used_category": consumable.catalog_category,
+					"committed": committed,
 				}
 			else:
 				message = inventory_error_callback.call(
@@ -109,6 +116,7 @@ static func resolve_action(
 				equipment_slot as GameEnums.EquipmentSlot
 			):
 				message = "Moved %s." % movable.display_name
+				committed = true
 			else:
 				message = inventory_error_callback.call(
 					"That item does not fit there."
@@ -121,6 +129,7 @@ static func resolve_action(
 					loaded_rounds,
 					magazine.display_name,
 				]
+				committed = true
 			else:
 				message = inventory_error_callback.call(
 					"The magazine could not be loaded."
@@ -142,6 +151,7 @@ static func resolve_action(
 			message = str(repair.get("message", "The repair could not be completed."))
 			if bool(repair.get("attempted", false)):
 				elapsed_minutes = 30
+				committed = true
 			neutral_action = {
 				"action_id": GameEnums.MACRO_INV_REPAIR,
 				"target_instance_id": target_id,
@@ -158,6 +168,7 @@ static func resolve_action(
 				message = "%s contains no decodable evidence." % inspected.display_name
 			else:
 				message = "Inspecting %s." % inspected.display_name
+				committed = true
 				neutral_action = {
 					"action_id": GameEnums.MACRO_INV_INSPECT,
 					"instance_id": inspected.instance_id,
@@ -174,4 +185,5 @@ static func resolve_action(
 		"ground_restore": ground_restore,
 		"elapsed_minutes": elapsed_minutes,
 		"neutral_action": neutral_action,
+		"committed": committed,
 	}

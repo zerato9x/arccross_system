@@ -9,19 +9,32 @@ class_name CombatActionQuote
 @export var actor_id: String = ""
 @export var action_id: String = ""
 @export var origin_sector: Vector2i = Vector2i(-1, -1)
+@export var projected_origin: Vector2i = Vector2i(-1, -1)
 @export var target_sector: Vector2i = Vector2i(-1, -1)
+@export var shove_direction: String = ""
 @export var path: Array[Vector2i] = []
+@export var approach_path: Array[Vector2i] = []
 @export var final_facing: String = ""
 @export var ap_cost: int = 0
 @export var movement_cost: int = 0
+@export var movement_ap_cost: int = 0
+@export var action_ap_cost: int = 0
+@export var movement_step_costs: Array[int] = []
 @export var has_line_of_sight: bool = false
 @export var cover_strength: float = 0.0
 @export var range_cells: int = 0
 @export var reaction_threat_ids: Array[String] = []
+@export var ordered_reaction_steps: Array[Dictionary] = []
 @export var predicted_displacement: Array[Dictionary] = []
 @export var collision_preview: Dictionary = {}
 @export var presentation_profile_id: String = ""
 @export var forecast: CombatForecastRecord
+@export var resulting_occupancy: String = ""
+@export var collateral_risk: float = 0.0
+@export var stance_forecast: Dictionary = {}
+@export var relation_consequence: Dictionary = {}
+@export var communication_acceptance_forecast: Dictionary = {}
+@export var planning_uncertain: bool = false
 
 
 func deny(code: String, message: String) -> CombatActionQuote:
@@ -46,17 +59,30 @@ func to_dict() -> Dictionary:
 		"actor_id": actor_id,
 		"action_id": action_id,
 		"origin_sector": origin_sector,
+		"projected_origin": projected_origin,
 		"target_sector": target_sector,
+		"shove_direction": shove_direction,
 		"path": path.duplicate(),
+		"approach_path": approach_path.duplicate(),
 		"final_facing": final_facing,
 		"ap_cost": ap_cost,
 		"movement_cost": movement_cost,
+		"movement_ap_cost": movement_ap_cost,
+		"action_ap_cost": action_ap_cost,
+		"movement_step_costs": movement_step_costs.duplicate(),
 		"has_line_of_sight": has_line_of_sight,
 		"cover_strength": cover_strength,
 		"range_cells": range_cells,
 		"reaction_threat_ids": reaction_threat_ids.duplicate(),
+		"ordered_reaction_steps": ordered_reaction_steps.duplicate(true),
 		"predicted_displacement": predicted_displacement.duplicate(true),
 		"collision_preview": collision_preview.duplicate(true),
 		"presentation_profile_id": presentation_profile_id,
+		"resulting_occupancy": resulting_occupancy,
+		"collateral_risk": collateral_risk,
+		"stance_forecast": stance_forecast.duplicate(true),
+		"relation_consequence": relation_consequence.duplicate(true),
+		"communication_acceptance_forecast": communication_acceptance_forecast.duplicate(true),
+		"planning_uncertain": planning_uncertain,
 		"forecast": forecast.to_dict() if forecast != null else {},
 	}

@@ -131,7 +131,7 @@ func _ready() -> void:
 			PresentationSceneRegistry.MAIN_MENU_SCENE
 		)
 	)
-	# Production combat is turn-based only. Real-time stays in WAVE // COMBAT LAB.
+	# Production and Combat Lab both route through the shared turn-based tactical runtime.
 	if _combat_mode_option != null:
 		_combat_mode_option.visible = false
 		_combat_mode_option.disabled = true
@@ -145,6 +145,9 @@ func _ready() -> void:
 		_screen_noise_toggle.button_pressed = settings.screen_noise_enabled
 		_hud_scale_slider.value = settings.hud_scale
 		_select_hud_scheme(settings.hud_scheme)
+	var event_bus := get_node_or_null("/root/GameEventBus")
+	if event_bus != null and event_bus.has_signal("world_action_presentation"):
+		event_bus.world_action_presentation.connect(_on_world_action_presentation)
 	_screen_overlay.visible = _screen_noise_toggle.button_pressed
 	_screen_noise_toggle.toggled.connect(_on_screen_noise_toggled)
 	_hud_scale_slider.value_changed.connect(_set_hud_scale)
@@ -224,8 +227,8 @@ func present_travel_beat(session: Dictionary) -> void:
 
 func present_poi(
 	session: Dictionary,
-	_inventory_snapshot: Dictionary = {},
-	_player_record: Dictionary = {}
+	inventory_snapshot: Dictionary = {},
+	player_record: Dictionary = {}
 ) -> void:
 	# Routine exploration is hosted by HERE. The full exploration stage is now
 	# reserved for authored events, collisions, and combat handoff.
@@ -234,6 +237,7 @@ func present_poi(
 	location["fixture_count"] = session.get("site", {}).get("fixtures", []).size()
 	_snapshot["current_location"] = location
 	_hex_panel.apply_snapshot(_snapshot)
+	_exploration_stage.cache_poi_snapshot(session)
 	close_primary_surfaces(&"here")
 	_hex_panel.expand()
 	_sync_primary_surface_state()
@@ -245,6 +249,11 @@ func bind_exploration_window(window: MacroExplorationWindow) -> void:
 
 func get_exploration_stage() -> MacroExplorationStage:
 	return _exploration_stage
+
+
+func _on_world_action_presentation(receipt: Dictionary) -> void:
+	if _hex_panel != null:
+		_hex_panel.present_action_receipt(receipt)
 
 
 func open_event(session: Dictionary) -> void:

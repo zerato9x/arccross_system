@@ -417,6 +417,11 @@ func _clear_local_zone_runtime() -> void:
 	_world_state.entity_records.clear()
 	_world_state.entity_ids_by_coords.clear()
 	_world_state.ground_item_records.clear()
+	# Signals and reservations belong to the node snapshot that is being
+	# unloaded. Keeping them live across a node swap lets an old noise event
+	# wake actors in an unrelated zone and leaves stale work reservations behind.
+	_world_state.active_world_actions.clear()
+	_world_state.world_signal_records.clear()
 	if zone_generator != null:
 		zone_generator.world_hex_cache.clear()
 

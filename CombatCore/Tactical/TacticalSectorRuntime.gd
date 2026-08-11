@@ -1,10 +1,23 @@
 extends Resource
 class_name TacticalSectorRuntime
 
+const ENTRY_ORDINARY := "ordinary"
+const ENTRY_HOSTILE_ENGAGEMENT := "hostile_engagement"
+const ENTRY_FORCED_DISPLACEMENT := "forced_displacement"
+
 var index: int = -1
 var coords: Vector2i = Vector2i.ZERO
 var record: TacticalSectorRecord
-var occupant: HumanoidCore
+## Ordered runtime occupants. `occupant` remains a compatibility projection for
+## legacy callers and returns the first occupant only.
+var occupants: Array[HumanoidCore] = []
+var occupant: HumanoidCore:
+	get:
+		return occupants[0] if not occupants.is_empty() else null
+	set(value):
+		occupants.clear()
+		if value != null:
+			occupants.append(value)
 var object_durability: float = 0.0
 var blocked: bool = false
 var opaque: bool = false
@@ -38,7 +51,76 @@ func movement_cost(base_cost: int) -> int:
 
 
 func is_open_for(actor: HumanoidCore = null) -> bool:
-	return not blocked and (occupant == null or occupant == actor)
+	return not blocked and (actor in occupants or occupants.size() < 2)
+
+
+func occupancy_kind() -> String:
+	## Spatial occupancy only. Relationship-aware Engagement/Crowding is
+	## resolved by CombatBoard, which owns the encounter ledger.
+	if occupants.is_empty():
+		return "empty"
+	if occupants.size() == 1:
+		return "single"
+	return "full"
+
+
+func can_enter(actor: HumanoidCore, forced: bool = false) -> bool:
+	return can_enter_with_policy(
+		actor,
+		ENTRY_FORCED_DISPLACEMENT if forced else ENTRY_ORDINARY
+	)
+
+
+func can_enter_with_policy(
+	actor: HumanoidCore,
+	entry_policy: String = ENTRY_ORDINARY,
+	target_actor: HumanoidCore = null
+) -> bool:
+	if actor == null or blocked:
+		return false
+	if actor in occupants:
+		return true
+	if occupants.size() >= 2:
+		return false
+	if occupants.is_empty():
+		return true
+	if entry_policy == ENTRY_FORCED_DISPLACEMENT:
+		return true
+	if entry_policy == ENTRY_HOSTILE_ENGAGEMENT:
+		return occupants.size() == 1 and (target_actor == null or occupants[0] == target_actor)
+	return false
+
+
+func add_occupant(actor: HumanoidCore, forced: bool = false) -> bool:
+	return add_occupant_with_policy(
+		actor,
+		ENTRY_FORCED_DISPLACEMENT if forced else ENTRY_ORDINARY
+	)
+
+
+func add_occupant_with_policy(
+	actor: HumanoidCore,
+	entry_policy: String = ENTRY_ORDINARY,
+	target_actor: HumanoidCore = null
+) -> bool:
+	if actor == null or actor in occupants or occupants.size() >= 2:
+		return actor in occupants
+	if not can_enter_with_policy(actor, entry_policy, target_actor):
+		return false
+	occupants.append(actor)
+	return true
+
+
+func remove_occupant(actor: HumanoidCore) -> bool:
+	var offset := occupants.find(actor)
+	if offset < 0:
+		return false
+	occupants.remove_at(offset)
+	return true
+
+
+func clear_occupants() -> void:
+	occupants.clear()
 
 
 func damage_object(amount: float) -> Dictionary:
@@ -84,8 +166,11 @@ func presentation_descriptor() -> Dictionary:
 		"trap": trap_state.duplicate(true),
 		"escape_side": record.escape_side if record != null else "",
 		"occupant_id": _actor_id(occupant),
+		"occupant_ids": occupants.map(func(value: HumanoidCore) -> String: return _actor_id(value)),
 		"ground_item_instance_ids": record.ground_item_instance_ids.duplicate() if record != null else [],
 		"body_entity_ids": record.body_entity_ids.duplicate() if record != null else [],
+		"incapacitated_entity_ids": record.incapacitated_entity_ids.duplicate() if record != null else [],
+		"surrendered_entity_ids": record.surrendered_entity_ids.duplicate() if record != null else [],
 	}
 
 

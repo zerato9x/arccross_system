@@ -23,8 +23,7 @@ signal node_map_requested
 const _InventorySlotScene := preload("res://UI/Inventory/InventorySlot.tscn")
 const _SlotActionBuilder := preload("res://UI/Inventory/InventorySlotActionBuilder.gd")
 const _ContextMenuHost := preload("res://UI/Inventory/InventorySlotContextMenuHost.gd")
-const _PoiController := preload("res://WorldCore/MacroPoiController.gd")
-const SiteCatalog := preload("res://WorldCore/SiteCatalog.gd")
+const _LocationQueries := preload("res://PresentationCore/LocationSnapshotQueries.gd")
 const _PROP_SPRITE_SIZE := 170.0
 const _PROP_OUTLINE_PADDING := 4.0
 const _PROP_OUTLINE_WIDTH := 3
@@ -127,7 +126,7 @@ func _ready() -> void:
 	_continue_button.visible = false
 	_progress_overlay.visible = false
 	_submit_button.pressed.connect(_submit_action)
-	_rest_button.pressed.connect(func(): _begin_fixture_verb(SiteCatalog.VERB_SLEEP))
+	_rest_button.pressed.connect(func(): _begin_fixture_verb(_LocationQueries.VERB_SLEEP))
 	_stop_rest_button.pressed.connect(func(): _submit_action_for(GameEnums.PoiAction.STOP_REST))
 	HUDAssetLibrary.apply_soft_edge(_panel, 0.18)
 	_continue_button.pressed.connect(_on_continue_pressed)
@@ -268,6 +267,17 @@ func open_landmark(
 	_render_session()
 	_request_preview()
 	_walk_token_to_selected_fixture()
+
+
+## Compatibility snapshot bridge for the HERE-owned presentation path. Routine
+## POIs no longer open this legacy window, but existing callers and smoke tests
+## may still inspect its neutral session state.
+func cache_session_snapshot(session: Dictionary) -> void:
+	_session = session.duplicate(true)
+	_selected_fixture_id = str(_session.get("selected_fixture_id", ""))
+	_selected_search_option_id = str(
+		_session.get("selected_search_option_id", "primary_search")
+	)
 
 
 func _bind_actor_token_appearance(
@@ -974,7 +984,7 @@ func _on_ground_slot_clicked(slot_node: InventorySlot, event: InputEventMouseBut
 
 func _selected_fixture() -> Dictionary:
 	var site: Dictionary = _session.get("site", {})
-	return SiteCatalog.fixture_by_id(site, _selected_fixture_id)
+	return _LocationQueries.fixture_by_id(site, _selected_fixture_id)
 
 
 func _render_fixture_browser() -> void:
@@ -995,7 +1005,7 @@ func _render_fixture_browser() -> void:
 		room_label.text = str(room.get("label", room_id)).to_upper()
 		HUDAssetLibrary.apply_label(room_label, "caution")
 		_fixture_list.add_child(room_label)
-		for fixture in SiteCatalog.fixtures_in_room(site, room_id):
+		for fixture in _LocationQueries.fixtures_in_room(site, room_id):
 			if not fixture is Dictionary:
 				continue
 			var fixture_id := str(fixture.get("id", ""))
@@ -1008,7 +1018,7 @@ func _render_fixture_browser() -> void:
 			if depleted:
 				button.text += " (looted)"
 			button.set_meta("fixture_id", fixture_id)
-			button.disabled = depleted and SiteCatalog.VERB_SEARCH in fixture.get("verbs", []) and fixture.get("verbs", []).size() == 1
+			button.disabled = depleted and _LocationQueries.VERB_SEARCH in fixture.get("verbs", []) and fixture.get("verbs", []).size() == 1
 			button.toggle_mode = true
 			button.button_pressed = fixture_id == _selected_fixture_id
 			HUDAssetLibrary.apply_button(button)
@@ -1031,7 +1041,7 @@ func _select_fixture(fixture_id: String) -> void:
 	if not option_id.is_empty():
 		_selected_search_option_id = option_id
 		_session["selected_search_option_id"] = option_id
-	_session["fixture_drop_targets"] = _PoiController.build_fixture_drop_targets(
+	_session["fixture_drop_targets"] = _LocationQueries.build_fixture_drop_targets(
 		_session.get("site", {}),
 		fixture_id
 	)
@@ -1064,9 +1074,9 @@ func _render_verb_row(verbs: Array, resting: bool) -> void:
 	for verb in verbs:
 		var button := Button.new()
 		match str(verb):
-			SiteCatalog.VERB_SEARCH:
+			_LocationQueries.VERB_SEARCH:
 				button.text = "Search"
-			SiteCatalog.VERB_SLEEP:
+			_LocationQueries.VERB_SLEEP:
 				button.text = "Sleep here"
 				if bool(fixture.get("sleep_blocked", false)) or not bool(
 					_session.get("camp_allowed", false)
@@ -1078,7 +1088,7 @@ func _render_verb_row(verbs: Array, resting: bool) -> void:
 							_session.get("camp_block_reason", "This location is unsafe.")
 						)
 					)
-			SiteCatalog.VERB_TRAP:
+			_LocationQueries.VERB_TRAP:
 				button.text = "Set trap"
 			_:
 				button.text = str(verb).capitalize()
@@ -1134,7 +1144,7 @@ func _begin_fixture_verb(verb: String) -> void:
 	var fixture := _selected_fixture()
 	if fixture.is_empty():
 		return
-	if verb == SiteCatalog.VERB_SLEEP and not bool(_session.get("camp_allowed", false)):
+	if verb == _LocationQueries.VERB_SLEEP and not bool(_session.get("camp_allowed", false)):
 		show_result(
 			"SLEEP UNAVAILABLE",
 			str(_session.get("camp_block_reason", "This location is unsafe."))
@@ -1142,25 +1152,25 @@ func _begin_fixture_verb(verb: String) -> void:
 		return
 	_pending_verb = verb
 	_walk_token_to_selected_fixture()
-	var minutes := GameTimeRules.ACTION_MINUTES
+	var minutes := _LocationQueries.DEFAULT_ACTION_MINUTES
 	var label := "Working…"
 	var action := GameEnums.PoiAction.SEARCH
 	match verb:
-		SiteCatalog.VERB_SEARCH:
-			minutes = int(fixture.get("minutes_search", GameTimeRules.SEARCH_MINUTES))
+		_LocationQueries.VERB_SEARCH:
+			minutes = int(fixture.get("minutes_search", _LocationQueries.DEFAULT_SEARCH_MINUTES))
 			label = "Searching %s…" % str(fixture.get("label", "fixture"))
 			action = GameEnums.PoiAction.SEARCH
 			_active_mode = GameEnums.PoiAction.SEARCH
 			var option_id := str(fixture.get("search_option_id", ""))
 			if not option_id.is_empty():
 				_selected_search_option_id = option_id
-		SiteCatalog.VERB_SLEEP:
-			minutes = GameTimeRules.ACTION_MINUTES * 2
+		_LocationQueries.VERB_SLEEP:
+			minutes = _LocationQueries.DEFAULT_ACTION_MINUTES * 2
 			label = "Settling in to sleep…"
 			action = GameEnums.PoiAction.REST
 			_active_mode = GameEnums.PoiAction.CAMP
-		SiteCatalog.VERB_TRAP:
-			minutes = GameTimeRules.ACTION_MINUTES
+		_LocationQueries.VERB_TRAP:
+			minutes = _LocationQueries.DEFAULT_ACTION_MINUTES
 			label = "Arming trap…"
 			action = GameEnums.PoiAction.CAMP
 			_active_mode = GameEnums.PoiAction.CAMP
@@ -1211,7 +1221,7 @@ func _selected_item_ids() -> Array:
 func _request_preview() -> void:
 	var fixture := _selected_fixture()
 	var verbs: Array = fixture.get("verbs", [])
-	if SiteCatalog.VERB_SEARCH in verbs and not str(fixture.get("search_option_id", "")).is_empty():
+	if _LocationQueries.VERB_SEARCH in verbs and not str(fixture.get("search_option_id", "")).is_empty():
 		poi_preview_requested.emit(
 			GameEnums.PoiAction.SEARCH,
 			_selected_item_ids(),
@@ -1225,9 +1235,9 @@ func _request_preview() -> void:
 		)
 
 func _submit_action() -> void:
-	if _pending_verb == SiteCatalog.VERB_SLEEP:
+	if _pending_verb == _LocationQueries.VERB_SLEEP:
 		_submit_action_for(GameEnums.PoiAction.REST)
-	elif _pending_verb == SiteCatalog.VERB_TRAP:
+	elif _pending_verb == _LocationQueries.VERB_TRAP:
 		_submit_action_for(GameEnums.PoiAction.CAMP)
 	else:
 		_submit_action_for(GameEnums.PoiAction.SEARCH)

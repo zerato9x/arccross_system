@@ -55,42 +55,42 @@ assignment_order = 30
 
 [sub_resource type="Resource" id="Fuse"]
 script = ExtResource("2_site")
-site_id = "route1_relic_fuse"
-display_name = "Sealed Relay Debris"
-description = "An eastern transfer casing marked RETURN TO NORTH FRINGE RELAY. It must be pried open."
-loot_profile_id = "loot_route1_relic_fuse"
+site_id = "route1_rubble_east_signal"
+display_name = "Stripped Signal Housing"
+description = "An eastern transfer casing picked through by someone in a hurry. The disturbed ground points north."
+loot_profile_id = "loot_route1_signal_housing"
 requirements = {"any_item_ids": ["bent_pry_bar", "crowbar", "multitool"]}
 metric_modifiers = {"loot": 0.0, "safety": -1.5, "sneak": -1.0}
-marker_kind = "relic_cache"
-quest_protected = true
+marker_kind = "salvage"
+quest_protected = false
 assignment_arm_ids = PackedStringArray("east")
 assignment_count = 1
 assignment_order = 30
 
 [sub_resource type="Resource" id="Insulator"]
 script = ExtResource("2_site")
-site_id = "route1_relic_insulator"
-display_name = "Collapsed Signal Housing"
-description = "A southern convoy sleeve lists the North Fringe Relay as its destination. A pry tool can reach the intact core."
-loot_profile_id = "loot_route1_relic_insulator"
+site_id = "route1_rubble_south_housing"
+display_name = "Collapsed Convoy Housing"
+description = "A southern convoy sleeve and boot tracks point toward the northern road."
+loot_profile_id = "loot_route1_convoy_housing"
 requirements = {"any_item_ids": ["bent_pry_bar", "crowbar", "multitool"]}
 metric_modifiers = {"loot": 0.0, "safety": -2.0, "sneak": -1.0}
-marker_kind = "relic_cache"
-quest_protected = true
+marker_kind = "salvage"
+quest_protected = false
 assignment_arm_ids = PackedStringArray("south")
 assignment_count = 1
 assignment_order = 30
 
 [sub_resource type="Resource" id="Seal"]
 script = ExtResource("2_site")
-site_id = "route1_relic_seal"
-display_name = "Authorization Lockbox"
-description = "A western authorization lockbox stamped NORTH FRINGE. The relay crew service key fits its surviving cylinder."
-loot_profile_id = "loot_route1_relic_seal"
+site_id = "route1_rubble_west_lockbox"
+display_name = "Abandoned Service Lockbox"
+description = "A western lockbox has been opened before. The empty slot and recent tracks suggest its owner went north."
+loot_profile_id = "loot_route1_service_lockbox"
 requirements = {"any_item_ids": ["relay_maintenance_key"]}
 metric_modifiers = {"loot": 0.0, "safety": -0.5, "sneak": -0.5}
-marker_kind = "relic_cache"
-quest_protected = true
+marker_kind = "salvage"
+quest_protected = false
 assignment_arm_ids = PackedStringArray("west")
 assignment_count = 1
 assignment_order = 30

@@ -2,6 +2,7 @@ extends SceneTree
 
 const TILESET_PATH := "res://Asset/MacroTileSet.tres"
 const CATALOG_PATH := "res://Asset/MacroTileCatalog.tres"
+const ZONE_PROFILE_CATALOG_PATH := "res://WorldCore/GenerationV2/starter_zone_profiles.tres"
 
 
 func _initialize() -> void:
@@ -45,9 +46,16 @@ func _run() -> void:
 	var green_ids := catalog.get_terrain_ids(GameEnums.MacroTerrainTile.PLAINS_GRASS)
 	if green_ids.size() != 54:
 		return _fail("Catalog must contain exactly the 54 managed grass_default HEX files.")
-	for variant in MacroZoneGenerator.STARTER_TERRAIN_VARIANT_NUMBERS:
-		if catalog.resolve_asset_id("terrain.plains.green.%d" % variant) < 0:
-			return _fail("Missing stable plains variant ID %d." % variant)
+	var zone_catalog := load(ZONE_PROFILE_CATALOG_PATH) as ZoneGenerationProfileCatalog
+	if zone_catalog == null:
+		return _fail("Starter zone profile catalog is missing.")
+	for arm_key in ["north", "east", "south", "west"]:
+		var profile := zone_catalog.profile_for_arm(arm_key, false)
+		if profile == null or profile.terrain_asset_ids.size() != 54:
+			return _fail("Starter profile %s does not author all 54 terrain IDs." % arm_key)
+		for asset_id in profile.terrain_asset_ids:
+			if catalog.resolve_asset_id(asset_id) < 0:
+				return _fail("Missing stable plains asset ID %s." % asset_id)
 	print("[HexAssetContractSmoke] PASSED (%d approved sources, 128 road masks)" % tile_set.get_source_count())
 	quit(0)
 

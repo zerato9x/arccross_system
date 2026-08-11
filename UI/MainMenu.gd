@@ -45,7 +45,7 @@ func _ready() -> void:
 	btn_settings.pressed.connect(func(): settings_panel.visible = true)
 	btn_quit.pressed.connect(_on_quit)
 	settings_close_button.pressed.connect(func(): settings_panel.visible = false)
-	# Real-time combat is Combat Lab only (WAVE // COMBAT LAB). Hide the obsolete
+	# Combat Lab is the shared production rules/presentation harness. Hide the obsolete
 	# production combat-mode toggle while keeping the node for scene compatibility.
 	if combat_mode_option != null:
 		combat_mode_option.visible = false

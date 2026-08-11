@@ -72,8 +72,14 @@ theme_override_constants/separation = 16
 [node name="APLabel" type="Label" parent="TopStrip/TopMargin/TopRow"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "ROUND 00   AP 00/12   RESERVED 00"
+text = "ROUND 00   AP 00/12   CP 00/00"
 vertical_alignment = 1
+
+[node name="EndTurnButton" type="Button" parent="TopStrip/TopMargin/TopRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(112, 36)
+layout_mode = 2
+text = "END TURN"
 
 [node name="PlayerCard" type="PanelContainer" parent="."]
 unique_name_in_owner = true
@@ -106,6 +112,10 @@ text = "PLAYER"
 unique_name_in_owner = true
 layout_mode = 2
 text = "STANDING · FACING EAST"
+[node name="ActorIntent" type="Label" parent="PlayerCard/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "INTENT  HOLDING"
 
 [node name="PlayerVitals" type="GridContainer" parent="PlayerCard/Margin/Content"]
 layout_mode = 2
@@ -187,6 +197,11 @@ text = "HANDS & LOADOUT"
 [node name="ActiveWeaponCard" parent="InventoryPanel/Margin/Content" instance=ExtResource("4_item_card")]
 unique_name_in_owner = true
 layout_mode = 2
+
+[node name="WeaponActions" type="VBoxContainer" parent="InventoryPanel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
 [node name="ItemHeading" type="Button" parent="InventoryPanel/Margin/Content"]
 unique_name_in_owner = true
 layout_mode = 2

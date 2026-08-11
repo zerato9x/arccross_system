@@ -47,6 +47,11 @@ class_name ItemData
 @export_range(0, 10) var maximum_range_cells: int = 1
 @export_range(0.0, 1.0) var range_falloff: float = 0.12
 @export_range(1, 2) var weapon_reach_cells: int = 1
+## Firearm behaviour while the owner shares a sector with a hostile actor.
+## Kept on the item definition so compact sidearms and long guns do not need
+## controller special cases.
+@export_enum("allowed", "prohibited", "penalized") var engaged_fire_policy: String = "allowed"
+@export_range(0.0, 1.0) var engaged_fire_accuracy_penalty: float = 0.0
 @export_range(0.0, 1.0) var minimum_damage_multiplier: float = 1.0
 
 @export_group("Gear Stats")
@@ -62,6 +67,10 @@ class_name ItemData
 @export var weight: float = 0.0
 ## Contributes to the entity's perceived power level. Drives AI fight-or-flight decisions.
 @export var threat: float = 0.0
+## Encounter Stance modifier authored by worn equipment. Combat derives the
+## actor's starting Stance from physical capability plus this value; it is not
+## a hidden controller bonus.
+@export_range(-6.0, 6.0) var stance_modifier: float = 0.0
 ## Thermal insulation value for hypothermia resistance. Only inner/outer torso items.
 @export_range(0.0, 12.0) var insulation: float = 0.0
 
@@ -108,6 +117,8 @@ class_name ItemData
 @export var requires_cycle_after_shot: bool = false
 ## When not cycling the action, CYCLE may hand-load one loose round.
 @export var cycle_loads_one_round: bool = false
+## Some authored firearms begin unready and require an explicit READY action.
+@export var requires_ready_action: bool = false
 
 @export_group("Attachment Mechanics")
 @export var compatible_weapon_ids: Array[String] = []
@@ -121,6 +132,7 @@ var template_path: String = ""
 var current_magazine: int = 0
 ## Rifles: Whether the bolt needs cycling before the next shot.
 var needs_cycling: bool = false
+var is_readied: bool = true
 ## Loose items stack in one inventory footprint.
 var stack_count: int = 1
 ## Runtime rounds currently fitted into a magazine, clip, or speedloader.
@@ -166,7 +178,7 @@ func is_ready_to_fire() -> bool:
 		and current_condition > 0.0
 		and not is_jammed
 		and current_magazine > 0
-		and not needs_cycling
+		and (not requires_ready_action or is_readied)
 	)
 
 func has_active_function() -> bool:
@@ -310,11 +322,16 @@ func to_interaction_descriptor() -> Dictionary:
 	}
 
 func create_runtime_instance() -> ItemData:
-	var instance := duplicate(true) as ItemData
+	# Rebuild through the typed definition contract instead of relying on
+	# Resource.duplicate() to preserve an in-memory script instance. Godot can
+	# return a base Resource for unsaved runtime definitions in headless mode.
+	var instance := ItemData.new()
+	instance._apply_definition_state(to_definition_state())
 	instance.instance_id = "item_" + str(ResourceUID.create_id())
 	instance.template_path = template_path if not template_path.is_empty() else resource_path
 	instance.current_magazine = max_magazine if starting_magazine < 0 else starting_magazine
 	instance.needs_cycling = false
+	instance.is_readied = not instance.requires_ready_action
 	instance.stack_count = 1
 	instance.loaded_rounds = clampi(
 		starting_loaded_rounds,
@@ -339,6 +356,7 @@ func to_runtime_state() -> Dictionary:
 		"template_path": template_path if not template_path.is_empty() else resource_path,
 		"current_magazine": current_magazine,
 		"needs_cycling": needs_cycling,
+		"is_readied": is_readied,
 		"stack_count": stack_count,
 		"loaded_rounds": loaded_rounds,
 		"current_condition": current_condition,
@@ -388,6 +406,8 @@ func to_definition_state() -> Dictionary:
 		"maximum_range_cells": maximum_range_cells,
 		"range_falloff": range_falloff,
 		"weapon_reach_cells": weapon_reach_cells,
+		"engaged_fire_policy": engaged_fire_policy,
+		"engaged_fire_accuracy_penalty": engaged_fire_accuracy_penalty,
 		"minimum_damage_multiplier": minimum_damage_multiplier,
 		"protection_blunt": protection_blunt,
 		"protection_sharp": protection_sharp,
@@ -397,6 +417,7 @@ func to_definition_state() -> Dictionary:
 		"bulk": bulk,
 		"weight": weight,
 		"threat": threat,
+		"stance_modifier": stance_modifier,
 		"insulation": insulation,
 		"block_damage_types": block_damage_types.duplicate(),
 		"block_coverage": block_coverage.duplicate(),
@@ -423,28 +444,39 @@ func to_definition_state() -> Dictionary:
 		"starting_loaded_rounds": starting_loaded_rounds,
 		"requires_cycle_after_shot": requires_cycle_after_shot,
 		"cycle_loads_one_round": cycle_loads_one_round,
+		"requires_ready_action": requires_ready_action,
 		"compatible_weapon_ids": compatible_weapon_ids.duplicate(),
 		"grants_snipe": grants_snipe,
 		"macro_snipe_range": macro_snipe_range,
 	}
 
 static func from_runtime_state(state: Dictionary) -> ItemData:
-	var item: ItemData
-	var source_path: String = state.get("template_path", "")
-	if not source_path.is_empty() and ResourceLoader.exists(source_path):
-		item = load(source_path) as ItemData
-
-	if item:
-		item = item.create_runtime_instance()
-	else:
+	# Hydrate through the current typed ItemData contract instead of assigning
+	# runtime fields onto a loaded Resource instance.  Older authored resources
+	# can still deserialize as a base Resource in headless/editor caches, which
+	# makes newly-added runtime fields (attachments, fitted magazines) vanish or
+	# abort the whole inventory restore.  The saved definition is authoritative;
+	# the template is only a fallback for older records that predate it.
+	var source_path: String = str(state.get("template_path", ""))
+	var definition_state: Dictionary = state.get("definition", {}).duplicate(true)
+	if definition_state.is_empty() and not source_path.is_empty() and ResourceLoader.exists(source_path):
+		var template := load(source_path) as ItemData
+		if template != null:
+			definition_state = template.to_definition_state()
+	var definition_item := ItemData.new()
+	if not definition_state.is_empty():
+		definition_item._apply_definition_state(definition_state)
+	definition_item.template_path = source_path
+	var item := definition_item.create_runtime_instance()
+	if item == null:
 		item = ItemData.new()
-		item._apply_definition_state(state.get("definition", {}))
 		item.instance_id = "item_" + str(ResourceUID.create_id())
 
 	item.instance_id = state.get("instance_id", item.instance_id)
 	item.template_path = source_path
 	item.current_magazine = state.get("current_magazine", item.current_magazine)
 	item.needs_cycling = state.get("needs_cycling", false)
+	item.is_readied = bool(state.get("is_readied", not item.requires_ready_action))
 	item.stack_count = maxi(1, int(state.get("stack_count", 1)))
 	item.loaded_rounds = clampi(
 		int(state.get("loaded_rounds", item.loaded_rounds)),
@@ -466,7 +498,14 @@ static func from_runtime_state(state: Dictionary) -> ItemData:
 	item.fitted_magazine_state = state.get("fitted_magazine_state", {}).duplicate(true)
 	for attachment_id in state.get("fitted_attachment_instance_ids", []):
 		item.fitted_attachment_instance_ids.append(str(attachment_id))
-	item.fitted_attachment_states = state.get("fitted_attachment_states", []).duplicate(true)
+	# JSON/save hydration returns an untyped Array.  The runtime contract is
+	# deliberately typed, so rebuild it entry-by-entry instead of assigning the
+	# raw Array and tripping Godot's typed-property guard on older saves.
+	var attachment_states: Array[Dictionary] = []
+	for attachment_state in state.get("fitted_attachment_states", []):
+		if attachment_state is Dictionary:
+			attachment_states.append(attachment_state.duplicate(true))
+	item.fitted_attachment_states = attachment_states
 	return item
 
 func _apply_definition_state(state: Dictionary) -> void:
@@ -508,6 +547,9 @@ func _apply_definition_state(state: Dictionary) -> void:
 		maximum_range_cells
 	)
 	weapon_reach_cells = clampi(weapon_reach_cells, 1, 2)
+	if engaged_fire_policy not in ["allowed", "prohibited", "penalized"]:
+		engaged_fire_policy = "allowed"
+	engaged_fire_accuracy_penalty = clampf(engaged_fire_accuracy_penalty, 0.0, 1.0)
 	range_falloff = clampf(range_falloff, 0.0, 1.0)
 	minimum_damage_multiplier = clampf(
 		minimum_damage_multiplier,

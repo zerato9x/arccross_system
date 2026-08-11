@@ -39,6 +39,11 @@ class_name HexRecord
 @export var is_explored: bool = false
 @export_range(0.0, 12.0) var hazard_level: float = 0.0
 @export var visual_variant_hash: int = 0
+@export var last_simulated_minute: int = 0
+## Stable world objects and physical signals generated for this hex.
+var world_objects: Array[Dictionary] = []
+var active_work: Array[Dictionary] = []
+var world_signals: Array[Dictionary] = []
 var encounter_evaluated: bool = false
 var encounter_entity_id: String = ""
 var search_count: int = 0
@@ -88,6 +93,10 @@ func to_dict() -> Dictionary:
 		"is_explored": is_explored,
 		"hazard_level": hazard_level,
 		"visual_variant_hash": visual_variant_hash,
+		"last_simulated_minute": last_simulated_minute,
+		"world_objects": world_objects.duplicate(true),
+		"active_work": active_work.duplicate(true),
+		"world_signals": world_signals.duplicate(true),
 		"encounter_evaluated": encounter_evaluated,
 		"encounter_entity_id": encounter_entity_id,
 		"search_count": search_count,
@@ -169,6 +178,16 @@ static func from_dict(data: Dictionary) -> HexRecord:
 		GameEnums.SCALE_MAX
 	)
 	record.visual_variant_hash = int(data.get("visual_variant_hash", 0))
+	record.last_simulated_minute = maxi(0, int(data.get("last_simulated_minute", 0)))
+	for object_value in data.get("world_objects", []):
+		if object_value is Dictionary:
+			record.world_objects.append(object_value.duplicate(true))
+	for work_value in data.get("active_work", []):
+		if work_value is Dictionary:
+			record.active_work.append(work_value.duplicate(true))
+	for signal_value in data.get("world_signals", []):
+		if signal_value is Dictionary:
+			record.world_signals.append(signal_value.duplicate(true))
 	record.encounter_evaluated = data.get("encounter_evaluated", false)
 	record.encounter_entity_id = data.get("encounter_entity_id", "")
 	record.search_count = data.get("search_count", 0)

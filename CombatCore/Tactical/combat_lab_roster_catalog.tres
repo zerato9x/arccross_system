@@ -1,0 +1,83 @@
+[gd_resource type="Resource" script_class="CombatLabRosterCatalog" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://CombatCore/Tactical/CombatLabRosterCatalog.gd" id="1_catalog"]
+
+[resource]
+script = ExtResource("1_catalog")
+presets = [{
+"label": "DUEL // 1 PLAYER + 1 HOSTILE",
+"preset_id": "duel",
+"actors": [{
+"actor_id": "lab_enemy_01",
+"combat_side": "enemy",
+"faction": "SCAVENGER_CELL",
+"relation": "HOSTILE",
+"role": "hostile",
+"start_coords": Vector2i(6, 2),
+"tactic": "OPPORTUNIST"
+}]
+}, {
+"label": "FIRETEAM // 1 PLAYER + 2 HOSTILES",
+"preset_id": "fireteam",
+"actors": [{
+"actor_id": "lab_enemy_01",
+"combat_side": "enemy",
+"faction": "SCAVENGER_CELL",
+"relation": "HOSTILE",
+"role": "hostile",
+"start_coords": Vector2i(6, 2),
+"tactic": "OPPORTUNIST"
+}, {
+"actor_id": "lab_enemy_02",
+"combat_side": "enemy",
+"faction": "ARCBORN_RESISTANCE",
+"relation": "HOSTILE",
+"role": "hostile",
+"start_coords": Vector2i(6, 1),
+"tactic": "MARKSMAN"
+}]
+}, {
+"label": "SQUAD // FRIENDLY + NEUTRAL + HOSTILES",
+"preset_id": "mixed_squad",
+"actors": [{
+"actor_id": "lab_ally_01",
+"combat_side": "player",
+"faction": "ARCBORN_RESISTANCE",
+"relation": "FRIENDLY",
+"role": "ally",
+"start_coords": Vector2i(0, 1),
+"tactic": "DEFENDER"
+}, {
+"actor_id": "lab_neutral_01",
+"combat_side": "enemy",
+"faction": "SCAVENGER_CELL",
+"relation": "NEUTRAL",
+"role": "neutral",
+"start_coords": Vector2i(3, 2),
+"tactic": "OPPORTUNIST"
+}, {
+"actor_id": "lab_enemy_01",
+"combat_side": "enemy",
+"faction": "CRAVEN_HIVE",
+"relation": "HOSTILE",
+"role": "hostile",
+"start_coords": Vector2i(6, 2),
+"tactic": "BRUTE"
+}, {
+"actor_id": "lab_enemy_02",
+"combat_side": "enemy",
+"faction": "SCAVENGER_CELL",
+"relation": "HOSTILE",
+"role": "hostile",
+"start_coords": Vector2i(6, 1),
+"tactic": "MARKSMAN"
+}, {
+"actor_id": "lab_enemy_03",
+"combat_side": "enemy",
+"faction": "ARCBORN_RESISTANCE",
+"relation": "HOSTILE",
+"role": "hostile",
+"start_coords": Vector2i(6, 3),
+"tactic": "DEFENDER"
+}]
+}]

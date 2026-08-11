@@ -28,91 +28,98 @@ script = ExtResource("2_definition")
 weapon_id = "service_pistol"
 shoot_sheet = ExtResource("6_service_pistol_shoot")
 shoot_frame_size = Vector2i(80, 48)
-shoot_fps = 14.0
+shoot_fps = 10.0
+shoot_release_frame = 2
 reload_sheet = ExtResource("7_service_pistol_reload")
 reload_frame_size = Vector2i(80, 48)
-reload_fps = 14.0
+reload_fps = 10.0
 cycle_sheet = ExtResource("8_service_pistol_cycle")
 cycle_frame_size = Vector2i(80, 48)
-cycle_fps = 14.0
+cycle_fps = 10.0
 
 [sub_resource type="Resource" id="Weapon_carbon_pistol"]
 script = ExtResource("2_definition")
 weapon_id = "carbon_pistol"
 shoot_sheet = ExtResource("9_carbon_pistol_shoot")
 shoot_frame_size = Vector2i(128, 48)
-shoot_fps = 14.0
+shoot_fps = 10.0
+shoot_release_frame = 2
 reload_sheet = ExtResource("10_carbon_pistol_reload")
 reload_frame_size = Vector2i(128, 48)
-reload_fps = 14.0
+reload_fps = 10.0
 cycle_sheet = ExtResource("11_carbon_pistol_cycle")
 cycle_frame_size = Vector2i(128, 48)
-cycle_fps = 14.0
+cycle_fps = 10.0
 
 [sub_resource type="Resource" id="Weapon_revolver"]
 script = ExtResource("2_definition")
 weapon_id = "revolver"
 shoot_sheet = ExtResource("3_shoot")
 shoot_frame_size = Vector2i(64, 32)
-shoot_fps = 14.0
+shoot_fps = 10.0
+shoot_release_frame = 2
 reload_sheet = ExtResource("4_reload")
 reload_frame_size = Vector2i(64, 32)
-reload_fps = 14.0
+reload_fps = 10.0
 cycle_sheet = ExtResource("5_cycle")
 cycle_frame_size = Vector2i(64, 32)
-cycle_fps = 14.0
+cycle_fps = 10.0
 
 [sub_resource type="Resource" id="Weapon_carbon_rifle"]
 script = ExtResource("2_definition")
 weapon_id = "carbon_rifle"
 shoot_sheet = ExtResource("12_carbon_rifle_shoot")
 shoot_frame_size = Vector2i(128, 48)
-shoot_fps = 14.0
+shoot_fps = 10.0
+shoot_release_frame = 3
 reload_sheet = ExtResource("13_carbon_rifle_reload")
 reload_frame_size = Vector2i(128, 64)
-reload_fps = 14.0
+reload_fps = 10.0
 cycle_sheet = ExtResource("12_carbon_rifle_shoot")
 cycle_frame_size = Vector2i(128, 48)
-cycle_fps = 14.0
+cycle_fps = 10.0
 
 [sub_resource type="Resource" id="Weapon_ak47"]
 script = ExtResource("2_definition")
 weapon_id = "ak47"
 shoot_sheet = ExtResource("14_ak47_shoot")
 shoot_frame_size = Vector2i(96, 48)
-shoot_fps = 14.0
+shoot_fps = 10.0
+shoot_release_frame = 3
 reload_sheet = ExtResource("15_ak47_reload")
 reload_frame_size = Vector2i(96, 48)
-reload_fps = 14.0
+reload_fps = 10.0
 cycle_sheet = ExtResource("16_ak47_cycle")
 cycle_frame_size = Vector2i(96, 48)
-cycle_fps = 14.0
+cycle_fps = 10.0
 
 [sub_resource type="Resource" id="Weapon_service_rifle"]
 script = ExtResource("2_definition")
 weapon_id = "service_rifle"
 shoot_sheet = ExtResource("17_service_rifle_shoot")
 shoot_frame_size = Vector2i(160, 32)
-shoot_fps = 24.0
+shoot_fps = 12.0
+shoot_release_frame = 3
 reload_sheet = ExtResource("18_service_rifle_reload")
 reload_frame_size = Vector2i(128, 32)
-reload_fps = 24.0
+reload_fps = 12.0
 cycle_sheet = ExtResource("19_service_rifle_cycle")
 cycle_frame_size = Vector2i(128, 32)
-cycle_fps = 24.0
+cycle_fps = 12.0
 
 [sub_resource type="Resource" id="Weapon_shotgun"]
 script = ExtResource("2_definition")
 weapon_id = "shotgun"
 shoot_sheet = ExtResource("20_shotgun_shoot")
 shoot_frame_size = Vector2i(160, 32)
-shoot_fps = 14.0
+shoot_fps = 10.0
+shoot_release_frame = 3
 reload_sheet = ExtResource("21_shotgun_reload")
 reload_frame_size = Vector2i(128, 32)
-reload_fps = 14.0
+reload_fps = 10.0
 cycle_sheet = ExtResource("22_shotgun_cycle")
 cycle_frame_size = Vector2i(160, 32)
-cycle_fps = 14.0
+cycle_fps = 10.0
 
 [resource]
 script = ExtResource("1_catalog")

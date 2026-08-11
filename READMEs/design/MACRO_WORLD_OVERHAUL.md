@@ -4,8 +4,8 @@ Supporting lore alignment for the live Directional Node Web.
 Does not replace [System Architecture](../SYSTEM_ARCHITECTURE.md) ownership
 rules.
 
-**Active Act 1 build bible:** [Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
-— eviction → North tutorial, travel seals, asset sort, phased IDE checklist.
+**Active implementation bible:** [Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
+— eviction, current alpha boundaries, asset sort, and phased IDE checklist.
 Where Act 1 soft language here conflicts with that file, **Central Core wins**.
 
 **World bible:** [Canonical World Specification](../CANONICAL_WORLD_SPECIFICATION.md)  
@@ -26,8 +26,10 @@ Where Act 1 soft language here conflicts with that file, **Central Core wins**.
   then deploys directly to the player's choice of North, East, South, or West
   Route 1. It does not bootstrap through `central_core`.
 - The four Route 1 nodes form an open traversable inner ring.
-- North Route 1 -> 2 -> 3 is open; East/South/West Route 2/3, gateways, and
-  regional Cores are visible but locked.
+- Current alpha: North Route 1 -> 2 -> 3 is open; unfinished East/South/West
+  Route 2/3, gateways, and regional Cores are visible but locked.
+- Long-term canon: all four regional campaigns open and their Cores may be
+  restored in any order. No regional Core is the mandatory first act.
 - Central remains visible and locked until the data-defined milestone observes
   all four persistent regional Core states as restored.
 - North Route 2/3 contain deterministic clustered interior nodes. Hidden nodes
@@ -51,9 +53,9 @@ Where Act 1 soft language here conflicts with that file, **Central Core wins**.
 
 The live topology contract is authored in
 [`WorldCore/campaign_graph.tres`](../../WorldCore/campaign_graph.tres), not in a
-UI controller. References below to 22 fixed nodes, a Central-fringe spawn,
-closed Route 1 ring links, or a North-only selectable start are historical and
-must not be used as current implementation guidance.
+UI controller. References below to a Central-fringe spawn, closed Route 1 ring
+links, a North-only selectable start, or a mandatory North-first Core are
+retired and must not be used as current implementation guidance.
 
 ---
 
@@ -76,9 +78,9 @@ Do **not** return to infinite hub+wedge as the campaign model.
 | Lore | Live node class | Shipping note |
 | --- | --- | --- |
 | Central Core | `central_core` | Build fully first; eviction locks return until endgame |
-| North / East / South / West Cores | `*_gateway` + `*_core` | Permanent Meta; restore = terraform hook |
-| Approaches / wastes | `*_random_1..3` | Seeded zones; Act 1 fills **north** densely |
-| Meta component work | fetch branch (re-home to north spine for Act 1) | North Regulator remains the first restore loop |
+| North / East / South / West Cores | `*_gateway` + `*_core` | Permanent Meta; restore order is player-chosen |
+| Approaches / wastes | `*_random_1..3` | Seeded zones; alpha currently fills **north** deeply |
+| Meta component work | fetch branches / regional beats | Each Core owns its layer; no mandatory first restore |
 
 Regional dialects (art, landmarks, SiteCatalog copy) must match Era 9
 **Glitch** scraps (past-era wreckage, not live rival capitals):
@@ -88,6 +90,12 @@ Regional dialects (art, landmarks, SiteCatalog copy) must match Era 9
 - **East** — civil-war / oppression debris (Era VII East Core fall)
 - **South** — Guild logistics leftovers; rare carbon as scarce, not default
 - **West** — mining / steel / Man-Eater / Zeta scrap
+
+Before restoration, Arms may intentionally read as ambiguous corrupted generic
+post-apocalypse because Glitch and failed barriers obscure history. Restoration
+does not time-travel or return pristine landscapes; it stabilizes each Arm into
+its historically legible ruin dialect and may permanently change Red Mist,
+barrier, and presentation state.
 
 Never explain Marks, Primal Civilization, The Transcendence, or full Core
 purpose in UI text. Chronology:
@@ -112,10 +120,11 @@ Implementation order lives in
 
 1. Author Central as a finished place (hub stamp + districts) even though the
    player loses free access after eviction.
-2. Ship Act 1 on Central fringe + **North spine** with **North Pointer Tutorial**.
-3. **Hard-seal E/S/W** (rim + Node Map grey/non-traversable). No thin E/S/W
-   wander loops in Act 1.
-4. Defer four-Core Central re-entry endgame until later acts.
+2. Preserve all four Route 1 deployment choices and starter-ring travel.
+3. Ship the North spine first as the alpha's complete deep-content slice; label
+   locked E/S/W depth as temporary content availability.
+4. Complete all four regional campaigns as non-linear peers, then ship the
+   all-four Central re-entry endgame.
 
 ### Tone rules
 
@@ -124,7 +133,7 @@ Implementation order lives in
 
 ---
 
-## Act 1 scope — Central + North spine
+## Current alpha scope — Central contract + North deep-content slice
 
 ### Playable
 
@@ -133,22 +142,22 @@ Implementation order lives in
 | Central (pre-lock / authoring) | `central_core` | Dense hub; eviction staging; Meta install desk |
 | North approaches | `north_random_1..3` | Full activity highway |
 | North seal | `north_gateway` | Locked until Meta |
-| North climax | `north_core` | First Core restore / terraform hook |
+| North climax | `north_core` | Implemented restore/stabilization hook; not canonically first |
 | Meta fetch | re-homed onto north spine (or single north-adjacent spur) | Regulator / component beat |
 
-### Soft freedom (anti-boredom without hollow continents)
+### Playable breadth without hollow continents
 
 - **Fat local wander:** 469-cell zones stay wide; side POIs and dressing variety
   inside Central/north satisfy most “I want to roam” urge.
 - **North side spurs:** optional caches / encounters off Route 1–3 (same arm).
-- **Sealed arm teases:** E/S/W visible on Node Map / rim preview as grey locked
-  approaches; travel disabled. Other `*_random_1` nodes are visible-but-sealed.
+- **Starter ring:** all four `*_random_1` nodes and their inner links remain
+  playable even while deep E/S/W content is unfinished.
 
-### Hard seals (Act 1)
+### Temporary alpha locks
 
-- E/S/W **gateways, arm cores, and Route travel** are non-traversable.
-- Central→E/S/W edges refuse travel after eviction.
-- Do not open unfinished arms to “fix” boredom; deepen north + hub instead.
+- E/S/W Route 2/3, gateways, and Cores remain non-traversable until their
+  content is authored; Route 1 remains open.
+- Locks are implementation state, not lore barriers or campaign order.
 - Detail and Meta flags:
   [Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
@@ -179,17 +188,26 @@ Details: [Hex World Generator V2](HEX_WORLD_GENERATOR_V2.md) and
 
 ---
 
-## Meta Core restore
+## Meta Core restore and simulation layers
 
 **Shipped reference:** North Core Regulator — fetch → return/install context →
-unseal `gateway_north_unsealed`.
+unseal `gateway_north_unsealed`. It is the first completed implementation, not
+the canonically required first restore.
 
-**Act 1:** keep one clear north restore loop; move fetch off a disabled east arm
-if E travel is sealed.
+Four restores unlock Central re-entry. Each activation adds one global layer:
 
-**Later endgame:** four restores unlock Central re-entry (eviction contract).
-Visual terraform = permanent Meta structural / dialect patches on that arm’s
-permanent nodes — spoken as infrastructure recovery, not miracle lore.
+| Core | Simulation layer |
+| --- | --- |
+| North | Network / logistics: routes, relays, caravans, navigation, connections |
+| East | People / community / identity: relationships, recruitment, factions, training |
+| West | Industry / fabrication: workshops, refinement, production, construction |
+| South | Economy / commerce: trade, contracts, pricing, credit, organizations |
+
+Pairs and triples combine into supply chains, migration, trade routes,
+professions, organizations, production, and settlement-scale systems. Exact
+mechanics are design direction until implemented. Visual stabilization uses
+permanent Meta structural/dialect patches; it reveals authentic ruins rather
+than miraculously restoring the past.
 
 ---
 
@@ -199,7 +217,7 @@ permanent nodes — spoken as infrastructure recovery, not miracle lore.
 | --- | --- |
 | Permanent Meta (Central, gateways, arm cores, fetch) | Authored presets first when ready |
 | Seeded north routes | Composition + dressing; optional presets later |
-| E/S/W seeded | Stub profiles only until those acts |
+| E/S/W seeded | Alpha stub profiles; later peer regional campaigns |
 
 ---
 
@@ -210,7 +228,7 @@ Phased IDE checklist (0–9) lives only in
 
 Supporting docs (this file + bible + dressing) are landed. **Phase 0** of
 [Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md) is complete.
-Runtime phases start at asset sort and Act 1 seals.
+Runtime phases start at asset sort and starter-ring/alpha content legality.
 
 ---
 
@@ -219,20 +237,21 @@ Runtime phases start at asset sort and Act 1 seals.
 - Rewriting Node Web radius or persistence ownership
 - Player-facing cosmic exposition
 - Baking roads into terrain hex PNGs
-- Shipping four full arms in Act 1
+- Shipping four full arms in the current alpha milestone
 - Treating Central as an always-on midgame home after eviction
-- Optional thin E/S/W wander in Act 1
+- Encoding the alpha's North-first delivery order as campaign canon
 
 ---
 
-## Success criteria (Act 1)
+## Success criteria
 
 See [Central Core Campaign Overhaul](CENTRAL_CORE_CAMPAIGN_OVERHAUL.md) success
 criteria. Short form:
 
 - Central reads as an overcrowded administrative seat; hub stamp authoritative
-- North Route 1→3 is the only open campaign highway after eviction
-- E/S/W cannot be traversed; Node Map shows them grey
+- All four Route 1 starts and inner-ring links work after eviction
+- North Route 1→3 is the current alpha's only complete deep highway
+- E/S/W depth shows temporary content locks without implying mandatory Core order
 - Eviction → Central lock → four-Core return is documented; lock systems trail
   content only as listed in the Central Core phases
 - Same seed → stable zone composition / dressing

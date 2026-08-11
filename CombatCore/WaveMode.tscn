@@ -68,14 +68,15 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.9411765, 0.7647059, 0.41960785, 1)
 theme_override_font_sizes/font_size = 22
-text = "WAVE COMBAT LAB"
+text = "COMBAT LAB // SETUP"
 
 [node name="Subtitle" type="Label" parent="UILayer/PreCombatScreen/Workspace/MainVBox/HeaderPanel/HeaderMargin/HeaderRow/TitleBlock" unique_id=1693814251]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.5568628, 0.54509807, 0.47058824, 1)
 theme_override_font_sizes/font_size = 11
-text = "PRE-COMBAT LOADOUT WORKSTATION // NORMAL SPAWN PIPELINE"
+text = "TACTICAL ENCOUNTER WORKSTATION // SHARED PRODUCTION PIPELINE"
+autowrap_mode = 3
 
 [node name="StagedName" type="Label" parent="UILayer/PreCombatScreen/Workspace/MainVBox/HeaderPanel/HeaderMargin/HeaderRow/TitleBlock" unique_id=1771570582]
 unique_name_in_owner = true
@@ -453,6 +454,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.5568628, 0.54509807, 0.47058824, 1)
 theme_override_font_sizes/font_size = 10
 text = "0 / 0 AUTHORED RESOURCES"
+autowrap_mode = 3
 
 [node name="SearchRow" type="HBoxContainer" parent="UILayer/PreCombatScreen/Workspace/MainVBox/BodyRow/CataloguePanel/CatalogueMargin/CatalogueScroll/CatalogueVBox" unique_id=1066571348]
 layout_mode = 2
@@ -550,6 +552,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.5568628, 0.54509807, 0.47058824, 1)
 theme_override_font_sizes/font_size = 10
 text = "CAPACITY 0 / 0"
+autowrap_mode = 3
 
 [node name="InventoryList" type="ItemList" parent="UILayer/PreCombatScreen/Workspace/MainVBox/BodyRow/CataloguePanel/CatalogueMargin/CatalogueScroll/CatalogueVBox" unique_id=1654895914]
 unique_name_in_owner = true
@@ -621,7 +624,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(190, 34)
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
-text = "START WAVE"
+text = "START COMBAT"
 
 [node name="CombatHUD" type="Control" parent="UILayer" unique_id=2030795204]
 unique_name_in_owner = true
@@ -657,7 +660,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.9411765, 0.7647059, 0.41960785, 1)
 theme_override_font_sizes/font_size = 20
-text = "WAVE 01"
+text = "ROUND 01"
 
 [node name="StatusLabel" type="Label" parent="UILayer/CombatHUD/CombatBar/CombatMargin/CombatRow" unique_id=73966164]
 unique_name_in_owner = true
@@ -713,7 +716,7 @@ size_flags_horizontal = 3
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
-text = "WAVE RUN OVER"
+text = "COMBAT RUN OVER"
 horizontal_alignment = 1
 autowrap_mode = 3
 

@@ -1,14 +1,16 @@
 extends Resource
 class_name OpeningFlowDefinition
 
+const PRESENTATION_SCENES := preload("res://PresentationCore/PresentationSceneRegistry.gd")
+
 @export var flow_id: String = "central_eviction_v1"
 @export var intro_version: int = 1
 @export var world_seed: String = "ARCCROSS_DIRECTIONAL_WEB_01"
-@export_file("*.tres") var identity_catalog_path: String = IdentityCatalog.CATALOG_PATH
-@export_file("*.tres") var campaign_definition_path: String = MacroGraphGenerator.CAMPAIGN_DEFINITION_PATH
+@export_file("*.tres") var identity_catalog_path: String = "res://BiologicalCore/Identity/identity_catalog.tres"
+@export_file("*.tres") var campaign_definition_path: String = "res://WorldCore/campaign_graph.tres"
 @export_file("*.tres") var base_player_definition_path: String = "res://BiologicalCore/player_def.tres"
-@export_file("*.tscn") var game_scene_path: String = "res://SystemCore/game_director.tscn"
-@export_file("*.tscn") var menu_scene_path: String = "res://UI/MainMenu.tscn"
+@export_file("*.tscn") var game_scene_path: String = PRESENTATION_SCENES.GAME_SCENE
+@export_file("*.tscn") var menu_scene_path: String = PRESENTATION_SCENES.MAIN_MENU_SCENE
 @export var identity_title: String = "CENTRAL PERSONNEL RECORD"
 @export_multiline var identity_body: String = "Confirm the three entries Central permits you to retain. Pillars and appearance are not editable during expulsion processing."
 @export var confirmation_title: String = "RECORD CONFIRMATION"

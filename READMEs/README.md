@@ -17,8 +17,8 @@ of restating it.
 - [Humanoid Token Pipeline](HUMANOID_TOKEN_PIPELINE.md): layered sprite
   contract, current visual coverage, and runtime asset preparation.
 - [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md):
-  Act 1 build bible — eviction → North Pointer Tutorial, E/S/W travel seals,
-  hub stamp, hex taxonomy / sort SOP, phased IDE checklist (0–9).
+  campaign build bible — eviction, four-Arm non-linear canon, current alpha
+  content locks, hub stamp, hex taxonomy / sort SOP, phased checklist (0–9).
 - [Hex World Asset Overhaul](design/HEX_WORLD_ASSET_OVERHAUL.md): official
   S:→biome pool roles, Golbanc Era 8 default, alpha homestead→theme ramp,
   dialect profiles, promote phases.
@@ -29,7 +29,7 @@ of restating it.
   **active combat contract** — official default, transaction lifecycle, AI,
   impact cues, firearm-card playback, and independent mode balance.
 - [Macro World Overhaul](design/MACRO_WORLD_OVERHAUL.md): supporting Node Web
-  lore alignment; defers to Central Core MD where Act 1 seals conflict.
+  lore alignment, Core simulation layers, and alpha/canon boundary.
 - [Phase 1 Execution Plan](phase_1_execution_plan.md): closed vertical-slice
   acceptance record.
 - [Phase 2 Execution Plan](phase_2_execution_plan.md): closed systems

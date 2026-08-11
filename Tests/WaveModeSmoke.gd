@@ -91,8 +91,8 @@ func _run() -> void:
 	if arena == null:
 		_fail("WaveMode did not create a combat arena.")
 		return
-	if wave_mode.precombat_screen.visible or not wave_mode.combat_hud.visible:
-		_fail("The setup workstation did not disappear for combat.")
+	if wave_mode.precombat_screen.visible or wave_mode.combat_hud.visible:
+		_fail("The setup workstation or duplicate legacy combat bar remained visible.")
 		return
 	if arena.enemy_core == null or arena.player_core == null:
 		_fail("The normal entity initialization pipeline did not create both combatants.")

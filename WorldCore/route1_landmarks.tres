@@ -7,13 +7,13 @@
 script = ExtResource("2_landmark")
 arm_id = "north"
 poi_id = "north_fringe_relay"
-display_name = "North Fringe Relay"
-description = "The only inhabited Route-1 settlement, built around a relay that can clear the next northern road."
-landmark_id = "homestead_b"
+display_name = "North Fringe Relay Ruin"
+description = "A dead roadside relay mast surrounded by stripped houses and fresh rubble."
+landmark_id = "warehouse_b"
 loot_profile_id = "loot_route1_north_relay"
 evidence_item_id = "north_relay_ledger"
-sleep_anchor = "bed"
-inhabited = true
+sleep_anchor = "ground"
+inhabited = false
 
 [sub_resource type="Resource" id="EastRegistry"]
 script = ExtResource("2_landmark")

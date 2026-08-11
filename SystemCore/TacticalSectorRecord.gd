@@ -26,6 +26,11 @@ class_name TacticalSectorRecord
 @export var occupant_ids: Array[String] = []
 @export var ground_item_instance_ids: Array[String] = []
 @export var body_entity_ids: Array[String] = []
+## Non-active actors are kept in explicit handoff layers instead of occupying
+## one of the two tactical actor slots.  This preserves the sector location
+## for captives/surrenders while keeping movement capacity about active actors.
+@export var incapacitated_entity_ids: Array[String] = []
+@export var surrendered_entity_ids: Array[String] = []
 
 
 func to_dict() -> Dictionary:
@@ -52,6 +57,8 @@ func to_dict() -> Dictionary:
 		"occupant_ids": occupant_ids.duplicate(),
 		"ground_item_instance_ids": ground_item_instance_ids.duplicate(),
 		"body_entity_ids": body_entity_ids.duplicate(),
+		"incapacitated_entity_ids": incapacitated_entity_ids.duplicate(),
+		"surrendered_entity_ids": surrendered_entity_ids.duplicate(),
 	}
 
 
@@ -76,10 +83,19 @@ static func from_dict(data: Dictionary) -> TacticalSectorRecord:
 	record.object_state = data.get("object_state", {}).duplicate(true)
 	record.hazard_state = data.get("hazard_state", {}).duplicate(true)
 	record.trap_state = data.get("trap_state", {}).duplicate(true)
-	for value in data.get("occupant_ids", []):
+	var authored_occupants: Array = data.get("occupant_ids", [])
+	# Schema v1 stored one occupant_id. Migrate it into the canonical ordered
+	# two-slot list without disturbing items, bodies, or terrain state.
+	if authored_occupants.is_empty() and data.has("occupant_id"):
+		authored_occupants = [data.get("occupant_id", "")]
+	for value in authored_occupants:
 		record.occupant_ids.append(str(value))
 	for value in data.get("ground_item_instance_ids", []):
 		record.ground_item_instance_ids.append(str(value))
 	for value in data.get("body_entity_ids", []):
 		record.body_entity_ids.append(str(value))
+	for value in data.get("incapacitated_entity_ids", []):
+		record.incapacitated_entity_ids.append(str(value))
+	for value in data.get("surrendered_entity_ids", []):
+		record.surrendered_entity_ids.append(str(value))
 	return record

@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="CombatBalanceProfileCatalog" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://SystemCore/CombatBalanceProfileCatalog.gd" id="1_catalog"]
+[ext_resource type="Resource" path="res://CombatCore/Tactical/default_combat_balance_profile.tres" id="2_default"]
+
+[resource]
+script = ExtResource("1_catalog")
+profiles = Array[ExtResource("2_default")]([ExtResource("2_default")])

@@ -3,6 +3,9 @@ class_name MacroPlayer
 
 const WALK_DURATION_SECONDS := 2.0
 
+signal movement_started(from_coords: Vector2i, to_coords: Vector2i, movement_id: int)
+signal movement_arrived(from_coords: Vector2i, to_coords: Vector2i, movement_id: int)
+
 @export var definition: EntityDefinition
 
 @onready var humanoid_core: HumanoidCore = $HumanoidCore
@@ -11,6 +14,8 @@ const WALK_DURATION_SECONDS := 2.0
 var current_hex_coords: Vector2i = Vector2i(0, 0)
 var _movement_tween: Tween
 var _movement_serial := 0
+var _movement_origins: Dictionary = {}
+var _movement_destinations: Dictionary = {}
 var _interaction_queued := false
 var _ground_ring: Polygon2D
 
@@ -102,11 +107,13 @@ func snap_to_hex(coords: Vector2i, pixel_position: Vector2) -> void:
 	if humanoid_token:
 		humanoid_token.play_animation(_idle_animation(), false)
 
-func walk_to_hex(coords: Vector2i, pixel_position: Vector2) -> void:
-	current_hex_coords = coords
+func walk_to_hex(coords: Vector2i, pixel_position: Vector2) -> int:
+	var origin_coords := current_hex_coords
 	var movement_direction := pixel_position - position
 	_movement_serial += 1
 	var movement_id := _movement_serial
+	_movement_origins[movement_id] = origin_coords
+	_movement_destinations[movement_id] = coords
 	if _movement_tween and _movement_tween.is_valid():
 		_movement_tween.kill()
 	if humanoid_token:
@@ -121,6 +128,8 @@ func walk_to_hex(coords: Vector2i, pixel_position: Vector2) -> void:
 		WALK_DURATION_SECONDS
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_movement_tween.finished.connect(_finish_walk.bind(movement_id))
+	movement_started.emit(origin_coords, coords, movement_id)
+	return movement_id
 
 func _inventory_is_empty() -> bool:
 	if humanoid_core.inventory.backpack_array.size() > 0:
@@ -212,11 +221,19 @@ func _on_token_footstep() -> void:
 		bus.emit_humanoid_footstep(self, bg)
 
 func _finish_walk(movement_id: int) -> void:
-	if movement_id != _movement_serial or not humanoid_token:
+	if movement_id != _movement_serial:
+		return
+	var origin_coords: Vector2i = _movement_origins.get(movement_id, current_hex_coords)
+	var destination_coords: Vector2i = _movement_destinations.get(movement_id, current_hex_coords)
+	_movement_origins.erase(movement_id)
+	_movement_destinations.erase(movement_id)
+	current_hex_coords = destination_coords
+	movement_arrived.emit(origin_coords, destination_coords, movement_id)
+	if not humanoid_token:
 		return
 	if _interaction_queued:
 		_interaction_queued = false
-		humanoid_token.play_one_shot("Taunt", _idle_animation())
+		play_action_cue("use")
 	else:
 		humanoid_token.play_animation(_idle_animation())
 
@@ -227,7 +244,28 @@ func play_interaction() -> void:
 	and _movement_tween.is_running():
 		_interaction_queued = true
 		return
-	humanoid_token.play_one_shot("Taunt", _idle_animation())
+	play_action_cue("use")
+
+
+func play_action_cue(cue: String) -> void:
+	if humanoid_token == null:
+		return
+	# Semantic cues own the presentation choice. The current token sheet has no
+	# separate repair/salvage rows yet, so Attack1 is the deliberate contact
+	# marker and idle is the safe fallback—not a story-specific Taunt.
+	var animation := "Attack1" if cue in [
+		"search", "repair", "force", "dismantle", "trap", "use", "carry"
+	] else "CrouchIdle"
+	if not HumanoidVisualCatalog.supports_animation(animation):
+		animation = _idle_animation()
+	if HumanoidVisualCatalog.animation_loops(animation):
+		humanoid_token.play_animation(animation, true, _idle_animation())
+	else:
+		humanoid_token.play_timed_one_shot(animation, _idle_animation(), 0.72)
+
+
+func is_moving() -> bool:
+	return _movement_tween != null and _movement_tween.is_valid() and _movement_tween.is_running()
 
 func refresh_token_pose() -> void:
 	if not humanoid_token:
