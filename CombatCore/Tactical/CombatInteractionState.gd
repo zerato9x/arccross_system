@@ -5,28 +5,31 @@ class_name CombatInteractionState
 
 enum Phase {
 	IDLE = 0,
-	ROUTE_PREVIEW = 1,
-	CONTEXT_MENU = 2,
-	ACTION_PREVIEW = 3,
-	COMMUNICATION = 4,
-	INVENTORY = 5,
-	CONFIRMATION = 6,
-	PRESENTING = 7,
-	REACTION = 8,
-	# Compatibility names retained for older presentation and smoke callers.
-	NAVIGATION = IDLE,
-	BUMP_MENU = CONTEXT_MENU,
+	INSPECTING = 1,
+	ROOT_MENU = 2,
+	ACTION_MENU = 3,
+	COMMUNICATION_MENU = 4,
+	ROUTE_PREVIEW = 5,
+	ACTION_PREVIEW = 6,
+	CONFIRMATION = 7,
+	PRESENTING = 8,
+	# Read-only compatibility aliases. New transitions use the explicit phases.
+	NAVIGATION = INSPECTING,
+	BUMP_MENU = ACTION_MENU,
 	MOVE_PREVIEW = ROUTE_PREVIEW,
-	TARGET_MENU = CONTEXT_MENU,
+	TARGET_MENU = ACTION_MENU,
 	AIMING = ACTION_PREVIEW,
-	WEAPON_MENU = INVENTORY,
-	SELF_MENU = CONTEXT_MENU,
-	OBJECT_MENU = CONTEXT_MENU,
-	SELECTED = IDLE,
-	ACTION_MENU = CONTEXT_MENU,
+	WEAPON_MENU = ACTION_MENU,
+	SELF_MENU = ACTION_MENU,
+	OBJECT_MENU = ACTION_MENU,
+	SELECTED = INSPECTING,
 	TARGETING = ACTION_PREVIEW,
 	STAGED_PREVIEW = ACTION_PREVIEW,
 	LOCAL_CONFIRMATION = CONFIRMATION,
+	CONTEXT_MENU = ROOT_MENU,
+	COMMUNICATION = COMMUNICATION_MENU,
+	INVENTORY = ACTION_MENU,
+	REACTION = PRESENTING,
 }
 
 var phase: Phase = Phase.IDLE
@@ -45,6 +48,7 @@ var route_path: Array[Vector2i] = []
 var projected_origin := Vector2i(-1, -1)
 var bumped_actor_id := ""
 var highlighted_action_index := 0
+var active_branch := ""
 var current_quote: CombatActionQuote
 var pending_request: CombatActionRequest
 
@@ -64,11 +68,23 @@ func select(kind: String, data: Dictionary) -> void:
 	projected_origin = selected_sector
 	bumped_actor_id = ""
 	highlighted_action_index = 0
-	phase = Phase.NAVIGATION
+	active_branch = ""
+	phase = Phase.INSPECTING
 
 
 func open_actions() -> void:
-	phase = Phase.BUMP_MENU
+	active_branch = "action"
+	phase = Phase.ACTION_MENU
+
+
+func open_root_menu() -> void:
+	active_branch = ""
+	phase = Phase.ROOT_MENU
+
+
+func open_communication() -> void:
+	active_branch = "communication"
+	phase = Phase.COMMUNICATION_MENU
 
 
 func begin_targeting(action_id: String) -> void:
@@ -89,7 +105,7 @@ func finish_presentation() -> void:
 	staged_action_id = ""
 	current_quote = null
 	pending_request = null
-	phase = Phase.NAVIGATION if not selected_kind.is_empty() else Phase.IDLE
+	phase = Phase.INSPECTING if not selected_kind.is_empty() else Phase.IDLE
 
 
 func cancel_one_step() -> void:
@@ -98,8 +114,11 @@ func cancel_one_step() -> void:
 			return
 		Phase.CONFIRMATION, Phase.ACTION_PREVIEW:
 			staged_action_id = ""
-			phase = Phase.BUMP_MENU
-		Phase.BUMP_MENU:
+			phase = Phase.COMMUNICATION_MENU if active_branch == "communication" else Phase.ACTION_MENU
+		Phase.ACTION_MENU, Phase.COMMUNICATION_MENU:
+			active_branch = ""
+			phase = Phase.ROOT_MENU
+		Phase.ROOT_MENU:
 			phase = Phase.ROUTE_PREVIEW if not route_path.is_empty() else Phase.NAVIGATION
 		Phase.ROUTE_PREVIEW:
 			route_path.clear()
@@ -126,6 +145,7 @@ func clear() -> void:
 	projected_origin = Vector2i(-1, -1)
 	bumped_actor_id = ""
 	highlighted_action_index = 0
+	active_branch = ""
 	current_quote = null
 	pending_request = null
 

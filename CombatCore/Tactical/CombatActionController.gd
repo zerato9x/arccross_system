@@ -129,6 +129,8 @@ func quote(request: CombatActionRequest) -> CombatActionQuote:
 	var result := CombatActionQuote.new()
 	if request == null:
 		return result.deny("missing_request", "No action request was supplied.")
+	if request.action_id == "clear_malfunction":
+		request.action_id = "cycle"
 	result.actor_id = request.actor_id
 	result.action_id = request.action_id
 	result.target_sector = request.target_sector

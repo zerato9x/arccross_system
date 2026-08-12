@@ -3,7 +3,7 @@ class_name CombatArenaState
 
 const LEGACY_WIDTH: int = 7
 const LEGACY_HEIGHT: int = 5
-const SCHEMA_VERSION: int = 2
+const SCHEMA_VERSION: int = 3
 
 @export var schema_version: int = SCHEMA_VERSION
 @export var topology_id: String = "squad_7x5"
@@ -14,6 +14,7 @@ const SCHEMA_VERSION: int = 2
 @export var source_coords: Vector2i = Vector2i.ZERO
 @export var orientation_step: int = 0
 @export var backdrop_asset_path: String = ""
+@export var map_composition: Dictionary = {}
 @export var lighting: Dictionary = {}
 @export var sectors: Array[TacticalSectorRecord] = []
 @export var actor_positions: Dictionary = {}
@@ -76,6 +77,7 @@ func to_dict() -> Dictionary:
 		"source_coords": source_coords,
 		"orientation_step": orientation_step,
 		"backdrop_asset_path": backdrop_asset_path,
+		"map_composition": map_composition.duplicate(true),
 		"lighting": lighting.duplicate(true),
 		"sectors": sector_states,
 		"actor_positions": actor_positions.duplicate(true),
@@ -98,6 +100,7 @@ static func from_dict(data: Dictionary) -> CombatArenaState:
 	state.source_coords = data.get("source_coords", Vector2i.ZERO)
 	state.orientation_step = int(data.get("orientation_step", 0))
 	state.backdrop_asset_path = str(data.get("backdrop_asset_path", ""))
+	state.map_composition = data.get("map_composition", {}).duplicate(true)
 	state.lighting = data.get("lighting", {}).duplicate(true)
 	for raw_sector in data.get("sectors", []):
 		if raw_sector is Dictionary:

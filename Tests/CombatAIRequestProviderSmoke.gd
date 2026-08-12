@@ -6,6 +6,8 @@ const _Provider := preload("res://CombatCore/Tactical/CombatLegalRequestProvider
 const _Candidate := preload("res://CombatCore/Tactical/CombatMotiveCandidate.gd")
 const _Problem := preload("res://CombatCore/Tactical/CombatTacticalProblem.gd")
 const _Ledger := preload("res://SystemCore/CombatRelationshipLedger.gd")
+const _Encounter := preload("res://SystemCore/CombatEncounterRecord.gd")
+const _Hex := preload("res://SystemCore/HexRecord.gd")
 
 var _board: CombatBoard
 var _turns: TacticalTurnManager
@@ -80,12 +82,12 @@ func _actor(actor_id: String, faction: int) -> HumanoidCore:
 	return actor
 
 
-func _encounter() -> CombatEncounterRecord:
-	var encounter := CombatEncounterRecord.new()
+func _encounter():
+	var encounter = _Encounter.new()
 	encounter.topology_id = "squad_7x5"
 	encounter.encounter_id = "combat_ai_provider_smoke"
 	encounter.world_seed = "COMBAT_AI_PROVIDER_SMOKE"
-	encounter.center_hex = HexRecord.new()
+	encounter.center_hex = _Hex.new()
 	encounter.center_hex.zone_id = "smoke"
 	encounter.center_hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
 	return encounter

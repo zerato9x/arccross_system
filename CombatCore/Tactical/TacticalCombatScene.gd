@@ -32,22 +32,20 @@ var _ai_decision_traces: Dictionary = {}
 
 
 func _ready() -> void:
-	hud.set_interaction_state(_interaction_coordinator.state)
-	hud.sector_selected.connect(_on_sector_selected)
+	hud.set_interaction_coordinator(_interaction_coordinator)
+	hud.context_requested.connect(_on_sector_selected)
 	hud.action_selected.connect(_on_action_selected)
 	hud.action_confirmed.connect(_on_action_confirmed)
 	hud.selection_cancelled.connect(_on_selection_cancelled)
 	hud.route_context_selected.connect(_on_route_context_selected)
 	hud.item_selected.connect(_refresh_context_quotes.unbind(1))
 	hud.wound_selected.connect(_refresh_context_quotes.unbind(1))
-	hud.reaction_selected.connect(_on_reaction_selected)
 	action_controller.snapshot_changed.connect(hud.show_snapshot)
 	action_controller.quote_changed.connect(hud.show_quote)
 	action_controller.action_denied.connect(_on_action_denied)
 	action_controller.action_committed.connect(hud.show_result_events)
 	action_controller.action_committed.connect(_on_action_committed)
 	action_controller.presentation_requested.connect(_on_presentation_requested)
-	turn_manager.reaction_window_opened.connect(_on_reaction_window_opened)
 	turn_manager.combat_bleed_tick.connect(_on_combat_bleed_tick)
 	turn_manager.turn_started.connect(_on_turn_started)
 	turn_manager.action_resolution_finished.connect(_on_action_resolution_finished)
@@ -180,23 +178,7 @@ func _on_sector_selected(coords: Vector2i) -> void:
 	var sector := board.arena_state.sector_at(coords)
 	if sector == null:
 		return
-	var destination := board.arena_state.index_for(coords)
-	if board.actor_at(destination) != null:
-		# Occupied-sector clicks are contextual target selection, not failed
-		# movement. The HUD has already selected the specific occupant (including
-		# cycling the two slots in a shared sector) and rendered its action rows.
-		# Do not clear that state here or a perfectly valid Attack/Shove menu is
-		# immediately erased by the scene-level signal handler.
-		_refresh_context_quotes()
-		return
-	var request := _build_request("move")
 	_refresh_context_quotes()
-	var action_quote := action_controller.preview(request)
-	_interaction_coordinator.stage_request(request, action_quote)
-	# Movement owns a dedicated route-preview surface.  The generic action
-	# renderer intentionally preserves contextual verbs, so sending a move
-	# quote through it leaves stale Crouch/Escape rows over the route preview.
-	hud.show_route_quote(action_quote)
 
 
 func _on_route_context_selected(coords: Vector2i, approach_path: Array[Vector2i]) -> void:
@@ -404,6 +386,8 @@ func _on_reaction_window_opened(
 	_trigger_action,
 	available: Array
 ) -> void:
+	# Reaction UI is retired. Keep the signal-shaped compatibility method inert.
+	return
 	if defender == player_core:
 		var ids: Array[String] = []
 		for action in available:
@@ -423,6 +407,8 @@ func _on_reaction_window_opened(
 
 
 func _on_reaction_selected(action_id: String) -> void:
+	# Compatibility-only; canonical combat resolves defense in the attack quote.
+	return
 	if action_id == "decline" or not turn_manager.resolve_reaction(player_core, action_id):
 		turn_manager.decline_reaction(player_core)
 

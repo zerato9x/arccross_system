@@ -113,9 +113,9 @@ class_name ItemData
 @export var accepted_ammunition_id: String = ""
 @export var magazine_capacity: int = 0
 @export var starting_loaded_rounds: int = 0
-## Firing leaves the action locked until CYCLE is used.
+## Compatibility authoring hint. Mechanical post-shot cycling is automatic.
 @export var requires_cycle_after_shot: bool = false
-## When not cycling the action, CYCLE may hand-load one loose round.
+## Compatibility hint consumed by Reload feeding policy, never as a verb.
 @export var cycle_loads_one_round: bool = false
 ## Some authored firearms begin unready and require an explicit READY action.
 @export var requires_ready_action: bool = false
@@ -490,6 +490,9 @@ static func from_runtime_state(state: Dictionary) -> ItemData:
 		GameEnums.SCALE_MAX
 	)
 	item.is_jammed = bool(state.get("is_jammed", false))
+	# Legacy saves may contain a post-shot lock. CYCLE is now jam clearing only;
+	# healthy firearms always hydrate ready for ordinary action selection.
+	item.needs_cycling = false
 	item.owner_id = str(state.get("owner_id", ""))
 	item.physical_location = str(state.get("physical_location", "unassigned"))
 	item.equipped_slot = int(state.get("equipped_slot", GameEnums.EquipmentSlot.NONE))

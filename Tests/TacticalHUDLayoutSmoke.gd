@@ -80,22 +80,22 @@ func _verify_size(viewport_size: Vector2i) -> void:
 	hud.show_snapshot(weapon_snapshot)
 	hud.show_quotes(jam_quotes)
 	await process_frame
-	var weapon_button := hud._weapon_action_buttons.get("clear_malfunction") as Button
+	var weapon_button := hud._weapon_action_buttons.get("cycle") as Button
 	var reload_button := hud._weapon_action_buttons.get("reload") as Button
 	if reload_button == null:
 		_fail("Reload was not kept discoverable for an equipped firearm at %s." % viewport_size)
 	elif not reload_button.disabled or not reload_button.text.contains("CLEAR JAM FIRST"):
 		_fail("Jammed firearm did not keep Reload gray with an inline reason at %s." % viewport_size)
-	if weapon_button == null or not weapon_button.text.begins_with("CLEAR MALFUNCTION") or weapon_button.disabled:
+	if weapon_button == null or not weapon_button.text.begins_with("CYCLE") or weapon_button.disabled:
 		_fail("Loadout did not expose the authored jam-clearing action at %s." % viewport_size)
 	else:
 		var routed_weapon := {"id": ""}
 		hud.action_selected.connect(func(action_id: String) -> void: routed_weapon.id = action_id, CONNECT_ONE_SHOT)
 		weapon_button.pressed.emit()
-		if routed_weapon.id != "clear_malfunction":
-			_fail("Weapon verb did not route to clear_malfunction at %s." % viewport_size)
-	weapon_actor.current_magazine = 6
-	weapon_actor.readiness = {"reason": "ready"}
+		if routed_weapon.id != "cycle":
+			_fail("Weapon verb did not route to jam-only Cycle at %s." % viewport_size)
+	weapon_actor.ranged_weapon.current_magazine = 6
+	weapon_actor.ranged_weapon.readiness = {"reason": "ready"}
 	var full_quotes := _sample_quotes()
 	_quote_for(full_quotes, "reload").deny("reload_not_needed", "The magazine is full.")
 	_quote_for(full_quotes, "cycle").deny("cycle_not_needed", "The weapon does not need cycling.")
@@ -105,8 +105,8 @@ func _verify_size(viewport_size: Vector2i) -> void:
 	if full_reload == null or not full_reload.disabled or not full_reload.text.contains("MAGAZINE FULL"):
 		_fail("Loaded firearm did not show gray Reload — Magazine Full at %s." % viewport_size)
 	var full_cycle := hud._weapon_action_buttons.get("cycle") as Button
-	if full_cycle == null or not full_cycle.disabled or not full_cycle.text.contains("WEAPON ALREADY READY"):
-		_fail("Ready cycle-capable firearm did not show gray Cycle with its inline reason at %s." % viewport_size)
+	if full_cycle != null:
+		_fail("Healthy firearm exposed Cycle even though Cycle is jam clearing only at %s." % viewport_size)
 	hud.show_snapshot(_sample_snapshot(12, 1))
 	hud.show_quotes(_sample_quotes())
 	await process_frame
@@ -270,8 +270,8 @@ func _verify_size(viewport_size: Vector2i) -> void:
 		_fail("A second click on a staged move did not confirm it.")
 	hud.show_reaction({"actions": ["block", "dodge"], "title": "TEST ATTACK"})
 	await process_frame
-	if hud.reaction_actions.get_child_count() != 3 or not hud.reaction_actions.get_child(0).has_focus():
-		_fail("Reaction prompt did not expose actions with initial focus.")
+	if hud.reaction_panel.visible or hud.interaction.phase == hud.INTERACTION_STATE_SCRIPT.Phase.REACTION:
+		_fail("Retired reaction prompt opened an active input surface.")
 	hud.hide_reaction()
 	hud.items.visible = false
 	hud._unhandled_input(_key_event(KEY_I))

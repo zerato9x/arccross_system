@@ -18,6 +18,7 @@ class_name CombatWeaponPresentationDefinition
 @export var shoot_hand_anchor := Vector2(0.16, -0.10)
 @export var shoot_release_frame: int = 0
 @export var handling_event_frames: Array[int] = []
+@export_range(0.0, 64.0, 1.0) var overhead_gap_pixels: float = 8.0
 
 
 func sheet_for_action(action_id: String) -> Texture2D:

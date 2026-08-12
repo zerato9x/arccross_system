@@ -97,10 +97,42 @@ func get_display_scale() -> float:
 	return _display_scale
 
 
+func combat_overhead_anchor() -> Vector2:
+	# Resolve the currently rendered layers instead of assuming a particular
+	# sprite height. Static sheets, equipment compositions, and display scaling
+	# therefore share one stable actor-local overhead contract.
+	var top := INF
+	for sprite in _layer_sprites:
+		if not sprite.visible or sprite.texture == null:
+			continue
+		var rect := sprite.get_rect()
+		top = minf(top, sprite.position.y + rect.position.y * sprite.scale.y)
+	if is_inf(top):
+		top = -float(HumanoidVisualCatalog.FRAME_SIZE.y) * 0.5 * _display_scale
+	return Vector2(0.0, top)
+
+
+func combat_visual_bounds() -> Rect2:
+	var result := Rect2()
+	var initialized := false
+	for sprite in _layer_sprites:
+		if not sprite.visible or sprite.texture == null:
+			continue
+		var source := sprite.get_rect()
+		var scaled := Rect2(
+			sprite.position + source.position * sprite.scale,
+			source.size * sprite.scale.abs()
+		)
+		result = result.merge(scaled) if initialized else scaled
+		initialized = true
+	if not initialized:
+		var fallback := Vector2(HumanoidVisualCatalog.FRAME_SIZE) * _display_scale
+		result = Rect2(-fallback * 0.5, fallback)
+	return result
+
+
 func combat_head_top_anchor() -> Vector2:
-	# The sprite sheet is centered on the token. Keep combat overlays outside
-	# the occupied body rectangle so weapon sheets never sit across the torso.
-	return Vector2(0.0, -64.0 * _display_scale - 30.0)
+	return combat_overhead_anchor()
 
 
 func combat_weapon_muzzle_anchor(weapon_id: String) -> Vector2:

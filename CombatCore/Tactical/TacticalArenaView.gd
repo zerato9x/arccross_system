@@ -2,6 +2,8 @@ extends Control
 class_name TacticalArenaView
 
 signal sector_selected(coords: Vector2i)
+signal inspect_requested(coords: Vector2i, actor_id: String)
+signal context_requested(coords: Vector2i, actor_id: String)
 signal sector_hovered(coords: Vector2i)
 signal sector_unhovered
 
@@ -342,6 +344,7 @@ func _draw() -> void:
 	var rect := _grid_rect()
 	draw_rect(Rect2(Vector2.ZERO, size), VISUAL_PROFILE.arena_base_color, true)
 	_draw_backdrop()
+	_draw_composition()
 	var sectors: Array = snapshot.get("sectors", [])
 	for raw in sectors:
 		if raw is Dictionary:
@@ -352,24 +355,43 @@ func _draw() -> void:
 
 
 func _draw_backdrop() -> void:
-	var path := str(snapshot.get("backdrop_asset_path", ""))
+	var composition: Dictionary = snapshot.get("map_composition", {})
+	var path := str(composition.get("base_ground_path", snapshot.get("backdrop_asset_path", "")))
 	var texture := _texture(path)
 	if texture != null:
 		draw_texture_rect(texture, Rect2(Vector2.ZERO, size), false, VISUAL_PROFILE.backdrop_modulate)
 
 
+func _draw_composition() -> void:
+	var composition: Dictionary = snapshot.get("map_composition", {})
+	if composition.is_empty():
+		return
+	_draw_continuous_band(composition.get("water_cells", []), Color(0.10, 0.30, 0.42, 0.72), 0.88)
+	_draw_continuous_band(composition.get("road_cells", []), Color(0.32, 0.28, 0.21, 0.82), 0.62)
+
+
+func _draw_continuous_band(cells: Array, color: Color, width_fraction: float) -> void:
+	if cells.is_empty():
+		return
+	var points: Array[Vector2i] = []
+	for value in cells:
+		points.append(Vector2i(value))
+	var width := minf(_cell_size(_grid_rect()).x, _cell_size(_grid_rect()).y) * width_fraction
+	for coords in points:
+		var center := sector_center(coords)
+		draw_circle(center, width * 0.5, color)
+		for delta in [Vector2i.RIGHT, Vector2i.DOWN]:
+			if coords + delta in points:
+				draw_line(center, sector_center(coords + delta), color, width, true)
+
+
 func _draw_sector(data: Dictionary, rect: Rect2) -> void:
 	var coords: Vector2i = data.get("coords", Vector2i.ZERO)
 	var cell_rect := _sector_rect(coords, rect).grow(-GRID_GAP * 0.5)
-	var ground := _texture(str(data.get("ground_asset", "")))
-	var overlay := _texture(str(data.get("overlay_asset", "")))
-	var tint := _surface_color(str(data.get("surface_id", "unresolved")))
-	var scene_first := str(snapshot.get("presentation_style", "")) == "duel_lane"
-	draw_rect(cell_rect, Color(tint, VISUAL_PROFILE.duel_surface_alpha) if scene_first else tint, true)
-	if ground != null and not scene_first:
-		draw_texture_rect(ground, cell_rect, false, Color(1, 1, 1, VISUAL_PROFILE.ground_texture_alpha))
-	if overlay != null and not scene_first:
-		draw_texture_rect(overlay, cell_rect, false, Color.WHITE)
+	# Logical sectors remain authoritative but are no longer 35 miniature
+	# wallpapers. The continuous composition owns ground; sectors draw only a
+	# restrained grid and rule-state overlays.
+	draw_rect(cell_rect, Color(0.72, 0.78, 0.76, 0.10), false, 1.0)
 	if bool(data.get("blocked", false)):
 		draw_rect(cell_rect, Color(0.08, 0.08, 0.08, 0.55), true)
 	_draw_cover_edges(cell_rect, data.get("cover_edges", {}))
@@ -766,7 +788,7 @@ func _configure_token_overlays(
 			actor,
 			maxf(34.0, footprint_width),
 			display_scale,
-			token.combat_head_top_anchor(),
+			token.combat_overhead_anchor(),
 			str(snapshot.get("facings", {}).get(actor_id, "east"))
 		)
 		if _sequence_weapon_cue != null and _sequence_weapon_cue.actor_id == actor_id:
@@ -940,12 +962,17 @@ func _on_gui_input(event: InputEvent) -> void:
 			else:
 				sector_unhovered.emit()
 			queue_redraw()
-	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+	elif event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
 		grab_focus()
 		var coords := _coords_at(event.position)
 		if _contains(coords):
 			select_sector(coords)
-			sector_selected.emit(coords)
+			var actor_id := _actor_id_at_position(coords, event.position)
+			if event.button_index == MOUSE_BUTTON_LEFT:
+				inspect_requested.emit(coords, actor_id)
+			else:
+				context_requested.emit(coords, actor_id)
+			accept_event()
 	elif event is InputEventKey and event.pressed:
 		var cursor := hovered_sector if _contains(hovered_sector) else selected_sector
 		if not _contains(cursor):
@@ -966,8 +993,35 @@ func _on_gui_input(event: InputEvent) -> void:
 			accept_event()
 		elif event.is_action("ui_accept"):
 			select_sector(cursor)
-			sector_selected.emit(cursor)
+			inspect_requested.emit(cursor, "")
 			accept_event()
+
+
+func _actor_id_at_position(coords: Vector2i, local_position: Vector2) -> String:
+	var best_id := ""
+	var best_distance := INF
+	for raw_id in _occupant_ids_at(coords):
+		var actor_id := str(raw_id)
+		var token := _actor_tokens.get(actor_id) as HumanoidTokenView
+		if token == null or not token.visible:
+			continue
+		var distance := token.position.distance_to(local_position)
+		var token_local := local_position - token.position
+		if token.combat_visual_bounds().grow(8.0).has_point(token_local) and distance < best_distance:
+			best_distance = distance
+			best_id = actor_id
+	return best_id
+
+
+func _occupant_ids_at(coords: Vector2i) -> Array:
+	for sector in snapshot.get("sectors", []):
+		if sector.get("coords", Vector2i(-1, -1)) != coords:
+			continue
+		var ids: Array = sector.get("occupant_ids", [])
+		if ids.is_empty() and not str(sector.get("occupant_id", "")).is_empty():
+			ids = [str(sector.get("occupant_id", ""))]
+		return ids
+	return []
 
 
 func _on_mouse_exited() -> void:

@@ -955,6 +955,7 @@ func snapshot() -> Dictionary:
 		"player_hostile_active": has_active_player_hostile(direct_player),
 		"hostile_conflict_active": has_active_hostile_conflict(direct_player),
 		"backdrop_asset_path": arena_state.backdrop_asset_path if arena_state != null else "",
+		"map_composition": arena_state.map_composition.duplicate(true) if arena_state != null else {},
 	}
 
 

@@ -4,6 +4,9 @@ class_name CombatArenaGenerator
 const DEFAULT_CATALOG := preload(
 	"res://CombatCore/Tactical/combat_terrain_catalog.tres"
 )
+const _MapComposition := preload("res://CombatCore/Tactical/CombatMapComposition.gd")
+const _MapVariantCatalog := preload("res://CombatCore/Tactical/TacticalMapVariantCatalog.gd")
+const DEFAULT_VARIANT_CATALOG := preload("res://CombatCore/Tactical/default_tactical_map_variant_catalog.tres")
 
 const AXIAL_DIRECTIONS := [
 	Vector2i(1, 0),
@@ -15,6 +18,7 @@ const AXIAL_DIRECTIONS := [
 ]
 
 var catalog: TacticalTerrainCatalog
+var variant_catalog = DEFAULT_VARIANT_CATALOG
 
 
 func _init(profile_catalog: TacticalTerrainCatalog = null) -> void:
@@ -53,7 +57,46 @@ func generate(encounter: CombatEncounterRecord) -> CombatArenaState:
 	_apply_traps(arena, encounter.traps)
 	_apply_persistent_state(arena, encounter.center_hex)
 	_configure_edges(arena)
+	arena.map_composition = _compose_map(arena, encounter).to_dict()
 	return arena
+
+
+func _compose_map(arena: CombatArenaState, encounter: CombatEncounterRecord):
+	var result = _MapComposition.new()
+	result.seed = arena.baseline_seed
+	var hex := encounter.center_hex
+	var family := str(hex.terrain_tile if hex != null else 0)
+	var variant := variant_catalog.choose(family, result.seed)
+	result.variant_id = str(variant.get("id", "%s_00" % family))
+	result.base_ground_path = str(variant.get("base_ground_path", arena.backdrop_asset_path))
+	for sector in arena.sectors:
+		if sector.surface_id == "road":
+			result.road_cells.append(sector.coords)
+		if sector.surface_id in ["shallow_water", "deep_water"]:
+			result.water_cells.append(sector.coords)
+		result.sector_facts[str(sector.index)] = {
+			"surface_id": sector.surface_id,
+			"cover_edges": sector.cover_edges.duplicate(true),
+			"hazards": sector.hazard_state.duplicate(true),
+			"blocked": sector.blocked,
+		}
+		if not sector.object_state.is_empty():
+			var instance := sector.object_state.duplicate(true)
+			instance["coords"] = sector.coords
+			result.props.append(instance)
+	if hex != null:
+		var landmark_id := hex.landmark_id
+		if landmark_id.is_empty() and hex.is_poi:
+			landmark_id = hex.poi_id
+		if landmark_id.is_empty() and hex.structure_layer != GameEnums.MacroStructureLayer.NONE:
+			landmark_id = "structure_%d" % int(hex.structure_layer)
+		if not landmark_id.is_empty():
+			result.dominant_landmark = {
+				"id": landmark_id,
+				"label": hex.poi_name if hex.is_poi and not hex.poi_name.is_empty() else landmark_id,
+				"coords": Vector2i(arena.width / 2, arena.height / 2),
+			}
+	return result
 
 
 func _configure_base(

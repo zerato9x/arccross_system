@@ -183,7 +183,10 @@ func _weapon_geometry() -> Dictionary:
 		lateral_offset = -lateral_offset
 	# Bottom edge is kept above the explicit head anchor with a small readable
 	# gap. This geometry is decorative and never owns battlefield coordinates.
-	var center := head_top_anchor + Vector2(lateral_offset, -display_size.y * 0.5 - 8.0)
+	var center := head_top_anchor + Vector2(
+		lateral_offset,
+		-display_size.y * 0.5 - definition.overhead_gap_pixels
+	)
 	return {
 		"definition": definition,
 		"display_size": display_size,

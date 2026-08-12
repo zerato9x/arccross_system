@@ -8,8 +8,8 @@ signal selection_cancelled
 signal item_selected(instance_id: String)
 signal wound_selected(wound_id: String)
 signal body_region_selected(region: int)
-signal reaction_selected(action_id: String)
 signal route_context_selected(target_sector: Vector2i, approach_path: Array[Vector2i])
+signal context_requested(coords: Vector2i)
 
 enum Availability { HIDDEN, DISABLED, AVAILABLE }
 
@@ -21,6 +21,9 @@ const VISUAL_PROFILE = preload(
 )
 const _SnapshotPresenter := preload(
 	"res://CombatCore/Tactical/TacticalCombatSnapshotPresenter.gd"
+)
+const _InteractionCoordinator := preload(
+	"res://CombatCore/Tactical/TacticalCombatInteractionCoordinator.gd"
 )
 
 @onready var arena_view: TacticalArenaView = %TacticalArenaView
@@ -93,6 +96,7 @@ const _SnapshotPresenter := preload(
 @onready var reaction_actions: HBoxContainer = %ReactionActions
 
 var interaction = INTERACTION_STATE_SCRIPT.new()
+var interaction_coordinator: TacticalCombatInteractionCoordinator
 var snapshot: Dictionary = {}
 var _snapshot_presenter := _SnapshotPresenter.new()
 var quotes: Array[CombatActionQuote] = []
@@ -119,7 +123,6 @@ var catalog: CombatActionCatalog
 var _quote_by_action: Dictionary = {}
 var _pending_aim_action := ""
 var _context_shortcuts: Array[Button] = []
-var _reaction_shortcuts: Array[Button] = []
 var _route_path: Array[Vector2i]:
 	get: return interaction.route_path
 	set(value): interaction.route_path = value
@@ -144,6 +147,10 @@ func _ready() -> void:
 	_style_vitals()
 	_apply_macro_aesthetic()
 	resized.connect(_queue_corner_layout)
+	arena_view.inspect_requested.connect(_on_arena_inspect_requested)
+	arena_view.context_requested.connect(_on_arena_context_requested)
+	# Compatibility signal for scripted fixtures; physical input uses the two
+	# explicit intents above.
 	arena_view.sector_selected.connect(_on_sector_selected)
 	arena_view.sector_hovered.connect(_on_sector_hovered)
 	arena_view.sector_unhovered.connect(_on_sector_unhovered)
@@ -193,6 +200,29 @@ func _apply_queued_corner_layout() -> void:
 func set_interaction_state(value: CombatInteractionState) -> void:
 	if value != null:
 		interaction = value
+
+
+func set_interaction_coordinator(value: TacticalCombatInteractionCoordinator) -> void:
+	interaction_coordinator = value
+	if value != null:
+		interaction = value.state
+
+
+func _coordinator() -> TacticalCombatInteractionCoordinator:
+	if interaction_coordinator == null:
+		interaction_coordinator = _InteractionCoordinator.new()
+		interaction_coordinator.state = interaction
+	return interaction_coordinator
+
+
+func _set_phase(value: CombatInteractionState.Phase) -> void:
+	# Only the coordinator mutates interaction phase. The HUD remains a passive
+	# renderer even when compatibility fixtures call its private handlers.
+	_coordinator().state.phase = value
+
+
+func _select_interaction(kind: String, data: Dictionary) -> void:
+	_coordinator().select(kind, data)
 
 
 func _setup_interaction_debug() -> void:
@@ -450,27 +480,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_refresh_interaction_debug()
 		get_viewport().set_input_as_handled()
 		return
-	if reaction_panel.visible:
-		if event.is_action_pressed("combat_cancel") or event.is_action_pressed("ui_cancel") or (
-			event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed
-		):
-			_decline_reaction()
-			get_viewport().set_input_as_handled()
-			return
-		if event is InputEventKey and event.pressed and not event.echo:
-			var reaction_index := int(event.keycode) - int(KEY_1)
-			if reaction_index >= 0 and reaction_index < _reaction_shortcuts.size():
-				_reaction_shortcuts[reaction_index].pressed.emit()
-				get_viewport().set_input_as_handled()
-				return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-		if _has_active_interaction():
-			_cancel_selection()
-		elif collapse_corner_panels():
-			get_viewport().set_input_as_handled()
-			return
-		get_viewport().set_input_as_handled()
-		return
+	# Arena RMB is consumed by TacticalArenaView and arrives as context_requested.
+	# RMB elsewhere is deliberately inert; Escape/B remain the cancellation keys.
 	if event.is_action_pressed("combat_cancel") or event.is_action_pressed("ui_cancel"):
 		if _has_active_interaction():
 			_cancel_selection()
@@ -665,7 +676,7 @@ func _stage_route_step(direction: int) -> void:
 
 func _preview_staged_route() -> void:
 	if _route_path.size() < 2:
-		interaction.phase = INTERACTION_STATE_SCRIPT.Phase.NAVIGATION
+		_set_phase(INTERACTION_STATE_SCRIPT.Phase.INSPECTING)
 		current_quote = null
 		local_confirmation.visible = false
 		context_menu.visible = false
@@ -673,7 +684,7 @@ func _preview_staged_route() -> void:
 	selected_sector = _route_path.back()
 	interaction.route_path = _route_path.duplicate()
 	interaction.projected_origin = selected_sector
-	interaction.phase = INTERACTION_STATE_SCRIPT.Phase.ROUTE_PREVIEW
+	_coordinator().begin_route()
 	current_quote = null
 	local_confirmation.visible = false
 	context_menu.visible = false
@@ -691,7 +702,7 @@ func _open_bump_menu(coords: Vector2i) -> void:
 	interaction.projected_origin = _route_path.back()
 	interaction.bumped_actor_id = _occupant_at(coords)
 	interaction.highlighted_action_index = 0
-	interaction.phase = INTERACTION_STATE_SCRIPT.Phase.BUMP_MENU
+	_set_phase(INTERACTION_STATE_SCRIPT.Phase.ACTION_MENU)
 	current_quote = null
 	local_confirmation.visible = false
 	arena_view.select_sector(coords)
@@ -708,7 +719,7 @@ func _go_back_to_bump_menu() -> void:
 	local_confirmation.visible = false
 	_close_aim_panel()
 	interaction.staged_action_id = ""
-	interaction.phase = INTERACTION_STATE_SCRIPT.Phase.BUMP_MENU
+	_set_phase(INTERACTION_STATE_SCRIPT.Phase.ACTION_MENU)
 	context_menu.visible = true
 	_render_context_actions()
 
@@ -719,7 +730,7 @@ func _go_back_to_route_preview() -> void:
 	context_menu.visible = false
 	interaction.staged_action_id = ""
 	interaction.bumped_actor_id = ""
-	interaction.phase = INTERACTION_STATE_SCRIPT.Phase.ROUTE_PREVIEW
+	_coordinator().begin_route()
 	if not _route_path.is_empty():
 		selected_sector = _route_path.back()
 		arena_view.select_sector(selected_sector)
@@ -735,7 +746,7 @@ func _cancel_complete_chain() -> void:
 	current_quote = null
 	local_confirmation.visible = false
 	_close_aim_panel()
-	interaction.clear()
+	_coordinator().clear_selection()
 	context_menu.visible = false
 	selected_sector = Vector2i(-1, -1)
 	arena_view.select_sector(selected_sector)
@@ -784,7 +795,7 @@ func show_quote(value: CombatActionQuote) -> void:
 	current_quote = value
 	_refresh_interaction_debug()
 	arena_view.show_quote(value)
-	interaction.stage(value.action_id, value.legal)
+	_coordinator().stage_quote(value.action_id, value.legal)
 	if aim_target_panel.visible and value.action_id == _pending_aim_action:
 		aim_confirm_button.disabled = not value.legal
 		aim_forecast.text = _forecast_text(value)
@@ -809,7 +820,7 @@ func show_route_quote(value: CombatActionQuote) -> void:
 	current_quote = value
 	arena_view.show_quote(value)
 	interaction.staged_action_id = "move"
-	interaction.phase = INTERACTION_STATE_SCRIPT.Phase.ROUTE_PREVIEW
+	_coordinator().begin_route()
 	local_confirmation.visible = true
 	context_actions.visible = false
 	context_title.text = "ROUTE PREVIEW"
@@ -839,7 +850,7 @@ func clear_staged_action() -> void:
 	interaction.staged_action_id = ""
 	arena_view.clear_quote()
 	if interaction.phase != INTERACTION_STATE_SCRIPT.Phase.PRESENTING:
-		interaction.phase = INTERACTION_STATE_SCRIPT.Phase.NAVIGATION
+		_set_phase(INTERACTION_STATE_SCRIPT.Phase.INSPECTING)
 	_refresh_global_actions()
 
 
@@ -907,7 +918,7 @@ func _result_event_label(event: Dictionary) -> String:
 func show_presentation_action(sequence: CombatPresentationSequence) -> void:
 	if sequence == null:
 		return
-	interaction.begin_presentation()
+	_coordinator().begin_presentation()
 	_debug_timeline_id = sequence.timeline_id
 	_refresh_interaction_debug()
 	arena_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -917,7 +928,7 @@ func show_presentation_action(sequence: CombatPresentationSequence) -> void:
 
 
 func finish_presentation() -> void:
-	interaction.finish_presentation()
+	_coordinator().finish_presentation()
 	_debug_timeline_id = ""
 	_refresh_interaction_debug()
 	arena_view.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -925,79 +936,25 @@ func finish_presentation() -> void:
 
 
 func show_aim_targeter(action_id: String) -> void:
-	_pending_aim_action = action_id
-	var target := _actor(_occupant_at(selected_sector))
-	if target.is_empty():
-		show_feedback("Select a hostile actor first.")
-		return
-	interaction.begin_targeting(action_id)
-	_aim_restore_corner_id = _expanded_corner_id
-	collapse_corner_panels()
-	aim_title.text = "%s: SELECT REGION" % str(_definition(action_id).label if _definition(action_id) != null else action_id).to_upper()
-	aim_hint.text = "Choose a body region, review the result, then confirm here."
-	aim_forecast.text = "SELECT A REGION"
-	aim_feedback.text = ""
-	aim_confirm_button.disabled = true
-	aim_target_body.set_actor_snapshot(target)
-	aim_target_body.set_selectable(true)
-	aim_target_panel.visible = true
-	hex_panel.visible = false
-	right_panel.visible = false
-	context_menu.visible = false
-	local_confirmation.visible = false
+	# Compatibility sink. Body-region targeting is no longer a player-facing
+	# branch; the authoritative attack quote resolves the legal result.
+	_pending_aim_action = ""
+	_close_aim_panel()
+	show_feedback("Body-region targeting is resolved by the combat quote.")
 
 
 func show_reaction(prompt: Dictionary) -> void:
-	_clear_children(reaction_actions)
-	_reaction_shortcuts.clear()
-	reaction_title.text = str(prompt.get("title", "REACTION WINDOW")).to_upper()
-	reaction_panel.visible = true
-	interaction.phase = INTERACTION_STATE_SCRIPT.Phase.REACTION
-	_refresh_interaction_debug()
-	var action_index := 0
-	for action_id in prompt.get("actions", []):
-		var reaction_id := str(action_id)
-		var button := Button.new()
-		button.text = "[%d]  %s" % [action_index + 1, reaction_id.replace("_", " ").to_upper()]
-		HUD_ASSETS.apply_button(button)
-		button.pressed.connect(_on_reaction_button.bind(reaction_id))
-		reaction_actions.add_child(button)
-		_reaction_shortcuts.append(button)
-		action_index += 1
-	var decline := Button.new()
-	decline.text = "DECLINE"
-	HUD_ASSETS.apply_button(decline)
-	decline.pressed.connect(_decline_reaction)
-	reaction_actions.add_child(decline)
-	_reaction_shortcuts.append(decline)
-	call_deferred("_focus_first_reaction")
-
-
-func _focus_first_reaction() -> void:
-	if reaction_panel.visible and not _reaction_shortcuts.is_empty():
-		_reaction_shortcuts[0].grab_focus()
-
-
-func _decline_reaction() -> void:
-	if not reaction_panel.visible:
-		return
+	# Reaction input was retired from the canonical tactical contract. Keep this
+	# method as a compatibility sink for old serialized callers; production no
+	# longer connects a reaction signal or opens a reaction surface.
 	reaction_panel.visible = false
-	interaction.phase = INTERACTION_STATE_SCRIPT.Phase.NAVIGATION if not interaction.selected_kind.is_empty() else INTERACTION_STATE_SCRIPT.Phase.IDLE
-	reaction_selected.emit("decline")
-
-
-func _on_reaction_button(action_id: String) -> void:
-	if not reaction_panel.visible:
-		return
-	reaction_panel.visible = false
-	interaction.phase = INTERACTION_STATE_SCRIPT.Phase.NAVIGATION if not interaction.selected_kind.is_empty() else INTERACTION_STATE_SCRIPT.Phase.IDLE
-	reaction_selected.emit(action_id)
+	_set_phase(INTERACTION_STATE_SCRIPT.Phase.INSPECTING if not interaction.selected_kind.is_empty() else INTERACTION_STATE_SCRIPT.Phase.IDLE)
 
 
 func hide_reaction() -> void:
 	reaction_panel.visible = false
 	if interaction.phase == INTERACTION_STATE_SCRIPT.Phase.REACTION:
-		interaction.phase = INTERACTION_STATE_SCRIPT.Phase.NAVIGATION if not interaction.selected_kind.is_empty() else INTERACTION_STATE_SCRIPT.Phase.IDLE
+		_set_phase(INTERACTION_STATE_SCRIPT.Phase.INSPECTING if not interaction.selected_kind.is_empty() else INTERACTION_STATE_SCRIPT.Phase.IDLE)
 
 
 func selected_context() -> Dictionary:
@@ -1275,6 +1232,18 @@ func _render_context_actions() -> void:
 	var occupant_id := _selected_occupant_id()
 	var context := _selection_context(occupant_id)
 	var selected_sector_data := _sector(selected_sector)
+	if interaction.phase == INTERACTION_STATE_SCRIPT.Phase.ROOT_MENU:
+		context_title.text = "CONTEXT"
+		context_hint.text = "Choose a branch."
+		if _has_context_branch(context, false):
+			_add_context_branch("ACTION", false)
+		if _has_context_branch(context, true):
+			_add_context_branch("COMMUNICATION", true)
+		context_menu.visible = not _context_shortcuts.is_empty()
+		context_scroll.custom_minimum_size.y = clampf(float(_context_shortcuts.size()) * 36.0, 32.0, 176.0)
+		call_deferred("_position_context_menu")
+		call_deferred("_focus_first_context_action")
+		return
 	if not occupant_id.is_empty():
 		context_title.text = str(_actor(occupant_id).get("name", "TARGET")).to_upper()
 	elif context == CombatActionDefinition.CONTEXT_OBJECT:
@@ -1283,7 +1252,8 @@ func _render_context_actions() -> void:
 		context_title.text = "ITEM AT SECTOR"
 	else:
 		context_title.text = "MOVE HERE"
-	if context in [CombatActionDefinition.CONTEXT_HOSTILE_ACTOR, CombatActionDefinition.CONTEXT_NEUTRAL_ACTOR]:
+	var communication_branch: bool = interaction.phase == INTERACTION_STATE_SCRIPT.Phase.COMMUNICATION_MENU
+	if not communication_branch and context in [CombatActionDefinition.CONTEXT_HOSTILE_ACTOR, CombatActionDefinition.CONTEXT_NEUTRAL_ACTOR]:
 		var attack_quote := _preferred_semantic_quote(["fire", "strike"])
 		if attack_quote != null:
 			var attack_label := "APPROACH + ATTACK" if attack_quote.approach_path.size() > 1 else "ATTACK"
@@ -1305,6 +1275,8 @@ func _render_context_actions() -> void:
 		var definition := _definition(action_quote.action_id)
 		if definition == null or definition.action_id == "move" or not _is_player_visible(definition.action_id):
 			continue
+		if _is_communication_action(definition.action_id) != communication_branch:
+			continue
 		if definition.action_id in ["strike", "fire", "reload", "cycle", "clear_malfunction", "end_turn"]:
 			continue
 		var availability := _availability(definition, action_quote, context)
@@ -1315,13 +1287,49 @@ func _render_context_actions() -> void:
 	# bounded so the menu remains usable at 1152x648 and 1280x720.
 	context_scroll.custom_minimum_size.y = clampf(float(_context_shortcuts.size()) * 36.0, 32.0, 176.0)
 	context_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	interaction.open_actions()
+	if communication_branch:
+		_coordinator().open_communication_menu()
+	else:
+		_coordinator().open_action_menu()
 	context_menu.visible = true
 	if current_quote == null:
 		local_confirmation.visible = false
 		context_hint.text = "Choose what you want to do here."
 	call_deferred("_position_context_menu")
 	call_deferred("_focus_first_context_action")
+
+
+func _is_communication_action(action_id: String) -> bool:
+	return action_id in ["offense", "defense", "support", "flee", "threaten", "ceasefire"]
+
+
+func _has_context_branch(context: String, communication: bool) -> bool:
+	for action_quote in _sorted_quotes():
+		var definition := _definition(action_quote.action_id)
+		if definition == null or not _is_player_visible(definition.action_id):
+			continue
+		if _is_communication_action(definition.action_id) != communication:
+			continue
+		if _availability(definition, action_quote, context) != Availability.HIDDEN:
+			return true
+	return false
+
+
+func _add_context_branch(label: String, communication: bool) -> void:
+	var button := Button.new()
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.custom_minimum_size = Vector2(0.0, 36.0)
+	button.text = label
+	HUD_ASSETS.apply_button(button)
+	button.pressed.connect(func() -> void:
+		if communication:
+			_coordinator().open_communication_menu()
+		else:
+			_coordinator().open_action_menu()
+		_render_context_actions()
+	)
+	_context_shortcuts.append(button)
+	context_actions.add_child(button)
 
 
 func _preferred_semantic_quote(action_ids: Array[String], allow_region_prompt: bool = false) -> CombatActionQuote:
@@ -1469,10 +1477,8 @@ func _render_weapon_actions() -> void:
 		return
 	_add_weapon_action("reload", true)
 	var readiness := str(weapon.get("readiness", {}).get("reason", "ready"))
-	if bool(weapon.get("cycle_loads_one_round", false)) or bool(weapon.get("requires_cycle_after_shot", false)) or bool(weapon.get("needs_cycling", false)) or readiness == "cycle":
+	if readiness in ["jammed", "malfunction"] or bool(weapon.get("is_jammed", false)):
 		_add_weapon_action("cycle", true)
-	if readiness in ["jammed", "malfunction"]:
-		_add_weapon_action("clear_malfunction", true)
 	if bool(weapon.get("requires_ready_action", false)):
 		_add_weapon_action("ready", true)
 
@@ -1579,16 +1585,16 @@ func _cancel_selection() -> void:
 		local_confirmation.visible = false
 		arena_view.clear_quote()
 		if _selection_context(_selected_occupant_id()) == CombatActionDefinition.CONTEXT_HOSTILE_ACTOR:
-			interaction.phase = INTERACTION_STATE_SCRIPT.Phase.BUMP_MENU
+			_set_phase(INTERACTION_STATE_SCRIPT.Phase.ACTION_MENU)
 			_render_context_actions()
 		else:
-			interaction.phase = INTERACTION_STATE_SCRIPT.Phase.NAVIGATION
+			_set_phase(INTERACTION_STATE_SCRIPT.Phase.INSPECTING)
 			context_menu.visible = false
 		selection_cancelled.emit()
 		return
 	if context_menu.visible:
 		context_menu.visible = false
-		interaction.phase = INTERACTION_STATE_SCRIPT.Phase.ROUTE_PREVIEW if not _route_path.is_empty() else INTERACTION_STATE_SCRIPT.Phase.NAVIGATION
+		_set_phase(INTERACTION_STATE_SCRIPT.Phase.ROUTE_PREVIEW if not _route_path.is_empty() else INTERACTION_STATE_SCRIPT.Phase.INSPECTING)
 		selection_cancelled.emit()
 		return
 	_cancel_complete_chain()
@@ -1599,42 +1605,40 @@ func _has_active_interaction() -> bool:
 
 
 func _on_sector_selected(coords: Vector2i) -> void:
-	if interaction.phase == INTERACTION_STATE_SCRIPT.Phase.PRESENTING:
-		return
-	if (
-		current_quote != null
-		and (coords == selected_sector or coords == current_quote.target_sector)
-		and current_quote.legal
-		and current_quote.action_id == "move"
-	):
+	if current_quote != null and current_quote.action_id == "move" and current_quote.legal and coords == current_quote.target_sector:
 		action_confirmed.emit()
 		return
-	if not _route_path.is_empty() and not _occupant_at(coords).is_empty():
-		_open_bump_menu(coords)
+	var occupant_id := _occupant_for_selection(coords, selected_sector, interaction.selected_actor_id)
+	if occupant_id == selected_actor_id and not occupant_id.is_empty():
+		_on_arena_inspect_requested(coords, occupant_id)
 		return
-	var prior_sector := selected_sector
-	var prior_actor_id: String = interaction.selected_actor_id
+	_on_arena_context_requested(coords, occupant_id)
+	_coordinator().open_action_menu()
+	_render_context_actions()
+
+
+func _on_arena_inspect_requested(coords: Vector2i, actor_id: String) -> void:
+	if interaction.phase == INTERACTION_STATE_SCRIPT.Phase.PRESENTING:
+		return
 	clear_staged_action()
 	selected_sector = coords
 	selected_item_id = ""
 	selected_wound_id = ""
 	selected_body_region = -1
-	var occupant_id := _occupant_for_selection(coords, prior_sector, prior_actor_id)
-	interaction.select("actor" if not occupant_id.is_empty() else "sector", {
-		"actor_id": occupant_id,
+	_select_interaction("actor" if not actor_id.is_empty() else "sector", {
+		"actor_id": actor_id,
 		"sector": coords,
 	})
-	sector_selected.emit(coords)
 	_render_inspector()
-	var selected_context_kind := _selection_context(occupant_id)
-	if selected_context_kind != CombatActionDefinition.CONTEXT_SECTOR:
-		_render_context_actions()
-	# Selecting the controlled token is a navigation anchor, not an implicit
-	# action shortcut. Contextual actions remain available through Q or after a
-	# bump, while A/D stay dedicated to lane movement.
-	if occupant_id == selected_actor_id and not occupant_id.is_empty():
-		interaction.phase = INTERACTION_STATE_SCRIPT.Phase.NAVIGATION
-		context_menu.visible = false
+	context_menu.visible = false
+	_set_phase(INTERACTION_STATE_SCRIPT.Phase.INSPECTING)
+
+
+func _on_arena_context_requested(coords: Vector2i, actor_id: String) -> void:
+	_on_arena_inspect_requested(coords, actor_id)
+	_coordinator().open_root_menu()
+	context_requested.emit(coords)
+	_render_context_actions()
 
 
 func _on_player_card_input(event: InputEvent) -> void:
@@ -1773,7 +1777,7 @@ func _on_wound_button(wound_id: String) -> void:
 	clear_staged_action()
 	selected_wound_id = wound_id
 	selected_item_id = ""
-	interaction.select("wound", {"wound_id": wound_id, "sector": selected_sector})
+	_select_interaction("wound", {"wound_id": wound_id, "sector": selected_sector})
 	wound_selected.emit(wound_id)
 	_render_context_actions()
 
@@ -1782,7 +1786,7 @@ func _on_target_item_button(instance_id: String, actor_id: String) -> void:
 	clear_staged_action()
 	selected_item_id = instance_id
 	selected_wound_id = ""
-	interaction.select("item", {"item_id": instance_id, "sector": selected_sector, "actor_id": actor_id})
+	_select_interaction("item", {"item_id": instance_id, "sector": selected_sector, "actor_id": actor_id})
 	item_selected.emit(instance_id)
 	_render_context_actions()
 
@@ -1791,7 +1795,7 @@ func _on_ground_item_button(instance_id: String) -> void:
 	clear_staged_action()
 	selected_item_id = instance_id
 	selected_wound_id = ""
-	interaction.select("item", {"item_id": instance_id, "sector": selected_sector})
+	_select_interaction("item", {"item_id": instance_id, "sector": selected_sector})
 	item_selected.emit(instance_id)
 	_render_context_actions()
 
@@ -1807,9 +1811,9 @@ func _on_inventory_item_button(instance_id: String) -> void:
 	selected_item_id = instance_id
 	# Keep a selected wound active so the treatment action has both required targets.
 	if selected_wound_id.is_empty():
-		interaction.select("item", {"item_id": instance_id, "sector": selected_sector})
+		_select_interaction("item", {"item_id": instance_id, "sector": selected_sector})
 	else:
-		interaction.select("wound", {"wound_id": selected_wound_id, "item_id": instance_id, "sector": selected_sector})
+		_select_interaction("wound", {"wound_id": selected_wound_id, "item_id": instance_id, "sector": selected_sector})
 	item_selected.emit(instance_id)
 	_render_context_actions()
 

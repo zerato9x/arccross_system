@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TacticalMapVariantCatalog" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://CombatCore/Tactical/TacticalMapVariantCatalog.gd" id="1_catalog"]
+
+[resource]
+script = ExtResource("1_catalog")
+variants = {
+"default": [
+{"id": "open_crossing", "weight": 1.0},
+{"id": "broken_verge", "weight": 1.0},
+{"id": "sheltered_approach", "weight": 1.0}
+]
+}
