@@ -34,8 +34,11 @@ func build(actors: Array[HumanoidCore], encounter: CombatEncounterRecord) -> voi
 			push_error("Combat topology %s has no %s deployment cells." % [profile.topology_id, side])
 			continue
 		var preferred := _authored_start_sector(actor_id, encounter)
+		var participant_context: Dictionary = _participant_context(actor_id, encounter)
+		var entry_direction := int(participant_context.get("relative_entry_direction", GameEnums.MacroTravelDirection.NONE))
 		if preferred == Vector2i(-1, -1) or not profile.contains(preferred):
-			preferred = deployment[mini(slot, deployment.size() - 1)]
+			var directional := _directional_deployment(profile, side, entry_direction, deployment)
+			preferred = directional[mini(slot, directional.size() - 1)] if not directional.is_empty() else deployment[mini(slot, deployment.size() - 1)]
 			if profile.movement_policy == CombatTopologyProfile.MovementPolicy.LINEAR_NO_PASS:
 				preferred = _linear_ambush_position(preferred, side, encounter, profile)
 		var preferred_index := board.arena_state.index_for(preferred) if board.arena_state.contains(preferred) else -1
@@ -57,8 +60,8 @@ func build(actors: Array[HumanoidCore], encounter: CombatEncounterRecord) -> voi
 
 
 func _apply_default_relations(actors: Array[HumanoidCore]) -> void:
-	## Team IDs are only an encounter-construction default. Explicit authored
-	## relationship_state entries always win through CombatBoard's ledger.
+	## Missing pairs are neutral unless the participant data explicitly commits
+	## them. Team/faction names are not permission to manufacture hostility.
 	for left_index in range(actors.size()):
 		var left := actors[left_index]
 		if left == null:
@@ -73,10 +76,58 @@ func _apply_default_relations(actors: Array[HumanoidCore]) -> void:
 			)
 			if board.relationship_ledger.relation_by_pair.has(key):
 				continue
-			var left_team := str(left.get_meta("combat_team_id", left.get_meta("combat_side", "")))
-			var right_team := str(right.get_meta("combat_team_id", right.get_meta("combat_side", "")))
-			var relation := CombatRelationshipLedger.Relation.FRIENDLY if left_team == right_team else CombatRelationshipLedger.Relation.HOSTILE
+			var relation := CombatRelationshipLedger.Relation.NEUTRAL
+			var left_context: Dictionary = left.get_meta("participant_context", {})
+			var right_context: Dictionary = right.get_meta("participant_context", {})
+			var left_squad := str(left_context.get("squad_id", left.get_meta("combat_team_id", "")))
+			var right_squad := str(right_context.get("squad_id", right.get_meta("combat_team_id", "")))
+			if not left_squad.is_empty() and left_squad == right_squad:
+				relation = CombatRelationshipLedger.Relation.FRIENDLY
 			board.set_relation(left, right, relation)
+
+
+func _participant_context(actor_id: String, encounter: CombatEncounterRecord) -> Dictionary:
+	if encounter == null:
+		return {}
+	for record in encounter.actors:
+		if str(record.get("actor_id", "")) == actor_id:
+			return record.get("participant_context", {}).duplicate(true)
+	return {}
+
+
+func _directional_deployment(
+	profile: CombatTopologyProfile,
+	side: String,
+	entry_direction: int,
+	base: Array[Vector2i]
+) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	var edge := ""
+	match entry_direction:
+		GameEnums.MacroTravelDirection.EAST, GameEnums.MacroTravelDirection.NORTHEAST, GameEnums.MacroTravelDirection.SOUTHEAST:
+			edge = "east"
+		GameEnums.MacroTravelDirection.WEST, GameEnums.MacroTravelDirection.NORTHWEST, GameEnums.MacroTravelDirection.SOUTHWEST:
+			edge = "west"
+		GameEnums.MacroTravelDirection.NORTH:
+			edge = "north"
+		GameEnums.MacroTravelDirection.SOUTH:
+			edge = "south"
+		_:
+			return base.duplicate()
+	for y in range(profile.rows):
+		for x in range(profile.columns):
+			var coords := Vector2i(x, y)
+			var on_edge := (edge == "west" and x == 0) or (edge == "east" and x == profile.columns - 1) or (edge == "north" and y == 0) or (edge == "south" and y == profile.rows - 1)
+			if on_edge and profile.contains(coords):
+				result.append(coords)
+	if result.is_empty():
+		return base.duplicate()
+	result.sort_custom(func(left, right):
+		if left.y != right.y:
+			return left.y < right.y
+		return left.x < right.x
+	)
+	return result
 
 
 func _authored_start_sector(actor_id: String, encounter: CombatEncounterRecord) -> Vector2i:

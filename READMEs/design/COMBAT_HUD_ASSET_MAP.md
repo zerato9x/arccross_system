@@ -7,15 +7,20 @@ retired.
 
 ## Current Runtime Surface
 
-- Official HUD owner: `CombatCore/CombatLaneHUD.gd`
+- Official HUD owner: `CombatCore/Tactical/TacticalCombatHUD.gd`
+- Official scene: `CombatCore/Tactical/TacticalCombatHUD.tscn`
+- Snapshot boundary: `CombatCore/Tactical/TacticalCombatSnapshotPresenter.gd`
+- Actor privacy projection: `CombatCore/Tactical/CombatActorPresentationProjection.gd`
+- Body presentation: `CombatCore/Tactical/CombatBodyTargetView.gd`
 - Optional HUD owner: `CombatCore/Realtime/RealtimeDuelHUD.gd`
-- Action/camera authority: turn action profiles or realtime timeline events,
-  depending on the selected mode
+- Action/camera authority: `CombatActionController`, `TacticalArenaView`, and
+  authored presentation timeline events
 - Reusable asset facade: `PresentationCore/HUDAssetLibrary.gd`
 - Asset root: `Asset/UI/HUD/` (frames, bars, icons, medical, menus, overlays, anim)
 - Manifest: `Asset/UI/HUD/hud_asset_manifest.json`
 - Builder: `Tools/Build-HUDAssets.py`
-- Runtime validation route: Godot MCP `filesystem_manage.reimport`, `script_manage.find_symbols`, `project_run`, and `editor_manage.game_eval`
+- Runtime validation route: Godot MCP filesystem/editor/project tools plus the
+  exact Godot 4.7.1 console for sequential smokes
 - Headless fallback: `Godot --headless --editor --quit --path <project_root>`
 
 ## Official HUD Kit (Asset/UI/HUD)
@@ -54,8 +59,12 @@ retired.
 - Do not stretch tiny atlas regions across full-screen panels.
 - Keep structure as simple drawn panels and progress bars; decorate with HUD kit textures via `HUDAssetLibrary`.
 - Use stable medical/status icons for health conditions. Do not animate Condition strips in the combat HUD.
-- Keep combat data readable: official frames decorate and clarify, they do not replace numeric AP, Blood, Stance, ammo, and limb values.
-- Use MCP `game_eval` to prove texture source paths and runtime layout dimensions after UI changes.
+- Keep self/friendly data readable: official frames decorate and clarify, they
+  do not replace exact player AP, Blood, Stance, ammo, or limb values.
+- Treat neutral/hostile cards as knowledge projections: qualitative condition,
+  observable wounds, intent, relation, posture, and weapon bands only.
+- Use MCP live UI inspection/screenshots to prove runtime node paths and layout
+  dimensions after UI changes; headless imports do not prove visual acceptance.
 - Add smoke assertions for each official element actually wired into the
   turn-based HUD; keep separate optional realtime coverage.
 - Main-menu parallax packs live under `Asset/UI/Event_bg/` via `MenuParallaxCatalog`; they are menu-only, not event/collision art.

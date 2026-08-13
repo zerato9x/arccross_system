@@ -126,149 +126,15 @@ func _register_resolvers() -> void:
 
 
 func quote(request: CombatActionRequest) -> CombatActionQuote:
-	var result := CombatActionQuote.new()
 	if request == null:
-		return result.deny("missing_request", "No action request was supplied.")
-	if request.action_id == "clear_malfunction":
-		request.action_id = "cycle"
-	result.actor_id = request.actor_id
-	result.action_id = request.action_id
-	result.target_sector = request.target_sector
-	result.shove_direction = request.shove_direction
-	result.final_facing = request.final_facing
-	var definition := catalog.definition(request.action_id) if catalog != null else null
-	if definition == null:
-		return result.deny("unknown_action", "Unknown action ID: %s" % request.action_id)
-	result.presentation_profile_id = definition.presentation_profile.profile_id if definition.presentation_profile != null else "neutral"
-	var actor := actor_by_id(request.actor_id)
-	if actor == null:
-		return result.deny("unknown_actor", "The acting entity is not present.")
-	_apply_authoritative_weapon_metadata(request, actor)
-	var origin_index := board.position_of(actor)
-	result.origin_sector = board.arena_state.coords_for(origin_index) if origin_index >= 0 else Vector2i(-1, -1)
-	result.projected_origin = result.origin_sector
-	if _busy or _external_presentation_lock:
+		return CombatActionQuote.new().deny("missing_request", "No action request was supplied.")
+	var normalized := _normalized_request(request)
+	var projected: CombatRulesState = rules_state_snapshot()
+	var result: CombatActionQuote = _CombatActionQuoteService.quote(normalized, projected)
+	# Busy/presentation locks are live transaction barriers, not legality facts.
+	if result.legal and (_busy or _external_presentation_lock):
 		return result.deny("busy", "Another action is resolving.")
-	if turn_manager == null or turn_manager.get_active_entity() != actor:
-		return result.deny("not_active_actor", "It is not this actor's turn.")
-	if actor.is_dead or actor.is_comatose:
-		return result.deny("actor_incapacitated", "The actor cannot take actions.")
-	if origin_index < 0:
-		return result.deny("actor_not_on_board", "The actor has no tactical sector.")
-	if board.is_engaged(origin_index) and (request.action_id == "move" or not request.approach_path.is_empty()):
-		return result.deny("engaged_movement_blocked", "Engaged actors must Shove, attack, or change the relationship before moving.")
-	if board.posture(actor) not in definition.required_postures and not definition.required_postures.is_empty():
-		return result.deny("posture_required", "This action is unavailable while %s." % board.posture(actor))
-	var requirement_denial := _validate_requirements(actor, definition)
-	if not requirement_denial.is_empty():
-		return result.deny(str(requirement_denial.code), str(requirement_denial.message))
-	var target := actor_by_id(request.target_actor_id)
-	if definition.target_mode == CombatActionDefinition.TARGET_ACTOR:
-		if target == null or target == actor:
-			return result.deny("invalid_target_actor", "Select another actor.")
-		result.target_sector = board.arena_state.coords_for(board.position_of(target))
-	if definition.target_mode == CombatActionDefinition.TARGET_SECTOR and not board.arena_state.contains(request.target_sector):
-		return result.deny("invalid_target_sector", "Select a sector inside the arena.")
-
-	var evaluation_origin_index := origin_index
-	var requested_path: Array[Vector2i] = _movement_resolver.requested_path(request)
-	var has_approach := not request.approach_path.is_empty()
-	if definition.target_mode == CombatActionDefinition.TARGET_PATH or has_approach:
-		var entry_policy := CombatBoard.ENTRY_HOSTILE_ENGAGEMENT if request.action_id == "engage" else CombatBoard.ENTRY_ORDINARY
-		var path_check := board.validate_path(actor, requested_path, entry_policy, target)
-		if not bool(path_check.valid):
-			return result.deny(str(path_check.code), _path_denial(str(path_check.code)))
-		var indices: Array = path_check.path
-		for index in indices:
-			result.path.append(board.arena_state.coords_for(int(index)))
-		result.approach_path = result.path.duplicate()
-		result.projected_origin = result.path.back()
-		evaluation_origin_index = int(indices.back())
-		if definition.target_mode == CombatActionDefinition.TARGET_PATH:
-			result.target_sector = result.path.back()
-		result.movement_cost = board.path_cost(indices, movement_step_base(actor))
-		result.movement_ap_cost = result.movement_cost
-		var step_base_cost := movement_step_base(actor)
-		for index in indices.slice(1):
-			result.movement_step_costs.append(board.sectors[int(index)].movement_cost(step_base_cost))
-		# Reaction windows and reserved AP are retired from canonical combat. Keep
-		# the serialized fields empty for old consumers while the quote remains the
-		# single legality authority.
-		result.reaction_threat_ids.clear()
-		result.ordered_reaction_steps.clear()
-
-	var target_index := board.position_of(target) if target != null else (
-		board.arena_state.index_for(result.target_sector)
-		if board.arena_state.contains(result.target_sector)
-		else origin_index
-	)
-	result.range_cells = board.grid_distance(evaluation_origin_index, target_index)
-	var allows_shared_sector_melee := _attack_resolver.is_melee_action(request.action_id) and result.range_cells == 0
-	if definition.minimum_range_cells > 0 and result.range_cells < definition.minimum_range_cells and not allows_shared_sector_melee:
-		return result.deny("target_too_close", "The target is inside the action's minimum range.")
-	var maximum_range := _attack_resolver.maximum_range(
-		request.action_id,
-		definition,
-		actor,
-		board
-	)
-	if request.action_id != "shove" and result.range_cells > maximum_range:
-		if _attack_resolver.is_melee_action(request.action_id) and maximum_range <= 0:
-			return result.deny("same_sector_melee_required", "Ordinary melee requires hostile co-occupancy; use an authored reach weapon for adjacency.")
-		return result.deny("target_out_of_range", "The target is outside the action's range.")
-	if _attack_resolver.is_melee_action(request.action_id) and target != null:
-		if not board.can_melee_reach_from(evaluation_origin_index, target_index, actor):
-			return result.deny("cardinal_reach_required", "Melee reach travels only along a clear cardinal line.")
-	result.has_line_of_sight = board.has_line_of_sight(evaluation_origin_index, target_index)
-	if definition.requires_line_of_sight and not result.has_line_of_sight:
-		return result.deny("line_of_sight_blocked", "No clear line of sight reaches the target.")
-	result.cover_strength = board.cover_against(target_index, evaluation_origin_index) if target != null else 0.0
-	if target != null and board.occupancy_kind(target_index) == "crowded" and request.action_id in ["strike", "power_strike", "fire", "aimed_fire"]:
-		result.collateral_risk = board.balance_profile.crowded_collateral_risk
-
-	var specific_denial := _validate_specific(request, actor, target, definition, result)
-	if not specific_denial.is_empty():
-		return result.deny(str(specific_denial.code), str(specific_denial.message))
-
-	result.action_ap_cost = (
-		board.balance_profile.action_ap_cost(
-			definition.ap_category,
-			actor.kinetic_tier,
-			turn_manager.current_ap_pool
-		)
-		if board != null and board.balance_profile != null
-		else definition.base_ap_cost(actor.kinetic_tier, turn_manager.current_ap_pool)
-	)
-	result.ap_cost = result.action_ap_cost + result.movement_ap_cost
-	request.projected_origin = result.projected_origin
-	request.movement_ap_cost = result.movement_ap_cost
-	request.action_ap_cost = result.action_ap_cost
-	if not turn_manager.can_commit_action_cost(actor, result.ap_cost):
-		return result.deny("insufficient_ap", "Needs %d AP; %d remains." % [result.ap_cost, turn_manager.current_ap_pool])
-	if request.action_id == "shove" and target != null:
-		result.collision_preview = board.preview_shove_from(evaluation_origin_index, target_index, request.shove_direction)
-		if str(result.collision_preview.get("type", "")) == "full":
-			return result.deny("destination_full", "That shove destination already contains two actors.")
-		if str(result.collision_preview.get("type", "")) == "clear":
-			result.predicted_displacement.append({"actor_id": request.target_actor_id, "to": result.collision_preview.destination})
-		result.resulting_occupancy = _projected_occupancy_for_shove(result.collision_preview, target)
-		result.stance_forecast = {
-			"target": board.balance_profile.shove_stance_damage,
-			"collision": board.balance_profile.collision_stance_damage if str(result.collision_preview.get("type", "")) == "actor_collision" else 0.0,
-		}
-	result.forecast = resolution_engine.build_forecast(request, definition, actor, target, result)
-	if result.collateral_risk > 0.0 and result.forecast != null:
-		result.forecast.notes.append("Crowded sector: collateral risk %.0f%%." % (result.collateral_risk * 100.0))
-	if request.action_id in ["fire", "aimed_fire"] and target != null and result.range_cells == 0:
-		var engaged_weapon := actor.inventory.get_active_weapon(false)
-		if engaged_weapon != null and engaged_weapon.engaged_fire_policy == "penalized" and result.forecast != null:
-			result.forecast.hit_probability = clampf(
-				result.forecast.hit_probability - engaged_weapon.engaged_fire_accuracy_penalty,
-				0.05,
-				0.95
-			)
-			result.forecast.notes.append("Engaged firearm penalty applies.")
-	return result.allow()
+	return result
 
 
 func preview(request: CombatActionRequest) -> CombatActionQuote:
@@ -278,6 +144,7 @@ func preview(request: CombatActionRequest) -> CombatActionQuote:
 
 
 func request_action(request: CombatActionRequest) -> CombatActionOutcome:
+	request = _normalized_request(request)
 	var action_quote := quote(request)
 	if not action_quote.legal:
 		action_denied.emit(action_quote)
@@ -340,7 +207,13 @@ func request_action(request: CombatActionRequest) -> CombatActionOutcome:
 		_busy = false
 		return _failed_outcome(request, "AP reservation was lost.")
 	outcome.ap_spent = cost_to_commit
+	if not action_quote.final_facing.is_empty():
+		# Facing is a committed tactical state, not a renderer guess. The quote
+		# service derives it from the action target and this setter persists it for
+		# the post-presentation snapshot.
+		board.set_facing(actor, action_quote.final_facing)
 	outcome.presentation_events.append_array(_resolution_presentation_events.duplicate(true))
+	_enrich_presentation_metadata(request, actor, outcome)
 	if definition.presentation_profile != null:
 		outcome.presentation_sequence = definition.presentation_profile.build_sequence(request, action_quote, outcome)
 	if outcome.presentation_sequence != null:
@@ -426,6 +299,15 @@ func _apply_authoritative_weapon_metadata(request: CombatActionRequest, actor: H
 	request.metadata["weapon_action_id"] = request.action_id
 
 
+func _normalized_request(request: CombatActionRequest) -> CombatActionRequest:
+	var normalized := request.duplicate(true) as CombatActionRequest
+	if normalized.action_id == "clear_malfunction":
+		normalized.action_id = "cycle"
+	var actor := actor_by_id(normalized.actor_id)
+	_apply_authoritative_weapon_metadata(normalized, actor)
+	return normalized
+
+
 func _reaction_steps_for_path(actor: HumanoidCore, indices: Array) -> Array[Dictionary]:
 	return _reaction_resolver.steps_for_path(actor, indices, board)
 
@@ -452,12 +334,14 @@ func refresh_snapshot() -> void:
 	for actor in turn_manager.combatants:
 		if actor != null:
 			initiative_order.append(_actor_id(actor))
+	var active_actor := turn_manager.get_active_entity()
 	snapshot_changed.emit({
 		"revision": combat_revision,
 		"round": turn_manager.current_round,
 		"ap": turn_manager.current_ap_pool,
+		"max_ap": active_actor.current_max_ap if active_actor != null else 0,
 		"reserved_ap": _reserved_snapshot(),
-		"active_actor_id": _actor_id(turn_manager.get_active_entity()),
+		"active_actor_id": _actor_id(active_actor),
 		"initiative_order": initiative_order,
 		"busy": _busy,
 		"actors": actor_data,
@@ -471,7 +355,10 @@ func rules_state_snapshot():
 
 func projected_quote(request: CombatActionRequest, rules_state = null) -> CombatActionQuote:
 	var projected = rules_state if rules_state != null else rules_state_snapshot()
-	return _CombatActionQuoteService.quote(request, projected)
+	if request == null:
+		return CombatActionQuote.new().deny("missing_request", "No action request was supplied.")
+	var normalized := _normalized_request(request)
+	return _CombatActionQuoteService.quote(normalized, projected)
 
 
 func is_revision_current(candidate_revision: int) -> bool:
@@ -1353,6 +1240,7 @@ func _actor_snapshot(actor: HumanoidCore) -> Dictionary:
 	)
 	var agenda_id := int(actor.definition.agenda) if actor.definition != null else GameEnums.Agenda.SURVIVALIST
 	var agenda: String = str(GameEnums.Agenda.keys()[clampi(agenda_id, 0, GameEnums.Agenda.keys().size() - 1)]).to_lower()
+	var definition_state: Dictionary = actor.definition.to_state() if actor.definition != null else {}
 	return {
 		"actor_id": _actor_id(actor),
 		"name": actor.name,
@@ -1366,14 +1254,19 @@ func _actor_snapshot(actor: HumanoidCore) -> Dictionary:
 		"shock": actor.body.shock,
 		"consciousness": actor.body.consciousness,
 		"region_function": _region_function(actor),
+		"limbs": _limb_descriptors(actor),
 		"wounds": wounds,
 		"items": items,
+		"equipment": _equipment_snapshot(actor),
 		"ranged_weapon": _item_snapshot(ranged_weapon, "equipped") if ranged_weapon != null else {},
 		"melee_weapon": _item_snapshot(melee_weapon, "equipped") if melee_weapon != null else {},
 		"dead": actor.is_dead,
 		"incapacitated": actor.is_comatose,
 		"stance": combat_state.stance if combat_state != null else 0.0,
 		"max_stance": combat_state.max_stance if combat_state != null else 0.0,
+		"max_ap": actor.current_max_ap,
+		"burden": actor.total_burden,
+		"burden_tier": _kinetic_tier_label(actor.kinetic_tier),
 		"broken": combat_state.broken if combat_state != null else false,
 		"surrendered": combat_state.surrendered if combat_state != null else bool(actor.get_meta("combat_surrendered", false)),
 		"agenda": agenda,
@@ -1388,7 +1281,36 @@ func _actor_snapshot(actor: HumanoidCore) -> Dictionary:
 		),
 		"intent_revision": combat_state.intent_revision if combat_state != null else 0,
 		"mindless": actor.is_mindless_hive_thrall or agenda == "mindless",
+		"direct_player": bool(actor.get_meta("direct_player", false)),
+		"dialogue_id": str(definition_state.get("dialogue_id", actor.get_meta("dialogue_id", ""))),
+		"role_id": str(definition_state.get("npc_role_id", actor.get_meta("role_id", ""))),
+		"faction_id": str(definition_state.get("faction", actor.get_meta("faction_id", ""))),
 	}
+
+
+func _enrich_presentation_metadata(request: CombatActionRequest, actor: HumanoidCore, outcome: CombatActionOutcome) -> void:
+	if request == null or actor == null or outcome == null:
+		return
+	var event := ""
+	var priority := 0
+	if request.action_id in ["escape", "leave_battle"]:
+		event = "escape"
+		priority = 2
+	elif request.action_id in ["communication", "offense", "defense", "support", "flee", "threaten", "ceasefire"]:
+		event = "accepted_order" if outcome.committed else "refused_order"
+		priority = 2
+	elif not outcome.relation_events.is_empty():
+		event = "first_contact"
+		priority = 1
+	elif not outcome.wound_events.is_empty():
+		event = "major_wound"
+		priority = 0
+	if event.is_empty():
+		return
+	var actor_snapshot := _actor_snapshot(actor)
+	request.metadata["dialogue_event"] = event
+	request.metadata["dialogue_id"] = str(actor_snapshot.get("dialogue_id", ""))
+	request.metadata["dialogue_priority"] = priority
 
 
 func _item_snapshot(item: ItemData, access: String) -> Dictionary:
@@ -1411,6 +1333,7 @@ func _item_snapshot(item: ItemData, access: String) -> Dictionary:
 		"name": item.display_name,
 		"display_name": item.display_name,
 		"access": access,
+		"access_tier": access,
 		"location": item.physical_location,
 		"equipped_slot": item.equipped_slot,
 		"equipment_slot": item.equipped_slot,
@@ -1429,6 +1352,12 @@ func _item_snapshot(item: ItemData, access: String) -> Dictionary:
 		"equipped_sprite_path": item.equipped_sprite_path,
 		"equipped_sprite_paths": item.get_equipped_sprite_paths(),
 		"sprite_path": item.equipped_sprite_path if not item.equipped_sprite_path.is_empty() else item.inventory_sprite_path,
+		"presentation": {
+			"icon_path": item.inventory_sprite_path,
+			"sprite_path": item.equipped_sprite_path if not item.equipped_sprite_path.is_empty() else item.inventory_sprite_path,
+			"label": item.display_name,
+			"slot": item.equipped_slot,
+		},
 		"readiness": {"reason": readiness_reason},
 		"needs_cycling": item.needs_cycling,
 		"requires_cycle_after_shot": item.requires_cycle_after_shot,
@@ -1444,6 +1373,61 @@ func _region_function(actor: HumanoidCore) -> Dictionary:
 	for region in GameEnums.LimbRegion.values():
 		result[GameEnums.LimbRegion.keys()[region].to_lower()] = actor.body.get_limb_function(region)
 	return result
+
+
+func _limb_descriptors(actor: HumanoidCore) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if actor == null or actor.body == null:
+		return result
+	for region_value in GameEnums.LimbRegion.values():
+		var region := int(region_value)
+		var wounds_for_region: Array[Dictionary] = []
+		for wound in actor.body.get_wounds_for_limb(region):
+			if wound is Wound:
+				wounds_for_region.append(wound.to_dict())
+		var maximum := actor.body.get_limb_max(region)
+		var current := actor.body.get_limb_function(region)
+		var bleeding := actor.body.get_limb_bleeding_rate(region)
+		var trauma_value := int(actor.body.limb_trauma.get(region, GameEnums.TraumaType.NONE))
+		var damage_type := int(actor.body.limb_damage_types.get(region, -1))
+		result.append({
+			"region": region,
+			"region_id": str(GameEnums.LimbRegion.keys()[region]).to_lower(),
+			"label": str(GameEnums.LimbRegion.keys()[region]).replace("_", " ").capitalize(),
+			"current": current,
+			"maximum": maximum,
+			"function": current,
+			"bleeding_rate": bleeding,
+			"trauma": str(GameEnums.TraumaType.keys()[clampi(trauma_value, 0, GameEnums.TraumaType.keys().size() - 1)]),
+			"damage_type": damage_type,
+			"wounds": wounds_for_region,
+		})
+	return result
+
+
+func _equipment_snapshot(actor: HumanoidCore) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if actor == null or actor.inventory == null:
+		return result
+	var seen_instance_ids: Dictionary = {}
+	var slots: Array = actor.inventory.paper_doll.keys()
+	slots.sort()
+	for raw_slot in slots:
+		var slot := int(raw_slot)
+		var item: ItemData = actor.inventory.paper_doll.get(slot)
+		if item == null or seen_instance_ids.has(item.instance_id):
+			continue
+		seen_instance_ids[item.instance_id] = true
+		var descriptor := _item_snapshot(item, actor.inventory.get_access_tier(item))
+		descriptor["equipment_slot"] = slot
+		descriptor["equipped_slot"] = slot
+		result.append(descriptor)
+	return result
+
+
+func _kinetic_tier_label(tier: int) -> String:
+	var names := GameEnums.KineticTier.keys()
+	return str(names[clampi(tier, 0, names.size() - 1)]).to_lower()
 
 
 func _reserved_snapshot() -> Dictionary:

@@ -34,9 +34,27 @@ func _run() -> void:
 	var repeated: Array = _Evaluator.evaluate(snapshot, _hard_state(), profile)
 	if _candidate_fingerprint(candidates) != _candidate_fingerprint(repeated):
 		return _fail("Motive-subject ordering was not deterministic.")
-	snapshot.actor["mindless"] = true
-	snapshot.communication["accepted_order"] = "flee"
-	var mindless: Array = _Evaluator.evaluate(snapshot, _hard_state(), profile)
+	var neutral_snapshot = _Snapshot.new()
+	neutral_snapshot.actor = {"actor_id": "neutral", "mindless": false, "survival_pressure": 0.0}
+	neutral_snapshot.communication = {"accepted_order": ""}
+	neutral_snapshot.hard_facts = {"tags": ["STABLE"], "dominant_tag": "STABLE"}
+	neutral_snapshot.known_actors = {"neutral": _self_observed()}
+	var neutral_candidates: Array = _Evaluator.evaluate(
+		neutral_snapshot,
+		{"tags": ["STABLE"], "dominant_tag": "STABLE"},
+		{"motive_weights": {"hold": 100.0, "attack": 100.0}}
+	)
+	var neutral_selected = _Evaluator.select(neutral_candidates, {"motive_weights": {"hold": 100.0, "attack": 100.0}})
+	if neutral_selected == null or neutral_selected.motive != "EXIT":
+		return _fail("Uncommitted neutral actor did not select EXIT as a precedence rule.")
+	var mindless_snapshot = _Snapshot.new()
+	var mindless_actor: Dictionary = snapshot.actor
+	mindless_actor["mindless"] = true
+	mindless_snapshot.actor = mindless_actor
+	mindless_snapshot.communication = {"accepted_order": "flee"}
+	mindless_snapshot.hard_facts = snapshot.hard_facts
+	mindless_snapshot.known_actors = snapshot.known_actors
+	var mindless: Array = _Evaluator.evaluate(mindless_snapshot, _hard_state(), profile)
 	for candidate in mindless:
 		if not candidate.instruction_modifiers.is_empty():
 			return _fail("Mindless actor accepted a communication instruction bias.")

@@ -82,6 +82,12 @@ func _verify_map_composition() -> void:
 		_fail("Road-mask composition produced no continuous road cells.")
 	if str(first.map_composition.get("dominant_landmark", {}).get("id", "")) != "recovery_landmark":
 		_fail("Macro landmark did not become the single dominant landmark.")
+	if str(first.map_composition.get("source_provenance", {}).get("ground", "")) != "generic_fallback":
+		_fail("Missing source art did not record generic fallback provenance.")
+	if str(first.map_composition.get("base_ground_path", "")).is_empty() or not ResourceLoader.exists(str(first.map_composition.get("base_ground_path", ""))):
+		_fail("Composition fallback ground asset path is not valid.")
+	if first.map_composition.get("landmark_instances", []).is_empty():
+		_fail("Resolved landmark did not produce a concrete presentation instance.")
 	if first.map_composition.get("sector_facts", {}).size() != first.sector_count():
 		_fail("Composition sector facts do not cover the logical board.")
 	var variants: Dictionary = {}
@@ -90,6 +96,42 @@ func _verify_map_composition() -> void:
 		variants[str(generator.generate(encounter).map_composition.get("variant_id", ""))] = true
 	if variants.size() < 2:
 		_fail("Weighted battlefield selection did not expose multiple deterministic variants.")
+	var authored := CombatEncounterRecord.new()
+	authored.topology_id = "squad_7x5"
+	authored.world_seed = "AUTHORED_SOURCE"
+	authored.center_hex = HexRecord.new()
+	authored.center_hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
+	authored.center_hex.terrain_sprite_path = "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png"
+	authored.center_hex.landmark_id = "authored_landmark"
+	var authored_map := generator.generate(authored).map_composition
+	if str(authored_map.get("source_provenance", {}).get("ground", "")) != "source_hex":
+		_fail("Valid source-hex art did not take precedence over the fallback policy.")
+	var authored_prop := CombatEncounterRecord.new()
+	authored_prop.topology_id = "squad_7x5"
+	authored_prop.world_seed = "AUTHORED_PROP"
+	authored_prop.center_hex = HexRecord.new()
+	authored_prop.center_hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
+	authored_prop.presentation = {
+		"scene": {"props": [{
+			"id": "visible_prop",
+			"anchor": Vector2(0.5, 0.5),
+			"sprite_path": "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png",
+			"decorative": false,
+		}]},
+	}
+	var authored_prop_map := generator.generate(authored_prop).map_composition
+	var prop_instances: Array = authored_prop_map.get("prop_instances", [])
+	if prop_instances.is_empty() or str(prop_instances[0].get("asset_path", "")).is_empty():
+		_fail("Authored presentation prop did not become a concrete visible prop instance.")
+	if not ResourceLoader.exists(str(prop_instances[0].get("asset_path", ""))):
+		_fail("Authored presentation prop asset path is invalid.")
+	var overridden_catalog := TacticalMapVariantCatalog.new()
+	overridden_catalog.variants = {"0": [{"id": "override", "base_ground_path": "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png", "overrides": {"ground_path": "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png"}}]}
+	var override_generator := CombatArenaGenerator.new()
+	override_generator.variant_catalog = overridden_catalog
+	var override_map := override_generator.generate(authored).map_composition
+	if str(override_map.get("source_provenance", {}).get("ground", "")) != "combat_variant_override":
+		_fail("Combat-specific variant override did not replace source art.")
 
 
 func _verify_legacy_firearm_hydration() -> void:

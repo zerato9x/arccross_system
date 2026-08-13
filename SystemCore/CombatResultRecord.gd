@@ -6,6 +6,10 @@ class_name CombatResultRecord
 @export var outcome: int = GameEnums.CombatOutcome.DRAW
 @export var reason: String = "mutual_incapacity"
 @export var actor_runtime_updates: Array[Dictionary] = []
+@export var participant_results: Array[Dictionary] = []
+@export var participant_contexts: Dictionary = {}
+@export var escaped_actor_ids: Array[String] = []
+@export var withdrawn_actor_ids: Array[String] = []
 @export var item_transfer_receipts: Array[Dictionary] = []
 @export var body_locations: Array[Dictionary] = []
 ## Non-lethal terminal handoffs stay distinct from bodies.  A captive or
@@ -38,6 +42,10 @@ func to_dict() -> Dictionary:
 		"outcome": outcome,
 		"reason": reason,
 		"actor_runtime_updates": actor_runtime_updates.duplicate(true),
+		"participant_results": participant_results.duplicate(true),
+		"participant_contexts": participant_contexts.duplicate(true),
+		"escaped_actor_ids": escaped_actor_ids.duplicate(),
+		"withdrawn_actor_ids": withdrawn_actor_ids.duplicate(),
 		"item_transfer_receipts": item_transfer_receipts.duplicate(true),
 		"body_locations": body_locations.duplicate(true),
 		"incapacitated_locations": incapacitated_locations.duplicate(true),
@@ -62,7 +70,17 @@ static func from_dict(data: Dictionary) -> CombatResultRecord:
 	record.source_coords = data.get("source_coords", Vector2i.ZERO)
 	record.outcome = int(data.get("outcome", GameEnums.CombatOutcome.DRAW))
 	record.reason = str(data.get("reason", "mutual_incapacity"))
-	record.actor_runtime_updates = data.get("actor_runtime_updates", []).duplicate(true)
+	for raw_update in data.get("actor_runtime_updates", []):
+		if raw_update is Dictionary:
+			record.actor_runtime_updates.append((raw_update as Dictionary).duplicate(true))
+	for raw_result in data.get("participant_results", []):
+		if raw_result is Dictionary:
+			record.participant_results.append((raw_result as Dictionary).duplicate(true))
+	record.participant_contexts = data.get("participant_contexts", {}).duplicate(true)
+	for actor_id in data.get("escaped_actor_ids", []):
+		record.escaped_actor_ids.append(str(actor_id))
+	for actor_id in data.get("withdrawn_actor_ids", []):
+		record.withdrawn_actor_ids.append(str(actor_id))
 	record.item_transfer_receipts = data.get("item_transfer_receipts", []).duplicate(true)
 	record.body_locations = data.get("body_locations", []).duplicate(true)
 	record.incapacitated_locations = data.get("incapacitated_locations", []).duplicate(true)

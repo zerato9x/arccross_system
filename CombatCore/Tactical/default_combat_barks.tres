@@ -1,0 +1,43 @@
+[gd_resource type="Resource" script_class="CombatBarkCatalog" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://SystemCore/CombatBarkCatalog.gd" id="1_catalog"]
+[ext_resource type="Script" path="res://SystemCore/CombatBarkDefinition.gd" id="2_definition"]
+
+[sub_resource type="Resource" id="Bark_contact"]
+script = ExtResource("2_definition")
+dialogue_id = "generic_contact"
+event_id = "first_contact"
+priority = 1
+lines = Array[String](["CONTACT.", "Hold there."])
+
+[sub_resource type="Resource" id="Bark_intent"]
+script = ExtResource("2_definition")
+dialogue_id = "generic_intent_change"
+event_id = "intent_change"
+priority = 1
+lines = Array[String](["Changing position.", "You have my attention."])
+
+[sub_resource type="Resource" id="Bark_wound"]
+script = ExtResource("2_definition")
+dialogue_id = "generic_wound"
+event_id = "major_wound"
+priority = 0
+lines = Array[String](["That hurt.", "Keep moving."])
+
+[sub_resource type="Resource" id="Bark_order"]
+script = ExtResource("2_definition")
+dialogue_id = "generic_order"
+event_id = "accepted_order"
+priority = 2
+lines = Array[String](["Understood.", "Moving."])
+
+[sub_resource type="Resource" id="Bark_escape"]
+script = ExtResource("2_definition")
+dialogue_id = "generic_escape"
+event_id = "escape"
+priority = 2
+lines = Array[String](["I am leaving.", "This is not worth dying for."])
+
+[resource]
+script = ExtResource("1_catalog")
+definitions = Array[ExtResource("2_definition")]([SubResource("Bark_contact"), SubResource("Bark_intent"), SubResource("Bark_wound"), SubResource("Bark_order"), SubResource("Bark_escape")])

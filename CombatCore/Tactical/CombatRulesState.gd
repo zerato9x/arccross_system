@@ -17,6 +17,8 @@ var actor_facts: Dictionary = {}
 var sector_facts: Dictionary = {}
 var occupancy: Dictionary = {}
 var relationships: Dictionary = {}
+var balance_facts: Dictionary = {}
+var communication_facts: Dictionary = {}
 var coordinates_by_index: Dictionary = {}
 var indices_by_coordinate: Dictionary = {}
 var neighbors: Dictionary = {}
@@ -36,6 +38,24 @@ static func from_board(
 		return state.freeze()
 	state.encounter_seed = str(tactical_board.arena_state.baseline_seed)
 	state.communication_points = tactical_board.communication_points
+	var balance := tactical_board.balance_profile
+	if balance != null:
+		state.balance_facts = {
+			"ap_costs_by_category": balance.ap_costs_by_category.duplicate(true),
+			"crowded_collateral_risk": balance.crowded_collateral_risk,
+			"shove_stance_damage": balance.shove_stance_damage,
+			"collision_stance_damage": balance.collision_stance_damage,
+		}
+	var communication := tactical_board.communication_profile
+	if communication != null:
+		state.communication_facts = {
+			"intent_biases": communication.intent_biases.duplicate(true),
+			"agenda_biases": communication.agenda_biases.duplicate(true),
+			"morale_modifiers": communication.morale_modifiers.duplicate(true),
+			"cohesion_modifiers": communication.cohesion_modifiers.duplicate(true),
+			"biological_crisis_penalty": communication.biological_crisis_penalty,
+			"acceptance_threshold": communication.acceptance_threshold,
+		}
 	if turns != null:
 		state.current_ap_pool = turns.current_ap_pool
 		state.round = turns.current_round
@@ -59,7 +79,19 @@ static func from_board(
 			continue
 		var index := tactical_board.position_of(candidate)
 		var tactical_state := tactical_board.combat_state(candidate)
-		var weapon := candidate.inventory.get_active_weapon(false) if candidate.inventory != null else null
+		var ranged_weapon := candidate.inventory.get_active_weapon(false) if candidate.inventory != null else null
+		var melee_weapon := candidate.inventory.get_active_weapon(true) if candidate.inventory != null else null
+		var weapon := ranged_weapon if ranged_weapon != null else melee_weapon
+		var actor_conditions := tactical_board._tactics(candidate).duplicate(true)
+		var armor_protection := _armor_projection(candidate)
+		var private_projection := _private_actor_projection(candidate, tactical_board, weapon)
+		var wounds: Array[Dictionary] = []
+		if candidate.body != null:
+			for region in candidate.body.wounds_by_limb.keys():
+				for wound in candidate.body.wounds_by_limb[region]:
+					if wound is Wound:
+						wounds.append(wound.to_dict())
+		private_projection["wounds"] = wounds
 		state.actor_facts[id] = {
 			"actor_id": id,
 			"sector_index": index,
@@ -71,14 +103,31 @@ static func from_board(
 			"surrendered": bool(candidate.get_meta("combat_surrendered", false)),
 			"broken": tactical_state.broken if tactical_state != null else false,
 			"incapacitated": tactical_state.incapacitated if tactical_state != null else false,
+			"engaged": tactical_board.is_engaged(index) if index >= 0 else false,
+			"off_balance": bool(actor_conditions.get("off_balance", false)),
+			"conditions": actor_conditions,
 			"stance": tactical_state.stance if tactical_state != null else 0.0,
 			"posture": tactical_board.posture(candidate),
 			"facing": tactical_board.get_facing(candidate),
 			"cover_edge": str(tactical_board.actor_cover_edges.get(id, "")),
 			"public_intent": candidate.get_meta("combat_intent_view", {}).duplicate(true),
 			"weapon": _weapon_projection(weapon),
+			"ranged_weapon": _weapon_projection(ranged_weapon),
+			"melee_weapon": _weapon_projection(melee_weapon),
+			"right_arm_function": candidate.body.get_limb_function(GameEnums.LimbRegion.RIGHT_ARM) if candidate.body != null else 0.0,
+			"left_arm_function": candidate.body.get_limb_function(GameEnums.LimbRegion.LEFT_ARM) if candidate.body != null else 0.0,
+			"both_legs_disabled": candidate.body.are_both_legs_disabled() if candidate.body != null else true,
+			"combat_accuracy_melee": candidate.get_combat_accuracy(false),
+			"combat_accuracy_ranged": candidate.get_combat_accuracy(true),
+			"armor_protection": armor_protection,
 			"morale": candidate.current_morale,
-			"private": _private_actor_projection(candidate, tactical_board, weapon),
+			"agenda": str(candidate.definition.agenda) if candidate.definition != null else "",
+			"survival_pressure": float(candidate.get_meta("survival_pressure", 0.0)),
+			"max_stance": tactical_state.max_stance if tactical_state != null else 12.0,
+			"communication": _communication_projection(candidate, tactical_board),
+			"private": private_projection,
+			"items": private_projection.get("items", []).duplicate(true),
+			"wounds": wounds.duplicate(true),
 		}
 
 	for index in range(tactical_board.sectors.size()):
@@ -97,7 +146,9 @@ static func from_board(
 			"coords": coords,
 			"blocked": runtime.blocked,
 			"opaque": runtime.opaque,
+			"visibility_penalty": runtime.record.visibility_penalty,
 			"movement_cost": runtime.movement_cost(2),
+			"movement_modifier": runtime.movement_modifier,
 			"cover_edges": runtime.cover_edges.duplicate(true),
 			"hazard": runtime.hazard_state.duplicate(true),
 			"trap": runtime.trap_state.duplicate(true),
@@ -137,6 +188,8 @@ func duplicate_state():
 	copy.sector_facts = sector_facts.duplicate(true)
 	copy.occupancy = occupancy.duplicate(true)
 	copy.relationships = relationships.duplicate(true)
+	copy.balance_facts = balance_facts.duplicate(true)
+	copy.communication_facts = communication_facts.duplicate(true)
 	copy.coordinates_by_index = coordinates_by_index.duplicate(true)
 	copy.indices_by_coordinate = indices_by_coordinate.duplicate(true)
 	copy.neighbors = neighbors.duplicate(true)
@@ -154,6 +207,19 @@ func sector(index: int) -> Dictionary:
 
 func occupants_at(index: int) -> Array:
 	return occupancy.get(index, []).duplicate()
+
+
+func occupancy_kind(index: int) -> String:
+	var occupants := occupants_at(index)
+	if occupants.is_empty():
+		return "empty"
+	if occupants.size() == 1:
+		return "single"
+	for left_index in range(occupants.size()):
+		for right_index in range(left_index + 1, occupants.size()):
+			if relation_between(str(occupants[left_index]), str(occupants[right_index])) == _RelationshipLedger.Relation.HOSTILE:
+				return "engaged"
+	return "crowded"
 
 
 func relation_between(left_id: String, right_id: String) -> int:
@@ -174,6 +240,25 @@ func neighboring_indices(index: int) -> Array:
 	return neighbors.get(index, []).duplicate()
 
 
+func progress_fingerprint() -> String:
+	return JSON.stringify(_canonicalize({
+		"revision": revision,
+		"encounter_seed": encounter_seed,
+		"round": round,
+		"current_ap_pool": current_ap_pool,
+		"communication_points": communication_points,
+		"active_actor_id": active_actor_id,
+		"actors": actor_facts,
+		"sectors": sector_facts,
+		"occupancy": occupancy,
+		"relationships": relationships,
+	}))
+
+
+func canonical_progress_fingerprint() -> String:
+	return progress_fingerprint()
+
+
 static func _weapon_projection(weapon: ItemData) -> Dictionary:
 	if weapon == null:
 		return {}
@@ -191,8 +276,47 @@ static func _weapon_projection(weapon: ItemData) -> Dictionary:
 		"requires_ready_action": weapon.requires_ready_action,
 		"is_readied": weapon.is_readied,
 		"engaged_fire_policy": weapon.engaged_fire_policy,
+		"engaged_fire_accuracy_penalty": weapon.engaged_fire_accuracy_penalty,
+		"flesh_damage": weapon.flesh_damage,
+		"damage_type": int(weapon.damage_type),
+		"armor_penetration": weapon.armor_penetration,
+		"accuracy_rating": weapon.accuracy_rating,
+		"optimal_range_cells": weapon.optimal_range_cells,
+		"range_falloff": weapon.range_falloff,
+		"weapon_type": int(weapon.weapon_type),
 		"reload_available": true,
 	}
+
+
+static func _armor_projection(actor: HumanoidCore) -> Dictionary:
+	var result: Dictionary = {}
+	if actor == null or actor.inventory == null:
+		return result
+	for damage_type in [GameEnums.DamageType.BLUNT, GameEnums.DamageType.SHARP, GameEnums.DamageType.BALLISTIC]:
+		for region in range(GameEnums.LimbRegion.keys().size()):
+			result["%d|%d" % [int(damage_type), region]] = actor.inventory.preview_protection(damage_type, region)
+		result[str(int(damage_type))] = actor.inventory.preview_protection(damage_type, GameEnums.LimbRegion.UPPER_TORSO)
+	return result
+
+
+static func _canonicalize(value: Variant) -> Variant:
+	if value is Dictionary:
+		var keys: Array[String] = []
+		for key in value.keys():
+			keys.append(str(key))
+		keys.sort()
+		var result: Dictionary = {}
+		for key in keys:
+			result[key] = _canonicalize(value.get(key))
+		return result
+	if value is Array:
+		var result_array: Array = []
+		for entry in value:
+			result_array.append(_canonicalize(entry))
+		return result_array
+	if value is Vector2i:
+		return {"x": value.x, "y": value.y}
+	return value
 
 
 static func _private_actor_projection(actor: HumanoidCore, tactical_board: CombatBoard, weapon: ItemData) -> Dictionary:
@@ -220,6 +344,21 @@ static func _private_actor_projection(actor: HumanoidCore, tactical_board: Comba
 		"weapon": _weapon_projection(weapon),
 		"survival_pressure": survival_pressure,
 		"communication_order": str(tactical_board.combat_state(actor).communication_order) if tactical_board.combat_state(actor) != null else "",
+	}
+
+
+static func _communication_projection(actor: HumanoidCore, tactical_board: CombatBoard) -> Dictionary:
+	var state := tactical_board.combat_state(actor)
+	return {
+		"actor_id": _actor_id(actor),
+		"morale": actor.current_morale,
+		"pain": actor.body.get_total_pain() if actor.body != null else 0.0,
+		"shock": actor.body.shock if actor.body != null else 0.0,
+		"stance": state.stance if state != null else 0.0,
+		"max_stance": state.max_stance if state != null else 12.0,
+		"survival_pressure": float(actor.get_meta("survival_pressure", 0.0)),
+		"agenda": str(actor.definition.agenda) if actor.definition != null else "",
+		"mindless": actor.is_mindless_hive_thrall,
 	}
 
 

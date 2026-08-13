@@ -19,23 +19,26 @@ static func build(
 	var snapshot = _Snapshot.new()
 	if rules_state == null:
 		return snapshot
+	snapshot.frozen = false
 	snapshot.revision = rules_state.revision
 	snapshot.encounter_seed = rules_state.encounter_seed
 	snapshot.round = rules_state.round
 	snapshot.reevaluation_trigger = reevaluation_trigger
 	var self_facts: Dictionary = rules_state.actor(actor_id)
-	snapshot.actor = self_facts.get("private", {}).duplicate(true)
-	snapshot.actor["actor_id"] = actor_id
-	snapshot.actor["sector"] = self_facts.get("sector", Vector2i(-1, -1))
-	snapshot.actor["sector_index"] = int(self_facts.get("sector_index", -1))
-	snapshot.actor["stance"] = float(self_facts.get("stance", 0.0))
-	snapshot.actor["broken"] = bool(self_facts.get("broken", false))
-	snapshot.actor["incapacitated"] = bool(self_facts.get("incapacitated", false))
-	snapshot.actor["mindless"] = bool(self_facts.get("mindless", false))
+	var actor_projection: Dictionary = self_facts.get("private", {}).duplicate(true)
+	actor_projection["actor_id"] = actor_id
+	actor_projection["sector"] = self_facts.get("sector", Vector2i(-1, -1))
+	actor_projection["sector_index"] = int(self_facts.get("sector_index", -1))
+	actor_projection["stance"] = float(self_facts.get("stance", 0.0))
+	actor_projection["broken"] = bool(self_facts.get("broken", false))
+	actor_projection["incapacitated"] = bool(self_facts.get("incapacitated", false))
+	actor_projection["mindless"] = bool(self_facts.get("mindless", false))
+	snapshot.actor = actor_projection
 	snapshot.hard_facts = _hard_facts(rules_state, actor_id, self_facts)
 	snapshot.relationships = rules_state.relationships.duplicate(true)
 	snapshot.previous_intent = previous_intent.duplicate(true)
 
+	var observed_actors: Dictionary = {}
 	for candidate_id in rules_state.actor_facts.keys():
 		var candidate: Dictionary = rules_state.actor(str(candidate_id))
 		var observed = _ObservedActor.new()
@@ -78,17 +81,30 @@ static func build(
 				observed.observable_weapon = memory.get("observable_weapon", {}).duplicate(true)
 				observed.observation_revision = int(memory.get("revision", -1))
 				observed.confidence = clampf(float(memory.get("confidence", 0.0)), 0.0, 1.0)
-		snapshot.known_actors[observed.actor_id] = observed
+		observed_actors[observed.actor_id] = observed
+	snapshot.known_actors = observed_actors
 
 	var self_index := int(self_facts.get("sector_index", -1))
+	var visible_sectors: Dictionary = {}
+	var visible_objects: Dictionary = {}
+	var visible_hazards: Dictionary = {}
 	for index in rules_state.sector_facts.keys():
 		var sector: Dictionary = rules_state.sector(int(index))
 		if int(index) == self_index or _sector_visible(rules_state, self_index, int(index)):
-			snapshot.sectors[int(index)] = sector.duplicate(true)
+			visible_sectors[int(index)] = sector.duplicate(true)
 			if sector.has("object"):
-				snapshot.objects[int(index)] = sector.get("object", {}).duplicate(true)
+				visible_objects[int(index)] = sector.get("object", {}).duplicate(true)
 			if sector.has("hazard"):
-				snapshot.hazards[int(index)] = sector.get("hazard", {}).duplicate(true)
+				visible_hazards[int(index)] = sector.get("hazard", {}).duplicate(true)
+	snapshot.sectors = visible_sectors
+	snapshot.objects = visible_objects
+	snapshot.hazards = visible_hazards
+	var exits: Dictionary = {}
+	for index in visible_sectors.keys():
+		var exit_side := str(visible_sectors[index].get("escape_side", ""))
+		if not exit_side.is_empty():
+			exits[index] = {"index": int(index), "coords": visible_sectors[index].get("coords", Vector2i(-1, -1)), "side": exit_side}
+	snapshot.exits = exits
 
 	var weapon_facts: Dictionary = self_facts.get("weapon", {})
 	snapshot.capabilities = {

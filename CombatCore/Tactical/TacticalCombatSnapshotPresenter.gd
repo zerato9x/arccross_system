@@ -17,6 +17,9 @@ const _Feedback := preload(
 const _TurnStatus := preload(
 	"res://CombatCore/Tactical/CombatTurnStatusSnapshotPresenter.gd"
 )
+const _ActorProjection := preload(
+	"res://CombatCore/Tactical/CombatActorPresentationProjection.gd"
+)
 
 var arena := _Arena.new()
 var action_menu := _ActionMenu.new()
@@ -35,5 +38,6 @@ func compose(snapshot: Dictionary) -> Dictionary:
 		"inventory": inventory.build(snapshot),
 		"feedback": feedback.build(snapshot),
 		"turn_status": turn_status.build(snapshot),
+		"actors_by_id": _ActorProjection.build(snapshot),
 	}
 	return result

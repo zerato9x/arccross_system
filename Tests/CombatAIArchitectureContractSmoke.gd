@@ -102,6 +102,7 @@ func _run() -> void:
 	var definition_source := FileAccess.get_file_as_string("res://CombatCore/Tactical/CombatActionDefinition.gd")
 	if definition_source.find("planning_outcome") == -1:
 		failures.append("CombatActionDefinition.gd is missing authored planning outcome metadata.")
+	failures.append_array(_interaction_authority_contract_violations())
 
 	if failures.is_empty():
 		print("COMBAT_AI_ARCHITECTURE_CONTRACT_SMOKE: PASS")
@@ -111,3 +112,58 @@ func _run() -> void:
 		push_error("[COMBAT_AI_CONTRACT] " + failure)
 	push_error("COMBAT_AI_ARCHITECTURE_CONTRACT_SMOKE: FAIL")
 	quit(1)
+
+
+func _interaction_authority_contract_violations() -> Array[String]:
+	var violations: Array[String] = []
+	var hud_path := "res://CombatCore/Tactical/TacticalCombatHUD.gd"
+	var scene_path := "res://CombatCore/Tactical/TacticalCombatScene.gd"
+	for path in [hud_path, scene_path]:
+		var source := FileAccess.get_file_as_string(path)
+		for line in source.split("\n"):
+			var trimmed := str(line).strip_edges()
+			if (trimmed.begins_with("interaction.") or trimmed.begins_with("_interaction_coordinator.state.")) and trimmed.find("=") != -1 and trimmed.find("==") == -1:
+				violations.append("%s writes coordinator-owned interaction state directly: %s" % [path, trimmed])
+	var arena_source := FileAccess.get_file_as_string("res://CombatCore/Tactical/TacticalArenaView.gd")
+	if arena_source.find("sector_selected") != -1:
+		violations.append("TacticalArenaView.gd still exposes the retired sector_selected compatibility signal.")
+	var state_source := FileAccess.get_file_as_string("res://CombatCore/Tactical/CombatInteractionState.gd")
+	for retired_alias in [
+		"NAVIGATION = INSPECTING",
+		"BUMP_MENU = ACTION_MENU",
+		"MOVE_PREVIEW = ROUTE_PREVIEW",
+		"TARGET_MENU = ACTION_MENU",
+		"AIMING = ACTION_PREVIEW",
+		"WEAPON_MENU = ACTION_MENU",
+		"SELF_MENU = ACTION_MENU",
+		"OBJECT_MENU = ACTION_MENU",
+		"SELECTED = INSPECTING",
+		"TARGETING = ACTION_PREVIEW",
+		"STAGED_PREVIEW = ACTION_PREVIEW",
+		"LOCAL_CONFIRMATION = CONFIRMATION",
+		"CONTEXT_MENU = ROOT_MENU",
+		"COMMUNICATION = COMMUNICATION_MENU",
+		"INVENTORY = ACTION_MENU",
+		"REACTION = PRESENTING",
+	]:
+		if state_source.find(retired_alias) != -1:
+			violations.append("CombatInteractionState.gd still exposes retired phase alias: %s" % retired_alias)
+	var coordinator_source := FileAccess.get_file_as_string("res://CombatCore/Tactical/TacticalCombatInteractionCoordinator.gd")
+	for required_method in [
+		"state_snapshot",
+		"set_route_path",
+		"stage_request",
+		"take_request",
+		"cancel_one_step",
+	]:
+		if coordinator_source.find("func %s" % required_method) == -1:
+			violations.append("Interaction coordinator is missing ownership method: %s" % required_method)
+	var controller_source := FileAccess.get_file_as_string("res://CombatCore/Tactical/CombatActionController.gd")
+	var quote_source := FileAccess.get_file_as_string("res://CombatCore/Tactical/CombatActionQuoteService.gd")
+	if controller_source.find("func _normalized_request") == -1:
+		violations.append("CombatActionController has no copied request normalization seam.")
+	if controller_source.find("build_forecast") != -1:
+		violations.append("CombatActionController still owns a separate forecast implementation.")
+	if quote_source.find("CombatForecastService") == -1:
+		violations.append("CombatActionQuoteService does not delegate forecast authority to CombatForecastService.")
+	return violations

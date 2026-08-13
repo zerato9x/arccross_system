@@ -29,18 +29,20 @@ engines.
 
 ## HUD and presentation contract
 
-- Pointer selection is primary. Selecting an enemy, the player, an item, or a
-  destination opens relevant actions near that selection.
+- Pointer selection is primary. The persistent player card, bottom-center
+  command dock, and relationship-neutral entity card remain stable while
+  selected-sector context and actions update locally.
 - Keyboard mirrors the same action buttons through visible numbers and
   mnemonics; it does not maintain a second command model.
 - Movement is previewed and commits on confirmation or a second click.
   Consequential actions retain authored confirmation.
-- Player anatomy, wounds, and systemic bars remain visible. Enemy tokens show
-  compact Blood and Consciousness bars; full anatomy and systemic details
-  appear only for the selected enemy.
-- The pack is a collapsible combat drawer. The active authored weapon sprite,
-  ammunition, condition, range, and readiness remain visible in
-  `CombatItemCard`.
+- Player anatomy, wounds, and systemic bars remain visible in the persistent
+  top-left status card. Observable non-player cards use qualitative body bands
+  and redact exact hidden vitals, carried inventory, ammunition, and injury
+  values according to relationship/knowledge projection.
+- The pack is a Hands/Quick icon drawer attached to the command dock. The
+  active authored weapon sprite, ammunition, condition, range, and readiness
+  remain visible in `CombatItemCard` for the player/friendly exact view.
 - `TacticalArenaView` instances the layered `HumanoidToken` renderer and plays
   the existing authored animation IDs. Rules state is committed transactionally
   while the visible snapshot waits for the short presentation sequence.
@@ -60,9 +62,10 @@ engines.
 ## Remaining work
 
 1. Perform a live editor/runtime usability pass at supported resolutions; the
-   current evidence proves parsing and focused behavior, not final visual taste.
-2. Tune popup density and shortcut labels from real play rather than adding
-   another abstract menu layer.
+   current automated evidence proves parsing and focused behavior, not final
+   visual taste.
+2. Complete the squad_7x5 battlefield/topology presentation handoff after the
+   encounter deployment and cover language are approved.
 3. Add cinematic camera/impact overrides only for finishers, aimed attacks, and
    severe wounds; ordinary actions should remain snappy.
 4. Expand beyond 1v2 only with explicit encounter grouping and readable

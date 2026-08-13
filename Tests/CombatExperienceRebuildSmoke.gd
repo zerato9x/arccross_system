@@ -14,7 +14,7 @@ func _init() -> void:
 	state.select("sector", {"sector": Vector2i(4, 0)})
 	state.open_actions()
 	state.stage("move", true)
-	if state.phase != CombatInteractionState.Phase.LOCAL_CONFIRMATION:
+	if state.phase != CombatInteractionState.Phase.CONFIRMATION:
 		failures.append("Legal staged action did not enter local confirmation.")
 	state.cancel_one_step()
 	if state.phase != CombatInteractionState.Phase.ACTION_MENU:
@@ -52,8 +52,8 @@ func _init() -> void:
 	var impact := _cue(shove_sequence, "impact")
 	if impact == null or impact.outcome_tag != "object_collision":
 		failures.append("Shove presentation ignored its committed collision result.")
-	elif impact.hit_stop_seconds < 0.05 or impact.shake_amplitude <= 0.0:
-		failures.append("Collision recipe lacks readable hit-stop or shake.")
+	elif not is_zero_approx(impact.hit_stop_seconds) or not is_zero_approx(impact.shake_amplitude):
+		failures.append("Collision presentation reintroduced retired hit-stop or shake.")
 
 	var weapon_catalog: CombatWeaponPresentationCatalog = load(
 		"res://CombatCore/Tactical/default_weapon_presentation_catalog.tres"
@@ -133,6 +133,10 @@ func _init() -> void:
 			failures.append("Fire release occurs after impact in the authored timeline.")
 		if ranged_reaction == null or ranged_reaction.start_time_seconds <= ranged_impact.start_time_seconds:
 			failures.append("Fire target reaction is not scheduled after impact.")
+		for cue in ranged_sequence.cues:
+			if cue.facing != "east":
+				failures.append("Ranged presentation did not derive a stable actor-to-target facing: %s." % cue.facing)
+				break
 		var actor_animation_starts := 0
 		var target_animation_starts := 0
 		for cue in ranged_sequence.cues:
@@ -151,6 +155,11 @@ func _init() -> void:
 			failures.append("Firearm release cue lost its weapon sound marker.")
 		if ranged_sequence.total_duration_seconds < 1.20:
 			failures.append("Sequence did not retain its typed total duration.")
+		var marker_ids: Array[String] = []
+		for cue in ranged_sequence.cues:
+			marker_ids.append(cue.marker_id)
+		if marker_ids != ["focus_in", "anticipation", "release_contact", "travel", "impact", "reaction", "recovery", "focus_out"]:
+			failures.append("Ranged timeline did not emit the canonical synchronized marker channel.")
 
 	for semantic_pair in [
 		["strike", "Attack2"],
@@ -183,6 +192,30 @@ func _init() -> void:
 	var arena_source := FileAccess.get_file_as_string("res://CombatCore/Tactical/TacticalArenaView.gd")
 	if arena_source.find("token.z_index = 10") < 0 or arena_source.find("top.z_index = 40") < 0:
 		failures.append("Weapon overlay is no longer explicitly layered above the humanoid token.")
+	if arena_source.find("_world_layer") < 0 or arena_source.find("draw_set_transform") < 0 or arena_source.find("_screen_to_world") < 0:
+		failures.append("Arena camera does not expose one shared world transform with inverse input mapping.")
+	if arena_source.find("scaled_size := base.size * _view_zoom") >= 0:
+		failures.append("Arena grid geometry still bakes camera zoom into the logical world rect.")
+
+	var same_sector_melee_request := CombatActionRequest.new()
+	same_sector_melee_request.actor_id = "player"
+	same_sector_melee_request.target_actor_id = "enemy"
+	same_sector_melee_request.action_id = "strike"
+	var same_sector_melee_quote := CombatActionQuote.new()
+	same_sector_melee_quote.origin_sector = Vector2i(2, 0)
+	same_sector_melee_quote.target_sector = Vector2i(2, 0)
+	same_sector_melee_quote.final_facing = "west"
+	var same_sector_melee_outcome := CombatActionOutcome.new()
+	same_sector_melee_outcome.committed = true
+	var same_sector_melee_sequence := catalog.definition("strike").presentation_profile.build_sequence(
+		same_sector_melee_request,
+		same_sector_melee_quote,
+		same_sector_melee_outcome
+	)
+	for cue in same_sector_melee_sequence.cues:
+		if cue.facing != "west":
+			failures.append("Same-sector melee did not preserve the authoritative target-facing direction.")
+			break
 
 	var presentation_player := TacticalPresentationPlayer.new()
 	root.add_child(presentation_player)

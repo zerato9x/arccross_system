@@ -7,19 +7,64 @@ class_name CombatPerceptionSnapshot
 var revision: int = 0
 var encounter_seed: String = ""
 var round: int = 0
-var actor: Dictionary = {}
-var hard_facts: Dictionary = {}
-var known_actors: Dictionary = {}
-var relationships: Dictionary = {}
-var sectors: Dictionary = {}
-var objects: Dictionary = {}
-var hazards: Dictionary = {}
-var exits: Dictionary = {}
-var capabilities: Dictionary = {}
-var communication: Dictionary = {}
-var previous_intent: Dictionary = {}
+var _actor: Dictionary = {}
+var _hard_facts: Dictionary = {}
+var _known_actors: Dictionary = {}
+var _relationships: Dictionary = {}
+var _sectors: Dictionary = {}
+var _objects: Dictionary = {}
+var _hazards: Dictionary = {}
+var _exits: Dictionary = {}
+var _capabilities: Dictionary = {}
+var _communication: Dictionary = {}
+var _previous_intent: Dictionary = {}
 var reevaluation_trigger: String = "initial"
 var frozen: bool = true
+
+## Public projections are defensive copies. Builders may assign a complete
+## projection, but evaluators cannot mutate the sealed observation by editing
+## a returned dictionary.
+var actor: Dictionary:
+	get: return _actor.duplicate(true)
+	set(value): _actor = value.duplicate(true)
+var hard_facts: Dictionary:
+	get: return _hard_facts.duplicate(true)
+	set(value): _hard_facts = value.duplicate(true)
+var known_actors: Dictionary:
+	get: return _duplicate_known_actors(_known_actors)
+	set(value): _known_actors = _copy_known_actors(value)
+var relationships: Dictionary:
+	get: return _relationships.duplicate(true)
+	set(value): _relationships = value.duplicate(true)
+var sectors: Dictionary:
+	get: return _sectors.duplicate(true)
+	set(value): _sectors = value.duplicate(true)
+var objects: Dictionary:
+	get: return _objects.duplicate(true)
+	set(value): _objects = value.duplicate(true)
+var hazards: Dictionary:
+	get: return _hazards.duplicate(true)
+	set(value): _hazards = value.duplicate(true)
+var exits: Dictionary:
+	get: return _exits.duplicate(true)
+	set(value): _exits = value.duplicate(true)
+var capabilities: Dictionary:
+	get: return _capabilities.duplicate(true)
+	set(value): _capabilities = value.duplicate(true)
+var communication: Dictionary:
+	get: return _communication.duplicate(true)
+	set(value): _communication = value.duplicate(true)
+var previous_intent: Dictionary:
+	get: return _previous_intent.duplicate(true)
+	set(value): _previous_intent = value.duplicate(true)
+
+
+func mutable_actor_projection() -> Dictionary:
+	return _actor.duplicate(true)
+
+
+func mutable_communication_projection() -> Dictionary:
+	return _communication.duplicate(true)
 
 
 func duplicate_snapshot():
@@ -44,6 +89,18 @@ func duplicate_snapshot():
 	copy.reevaluation_trigger = reevaluation_trigger
 	copy.frozen = true
 	return copy
+
+
+static func _copy_known_actors(source: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for actor_id in source.keys():
+		var observed = source[actor_id]
+		result[actor_id] = observed.duplicate_observation() if observed != null and observed.has_method("duplicate_observation") else observed.duplicate(true)
+	return result
+
+
+static func _duplicate_known_actors(source: Dictionary) -> Dictionary:
+	return _copy_known_actors(source)
 
 
 func to_dict() -> Dictionary:

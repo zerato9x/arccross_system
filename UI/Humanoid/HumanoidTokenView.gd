@@ -144,6 +144,14 @@ func combat_weapon_muzzle_anchor(weapon_id: String) -> Vector2:
 	return (normalized * frame_size - frame_size * 0.5) * _display_scale
 
 
+func combat_weapon_hand_anchor(weapon_id: String) -> Vector2:
+	## Hand anchor is intentionally derived from the authored muzzle profile so
+	## the weapon layer and projectile share the same direction row. It is a
+	## local presentation anchor only; it never participates in hit resolution.
+	var muzzle := combat_weapon_muzzle_anchor(weapon_id)
+	return muzzle.lerp(Vector2(0.0, -4.0 * _display_scale), 0.38)
+
+
 func combat_body_region_anchor(region: int) -> Vector2:
 	var normalized := Vector2(0.5, 0.43)
 	match region:
@@ -178,10 +186,10 @@ func set_action_equipment_suppressed(value: bool) -> void:
 	_apply_frame()
 
 func set_animation_speed(scale: float) -> void:
-	_animation_speed_scale = maxf(0.1, scale)
-
-const TIMED_ONE_SHOT_MIN_SPEED := 0.75
-const TIMED_ONE_SHOT_MAX_SPEED := 1.25
+	# A synchronized cue owns the duration. Keep only a numerical floor for
+	# zero/negative inputs; readability belongs to authored timeline data, not a
+	# hidden playback-speed clamp.
+	_animation_speed_scale = maxf(0.001, scale)
 
 func get_animation_duration(animation: String) -> float:
 	if not HumanoidVisualCatalog.supports_animation(animation):
@@ -191,9 +199,8 @@ func get_animation_duration(animation: String) -> float:
 		/ maxf(0.01, HumanoidVisualCatalog.animation_fps(animation))
 	)
 
-## Resolves the wall-clock duration a timed one-shot will actually occupy after
-## stretch clamping. Prefer readable frame density over meeting an aggressive
-## authored clock: speeds stay within [0.75x, 1.25x] of nominal.
+## Returns the authored track duration. The presentation profile may choose an
+## explicit synchronized duration; no hidden readability clamp is applied.
 func resolve_timed_one_shot_duration(
 	animation: String,
 	target_duration: float
@@ -201,18 +208,10 @@ func resolve_timed_one_shot_duration(
 	var nominal_duration := get_animation_duration(animation)
 	if nominal_duration <= 0.0:
 		return 0.0
-	var safe_target := maxf(0.05, target_duration)
-	var requested_speed := nominal_duration / safe_target
-	var clamped_speed := clampf(
-		requested_speed,
-		TIMED_ONE_SHOT_MIN_SPEED,
-		TIMED_ONE_SHOT_MAX_SPEED
-	)
-	return nominal_duration / clamped_speed
+	return target_duration if target_duration > 0.0 else nominal_duration
 
-## Plays every visible frame across the resolved presentation duration. Stretch
-## is clamped so short turn windows cannot crush 15-frame clips into a blur and
-## long windows cannot float 5-frame attacks in slow motion.
+## Plays every visible frame across the requested authored timeline duration.
+## The duration is data, so synchronized action timelines remain deterministic.
 func play_timed_one_shot(
 	animation: String,
 	return_animation: String,
@@ -228,7 +227,7 @@ func play_timed_one_shot(
 		target_duration
 	)
 	_return_animation_speed_scale = 1.0
-	set_animation_speed(nominal_duration / maxf(0.05, actual_duration))
+	set_animation_speed(nominal_duration / actual_duration)
 	return play_animation(animation, true, return_animation)
 
 func play_animation(

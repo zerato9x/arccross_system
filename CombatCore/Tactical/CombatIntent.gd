@@ -81,10 +81,14 @@ static func _readable_label(motive_value: String, problem_value: String, request
 		"offense", "defense", "support", "flee", "threaten", "ceasefire": return "COMMUNICATING"
 	if problem_value == "NEED_ENGAGE":
 		return "CLOSING DISTANCE"
-	if motive_value in ["ESCAPE", "SURVIVE"]:
-		return "SURVIVING"
-	if motive_value in ["PROTECT", "SUPPORT"]:
+	if motive_value in ["EXIT", "ESCAPE", "SURVIVE"]:
+		return "EXITING" if motive_value in ["EXIT", "ESCAPE"] else "SURVIVING"
+	if motive_value in ["SUPPORT", "PROTECT"]:
 		return "PROTECTING"
+	if motive_value == "HOLD":
+		return "HOLDING"
+	if motive_value == "COMMUNICATE":
+		return "COMMUNICATING"
 	return motive_value
 
 

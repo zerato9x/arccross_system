@@ -11,10 +11,17 @@ var view: TacticalArenaView
 var _playing := false
 var _drain_scheduled := false
 var _queued_sequences: Array[CombatPresentationSequence] = []
+var dialogue_director := CombatDialogueDirector.new()
+var encounter_seed := ""
 
 
 func configure(arena_view: TacticalArenaView) -> void:
 	view = arena_view
+	dialogue_director.configure()
+
+
+func configure_dialogue_seed(seed: String) -> void:
+	encounter_seed = seed
 
 
 func play(sequence: CombatPresentationSequence) -> void:
@@ -60,15 +67,13 @@ func _play_sequence(sequence: CombatPresentationSequence) -> void:
 		_play_audio_cue(cue)
 		if view != null:
 			view.begin_cue(cue)
-			if cue.hit_stop_seconds > 0.0:
-				view.update_cue(0.0, cue)
-				await get_tree().create_timer(cue.hit_stop_seconds).timeout
 			var tween := create_tween()
 			tween.set_trans(Tween.TRANS_CUBIC)
 			tween.set_ease(Tween.EASE_IN_OUT)
 			tween.tween_method(view.update_cue.bind(cue), 0.0, 1.0, maxf(0.01, cue.duration_seconds))
 			await tween.finished
 			view.end_cue(cue)
+			_try_show_dialogue(cue)
 		else:
 			await get_tree().create_timer(maxf(0.01, cue.duration_seconds)).timeout
 		cue_finished.emit(cue)
@@ -97,3 +102,21 @@ func _play_audio_cue(cue: CombatPresentationCue) -> void:
 		})
 	if cue.phase_id == "impact" and cue.outcome_tag not in ["miss", "dodge", "neutral", "malfunction"]:
 		event_bus.emit_scene_audio("combat_damage_sfx", {"result": cue.outcome_tag})
+
+
+func _try_show_dialogue(cue: CombatPresentationCue) -> void:
+	if view == null or cue == null or cue.dialogue_event.is_empty() or not bool(cue.presentation_flags.get("dialogue_allowed", false)):
+		return
+	var actor := view.actor_snapshot_for_presentation(cue.actor_id)
+	var round := int(view.snapshot.get("round", 0))
+	var payload := dialogue_director.request_bark(
+		actor,
+		cue.dialogue_event,
+		encounter_seed,
+		int(view.snapshot.get("revision", 0)),
+		round,
+		cue.dialogue_id,
+		cue.dialogue_priority
+	)
+	if not payload.is_empty():
+		view.show_dialogue(payload)

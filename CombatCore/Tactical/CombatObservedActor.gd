@@ -10,9 +10,9 @@ var sector: Vector2i = Vector2i(-1, -1)
 var last_known_sector: Vector2i = Vector2i(-1, -1)
 var relation: int = 0
 var visible_condition: String = "unknown"
-var observable_wounds: Array[Dictionary] = []
-var observable_weapon: Dictionary = {}
-var public_intent: Dictionary = {}
+var _observable_wounds: Array[Dictionary] = []
+var _observable_weapon: Dictionary = {}
+var _public_intent: Dictionary = {}
 var distance: int = -1
 var line_of_sight: bool = false
 var cover: float = 0.0
@@ -20,6 +20,16 @@ var engagement: bool = false
 var threat_estimate: float = 0.0
 var observation_revision: int = -1
 var confidence: float = 0.0
+
+var observable_wounds: Array[Dictionary]:
+	get: return _observable_wounds.duplicate(true)
+	set(value): _observable_wounds = value.duplicate(true)
+var observable_weapon: Dictionary:
+	get: return _observable_weapon.duplicate(true)
+	set(value): _observable_weapon = value.duplicate(true)
+var public_intent: Dictionary:
+	get: return _public_intent.duplicate(true)
+	set(value): _public_intent = value.duplicate(true)
 
 
 func duplicate_observation():

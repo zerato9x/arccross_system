@@ -23,3 +23,12 @@ func choose(family: String, seed_value: int) -> Dictionary:
 		if roll <= 0.0:
 			return (candidate as Dictionary).duplicate(true)
 	return (candidates.back() as Dictionary).duplicate(true)
+
+
+static func resolve_asset_path(candidate: Dictionary, key: String, fallback: String = "") -> Dictionary:
+	var path := str(candidate.get(key, ""))
+	if not path.is_empty() and ResourceLoader.exists(path):
+		return {"path": path, "source": "combat_variant"}
+	if not fallback.is_empty() and ResourceLoader.exists(fallback):
+		return {"path": fallback, "source": "generic_fallback"}
+	return {"path": "", "source": "missing"}

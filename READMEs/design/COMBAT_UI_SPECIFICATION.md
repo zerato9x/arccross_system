@@ -1,13 +1,53 @@
 # ARCCROSS Combat UI Specification
 
-Turn-based is the official/default interface; real-time is optional in Settings.
-Both UIs project owner-produced state and emit intent. Neither calculates AP,
-legality, hit timing, defense, targets, or outcomes.
+Status updated on **August 13, 2026**.
+
+The official production route is the tactical scene:
+`CombatCore/Tactical/TacticalCombatScene.tscn` with
+`CombatCore/Tactical/TacticalCombatHUD.tscn`. The HUD projects authoritative
+snapshots and emits intent; it does not calculate AP, legality, hit timing,
+defense, targets, or outcomes. The former lane wording below remains useful
+for authored action timing, but is not a second runtime owner.
+
+## Coherent tactical composition
+
+- The player status card is persistent in the top-left. It uses the authored
+  `PaperDollModel`, equipment layers, limb condition, Blood, Consciousness,
+  relevant Pain/Shock warnings, weapon readiness/ammunition, and urgent wound
+  selection.
+- The bottom-center command dock owns the local turn loop: dominant AP with
+  twelve exact pips, stance and posture, Kinetic Burden tier plus numeric value,
+  CP with its own pip counter, current actor/initiative context, contextual
+  actions, quote forecasts, confirmation, and End Turn.
+- A selected non-player entity occupies the bottom-right relationship-neutral
+  card. Player selection returns focus to the top-left card. A selected empty
+  sector uses the top-right sector-context card; ground items remain sector
+  context rather than global inventory.
+- Hands/Quick inventory is an icon drawer attached to the command dock. Item
+  selection retains the authoritative stable instance ID and follows the
+  treatment flow: item icon, player limb, wound, quote, confirmation.
+- The HUD consumes `CombatActorPresentationProjection` keyed by actor ID.
+  Self and friendly views may retain exact authored state. Neutral/hostile
+  views expose qualitative observable body condition, visible wound evidence,
+  posture/stance bands, intent, relation, and weapon readiness without carried
+  inventory, exact hidden condition, exact ammunition, or exact injury values.
+- `CombatBodyTargetView` renders qualitative limb bands for observable actors;
+  it never manufactures a gameplay result from those bands. AI traces and
+  scoring remain non-UI diagnostics and are not rendered as tactical prose.
+- `HudMotion` owns kill-safe 160–220 ms drawer/entity transitions, 280 ms meter
+  easing, short resource flashes, and unresolved critical-state breathing.
+  Snapshot refresh preserves selection and staged interaction state while the
+  presentation barrier is active.
+
+Supported layout evidence covers 1152x648, 1280x720, 1600x900, 1920x1080,
+2560x1080, and 2560x1440. The production duel remains `duel_12x1`; `skirmish_6x3`
+and `squad_7x5` are data-driven laboratory handoff profiles pending wider
+encounter, topology, and battlefield presentation approval.
 
 ## Official turn-based interface
 
-- `CombatLaneHUD` projects `CombatCommandAdapter` snapshots and emits typed
-  turn commands.
+- `TacticalCombatHUD` projects `TacticalCombatSnapshotPresenter` output and
+  emits typed turn intent through `TacticalCombatInteractionCoordinator`.
 - The grouped command deck, reaction prompt, twelve-slot lane, Paper Dolls,
   wounds, Blood, Stance, AP, weapon readiness, ammunition, and combat log remain
   visible.
@@ -47,13 +87,18 @@ legality, hit timing, defense, targets, or outcomes.
 
 ## Always Visible
 
-- Twelve-slot lane with player, enemy, terrain, cover, territory, and armed
-  trap readability.
-- Both combatants' Paper Dolls, seven-region wound/Trauma state, Blood, AP,
-  effective regeneration per second, Stance, Kinetic Tier, current action,
-  weapon readiness, ammunition, and cycling state.
-- Aim progress, combo step, push-follow window, and short authoritative
-  feedback only while relevant.
+- The tactical arena remains the world-facing surface with player, enemy,
+  terrain, cover, territory, and armed-trap readability.
+- The player's Paper Doll, seven-region wound/Trauma state, Blood,
+  Consciousness, AP, Stance, Kinetic Tier, current action, weapon readiness,
+  ammunition, and cycling state remain available through the persistent status
+  card and command dock.
+- A selected non-player entity gets a relationship-neutral identity, intent,
+  posture, stance/balance band, critical condition, weapon, and qualitative
+  body/wound view. Exact systemic values are only shown where the projection's
+  knowledge level authorizes them.
+- Aim progress, forecast, confirmation, and short authoritative feedback only
+  appear while relevant.
 - During Melee Lock, an enemy action telegraph names the committed motion,
   counts down to its impact marker, and gives a terse reaction hint. Telegraphs
   expose the timeline; they do not reveal randomized hit outcomes.

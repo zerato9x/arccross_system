@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://CombatCore/Tactical/TacticalCombatHUD.gd" id="1_hud"]
 [ext_resource type="Script" path="res://CombatCore/Tactical/TacticalArenaView.gd" id="2_view"]
 [ext_resource type="Script" path="res://CombatCore/Tactical/CombatBodyTargetView.gd" id="3_body"]
 [ext_resource type="PackedScene" path="res://UI/Inventory/CombatItemCard.tscn" id="4_item_card"]
+[ext_resource type="PackedScene" path="res://UI/Inventory/PaperDollModel.tscn" id="5_doll"]
 
 [node name="TacticalCombatHUD" type="Control"]
 layout_mode = 3
@@ -30,7 +31,7 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = 50.0
+offset_top = 44.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -51,13 +52,15 @@ z_index = 20
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 46.0
+offset_bottom = 42.0
 grow_horizontal = 2
 
 [node name="TopMargin" type="MarginContainer" parent="TopStrip"]
 layout_mode = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_right = 14
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_bottom = 4
 
 [node name="TopRow" type="HBoxContainer" parent="TopStrip/TopMargin"]
 layout_mode = 2
@@ -67,17 +70,17 @@ theme_override_constants/separation = 14
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 16
+theme_override_constants/separation = 12
 
 [node name="APLabel" type="Label" parent="TopStrip/TopMargin/TopRow"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "ROUND 00   AP 00/12   CP 00/00"
+text = "ROUND 00   CURRENT ACTOR"
 vertical_alignment = 1
 
 [node name="EndTurnButton" type="Button" parent="TopStrip/TopMargin/TopRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(112, 36)
+custom_minimum_size = Vector2(112, 32)
 layout_mode = 2
 text = "END TURN"
 
@@ -86,171 +89,303 @@ unique_name_in_owner = true
 z_index = 20
 layout_mode = 0
 offset_left = 12.0
-offset_top = 58.0
-offset_right = 312.0
-offset_bottom = 268.0
+offset_top = 54.0
+offset_right = 338.0
+offset_bottom = 420.0
+mouse_filter = 1
 
 [node name="Margin" type="MarginContainer" parent="PlayerCard"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 9
+theme_override_constants/margin_top = 7
+theme_override_constants/margin_right = 9
+theme_override_constants/margin_bottom = 7
 
 [node name="Content" type="VBoxContainer" parent="PlayerCard/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 5
+theme_override_constants/separation = 4
 
-[node name="HealthHeading" type="Label" parent="PlayerCard/Margin/Content"]
+[node name="PlayerHeader" type="HBoxContainer" parent="PlayerCard/Margin/Content"]
 layout_mode = 2
-text = "FIELD HEALTH"
-[node name="ActorName" type="Label" parent="PlayerCard/Margin/Content"]
+theme_override_constants/separation = 8
+
+[node name="PaperDollStage" type="Control" parent="PlayerCard/Margin/Content/PlayerHeader"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(112, 168)
+layout_mode = 2
+size_flags_horizontal = 0
+clip_contents = true
+
+[node name="PlayerPaperDoll" parent="PlayerCard/Margin/Content/PlayerHeader/PaperDollStage" instance=ExtResource("5_doll")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PlayerIdentity" type="VBoxContainer" parent="PlayerCard/Margin/Content/PlayerHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="ActorName" type="Label" parent="PlayerCard/Margin/Content/PlayerHeader/PlayerIdentity"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "PLAYER"
-[node name="ActorStatus" type="Label" parent="PlayerCard/Margin/Content"]
+autowrap_mode = 2
+
+[node name="ActorStatus" type="Label" parent="PlayerCard/Margin/Content/PlayerHeader/PlayerIdentity"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "STANDING · FACING EAST"
-[node name="ActorIntent" type="Label" parent="PlayerCard/Margin/Content"]
+text = "STANDING"
+autowrap_mode = 2
+
+[node name="ActorIntent" type="Label" parent="PlayerCard/Margin/Content/PlayerHeader/PlayerIdentity"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "INTENT  HOLDING"
+autowrap_mode = 2
+
+[node name="PlayerWeaponLabel" type="Label" parent="PlayerCard/Margin/Content/PlayerHeader/PlayerIdentity"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "UNARMED"
+autowrap_mode = 2
+
+[node name="ActiveWeaponCard" parent="PlayerCard/Margin/Content/PlayerHeader/PlayerIdentity" instance=ExtResource("4_item_card")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 74)
+layout_mode = 2
+
+[node name="WeaponActions" type="VBoxContainer" parent="PlayerCard/Margin/Content/PlayerHeader/PlayerIdentity"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 2
 
 [node name="PlayerVitals" type="GridContainer" parent="PlayerCard/Margin/Content"]
 layout_mode = 2
 columns = 3
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 2
+
 [node name="BloodCaption" type="Label" parent="PlayerCard/Margin/Content/PlayerVitals"]
 layout_mode = 2
 text = "BLOOD"
 [node name="BloodBar" type="ProgressBar" parent="PlayerCard/Margin/Content/PlayerVitals"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 13)
+custom_minimum_size = Vector2(106, 11)
 layout_mode = 2
+size_flags_horizontal = 3
 show_percentage = false
 [node name="BloodValue" type="Label" parent="PlayerCard/Margin/Content/PlayerVitals"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "12/12"
-[node name="PainCaption" type="Label" parent="PlayerCard/Margin/Content/PlayerVitals"]
-layout_mode = 2
-text = "PAIN"
-[node name="PainBar" type="ProgressBar" parent="PlayerCard/Margin/Content/PlayerVitals"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 13)
-layout_mode = 2
-show_percentage = false
-[node name="PainValue" type="Label" parent="PlayerCard/Margin/Content/PlayerVitals"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "0/12"
-[node name="ShockCaption" type="Label" parent="PlayerCard/Margin/Content/PlayerVitals"]
-layout_mode = 2
-text = "SHOCK"
-[node name="ShockBar" type="ProgressBar" parent="PlayerCard/Margin/Content/PlayerVitals"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 13)
-layout_mode = 2
-show_percentage = false
-[node name="ShockValue" type="Label" parent="PlayerCard/Margin/Content/PlayerVitals"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "0/12"
 [node name="ConsciousnessCaption" type="Label" parent="PlayerCard/Margin/Content/PlayerVitals"]
 layout_mode = 2
 text = "AWARE"
 [node name="ConsciousnessBar" type="ProgressBar" parent="PlayerCard/Margin/Content/PlayerVitals"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 13)
+custom_minimum_size = Vector2(106, 11)
 layout_mode = 2
+size_flags_horizontal = 3
 show_percentage = false
 [node name="ConsciousnessValue" type="Label" parent="PlayerCard/Margin/Content/PlayerVitals"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "12/12"
+
+[node name="SecondaryVitals" type="HBoxContainer" parent="PlayerCard/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PainValue" type="Label" parent="PlayerCard/Margin/Content/SecondaryVitals"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "PAIN 0"
+[node name="PainBar" type="ProgressBar" parent="PlayerCard/Margin/Content/SecondaryVitals"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(42, 8)
+layout_mode = 2
+show_percentage = false
+[node name="ShockValue" type="Label" parent="PlayerCard/Margin/Content/SecondaryVitals"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "SHOCK 0"
+[node name="ShockBar" type="ProgressBar" parent="PlayerCard/Margin/Content/SecondaryVitals"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(42, 8)
+layout_mode = 2
+show_percentage = false
+
 [node name="PlayerWarnings" type="Label" parent="PlayerCard/Margin/Content"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 2
 
-[node name="InventoryPanel" type="PanelContainer" parent="."]
+[node name="PlayerWoundHeading" type="Label" parent="PlayerCard/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "URGENT WOUNDS"
+visible = false
+
+[node name="PlayerWounds" type="VBoxContainer" parent="PlayerCard/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="GearRow" type="HBoxContainer" parent="PlayerCard/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="CommandDock" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 z_index = 20
 layout_mode = 0
-offset_left = 12.0
-offset_top = 430.0
-offset_right = 312.0
-offset_bottom = 708.0
+offset_left = 350.0
+offset_top = 500.0
+offset_right = 840.0
+offset_bottom = 700.0
 
-[node name="Margin" type="MarginContainer" parent="InventoryPanel"]
+[node name="Margin" type="MarginContainer" parent="CommandDock"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
-[node name="Content" type="VBoxContainer" parent="InventoryPanel/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 6
-[node name="InventoryHeading" type="Label" parent="InventoryPanel/Margin/Content"]
-layout_mode = 2
-text = "HANDS & LOADOUT"
-[node name="ActiveWeaponCard" parent="InventoryPanel/Margin/Content" instance=ExtResource("4_item_card")]
-unique_name_in_owner = true
-layout_mode = 2
+theme_override_constants/margin_left = 9
+theme_override_constants/margin_top = 7
+theme_override_constants/margin_right = 9
+theme_override_constants/margin_bottom = 7
 
-[node name="WeaponActions" type="VBoxContainer" parent="InventoryPanel/Margin/Content"]
+[node name="Content" type="VBoxContainer" parent="CommandDock/Margin"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 4
-[node name="ItemHeading" type="Button" parent="InventoryPanel/Margin/Content"]
-unique_name_in_owner = true
+
+[node name="CommandHeader" type="HBoxContainer" parent="CommandDock/Margin/Content"]
 layout_mode = 2
-text = "ACCESSIBLE ITEMS [I]  >"
-alignment = 0
-[node name="ItemScroll" type="ScrollContainer" parent="InventoryPanel/Margin/Content"]
-layout_mode = 2
-size_flags_vertical = 3
-horizontal_scroll_mode = 0
-[node name="Items" type="VBoxContainer" parent="InventoryPanel/Margin/Content/ItemScroll"]
+theme_override_constants/separation = 8
+[node name="CommandTitle" type="Label" parent="CommandDock/Margin/Content/CommandHeader"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-visible = false
+text = "COMMAND"
+[node name="DockAPLabel" type="Label" parent="CommandDock/Margin/Content/CommandHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "AP 00/12"
+[node name="DockCPLabel" type="Label" parent="CommandDock/Margin/Content/CommandHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "CP 00"
+[node name="DockEndTurnButton" type="Button" parent="CommandDock/Margin/Content/CommandHeader"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 30)
+layout_mode = 2
+text = "END TURN"
+
+[node name="APPips" type="HBoxContainer" parent="CommandDock/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="ResourceRow" type="HBoxContainer" parent="CommandDock/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 8
+[node name="StanceLabel" type="Label" parent="CommandDock/Margin/Content/ResourceRow"]
+layout_mode = 2
+text = "STANCE"
+[node name="StanceBar" type="ProgressBar" parent="CommandDock/Margin/Content/ResourceRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(86, 11)
+layout_mode = 2
+size_flags_horizontal = 3
+show_percentage = false
+[node name="DockStanceValue" type="Label" parent="CommandDock/Margin/Content/ResourceRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "12/12"
+[node name="PostureChip" type="Label" parent="CommandDock/Margin/Content/ResourceRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "STANDING"
+[node name="BurdenLabel" type="Label" parent="CommandDock/Margin/Content/ResourceRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "KINETIC FLUID 0"
+
+[node name="CPRow" type="HBoxContainer" parent="CommandDock/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 4
+[node name="CPTitle" type="Label" parent="CommandDock/Margin/Content/CPRow"]
+layout_mode = 2
+text = "CP"
+[node name="CPPips" type="HBoxContainer" parent="CommandDock/Margin/Content/CPRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+[node name="CommandHint" type="Label" parent="CommandDock/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+autowrap_mode = 2
+text = "Select a sector or actor to inspect."
+
+[node name="ItemHeading" type="Button" parent="CommandDock/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "HANDS & QUICK ACCESS  >"
+alignment = 0
+
+[node name="ItemScroll" type="ScrollContainer" parent="CommandDock/Margin/Content"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 54)
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Items" type="HBoxContainer" parent="CommandDock/Margin/Content/ItemScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
 
 [node name="HexPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 z_index = 20
+visible = false
 layout_mode = 0
 offset_left = 840.0
-offset_top = 58.0
+offset_top = 54.0
 offset_right = 1140.0
-offset_bottom = 258.0
+offset_bottom = 242.0
+
 [node name="Margin" type="MarginContainer" parent="HexPanel"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 9
+theme_override_constants/margin_top = 7
+theme_override_constants/margin_right = 9
+theme_override_constants/margin_bottom = 7
 [node name="InspectorScroll" type="ScrollContainer" parent="HexPanel/Margin"]
 layout_mode = 2
 [node name="Content" type="VBoxContainer" parent="HexPanel/Margin/InspectorScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 5
+theme_override_constants/separation = 4
 [node name="HexHeading" type="Label" parent="HexPanel/Margin/InspectorScroll/Content"]
 layout_mode = 2
-text = "BATTLE SITE"
+text = "SECTOR CONTEXT"
 [node name="HexTitle" type="Label" parent="HexPanel/Margin/InspectorScroll/Content"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "ENCOUNTER"
+text = "SECTOR"
 [node name="HexSummary" type="Label" parent="HexPanel/Margin/InspectorScroll/Content"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 2
 [node name="HexDetails" type="RichTextLabel" parent="HexPanel/Margin/InspectorScroll/Content"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(270, 100)
+custom_minimum_size = Vector2(270, 80)
 layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
@@ -264,102 +399,128 @@ visible = false
 unique_name_in_owner = true
 layout_mode = 2
 
-
 [node name="Right" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 z_index = 20
+visible = false
 layout_mode = 0
-offset_left = 820.0
-offset_top = 300.0
+offset_left = 900.0
+offset_top = 330.0
 offset_right = 1140.0
-offset_bottom = 708.0
+offset_bottom = 500.0
+
 [node name="RightMargin" type="MarginContainer" parent="Right"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 9
+theme_override_constants/margin_top = 7
+theme_override_constants/margin_right = 9
+theme_override_constants/margin_bottom = 7
 [node name="InspectorScroll" type="ScrollContainer" parent="Right/RightMargin"]
 layout_mode = 2
 horizontal_scroll_mode = 0
 [node name="RightContent" type="VBoxContainer" parent="Right/RightMargin/InspectorScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 5
+theme_override_constants/separation = 3
 [node name="TargetHeading" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "HOSTILE CONDITION"
-visible = false
+text = "ENTITY"
 [node name="TargetName" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "ENEMY"
+text = "ACTOR"
+[node name="TargetRelationship" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "HOSTILE"
 [node name="TargetSummary" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 2
+[node name="TargetIntent" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "INTENT HOLDING"
+[node name="TargetPosture" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "STANDING"
+[node name="TargetStance" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "STANCE STEADY"
+[node name="TargetCondition" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "CONDITION STABLE"
+[node name="TargetWeapon" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "WEAPON UNARMED"
 [node name="TargetBody" type="Control" parent="Right/RightMargin/InspectorScroll/RightContent"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(296, 210)
+custom_minimum_size = Vector2(220, 150)
 layout_mode = 2
 script = ExtResource("3_body")
 [node name="TargetVitals" type="GridContainer" parent="Right/RightMargin/InspectorScroll/RightContent"]
 unique_name_in_owner = true
 layout_mode = 2
 columns = 3
+visible = false
 [node name="TargetBloodCaption" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent/TargetVitals"]
 layout_mode = 2
 text = "BLOOD"
 [node name="TargetBloodBar" type="ProgressBar" parent="Right/RightMargin/InspectorScroll/RightContent/TargetVitals"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 13)
+custom_minimum_size = Vector2(90, 10)
 layout_mode = 2
 show_percentage = false
 [node name="TargetBloodValue" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent/TargetVitals"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "12/12"
+text = "--"
 [node name="TargetPainCaption" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent/TargetVitals"]
 layout_mode = 2
 text = "PAIN"
 [node name="TargetPainBar" type="ProgressBar" parent="Right/RightMargin/InspectorScroll/RightContent/TargetVitals"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 13)
+custom_minimum_size = Vector2(90, 10)
 layout_mode = 2
 show_percentage = false
 [node name="TargetPainValue" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent/TargetVitals"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "0/12"
+text = "--"
 [node name="TargetShockCaption" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent/TargetVitals"]
 layout_mode = 2
 text = "SHOCK"
 [node name="TargetShockBar" type="ProgressBar" parent="Right/RightMargin/InspectorScroll/RightContent/TargetVitals"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 13)
+custom_minimum_size = Vector2(90, 10)
 layout_mode = 2
 show_percentage = false
 [node name="TargetShockValue" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent/TargetVitals"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "0/12"
+text = "--"
 [node name="TargetConsciousnessCaption" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent/TargetVitals"]
 layout_mode = 2
 text = "AWARE"
 [node name="TargetConsciousnessBar" type="ProgressBar" parent="Right/RightMargin/InspectorScroll/RightContent/TargetVitals"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 13)
+custom_minimum_size = Vector2(90, 10)
 layout_mode = 2
 show_percentage = false
 [node name="TargetConsciousnessValue" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent/TargetVitals"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "12/12"
+text = "--"
 [node name="WoundHeading" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "WOUNDS"
+text = "OBSERVABLE DAMAGE"
+visible = false
 [node name="Wounds" type="VBoxContainer" parent="Right/RightMargin/InspectorScroll/RightContent"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -373,7 +534,7 @@ unique_name_in_owner = true
 layout_mode = 2
 [node name="TargetLabel" type="RichTextLabel" parent="Right/RightMargin/InspectorScroll/RightContent"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(296, 62)
+custom_minimum_size = Vector2(210, 40)
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
@@ -384,18 +545,18 @@ z_index = 35
 visible = false
 layout_mode = 0
 offset_left = 780.0
-offset_top = 64.0
+offset_top = 54.0
 offset_right = 1140.0
-offset_bottom = 700.0
+offset_bottom = 620.0
 [node name="Margin" type="MarginContainer" parent="AimTargetPanel"]
 layout_mode = 2
-theme_override_constants/margin_left = 12
-theme_override_constants/margin_top = 10
-theme_override_constants/margin_right = 12
-theme_override_constants/margin_bottom = 10
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
 [node name="Content" type="VBoxContainer" parent="AimTargetPanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 7
+theme_override_constants/separation = 5
 [node name="AimTitle" type="Label" parent="AimTargetPanel/Margin/Content"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -403,19 +564,19 @@ text = "SELECT BODY REGION"
 [node name="AimHint" type="Label" parent="AimTargetPanel/Margin/Content"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Choose a region, review the forecast, then confirm here."
 autowrap_mode = 2
+text = "Choose a region, review the quote, then confirm."
 [node name="AimTargetBody" type="Control" parent="AimTargetPanel/Margin/Content"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(332, 280)
+custom_minimum_size = Vector2(300, 230)
 layout_mode = 2
 size_flags_vertical = 3
 script = ExtResource("3_body")
 [node name="AimForecast" type="Label" parent="AimTargetPanel/Margin/Content"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "SELECT A REGION"
 autowrap_mode = 2
+text = "SELECT A REGION"
 [node name="AimFeedback" type="Label" parent="AimTargetPanel/Margin/Content"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -425,12 +586,12 @@ layout_mode = 2
 alignment = 2
 [node name="AimCancelButton" type="Button" parent="AimTargetPanel/Margin/Content/AimConfirmation"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(100, 38)
+custom_minimum_size = Vector2(92, 34)
 layout_mode = 2
 text = "CANCEL"
 [node name="AimConfirmButton" type="Button" parent="AimTargetPanel/Margin/Content/AimConfirmation"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(120, 38)
+custom_minimum_size = Vector2(108, 34)
 layout_mode = 2
 text = "CONFIRM"
 disabled = true
@@ -438,9 +599,10 @@ disabled = true
 [node name="ContextMenu" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 z_index = 40
-custom_minimum_size = Vector2(280, 0)
+visible = false
+custom_minimum_size = Vector2(300, 0)
 layout_mode = 0
-offset_right = 280.0
+offset_right = 300.0
 offset_bottom = 260.0
 [node name="ContextMargin" type="MarginContainer" parent="ContextMenu"]
 layout_mode = 2
@@ -450,19 +612,19 @@ theme_override_constants/margin_right = 9
 theme_override_constants/margin_bottom = 8
 [node name="ContextContent" type="VBoxContainer" parent="ContextMenu/ContextMargin"]
 layout_mode = 2
-theme_override_constants/separation = 5
+theme_override_constants/separation = 4
 [node name="ContextTitle" type="Label" parent="ContextMenu/ContextMargin/ContextContent"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "TARGET"
+text = "CONTEXT"
 [node name="ContextHint" type="Label" parent="ContextMenu/ContextMargin/ContextContent"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 2
 [node name="ContextScroll" type="ScrollContainer" parent="ContextMenu/ContextMargin/ContextContent"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(262, 36)
-custom_maximum_size = Vector2(-1, 280)
+custom_minimum_size = Vector2(282, 36)
+custom_maximum_size = Vector2(-1, 190)
 layout_mode = 2
 horizontal_scroll_mode = 0
 [node name="ContextActions" type="VBoxContainer" parent="ContextMenu/ContextMargin/ContextContent/ContextScroll"]
@@ -472,8 +634,8 @@ size_flags_horizontal = 3
 [node name="ForecastLabel" type="Label" parent="ContextMenu/ContextMargin/ContextContent"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "CHOOSE AN ACTION"
 autowrap_mode = 2
+text = "CHOOSE AN ACTION"
 [node name="FeedbackLabel" type="Label" parent="ContextMenu/ContextMargin/ContextContent"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -484,33 +646,27 @@ layout_mode = 2
 alignment = 2
 [node name="CancelButton" type="Button" parent="ContextMenu/ContextMargin/ContextContent/LocalConfirmation"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(92, 36)
+custom_minimum_size = Vector2(86, 34)
 layout_mode = 2
 text = "CANCEL"
 [node name="ConfirmButton" type="Button" parent="ContextMenu/ContextMargin/ContextContent/LocalConfirmation"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(108, 36)
+custom_minimum_size = Vector2(104, 34)
 layout_mode = 2
 text = "CONFIRM"
 
 [node name="ReactionPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 z_index = 40
-layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -280.0
-offset_top = -76.0
-offset_right = 280.0
-offset_bottom = -16.0
-grow_horizontal = 2
-grow_vertical = 0
+visible = false
+layout_mode = 0
+offset_left = 350.0
+offset_top = 430.0
+offset_right = 840.0
+offset_bottom = 490.0
 [node name="ReactionContent" type="VBoxContainer" parent="ReactionPanel"]
 layout_mode = 2
-theme_override_constants/separation = 5
+theme_override_constants/separation = 4
 [node name="ReactionTitle" type="Label" parent="ReactionPanel/ReactionContent"]
 unique_name_in_owner = true
 layout_mode = 2

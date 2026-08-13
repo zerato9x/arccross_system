@@ -6,6 +6,7 @@ const _Provider := preload("res://CombatCore/Tactical/CombatLegalRequestProvider
 const _Projection := preload("res://CombatCore/Tactical/CombatPlanningProjectionService.gd")
 const _PerceptionBuilder := preload("res://CombatCore/Tactical/CombatPerceptionBuilder.gd")
 const _Problem := preload("res://CombatCore/Tactical/CombatTacticalProblem.gd")
+const _MotiveEvaluator := preload("res://CombatCore/Tactical/CombatMotiveEvaluator.gd")
 
 const FIRST_EXPANSION_LIMIT := 12
 const SECOND_EXPANSION_LIMIT := 6
@@ -22,6 +23,8 @@ static func plan(snapshot, motive_candidate, problem, rules_state, plan_metadata
 		var request: CombatActionRequest = first_requests[index]
 		var quote: CombatActionQuote = first_quotes[index]
 		if quote == null or not quote.legal:
+			continue
+		if _reject_nonprogress(snapshot, motive_candidate, problem, request, quote, plan_metadata):
 			continue
 		var planning = _Projection.from_rules_state(rules_state, request.actor_id)
 		var projected = _Projection.apply_quote(planning, request, quote, rules_state)
@@ -50,6 +53,8 @@ static func plan(snapshot, motive_candidate, problem, rules_state, plan_metadata
 			var follow_request: CombatActionRequest = follow_generated.requests[second_index]
 			var follow_quote: CombatActionQuote = follow_generated.quotes[second_index]
 			if follow_quote == null or not follow_quote.legal:
+				continue
+			if _reject_nonprogress(projected_snapshot, motive_candidate, follow_problem, follow_request, follow_quote, plan_metadata):
 				continue
 			var follow_planning = _Projection.apply_quote(projected, follow_request, follow_quote, projected_rules)
 			if follow_planning.signature == projected.signature:
@@ -128,3 +133,47 @@ static func _request_ai_tags(request: CombatActionRequest) -> Array:
 		return []
 	var tags: Variant = request.metadata.get("ai_tags", [])
 	return tags.duplicate() if tags is Array else []
+
+
+static func _reject_nonprogress(snapshot, motive_candidate, problem, request: CombatActionRequest, quote: CombatActionQuote, plan_metadata: Dictionary) -> bool:
+	if request == null or quote == null or snapshot == null:
+		return false
+	if request.action_id != "move":
+		return false
+	var current: Vector2i = snapshot.actor.get("sector", Vector2i(-1, -1))
+	var destination: Vector2i = quote.projected_origin
+	if current == destination:
+		return true
+	var recent: Array = plan_metadata.get("recent_sectors", [])
+	if recent.size() >= 2:
+		var last_sector: Vector2i = recent[recent.size() - 1]
+		var prior_sector: Vector2i = recent[recent.size() - 2]
+		if current == last_sector and destination == prior_sector:
+			return true
+	var motive := _MotiveEvaluator.normalize_motive(str(motive_candidate.motive))
+	if motive == "EXIT" or motive == "SURVIVE":
+		var current_exit := _nearest_exit_distance(snapshot.exits, current)
+		var destination_exit := _nearest_exit_distance(snapshot.exits, destination)
+		if current_exit < 999 and destination_exit >= current_exit:
+			return true
+	var subject_id := str(motive_candidate.subject_id)
+	var observed = snapshot.known_actors.get(subject_id)
+	if observed != null and observed.sector != Vector2i(-1, -1) and str(problem.problem_id) in [_Problem.NEED_ENGAGE, _Problem.NEED_RANGE, _Problem.NEED_LINE_OF_FIRE, _Problem.NEED_POSITION]:
+		var current_distance := _grid_distance(current, observed.sector)
+		var destination_distance := _grid_distance(destination, observed.sector)
+		if destination_distance >= current_distance:
+			return true
+	return false
+
+
+static func _nearest_exit_distance(exits: Dictionary, coords: Vector2i) -> int:
+	if exits.is_empty() or coords == Vector2i(-1, -1):
+		return 999
+	var best := 999
+	for exit_data in exits.values():
+		best = mini(best, _grid_distance(coords, exit_data.get("coords", Vector2i(-1, -1))))
+	return best
+
+
+static func _grid_distance(left: Vector2i, right: Vector2i) -> int:
+	return absi(left.x - right.x) + absi(left.y - right.y)

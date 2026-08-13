@@ -46,7 +46,9 @@ func set_actor_snapshot(value: Dictionary) -> void:
 	actor_snapshot = value.duplicate(true)
 	if is_instance_valid(_paper_doll):
 		var equipment: Array = []
-		for descriptor in actor_snapshot.get("items", []):
+		for descriptor in actor_snapshot.get("equipment", actor_snapshot.get("items", [])):
+			if not descriptor is Dictionary:
+				continue
 			if int(descriptor.get("equipment_slot", GameEnums.EquipmentSlot.NONE)) != GameEnums.EquipmentSlot.NONE:
 				equipment.append(descriptor)
 		_paper_doll.update_model(equipment)
@@ -78,11 +80,13 @@ func _layout() -> void:
 func _draw() -> void:
 	_region_rects.clear()
 	var functions: Dictionary = actor_snapshot.get("region_function", {})
+	var qualitative_only := bool(actor_snapshot.get("qualitative_only", false))
 	var scale_y := size.y / 330.0
 	for entry in DISPLAY_REGIONS:
 		var region := int(entry.region)
 		var function := _function_value(functions, entry)
-		var ratio := clampf(function / GameEnums.SCALE_MAX, 0.0, 1.0)
+		var function_band := _function_band(functions, entry)
+		var ratio := _band_ratio(function_band) if qualitative_only else clampf(function / GameEnums.SCALE_MAX, 0.0, 1.0)
 		var color := _function_color(ratio)
 		var row_width := clampf(size.x * 0.29, 76.0, 98.0)
 		var x := 5.0 if str(entry.side) == "left" else size.x - row_width - 5.0
@@ -95,10 +99,10 @@ func _draw() -> void:
 		draw_rect(Rect2(bar_rect.position + Vector2.ONE, Vector2((bar_rect.size.x - 2.0) * ratio, 8.0)), color, true)
 		var selected := region == selected_region or int(entry.get("paired", -1)) == selected_region
 		draw_rect(bar_rect, Color("f2d37c") if selected else Color("65716e"), false, 1.5)
-		draw_string(ThemeDB.fallback_font, rect.position + Vector2(0.0, 30.0), "%d/12%s" % [
-			roundi(function),
-			" · WOUND" if _region_has_wound(region, int(entry.get("paired", -1))) else "",
-		], HORIZONTAL_ALIGNMENT_LEFT, row_width, 9, color)
+		var condition_text := function_band.to_upper() if qualitative_only else "%d/12" % roundi(function)
+		if _region_has_wound(region, int(entry.get("paired", -1))):
+			condition_text += "  // WOUND"
+		draw_string(ThemeDB.fallback_font, rect.position + Vector2(0.0, 30.0), condition_text, HORIZONTAL_ALIGNMENT_LEFT, row_width, 9, color)
 
 
 func _on_gui_input(event: InputEvent) -> void:
@@ -152,12 +156,58 @@ func _on_gui_input(event: InputEvent) -> void:
 func _function_value(functions: Dictionary, entry: Dictionary) -> float:
 	var region := int(entry.region)
 	var key := str(GameEnums.LimbRegion.keys()[region]).to_lower()
-	var value := float(functions.get(key, functions.get(region, GameEnums.SCALE_MAX)))
+	var raw_value: Variant = functions.get(key, functions.get(region, GameEnums.SCALE_MAX))
+	var value := _band_value(str(raw_value)) if raw_value is String else float(raw_value)
 	var paired := int(entry.get("paired", -1))
 	if paired >= 0:
 		var paired_key := str(GameEnums.LimbRegion.keys()[paired]).to_lower()
-		value = minf(value, float(functions.get(paired_key, functions.get(paired, GameEnums.SCALE_MAX))))
+		var raw_paired: Variant = functions.get(paired_key, functions.get(paired, GameEnums.SCALE_MAX))
+		var paired_value := _band_value(str(raw_paired)) if raw_paired is String else float(raw_paired)
+		value = minf(value, paired_value)
 	return value
+
+
+func _function_band(functions: Dictionary, entry: Dictionary) -> String:
+	var region := int(entry.region)
+	var key := str(GameEnums.LimbRegion.keys()[region]).to_lower()
+	var raw_value: Variant = functions.get(key, functions.get(region, GameEnums.SCALE_MAX))
+	var band := _raw_function_band(raw_value)
+	var paired := int(entry.get("paired", -1))
+	if paired >= 0:
+		var paired_key := str(GameEnums.LimbRegion.keys()[paired]).to_lower()
+		var paired_raw: Variant = functions.get(paired_key, functions.get(paired, GameEnums.SCALE_MAX))
+		band = _worse_band(band, _raw_function_band(paired_raw))
+	return band
+
+
+func _raw_function_band(raw_value: Variant) -> String:
+	if raw_value is String:
+		return str(raw_value).to_lower()
+	var ratio := float(raw_value) / GameEnums.SCALE_MAX
+	if ratio <= 0.0:
+		return "disabled"
+	if ratio <= 0.5:
+		return "impaired"
+	if ratio < 0.95:
+		return "wounded"
+	return "functional"
+
+
+func _worse_band(left: String, right: String) -> String:
+	var order := {"functional": 0, "wounded": 1, "impaired": 2, "disabled": 3}
+	return right if int(order.get(right, 1)) > int(order.get(left, 1)) else left
+
+
+func _band_value(band: String) -> float:
+	match band.to_lower():
+		"disabled": return 0.0
+		"impaired": return 4.0
+		"wounded": return 8.0
+		_: return GameEnums.SCALE_MAX
+
+
+func _band_ratio(band: String) -> float:
+	return clampf(_band_value(band) / GameEnums.SCALE_MAX, 0.0, 1.0)
 
 
 func _function_color(ratio: float) -> Color:

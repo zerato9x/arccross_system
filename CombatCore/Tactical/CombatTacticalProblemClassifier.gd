@@ -3,12 +3,15 @@ class_name CombatTacticalProblemClassifier
 
 const _Problem := preload("res://CombatCore/Tactical/CombatTacticalProblem.gd")
 const _RelationshipLedger := preload("res://SystemCore/CombatRelationshipLedger.gd")
+const _MotiveEvaluator := preload("res://CombatCore/Tactical/CombatMotiveEvaluator.gd")
 
 
 static func classify(snapshot, hard_state, motive_candidate):
 	var problem = _Problem.new()
+	var motive := ""
 	if motive_candidate != null:
-		problem.motive = motive_candidate.motive
+		motive = _MotiveEvaluator.normalize_motive(motive_candidate.motive)
+		problem.motive = motive
 		problem.subject_type = motive_candidate.subject_type
 		problem.subject_id = motive_candidate.subject_id
 		problem.feasible = motive_candidate.feasible
@@ -17,27 +20,27 @@ static func classify(snapshot, hard_state, motive_candidate):
 		problem.reason_tags.append("infeasible_subject")
 		return problem
 	var tags: Array = _hard_tags(hard_state)
-	if "INACTIVE" in tags or ("BROKEN" in tags and motive_candidate.motive not in ["SURVIVE", "SUBMIT", "DEESCALATE"]):
+	if "INACTIVE" in tags or ("BROKEN" in tags and motive not in ["SURVIVE", "EXIT", "COMMUNICATE"]):
 		problem.problem_id = _Problem.NO_LEGAL_ACTION
 		problem.terminal = true
 		problem.reason_tags.append("terminal_state")
 		return problem
-	if motive_candidate.motive == "ESCAPE" and "ENGAGED" in tags:
+	if motive == "EXIT" and "ENGAGED" in tags:
 		return _finish(problem, _Problem.NEED_BREAK_ENGAGEMENT, "engaged_escape")
-	if motive_candidate.motive in ["SURVIVE", "ESCAPE"]:
+	if motive in ["SURVIVE", "EXIT"]:
 		if "CRITICAL" in tags or "THREATENED" in tags:
 			return _finish(problem, _Problem.NEED_RETREAT, "survival_pressure")
 		return _finish(problem, _Problem.READY, "stable_survival")
-	if motive_candidate.motive in ["HOLD"]:
+	if motive == "HOLD":
 		return _finish(problem, _Problem.NEED_COVER if "EXPOSED" in tags else _Problem.READY, "hold_position")
-	if motive_candidate.motive in ["PROTECT", "SUPPORT"]:
+	if motive == "SUPPORT":
 		var support_target = snapshot.known_actors.get(motive_candidate.subject_id)
 		if support_target == null or str(support_target.knowledge_state) == "unknown":
 			return _finish(problem, _Problem.NEED_POSITION, "subject_not_observable")
 		return _finish(problem, _Problem.READY, "support_subject_observable")
-	if motive_candidate.motive in ["SUBMIT", "DEESCALATE"]:
+	if motive == "COMMUNICATE":
 		return _finish(problem, _Problem.READY, "communication_or_surrender")
-	if motive_candidate.motive in ["ATTACK", "PRESSURE", "PURSUE"]:
+	if motive == "ATTACK":
 		return _attack_problem(snapshot, problem)
 	return _finish(problem, _Problem.NO_LEGAL_ACTION, "motive_without_problem_classifier")
 

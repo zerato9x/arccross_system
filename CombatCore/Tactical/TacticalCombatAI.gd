@@ -70,6 +70,10 @@ func configure(
 		if behavior_profile != null and behavior_profile.has_method("combat_projection")
 		else {}
 	)
+	if behavior_state != null:
+		behavior_projection["recent_sectors"] = behavior_state.recent_sectors.duplicate()
+		behavior_projection["recent_action_signatures"] = behavior_state.recent_action_signatures.duplicate()
+		behavior_projection["recent_problem_signatures"] = behavior_state.recent_problem_signatures.duplicate()
 	var memory: Dictionary = behavior_state.decision_memory if behavior_state != null else {}
 	_intent_revision = maxi(_intent_revision, int(behavior_state.last_intent_revision if behavior_state != null else memory.get("last_intent_revision", 0)))
 	if not turn_manager.turn_started.is_connected(_on_turn_started):
@@ -456,20 +460,28 @@ func _persist_decision_memory(intent, outcome: CombatActionOutcome, trace) -> vo
 	memory["last_target_id"] = intent.target_actor_id
 	memory["last_committed"] = outcome != null and outcome.committed
 	memory["last_round"] = turn_manager.current_round
+	behavior_state.motive_revision = intent.intent_revision
+	behavior_state.commitment_subject_id = intent.subject_id if intent.subject_type == "actor" else behavior_state.commitment_subject_id
+	var current_rules: CombatRulesState = controller.rules_state_snapshot()
+	var current_sector: Vector2i = current_rules.actor(_actor_id(actor)).get("sector", Vector2i(-1, -1)) if current_rules != null else Vector2i(-1, -1)
+	behavior_state.remember_decision(
+		current_sector,
+		"%s|%s" % [outcome.action_id if outcome != null else "end_turn", intent.target_actor_id],
+		intent.tactical_problem
+	)
+	behavior_projection["recent_sectors"] = behavior_state.recent_sectors.duplicate()
+	behavior_projection["recent_action_signatures"] = behavior_state.recent_action_signatures.duplicate()
+	behavior_projection["recent_problem_signatures"] = behavior_state.recent_problem_signatures.duplicate()
 	behavior_state.decision_memory = memory
 	behavior_state.last_decision_trace = trace.compact_summary()
 	actor.set_meta("npc_behavior_state", behavior_state.to_dict())
 
 
 func _progress_signature() -> String:
-	var tactical_state := board.combat_state(actor) if board != null else null
-	return "%d|%d|%.3f|%s|%d" % [
-		turn_manager.current_ap_pool,
-		board.position_of(actor) if board != null else -1,
-		tactical_state.stance if tactical_state != null else 0.0,
-		str(actor.get_meta("combat_surrendered", false)),
-		controller.combat_revision if controller != null else -1,
-	]
+	if controller == null:
+		return ""
+	var rules_state = controller.rules_state_snapshot()
+	return rules_state.canonical_progress_fingerprint() if rules_state != null else ""
 
 
 func _actor_id(value: HumanoidCore) -> String:

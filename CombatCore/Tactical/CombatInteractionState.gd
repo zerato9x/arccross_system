@@ -13,23 +13,6 @@ enum Phase {
 	ACTION_PREVIEW = 6,
 	CONFIRMATION = 7,
 	PRESENTING = 8,
-	# Read-only compatibility aliases. New transitions use the explicit phases.
-	NAVIGATION = INSPECTING,
-	BUMP_MENU = ACTION_MENU,
-	MOVE_PREVIEW = ROUTE_PREVIEW,
-	TARGET_MENU = ACTION_MENU,
-	AIMING = ACTION_PREVIEW,
-	WEAPON_MENU = ACTION_MENU,
-	SELF_MENU = ACTION_MENU,
-	OBJECT_MENU = ACTION_MENU,
-	SELECTED = INSPECTING,
-	TARGETING = ACTION_PREVIEW,
-	STAGED_PREVIEW = ACTION_PREVIEW,
-	LOCAL_CONFIRMATION = CONFIRMATION,
-	CONTEXT_MENU = ROOT_MENU,
-	COMMUNICATION = COMMUNICATION_MENU,
-	INVENTORY = ACTION_MENU,
-	REACTION = PRESENTING,
 }
 
 var phase: Phase = Phase.IDLE
@@ -119,12 +102,12 @@ func cancel_one_step() -> void:
 			active_branch = ""
 			phase = Phase.ROOT_MENU
 		Phase.ROOT_MENU:
-			phase = Phase.ROUTE_PREVIEW if not route_path.is_empty() else Phase.NAVIGATION
+			phase = Phase.ROUTE_PREVIEW if not route_path.is_empty() else Phase.INSPECTING
 		Phase.ROUTE_PREVIEW:
 			route_path.clear()
 			projected_origin = selected_sector
-			phase = Phase.NAVIGATION
-		Phase.NAVIGATION:
+			phase = Phase.INSPECTING
+		Phase.INSPECTING:
 			clear()
 		_:
 			clear()
@@ -160,4 +143,27 @@ func capture_selection() -> Dictionary:
 		"body_region": selected_body_region,
 		"shove_direction": selected_shove_direction,
 		"declared_neutral_attack_confirmation": declared_neutral_attack_confirmation,
+	}
+
+
+func to_dict() -> Dictionary:
+	return {
+		"phase": int(phase),
+		"controlled_actor_id": controlled_actor_id,
+		"selected_kind": selected_kind,
+		"selected_actor_id": selected_actor_id,
+		"selected_sector": selected_sector,
+		"selected_item_id": selected_item_id,
+		"selected_wound_id": selected_wound_id,
+		"selected_body_region": selected_body_region,
+		"selected_shove_direction": selected_shove_direction,
+		"declared_neutral_attack_confirmation": declared_neutral_attack_confirmation,
+		"staged_action_id": staged_action_id,
+		"route_path": route_path.duplicate(),
+		"projected_origin": projected_origin,
+		"bumped_actor_id": bumped_actor_id,
+		"highlighted_action_index": highlighted_action_index,
+		"active_branch": active_branch,
+		"current_quote": current_quote.to_dict() if current_quote != null else {},
+		"pending_request": pending_request.to_dict() if pending_request != null else {},
 	}

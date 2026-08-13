@@ -1,7 +1,6 @@
 extends Control
 class_name TacticalArenaView
 
-signal sector_selected(coords: Vector2i)
 signal inspect_requested(coords: Vector2i, actor_id: String)
 signal context_requested(coords: Vector2i, actor_id: String)
 signal sector_hovered(coords: Vector2i)
@@ -12,8 +11,13 @@ const TOKEN_RADIUS := 22.0
 const CAMERA_ZOOM_MIN := 1.0
 const CAMERA_ZOOM_MAX := 2.25
 const CAMERA_ZOOM_STEP := 0.15
+const CAMERA_CINEMATIC_MAX := 1.18
+const CAMERA_TRANSITION_SECONDS := 0.32
 const HUMANOID_TOKEN_SCENE := PresentationSceneRegistry.HUMANOID_TOKEN_SCENE
 const TOKEN_OVERLAY_SCRIPT := preload("res://CombatCore/Tactical/CombatTokenOverlay.gd")
+const CAMERA_DIRECTOR_SCRIPT := preload("res://CombatCore/Tactical/CombatCameraDirector.gd")
+const RELATIONSHIP_LEDGER := preload("res://SystemCore/CombatRelationshipLedger.gd")
+const DIALOGUE_BUBBLE_SCRIPT := preload("res://CombatCore/Tactical/CombatDialogueBubble.gd")
 const BULLET_TEXTURE := preload("res://Asset/Guns_Animation/Bullet.png")
 const VISUAL_PROFILE = preload(
 	"res://CombatCore/Tactical/readable_moody_visual_profile.tres"
@@ -47,6 +51,8 @@ var _view_pan := Vector2.ZERO
 var _is_panning := false
 var _pan_anchor := Vector2.ZERO
 var _camera_safe_rect := Rect2()
+var _world_layer: Node2D
+var _camera_motion_tween: Tween
 var _projectile_trail: Line2D
 var _projectile_sprite: Sprite2D
 var _projectile_start := Vector2.ZERO
@@ -56,15 +62,30 @@ var _projectile_active := false
 var _blood_vfx: Array[Dictionary] = []
 var _blood_texture_cache: Dictionary = {}
 var _blood_frame_count_cache: Dictionary = {}
+var _camera_director: CombatCameraDirector
+var _dialogue_bubble: CombatDialogueBubble
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
 	set_process(false)
+	_world_layer = Node2D.new()
+	_world_layer.name = "CombatWorldLayer"
+	add_child(_world_layer)
+	_camera_director = CAMERA_DIRECTOR_SCRIPT.new() as CombatCameraDirector
+	_camera_director.configure(self)
+	_dialogue_bubble = DIALOGUE_BUBBLE_SCRIPT.new() as CombatDialogueBubble
+	_dialogue_bubble.name = "CombatDialogueBubble"
+	_dialogue_bubble.z_index = 60
+	_dialogue_bubble.visible = false
+	_world_layer.add_child(_dialogue_bubble)
+	_apply_world_transform()
 	gui_input.connect(_on_gui_input)
 	mouse_exited.connect(_on_mouse_exited)
 	resized.connect(func() -> void:
+		_clamp_camera_pan()
+		_apply_world_transform()
 		queue_redraw()
 		_sync_actor_tokens()
 	)
@@ -140,17 +161,37 @@ func clear_presentation() -> void:
 	_cue_progress = 0.0
 	_sequence = null
 	_sequence_weapon_cue = null
-	scale = Vector2.ONE
+	clear_dialogue()
 	queue_redraw()
+
+
+func show_dialogue(payload: Dictionary) -> void:
+	if _dialogue_bubble == null or payload.is_empty():
+		return
+	var actor_id := str(payload.get("actor_id", ""))
+	var token := _actor_tokens.get(actor_id) as HumanoidTokenView
+	if token == null:
+		return
+	_dialogue_bubble.position = token.position
+	_dialogue_bubble.configure(payload)
+	_dialogue_bubble.visible = true
+
+
+func clear_dialogue() -> void:
+	if _dialogue_bubble != null:
+		_dialogue_bubble.visible = false
+		_dialogue_bubble.payload.clear()
 
 
 func begin_sequence(sequence: CombatPresentationSequence) -> void:
 	_sequence = sequence
+	if _camera_director != null:
+		_camera_director.begin_sequence(sequence)
 	_sequence_weapon_cue = null
 	if sequence == null:
 		return
 	for candidate in sequence.cues:
-		if _is_firearm_cue(candidate):
+		if _is_weapon_cue(candidate):
 			_sequence_weapon_cue = candidate
 			break
 	if _sequence_weapon_cue == null:
@@ -167,6 +208,8 @@ func begin_sequence(sequence: CombatPresentationSequence) -> void:
 
 
 func end_sequence(_sequence_value: CombatPresentationSequence) -> void:
+	if _camera_director != null:
+		_camera_director.end_sequence(_sequence_value)
 	clear_presentation()
 
 
@@ -177,6 +220,7 @@ func select_sector(coords: Vector2i) -> void:
 
 
 func reset_camera_view() -> void:
+	_cancel_camera_motion()
 	_view_zoom = CAMERA_ZOOM_MIN
 	_view_pan = Vector2.ZERO
 	_refresh_camera_geometry()
@@ -193,43 +237,110 @@ func camera_pan() -> Vector2:
 func set_camera_safe_rect(value: Rect2) -> void:
 	_camera_safe_rect = value
 	_clamp_camera_pan()
-	_refresh_camera_geometry()
+	_apply_world_transform()
+	# The safe rect changes the logical cell size. Refresh token presentation
+	# here so actor art remains authored relative to the cell instead of keeping
+	# the scale computed during the pre-layout frame.
+	_sync_actor_tokens()
+	queue_redraw()
+
+
+func set_camera_transform(zoom_value: float, pan_value: Vector2) -> void:
+	_cancel_camera_motion()
+	_view_zoom = clampf(zoom_value, CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX)
+	_view_pan = pan_value
+	_clamp_camera_pan()
+	_apply_world_transform()
+	queue_redraw()
+
+
+func animate_camera_transform(zoom_value: float, pan_value: Vector2, duration: float = CAMERA_TRANSITION_SECONDS) -> void:
+	var target_zoom := clampf(zoom_value, CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX)
+	var target_pan := pan_value
+	var old_zoom := _view_zoom
+	var old_pan := _view_pan
+	_cancel_camera_motion()
+	if duration <= 0.0 or not is_inside_tree():
+		_view_zoom = target_zoom
+		_view_pan = target_pan
+		_clamp_camera_pan()
+		_apply_world_transform()
+		queue_redraw()
+		return
+	_camera_motion_tween = create_tween()
+	_camera_motion_tween.set_trans(Tween.TRANS_QUAD)
+	_camera_motion_tween.set_ease(Tween.EASE_IN_OUT)
+	_camera_motion_tween.tween_method(
+		_set_camera_interpolation.bind(old_zoom, old_pan, target_zoom, target_pan),
+		0.0,
+		1.0,
+		duration
+	)
+	_camera_motion_tween.tween_callback(func() -> void:
+		_camera_motion_tween = null
+	)
+
+
+func frame_cinematic_cue(cue: CombatPresentationCue) -> void:
+	if cue == null:
+		return
+	var actor_point := _actor_position(cue.actor_id, cue.start_sector)
+	var target_point := actor_point
+	if not cue.target_actor_id.is_empty():
+		target_point = _actor_position(cue.target_actor_id, cue.end_sector)
+	elif cue.end_sector != cue.start_sector and _contains(cue.end_sector):
+		target_point = sector_center(cue.end_sector)
+	var focus_point := actor_point.lerp(target_point, 0.5)
+	var span := maxf(220.0, actor_point.distance_to(target_point) + 240.0)
+	var safe := _camera_safe_rect if _camera_safe_rect.size.x > 0.0 and _camera_safe_rect.size.y > 0.0 else Rect2(Vector2.ZERO, size)
+	var required_zoom := clampf(minf(safe.size.x, safe.size.y) / span, CAMERA_ZOOM_MIN, CAMERA_CINEMATIC_MAX)
+	# Cinematic framing may gently zoom out to fit a long action, but never
+	# zooms in on a short marker. That keeps manual scale stable and removes the
+	# rapid focus/impact/focus-out lurch that made the old presentation nauseous.
+	var desired_zoom := minf(_view_zoom, required_zoom)
+	var desired_pan := _camera_pan_for_focus(focus_point, desired_zoom)
+	animate_camera_transform(desired_zoom, desired_pan)
 
 
 func begin_cue(cue: CombatPresentationCue) -> void:
 	_cue = cue
 	_cue_progress = 0.0
 	_last_path_segment = -1
-	scale = Vector2.ONE
-	pivot_offset = sector_center(cue.end_sector) if _contains(cue.end_sector) else size * 0.5
+	if _camera_director != null:
+		_camera_director.begin_cue(cue)
 	var token := _actor_tokens.get(cue.actor_id) as HumanoidTokenView
 	var target_token := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
 	if token != null:
 		token.position = _presentation_positions.get(cue.actor_id, _actor_position(cue.actor_id, cue.start_sector))
 		token.scale = Vector2.ONE
 		token.rotation = 0.0
-		var facing_vector := _facing_vector(cue.facing)
-		if cue.facing.is_empty() and cue.start_sector != cue.end_sector:
-			facing_vector = sector_center(cue.start_sector).direction_to(sector_center(cue.end_sector))
-		token.face_direction(facing_vector)
-	if cue.phase_id == "reaction":
+		var facing_id := cue.facing
+		if facing_id.is_empty() and cue.start_sector != cue.end_sector:
+			facing_id = _facing_between(cue.start_sector, cue.end_sector)
+		if facing_id.is_empty():
+			facing_id = str(snapshot.get("facings", {}).get(cue.actor_id, ""))
+		if not facing_id.is_empty():
+			token.face_direction(_facing_vector(facing_id))
+	var marker := cue.marker_id if not cue.marker_id.is_empty() else cue.phase_id
+	if marker == "reaction":
 		if token != null:
 			token.play_animation("Idle", true)
-	elif cue.phase_id == "impact":
+	elif marker == "impact":
 		_play_cue_animation(token, cue)
 		# Impact owns the one target animation start. Reaction is only a readable
 		# hold/settle window and must not replay the same one-shot.
 		if target_token != null and cue.target_animation_id != "neutral":
-			target_token.play_timed_one_shot(cue.target_animation_id, "Idle", maxf(0.75, cue.duration_seconds + 0.40))
+			var target_duration := float(cue.presentation_flags.get("target_animation_duration_seconds", cue.duration_seconds))
+			target_token.play_timed_one_shot(cue.target_animation_id, "Idle", target_duration)
 	else:
 		_play_cue_animation(token, cue)
 	if target_token != null:
 		target_token.position = _presentation_positions.get(cue.target_actor_id, _actor_position(cue.target_actor_id, cue.end_sector))
 		target_token.scale = Vector2.ONE
 		target_token.rotation = 0.0
-	if cue.phase_id == "transit" and cue.vfx_id == "projectile":
+	if cue.is_travel_marker() and cue.vfx_id == "projectile":
 		_begin_projectile(cue)
-	elif cue.phase_id == "impact" and _cue_has_blood(cue):
+	elif marker == "impact" and _cue_has_blood(cue):
 		_play_blood_vfx(_impact_position(cue), cue)
 	queue_redraw()
 
@@ -252,11 +363,11 @@ func update_cue(progress: float, cue: CombatPresentationCue) -> void:
 	var target_token := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
 	var start := _actor_position(cue.actor_id, cue.start_sector)
 	var finish := _actor_position(cue.actor_id, cue.end_sector)
-	if cue.phase_id == "transit" and cue.vfx_id == "projectile":
+	if cue.is_travel_marker() and cue.vfx_id == "projectile":
 		_update_projectile(progress)
 	var direction := start.direction_to(finish)
 	if token != null:
-		if cue.phase_id == "transit" and cue.moves_actor:
+		if cue.is_travel_marker() and cue.moves_actor:
 			token.position = _path_position(cue.path, progress, cue.start_sector, cue.end_sector, cue.actor_id)
 			if cue.path.size() >= 2:
 				var scaled := clampf(progress, 0.0, 1.0) * float(cue.path.size() - 1)
@@ -268,27 +379,13 @@ func update_cue(progress: float, cue: CombatPresentationCue) -> void:
 					var event_bus := get_node_or_null("/root/GameEventBus")
 					if event_bus != null:
 						event_bus.emit_humanoid_footstep(null, _surface_footstep(cue.path[segment + 1]))
-		elif cue.phase_id == "wind_up":
-			token.position = start - direction * cue.recoil_pixels * sin(progress * PI * 0.5)
-		elif cue.phase_id == "contact":
-			token.position = start + direction * cue.lunge_pixels * sin(progress * PI)
-		elif cue.phase_id == "impact" and cue.recoil_pixels > 0.0:
-			token.position = start - direction * cue.recoil_pixels * sin(progress * PI)
-	var reacts_now := cue.phase_id == "reaction" and cue.outcome_tag in ["dodge", "block"]
-	var impacts_now := cue.phase_id == "impact" and cue.outcome_tag not in ["miss", "neutral", "malfunction"]
-	if target_token != null and (reacts_now or impacts_now):
+	var impacts_now := (cue.marker_id if not cue.marker_id.is_empty() else cue.phase_id) == "impact" and cue.outcome_tag not in ["miss", "neutral", "malfunction"]
+	if target_token != null and impacts_now:
 		var target_start: Vector2 = _presentation_positions.get(cue.target_actor_id, finish)
 		var target_finish := _actor_position(cue.target_actor_id, cue.target_end_sector) if _contains(cue.target_end_sector) else target_start
-		if cue.outcome_tag == "dodge":
-			var perpendicular := Vector2(-direction.y, direction.x)
-			target_token.position = target_start + perpendicular * 18.0 * sin(progress * PI)
-		elif cue.outcome_tag not in ["miss", "neutral", "malfunction"]:
+		if cue.outcome_tag not in ["miss", "neutral", "malfunction"]:
 			var travel := target_start.lerp(target_finish, progress)
-			var shake := direction * sin(progress * cue.shake_frequency) * cue.shake_amplitude * (1.0 - progress)
-			target_token.position = travel + shake
-	if cue.phase_id in ["contact", "impact"] and cue.camera_impulse_pixels > 0.0:
-		var camera_punch := cue.camera_impulse_pixels * 0.0025 * sin(progress * PI)
-		scale = Vector2.ONE * (1.0 + camera_punch)
+			target_token.position = travel
 	queue_redraw()
 
 
@@ -296,30 +393,35 @@ func end_cue(cue: CombatPresentationCue) -> void:
 	if cue == _cue:
 		var token := _actor_tokens.get(cue.actor_id) as HumanoidTokenView
 		var target_token := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
-		if cue.phase_id == "transit" and cue.moves_actor:
+		if cue.is_travel_marker() and cue.moves_actor:
 			_presentation_positions[cue.actor_id] = _actor_position(cue.actor_id, cue.end_sector)
-		if cue.phase_id == "impact" and target_token != null and _contains(cue.target_end_sector):
+		if (cue.marker_id if not cue.marker_id.is_empty() else cue.phase_id) == "impact" and target_token != null and _contains(cue.target_end_sector):
 			_presentation_positions[cue.target_actor_id] = _actor_position(cue.target_actor_id, cue.target_end_sector)
 		if token != null:
 			token.position = _presentation_positions.get(cue.actor_id, _actor_position(cue.actor_id, cue.start_sector))
 			token.scale = Vector2.ONE
 			token.rotation = 0.0
-			if cue.phase_id == "transit" and cue.moves_actor:
+			if cue.is_travel_marker() and cue.moves_actor:
 				token.play_animation("Idle", true)
 		if target_token != null:
 			target_token.position = _presentation_positions.get(cue.target_actor_id, _actor_position(cue.target_actor_id, cue.end_sector))
 			target_token.scale = Vector2.ONE
 			target_token.rotation = 0.0
-		if cue.phase_id == "transit" and cue.vfx_id == "projectile":
+		if cue.is_travel_marker() and cue.vfx_id == "projectile":
 			_end_projectile()
 		_cue = null
 		_cue_progress = 0.0
-		scale = Vector2.ONE
 		queue_redraw()
 
 
 func _is_firearm_cue(cue: CombatPresentationCue) -> bool:
 	return cue != null and cue.action_id in ["fire", "aimed_fire", "reload", "cycle", "clear_malfunction"]
+
+
+func _is_weapon_cue(cue: CombatPresentationCue) -> bool:
+	if cue == null:
+		return false
+	return _is_firearm_cue(cue) or cue.action_id in ["strike", "power_strike", "shove", "incapacitate", "execute"]
 
 
 func _path_position(path: Array[Vector2i], progress: float, start: Vector2i, finish: Vector2i, actor_id: String = "") -> Vector2:
@@ -343,6 +445,7 @@ func sector_center(coords: Vector2i) -> Vector2:
 func _draw() -> void:
 	var rect := _grid_rect()
 	draw_rect(Rect2(Vector2.ZERO, size), VISUAL_PROFILE.arena_base_color, true)
+	draw_set_transform(_camera_transform_origin(), 0.0, Vector2.ONE * _view_zoom)
 	_draw_backdrop()
 	_draw_composition()
 	var sectors: Array = snapshot.get("sectors", [])
@@ -352,6 +455,7 @@ func _draw() -> void:
 	_draw_preview()
 	_draw_actors()
 	_draw_presentation()
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_backdrop() -> void:
@@ -359,15 +463,71 @@ func _draw_backdrop() -> void:
 	var path := str(composition.get("base_ground_path", snapshot.get("backdrop_asset_path", "")))
 	var texture := _texture(path)
 	if texture != null:
-		draw_texture_rect(texture, Rect2(Vector2.ZERO, size), false, VISUAL_PROFILE.backdrop_modulate)
+		var modulation: Color = composition.get("base_ground_modulation", VISUAL_PROFILE.backdrop_modulate)
+		draw_texture_rect(texture, Rect2(Vector2.ZERO, size), false, modulation)
 
 
 func _draw_composition() -> void:
 	var composition: Dictionary = snapshot.get("map_composition", {})
 	if composition.is_empty():
 		return
+	_draw_composition_layers(composition)
 	_draw_continuous_band(composition.get("water_cells", []), Color(0.10, 0.30, 0.42, 0.72), 0.88)
 	_draw_continuous_band(composition.get("road_cells", []), Color(0.32, 0.28, 0.21, 0.82), 0.62)
+	_draw_composition_landmarks(composition)
+	_draw_composition_props(composition)
+
+
+func _draw_composition_layers(composition: Dictionary) -> void:
+	var layers: Array = composition.get("layer_metadata", [])
+	for layer in layers:
+		if not layer is Dictionary:
+			continue
+		var path := str(layer.get("path", ""))
+		var texture := _texture(path)
+		if texture == null or str(layer.get("kind", "")) in ["terrain", "road", "water"]:
+			continue
+		var modulation := Color(layer.get("modulation", Color(1.0, 1.0, 1.0, 0.34)))
+		draw_texture_rect(texture, Rect2(Vector2.ZERO, size), false, modulation)
+
+
+func _draw_composition_landmarks(composition: Dictionary) -> void:
+	var landmarks: Array = composition.get("landmark_instances", [])
+	if landmarks.is_empty() and not composition.get("dominant_landmark", {}).is_empty():
+		landmarks = [composition.get("dominant_landmark", {})]
+	for landmark in landmarks:
+		if not landmark is Dictionary:
+			continue
+		var coords: Vector2i = landmark.get("coords", Vector2i(-1, -1))
+		if not _contains(coords):
+			continue
+		var center := sector_center(coords) + Vector2(landmark.get("offset", Vector2.ZERO))
+		var texture := _texture(str(landmark.get("asset_path", "")))
+		if texture != null:
+			var scale := float(landmark.get("scale", 0.72))
+			var extent := Vector2(_cell_size(_grid_rect()).y, _cell_size(_grid_rect()).y) * scale
+			draw_texture_rect(texture, Rect2(center - extent * 0.5, extent), false, Color(1.0, 1.0, 1.0, 0.92))
+		else:
+			draw_circle(center, 22.0, Color(0.68, 0.54, 0.32, 0.88))
+			draw_string(ThemeDB.fallback_font, center + Vector2(-26.0, -27.0), str(landmark.get("label", "LANDMARK")), HORIZONTAL_ALIGNMENT_CENTER, 52.0, 10, Color("f0d487"))
+
+
+func _draw_composition_props(composition: Dictionary) -> void:
+	var props: Array = composition.get("prop_instances", composition.get("props", []))
+	for prop in props:
+		if not prop is Dictionary:
+			continue
+		var coords: Vector2i = prop.get("coords", Vector2i(-1, -1))
+		if not _contains(coords):
+			continue
+		var center := sector_center(coords) + Vector2(prop.get("offset", Vector2.ZERO))
+		var texture := _texture(str(prop.get("asset_path", prop.get("sprite_path", ""))))
+		if texture != null:
+			var scale := float(prop.get("scale", 0.36))
+			var extent := Vector2(_cell_size(_grid_rect()).y, _cell_size(_grid_rect()).y) * scale
+			draw_texture_rect(texture, Rect2(center - extent * 0.5, extent), false, Color(1.0, 1.0, 1.0, 0.82))
+		else:
+			draw_circle(center, 8.0, Color(0.56, 0.48, 0.34, 0.78))
 
 
 func _draw_continuous_band(cells: Array, color: Color, width_fraction: float) -> void:
@@ -454,35 +614,21 @@ func _draw_actors() -> void:
 	return
 
 
-func _draw_vital_bar(origin: Vector2, width: float, value: float, color: Color) -> void:
-	draw_rect(Rect2(origin, Vector2(width, 5.0)), Color(0.02, 0.025, 0.028, 0.92), true)
-	draw_rect(Rect2(origin + Vector2.ONE, Vector2((width - 2.0) * clampf(value / GameEnums.SCALE_MAX, 0.0, 1.0), 3.0)), color, true)
-
-
 func _draw_presentation() -> void:
 	if _cue == null:
 		return
 	var start := sector_center(_cue.start_sector)
 	var finish := sector_center(_cue.end_sector)
-	if _cue.phase_id == "transit" and not _cue.vfx_id.is_empty() and _cue.vfx_id != "projectile":
-		var point := start.lerp(finish, _cue_progress)
-		draw_line(start, point, Color("f0d487"), 3.0, true)
-		draw_circle(point, 4.0, Color.WHITE)
-	elif _cue.phase_id == "contact" and _cue.action_id in ["fire", "aimed_fire"]:
+	var marker := _cue.marker_id if not _cue.marker_id.is_empty() else _cue.phase_id
+	if marker == "release_contact" and _cue.action_id in ["fire", "aimed_fire"]:
 		var muzzle := _projectile_start_for(_cue)
 		var flash_radius := lerpf(2.0, 8.0, _cue_progress)
 		draw_circle(muzzle, flash_radius, Color(1.0, 0.82, 0.36, _cue_progress))
 		draw_circle(muzzle + Vector2(0.0, -4.0), lerpf(2.0, 7.0, _cue_progress), Color(0.72, 0.76, 0.72, 0.24 * _cue_progress), false, 2.0)
-	elif _cue.phase_id == "impact" or (_cue.phase_id == "contact" and _cue.vfx_id != ""):
-		var impact_color := Color("e7c56c") if _cue.outcome_tag in ["block", "shield_block", "cover", "cover_impact"] else Color("ef6f52")
-		if _cue.outcome_tag == "miss":
-			impact_color = Color("8ca4a1")
-		draw_circle(finish, lerpf(8.0, 30.0, _cue_progress), Color(impact_color, 1.0 - _cue_progress), false, 4.0)
-		if _cue.outcome_tag in ["object_collision", "actor_collision", "boundary"]:
-			for index in range(5):
-				var angle := float(index) * TAU / 5.0
-				var debris := finish + Vector2.from_angle(angle) * lerpf(5.0, 24.0, _cue_progress)
-				draw_rect(Rect2(debris - Vector2(2.0, 2.0), Vector2(4.0, 4.0)), Color(0.68, 0.58, 0.43, 1.0 - _cue_progress), true)
+	elif marker == "release_contact" and _cue.vfx_id in ["melee_contact", "heavy_contact"]:
+		var hand := _projectile_start_for(_cue)
+		var contact := _impact_position(_cue)
+		draw_line(hand, hand.lerp(contact, _cue_progress), Color(0.94, 0.78, 0.44, 0.55 * (1.0 - _cue_progress)), 2.0, true)
 
 
 func _play_cue_animation(token: HumanoidTokenView, cue: CombatPresentationCue) -> void:
@@ -491,7 +637,8 @@ func _play_cue_animation(token: HumanoidTokenView, cue: CombatPresentationCue) -
 	if HumanoidVisualCatalog.animation_loops(cue.animation_id):
 		token.play_animation(cue.animation_id)
 	else:
-		token.play_timed_one_shot(cue.animation_id, "Idle", cue.duration_seconds)
+		var authored_duration := float(cue.presentation_flags.get("actor_animation_duration_seconds", cue.duration_seconds))
+		token.play_timed_one_shot(cue.animation_id, "Idle", authored_duration if authored_duration > 0.0 else cue.duration_seconds)
 
 
 func _begin_projectile(cue: CombatPresentationCue) -> void:
@@ -514,7 +661,7 @@ func _begin_projectile(cue: CombatPresentationCue) -> void:
 	_projectile_trail.texture_mode = Line2D.LINE_TEXTURE_NONE
 	_projectile_trail.antialiased = true
 	_projectile_trail.points = PackedVector2Array([start, start])
-	add_child(_projectile_trail)
+	_world_layer.add_child(_projectile_trail)
 	_projectile_sprite = Sprite2D.new()
 	_projectile_sprite.name = "ProjectileBullet"
 	_projectile_sprite.z_index = 17
@@ -525,7 +672,7 @@ func _begin_projectile(cue: CombatPresentationCue) -> void:
 	_projectile_sprite.rotation = _projectile_direction.angle()
 	_projectile_sprite.scale = PROJECTILE_BULLET_SCALE
 	_projectile_sprite.modulate = PROJECTILE_BULLET_COLOR
-	add_child(_projectile_sprite)
+	_world_layer.add_child(_projectile_sprite)
 	_projectile_active = true
 
 
@@ -617,7 +764,7 @@ func _play_blood_vfx(impact_position: Vector2, cue: CombatPresentationCue) -> vo
 	sprite.scale = Vector2.ONE * BLOOD_SCALE
 	sprite.modulate = Color(1.0, 0.92, 0.90, 0.92)
 	sprite.texture = _blood_texture(variant, 0)
-	add_child(sprite)
+	_world_layer.add_child(sprite)
 	_blood_vfx.append({
 		"sprite": sprite,
 		"variant": variant,
@@ -677,11 +824,6 @@ func _draw_cover_edges(rect: Rect2, edges: Dictionary) -> void:
 			"east": draw_line(Vector2(rect.end.x, rect.position.y), rect.end, Color("d7d0b2"), width)
 
 
-func _draw_facing(center: Vector2, facing: String, color: Color, length: float = 31.0) -> void:
-	var direction: Vector2 = {"north": Vector2.UP, "east": Vector2.RIGHT, "south": Vector2.DOWN, "west": Vector2.LEFT}.get(facing, Vector2.RIGHT)
-	draw_line(center, center + direction * length, color, minf(5.0, maxf(1.5, length * 0.18)), true)
-
-
 func _actor_side(actor_id: String) -> String:
 	for actor in get_meta("actor_snapshot", []):
 		if str(actor.get("actor_id", "")) == actor_id:
@@ -713,7 +855,7 @@ func _sync_actor_tokens() -> void:
 				token = PresentationSceneRegistry.instantiate_scene(HUMANOID_TOKEN_SCENE) as HumanoidTokenView
 				token.name = "Token_%s" % actor_id
 				token.z_index = 10
-				add_child(token)
+				_world_layer.add_child(token)
 				_actor_tokens[actor_id] = token
 				_ensure_token_overlays(token)
 			var slot_items: Dictionary = {}
@@ -726,6 +868,7 @@ func _sync_actor_tokens() -> void:
 			token.visible = true
 			token.modulate = VISUAL_PROFILE.token_modulate
 			token.position = _actor_position(actor_id, sector.coords)
+			token.scale = Vector2.ONE
 			var cell := _cell_size(_grid_rect())
 			var display_scale := clampf(minf(cell.x, cell.y) / 96.0, 0.55, 1.5)
 			token.set_display_scale(display_scale)
@@ -784,12 +927,15 @@ func _configure_token_overlays(
 		)
 	var top := token.get_meta("combat_top_overlay", null) as CombatTokenOverlay
 	if top != null:
+		var relation := _actor_relationship(actor_id)
 		top.configure_top(
 			actor,
 			maxf(34.0, footprint_width),
 			display_scale,
 			token.combat_overhead_anchor(),
-			str(snapshot.get("facings", {}).get(actor_id, "east"))
+			str(snapshot.get("facings", {}).get(actor_id, "east")),
+			_relationship_color(relation),
+			_relationship_id(relation)
 		)
 		if _sequence_weapon_cue != null and _sequence_weapon_cue.actor_id == actor_id:
 			top.set_weapon_cue(_sequence_weapon_cue, _sequence_progress_for_current_cue())
@@ -808,6 +954,45 @@ func _actor_snapshot(actor_id: String) -> Dictionary:
 		if str(actor.get("actor_id", "")) == actor_id:
 			return actor
 	return {}
+
+
+func actor_snapshot_for_presentation(actor_id: String) -> Dictionary:
+	return _actor_snapshot(actor_id).duplicate(true)
+
+
+func _actor_relationship(actor_id: String) -> int:
+	var actor := _actor_snapshot(actor_id)
+	if str(actor.get("relationship_id", "")) == "hostile":
+		return RELATIONSHIP_LEDGER.Relation.HOSTILE
+	if str(actor.get("relationship_id", "")) == "friendly":
+		return RELATIONSHIP_LEDGER.Relation.FRIENDLY
+	var player_id := "player"
+	for candidate in get_meta("actor_snapshot", []):
+		if bool(candidate.get("direct_player", false)) or str(candidate.get("team_id", "")) == "player":
+			player_id = str(candidate.get("actor_id", "player"))
+			break
+	var relation_state: Dictionary = snapshot.get("relationships", {})
+	var relation_by_pair: Dictionary = relation_state.get("relation_by_pair", {})
+	var key := RELATIONSHIP_LEDGER.pair_key(player_id, actor_id)
+	if relation_by_pair.has(key):
+		return int(relation_by_pair[key])
+	# Unauthored relationships are presentation-neutral. Tactical hostility must
+	# come from the explicit encounter ledger, never from team-name guessing.
+	return RELATIONSHIP_LEDGER.Relation.NEUTRAL
+
+
+func _relationship_id(relation: int) -> String:
+	return {
+		RELATIONSHIP_LEDGER.Relation.FRIENDLY: "friendly",
+		RELATIONSHIP_LEDGER.Relation.HOSTILE: "hostile",
+	}.get(relation, "neutral")
+
+
+func _relationship_color(relation: int) -> Color:
+	return {
+		RELATIONSHIP_LEDGER.Relation.FRIENDLY: Color("6db4a0"),
+		RELATIONSHIP_LEDGER.Relation.HOSTILE: Color("c76c5b"),
+	}.get(relation, Color("c0ad72"))
 
 
 func _shared_sector_offset(slot: int, count: int) -> Vector2:
@@ -831,10 +1016,15 @@ func _facing_vector(facing: String) -> Vector2:
 	}.get(facing, Vector2.RIGHT)
 
 
+func _facing_between(from_sector: Vector2i, to_sector: Vector2i) -> String:
+	var delta := to_sector - from_sector
+	if absi(delta.x) >= absi(delta.y):
+		return "east" if delta.x >= 0 else "west"
+	return "south" if delta.y >= 0 else "north"
+
+
 func _grid_rect() -> Rect2:
-	var base := _base_grid_rect()
-	var scaled_size := base.size * _view_zoom
-	return Rect2(base.get_center() - scaled_size * 0.5 + _view_pan, scaled_size)
+	return _base_grid_rect()
 
 
 func _base_grid_rect() -> Rect2:
@@ -858,16 +1048,14 @@ func _base_grid_rect() -> Rect2:
 
 
 func _set_camera_zoom(next_zoom: float, focus: Vector2) -> void:
-	var old_rect := _grid_rect()
-	var normalized := Vector2(0.5, 0.5)
-	if old_rect.size.x > 0.0 and old_rect.size.y > 0.0:
-		normalized = (focus - old_rect.position) / old_rect.size
+	_cancel_camera_motion()
+	var world_focus := _screen_to_world(focus)
 	_view_zoom = clampf(next_zoom, CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX)
 	if is_equal_approx(_view_zoom, CAMERA_ZOOM_MIN):
 		_view_pan = Vector2.ZERO
 	else:
-		var next_rect := _grid_rect()
-		_view_pan += focus - (next_rect.position + normalized * next_rect.size)
+		var pivot := _camera_pivot()
+		_view_pan = focus - pivot - (world_focus - pivot) * _view_zoom
 	_clamp_camera_pan()
 	_refresh_camera_geometry()
 
@@ -882,15 +1070,62 @@ func _clamp_camera_pan() -> void:
 	_view_pan.y = clampf(_view_pan.y, -allowance.y, allowance.y)
 
 
+func _camera_pivot() -> Vector2:
+	return _camera_safe_rect.get_center() if _camera_safe_rect.size.x > 0.0 and _camera_safe_rect.size.y > 0.0 else size * 0.5
+
+
+func _camera_transform_origin() -> Vector2:
+	var pivot := _camera_pivot()
+	return pivot + _view_pan - pivot * _view_zoom
+
+
+func _camera_pan_for_focus(world_point: Vector2, zoom_value: float) -> Vector2:
+	var pivot := _camera_pivot()
+	return -(world_point - pivot) * zoom_value
+
+
+func _apply_world_transform() -> void:
+	if _world_layer == null:
+		return
+	_world_layer.position = _camera_transform_origin()
+	_world_layer.scale = Vector2.ONE * _view_zoom
+
+
+func _set_camera_interpolation(
+	progress: float,
+	from_zoom: float,
+	from_pan: Vector2,
+	to_zoom: float,
+	to_pan: Vector2
+) -> void:
+	_view_zoom = lerpf(from_zoom, to_zoom, progress)
+	_view_pan = from_pan.lerp(to_pan, progress)
+	_clamp_camera_pan()
+	_apply_world_transform()
+	queue_redraw()
+
+
+func _cancel_camera_motion() -> void:
+	if _camera_motion_tween != null:
+		_camera_motion_tween.kill()
+		_camera_motion_tween = null
+
+
+func _screen_to_world(screen_point: Vector2) -> Vector2:
+	var pivot := _camera_pivot()
+	return pivot + (screen_point - pivot - _view_pan) / maxf(0.001, _view_zoom)
+
+
 func _focus_camera_on(coords: Vector2i) -> void:
 	if str(snapshot.get("presentation_style", "")) != "duel_lane" or not _contains(coords):
 		return
 	var base := _base_grid_rect()
 	var cell := _cell_size(base)
 	var point := base.position + Vector2((float(coords.x) + 0.5) * cell.x, (float(coords.y) + 0.5) * cell.y)
-	var viewport_center := _camera_safe_rect.get_center() if _camera_safe_rect.size.x > 0.0 else size * 0.5
-	_view_pan = viewport_center - point
+	_cancel_camera_motion()
+	_view_pan = _camera_pan_for_focus(point, _view_zoom)
 	_clamp_camera_pan()
+	_apply_world_transform()
 
 
 func _draw_offscreen_indicator(coords: Vector2i, color: Color) -> void:
@@ -906,6 +1141,7 @@ func _draw_offscreen_indicator(coords: Vector2i, color: Color) -> void:
 
 
 func _refresh_camera_geometry() -> void:
+	_apply_world_transform()
 	_presentation_positions.clear()
 	_sync_actor_tokens()
 	queue_redraw()
@@ -921,6 +1157,7 @@ func _sector_rect(coords: Vector2i, rect: Rect2) -> Rect2:
 
 
 func _coords_at(local_position: Vector2) -> Vector2i:
+	local_position = _screen_to_world(local_position)
 	var rect := _grid_rect()
 	if not rect.has_point(local_position):
 		return Vector2i(-1, -1)
@@ -940,6 +1177,7 @@ func _on_gui_input(event: InputEvent) -> void:
 			accept_event()
 			return
 		if mouse_button.button_index == MOUSE_BUTTON_MIDDLE:
+			_cancel_camera_motion()
 			_is_panning = mouse_button.pressed
 			_pan_anchor = mouse_button.position
 			mouse_default_cursor_shape = Control.CURSOR_DRAG if _is_panning else Control.CURSOR_POINTING_HAND
@@ -998,6 +1236,7 @@ func _on_gui_input(event: InputEvent) -> void:
 
 
 func _actor_id_at_position(coords: Vector2i, local_position: Vector2) -> String:
+	local_position = _screen_to_world(local_position)
 	var best_id := ""
 	var best_distance := INF
 	for raw_id in _occupant_ids_at(coords):

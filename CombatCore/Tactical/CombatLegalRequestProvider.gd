@@ -3,6 +3,7 @@ class_name CombatLegalRequestProvider
 
 const _QuoteService := preload("res://CombatCore/Tactical/CombatActionQuoteService.gd")
 const _Catalog := preload("res://CombatCore/Tactical/CombatActionCatalog.gd")
+const _MotiveEvaluator := preload("res://CombatCore/Tactical/CombatMotiveEvaluator.gd")
 
 ## Catalog-driven request expansion. Templates/problem tags choose candidate
 ## families; the quote service remains the only legality authority.
@@ -12,7 +13,6 @@ static func generate(snapshot, motive_candidate, problem, rules_state, plan_meta
 	var result := {"requests": [], "quotes": [], "denials": []}
 	if snapshot == null or rules_state == null or motive_candidate == null or problem == null:
 		return result
-	var target_id := str(motive_candidate.subject_id) if motive_candidate.subject_type == "actor" else ""
 	var definitions: Array = rules_state.action_definitions.values()
 	definitions.sort_custom(func(left, right): return left.action_id < right.action_id)
 	for definition in definitions:
@@ -22,17 +22,18 @@ static func generate(snapshot, motive_candidate, problem, rules_state, plan_meta
 			continue
 		if not _matches_problem(definition, problem.problem_id, motive_candidate.motive):
 			continue
-		for request in _expand_definition(definition, snapshot, motive_candidate, problem, rules_state, target_id, plan_metadata):
-			var quote = _QuoteService.quote(request, rules_state)
-			if quote.legal:
-				result.requests.append(request)
-				result.quotes.append(quote)
-			else:
-				result.denials.append({
-					"request": request.to_dict(),
-					"denial_code": quote.denial_code,
-					"denial_message": quote.denial_message,
-				})
+		for target_id in _target_ids(snapshot, definition, motive_candidate):
+			for request in _expand_definition(definition, snapshot, motive_candidate, problem, rules_state, target_id, plan_metadata):
+				var quote = _QuoteService.quote(request, rules_state)
+				if quote.legal:
+					result.requests.append(request)
+					result.quotes.append(quote)
+				else:
+					result.denials.append({
+						"request": request.to_dict(),
+						"denial_code": quote.denial_code,
+						"denial_message": quote.denial_message,
+					})
 	if result.requests.is_empty():
 		var end_turn := CombatActionRequest.new()
 		end_turn.actor_id = str(snapshot.actor.get("actor_id", ""))
@@ -52,8 +53,82 @@ static func _is_ai_eligible(definition: CombatActionDefinition) -> bool:
 	)
 
 
+static func _target_ids(snapshot, definition: CombatActionDefinition, motive_candidate = null) -> Array[String]:
+	var result: Array[String] = []
+	if definition.target_mode == CombatActionDefinition.TARGET_SELF:
+		result.append("")
+		return result
+	if definition.target_mode == CombatActionDefinition.TARGET_ACTOR:
+		var self_id := str(snapshot.actor.get("actor_id", ""))
+		var preferred_subject := str(motive_candidate.subject_id) if motive_candidate != null else ""
+		if not preferred_subject.is_empty() and preferred_subject != self_id:
+			var preferred_observed = snapshot.known_actors.get(preferred_subject)
+			if preferred_observed != null and str(preferred_observed.knowledge_state) == "visible" and str(preferred_observed.visible_condition) not in ["dead", "incapacitated"]:
+				result.append(preferred_subject)
+				return result
+		var actor_ids: Array[String] = []
+		for actor_id in snapshot.known_actors.keys():
+			var observed = snapshot.known_actors[actor_id]
+			if str(actor_id) == self_id or observed == null:
+				continue
+			if str(observed.knowledge_state) != "visible":
+				continue
+			if str(observed.visible_condition) in ["dead", "incapacitated"]:
+				continue
+			actor_ids.append(str(actor_id))
+		actor_ids.sort()
+		result.append_array(actor_ids)
+		return result
+	if definition.target_mode == CombatActionDefinition.TARGET_ITEM:
+		var items: Array = snapshot.actor.get("items", [])
+		for item in items:
+			if item is Dictionary and not str(item.get("instance_id", "")).is_empty():
+				result.append(str(item.get("instance_id", "")))
+		var weapon: Dictionary = snapshot.actor.get("weapon", {})
+		var weapon_instance := str(weapon.get("instance_id", ""))
+		if not weapon_instance.is_empty() and weapon_instance not in result:
+			result.append(weapon_instance)
+		if result.is_empty():
+			result.append("")
+		return result
+	if definition.target_mode == CombatActionDefinition.TARGET_WOUND:
+		var wounds: Array = snapshot.actor.get("wounds", [])
+		for wound in wounds:
+			if wound is Dictionary and not str(wound.get("wound_id", "")).is_empty():
+				result.append(str(wound.get("wound_id", "")))
+		if result.is_empty():
+			result.append("")
+		return result
+	if definition.target_mode in [CombatActionDefinition.TARGET_PATH, CombatActionDefinition.TARGET_SECTOR]:
+		var selected_motive := _MotiveEvaluator.normalize_motive(str(motive_candidate.motive)) if motive_candidate != null else ""
+		if selected_motive in ["EXIT", "SURVIVE"]:
+			result.append("")
+			return result
+		var self_id := str(snapshot.actor.get("actor_id", ""))
+		var preferred_subject := str(motive_candidate.subject_id) if motive_candidate != null else ""
+		if not preferred_subject.is_empty() and preferred_subject != self_id:
+			var preferred_observed = snapshot.known_actors.get(preferred_subject)
+			if preferred_observed != null and str(preferred_observed.knowledge_state) == "visible" and str(preferred_observed.visible_condition) not in ["dead", "incapacitated"]:
+				result.append(preferred_subject)
+				return result
+		var subject_ids: Array[String] = []
+		for actor_id in snapshot.known_actors.keys():
+			var observed = snapshot.known_actors[actor_id]
+			if str(actor_id) == self_id or observed == null or str(observed.knowledge_state) != "visible":
+				continue
+			if str(observed.visible_condition) in ["dead", "incapacitated"]:
+				continue
+			subject_ids.append(str(actor_id))
+		subject_ids.sort()
+		if not subject_ids.is_empty():
+			result.append_array(subject_ids)
+	result.append("")
+	return result
+
+
 static func _matches_problem(definition: CombatActionDefinition, problem_id: String, motive: String) -> bool:
 	var tags: Array = definition.ai_tags
+	motive = _MotiveEvaluator.normalize_motive(motive)
 	match problem_id:
 		"NEED_ENGAGE":
 			return "engagement" in tags
@@ -67,21 +142,30 @@ static func _matches_problem(definition: CombatActionDefinition, problem_id: Str
 			return "movement" in tags or "position" in tags or "cover" in tags
 		"NEED_COVER":
 			return "cover" in tags
+		"NEED_SHOVE_OPENING":
+			return "collision" in tags or "control" in tags
 		"NEED_BREAK_ENGAGEMENT":
 			return "break_engagement" in tags
 		"NEED_RETREAT":
 			return "retreat" in tags or "survival" in tags
 		"READY":
-			if motive in ["ATTACK", "PRESSURE", "PURSUE"]:
+			if motive == "ATTACK":
 				return "damage" in tags or "attack" in tags
-			if motive in ["PROTECT", "SUPPORT"]:
+			if motive == "SUPPORT":
 				return "support" in tags or "cover" in tags or "movement" in tags or "position" in tags
-			if motive in ["SUBMIT", "DEESCALATE"]:
+			if motive == "COMMUNICATE":
 				return "communication" in tags or "terminal" in tags
+			if motive in ["EXIT", "SURVIVE"]:
+				return "escape" in tags or "retreat" in tags or "survival" in tags or "cover" in tags or "medical" in tags
+			if motive == "HOLD":
+				return "terminal" in tags or (problem_id == "NEED_COVER" and "cover" in tags)
 			return true
 		"NO_LEGAL_ACTION", "SUBJECT_INVALID":
 			return "terminal" in tags
-	return false
+	# A selected problem constrains the tactical situation, not the identity of
+	# the observable subject. Keep generic legal actions available so quoting,
+	# rather than motive heuristics, decides the final candidate set.
+	return true
 
 
 static func _expand_definition(
@@ -115,8 +199,9 @@ static func _expand_definition(
 		if request.path.is_empty():
 			return requests
 	elif definition.target_mode == CombatActionDefinition.TARGET_ITEM:
-		var weapon: Dictionary = snapshot.actor.get("weapon", {})
-		request.target_item_instance_id = str(weapon.get("instance_id", ""))
+		request.target_item_instance_id = target_id
+	elif definition.target_mode == CombatActionDefinition.TARGET_WOUND:
+		request.target_wound_id = target_id
 	if "collision" in action_tags:
 		request.shove_direction = str(plan_metadata.get("shove_direction", "east"))
 	if definition.resolver_id == "communication":
@@ -194,6 +279,22 @@ static func _retreat_path(rules_state, actor_id: String) -> Array[Vector2i]:
 	var origin_index := int(actor.get("sector_index", -1))
 	if origin_index < 0:
 		return []
+	var exits: Array[int] = []
+	for raw_index in rules_state.sector_facts.keys():
+		var index := int(raw_index)
+		if not str(rules_state.sector(index).get("escape_side", "")).is_empty():
+			exits.append(index)
+	exits.sort_custom(func(left, right):
+		var left_distance := _grid_distance(rules_state.coordinate_for(origin_index), rules_state.coordinate_for(left))
+		var right_distance := _grid_distance(rules_state.coordinate_for(origin_index), rules_state.coordinate_for(right))
+		if left_distance != right_distance:
+			return left_distance < right_distance
+		return left < right
+	)
+	for exit_index in exits:
+		var path := _path_to_empty(rules_state, actor_id, exit_index)
+		if not path.is_empty() and path.back() == rules_state.coordinate_for(exit_index):
+			return path
 	var candidates: Array[int] = []
 	for neighbor in rules_state.neighboring_indices(origin_index):
 		candidates.append(int(neighbor))
@@ -202,6 +303,10 @@ static func _retreat_path(rules_state, actor_id: String) -> Array[Vector2i]:
 		if rules_state.occupants_at(index).is_empty() and not bool(rules_state.sector(index).get("blocked", false)):
 			return _indices_to_coords(rules_state, [origin_index, index])
 	return []
+
+
+static func _grid_distance(left: Vector2i, right: Vector2i) -> int:
+	return absi(left.x - right.x) + absi(left.y - right.y)
 
 
 static func _path_to_empty(rules_state, actor_id: String, target_index: int) -> Array[Vector2i]:

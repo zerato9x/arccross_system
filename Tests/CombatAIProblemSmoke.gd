@@ -30,17 +30,29 @@ func _run() -> void:
 	var problem = _Classifier.classify(snapshot, {"tags": ["STABLE"]}, attack)
 	if problem.problem_id != _Problem.NEED_ENGAGE:
 		return _fail("Default melee attack did not classify as NEED_ENGAGE.")
-	snapshot.actor.weapon = {"ranged": true, "current_magazine": 0, "max_magazine": 6, "maximum_range_cells": 8, "jammed": false}
+	var firearm: Dictionary = snapshot.actor
+	firearm["weapon"] = {"ranged": true, "current_magazine": 0, "max_magazine": 6, "maximum_range_cells": 8, "jammed": false}
+	snapshot.actor = firearm
 	problem = _Classifier.classify(snapshot, {"tags": ["OUT_OF_AMMO"]}, attack)
 	if problem.problem_id != _Problem.NEED_RELOAD:
 		return _fail("Empty firearm did not classify as NEED_RELOAD.")
-	snapshot.actor.weapon["current_magazine"] = 3
-	snapshot.actor.weapon["jammed"] = true
+	firearm = snapshot.actor
+	var weapon: Dictionary = firearm.get("weapon", {}).duplicate(true)
+	weapon["current_magazine"] = 3
+	weapon["jammed"] = true
+	firearm["weapon"] = weapon
+	snapshot.actor = firearm
 	problem = _Classifier.classify(snapshot, {"tags": ["WEAPON_DISABLED"]}, attack)
 	if problem.problem_id != _Problem.NEED_UNJAM:
 		return _fail("Jammed firearm did not classify as NEED_UNJAM.")
-	snapshot.actor.weapon["jammed"] = false
-	target.line_of_sight = false
+	firearm = snapshot.actor
+	weapon = firearm.get("weapon", {}).duplicate(true)
+	weapon["jammed"] = false
+	firearm["weapon"] = weapon
+	snapshot.actor = firearm
+	var blocked_target = target.duplicate_observation()
+	blocked_target.line_of_sight = false
+	snapshot.known_actors = {"bravo": blocked_target}
 	problem = _Classifier.classify(snapshot, {"tags": ["THREATENED"]}, attack)
 	if problem.problem_id != _Problem.NEED_LINE_OF_FIRE:
 		return _fail("Blocked firearm LOS did not classify as NEED_LINE_OF_FIRE.")

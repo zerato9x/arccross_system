@@ -22,7 +22,7 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 
-	hud._on_sector_selected(Vector2i(2, 0))
+	hud._on_arena_context_requested(Vector2i(2, 0), "")
 	hud._unhandled_input(_key(KEY_D))
 	hud._unhandled_input(_key(KEY_D))
 	hud._unhandled_input(_key(KEY_D))
@@ -35,7 +35,7 @@ func _run() -> void:
 		_fail("Opposite-direction A did not retract one staged route cell.")
 
 	hud.clear_staged_action()
-	hud._on_sector_selected(Vector2i(2, 0))
+	hud._on_arena_context_requested(Vector2i(2, 0), "")
 	hud._unhandled_input(_key(KEY_A))
 	hud._unhandled_input(_key(KEY_A))
 	if hud.staged_route().back() != Vector2i(0, 0):
@@ -45,10 +45,10 @@ func _run() -> void:
 		_fail("D did not retract a leftward route.")
 
 	hud.clear_staged_action()
-	hud._on_sector_selected(Vector2i(2, 0))
+	hud._on_arena_context_requested(Vector2i(2, 0), "")
 	for _step in range(9):
 		hud._unhandled_input(_key(KEY_D))
-	if hud.interaction.phase != CombatInteractionState.Phase.BUMP_MENU:
+	if hud.interaction.phase != CombatInteractionState.Phase.ACTION_MENU:
 		_fail("Entering an occupied cell did not open the bump menu.")
 	if hud.interaction.bumped_actor_id != "enemy":
 		_fail("Bump menu did not retain the occupied actor identity.")
@@ -67,14 +67,14 @@ func _run() -> void:
 	# Reopen the bump menu, use the number shortcut, then verify the full chain
 	# can still be cancelled without committing a consequential action.
 	hud._unhandled_input(_key(KEY_D))
-	if hud.interaction.phase != CombatInteractionState.Phase.BUMP_MENU:
+	if hud.interaction.phase != CombatInteractionState.Phase.ACTION_MENU:
 		_fail("Bump menu did not reopen after returning to the route.")
 	await process_frame
 	hud._unhandled_input(_key(KEY_1))
 	if hud.interaction.phase not in [CombatInteractionState.Phase.ACTION_PREVIEW, CombatInteractionState.Phase.CONFIRMATION]:
 		_fail("Number shortcut did not stage the visible contextual choice.")
 	hud._unhandled_input(_key(KEY_ESCAPE))
-	if hud.interaction.phase != CombatInteractionState.Phase.BUMP_MENU:
+	if hud.interaction.phase != CombatInteractionState.Phase.ACTION_MENU:
 		_fail("First Escape did not cancel only the staged action.")
 	hud._unhandled_input(_key(KEY_ESCAPE))
 	if hud.interaction.phase != CombatInteractionState.Phase.ROUTE_PREVIEW or hud.staged_route().is_empty():

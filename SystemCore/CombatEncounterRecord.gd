@@ -34,6 +34,12 @@ class_name CombatEncounterRecord
 @export var traps: Array[Dictionary] = []
 @export var ground_items: Array[Dictionary] = []
 @export var presentation: Dictionary = {}
+@export_range(0, 8) var assembly_radius: int = 2
+@export_range(2, 6) var participant_cap: int = 6
+@export var late_reinforcements_enabled: bool = false
+## Deterministic participant inclusion/exclusion receipt. It is evidence of
+## assembly, not a second mutable roster authority.
+@export var assembly_receipt: Dictionary = {}
 
 
 func to_dict() -> Dictionary:
@@ -66,6 +72,10 @@ func to_dict() -> Dictionary:
 		"traps": traps.duplicate(true),
 		"ground_items": ground_items.duplicate(true),
 		"presentation": presentation.duplicate(true),
+		"assembly_radius": assembly_radius,
+		"participant_cap": participant_cap,
+		"late_reinforcements_enabled": late_reinforcements_enabled,
+		"assembly_receipt": assembly_receipt.duplicate(true),
 	}
 
 
@@ -123,6 +133,10 @@ static func from_dict(data: Dictionary) -> CombatEncounterRecord:
 		if raw_item is Dictionary:
 			record.ground_items.append((raw_item as Dictionary).duplicate(true))
 	record.presentation = data.get("presentation", {}).duplicate(true)
+	record.assembly_radius = clampi(int(data.get("assembly_radius", 2)), 0, 8)
+	record.participant_cap = clampi(int(data.get("participant_cap", 6)), 2, 6)
+	record.late_reinforcements_enabled = bool(data.get("late_reinforcements_enabled", false))
+	record.assembly_receipt = data.get("assembly_receipt", {}).duplicate(true)
 	return record
 
 

@@ -20,6 +20,10 @@ class_name NpcBehaviorProfile
 ## Combat intent and plan policy are authored data, not evaluator constants.
 @export var motive_weights: Dictionary = {}
 @export var utility_weights: Dictionary = {}
+## Optional authored transforms for observable utility facts. Kept beside the
+## existing weights so roles can tune missing signals without a second profile
+## type or evaluator-owned constants.
+@export var utility_inputs: Dictionary = {}
 @export var tactical_problem_weights: Dictionary = {}
 @export var allowed_plan_templates: Array[String] = []
 @export var intent_presentation_id: String = "default"
@@ -61,6 +65,7 @@ func combat_projection() -> Dictionary:
 		"score_weights": combat_score_weights.duplicate(true),
 		"motive_weights": motive_weights.duplicate(true),
 		"utility_weights": utility_weights.duplicate(true),
+		"utility_inputs": utility_inputs.duplicate(true),
 		"tactical_problem_weights": tactical_problem_weights.duplicate(true),
 		"allowed_plan_templates": allowed_plan_templates.duplicate(),
 		"intent_presentation_id": intent_presentation_id,

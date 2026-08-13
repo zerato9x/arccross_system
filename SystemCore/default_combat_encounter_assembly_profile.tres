@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="CombatEncounterAssemblyProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://SystemCore/CombatEncounterAssemblyProfile.gd" id="1_profile"]
+
+[resource]
+script = ExtResource("1_profile")
+profile_id = "default"
+axial_radius = 2
+participant_cap = 6
+aware_same_squad_threshold = 0.5
+late_reinforcements_enabled = false
+default_return_policy = "origin"

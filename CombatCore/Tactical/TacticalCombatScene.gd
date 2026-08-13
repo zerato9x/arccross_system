@@ -29,11 +29,12 @@ var _body_locations: Array[Dictionary] = []
 ## Full evaluator traces are retained only for Lab/debug inspection. The HUD
 ## consumes the coarse public intent projection from CombatActionController.
 var _ai_decision_traces: Dictionary = {}
+var _participant_contexts: Dictionary = {}
 
 
 func _ready() -> void:
 	hud.set_interaction_coordinator(_interaction_coordinator)
-	hud.context_requested.connect(_on_sector_selected)
+	hud.context_requested.connect(_on_context_requested)
 	hud.action_selected.connect(_on_action_selected)
 	hud.action_confirmed.connect(_on_action_confirmed)
 	hud.selection_cancelled.connect(_on_selection_cancelled)
@@ -68,7 +69,16 @@ func setup_encounter(encounter: CombatEncounterRecord) -> void:
 	if encounter.actors.size() > 6:
 		push_error("Tactical combat supports at most six active actors.")
 		return
+	if encounter.late_reinforcements_enabled:
+		push_warning("Late combat reinforcements are not supported; freezing the assembled roster.")
+		encounter.late_reinforcements_enabled = false
 	encounter_record = encounter
+	_participant_contexts.clear()
+	for actor_record in encounter.actors:
+		_participant_contexts[str(actor_record.get("actor_id", ""))] = actor_record.get("participant_context", {}).duplicate(true)
+	presentation_player.configure_dialogue_seed(
+		str(encounter.combat_seed if encounter.combat_seed != 0 else encounter.encounter_id)
+	)
 	var player_record: Dictionary = _find_direct_player_record(encounter)
 	var autonomous_records := _find_autonomous_actors(encounter.actors, player_record)
 	if player_record.is_empty() or autonomous_records.is_empty():
@@ -80,6 +90,10 @@ func setup_encounter(encounter: CombatEncounterRecord) -> void:
 	player_core.set_meta("direct_player", true)
 	player_core.set_meta("combat_side", "player")
 	player_core.set_meta("combat_team_id", str(player_record.get("team_id", "player")))
+	player_core.set_meta("participant_context", player_record.get("participant_context", {}).duplicate(true))
+	player_core.set_meta("dialogue_id", str(player_record.get("dialogue_id", "")))
+	player_core.set_meta("role_id", str(player_record.get("role_id", "")))
+	player_core.set_meta("faction_id", str(player_record.get("faction_id", "")))
 	actor_cores.append(player_core)
 	# Production encounters may contain up to five autonomous NPCs. The actor
 	# registry is authoritative; never silently discard an authored participant.
@@ -89,6 +103,10 @@ func setup_encounter(encounter: CombatEncounterRecord) -> void:
 		enemy.set_meta("actor_id", str(enemy_record.get("actor_id", "enemy_%02d" % index)))
 		enemy.set_meta("combat_side", _combat_side_for_record(enemy_record, player_record))
 		enemy.set_meta("combat_team_id", str(enemy_record.get("team_id", "enemy")))
+		enemy.set_meta("participant_context", enemy_record.get("participant_context", {}).duplicate(true))
+		enemy.set_meta("dialogue_id", str(enemy_record.get("dialogue_id", "")))
+		enemy.set_meta("role_id", str(enemy_record.get("role_id", "")))
+		enemy.set_meta("faction_id", str(enemy_record.get("faction_id", "")))
 		enemy_cores.append(enemy)
 		actor_cores.append(enemy)
 	enemy_core = enemy_cores[0]
@@ -172,7 +190,7 @@ func _wire_actor(actor: HumanoidCore) -> void:
 		actor.morale_broken.connect(_on_enemy_surrendered.bind(actor))
 
 
-func _on_sector_selected(coords: Vector2i) -> void:
+func _on_context_requested(coords: Vector2i) -> void:
 	if _resolving:
 		return
 	var sector := board.arena_state.sector_at(coords)
@@ -221,7 +239,7 @@ func _on_action_confirmed() -> void:
 
 
 func _execute_pending_action() -> void:
-	if _interaction_coordinator.state.pending_request == null:
+	if not _interaction_coordinator.has_pending_request():
 		hud.show_feedback("Select and preview a legal action first.")
 		return
 	var request := _interaction_coordinator.take_request()
@@ -532,6 +550,14 @@ func _finish_combat(outcome: int, reason: String, detail: String = "") -> void:
 		return
 	_resolving = true
 	turn_manager.halt_loop()
+	var escaping_ids: Array[String] = []
+	for actor in actor_cores:
+		if actor != null and actor.is_escaping:
+			escaping_ids.append(_actor_id(actor))
+	if outcome == GameEnums.CombatOutcome.PLAYER_ESCAPED and player_core != null and _actor_id(player_core) not in escaping_ids:
+		escaping_ids.append(_actor_id(player_core))
+	if outcome == GameEnums.CombatOutcome.ENEMY_ESCAPED and enemy_core != null and _actor_id(enemy_core) not in escaping_ids:
+		escaping_ids.append(_actor_id(enemy_core))
 	for actor in actor_cores:
 		actor.reset_combat_transients()
 	var result := CombatResultRecord.new()
@@ -540,11 +566,18 @@ func _finish_combat(outcome: int, reason: String, detail: String = "") -> void:
 	result.outcome = outcome
 	result.reason = reason
 	result.actor_runtime_updates.clear()
+	result.participant_contexts = _participant_contexts.duplicate(true)
 	for actor in actor_cores:
+		var actor_id := _actor_id(actor)
 		var runtime_update := actor.capture_runtime_state().to_dict()
 		var combat_state := board.combat_state(actor)
 		if combat_state != null:
 			runtime_update["combat_actor_state"] = combat_state.to_dict()
+		var escaped := actor_id in escaping_ids
+		if escaped:
+			# reset_combat_transients() deliberately clears encounter-only flags;
+			# retain the terminal escape as a result fact for macro persistence.
+			runtime_update["is_escaping"] = true
 		if actor in enemy_cores:
 			var behavior_payload: Dictionary = actor.get_meta("npc_behavior_state", {})
 			var behavior_state: Resource = _NpcBehaviorState.from_runtime(
@@ -555,9 +588,37 @@ func _finish_combat(outcome: int, reason: String, detail: String = "") -> void:
 			behavior_state.decision_memory["last_combat_reason"] = reason
 			behavior_state.decision_memory["last_combat_round"] = turn_manager.current_round
 			runtime_update[_NpcBehaviorState.RUNTIME_KEY] = behavior_state.to_dict()
+		var sector_index := board.position_of(actor)
+		var sector_coords := _sector_coords_for_actor(actor_id, sector_index)
+		var status := "active"
+		if actor.is_dead or bool(runtime_update.get("is_dead", false)):
+			status = "dead"
+		elif escaped:
+			status = "escaped"
+		elif combat_state != null and combat_state.surrendered:
+			status = "surrendered"
+		elif actor.is_comatose or (combat_state != null and combat_state.incapacitated):
+			status = "incapacitated"
+		if actor in enemy_cores and status in ["escaped", "surrendered", "incapacitated"]:
+			if actor_id not in result.withdrawn_actor_ids:
+				result.withdrawn_actor_ids.append(actor_id)
+		if status == "escaped" and actor_id not in result.escaped_actor_ids:
+			result.escaped_actor_ids.append(actor_id)
+		var participant_context: Dictionary = _participant_contexts.get(actor_id, {}).duplicate(true)
+		result.participant_results.append({
+			"actor_id": actor_id,
+			"status": status,
+			"sector_index": sector_index,
+			"sector_coords": sector_coords,
+			"origin_coords": participant_context.get("origin_coords", Vector2i(-1, -1)),
+			"macro_origin_coords": participant_context.get("macro_origin_coords", Vector2i(-1, -1)),
+			"return_policy": participant_context.get("return_policy", "origin"),
+			"escape_direction": participant_context.get("escape_direction", GameEnums.MacroTravelDirection.NONE),
+		})
 		result.actor_runtime_updates.append({
-			"actor_id": _actor_id(actor),
+			"actor_id": actor_id,
 			"runtime": runtime_update,
+			"participant_context": participant_context,
 		})
 	result.item_transfer_receipts = _transfer_receipts.duplicate(true)
 	result.body_locations = _body_locations.duplicate(true)
@@ -572,8 +633,12 @@ func _finish_combat(outcome: int, reason: String, detail: String = "") -> void:
 	result.communication_points_remaining = board.communication_points
 	result.elapsed_minutes = GameTimeRules.COMBAT_MINUTES
 	if reason == "escape":
-		var escaping := player_core if outcome == GameEnums.CombatOutcome.PLAYER_ESCAPED else enemy_core
-		var sector_index := board.position_of(escaping)
+		var escaping: HumanoidCore = null
+		for actor in actor_cores:
+			if _actor_id(actor) in result.escaped_actor_ids:
+				escaping = actor
+				break
+		var sector_index := board.position_of(escaping) if escaping != null else -1
 		if sector_index >= 0:
 			result.escape_edge = board.sectors[sector_index].record.escape_side
 	if not detail.is_empty():
@@ -637,6 +702,17 @@ func _surrendered_locations() -> Array[Dictionary]:
 	return result
 
 
+func _sector_coords_for_actor(actor_id: String, sector_index: int) -> Vector2i:
+	if sector_index >= 0 and sector_index < board.sectors.size():
+		return board.sectors[sector_index].coords
+	for sector in board.sectors:
+		if sector == null or sector.record == null:
+			continue
+		if actor_id in sector.record.incapacitated_entity_ids or actor_id in sector.record.surrendered_entity_ids or actor_id in sector.record.body_entity_ids:
+			return sector.coords
+	return Vector2i(-1, -1)
+
+
 func _ground_item_states() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for item in action_controller.ground_items.values():
@@ -670,7 +746,7 @@ func _find_direct_player_record(encounter: CombatEncounterRecord) -> Dictionary:
 	if encounter == null:
 		return {}
 	for record in encounter.actors:
-		if bool(record.get("direct_player", false)) or str(record.get("actor_id", "")) == "player" or (not encounter.initiator_id.is_empty() and str(record.get("actor_id", "")) == encounter.initiator_id):
+		if bool(record.get("direct_player", false)) or str(record.get("actor_id", "")) == "player":
 			return record
 	for record in encounter.actors:
 		if str(record.get("team_id", "")) == "player":

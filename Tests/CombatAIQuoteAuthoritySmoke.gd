@@ -56,6 +56,8 @@ func _run() -> void:
 		return _fail("Pure quote service mutated the projected rules state.")
 	if _controller._rng.state != before_rng:
 		return _fail("Pure quote service advanced live tactical RNG.")
+	if rules_state.progress_fingerprint().is_empty():
+		return _fail("Rules state did not expose a canonical progress fingerprint.")
 
 	var live_request := _request("move")
 	live_request.path = [Vector2i(1, 2), Vector2i(2, 2)]
@@ -65,6 +67,33 @@ func _run() -> void:
 	for key in ["legal", "action_id", "origin_sector", "projected_origin", "ap_cost", "movement_ap_cost", "action_ap_cost", "range_cells"]:
 		if live_quote.to_dict().get(key) != pure_quote.to_dict().get(key):
 			return _fail("Live and pure quote differ at %s." % key)
+	var parity_requests: Array[CombatActionRequest] = []
+	for action_id in ["move", "engage", "strike", "aimed_strike", "shove", "fire", "aimed_fire", "reload", "cycle", "end_turn"]:
+		var parity_request := _request(action_id)
+		parity_request.target_actor_id = "bravo"
+		parity_request.target_sector = Vector2i(2, 2)
+		parity_request.target_body_region = GameEnums.LimbRegion.HEAD
+		parity_request.shove_direction = "east"
+		if action_id in ["move", "engage"]:
+			parity_request.path = [Vector2i(1, 2), Vector2i(2, 2)]
+			parity_request.approach_path = parity_request.path.duplicate()
+		var request_before := parity_request.to_dict()
+		var pure := _QuoteService.quote(parity_request, rules_state)
+		var live := _controller.quote(parity_request)
+		if pure.to_dict() != live.to_dict():
+			return _fail("Complete live/projected parity failed for %s." % action_id)
+		if parity_request.to_dict() != request_before:
+			return _fail("Live quote mutated the caller request for %s." % action_id)
+
+	var denial_request := _request("move")
+	denial_request.path = [Vector2i(1, 2), Vector2i(6, 4)]
+	var denial_before := denial_request.to_dict()
+	var denied_pure := _QuoteService.quote(denial_request, rules_state)
+	var denied_live := _controller.quote(denial_request)
+	if denied_pure.to_dict() != denied_live.to_dict() or denied_pure.legal:
+		return _fail("Denied live/projected Move parity failed.")
+	if denial_request.to_dict() != denial_before:
+		return _fail("Denied quote mutated the caller request.")
 
 	var planning = _PlanningProjection.from_rules_state(rules_state, "alpha")
 	var projected = _PlanningProjection.apply_quote(planning, request, pure_quote, rules_state)

@@ -68,7 +68,37 @@ func _compose_map(arena: CombatArenaState, encounter: CombatEncounterRecord):
 	var family := str(hex.terrain_tile if hex != null else 0)
 	var variant := variant_catalog.choose(family, result.seed)
 	result.variant_id = str(variant.get("id", "%s_00" % family))
-	result.base_ground_path = str(variant.get("base_ground_path", arena.backdrop_asset_path))
+	var source_ground := _source_ground_path(hex, encounter.presentation)
+	var overrides: Dictionary = variant.get("overrides", {})
+	var override_ground := str(overrides.get("ground_path", variant.get("override_ground_path", "")))
+	var variant_ground := str(variant.get("base_ground_path", ""))
+	var generic_ground := "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png"
+	var ground_path := ""
+	var ground_source := ""
+	if not override_ground.is_empty() and ResourceLoader.exists(override_ground):
+		ground_path = override_ground
+		ground_source = "combat_variant_override"
+	elif not source_ground.is_empty() and ResourceLoader.exists(source_ground):
+		ground_path = source_ground
+		ground_source = "source_hex"
+	elif not variant_ground.is_empty() and ResourceLoader.exists(variant_ground):
+		ground_path = variant_ground
+		ground_source = "combat_variant"
+	if ground_path.is_empty() or not ResourceLoader.exists(ground_path):
+		ground_path = generic_ground if ResourceLoader.exists(generic_ground) else arena.backdrop_asset_path
+		ground_source = "generic_fallback"
+	result.base_ground_path = ground_path
+	result.base_ground_modulation = _color_value(variant.get("palette_modulation", Color.WHITE))
+	result.palette = variant.get("palette", {}).duplicate(true)
+	result.variant_overrides = overrides.duplicate(true)
+	result.source_provenance = {
+		"ground": ground_source,
+		"source_hex": source_ground,
+		"override": override_ground,
+		"variant_id": result.variant_id,
+		"family": family,
+	}
+	result.layer_metadata = variant.get("layers", []).duplicate(true)
 	for sector in arena.sectors:
 		if sector.surface_id == "road":
 			result.road_cells.append(sector.coords)
@@ -84,6 +114,13 @@ func _compose_map(arena: CombatArenaState, encounter: CombatEncounterRecord):
 			var instance := sector.object_state.duplicate(true)
 			instance["coords"] = sector.coords
 			result.props.append(instance)
+			result.prop_instances.append({
+				"id": str(instance.get("id", "prop_%d" % sector.index)),
+				"coords": sector.coords,
+				"asset_path": str(instance.get("asset_path", "")),
+				"presentation_only": bool(instance.get("decorative", false)),
+				"layer": int(instance.get("layer", 60)),
+			})
 	if hex != null:
 		var landmark_id := hex.landmark_id
 		if landmark_id.is_empty() and hex.is_poi:
@@ -91,12 +128,54 @@ func _compose_map(arena: CombatArenaState, encounter: CombatEncounterRecord):
 		if landmark_id.is_empty() and hex.structure_layer != GameEnums.MacroStructureLayer.NONE:
 			landmark_id = "structure_%d" % int(hex.structure_layer)
 		if not landmark_id.is_empty():
+			var landmark_asset := _landmark_asset_path(hex, encounter.presentation, variant)
 			result.dominant_landmark = {
 				"id": landmark_id,
 				"label": hex.poi_name if hex.is_poi and not hex.poi_name.is_empty() else landmark_id,
 				"coords": Vector2i(arena.width / 2, arena.height / 2),
+				"asset_path": landmark_asset,
+				"layer": int(variant.get("landmark_layer", 55)),
+				"scale": float(variant.get("landmark_scale", 0.72)),
+				"offset": variant.get("landmark_offset", Vector2.ZERO),
+				"provenance": "source_hex" if not landmark_asset.is_empty() else "combat_variant_or_fallback",
 			}
+			result.landmark_instances.append(result.dominant_landmark.duplicate(true))
 	return result
+
+
+static func _source_ground_path(hex: HexRecord, presentation: Dictionary) -> String:
+	var authored := str(hex.terrain_sprite_path if hex != null else "")
+	if not authored.is_empty() and ResourceLoader.exists(authored):
+		return authored
+	for layer in presentation.get("layers", []):
+		if layer is Dictionary and str(layer.get("kind", "")) == "terrain":
+			var path := str(layer.get("path", ""))
+			if not path.is_empty() and ResourceLoader.exists(path):
+				return path
+	return authored
+
+
+static func _landmark_asset_path(hex: HexRecord, presentation: Dictionary, variant: Dictionary) -> String:
+	var authored := str(hex.structure_sprite_path if hex != null else "")
+	if not authored.is_empty() and ResourceLoader.exists(authored):
+		return authored
+	var override_path := str(variant.get("overrides", {}).get("landmark_path", ""))
+	if not override_path.is_empty() and ResourceLoader.exists(override_path):
+		return override_path
+	for layer in presentation.get("layers", []):
+		if layer is Dictionary and str(layer.get("kind", "")) == "structure":
+			var path := str(layer.get("path", ""))
+			if not path.is_empty() and ResourceLoader.exists(path):
+				return path
+	return ""
+
+
+static func _color_value(value: Variant) -> Color:
+	if value is Color:
+		return value
+	if value is String and not str(value).is_empty():
+		return Color(str(value))
+	return Color.WHITE
 
 
 func _configure_base(
