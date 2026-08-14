@@ -83,8 +83,10 @@ func show_descriptor(descriptor: Dictionary, is_ranged_weapon: bool = false) -> 
 	weapon_image.texture = load(_texture_path) as Texture2D if not _texture_path.is_empty() and ResourceLoader.exists(_texture_path) else null
 
 
-func play_turn_action(_action_id: String, duration: float) -> void:
-	_pulse_remaining = maxf(0.0, duration)
+func play_turn_action(_action_id: String, _duration: float = 0.0) -> void:
+	# The card is a static equipment readout. Its action acknowledgement is a
+	# fixed UI pulse, independent of combat, sprite-sheet, and body-clip clocks.
+	_pulse_remaining = 0.18
 	set_process(_pulse_remaining > 0.0)
 
 

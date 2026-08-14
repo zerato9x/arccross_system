@@ -138,8 +138,8 @@ func _firearm_cycle_checks() -> bool:
 	var cycle := _request("cycle")
 	if not _controller.quote(cycle).legal:
 		return _fail("Jam-only Cycle was not legal.")
-	if _controller.catalog.is_player_visible("clear_malfunction") or _controller.catalog.is_ai_visible("clear_malfunction"):
-		return _fail("Retired clear_malfunction remained enumerable.")
+	if _controller.catalog.definition("clear_malfunction") != null:
+		return _fail("Retired clear_malfunction remained defined.")
 	weapon.is_jammed = false
 	weapon.needs_cycling = true
 	var fire := _request("fire")

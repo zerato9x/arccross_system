@@ -15,7 +15,10 @@ When sources conflict, use this order:
 3. `CENTRAL_CORE_CAMPAIGN_OVERHAUL.md` owns the current implementation baseline
    and must distinguish temporary alpha limits from long-term campaign canon.
 4. `MACRO_WORLD_OVERHAUL.md` owns campaign geography, the Node Web, and zone scope.
-5. Focused design documents own their named topic.
+5. Focused design documents own their named topic. For current combat, use
+   `TURN_BASED_COMBAT_OVERHAUL.md` for rules and
+   `COMBAT_UI_SPECIFICATION.md` for interaction/presentation; historical combat
+   recaps do not override them.
 6. `GLOSSARY.md` owns terminology, but must yield to a more recent authoritative
    source if a contradiction is explicit.
 
@@ -63,8 +66,12 @@ source currently wins, and ask whether the user wants to revise canon.
   it does not time-travel or restore a pristine past.
 - Routes should look inhabited by history: roads, service spurs, ruins, traces,
   landmarks, and gameplay-linked sites—not evenly scattered decoration.
-- Turn-based combat is the official default design. Optional real-time material
-  should not quietly redefine the core game.
+- Tactical turn-based combat is the sole production authority. It uses the
+  `squad_7x5` orthogonal grid, one normal AP pool, one directly controlled
+  player, up to five autonomous NPCs, pairwise relationships, a frozen roster,
+  geometry-only cover, and persistent wounds/Stance/equipment. Legacy duel and
+  real-time material is Lab or historical reference and must not redefine the
+  current game.
 
 ## How to collaborate
 

@@ -22,33 +22,27 @@ class_name CombatWeaponPresentationDefinition
 
 
 func sheet_for_action(action_id: String) -> Texture2D:
-	if action_id in ["fire", "aimed_fire"]:
-		return shoot_sheet
 	if action_id == "reload":
 		return reload_sheet
-	if action_id in ["cycle", "clear_malfunction"]:
+	if action_id == "cycle":
 		return cycle_sheet
-	return null
+	return shoot_sheet
 
 
 func frame_size_for_action(action_id: String) -> Vector2i:
-	if action_id in ["fire", "aimed_fire"]:
-		return shoot_frame_size
 	if action_id == "reload":
 		return reload_frame_size
-	if action_id in ["cycle", "clear_malfunction"]:
+	if action_id == "cycle":
 		return cycle_frame_size
-	return Vector2i.ZERO
+	return shoot_frame_size
 
 
 func fps_for_action(action_id: String) -> float:
-	if action_id in ["fire", "aimed_fire"]:
-		return shoot_fps
 	if action_id == "reload":
 		return reload_fps
-	if action_id in ["cycle", "clear_malfunction"]:
+	if action_id == "cycle":
 		return cycle_fps
-	return 0.0
+	return shoot_fps
 
 
 func duration_for_action(action_id: String) -> float:
@@ -63,7 +57,7 @@ func duration_for_action(action_id: String) -> float:
 
 
 func release_progress_for_action(action_id: String) -> float:
-	if action_id not in ["fire", "aimed_fire"]:
+	if action_id in ["reload", "cycle"]:
 		return 0.0
 	var sheet := sheet_for_action(action_id)
 	var frame_size := frame_size_for_action(action_id)
@@ -76,8 +70,8 @@ func release_progress_for_action(action_id: String) -> float:
 
 
 func display_scale_for_action(action_id: String) -> float:
-	return shoot_display_scale if action_id in ["fire", "aimed_fire"] else 1.0
+	return shoot_display_scale if action_id not in ["reload", "cycle"] else 1.0
 
 
 func hand_anchor_for_action(action_id: String) -> Vector2:
-	return shoot_hand_anchor if action_id in ["fire", "aimed_fire"] else Vector2.ZERO
+	return shoot_hand_anchor if action_id not in ["reload", "cycle"] else Vector2.ZERO

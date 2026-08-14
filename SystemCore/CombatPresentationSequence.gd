@@ -9,6 +9,7 @@ class_name CombatPresentationSequence
 @export var impact_marker_seconds: float = -1.0
 @export var pacing_tier: String = "maintenance"
 @export var authored_animation_duration_seconds: float = 0.0
+@export var weapon_animation_duration_seconds: float = 0.0
 @export var camera_safe_rect: Rect2 = Rect2()
 @export var dialogue_events: Array[Dictionary] = []
 
@@ -26,6 +27,7 @@ func to_dict() -> Dictionary:
 		"impact_marker_seconds": impact_marker_seconds,
 		"pacing_tier": pacing_tier,
 		"authored_animation_duration_seconds": authored_animation_duration_seconds,
+		"weapon_animation_duration_seconds": weapon_animation_duration_seconds,
 		"camera_safe_rect": camera_safe_rect,
 		"dialogue_events": dialogue_events.duplicate(true),
 		"cues": result,

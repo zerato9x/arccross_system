@@ -1,7 +1,7 @@
 extends Resource
 class_name CombatTargetingProfile
 
-## Authored body-region exposure and aimed-attack difficulty.
+## Authored body-region exposure and specialized-attack difficulty.
 
 @export var profile_id: String = "humanoid_default"
 @export var automatic_region_weights: Dictionary = {
@@ -13,7 +13,7 @@ class_name CombatTargetingProfile
 	GameEnums.LimbRegion.LEFT_LEG: 1.0,
 	GameEnums.LimbRegion.RIGHT_LEG: 1.0,
 }
-@export var aimed_accuracy_modifiers: Dictionary = {
+@export var region_accuracy_modifiers: Dictionary = {
 	GameEnums.LimbRegion.HEAD: -0.22,
 	GameEnums.LimbRegion.UPPER_TORSO: 0.08,
 	GameEnums.LimbRegion.LOWER_TORSO: 0.04,
@@ -25,7 +25,7 @@ class_name CombatTargetingProfile
 
 
 func accuracy_modifier(region: int) -> float:
-	return float(aimed_accuracy_modifiers.get(region, -0.12))
+	return float(region_accuracy_modifiers.get(region, -0.12))
 
 
 func weighted_regions() -> Array[int]:

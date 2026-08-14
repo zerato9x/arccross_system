@@ -42,6 +42,8 @@ var _running := false
 var _intent_revision := 0
 var _observation_memory: Dictionary = {}
 var _last_evaluation: Dictionary = {}
+var _shove_replan_queued := false
+var _shove_replan_request_count := 0
 
 
 func configure(
@@ -78,6 +80,8 @@ func configure(
 	_intent_revision = maxi(_intent_revision, int(behavior_state.last_intent_revision if behavior_state != null else memory.get("last_intent_revision", 0)))
 	if not turn_manager.turn_started.is_connected(_on_turn_started):
 		turn_manager.turn_started.connect(_on_turn_started)
+	if not controller.ai_replan_requested.is_connected(_on_ai_replan_requested):
+		controller.ai_replan_requested.connect(_on_ai_replan_requested)
 	if turn_manager.get_active_entity() == actor:
 		call_deferred("_take_turn")
 
@@ -86,6 +90,21 @@ func _on_turn_started(active_actor: HumanoidCore) -> void:
 	if active_actor != actor or _running:
 		return
 	call_deferred("_take_turn")
+
+
+func _on_ai_replan_requested(actor_id: String, reason: String) -> void:
+	if actor_id != _actor_id(actor) or reason != "shoved_out_of_engagement":
+		return
+	_shove_replan_request_count += 1
+	_shove_replan_queued = true
+
+
+func has_queued_shove_replan() -> bool:
+	return _shove_replan_queued
+
+
+func shove_replan_request_count() -> int:
+	return _shove_replan_request_count
 
 
 ## Public evaluator seam used by lab tooling and deterministic smoke tests.
@@ -107,6 +126,8 @@ func _take_turn() -> void:
 	var actions_taken := 0
 	var stale_evaluations := 0
 	var last_progress_signature := ""
+	var evaluation_trigger := "shove_replan" if _shove_replan_queued else "turn"
+	_shove_replan_queued = false
 	while (
 		actions_taken < MAX_ACTIONS_PER_TURN
 		and turn_manager.get_active_entity() == actor
@@ -119,7 +140,8 @@ func _take_turn() -> void:
 		if turn_manager.get_active_entity() != actor:
 			break
 
-		var evaluation := _evaluate_once("turn")
+		var evaluation := _evaluate_once(evaluation_trigger)
+		evaluation_trigger = "turn"
 		_last_evaluation = evaluation
 		var intent = evaluation.get("intent")
 		var trace = evaluation.get("trace")

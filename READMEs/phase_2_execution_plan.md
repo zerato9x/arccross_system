@@ -11,7 +11,9 @@ intent; domain cores validate and mutate authoritative state.
 
 ## Status
 
-Status updated on **July 23, 2026**:
+Historical status captured on **July 23, 2026**. The production combat entries
+below are superseded by the August 14 reconciliation and are retained only as
+implementation history:
 
 - Combat HUD workstreams **P2-01 through P2-04 are complete** and again form the
   official turn-based presentation foundation. See
@@ -32,10 +34,11 @@ Status updated on **July 23, 2026**:
 - Macro exploration window, trap-to-combat loop, and entity-collision Event HUD
   path (Threat / Ceasefire / Ask / Trade placeholder) are live; do not revive
   `MacroInteractionPanel`. Finished Macro HUD remake/repair plans were deleted.
-- **Active next:** production duel-lane presentation and live usability polish.
-  The `12 x 1` topology, 1v1/1v2 encounter assembly, contextual HUD, detailed
-  selected-target health, and compact inventory drawer are implemented.
-  Central Core campaign
+- **Current replacement:** production combat uses the orthogonal `squad_7x5`
+  topology with an assembled roster of up to six actors. The `12 x 1` duel and
+  `6 x 3` skirmish remain Combat Lab resources only. Current implementation and
+  acceptance live in `design/TURN_BASED_COMBAT_OVERHAUL.md` and
+  `design/COMBAT_UI_SPECIFICATION.md`. Central Core campaign
   implementation is paused until the complete categorized asset folder is
   available.
 
@@ -209,11 +212,14 @@ The following plan shipped on **June 29, 2026**:
 8. Validated with `CombatLaneHUDSmoke.gd`, `CombatInterfaceSmoke.gd`, and
    `WeaponDataSmoke.gd`.
 
-## Current Non-Goals
+## Historical Non-Goals (Superseded)
 
-- Player-facing combat beyond the production `12 x 1` duel lane.
+These bullets describe the older duel slice and are not current production
+authority. In particular, `squad_7x5` has replaced the `12 x 1` lane.
+
+- Player-facing combat beyond the then-production `12 x 1` duel lane.
 - Reintroducing `CombatPanel`.
 - Implementing macro SNIPE.
 - Making every `Asset/Guns_Animation/` filename a permanent API.
 - Replacing humanoid token animation with HUD gun effects.
-- Squads larger than the supported 1v2 slice.
+- Squads larger than the then-supported 1v2 slice.

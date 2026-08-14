@@ -13,7 +13,6 @@ func build(snapshot: Dictionary) -> Dictionary:
 		"initiative_order": snapshot.get("initiative_order", []).duplicate(true),
 		"round": int(snapshot.get("round", 0)),
 		"ap": int(snapshot.get("ap", 0)),
-		"reserved_ap": snapshot.get("reserved_ap", {}).duplicate(true),
 		"active_actor_id": active_actor_id,
 		"max_ap": maxi(0, max_ap),
 		"communication_points": communication_points.duplicate(true),

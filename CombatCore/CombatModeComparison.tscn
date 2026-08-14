@@ -75,7 +75,7 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_colors/font_color = Color(0.68, 0.7, 0.64, 1)
 text = "One rules authority, several board profiles.
-Production uses the concise duel lane; future grids remain laboratory-only."
+Production uses the 7 x 5 squad grid; legacy boards remain laboratory-only."
 horizontal_alignment = 1
 
 [node name="Realtime" type="Button" parent="ComparisonUI/ModeMenu/Panel/Margin/Rows" unique_id=510557022]
@@ -83,14 +83,14 @@ custom_minimum_size = Vector2(0, 62)
 layout_mode = 2
 theme_override_font_sizes/font_size = 19
 text = "F1  12 x 1 DUEL LANE
-Production profile: concise, linear, no passing"
+Legacy Lab profile: linear compatibility coverage"
 
 [node name="TurnBased" type="Button" parent="ComparisonUI/ModeMenu/Panel/Margin/Rows" unique_id=956089533]
 custom_minimum_size = Vector2(0, 62)
 layout_mode = 2
 theme_override_font_sizes/font_size = 19
 text = "F2  7 x 5 SQUAD GRID
-Future profile: terrain, cover, wider deployments"
+Production profile: terrain, cover, up to six actors"
 
 [node name="ResultLabel" type="Label" parent="ComparisonUI/ModeMenu/Panel/Margin/Rows" unique_id=833677928]
 unique_name_in_owner = true

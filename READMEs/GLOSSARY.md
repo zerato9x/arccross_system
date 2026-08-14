@@ -208,7 +208,7 @@ Damage Type describes an attack vector. Trauma describes a resulting condition.
   greater Weight and Bulk for better Accuracy.
 - **Accuracy Rating:** A weapon's authored contribution to ranged or melee hit
   resolution. It combines with the wielder and encounter context.
-- **Effective Range:** The farthest Combat Lane distance at which a ranged
+- **Effective Range:** The farthest tactical-grid distance at which a ranged
   weapon may attempt a shot.
 - **Optimal Range:** The distance through which a ranged weapon retains full
   authored damage before any configured falloff.
@@ -232,72 +232,73 @@ describes a tool; Damage Type describes a hit.
 ## Combat
 
 - **Combat Encounter:** A temporary tactical simulation built from persistent
-  entity records.
-- **Combat Lane:** The twelve-slot linear tactical space.
+  entity records. Production uses one frozen, aware roster with at most six
+  actors and no late entry.
+- **Squad Grid:** The production seven-column, five-row orthogonal tactical
+  board identified by `squad_7x5`.
+- **Legacy Lab Topology:** `duel_12x1` or `skirmish_6x3`; a loadable test/Lab
+  profile, not production combat authority.
 - **Encounter Context:** The reason and deployment condition for combat.
 - **Collider:** The entity that deliberately moved into the other entity and
   therefore supplies encounter context and deployment pressure.
 - **Ambush Position:** A requested deployment band (FAR / STANDARD / CLOSE)
-  translated by CombatCore into lane indices.
-- **Action Point (AP):** A spendable combat resource capped at `12`.
-  Turn-based grants a discrete pool each turn and may reserve leftovers for
-  reactions; optional real-time regenerates AP every quarter-second.
-- **Kinetic Burden:** Derived physical restriction from trauma, encumbrance,
-  equipment, and survival crises.
-- **Kinetic Tier:** The Fluid, Labored, or Agonizing bracket that determines
-  base AP regeneration speed. It never changes an action's price.
-- **Stance Points:** Encounter-local physical equilibrium on the `0` to `12`
-  scale. It resets at combat boundaries; wounds and systemic vitals do not.
-- **Stance State:** A Stance bracket: Planted (`7-12`), Stumbling (`1-6`), or
-  Felled (`0`). It multiplies AP regeneration and controls defensive mobility.
-- **Recovery Guard:** A short anti-refell interval after the automatic real-time
-  get-up timeline succeeds.
-- **Melee Lock:** The derived situation in which hostile combatants occupy the
-  same lane slot.
-- **Duel Intent:** A neutral real-time input request such as move, light,
-  heavy, aim, fire, guard, follow, or reload/cycle.
-- **Action Timeline:** CombatCore's authoritative windup, impact, commit, combo,
-  and recovery schedule shared with presentation.
+  translated by CombatCore into authored grid deployment sectors.
+- **Direct Player:** The sole encounter actor whose tactical actions come from
+  player input. Every other participant is autonomous.
+- **Pairwise Relation:** The current friendly, neutral, or hostile relation
+  between two actor IDs. Faction or team names do not replace this authority.
+- **Action Point (AP):** The normal spendable turn pool capped at `12`. There is
+  no reserved reaction AP or second defensive pool.
+- **Pending Action Cost:** AP held transactionally between accepted quote and
+  commit. It is not a player-controlled reserve and is returned on denial.
+- **Burden State:** The Fluid, Labored, or Agonizing physical restriction band
+  derived from trauma, equipment, and survival state.
+- **Stance:** Encounter-local physical equilibrium on the `0` to `12` scale.
+  Stance resets at combat boundaries; wounds and systemic vitals do not.
+- **Engagement:** Hostile same-sector occupancy. It is a geometry/relationship
+  state, not a facing, posture, or reaction window.
+- **Geometry Cover:** Protection authored on the threatened edge of a sector.
+  It does not depend on persistent actor facing or rear/flank arcs.
+- **Combat Defense:** The allowed composition of wounds, Stance, equipment,
+  geometry cover, weapon range, and observable conditions. Block, Dodge,
+  posture, facing, and opportunity attacks are retired.
+- **Action Quote:** The owner's read-only legality, AP, path, targeting, and
+  forecast result for one request. It does not advance RNG or mutate state.
+- **Action Timeline:** A committed presentation sequence with independent cue
+  marker, body-animation, map-weapon, release-marker, and card-pulse clocks.
 - **Combat Interface:** A replaceable presentation boundary.
-  `CombatLaneHUD` is the official turn-command interface;
-  `RealtimeDuelHUD` is the optional continuous-time interface.
-- **Guard:** One `Space`-triggered timed defense event. Early impact overlap
-  parries and later overlap blocks; it does not pause combat.
-- **Parry:** The narrow perfect-timing section of Guard that cancels a melee
-  impact, damages attacker Stance, and staggers the attacker.
+  `TacticalCombatHUD` is the production turn-command interface.
+- **Context Menu Anchor:** The global RMB pointer position forwarded by the
+  arena for near-pointer placement. Pointerless input uses the command dock.
 - **Combat Outcome:** The shared result emitted when combat ends.
 - **Damage Type:** The physical vector of an attack: Blunt, Sharp, or Ballistic.
 - **Flesh Damage:** Damage to anatomy and biological health.
 - **Stance Damage:** Damage to equilibrium that can create openings without
-  directly causing a wound. Ordinary pressure floors at `1`; only explicit
-  takedown-capable effects may reduce Stance to `0`.
+  directly causing a wound.
 - **Ballistic Hit:** A firearm impact that applies authored Flesh Damage to one
   Limb Region and deals `0` Stance Damage.
-- **Strike:** A melee attack whose impact region is resolved randomly from all
-  non-head Limb Regions.
-- **BREAK STANCE:** A braced melee Stance attack costing MINOR AP. It may Fell an
-  already-Stumbling target but ordinary use cannot knock a Planted target
-  directly to `0`. Its low cost enables stance-erosion combos.
-- **Grapple:** An official turn-based Melee Lock command. Optional real-time
-  uses heavy attacks, combo finishers, parries, hazards, and traps instead.
-- **CYCLE:** Cycle a firearm action after firing, or hand-load one compatible
-  loose round when that weapon supports manual loading.
+- **Strike:** The canonical default attack derived for BLUNT and BLADE weapons.
+- **Fire:** The canonical default attack derived for PISTOL, RIFLE, and SHOTGUN
+  weapons.
+- **Specialized Weapon Action:** An additional deterministic action ID authored
+  by a weapon and validated against the combat catalog.
+- **CYCLE:** Cycle a firearm after firing, clear its jam, or hand-load one
+  compatible loose round when that weapon supports manual loading.
 - **RELOAD:** Load a firearm through its exact compatible magazine, clip, or
   speedloader.
-- **GET UP:** Automatic interruptible recovery that begins when a Felled
-  combatant reaches `4 AP`, restores `6` Stance, and grants Recovery Guard.
-- **Push:** Press `D` while Melee Locked to shove the opponent one lane away and
-  open a short Follow-or-shoot decision window.
-- **Follow:** Press `D` during the post-Push window to enter the opponent's new
-  slot and restore Melee Lock.
-- **Legacy Lock Actions:** `PULL`, `BREAK`, `DISENGAGE`, and the old displacement
-  enum variants remain reference code only; they are not real-time intents.
-- **Execute** *(planned trait action):* A finishing command reserved for a future
-  trait unlock. It is disabled in the current demo rules.
-- **Grounded Strike:** A Strike against a Felled target automatically targets
-  the HEAD, prevents Dodge, and gives armed hits a severe damage multiplier.
-- **Fumble Strike:** A free punishment hit triggered when an opponent fails a
-  Grapple attempt. No reaction window is opened.
+- **Shove Replan:** Exactly one AI-only plan refresh queued after presentation
+  when shove moves an autonomous actor out of hostile Engagement. It grants no
+  AP or turn and opens no player prompt.
+- **LEAVE BATTLE:** Neutral terminal action legal when no living actor remains
+  hostile to the player. NPC-versus-NPC hostility may continue.
+- **Response Marker:** Target presentation timing after impact. It is not a
+  gameplay reaction window.
+- **HumanInjured Authority:** The event emitted when `HumanoidBody` creates an
+  actual Wound. Presentation impact audio is contact only.
+- **Retired Combat Actions:** `aimed_strike`, `aimed_fire`, `power_strike`,
+  `stand`, `crouch`, `disengage`, `clear_malfunction`, `block`, `dodge`, and
+  `opportunity_strike`. Historical documents may mention them but they are not
+  catalog authority.
 
 ## Macro World
 
@@ -322,7 +323,7 @@ describes a tool; Damage Type describes a hit.
 - **Hysteresis:** The gap between load and unload thresholds that prevents
   boundary thrashing.
 - **Entity Projection:** A temporary visual representation of a persistent
-  entity. Macro-world tokens, combat-lane tokens, and the Innawoods Paper Doll
+  entity. Macro-world tokens, tactical-arena tokens, and the Innawoods Paper Doll
   all project the same Runtime State instead of owning identity or gameplay
   data.
 - **Innawoods Paper Doll:** The static inventory portrait projection built from
@@ -344,7 +345,8 @@ describes a tool; Damage Type describes a hit.
   translation between domains.
 - **WorldCore:** Hexes, movement, world presentation, proximity loading, and
   macro interactions.
-- **CombatCore:** Encounters, lanes, turns, AI, action rules, and resolution.
+- **CombatCore:** Encounters, tactical grids, turns, AI, action rules,
+  resolution, and combat presentation sequencing.
 - **BiologicalCore:** Anatomy, vitals, Morale, Stance, Trauma, and biological
   snapshots.
 - **SoundCore:** Audio routing, SFX synchronization, and dynamic music timeline management (Audio Conductor).

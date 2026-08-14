@@ -15,7 +15,7 @@ func _run() -> void:
 	await process_frame
 	var encounter := CombatEncounterRecord.new()
 	encounter.encounter_id = "death_lifecycle_smoke"
-	encounter.topology_id = "duel_12x1"
+	encounter.topology_id = "squad_7x5"
 	encounter.initiator_id = "player"
 	encounter.center_hex = HexRecord.new()
 	encounter.world_seed = "DEATH_LIFECYCLE_SMOKE"

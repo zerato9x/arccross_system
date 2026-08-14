@@ -1,5 +1,33 @@
 # ARCCROSS Changelog
 
+## August 14, 2026
+
+### Tactical Combat Contract Reconciliation
+
+- Restored `squad_7x5` as the only production topology, retained the 12x1 duel
+  and 6x3 skirmish as explicit Combat Lab resources, and strengthened normal
+  GameDirector handoff, six-actor cap, and no-late-entry tests.
+- Added weapon-authored specialized action IDs with deterministic `strike` /
+  `fire` derivation, catalog family metadata, strict validation, and generic
+  melee/ranged resolution for future catalog actions.
+- Removed the retired aimed/power/posture/facing/reaction/opportunity authority,
+  advanced the strict combat snapshot schema, and kept only the transaction's
+  pending action cost.
+- Made cover geometry-only and added a post-presentation AI-only replan when
+  shove moves an autonomous actor out of hostile Engagement.
+- Forwarded real RMB pointer anchors into the clamped context menu, added icons
+  to Hands/Quick, observable target, and ground-item rows, and retained the
+  pointerless command-dock fallback.
+- Separated cue/body/map-weapon/release/card clocks, kept the active weapon card
+  static with a short pulse, removed obsolete generic transform channels, and
+  retained authored ranged sheets plus melee equipped-sprite overlays on-map.
+- Made actual wound creation the sole `HumanInjured` audio authority, separated
+  contact audio, and preserved typed encounter/action/actor/target/item/weapon
+  identity through combat audio payloads.
+- Reconciled the production combat, UI, architecture, glossary, visual, project,
+  and README contracts and added focused schema, defense, shove, audio, pointer,
+  item-icon, timeline, and retirement smoke coverage.
+
 ## August 1, 2026
 
 ### Concise Tactical Duel Lane

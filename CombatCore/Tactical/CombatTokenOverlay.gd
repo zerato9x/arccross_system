@@ -1,8 +1,8 @@
 extends Node2D
 class_name CombatTokenOverlay
 
-## Presentation projection only. Battlefield position, facing, and combat
-## state remain owned by the tactical board and authoritative snapshots.
+## Presentation projection only. Battlefield position and combat state remain
+## owned by the tactical board; direction is derived for visual readability.
 
 enum Mode { GROUND, TOP }
 
@@ -13,8 +13,7 @@ var relationship_color := Color("b5c2bd")
 var relationship_id := "neutral"
 var selected := false
 var active := false
-var reaction_threat := false
-var facing := "east"
+var presentation_direction := "east"
 var footprint_width := 48.0
 var display_scale := 1.0
 var head_top_anchor := Vector2.ZERO
@@ -27,8 +26,7 @@ func configure_ground(
 	color: Color,
 	selected_state: bool,
 	active_state: bool,
-	threat_state: bool,
-	facing_id: String,
+	direction_id: String,
 	width: float,
 	scale_value: float
 ) -> void:
@@ -37,8 +35,7 @@ func configure_ground(
 	team_color = color
 	selected = selected_state
 	active = active_state
-	reaction_threat = threat_state
-	facing = facing_id
+	presentation_direction = direction_id
 	footprint_width = width
 	display_scale = scale_value
 	queue_redraw()
@@ -49,7 +46,7 @@ func configure_top(
 	width: float,
 	scale_value: float,
 	head_anchor: Vector2 = Vector2.ZERO,
-	facing_id: String = "east",
+	direction_id: String = "east",
 	relation_color: Color = Color("b5c2bd"),
 	relation_id: String = "neutral"
 ) -> void:
@@ -58,7 +55,7 @@ func configure_top(
 	footprint_width = width
 	display_scale = scale_value
 	head_top_anchor = head_anchor if head_anchor != Vector2.ZERO else Vector2(0.0, -64.0 * display_scale - 30.0)
-	facing = facing_id
+	presentation_direction = direction_id
 	relationship_color = relation_color
 	relationship_id = relation_id
 	queue_redraw()
@@ -121,7 +118,7 @@ func _intent_icon(icon_id: String, label: String) -> String:
 func _draw_weapon() -> void:
 	if cue == null:
 		return
-	if cue.action_id in ["strike", "power_strike", "shove", "incapacitate", "execute"]:
+	if _is_melee_cue():
 		_draw_melee_weapon()
 		return
 	var geometry := _weapon_geometry()
@@ -147,7 +144,7 @@ func _draw_weapon() -> void:
 	var frame_index := clampi(floori(sequence_progress * float(frame_count)), 0, frame_count - 1)
 	var source := Rect2(Vector2((frame_index % columns) * frame_size.x, floori(float(frame_index) / float(columns)) * frame_size.y), Vector2(frame_size))
 	var weapon_rect: Rect2 = geometry.rect
-	var flip_x := -1.0 if facing == "west" else 1.0
+	var flip_x := -1.0 if presentation_direction == "west" else 1.0
 	draw_set_transform(weapon_rect.get_center(), 0.0, Vector2(flip_x, 1.0))
 	draw_texture_rect_region(sheet, Rect2(-display_size * 0.5, display_size), source)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -157,24 +154,65 @@ func _draw_melee_weapon() -> void:
 	var token := get_parent() as HumanoidTokenView
 	if token == null:
 		return
-	var hand := token.combat_weapon_hand_anchor(str(cue.weapon_id))
-	var direction := _facing_vector(facing)
-	var anticipation := sin(clampf(cue_progress, 0.0, 1.0) * PI)
-	var swing := lerpf(-0.48, 0.48, clampf(cue_progress, 0.0, 1.0))
+	var geometry := _melee_weapon_geometry()
+	if geometry.is_empty():
+		return
+	var texture: Texture2D = geometry.texture
+	var hand := token.combat_melee_hand_anchor()
+	var direction := _facing_vector(presentation_direction)
+	var progress := clampf(cue_progress, 0.0, 1.0)
+	var anticipation := sin(progress * PI)
+	var swing := lerpf(-0.42, 0.56, progress)
 	var angle := direction.angle() + swing
-	var length := 20.0 * display_scale
-	var tip := hand + Vector2.from_angle(angle) * length
-	var weapon_color := Color("d4ba7e") if str(actor_snapshot.get("melee_weapon", {}).get("category", "")) != "blade" else Color("c5d1c8")
-	draw_line(hand, tip, Color(weapon_color, 0.35 + anticipation * 0.55), maxf(2.0, 3.0 * display_scale), true)
-	draw_arc(hand, length * 0.72, angle - 0.48, angle + 0.48, 10, Color(weapon_color, 0.18 + anticipation * 0.35), maxf(1.0, display_scale), true)
+	var frame_rect: Rect2 = geometry.rect
+	# The equipped-item image is authored in the same token-local canvas as the
+	# humanoid layers. Rotate that existing image around the hand pivot instead
+	# of inventing a second melee effect asset.
+	draw_set_transform(hand, angle, Vector2.ONE)
+	draw_texture_rect(texture, Rect2(frame_rect.position - hand, frame_rect.size), false, Color(1.0, 1.0, 1.0, 0.72 + anticipation * 0.28))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func weapon_local_rect() -> Rect2:
+	if _is_melee_cue():
+		return _melee_weapon_geometry().get("rect", Rect2())
 	return _weapon_geometry().get("rect", Rect2())
 
 
+func _is_melee_cue() -> bool:
+	return (
+		cue != null
+		and (
+			cue.action_id in ["strike", "shove", "incapacitate", "execute"]
+			or cue.weapon_class in [GameEnums.WeaponClass.BLUNT, GameEnums.WeaponClass.BLADE]
+		)
+	)
+
+
+func _melee_weapon_geometry() -> Dictionary:
+	if cue == null:
+		return {}
+	var weapon: Dictionary = actor_snapshot.get("melee_weapon", {})
+	var presentation: Dictionary = weapon.get("presentation", {})
+	var sprite_path := str(presentation.get(
+		"sprite_path",
+		weapon.get("equipped_sprite_path", weapon.get("sprite_path", ""))
+	))
+	if sprite_path.is_empty() or not ResourceLoader.exists(sprite_path):
+		return {}
+	var texture := load(sprite_path) as Texture2D
+	if texture == null:
+		return {}
+	var frame_size := texture.get_size() * display_scale
+	return {
+		"texture": texture,
+		"sprite_path": sprite_path,
+		"rect": Rect2(-frame_size * 0.5, frame_size),
+	}
+
+
 func _weapon_geometry() -> Dictionary:
-	if cue == null or cue.action_id not in ["fire", "aimed_fire", "reload", "cycle", "clear_malfunction"]:
+	if cue == null or cue.weapon_class < GameEnums.WeaponClass.PISTOL:
 		return {}
 	var catalog: CombatWeaponPresentationCatalog = preload("res://CombatCore/Tactical/default_weapon_presentation_catalog.tres")
 	var definition := catalog.definition_for(cue.weapon_id)
@@ -192,7 +230,7 @@ func _weapon_geometry() -> Dictionary:
 	var hand := token.combat_weapon_hand_anchor(cue.weapon_id) if token != null else head_top_anchor + Vector2(0.0, -display_size.y * 1.1)
 	var authored_anchor := definition.hand_anchor_for_action(cue.action_id)
 	var lateral_offset := (authored_anchor.x - 0.5) * display_size.x
-	if facing == "west":
+	if presentation_direction == "west":
 		lateral_offset = -lateral_offset
 	var center := hand + Vector2(lateral_offset, authored_anchor.y * display_size.y)
 	return {

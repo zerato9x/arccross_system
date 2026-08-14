@@ -3,10 +3,4 @@
 [resource]
 script = ExtResource("1")
 recipe_id = "firearm_grounded"
-recoil_pixels = 12.0
-shake_amplitude = 4.0
-shake_frequency = 34.0
-hit_stop_seconds = 0.045
-camera_impulse_pixels = 2.0
-impact_scale = 0.07
 projectile_speed_cells_per_second = 9.0

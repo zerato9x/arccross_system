@@ -13,7 +13,6 @@ class_name CombatActionOutcome
 @export var random_draws: Array[Dictionary] = []
 @export var wound_events: Array[Dictionary] = []
 @export var item_receipts: Array[Dictionary] = []
-@export var reactions: Array[Dictionary] = []
 @export var terrain_mutations: Array[Dictionary] = []
 @export var presentation_events: Array[Dictionary] = []
 @export var presentation_sequence: CombatPresentationSequence
@@ -28,6 +27,7 @@ class_name CombatActionOutcome
 @export var relation_events: Array[Dictionary] = []
 @export var communication_receipts: Array[Dictionary] = []
 @export var occupancy_transitions: Array[Dictionary] = []
+@export var ai_replan_requests: Array[Dictionary] = []
 
 
 func to_dict() -> Dictionary:
@@ -42,7 +42,6 @@ func to_dict() -> Dictionary:
 		"random_draws": random_draws.duplicate(true),
 		"wound_events": wound_events.duplicate(true),
 		"item_receipts": item_receipts.duplicate(true),
-		"reactions": reactions.duplicate(true),
 		"terrain_mutations": terrain_mutations.duplicate(true),
 		"presentation_events": presentation_events.duplicate(true),
 		"presentation_sequence": (
@@ -59,4 +58,5 @@ func to_dict() -> Dictionary:
 		"relation_events": relation_events.duplicate(true),
 		"communication_receipts": communication_receipts.duplicate(true),
 		"occupancy_transitions": occupancy_transitions.duplicate(true),
+		"ai_replan_requests": ai_replan_requests.duplicate(true),
 	}

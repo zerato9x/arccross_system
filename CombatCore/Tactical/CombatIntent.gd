@@ -77,7 +77,7 @@ static func _readable_label(motive_value: String, problem_value: String, request
 		"escape": return "RETREATING"
 		"take_cover": return "SEEKING COVER"
 		"end_turn": return "HOLDING"
-		"fire", "strike", "power_strike", "incapacitate", "execute", "shove": return "ATTACKING"
+		"fire", "strike", "incapacitate", "execute", "shove": return "ATTACKING"
 		"offense", "defense", "support", "flee", "threaten", "ceasefire": return "COMMUNICATING"
 	if problem_value == "NEED_ENGAGE":
 		return "CLOSING DISTANCE"

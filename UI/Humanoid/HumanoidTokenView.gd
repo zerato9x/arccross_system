@@ -152,6 +152,18 @@ func combat_weapon_hand_anchor(weapon_id: String) -> Vector2:
 	return muzzle.lerp(Vector2(0.0, -4.0 * _display_scale), 0.38)
 
 
+func combat_melee_hand_anchor() -> Vector2:
+	## Melee items reuse the equipped-item artwork and therefore do not require
+	## a firearm muzzle profile. Keep their local animation pivot directional,
+	## but never emit a missing-firearm warning for a blade or blunt weapon.
+	var frame_size := Vector2(HumanoidVisualCatalog.FRAME_SIZE)
+	var fallback_muzzle := (
+		_fallback_weapon_muzzle_anchor() * frame_size
+		- frame_size * 0.5
+	) * _display_scale
+	return fallback_muzzle.lerp(Vector2(0.0, -4.0 * _display_scale), 0.38)
+
+
 func combat_body_region_anchor(region: int) -> Vector2:
 	var normalized := Vector2(0.5, 0.43)
 	match region:

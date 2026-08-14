@@ -3,9 +3,3 @@
 [resource]
 script = ExtResource("1")
 recipe_id = "weapon_service"
-recoil_pixels = 3.0
-shake_amplitude = 1.5
-shake_frequency = 18.0
-camera_impulse_pixels = 0.5
-impact_scale = 0.02
-

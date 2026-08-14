@@ -2,7 +2,7 @@ extends Control
 class_name TacticalArenaView
 
 signal inspect_requested(coords: Vector2i, actor_id: String)
-signal context_requested(coords: Vector2i, actor_id: String)
+signal context_requested(coords: Vector2i, actor_id: String, global_pointer_anchor: Vector2)
 signal sector_hovered(coords: Vector2i)
 signal sector_unhovered
 
@@ -314,20 +314,19 @@ func begin_cue(cue: CombatPresentationCue) -> void:
 		token.position = _presentation_positions.get(cue.actor_id, _actor_position(cue.actor_id, cue.start_sector))
 		token.scale = Vector2.ONE
 		token.rotation = 0.0
-		var facing_id := cue.facing
-		if facing_id.is_empty() and cue.start_sector != cue.end_sector:
-			facing_id = _facing_between(cue.start_sector, cue.end_sector)
-		if facing_id.is_empty():
-			facing_id = str(snapshot.get("facings", {}).get(cue.actor_id, ""))
-		if not facing_id.is_empty():
-			token.face_direction(_facing_vector(facing_id))
+		var direction_id := cue.presentation_direction
+		if direction_id.is_empty() and cue.start_sector != cue.end_sector:
+			direction_id = _facing_between(cue.start_sector, cue.end_sector)
+		if direction_id.is_empty():
+			direction_id = _default_presentation_direction(cue.actor_id)
+		token.face_direction(_facing_vector(direction_id))
 	var marker := cue.marker_id if not cue.marker_id.is_empty() else cue.phase_id
-	if marker == "reaction":
+	if marker == "response":
 		if token != null:
 			token.play_animation("Idle", true)
 	elif marker == "impact":
 		_play_cue_animation(token, cue)
-		# Impact owns the one target animation start. Reaction is only a readable
+		# Impact owns the one target animation start. Response is only a readable
 		# hold/settle window and must not replay the same one-shot.
 		if target_token != null and cue.target_animation_id != "neutral":
 			var target_duration := float(cue.presentation_flags.get("target_animation_duration_seconds", cue.duration_seconds))
@@ -354,11 +353,9 @@ func update_cue(progress: float, cue: CombatPresentationCue) -> void:
 		if cue_token != null:
 			var top_overlay := cue_token.get_meta("combat_top_overlay", null) as CombatTokenOverlay
 			if top_overlay != null:
-				top_overlay.set_cue_progress(lerpf(
-					cue.sequence_progress_start,
-					cue.sequence_progress_end,
-					progress
-				))
+				var elapsed_seconds := cue.start_time_seconds + cue.duration_seconds * progress
+				var weapon_duration := _sequence_weapon_cue.weapon_animation_duration_seconds
+				top_overlay.set_cue_progress(elapsed_seconds / maxf(0.001, weapon_duration))
 	var token := _actor_tokens.get(cue.actor_id) as HumanoidTokenView
 	var target_token := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
 	var start := _actor_position(cue.actor_id, cue.start_sector)
@@ -415,13 +412,13 @@ func end_cue(cue: CombatPresentationCue) -> void:
 
 
 func _is_firearm_cue(cue: CombatPresentationCue) -> bool:
-	return cue != null and cue.action_id in ["fire", "aimed_fire", "reload", "cycle", "clear_malfunction"]
+	return cue != null and cue.weapon_class >= GameEnums.WeaponClass.PISTOL
 
 
 func _is_weapon_cue(cue: CombatPresentationCue) -> bool:
 	if cue == null:
 		return false
-	return _is_firearm_cue(cue) or cue.action_id in ["strike", "power_strike", "shove", "incapacitate", "execute"]
+	return _is_firearm_cue(cue) or cue.action_id in ["strike", "shove", "incapacitate", "execute"] or cue.weapon_class in [GameEnums.WeaponClass.BLUNT, GameEnums.WeaponClass.BLADE]
 
 
 func _path_position(path: Array[Vector2i], progress: float, start: Vector2i, finish: Vector2i, actor_id: String = "") -> Vector2:
@@ -440,6 +437,11 @@ func sector_center(coords: Vector2i) -> Vector2:
 		(float(coords.x) + 0.5) * cell.x,
 		(float(coords.y) + 0.5) * cell.y
 	)
+
+
+func sector_global_position(coords: Vector2i) -> Vector2:
+	var transformed_center := _camera_transform_origin() + sector_center(coords) * _view_zoom
+	return get_global_transform() * transformed_center
 
 
 func _draw() -> void:
@@ -593,15 +595,9 @@ func _draw_preview() -> void:
 		var target_center := sector_center(preview_quote.target_sector)
 		draw_circle(target_center, 28.0, Color(color, 0.22))
 		draw_string(ThemeDB.fallback_font, target_center + Vector2(-28.0, -34.0), "%d AP" % preview_quote.ap_cost, HORIZONTAL_ALIGNMENT_CENTER, 56.0, 13, color)
-		if not preview_quote.final_facing.is_empty():
-			draw_line(target_center, target_center + _facing_vector(preview_quote.final_facing) * 34.0, Color("f0d487"), 4.0, true)
 	var collision := preview_quote.collision_preview
 	if collision.has("destination"):
 		draw_circle(sector_center(collision.destination), 18.0, Color("d9824d"), false, 4.0)
-	for threat_id in preview_quote.reaction_threat_ids:
-		var threat_coords := _actor_coords(str(threat_id))
-		if _contains(threat_coords):
-			draw_string(ThemeDB.fallback_font, sector_center(threat_coords) + Vector2(-8.0, -32.0), "!", HORIZONTAL_ALIGNMENT_CENTER, 16.0, 20, Color("ef6f5b"))
 	_draw_offscreen_indicator(preview_quote.target_sector, color)
 	if _contains(preview_quote.projected_origin):
 		_draw_offscreen_indicator(preview_quote.projected_origin, Color("f0d487"))
@@ -620,7 +616,7 @@ func _draw_presentation() -> void:
 	var start := sector_center(_cue.start_sector)
 	var finish := sector_center(_cue.end_sector)
 	var marker := _cue.marker_id if not _cue.marker_id.is_empty() else _cue.phase_id
-	if marker == "release_contact" and _cue.action_id in ["fire", "aimed_fire"]:
+	if marker == "release_contact" and _is_firearm_cue(_cue):
 		var muzzle := _projectile_start_for(_cue)
 		var flash_radius := lerpf(2.0, 8.0, _cue_progress)
 		draw_circle(muzzle, flash_radius, Color(1.0, 0.82, 0.36, _cue_progress))
@@ -647,7 +643,7 @@ func _begin_projectile(cue: CombatPresentationCue) -> void:
 	var finish := _projectile_end_for(cue)
 	var direction := start.direction_to(finish)
 	if direction.length_squared() <= 0.001:
-		direction = _facing_vector(cue.facing)
+		direction = _facing_vector(cue.presentation_direction)
 	if cue.outcome_tag == "miss":
 		finish += direction * minf(30.0, _cell_size(_grid_rect()).x * 0.34)
 	_projectile_start = start
@@ -680,8 +676,10 @@ func _projectile_start_for(cue: CombatPresentationCue) -> Vector2:
 	var start := sector_center(cue.start_sector)
 	var shooter := _actor_tokens.get(cue.actor_id) as HumanoidTokenView
 	if shooter != null:
-		return shooter.position + shooter.combat_weapon_muzzle_anchor(cue.weapon_id)
-	var direction := _facing_vector(cue.facing)
+		if _is_firearm_cue(cue):
+			return shooter.position + shooter.combat_weapon_muzzle_anchor(cue.weapon_id)
+		return shooter.position + shooter.combat_melee_hand_anchor()
+	var direction := _facing_vector(cue.presentation_direction)
 	return start + Vector2(0.0, -10.0) + direction * 10.0
 
 
@@ -836,8 +834,6 @@ func _sync_actor_tokens() -> void:
 		return
 	var active_ids: Array[String] = []
 	_actor_slot_offsets.clear()
-	var tactics: Dictionary = snapshot.get("tactics", {})
-	var facings: Dictionary = snapshot.get("facings", {})
 	for sector in snapshot.get("sectors", []):
 		var occupant_ids: Array = sector.get("occupant_ids", [])
 		if occupant_ids.is_empty():
@@ -872,12 +868,10 @@ func _sync_actor_tokens() -> void:
 			var cell := _cell_size(_grid_rect())
 			var display_scale := clampf(minf(cell.x, cell.y) / 96.0, 0.55, 1.5)
 			token.set_display_scale(display_scale)
-			token.face_direction(_facing_vector(str(facings.get(actor_id, "east"))))
+			token.face_direction(_facing_vector(_default_presentation_direction(actor_id)))
 			_configure_token_overlays(token, actor_id, sector.coords, display_scale, cell.x * 0.80)
-			var posture := str(tactics.get(actor_id, {}).get("posture", "standing"))
-			var idle := "CrouchIdle" if posture == "crouched" and HumanoidVisualCatalog.supports_animation("CrouchIdle") else "Idle"
 			if _cue == null or _cue.actor_id != actor_id:
-				token.play_animation(idle, false)
+				token.play_animation("Idle", false)
 	for actor_id in _actor_tokens:
 		var token := _actor_tokens[actor_id] as HumanoidTokenView
 		if token != null:
@@ -912,7 +906,7 @@ func _configure_token_overlays(
 	var actor := _actor_snapshot(actor_id)
 	var side := _actor_side(actor_id)
 	var color := Color("67a7c8") if side == "player" else Color("c76c5b")
-	var threat_ids: Array = preview_quote.reaction_threat_ids if preview_quote != null else []
+	var direction_id := _default_presentation_direction(actor_id)
 	var ground := token.get_meta("combat_ground_overlay", null) as CombatTokenOverlay
 	if ground != null:
 		ground.configure_ground(
@@ -920,8 +914,7 @@ func _configure_token_overlays(
 			color,
 			coords == selected_sector,
 			str(snapshot.get("active_actor_id", "")) == actor_id,
-			actor_id in threat_ids,
-			str(snapshot.get("facings", {}).get(actor_id, "east")),
+			direction_id,
 			maxf(34.0, footprint_width),
 			display_scale
 		)
@@ -933,7 +926,7 @@ func _configure_token_overlays(
 			maxf(34.0, footprint_width),
 			display_scale,
 			token.combat_overhead_anchor(),
-			str(snapshot.get("facings", {}).get(actor_id, "east")),
+			direction_id,
 			_relationship_color(relation),
 			_relationship_id(relation)
 		)
@@ -943,10 +936,16 @@ func _configure_token_overlays(
 			top.set_weapon_cue(null)
 
 
+func _default_presentation_direction(actor_id: String) -> String:
+	var actor := _actor_snapshot(actor_id)
+	return "east" if bool(actor.get("direct_player", false)) or str(actor.get("team_id", "")) == "player" else "west"
+
+
 func _sequence_progress_for_current_cue() -> float:
 	if _cue == null:
 		return 0.0
-	return lerpf(_cue.sequence_progress_start, _cue.sequence_progress_end, _cue_progress)
+	var elapsed_seconds := _cue.start_time_seconds + _cue.duration_seconds * _cue_progress
+	return elapsed_seconds / maxf(0.001, _sequence_weapon_cue.weapon_animation_duration_seconds)
 
 
 func _actor_snapshot(actor_id: String) -> Dictionary:
@@ -1209,7 +1208,7 @@ func _on_gui_input(event: InputEvent) -> void:
 			if event.button_index == MOUSE_BUTTON_LEFT:
 				inspect_requested.emit(coords, actor_id)
 			else:
-				context_requested.emit(coords, actor_id)
+				context_requested.emit(coords, actor_id, get_global_transform() * event.position)
 			accept_event()
 	elif event is InputEventKey and event.pressed:
 		var cursor := hovered_sector if _contains(hovered_sector) else selected_sector

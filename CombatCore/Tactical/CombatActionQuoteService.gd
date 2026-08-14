@@ -6,10 +6,7 @@ const _CombatRulesState := preload("res://CombatCore/Tactical/CombatRulesState.g
 const _ForecastService := preload("res://CombatCore/Tactical/CombatForecastService.gd")
 const _CommunicationResolver := preload("res://SystemCore/CombatCommunicationResolver.gd")
 const _CommunicationProfile := preload("res://SystemCore/CombatCommunicationProfile.gd")
-const FACINGS := ["north", "east", "south", "west"]
-const OPPOSITE := {"north": "south", "south": "north", "east": "west", "west": "east"}
-const MELEE_ACTIONS := ["strike", "power_strike", "aimed_strike", "shove", "opportunity_strike"]
-const FACING_ACTIONS := ["strike", "power_strike", "aimed_strike", "shove", "opportunity_strike", "fire", "aimed_fire"]
+const CARDINAL_EDGES := ["north", "east", "south", "west"]
 
 ## Pure quote authority for projected rules.  `rules_state` is a frozen
 ## CombatRulesState projection; this service never touches a live node, edits
@@ -24,7 +21,6 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 	result.action_id = request.action_id
 	result.target_sector = request.target_sector
 	result.shove_direction = request.shove_direction
-	result.final_facing = request.final_facing
 	if rules_state == null:
 		return result.deny("missing_rules_state", "No projected combat rules were supplied.")
 	var definition: CombatActionDefinition = rules_state.action_definitions.get(request.action_id) as CombatActionDefinition
@@ -46,11 +42,12 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 		return result.deny("actor_not_on_board", "The actor has no tactical sector.")
 	if bool(actor.get("engaged", false)) and (request.action_id == "move" or not request.approach_path.is_empty()):
 		return result.deny("engaged_movement_blocked", "Engaged actors must attack, Shove, or change the relationship before moving.")
-	if not definition.required_postures.is_empty() and str(actor.get("posture", "standing")) not in definition.required_postures:
-		return result.deny("posture_required", "This action is unavailable while %s." % str(actor.get("posture", "standing")))
 	var requirement_denial := _validate_requirements(actor, definition)
 	if not requirement_denial.is_empty():
 		return result.deny(str(requirement_denial.get("code", "requirements_missing")), str(requirement_denial.get("message", "The action requirements are not met.")))
+	var weapon_action_denial := _validate_weapon_action(actor, definition)
+	if not weapon_action_denial.is_empty():
+		return result.deny(str(weapon_action_denial.code), str(weapon_action_denial.message))
 
 	var target: Dictionary = rules_state.actor(request.target_actor_id)
 	if definition.target_mode == CombatActionDefinition.TARGET_ACTOR:
@@ -83,32 +80,37 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 	if target_index < 0:
 		target_index = evaluation_origin
 	result.range_cells = _distance(rules_state, evaluation_origin, target_index)
-	var allows_shared_sector_melee := request.action_id in MELEE_ACTIONS and result.range_cells == 0
+	var uses_melee_geometry := definition.is_melee_weapon_action() or request.action_id == "shove"
+	var allows_shared_sector_melee := uses_melee_geometry and result.range_cells == 0
 	if definition.minimum_range_cells > 0 and result.range_cells < definition.minimum_range_cells and not allows_shared_sector_melee:
 		return result.deny("target_too_close", "The target is inside the action's minimum range.")
-	var maximum_range := _maximum_range(definition, request.action_id, actor)
+	var maximum_range := _maximum_range(definition, actor)
 	if request.action_id != "shove" and result.range_cells > maximum_range:
-		if request.action_id in MELEE_ACTIONS and maximum_range <= 0:
+		if definition.is_melee_weapon_action() and maximum_range <= 0:
 			return result.deny("same_sector_melee_required", "Ordinary melee requires hostile co-occupancy; use an authored reach weapon for adjacency.")
 		return result.deny("target_out_of_range", "The target is outside the action's range.")
-	if request.action_id in MELEE_ACTIONS and not target.is_empty() and not _cardinal_reach(rules_state, actor, evaluation_origin, target_index):
+	if uses_melee_geometry and not target.is_empty() and not _cardinal_reach(rules_state, actor, evaluation_origin, target_index):
 		return result.deny("cardinal_reach_required", "Melee reach travels only along a clear cardinal line.")
 	result.has_line_of_sight = _has_line_of_sight(rules_state, evaluation_origin, target_index)
 	if definition.requires_line_of_sight and not result.has_line_of_sight:
 		return result.deny("line_of_sight_blocked", "No clear line of sight reaches the target.")
-	if request.action_id in ["fire", "aimed_fire"] and not result.has_line_of_sight:
+	if definition.is_ranged_weapon_action() and not result.has_line_of_sight:
 		return result.deny("line_of_sight_blocked", "No clear line of sight reaches the target.")
-	if request.action_id in ["aimed_strike", "aimed_fire"] and request.target_body_region < 0:
-		return result.deny("body_region_required", "Select a body region on the target.")
-	if request.action_id in ["move", "disengage", "engage"] and result.final_facing.is_empty() and rules_state.index_for(result.target_sector) >= 0:
-		result.final_facing = _facing(rules_state, evaluation_origin, rules_state.index_for(result.target_sector))
-	if request.action_id in FACING_ACTIONS and result.final_facing.is_empty() and not target.is_empty():
-		result.final_facing = _facing_for_target(rules_state, actor, target, evaluation_origin, target_index)
+	if definition.is_ranged_weapon_action():
+		var ranged_weapon: Dictionary = actor.get("ranged_weapon", actor.get("weapon", {}))
+		if ranged_weapon.is_empty() or not bool(ranged_weapon.get("ranged", false)):
+			return result.deny("weapon_required", "No firearm is equipped.")
+		if bool(ranged_weapon.get("jammed", false)) or float(ranged_weapon.get("condition", 0.0)) <= 0.0 or int(ranged_weapon.get("current_magazine", 0)) <= 0:
+			return result.deny("weapon_not_ready", "The ranged weapon is empty, damaged, jammed, or not ready.")
+		if bool(ranged_weapon.get("requires_ready_action", false)) and not bool(ranged_weapon.get("is_readied", false)):
+			return result.deny("weapon_not_ready", "The firearm has not been readied.")
+		if result.range_cells == 0 and str(ranged_weapon.get("engaged_fire_policy", "penalized")) == "prohibited":
+			return result.deny("engaged_fire_prohibited", "This firearm cannot be fired while Engaged.")
 
 	var relation := _RelationshipLedger.Relation.FRIENDLY
 	if not target.is_empty():
 		relation = rules_state.relation_between(request.actor_id, request.target_actor_id)
-	if request.action_id in ["strike", "power_strike", "aimed_strike", "fire", "aimed_fire"] and not target.is_empty():
+	if definition.is_weapon_action() and not target.is_empty():
 		if relation == _RelationshipLedger.Relation.FRIENDLY:
 			return result.deny("friendly_fire_illegal", "Deliberate attacks against a friendly actor are not legal.")
 		if relation == _RelationshipLedger.Relation.NEUTRAL:
@@ -117,7 +119,7 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 				return result.deny("neutral_attack_confirmation_required", "Confirm the attack to establish hostility with this neutral actor.")
 	if not target.is_empty():
 		result.cover_strength = _cover_strength(rules_state, target_index, evaluation_origin)
-		if str(rules_state.occupancy_kind(target_index)) == "crowded" and request.action_id in ["strike", "power_strike", "fire", "aimed_fire"]:
+		if str(rules_state.occupancy_kind(target_index)) == "crowded" and definition.is_weapon_action():
 			result.collateral_risk = float(rules_state.balance_facts.get("crowded_collateral_risk", 0.0))
 	if target_index >= 0:
 		result.set_meta("visibility_penalty", float(rules_state.sector(target_index).get("visibility_penalty", 0.0)))
@@ -139,7 +141,7 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 				return result.deny("co_occupancy_required", "Shove requires a hostile co-occupant.")
 			if relation != _RelationshipLedger.Relation.HOSTILE:
 				return result.deny("hostile_target_required", "Shove is only available against a hostile co-occupant.")
-			if request.shove_direction.to_lower() not in FACINGS:
+			if request.shove_direction.to_lower() not in CARDINAL_EDGES:
 				return result.deny("cardinal_direction_required", "Choose north, east, south, or west for the shove.")
 		"cycle":
 			var cycle_weapon: Dictionary = actor.get("ranged_weapon", actor.get("weapon", {}))
@@ -147,31 +149,16 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 				return result.deny("weapon_required", "No firearm is equipped.")
 			if not bool(cycle_weapon.get("jammed", false)):
 				return result.deny("cycle_not_needed", "Cycle is reserved for clearing a jammed weapon.")
-		"clear_malfunction":
-			return result.deny("retired_action", "Use Cycle to clear a jammed weapon.")
-		"fire", "aimed_fire":
-			var fire_weapon: Dictionary = actor.get("ranged_weapon", actor.get("weapon", {}))
-			if fire_weapon.is_empty() or not bool(fire_weapon.get("ranged", false)):
-				return result.deny("weapon_required", "No firearm is equipped.")
-			if bool(fire_weapon.get("jammed", false)) or float(fire_weapon.get("condition", 0.0)) <= 0.0 or int(fire_weapon.get("current_magazine", 0)) <= 0:
-				return result.deny("weapon_not_ready", "The ranged weapon is empty, damaged, jammed, or not ready.")
-			if bool(fire_weapon.get("requires_ready_action", false)) and not bool(fire_weapon.get("is_readied", false)):
-				return result.deny("weapon_not_ready", "The firearm has not been readied.")
-			if result.range_cells == 0 and str(fire_weapon.get("engaged_fire_policy", "penalized")) == "prohibited":
-				return result.deny("engaged_fire_prohibited", "This firearm cannot be fired while Engaged.")
 		"reload":
 			var reload_weapon: Dictionary = actor.get("ranged_weapon", actor.get("weapon", {}))
 			if reload_weapon.is_empty():
 				return result.deny("weapon_required", "No firearm is equipped.")
 			if bool(reload_weapon.get("jammed", false)):
-				return result.deny("weapon_not_ready", "Clear the malfunction before reloading.")
+				return result.deny("weapon_not_ready", "Cycle the jammed weapon before reloading.")
 			if int(reload_weapon.get("current_magazine", 0)) >= int(reload_weapon.get("max_magazine", 0)):
 				return result.deny("reload_not_needed", "The magazine is full.")
 			if not bool(reload_weapon.get("reload_available", true)):
 				return result.deny("ammunition_unavailable", "No compatible accessible ammunition is available.")
-		"aimed_strike":
-			if request.target_body_region < 0:
-				return result.deny("body_region_required", "Select a body region on the target.")
 		"communication", "offense", "defense", "support", "flee", "threaten", "ceasefire":
 			if target.is_empty() or bool(target.get("dead", false)):
 				return result.deny("communication_target_inactive", "That actor cannot receive a communication.")
@@ -272,13 +259,11 @@ static func _movement_step_cost(state, index: int, actor: Dictionary) -> int:
 	match int(actor.get("kinetic_tier", 0)):
 		1: base = 3
 		2: base = 4
-	if str(actor.get("posture", "standing")) == "crouched":
-		base += 1
 	return maxi(1, base + int(state.sector(index).get("movement_modifier", 0)))
 
 
-static func _maximum_range(definition: CombatActionDefinition, action_id: String, actor: Dictionary) -> int:
-	if action_id in MELEE_ACTIONS:
+static func _maximum_range(definition: CombatActionDefinition, actor: Dictionary) -> int:
+	if definition.is_melee_weapon_action():
 		var melee_weapon: Dictionary = actor.get("melee_weapon", actor.get("weapon", {}))
 		return int(melee_weapon.get("reach_cells", definition.reach_cells))
 	var ranged_weapon: Dictionary = actor.get("ranged_weapon", actor.get("weapon", {}))
@@ -361,6 +346,29 @@ static func _validate_requirements(actor: Dictionary, definition: CombatActionDe
 	return {}
 
 
+static func _validate_weapon_action(actor: Dictionary, definition: CombatActionDefinition) -> Dictionary:
+	if definition == null or not definition.is_weapon_action():
+		return {}
+	var weapon: Dictionary = (
+		actor.get("melee_weapon", actor.get("weapon", {}))
+		if definition.is_melee_weapon_action()
+		else actor.get("ranged_weapon", actor.get("weapon", {}))
+	)
+	if weapon.is_empty():
+		if definition.is_melee_weapon_action() and definition.action_id == "strike":
+			return {}
+		return {"code": "weapon_required", "message": "The action requires a compatible weapon."}
+	var action_ids: Array = weapon.get("combat_action_ids", [])
+	if action_ids.is_empty():
+		action_ids = ["fire" if bool(weapon.get("ranged", false)) else "strike"]
+	if definition.action_id not in action_ids:
+		return {
+			"code": "weapon_action_unavailable",
+			"message": "The equipped weapon does not author action '%s'." % definition.action_id,
+		}
+	return {}
+
+
 static func _action_ap_cost(definition: CombatActionDefinition, actor: Dictionary, rules_state) -> int:
 	var costs: Dictionary = rules_state.balance_facts.get("ap_costs_by_category", {})
 	if costs.is_empty():
@@ -379,7 +387,7 @@ static func _cover_strength(state, defender_index: int, attacker_index: int) -> 
 	if defender_index < 0 or attacker_index < 0:
 		return 0.0
 	var defender_sector: Dictionary = state.sector(defender_index)
-	var edge := _facing(state, defender_index, attacker_index)
+	var edge := _edge_toward(state, defender_index, attacker_index)
 	var strength := float(defender_sector.get("cover_edges", {}).get(edge, 0.0))
 	var occupant_ids: Array = state.occupants_at(defender_index)
 	if not occupant_ids.is_empty():
@@ -389,25 +397,13 @@ static func _cover_strength(state, defender_index: int, attacker_index: int) -> 
 	return strength * 0.35
 
 
-static func _facing(state, from_index: int, to_index: int) -> String:
+static func _edge_toward(state, from_index: int, to_index: int) -> String:
 	var delta: Vector2i = state.coordinate_for(to_index) - state.coordinate_for(from_index)
 	if absi(delta.x) >= absi(delta.y):
 		return "east" if delta.x >= 0 else "west"
 	return "south" if delta.y >= 0 else "north"
-
-
-static func _facing_for_target(state, actor: Dictionary, target: Dictionary, from_index: int, to_index: int) -> String:
-	if from_index != to_index and from_index >= 0 and to_index >= 0:
-		return _facing(state, from_index, to_index)
-	if str(target.get("facing", "")) in FACINGS:
-		return str(OPPOSITE.get(str(target.get("facing", "")), "east"))
-	if str(actor.get("facing", "")) in FACINGS:
-		return str(actor.get("facing", "east"))
-	return "east"
-
-
 static func _preview_shove(state, source_index: int, target_index: int, direction: String) -> Dictionary:
-	if source_index != target_index or direction.to_lower() not in FACINGS:
+	if source_index != target_index or direction.to_lower() not in CARDINAL_EDGES:
 		return {"type": "invalid", "reason": "co_occupancy_required"}
 	var destination: Vector2i = state.coordinate_for(target_index) + _direction_vector(direction.to_lower())
 	var destination_index: int = state.index_for(destination)

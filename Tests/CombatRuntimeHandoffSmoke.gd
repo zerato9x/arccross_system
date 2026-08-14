@@ -48,6 +48,17 @@ func _run() -> void:
 	if arena == null:
 		_fail("Combat handoff did not create a tactical arena.")
 		return
+	if (
+		arena.encounter_record == null
+		or arena.encounter_record.topology_id != "squad_7x5"
+		or arena.board.arena_state.width != 7
+		or arena.board.arena_state.height != 5
+	):
+		_fail("Normal GameDirector handoff selected a non-production combat topology.")
+		return
+	if arena.encounter_record.late_reinforcements_enabled or arena.encounter_record.actors.size() > 6:
+		_fail("Normal GameDirector handoff did not freeze the six-actor roster.")
+		return
 	var combat_signature := str(
 		HumanoidVisualCatalog.appearance_from_record(
 			enemy_record.to_dict()

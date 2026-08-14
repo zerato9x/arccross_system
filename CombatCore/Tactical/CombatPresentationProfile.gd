@@ -14,7 +14,7 @@ const WEAPON_PRESENTATION_CATALOG: CombatWeaponPresentationCatalog = preload(
 @export var wind_up_seconds: float = 0.08
 @export var transit_seconds: float = 0.12
 @export var contact_seconds: float = 0.08
-@export var reaction_seconds: float = 0.10
+@export var response_seconds: float = 0.10
 @export var impact_seconds: float = 0.10
 @export var settle_seconds: float = 0.12
 @export var focus_in_seconds: float = -1.0
@@ -54,7 +54,7 @@ func build_sequence(
 	if not path.is_empty() and path.front() != quote.origin_sector:
 		path.push_front(quote.origin_sector)
 	var has_composite_movement := (
-		request.action_id not in ["move", "disengage"]
+		request.action_id != "move"
 		and quote.approach_path.size() > 1
 	)
 	var action_origin := quote.projected_origin if has_composite_movement else quote.origin_sector
@@ -63,17 +63,12 @@ func build_sequence(
 		str(request.metadata.get("weapon_id", "")),
 		request.action_id
 	)
-	if weapon_duration > 0.0 and request.action_id in ["reload", "cycle", "clear_malfunction"]:
-		travel_duration = maxf(travel_duration, weapon_duration * pacing_scale)
+	sequence.weapon_animation_duration_seconds = weapon_duration
 	var outcome_tag := _outcome_tag(outcome)
 	var target_end_sector := _target_end_sector(outcome, presentation_target)
 	var resolved_target_region := _resolved_target_body_region(request, outcome)
-	var resolved_facing := str(quote.final_facing)
-	if resolved_facing.is_empty():
-		resolved_facing = str(request.final_facing)
-	if resolved_facing.is_empty() and action_origin != presentation_target:
-		resolved_facing = _facing_between(action_origin, presentation_target)
-	var is_movement := request.action_id in ["move", "disengage"]
+	var presentation_direction := _direction_between(action_origin, presentation_target)
+	var is_movement := request.action_id == "move"
 	var actor_animation := "neutral" if is_movement else actor_animation_id
 	var authored_animation_duration := _authored_animation_duration(actor_animation)
 	sequence.authored_animation_duration_seconds = authored_animation_duration
@@ -87,11 +82,17 @@ func build_sequence(
 		total_duration = _sum_durations(durations)
 	if authored_animation_duration > 0.0 and not is_movement:
 		# Preserve the authored body track as the minimum span for the actor's
-		# anticipation/release/recovery beats. Projectile flight and reaction may
+		# anticipation/release/recovery beats. Projectile flight and response may
 		# extend beyond it, but never compress it into a clipped one-shot.
 		var actor_span: float = float(durations["focus_in"]) + float(durations["anticipation"]) + float(durations["release_contact"]) + float(durations["recovery"])
 		if actor_span < authored_animation_duration * pacing_scale:
 			durations["recovery"] += authored_animation_duration * pacing_scale - actor_span
+			total_duration = _sum_durations(durations)
+	if weapon_duration > total_duration:
+		# The weapon sheet advances on its authored FPS clock. Recovery may hold
+		# the action frame open long enough to see it finish, but marker timing is
+		# never derived from frame count.
+		durations["recovery"] += weapon_duration - total_duration
 		total_duration = _sum_durations(durations)
 
 	var elapsed := 0.0
@@ -110,9 +111,10 @@ func build_sequence(
 		cue.target_body_region = resolved_target_region
 		cue.start_sector = action_origin
 		cue.end_sector = presentation_target
-		cue.facing = resolved_facing
+		cue.presentation_direction = presentation_direction
 		cue.duration_seconds = duration
 		cue.authored_animation_duration_seconds = authored_animation_duration
+		cue.weapon_animation_duration_seconds = weapon_duration
 		cue.animation_id = actor_animation if marker == "focus_in" else _animation_for_marker(marker, actor_animation, is_movement)
 		cue.actor_animation_id = actor_animation if marker == "focus_in" else "neutral"
 		cue.target_animation_id = target_animation_id if marker == "impact" else "neutral"
@@ -126,6 +128,9 @@ func build_sequence(
 		cue.weapon_class = int(request.metadata.get("weapon_class", GameEnums.WeaponClass.NONE))
 		cue.weapon_id = str(request.metadata.get("weapon_id", ""))
 		cue.weapon_action_id = request.action_id
+		cue.encounter_id = str(request.metadata.get("encounter_id", ""))
+		cue.action_event_id = str(request.metadata.get("action_event_id", ""))
+		cue.source_item_instance_id = str(request.metadata.get("weapon_instance_id", ""))
 		cue.weapon_release_sequence_progress = _release_progress(durations, total_duration)
 		cue.start_time_seconds = elapsed
 		cue.sequence_progress_start = elapsed / maxf(0.001, total_duration)
@@ -133,7 +138,7 @@ func build_sequence(
 		cue.sequence_progress_end = elapsed / maxf(0.001, total_duration)
 		cue.presentation_flags = {
 			"previous_marker": previous_marker,
-			"keep_camera_framing": marker in ["focus_in", "anticipation", "release_contact", "impact", "reaction"],
+			"keep_camera_framing": marker in ["focus_in", "anticipation", "release_contact", "impact", "response"],
 			"dialogue_allowed": marker in ["focus_in", "anticipation", "recovery"],
 		}
 		if marker == "focus_in":
@@ -155,7 +160,6 @@ func build_sequence(
 				"dialogue_id": cue.dialogue_id,
 				"priority": cue.dialogue_priority,
 			})
-		_apply_retired_effects(cue)
 		sequence.cues.append(cue)
 	sequence.total_duration_seconds = total_duration
 	return sequence
@@ -166,7 +170,7 @@ func _marker_durations(travel_duration: float, pacing_scale: float, is_movement:
 	var anticipation := anticipation_seconds if anticipation_seconds >= 0.0 else wind_up_seconds
 	var release := release_contact_seconds if release_contact_seconds >= 0.0 else contact_seconds
 	var impact := impact_seconds
-	var reaction := reaction_seconds
+	var response := response_seconds
 	var recovery := recovery_seconds if recovery_seconds >= 0.0 else settle_seconds * 0.65
 	var focus_out := focus_out_seconds if focus_out_seconds >= 0.0 else settle_seconds * 0.35
 	if is_movement:
@@ -174,14 +178,14 @@ func _marker_durations(travel_duration: float, pacing_scale: float, is_movement:
 		anticipation = 0.0
 		release = minf(release, 0.04)
 		impact = minf(impact, 0.04)
-		reaction = minf(reaction, 0.04)
+		response = minf(response, 0.04)
 	return {
 		"focus_in": focus_in * pacing_scale,
 		"anticipation": anticipation * pacing_scale,
 		"release_contact": release * pacing_scale,
 		"travel": travel_duration,
 		"impact": impact * pacing_scale,
-		"reaction": reaction * pacing_scale,
+		"response": response * pacing_scale,
 		"recovery": recovery * pacing_scale,
 		"focus_out": focus_out * pacing_scale,
 	}
@@ -200,7 +204,7 @@ func _animation_for_marker(marker: String, actor_animation: String, is_movement:
 	return "neutral"
 
 
-func _facing_between(from_sector: Vector2i, to_sector: Vector2i) -> String:
+func _direction_between(from_sector: Vector2i, to_sector: Vector2i) -> String:
 	var delta := to_sector - from_sector
 	if absi(delta.x) >= absi(delta.y):
 		return "east" if delta.x >= 0 else "west"
@@ -216,7 +220,7 @@ func _legacy_phase_for_marker(marker: String) -> String:
 		"release_contact": "contact",
 		"travel": "transit",
 		"impact": "impact",
-		"reaction": "reaction",
+		"response": "response",
 		"recovery": "settle",
 		"focus_out": "focus_out",
 	}.get(marker, marker)
@@ -245,9 +249,9 @@ func _resolve_pacing_tier(request: CombatActionRequest, outcome: CombatActionOut
 	var authored := str(request.metadata.get("pacing_tier", ""))
 	if authored in ["maintenance", "attack", "critical"]:
 		return authored
-	if request.action_id in ["move", "reload", "cycle", "clear_malfunction", "end_turn"]:
+	if request.action_id in ["move", "reload", "cycle", "end_turn"]:
 		return "maintenance"
-	if request.action_id in ["power_strike", "execute", "incapacitate"]:
+	if request.action_id in ["execute", "incapacitate"]:
 		return "critical"
 	if _outcome_tag(outcome) in ["critical", "wound", "collateral_hit"]:
 		return "critical"
@@ -261,19 +265,6 @@ func _pacing_scale(tier: String) -> float:
 		_: return maxf(0.1, attack_pacing_scale)
 
 
-func _apply_retired_effects(cue: CombatPresentationCue) -> void:
-	# Kept as a named compatibility seam for old effect resources. The old
-	# global punches, hit-stop, lunge, recoil, shake, and squash are retired.
-	cue.lunge_pixels = 0.0
-	cue.recoil_pixels = 0.0
-	cue.shake_amplitude = 0.0
-	cue.shake_frequency = 0.0
-	cue.hit_stop_seconds = 0.0
-	cue.camera_impulse_pixels = 0.0
-	cue.impact_scale = 0.0
-	cue.impact_rotation_degrees = 0.0
-
-
 func _outcome_tag(outcome: CombatActionOutcome) -> String:
 	if outcome == null:
 		return "neutral"
@@ -285,7 +276,7 @@ func _outcome_tag(outcome: CombatActionOutcome) -> String:
 		var result := str(event.get("result", event.get("type", "")))
 		if result == "damage":
 			return "hit"
-		if result in ["hit", "collateral_hit", "miss", "block", "shield_block", "dodge", "cover", "cover_impact", "malfunction", "damage", "object_collision", "actor_collision", "boundary"]:
+		if result in ["hit", "collateral_hit", "miss", "cover", "cover_impact", "malfunction", "damage", "object_collision", "actor_collision", "boundary"]:
 			return result
 	if not outcome.wound_events.is_empty():
 		return "wound"
@@ -319,7 +310,7 @@ func _resolved_target_body_region(request: CombatActionRequest, outcome: CombatA
 
 func _travel_duration(request: CombatActionRequest, quote: CombatActionQuote, pacing_scale: float) -> float:
 	var duration := transit_seconds * pacing_scale
-	if request.action_id in ["move", "disengage"] and quote.path.size() > 1:
+	if request.action_id == "move" and quote.path.size() > 1:
 		var path_steps := quote.path.size() - 1
 		if quote.path.front() != quote.origin_sector:
 			path_steps += 1

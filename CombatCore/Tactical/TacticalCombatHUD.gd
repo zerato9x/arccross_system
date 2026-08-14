@@ -64,7 +64,6 @@ const _HudMotion := preload("res://PresentationCore/HudMotion.gd")
 @onready var ap_pips: HBoxContainer = %APPips
 @onready var stance_bar: ProgressBar = %StanceBar
 @onready var stance_value: Label = %DockStanceValue
-@onready var posture_chip: Label = %PostureChip
 @onready var burden_label: Label = %BurdenLabel
 @onready var cp_pips: HBoxContainer = %CPPips
 @onready var command_hint: Label = %CommandHint
@@ -86,7 +85,6 @@ const _HudMotion := preload("res://PresentationCore/HudMotion.gd")
 @onready var target_relationship: Label = %TargetRelationship
 @onready var target_summary: Label = %TargetSummary
 @onready var target_intent: Label = %TargetIntent
-@onready var target_posture: Label = %TargetPosture
 @onready var target_stance: Label = %TargetStance
 @onready var target_condition: Label = %TargetCondition
 @onready var target_weapon: Label = %TargetWeapon
@@ -119,9 +117,6 @@ const _HudMotion := preload("res://PresentationCore/HudMotion.gd")
 @onready var context_hint: Label = %ContextHint
 @onready var context_actions: VBoxContainer = %ContextActions
 @onready var context_scroll: ScrollContainer = %ContextScroll
-@onready var reaction_panel: PanelContainer = %ReactionPanel
-@onready var reaction_title: Label = %ReactionTitle
-@onready var reaction_actions: HBoxContainer = %ReactionActions
 
 var interaction = INTERACTION_STATE_SCRIPT.new()
 var interaction_coordinator: TacticalCombatInteractionCoordinator
@@ -131,6 +126,7 @@ var quotes: Array[CombatActionQuote] = []
 var selected_sector: Vector2i:
 	get: return interaction.selected_sector
 	set(value): _coordinator().set_selected_sector(value)
+var _context_pointer_anchor := Vector2(-1.0, -1.0)
 var selected_actor_id: String:
 	get: return interaction.controlled_actor_id
 	set(value): _coordinator().set_controlled_actor_id(value)
@@ -206,7 +202,6 @@ func _ready() -> void:
 	hex_panel.visible = false
 	aim_target_panel.visible = false
 	context_menu.visible = false
-	reaction_panel.visible = false
 	local_confirmation.visible = false
 	confirm_button.disabled = true
 	feedback_label.text = ""
@@ -331,14 +326,14 @@ func _style_vitals() -> void:
 
 
 func _apply_macro_aesthetic() -> void:
-	for panel in [%TopStrip, player_card, command_dock, hex_panel, right_panel, aim_target_panel, context_menu, reaction_panel]:
+	for panel in [%TopStrip, player_card, command_dock, hex_panel, right_panel, aim_target_panel, context_menu]:
 		HUD_ASSETS.apply_panel(panel as PanelContainer, "neutral")
 		(panel as PanelContainer).self_modulate.a = VISUAL_PROFILE.panel_opacity
-	for label in [actor_name, hex_title, target_heading, target_name, command_hint, aim_title, reaction_title]:
+	for label in [actor_name, hex_title, target_heading, target_name, command_hint, aim_title]:
 		HUD_ASSETS.apply_label(label as Label, "title")
-	for label in [actor_status, actor_intent, player_weapon_label, target_relationship, target_summary, target_intent, target_posture, target_stance, target_condition, target_weapon, context_hint, aim_hint, ground_item_heading, target_item_heading]:
+	for label in [actor_status, actor_intent, player_weapon_label, target_relationship, target_summary, target_intent, target_stance, target_condition, target_weapon, context_hint, aim_hint, ground_item_heading, target_item_heading]:
 		HUD_ASSETS.apply_label(label as Label, "muted")
-	for label in [ap_label, dock_ap_label, dock_cp_label, stance_value, posture_chip, burden_label, forecast_label, aim_forecast]:
+	for label in [ap_label, dock_ap_label, dock_cp_label, stance_value, burden_label, forecast_label, aim_forecast]:
 		HUD_ASSETS.apply_label(label as Label, "caution")
 	HUD_ASSETS.apply_rich_label(hex_details, "body")
 	HUD_ASSETS.apply_rich_label(target_label, "body")
@@ -906,8 +901,6 @@ func show_result_events(outcome: CombatActionOutcome) -> void:
 			messages.append(label)
 	for wound in outcome.wound_events:
 		messages.append("WOUND: %s" % _region_label(int(wound.get("region", -1))).to_upper())
-	for reaction in outcome.reactions:
-		messages.append("OPPORTUNITY: %s" % str(reaction.get("actor_id", "THREAT")).to_upper())
 	if outcome.interrupted:
 		messages.append("INTERRUPTED: ACTION CANCELLED")
 	if messages.is_empty() and not outcome.message.is_empty():
@@ -936,8 +929,6 @@ func _result_event_label(event: Dictionary) -> String:
 		var event_type := str(event.get("type", ""))
 		if event_type == "composite_interrupted":
 			return "MOVEMENT INTERRUPTED: ACTION CANCELLED"
-		if event_type == "opportunity_reaction":
-			return "OPPORTUNITY: %s" % str(event.get("actor_id", "THREAT")).to_upper()
 		return ""
 	var region := int(event.get("region", event.get("body_region", -1)))
 	var suffix := ""
@@ -955,7 +946,7 @@ func show_presentation_action(sequence: CombatPresentationSequence) -> void:
 	arena_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	context_menu.visible = false
 	_close_aim_panel()
-	active_weapon_card.play_turn_action(sequence.action_id, sequence.total_duration())
+	active_weapon_card.play_turn_action(sequence.action_id)
 
 
 func finish_presentation() -> void:
@@ -988,20 +979,6 @@ func show_aim_targeter(action_id: String) -> void:
 	_refresh_global_actions()
 
 
-func show_reaction(prompt: Dictionary) -> void:
-	# Reaction input was retired from the canonical tactical contract. Keep this
-	# method as a compatibility sink for old serialized callers; production no
-	# longer connects a reaction signal or opens a reaction surface.
-	reaction_panel.visible = false
-	_set_phase(INTERACTION_STATE_SCRIPT.Phase.INSPECTING if not interaction.selected_kind.is_empty() else INTERACTION_STATE_SCRIPT.Phase.IDLE)
-
-
-func hide_reaction() -> void:
-	reaction_panel.visible = false
-	if interaction.phase == INTERACTION_STATE_SCRIPT.Phase.PRESENTING:
-		_set_phase(INTERACTION_STATE_SCRIPT.Phase.INSPECTING if not interaction.selected_kind.is_empty() else INTERACTION_STATE_SCRIPT.Phase.IDLE)
-
-
 func selected_context() -> Dictionary:
 	return {
 		"target_sector": selected_sector,
@@ -1011,7 +988,6 @@ func selected_context() -> Dictionary:
 		"body_region": selected_body_region,
 		"shove_direction": interaction.selected_shove_direction,
 		"declared_neutral_attack_confirmation": interaction.declared_neutral_attack_confirmation,
-		"facing": "",
 	}
 
 
@@ -1095,7 +1071,6 @@ func _render_command_dock() -> void:
 		if _last_stance_value >= 0.0 and not is_equal_approx(_last_stance_value, stance):
 			_HudMotion.soft_pop(self, stance_value)
 		_last_stance_value = stance
-	posture_chip.text = str(player_projection.get("posture_label", player.get("posture", "standing"))).to_upper()
 	var burden_variant: Variant = player_projection.get("burden", player.get("burden", null))
 	var burden_tier := str(player_projection.get("burden_tier", player.get("burden_tier", ""))).to_upper()
 	if burden_variant == null:
@@ -1208,10 +1183,7 @@ func _render_player_card() -> void:
 		return
 	var projection := _presentation_actor(selected_actor_id)
 	actor_name.text = str(projection.get("name", actor.get("name", selected_actor_id))).to_upper()
-	actor_status.text = "%s  ·  %s" % [
-		str(projection.get("posture_label", "Standing")).to_upper(),
-		str(actor.get("facing", "")).to_upper(),
-	]
+	actor_status.text = "STANCE  %s" % str(projection.get("stance_band", "steady")).replace("_", " ").to_upper()
 	actor_intent.text = "INTENT  %s" % str(projection.get("intent", {}).get("readable_label", "HOLDING"))
 	_set_vital(blood_bar, blood_value, float(actor.get("blood", 0.0)))
 	_set_vital(consciousness_bar, consciousness_value, float(actor.get("consciousness", 0.0)))
@@ -1342,7 +1314,6 @@ func _clear_target_inspector() -> void:
 	target_relationship.text = ""
 	target_summary.text = "Select an actor to inspect injuries and equipment."
 	target_intent.text = ""
-	target_posture.text = ""
 	target_stance.text = ""
 	target_condition.text = ""
 	target_weapon.text = ""
@@ -1387,7 +1358,6 @@ func _render_actor_inspector(actor: Dictionary) -> void:
 	]
 	target_summary.text = str(projection.get("body_condition", {}).get("label", "Observable condition")).to_upper()
 	target_intent.text = "INTENT  %s" % str(projection.get("intent", {}).get("readable_label", "HOLDING"))
-	target_posture.text = "POSTURE  %s" % str(projection.get("posture_label", "Standing")).to_upper()
 	var stance_band := str(projection.get("stance_band", "unknown")).replace("_", " ").to_upper()
 	if projection.get("stance", null) == null:
 		target_stance.text = "BALANCE  %s" % stance_band
@@ -1504,7 +1474,8 @@ func _forecast_text(value: CombatActionQuote) -> String:
 	# communication, End Turn, and object actions may carry a compatibility
 	# forecast object, but showing it here makes an otherwise valid action look
 	# like a failed attack (for example: END TURN | HIT 0%).
-	var has_attack_forecast := value.action_id in ["strike", "power_strike", "fire", "aimed_fire", "aimed_strike", "composite_move_attack"]
+	var definition := _definition(value.action_id)
+	var has_attack_forecast := definition != null and definition.is_weapon_action()
 	if value.forecast != null and has_attack_forecast:
 		parts.append("HIT %d%%" % roundi(value.forecast.hit_probability * 100.0))
 		parts.append("ARMOR %s" % value.forecast.armor_result.to_upper())
@@ -1515,7 +1486,7 @@ func _forecast_text(value: CombatActionQuote) -> String:
 		parts.append("INCAP %s" % value.forecast.incapacity_risk.to_upper())
 		if not value.stance_forecast.is_empty():
 			parts.append("STANCE %s" % str(value.stance_forecast.get("summary", "QUOTED")).to_upper())
-	if value.action_id in ["fire", "aimed_fire", "reload", "cycle", "clear_malfunction"]:
+	if value.action_id == "fire" or value.action_id in ["reload", "cycle"]:
 		var actor := _actor(value.actor_id)
 		var weapon: Dictionary = actor.get("ranged_weapon", {})
 		if not weapon.is_empty():
@@ -1597,7 +1568,7 @@ func _render_context_actions() -> void:
 			continue
 		if _is_communication_action(definition.action_id) != communication_branch:
 			continue
-		if definition.action_id in ["strike", "fire", "reload", "cycle", "clear_malfunction", "end_turn"]:
+		if definition.action_id in ["strike", "fire", "reload", "cycle", "end_turn"]:
 			continue
 		var availability := _availability(definition, action_quote, context)
 		if availability == Availability.HIDDEN:
@@ -1656,7 +1627,7 @@ func _preferred_semantic_quote(action_ids: Array[String], allow_region_prompt: b
 	var player := _actor(selected_actor_id)
 	var has_firearm: bool = not player.get("ranged_weapon", {}).is_empty()
 	for action_id in action_ids:
-		if action_id in ["fire", "aimed_fire"] and not has_firearm:
+		if action_id == "fire" and not has_firearm:
 			continue
 		var candidate := _quote(action_id)
 		if candidate != null and (candidate.legal or (allow_region_prompt and candidate.denial_code == "body_region_required")):
@@ -1718,7 +1689,7 @@ func _availability(
 	action_quote: CombatActionQuote,
 	context: String
 ) -> Availability:
-	if not _is_player_visible(definition.action_id) or definition.context_visibility == "reaction_only":
+	if not _is_player_visible(definition.action_id):
 		return Availability.HIDDEN
 	if definition.context_visibility != "always" and context not in definition.inferred_selection_contexts():
 		return Availability.HIDDEN
@@ -1739,10 +1710,6 @@ func _availability(
 			return Availability.HIDDEN
 		if definition.action_id == "incapacitate" and bool(terminal_target.get("incapacitated", false)):
 			return Availability.HIDDEN
-	if definition.action_id == "stand" and str(player.get("posture", "standing")) == "standing":
-		return Availability.HIDDEN
-	if definition.action_id == "crouch" and str(player.get("posture", "standing")) == "crouched":
-		return Availability.HIDDEN
 	return Availability.AVAILABLE if action_quote.legal else Availability.DISABLED
 
 
@@ -1782,7 +1749,7 @@ func _refresh_global_actions() -> void:
 		return
 	var action_quote := _quote("end_turn")
 	var active_player := str(snapshot.get("active_actor_id", "")) == selected_actor_id
-	var disabled: bool = not active_player or interaction.phase == INTERACTION_STATE_SCRIPT.Phase.PRESENTING or reaction_panel.visible or action_quote == null or not action_quote.legal
+	var disabled: bool = not active_player or interaction.phase == INTERACTION_STATE_SCRIPT.Phase.PRESENTING or action_quote == null or not action_quote.legal
 	end_turn_button.disabled = disabled
 	dock_end_turn_button.disabled = disabled
 	var tooltip := "Finish the turn and pass initiative." if not disabled else (action_quote.denial_message if action_quote != null else "End turn is unavailable.")
@@ -1931,6 +1898,7 @@ func _has_active_interaction() -> bool:
 func _on_arena_inspect_requested(coords: Vector2i, actor_id: String) -> void:
 	if interaction.phase == INTERACTION_STATE_SCRIPT.Phase.PRESENTING:
 		return
+	_context_pointer_anchor = Vector2(-1.0, -1.0)
 	clear_staged_action()
 	selected_sector = coords
 	selected_item_id = ""
@@ -1946,8 +1914,13 @@ func _on_arena_inspect_requested(coords: Vector2i, actor_id: String) -> void:
 	_set_phase(INTERACTION_STATE_SCRIPT.Phase.INSPECTING)
 
 
-func _on_arena_context_requested(coords: Vector2i, actor_id: String) -> void:
+func _on_arena_context_requested(
+	coords: Vector2i,
+	actor_id: String,
+	global_pointer_anchor: Vector2 = Vector2(-1.0, -1.0)
+) -> void:
 	_on_arena_inspect_requested(coords, actor_id)
+	_context_pointer_anchor = global_pointer_anchor
 	_coordinator().open_root_menu()
 	context_requested.emit(coords)
 	_render_context_actions()
@@ -2094,6 +2067,9 @@ func _render_target_items(actor_items: Array, actor_id: String) -> void:
 	for item in actor_items:
 		var button := Button.new()
 		HUD_ASSETS.apply_button(button)
+		var icon_path := _item_icon_path(item)
+		if not icon_path.is_empty() and ResourceLoader.exists(icon_path):
+			button.icon = load(icon_path) as Texture2D
 		button.text = "%s  //  %s" % [
 			str(item.get("name", "ITEM")),
 			str(item.get("access", "carried")).capitalize(),
@@ -2112,6 +2088,9 @@ func _render_ground_items(ground_item_descriptors: Array) -> void:
 	for item in ground_item_descriptors:
 		var button := Button.new()
 		HUD_ASSETS.apply_button(button)
+		var icon_path := _item_icon_path(item)
+		if not icon_path.is_empty() and ResourceLoader.exists(icon_path):
+			button.icon = load(icon_path) as Texture2D
 		button.text = "%s · %s" % [
 			str(item.get("name", "GROUND ITEM")),
 			str(item.get("access", "ground")).capitalize(),
@@ -2153,6 +2132,14 @@ func _render_items(actor_items: Array) -> void:
 		empty.text = "NO HANDS / QUICK ITEMS"
 		empty.add_theme_color_override("font_color", Color("70807d"))
 		items.add_child(empty)
+
+
+func _item_icon_path(item: Dictionary) -> String:
+	var presentation: Dictionary = item.get("presentation", {})
+	return str(presentation.get(
+		"icon_path",
+		item.get("inventory_sprite_path", item.get("sprite_path", ""))
+	))
 
 
 func _on_wound_button(wound_id: String) -> void:
@@ -2204,13 +2191,23 @@ func _position_context_menu() -> void:
 	if not context_menu.visible or selected_sector == Vector2i(-1, -1):
 		return
 	context_menu.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	var dock_rect := command_dock.get_global_rect()
 	var menu_size := context_menu.get_combined_minimum_size()
 	menu_size.x = clampf(menu_size.x, 260.0, minf(420.0, maxf(260.0, size.x - 24.0)))
 	menu_size.y = clampf(menu_size.y, 120.0, maxf(120.0, size.y - 72.0))
 	context_menu.size = menu_size
-	var bounds := Rect2(global_position + Vector2(12.0, 46.0), Vector2(maxf(200.0, size.x - 24.0), maxf(120.0, size.y - 58.0)))
+	var dock_rect := command_dock.get_global_rect()
+	var dock_top := dock_rect.position.y - 8.0
+	var bounds_position := global_position + Vector2(12.0, 46.0)
+	var bounds := Rect2(
+		bounds_position,
+		Vector2(maxf(200.0, size.x - 24.0), maxf(120.0, dock_top - bounds_position.y))
+	)
 	var desired := Vector2(dock_rect.position.x, dock_rect.position.y - context_menu.size.y - 8.0)
+	if _context_pointer_anchor.x >= 0.0 and _context_pointer_anchor.y >= 0.0:
+		var desired_x := _context_pointer_anchor.x + 14.0
+		if desired_x + context_menu.size.x > bounds.end.x:
+			desired_x = _context_pointer_anchor.x - context_menu.size.x - 14.0
+		desired = Vector2(desired_x, _context_pointer_anchor.y - 18.0)
 	var max_pos := Vector2(bounds.end.x - context_menu.size.x, bounds.end.y - context_menu.size.y)
 	var clamped := Vector2(
 		clampf(desired.x, bounds.position.x, max_pos.x),

@@ -306,10 +306,6 @@ show_percentage = false
 unique_name_in_owner = true
 layout_mode = 2
 text = "12/12"
-[node name="PostureChip" type="Label" parent="CommandDock/Margin/Content/ResourceRow"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "STANDING"
 [node name="BurdenLabel" type="Label" parent="CommandDock/Margin/Content/ResourceRow"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -442,10 +438,6 @@ autowrap_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 text = "INTENT HOLDING"
-[node name="TargetPosture" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "STANDING"
 [node name="TargetStance" type="Label" parent="Right/RightMargin/InspectorScroll/RightContent"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -654,24 +646,3 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(104, 34)
 layout_mode = 2
 text = "CONFIRM"
-
-[node name="ReactionPanel" type="PanelContainer" parent="."]
-unique_name_in_owner = true
-z_index = 40
-visible = false
-layout_mode = 0
-offset_left = 350.0
-offset_top = 430.0
-offset_right = 840.0
-offset_bottom = 490.0
-[node name="ReactionContent" type="VBoxContainer" parent="ReactionPanel"]
-layout_mode = 2
-theme_override_constants/separation = 4
-[node name="ReactionTitle" type="Label" parent="ReactionPanel/ReactionContent"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "REACTION WINDOW"
-[node name="ReactionActions" type="HBoxContainer" parent="ReactionPanel/ReactionContent"]
-unique_name_in_owner = true
-layout_mode = 2
-alignment = 1

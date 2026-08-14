@@ -41,8 +41,6 @@ func _run() -> void:
 
 	if not await _transaction_and_movement_checks():
 		return
-	if not await _posture_checks():
-		return
 	if not _shove_checks():
 		return
 	if not _melee_geometry_checks():
@@ -76,7 +74,6 @@ func _transaction_and_movement_checks() -> bool:
 
 	var move := _request("move")
 	move.path = [Vector2i(1, 2), Vector2i(2, 2)]
-	move.final_facing = "south"
 	var action_quote := _controller.preview(move)
 	if not action_quote.legal or action_quote.ap_cost != 2:
 		return _fail("A one-sector clear move was not quoted at 2 AP.")
@@ -85,25 +82,6 @@ func _transaction_and_movement_checks() -> bool:
 		return _fail("The committed path did not match its preview.")
 	if _turns.current_ap_pool != before_ap - action_quote.ap_cost:
 		return _fail("Committed AP did not match the quote.")
-	return true
-
-
-func _posture_checks() -> bool:
-	_turns.current_ap_pool = 12
-	var crouch := _request("crouch")
-	var quote := _controller.quote(crouch)
-	if not quote.legal:
-		return _fail("Crouch was not exposed as a legal authored action.")
-	var outcome := await _controller.request_action(crouch)
-	if not outcome.committed or _board.posture(_alpha) != "crouched":
-		return _fail("Crouch did not commit discrete posture state.")
-	if _controller.movement_step_base(_alpha) != 3:
-		return _fail("Crouch did not add one AP to fluid movement steps.")
-	_turns.current_ap_pool = 12
-	var stand := _request("stand")
-	var stand_outcome := await _controller.request_action(stand)
-	if not stand_outcome.committed or _board.posture(_alpha) != "standing":
-		return _fail("Stand did not recover from crouched posture.")
 	return true
 
 
@@ -205,22 +183,21 @@ func _composite_projected_origin_checks() -> bool:
 
 
 func _forecast_and_catalog_checks() -> bool:
-	for removed_id in ["go_prone", "rush", "reserve", "grapple", "drag", "takedown", "throw", "restrain", "release", "break_free", "heavy_strike"]:
+	for removed_id in ["go_prone", "rush", "reserve", "grapple", "drag", "takedown", "throw", "restrain", "release", "break_free", "heavy_strike", "stand", "crouch", "disengage", "power_strike", "aimed_strike", "aimed_fire", "clear_malfunction", "block", "dodge", "opportunity_strike"]:
 		if _controller.catalog.definition(removed_id) != null:
 			return _fail("Removed action remained in the production catalog: %s" % removed_id)
-	for required_id in ["move", "engage", "strike", "power_strike", "aimed_strike", "shove", "fire", "aimed_fire", "end_turn"]:
+	for required_id in ["move", "engage", "strike", "shove", "fire", "end_turn"]:
 		if _controller.catalog.definition(required_id) == null:
 			return _fail("Required contextual action is missing: %s" % required_id)
 	_turns.current_ap_pool = 12
-	var aimed := _request("aimed_strike")
-	aimed.target_actor_id = "bravo"
-	aimed.target_body_region = GameEnums.LimbRegion.HEAD
+	var strike := _request("strike")
+	strike.target_actor_id = "bravo"
 	var before_rng := _controller._rng.state
-	var action_quote := _controller.preview(aimed)
+	var action_quote := _controller.preview(strike)
 	if not action_quote.legal or action_quote.forecast == null:
-		return _fail("Aimed strike did not produce a legal typed forecast.")
-	if action_quote.forecast.target_body_region != GameEnums.LimbRegion.HEAD:
-		return _fail("Aimed strike forecast lost the selected body region.")
+		return _fail("Strike did not produce a legal typed forecast.")
+	if action_quote.forecast.target_body_region != -1:
+		return _fail("Ordinary strike forecast invented a selected body region.")
 	if action_quote.forecast.hit_probability <= 0.0 or action_quote.forecast.hit_probability > 1.0:
 		return _fail("Forecast hit probability escaped its valid range.")
 	if _controller._rng.state != before_rng:

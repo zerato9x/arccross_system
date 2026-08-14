@@ -12,8 +12,7 @@ signal trap_triggered(actor: HumanoidCore, sector: TacticalSectorRuntime)
 signal hazard_entered(actor: HumanoidCore, sector: TacticalSectorRuntime, hazard: Dictionary)
 signal forced_exit(actor: HumanoidCore, edge: String)
 
-const FACINGS := ["north", "east", "south", "west"]
-const OPPOSITE := {"north": "south", "south": "north", "east": "west", "west": "east"}
+const CARDINAL_EDGES := ["north", "east", "south", "west"]
 const ENTRY_ORDINARY := TacticalSectorRuntime.ENTRY_ORDINARY
 const ENTRY_HOSTILE_ENGAGEMENT := TacticalSectorRuntime.ENTRY_HOSTILE_ENGAGEMENT
 const ENTRY_FORCED_DISPLACEMENT := TacticalSectorRuntime.ENTRY_FORCED_DISPLACEMENT
@@ -24,7 +23,6 @@ var sectors: Array[TacticalSectorRuntime] = []
 var _known_actors: Array[HumanoidCore] = []
 var arena_state: CombatArenaState
 var _baseline_arena: CombatArenaState
-var actor_facings: Dictionary = {}
 var actor_cover_edges: Dictionary = {}
 var actor_tactics: Dictionary = {}
 var relationship_ledger: CombatRelationshipLedger = CombatRelationshipLedger.new()
@@ -169,7 +167,6 @@ func clear_actors() -> void:
 	for sector in sectors:
 		sector.clear_occupants()
 	_known_actors.clear()
-	actor_facings.clear()
 	actor_cover_edges.clear()
 	actor_tactics.clear()
 
@@ -185,7 +182,6 @@ func spawn_actor(actor: HumanoidCore, side: String, preferred_row: int = 2) -> i
 		_known_actors.append(actor)
 	_initialize_combat_state(actor)
 	actor.set_meta("combat_side", side)
-	actor_facings[_actor_id(actor)] = "east" if side == "player" else "west"
 	actor_tactics[_actor_id(actor)] = _default_tactics()
 	board_changed.emit()
 	return index
@@ -202,7 +198,6 @@ func force_spawn_actor(actor: HumanoidCore, index: int, side: String = "", force
 	_initialize_combat_state(actor)
 	if not side.is_empty():
 		actor.set_meta("combat_side", side)
-	actor_facings[_actor_id(actor)] = "east" if str(actor.get_meta("combat_side", "player")) == "player" else "west"
 	actor_tactics[_actor_id(actor)] = _default_tactics()
 	board_changed.emit()
 	return true
@@ -213,7 +208,6 @@ func remove_actor(actor: HumanoidCore) -> void:
 		return
 	for sector in sectors:
 		sector.remove_occupant(actor)
-		actor_facings.erase(_actor_id(actor))
 		actor_cover_edges.erase(_actor_id(actor))
 	actor_tactics.erase(_actor_id(actor))
 	board_changed.emit()
@@ -518,7 +512,6 @@ func path_cost(path: Array, base_step_cost: int) -> int:
 func commit_path(
 	actor: HumanoidCore,
 	path: Array,
-	suppress_reactions: bool = false,
 	entry_policy: String = ENTRY_ORDINARY,
 	engagement_target: HumanoidCore = null
 ) -> Array[Dictionary]:
@@ -538,13 +531,11 @@ func commit_path(
 		sectors[from_index].remove_occupant(actor)
 		if not sectors[to_index].add_occupant_with_policy(actor, step_policy, engagement_target):
 			return []
-		set_facing(actor, facing_toward(from_index, to_index))
 		actor_cover_edges.erase(_actor_id(actor))
 		changes.append({
 			"actor_id": _actor_id(actor),
 			"from": arena_state.coords_for(from_index),
 			"to": arena_state.coords_for(to_index),
-			"suppress_reactions": suppress_reactions,
 		})
 		_resolve_entry(actor, sectors[to_index])
 	board_changed.emit()
@@ -597,25 +588,6 @@ func reachable_sectors(actor: HumanoidCore, base_step_cost: int, ap_budget: int)
 	return costs
 
 
-func reaction_threats(actor: HumanoidCore, path: Array) -> Array[String]:
-	var ids: Array[String] = []
-	if actor == null or path.size() < 2:
-		return ids
-	for offset in range(path.size() - 1):
-		var from_index := int(path[offset])
-		var to_index := int(path[offset + 1])
-		for neighbor in neighboring_indices(from_index):
-			for threat in sectors[neighbor].occupants:
-				if not _hostile(actor, threat):
-					continue
-				if can_melee_reach(threat, to_index):
-					continue
-				var id := _actor_id(threat)
-				if id not in ids:
-					ids.append(id)
-	return ids
-
-
 func has_line_of_sight(from_index: int, to_index: int) -> bool:
 	if not _valid_index(from_index) or not _valid_index(to_index):
 		return false
@@ -633,7 +605,7 @@ func has_line_of_sight(from_index: int, to_index: int) -> bool:
 func cover_against(defender_index: int, attacker_index: int) -> float:
 	if not _valid_index(defender_index) or not _valid_index(attacker_index):
 		return 0.0
-	var edge := facing_toward(defender_index, attacker_index)
+	var edge := edge_toward(defender_index, attacker_index)
 	var strength := float(sectors[defender_index].cover_edges.get(edge, 0.0))
 	var defender := sectors[defender_index].occupant
 	if defender != null and str(actor_cover_edges.get(_actor_id(defender), "")) == edge:
@@ -645,62 +617,21 @@ func take_cover(actor: HumanoidCore, threat_index: int) -> bool:
 	var index := position_of(actor)
 	if index < 0:
 		return false
-	var edge := facing_toward(index, threat_index)
+	var edge := edge_toward(index, threat_index)
 	if float(sectors[index].cover_edges.get(edge, 0.0)) <= 0.0:
 		return false
 	actor_cover_edges[_actor_id(actor)] = edge
-	set_facing(actor, edge)
 	board_changed.emit()
 	return true
 
 
-func set_facing(actor: HumanoidCore, facing: String) -> bool:
-	if actor == null or facing not in FACINGS:
-		return false
-	actor_facings[_actor_id(actor)] = facing
-	board_changed.emit()
-	return true
-
-
-func get_facing(actor: HumanoidCore) -> String:
-	return str(actor_facings.get(_actor_id(actor), "east"))
-
-
-func facing_toward(from_index: int, to_index: int) -> String:
+func edge_toward(from_index: int, to_index: int) -> String:
 	if not _valid_index(from_index) or not _valid_index(to_index):
-		return "east"
+		return ""
 	var delta := arena_state.coords_for(to_index) - arena_state.coords_for(from_index)
 	if absi(delta.x) >= absi(delta.y):
 		return "east" if delta.x >= 0 else "west"
 	return "south" if delta.y >= 0 else "north"
-
-
-func attack_arc(attacker: HumanoidCore, defender: HumanoidCore) -> Dictionary:
-	return attack_arc_from(position_of(attacker), position_of(defender), defender)
-
-
-func attack_arc_from(attacker_index: int, defender_index: int, defender: HumanoidCore = null) -> Dictionary:
-	var incoming := facing_toward(defender_index, attacker_index)
-	var facing := get_facing(defender)
-	if incoming == facing:
-		return {"arc": "front", "accuracy": 0.0, "reaction_penalty": 0}
-	if incoming == str(OPPOSITE.get(facing, "")):
-		return {"arc": "rear", "accuracy": 0.16, "reaction_penalty": 3}
-	return {"arc": "side", "accuracy": 0.08, "reaction_penalty": 1}
-
-
-func posture(actor: HumanoidCore) -> String:
-	return str(_tactics(actor).get("posture", "standing"))
-
-
-func set_posture(actor: HumanoidCore, value: String) -> bool:
-	if value not in ["standing", "crouched"]:
-		return false
-	_tactics(actor)["posture"] = value
-	board_changed.emit()
-	return true
-
-
 func has_condition(actor: HumanoidCore, condition_id: String) -> bool:
 	return bool(_tactics(actor).get(condition_id, false))
 
@@ -721,9 +652,7 @@ func preview_shove_from(source_index: int, target_index: int, shove_direction: S
 	if separation != 0:
 		return {"type": "invalid", "reason": "co_occupancy_required"}
 	var direction := shove_direction.to_lower()
-	if direction.is_empty() and separation == 1:
-		direction = facing_toward(source_index, target_index)
-	if direction not in FACINGS:
+	if direction not in CARDINAL_EDGES:
 		return {"type": "invalid", "reason": "cardinal_direction_required"}
 	var destination_coords := arena_state.coords_for(target_index) + _direction_vector(direction)
 	if not arena_state.contains(destination_coords):
@@ -785,7 +714,6 @@ func commit_shove(
 			var destination := arena_state.index_for(preview.destination)
 			sectors[from_index].remove_occupant(target)
 			sectors[destination].add_occupant(target, true)
-			set_facing(target, facing_toward(from_index, destination))
 			_resolve_entry(target, sectors[destination])
 			result["moved"] = true
 		"object_collision":
@@ -800,7 +728,6 @@ func commit_shove(
 				result["moved"] = false
 			else:
 				sectors[from_index].remove_occupant(target)
-				set_facing(target, facing_toward(from_index, destination))
 				_resolve_entry(target, sectors[destination])
 				result["moved"] = true
 				apply_stance_damage(target, balance_profile.collision_stance_damage, false, "shove_collision")
@@ -944,7 +871,6 @@ func snapshot() -> Dictionary:
 		"movement_policy": arena_state.movement_policy,
 		"presentation_style": CombatTopologyCatalog.load_profile(arena_state.topology_id).presentation_style,
 		"sectors": sector_data,
-		"facings": actor_facings.duplicate(true),
 		"cover_edges": actor_cover_edges.duplicate(true),
 		"tactics": actor_tactics.duplicate(true),
 		"relationships": relationship_ledger.to_dict() if relationship_ledger != null else {},
@@ -976,7 +902,6 @@ func _resolve_entry(actor: HumanoidCore, sector: TacticalSectorRuntime) -> void:
 
 func _default_tactics() -> Dictionary:
 	return {
-		"posture": "standing",
 		"off_balance": false,
 	}
 

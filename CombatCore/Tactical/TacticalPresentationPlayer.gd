@@ -95,13 +95,28 @@ func _play_audio_cue(cue: CombatPresentationCue) -> void:
 	if event_bus == null:
 		return
 	if not cue.sfx_id.is_empty():
-		event_bus.emit_scene_audio("combat_action_sfx", {
-			"action_id": cue.action_id,
-			"weapon_class": cue.weapon_class,
-			"weapon_id": cue.weapon_id,
-		})
-	if cue.phase_id == "impact" and cue.outcome_tag not in ["miss", "dodge", "neutral", "malfunction"]:
-		event_bus.emit_scene_audio("combat_damage_sfx", {"result": cue.outcome_tag})
+		event_bus.emit_scene_audio("combat_action_sfx", audio_payload_for_cue(cue))
+	if cue.phase_id == "impact" and cue.outcome_tag not in ["miss", "neutral", "malfunction"]:
+		# Impact is contact presentation only. HumanInjured is emitted exactly once
+		# by wound creation and is the sole authority for injury vocals.
+		event_bus.emit_scene_audio("combat_impact_sfx", audio_payload_for_cue(cue))
+
+
+static func audio_payload_for_cue(cue: CombatPresentationCue) -> Dictionary:
+	if cue == null:
+		return {}
+	return {
+		"encounter_id": cue.encounter_id,
+		"action_event_id": cue.action_event_id,
+		"action_id": cue.action_id,
+		"attacker_id": cue.actor_id,
+		"victim_id": cue.target_actor_id,
+		"body_region": cue.target_body_region,
+		"source_item_instance_id": cue.source_item_instance_id,
+		"weapon_class": cue.weapon_class,
+		"weapon_id": cue.weapon_id,
+		"result": cue.outcome_tag,
+	}
 
 
 func _try_show_dialogue(cue: CombatPresentationCue) -> void:

@@ -50,8 +50,6 @@ static func project_actor(actor: Dictionary, is_player: bool, relation: int) -> 
 		"semantic_role": "info" if is_player else _RELATIONSHIP_ROLES.get(relation, "muted"),
 		"knowledge_level": "self" if is_player else ("friendly_exact" if exact_view else "observable"),
 		"is_player": is_player,
-		"posture": str(actor.get("posture", "standing")),
-		"posture_label": str(actor.get("posture", "standing")).capitalize(),
 		"intent": _intent_projection(actor),
 		"body_condition": _body_condition(actor, wounds),
 		"critical_alerts": _critical_alerts(actor, wounds, exact_view),

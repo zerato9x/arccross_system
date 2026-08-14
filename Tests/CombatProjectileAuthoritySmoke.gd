@@ -37,10 +37,11 @@ func _run() -> void:
 	shooter.set_meta("combat_top_overlay", overlay)
 
 	var cue := CombatPresentationCue.new()
-	cue.action_id = "aimed_fire"
+	cue.action_id = "fire"
 	cue.actor_id = "shooter"
 	cue.target_actor_id = "target"
 	cue.weapon_id = "revolver"
+	cue.weapon_class = GameEnums.WeaponClass.PISTOL
 	cue.target_body_region = GameEnums.LimbRegion.HEAD
 	cue.start_sector = Vector2i.ZERO
 	cue.end_sector = Vector2i(1, 0)

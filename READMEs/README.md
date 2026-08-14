@@ -56,7 +56,9 @@ Status updated on **July 29, 2026**:
   routes remain locked. See
   [Hex World Generator V2](design/HEX_WORLD_GENERATOR_V2.md).
 - Entity collision opens the exploration/event stage first (Talk / Ambush /
-  Ask / Trade placeholder). Combat entry loads `CombatCore/MainDuelScene`.
+  Ask / Trade placeholder). Production combat entry is assembled by
+  `GameDirector` and loads `CombatCore/Tactical/TacticalCombatScene.tscn` with
+  the `squad_7x5` topology.
 - Combat outcomes return to the macro map with persistent injury, ammunition,
   loot, and entity life state intact.
 - Defeat shows `DefeatPanel` with new-run and load-save actions.
@@ -68,8 +70,8 @@ Status updated on **July 29, 2026**:
   inventory/condition (P2-11), Node Web, exploration/collision HUD (P2-10),
   Field Health, authored-zone tooling (P2-08), shields (P2-06). Historical
   detail lives in [phase_2_execution_plan.md](phase_2_execution_plan.md).
-  The turn command deck is again the official combat UI; `RealtimeDuelHUD`
-  remains the optional mode.
+  The turn command deck is the official combat UI; realtime and duel-lane
+  surfaces remain Combat Lab/reference material only.
 - **Active world track:** [Hex World Generator V2](design/HEX_WORLD_GENERATOR_V2.md).
 - **Campaign framing:** [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 

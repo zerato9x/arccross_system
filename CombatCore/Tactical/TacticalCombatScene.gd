@@ -73,6 +73,7 @@ func setup_encounter(encounter: CombatEncounterRecord) -> void:
 		push_warning("Late combat reinforcements are not supported; freezing the assembled roster.")
 		encounter.late_reinforcements_enabled = false
 	encounter_record = encounter
+	resolution_engine.encounter_id = encounter.encounter_id
 	_participant_contexts.clear()
 	for actor_record in encounter.actors:
 		_participant_contexts[str(actor_record.get("actor_id", ""))] = actor_record.get("participant_context", {}).duplicate(true)
@@ -294,7 +295,6 @@ func _build_request(action_id: String, route_override: Array[Vector2i] = []) -> 
 	request.target_body_region = int(context.body_region)
 	request.shove_direction = str(context.get("shove_direction", ""))
 	request.declared_neutral_attack_confirmation = bool(context.get("declared_neutral_attack_confirmation", false))
-	request.final_facing = str(context.facing)
 	if action_id in ["offense", "defense", "support", "flee", "threaten", "ceasefire"]:
 		request.communication_intent = action_id
 	var selected_sector := board.arena_state.sector_at(request.target_sector) if board.arena_state.contains(request.target_sector) else null
@@ -305,21 +305,23 @@ func _build_request(action_id: String, route_override: Array[Vector2i] = []) -> 
 		if str(actor.get("actor_id", "")) == request.actor_id:
 			actor_snapshot = actor
 			break
-	var weapon: Dictionary = actor_snapshot.get("ranged_weapon", {}) if action_id in ["fire", "aimed_fire", "reload", "cycle", "clear_malfunction", "ready"] else actor_snapshot.get("melee_weapon", {})
+	var definition := action_controller.catalog.definition(action_id)
+	var uses_ranged_weapon := (
+		(definition != null and definition.is_ranged_weapon_action())
+		or action_id in ["reload", "cycle", "ready"]
+	)
+	var weapon: Dictionary = actor_snapshot.get("ranged_weapon", {}) if uses_ranged_weapon else actor_snapshot.get("melee_weapon", {})
 	if not weapon.is_empty():
-		if action_id in ["reload", "cycle", "clear_malfunction", "ready"]:
+		if action_id in ["reload", "cycle", "ready"]:
 			request.target_item_instance_id = str(weapon.get("instance_id", ""))
 		request.metadata["weapon_class"] = int(weapon.get("weapon_type", GameEnums.WeaponClass.NONE))
 		request.metadata["weapon_id"] = str(weapon.get("definition_id", ""))
-	var definition := action_controller.catalog.definition(action_id)
 	var staged_route: Array[Vector2i] = route_override if not route_override.is_empty() else hud.staged_route()
 	if definition != null and definition.target_mode == CombatActionDefinition.TARGET_PATH:
 		if staged_route.size() > 1:
 			request.approach_path = staged_route.duplicate()
 			for coords in staged_route.slice(1):
 				request.path.append(coords)
-			if request.final_facing.is_empty():
-				request.final_facing = _route_facing(staged_route)
 		else:
 			var origin := board.position_of(player_core)
 			var path: Array[int] = []
@@ -327,23 +329,10 @@ func _build_request(action_id: String, route_override: Array[Vector2i] = []) -> 
 			path = board.find_path(origin, destination, player_core)
 			for index in path.slice(1):
 				request.path.append(board.arena_state.coords_for(int(index)))
-			if request.final_facing.is_empty() and path.size() >= 2:
-				request.final_facing = board.facing_toward(int(path[-2]), int(path[-1]))
 	elif not staged_route.is_empty() and action_id != "move":
 		request.approach_path = staged_route.duplicate()
 		request.path = staged_route.duplicate()
-		if request.final_facing.is_empty() and staged_route.size() >= 2:
-			request.final_facing = _route_facing(staged_route)
 	return request
-
-
-func _route_facing(route: Array[Vector2i]) -> String:
-	if route.size() < 2:
-		return ""
-	var delta := route[-1] - route[-2]
-	if absi(delta.x) >= absi(delta.y):
-		return "east" if delta.x >= 0 else "west"
-	return "south" if delta.y >= 0 else "north"
 
 
 func _refresh_context_quotes() -> void:
@@ -396,39 +385,6 @@ func _on_combat_bleed_tick(actor: HumanoidCore, event: Dictionary) -> void:
 	_flush_pending_terminal()
 	action_controller.refresh_snapshot()
 	_refresh_context_quotes()
-
-
-func _on_reaction_window_opened(
-	defender: HumanoidCore,
-	_attacker: HumanoidCore,
-	_trigger_action,
-	available: Array
-) -> void:
-	# Reaction UI is retired. Keep the signal-shaped compatibility method inert.
-	return
-	if defender == player_core:
-		var ids: Array[String] = []
-		for action in available:
-			ids.append(str(action))
-		hud.show_reaction({
-			"actions": ids,
-			"title": "%s is attacking — choose a reaction" % _actor_display_name(_attacker),
-		})
-	else:
-		if available.is_empty():
-			turn_manager.decline_reaction(defender)
-		elif not turn_manager.resolve_reaction(defender, str(available[0])):
-			# An AI defender can lose reserved AP between enumeration and the
-			# reaction transaction. Never leave the attacker's commit blocked by
-			# a reaction that the defender can no longer pay for.
-			turn_manager.decline_reaction(defender)
-
-
-func _on_reaction_selected(action_id: String) -> void:
-	# Compatibility-only; canonical combat resolves defense in the attack quote.
-	return
-	if action_id == "decline" or not turn_manager.resolve_reaction(player_core, action_id):
-		turn_manager.decline_reaction(player_core)
 
 
 func _actor_display_name(actor: HumanoidCore) -> String:

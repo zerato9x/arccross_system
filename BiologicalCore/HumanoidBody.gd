@@ -75,12 +75,13 @@ func apply_targeted_hit(
 	limb: GameEnums.LimbRegion,
 	raw_damage: float,
 	penetration: float,
-	damage_type: int = -1
+	damage_type: int = -1,
+	source_context: Dictionary = {}
 ) -> void:
 	if damage_type >= 0:
 		limb_damage_types[limb] = damage_type
 	if raw_damage > 0.0:
-		_add_wound(limb, raw_damage, penetration, damage_type)
+		_add_wound(limb, raw_damage, penetration, damage_type, source_context)
 	_rebuild_limb_projection(limb)
 	shock = clampf(
 		shock + raw_damage * 0.35 + get_total_bleeding_rate() * 0.2,
@@ -103,17 +104,23 @@ func apply_targeted_hit(
 	
 	var bus = get_node_or_null("/root/GameEventBus")
 	if bus:
-		bus.emit_humanoid_injured(self, latest_wound.wound_type)
+		var injury_context := latest_wound.damage_source.duplicate(true)
+		injury_context["body_region"] = limb
+		injury_context["wound_id"] = latest_wound.wound_id
+		injury_context["wound_type"] = latest_wound.wound_type
+		bus.emit_humanoid_injured(self, latest_wound.wound_type, injury_context)
 	wounds_changed.emit(limb)
 
 
-func _add_wound(limb: int, damage: float, penetration: float, damage_type: int) -> void:
+func _add_wound(limb: int, damage: float, penetration: float, damage_type: int, source_context: Dictionary = {}) -> void:
 	var wound := Wound.new()
 	wound.wound_id = "%d-%d-%d" % [limb, Time.get_ticks_msec(), randi()]
 	wound.body_region = limb
 	wound.severity = clampf(damage + penetration * 0.2, 0.25, GameEnums.SCALE_MAX)
 	wound.depth = clampf(penetration, 0.0, GameEnums.SCALE_MAX)
-	wound.damage_source = {"damage_type": damage_type, "raw_damage": damage}
+	wound.damage_source = source_context.duplicate(true)
+	wound.damage_source["damage_type"] = damage_type
+	wound.damage_source["raw_damage"] = damage
 	match damage_type:
 		GameEnums.DamageType.SHARP:
 			wound.wound_type = GameEnums.WoundType.LACERATION

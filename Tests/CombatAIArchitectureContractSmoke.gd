@@ -96,8 +96,9 @@ func _run() -> void:
 	for source_entry in [provider_source, planner_source, projection_source]:
 		if source_entry.find("action_id in [") != -1:
 			failures.append("AI planning still owns a hard-coded action array.")
-	for retired_token in ["aimed_strike", "aimed_fire", "disengage", "clear_malfunction"]:
-		if provider_source.find(retired_token) != -1 or planner_source.find(retired_token) != -1 or projection_source.find(retired_token) != -1:
+	for retired_token in ["stand", "crouch", "aimed_strike", "aimed_fire", "power_strike", "disengage", "clear_malfunction", "block", "dodge", "opportunity_strike"]:
+		var action_literal := '"%s"' % retired_token
+		if provider_source.find(action_literal) != -1 or planner_source.find(action_literal) != -1 or projection_source.find(action_literal) != -1:
 			failures.append("AI planning still depends on retired action: %s" % retired_token)
 	var definition_source := FileAccess.get_file_as_string("res://CombatCore/Tactical/CombatActionDefinition.gd")
 	if definition_source.find("planning_outcome") == -1:

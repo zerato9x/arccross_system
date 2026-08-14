@@ -107,8 +107,6 @@ static func from_board(
 			"off_balance": bool(actor_conditions.get("off_balance", false)),
 			"conditions": actor_conditions,
 			"stance": tactical_state.stance if tactical_state != null else 0.0,
-			"posture": tactical_board.posture(candidate),
-			"facing": tactical_board.get_facing(candidate),
 			"cover_edge": str(tactical_board.actor_cover_edges.get(id, "")),
 			"public_intent": candidate.get_meta("combat_intent_view", {}).duplicate(true),
 			"weapon": _weapon_projection(weapon),
@@ -284,6 +282,7 @@ static func _weapon_projection(weapon: ItemData) -> Dictionary:
 		"optimal_range_cells": weapon.optimal_range_cells,
 		"range_falloff": weapon.range_falloff,
 		"weapon_type": int(weapon.weapon_type),
+		"combat_action_ids": Array(weapon.combat_action_ids()),
 		"reload_available": true,
 	}
 

@@ -11,7 +11,7 @@ const MARKERS := [
 	"release_contact",
 	"travel",
 	"impact",
-	"reaction",
+	"response",
 	"recovery",
 	"focus_out",
 ]
@@ -26,7 +26,7 @@ const MARKERS := [
 @export var start_time_seconds: float = 0.0
 @export var start_sector: Vector2i = Vector2i(-1, -1)
 @export var end_sector: Vector2i = Vector2i(-1, -1)
-@export var facing: String = ""
+@export var presentation_direction: String = ""
 @export var duration_seconds: float = 0.0
 @export var animation_id: String = "neutral"
 @export var actor_animation_id: String = ""
@@ -36,23 +36,19 @@ const MARKERS := [
 @export var camera_cue_id: String = ""
 @export var path: Array[Vector2i] = []
 @export var outcome_tag: String = "neutral"
-@export var lunge_pixels: float = 0.0
-@export var recoil_pixels: float = 0.0
-@export var shake_amplitude: float = 0.0
-@export var shake_frequency: float = 24.0
-@export var hit_stop_seconds: float = 0.0
-@export var camera_impulse_pixels: float = 0.0
-@export var impact_scale: float = 0.0
-@export var impact_rotation_degrees: float = 0.0
 @export var moves_actor: bool = false
 @export var target_end_sector: Vector2i = Vector2i(-1, -1)
 @export var weapon_class: int = 0
 @export var weapon_id: String = ""
 @export var weapon_action_id: String = ""
+@export var encounter_id: String = ""
+@export var action_event_id: String = ""
+@export var source_item_instance_id: String = ""
 @export var weapon_release_sequence_progress: float = -1.0
 @export var sequence_progress_start: float = 0.0
 @export var sequence_progress_end: float = 1.0
 @export var authored_animation_duration_seconds: float = 0.0
+@export var weapon_animation_duration_seconds: float = 0.0
 @export var dialogue_event: String = ""
 @export var dialogue_id: String = ""
 @export var dialogue_priority: int = 0
@@ -80,7 +76,7 @@ func to_dict() -> Dictionary:
 		"start_time_seconds": start_time_seconds,
 		"start_sector": start_sector,
 		"end_sector": end_sector,
-		"facing": facing,
+		"presentation_direction": presentation_direction,
 		"duration_seconds": duration_seconds,
 		"animation_id": animation_id,
 		"actor_animation_id": actor_animation_id,
@@ -90,23 +86,19 @@ func to_dict() -> Dictionary:
 		"camera_cue_id": camera_cue_id,
 		"path": path.duplicate(),
 		"outcome_tag": outcome_tag,
-		"lunge_pixels": lunge_pixels,
-		"recoil_pixels": recoil_pixels,
-		"hit_stop_seconds": hit_stop_seconds,
-		"shake_amplitude": shake_amplitude,
-		"shake_frequency": shake_frequency,
-		"camera_impulse_pixels": camera_impulse_pixels,
-		"impact_scale": impact_scale,
-		"impact_rotation_degrees": impact_rotation_degrees,
 		"moves_actor": moves_actor,
 		"target_end_sector": target_end_sector,
 		"weapon_class": weapon_class,
 		"weapon_id": weapon_id,
 		"weapon_action_id": weapon_action_id,
+		"encounter_id": encounter_id,
+		"action_event_id": action_event_id,
+		"source_item_instance_id": source_item_instance_id,
 		"weapon_release_sequence_progress": weapon_release_sequence_progress,
 		"sequence_progress_start": sequence_progress_start,
 		"sequence_progress_end": sequence_progress_end,
 		"authored_animation_duration_seconds": authored_animation_duration_seconds,
+		"weapon_animation_duration_seconds": weapon_animation_duration_seconds,
 		"dialogue_event": dialogue_event,
 		"dialogue_id": dialogue_id,
 		"dialogue_priority": dialogue_priority,

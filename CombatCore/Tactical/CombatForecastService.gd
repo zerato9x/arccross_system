@@ -5,9 +5,6 @@ class_name CombatForecastService
 ## dictionaries from CombatRulesState so live and projected quotes share the
 ## same forecast math without borrowing the resolution RNG.
 
-const ATTACK_ACTIONS := ["strike", "power_strike", "aimed_strike", "fire", "aimed_fire"]
-
-
 static func build(
 	request: CombatActionRequest,
 	definition: CombatActionDefinition,
@@ -17,20 +14,17 @@ static func build(
 	action_quote: CombatActionQuote
 ) -> CombatForecastRecord:
 	var forecast := CombatForecastRecord.new()
-	if request == null or definition == null or not request.action_id in ATTACK_ACTIONS:
+	if request == null or definition == null or not definition.is_weapon_action():
 		return forecast
 	if defender.is_empty() or rules_state == null:
 		return forecast
-	var aimed := request.action_id in ["aimed_strike", "aimed_fire"]
-	var is_melee := request.action_id in ["strike", "power_strike", "aimed_strike"]
-	var region := request.target_body_region if aimed else GameEnums.LimbRegion.UPPER_TORSO
-	forecast.target_body_region = region if aimed else -1
+	var is_melee := definition.is_melee_weapon_action()
+	var region := GameEnums.LimbRegion.UPPER_TORSO
+	forecast.target_body_region = -1
 	if definition.targeting_profile != null:
 		forecast.probable_body_regions = definition.targeting_profile.weighted_regions()
 	var effect := definition.effect_profile
 	var accuracy_modifier := effect.accuracy_modifier if effect != null else 0.0
-	if aimed and definition.targeting_profile != null:
-		accuracy_modifier += definition.targeting_profile.accuracy_modifier(region)
 	var origin := action_quote.projected_origin
 	var target_sector: Vector2i = defender.get("sector", Vector2i(-1, -1))
 	var distance := maxi(0, _distance(origin, target_sector))
@@ -41,7 +35,6 @@ static func build(
 		forecast.hit_probability = _melee_hit_chance(attacker, weapon, accuracy_modifier)
 	else:
 		forecast.hit_probability = _ranged_hit_chance(attacker, weapon, distance, target_sector, accuracy_modifier, action_quote)
-	forecast.attack_arc = "direct"
 	if weapon.is_empty():
 		forecast.bleeding_risk = "low"
 		forecast.severe_wound_risk = _risk_band(2.0 * forecast.hit_probability)
@@ -71,7 +64,7 @@ static func build(
 	forecast.incapacity_risk = _risk_band(forecast.incapacity_probability * 4.0)
 	forecast.bleeding_risk = _risk_band(forecast.bleeding_pressure)
 	if action_quote.cover_strength > 0.0:
-		forecast.notes.append("Directional cover may intercept the hit.")
+		forecast.notes.append("Geometric cover may intercept the hit.")
 	if action_quote.collateral_risk > 0.0:
 		forecast.notes.append("Crowded sector: collateral risk %.0f%%." % (action_quote.collateral_risk * 100.0))
 	return forecast

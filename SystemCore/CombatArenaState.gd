@@ -3,7 +3,7 @@ class_name CombatArenaState
 
 const LEGACY_WIDTH: int = 7
 const LEGACY_HEIGHT: int = 5
-const SCHEMA_VERSION: int = 3
+const SCHEMA_VERSION: int = 4
 
 @export var schema_version: int = SCHEMA_VERSION
 @export var topology_id: String = "squad_7x5"
@@ -18,7 +18,6 @@ const SCHEMA_VERSION: int = 3
 @export var lighting: Dictionary = {}
 @export var sectors: Array[TacticalSectorRecord] = []
 @export var actor_positions: Dictionary = {}
-@export var actor_facings: Dictionary = {}
 @export var mutations: Dictionary = {}
 
 
@@ -81,14 +80,17 @@ func to_dict() -> Dictionary:
 		"lighting": lighting.duplicate(true),
 		"sectors": sector_states,
 		"actor_positions": actor_positions.duplicate(true),
-		"actor_facings": actor_facings.duplicate(true),
 		"mutations": mutations.duplicate(true),
 	}
 
 
 static func from_dict(data: Dictionary) -> CombatArenaState:
+	var error := compatibility_error(data)
+	if not error.is_empty():
+		push_error(error)
+		return null
 	var state := CombatArenaState.new()
-	state.schema_version = int(data.get("schema_version", SCHEMA_VERSION))
+	state.schema_version = SCHEMA_VERSION
 	state.topology_id = str(data.get("topology_id", "squad_7x5"))
 	state.width = int(data.get("width", LEGACY_WIDTH))
 	state.height = int(data.get("height", LEGACY_HEIGHT))
@@ -106,6 +108,21 @@ static func from_dict(data: Dictionary) -> CombatArenaState:
 		if raw_sector is Dictionary:
 			state.sectors.append(TacticalSectorRecord.from_dict(raw_sector))
 	state.actor_positions = data.get("actor_positions", {}).duplicate(true)
-	state.actor_facings = data.get("actor_facings", {}).duplicate(true)
 	state.mutations = data.get("mutations", {}).duplicate(true)
 	return state
+
+
+static func compatibility_error(data: Dictionary) -> String:
+	var found_version := int(data.get("schema_version", -1))
+	if found_version != SCHEMA_VERSION:
+		return "Combat arena schema %d is incompatible with current schema %d; start a new combat encounter." % [
+			found_version,
+			SCHEMA_VERSION,
+		]
+	for retired_field in ["actor_facings", "facings", "posture", "postures", "reserved_ap"]:
+		if data.has(retired_field):
+			return "Combat arena schema %d contains retired field '%s'; start a new combat encounter." % [
+				SCHEMA_VERSION,
+				retired_field,
+			]
+	return ""

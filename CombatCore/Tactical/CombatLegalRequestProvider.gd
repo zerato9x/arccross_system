@@ -2,7 +2,6 @@ extends RefCounted
 class_name CombatLegalRequestProvider
 
 const _QuoteService := preload("res://CombatCore/Tactical/CombatActionQuoteService.gd")
-const _Catalog := preload("res://CombatCore/Tactical/CombatActionCatalog.gd")
 const _MotiveEvaluator := preload("res://CombatCore/Tactical/CombatMotiveEvaluator.gd")
 
 ## Catalog-driven request expansion. Templates/problem tags choose candidate
@@ -16,7 +15,7 @@ static func generate(snapshot, motive_candidate, problem, rules_state, plan_meta
 	var definitions: Array = rules_state.action_definitions.values()
 	definitions.sort_custom(func(left, right): return left.action_id < right.action_id)
 	for definition in definitions:
-		if definition == null or not _is_ai_eligible(definition):
+		if definition == null or not _is_ai_eligible(definition, snapshot.actor):
 			continue
 		if bool(snapshot.actor.get("mindless", false)) and "communication" in definition.ai_tags:
 			continue
@@ -45,12 +44,16 @@ static func generate(snapshot, motive_candidate, problem, rules_state, plan_meta
 	return result
 
 
-static func _is_ai_eligible(definition: CombatActionDefinition) -> bool:
-	return (
-		definition != null
-		and definition.visibility_tier != "compatibility"
-		and not _Catalog.RETIRED_PLAYER_ACTIONS.has(definition.action_id)
-	)
+static func _is_ai_eligible(definition: CombatActionDefinition, actor: Dictionary) -> bool:
+	if definition == null or definition.visibility_tier == "compatibility":
+		return false
+	if not definition.is_weapon_action():
+		return true
+	var weapon: Dictionary = actor.get("weapon", {})
+	if weapon.is_empty():
+		return definition.action_id == "strike"
+	var action_ids: Array = weapon.get("combat_action_ids", [])
+	return definition.action_id in action_ids
 
 
 static func _target_ids(snapshot, definition: CombatActionDefinition, motive_candidate = null) -> Array[String]:

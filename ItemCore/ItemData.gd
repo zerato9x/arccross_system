@@ -36,6 +36,9 @@ class_name ItemData
 
 @export_group("Combat Variables")
 @export var weapon_type: GameEnums.WeaponClass = GameEnums.WeaponClass.NONE
+## Optional weapon-authored combat verbs beyond the class-derived default.
+## CombatActionCatalog owns their behavior and rejects unknown IDs.
+@export var specialized_action_ids: PackedStringArray = []
 @export var damage_type: GameEnums.DamageType = GameEnums.DamageType.BLUNT
 @export var flesh_damage: float = 0.0
 @export var balance_impact: float = 0.0
@@ -161,6 +164,26 @@ func is_ranged() -> bool:
 ## Helper: Is this item a melee weapon?
 func is_melee() -> bool:
 	return weapon_type == GameEnums.WeaponClass.BLUNT or weapon_type == GameEnums.WeaponClass.BLADE
+
+
+func default_combat_action_id() -> String:
+	if is_melee():
+		return "strike"
+	if is_ranged():
+		return "fire"
+	return ""
+
+
+func combat_action_ids() -> PackedStringArray:
+	var result: PackedStringArray = []
+	var default_id := default_combat_action_id()
+	if not default_id.is_empty():
+		result.append(default_id)
+	for raw_action_id in specialized_action_ids:
+		var action_id := str(raw_action_id).strip_edges()
+		if not action_id.is_empty() and action_id not in result:
+			result.append(action_id)
+	return result
 
 func is_blocking_shield() -> bool:
 	return not block_damage_types.is_empty() and not block_coverage.is_empty()
@@ -397,6 +420,7 @@ func to_definition_state() -> Dictionary:
 		"equipped_sprite_path": equipped_sprite_path,
 		"equipped_sprite_paths": equipped_sprite_paths.duplicate(),
 		"weapon_type": weapon_type,
+		"specialized_action_ids": Array(specialized_action_ids),
 		"damage_type": damage_type,
 		"flesh_damage": flesh_damage,
 		"balance_impact": balance_impact,
@@ -523,11 +547,11 @@ func _apply_definition_state(state: Dictionary) -> void:
 			for entry in value:
 				strings.append(str(entry))
 			set(property_name, strings)
-		elif property_name == "functional_roles":
+		elif property_name in ["functional_roles", "specialized_action_ids"]:
 			var functional_strings: PackedStringArray = []
 			for entry in value:
 				functional_strings.append(str(entry))
-			functional_roles = functional_strings
+			set(property_name, functional_strings)
 		elif property_name in [
 			"interaction_roles",
 			"block_damage_types",

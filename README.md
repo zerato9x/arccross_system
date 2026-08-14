@@ -23,7 +23,7 @@ retain meaningful units.
 
 ## Current Prototype
 
-Status updated on **July 29, 2026**.
+Status updated on **August 14, 2026**.
 
 ### Playable Today
 
@@ -37,8 +37,8 @@ Launch from `UI/MainMenu.tscn` into a persistent macro run (Godot **4.7**):
 4. Resolve entity collisions through the shared exploration/event stage:
    TALK (Threat / Ceasefire → Ask / Trade placeholder) or AMBUSH with opponent
    summary and combat-grid preview.
-5. Fight persistent enemies in readable, lethal turn-based 1v1 lane duels.
-   Real-time combat is an optional Settings mode.
+5. Fight persistent enemies in readable, lethal turn-based squad encounters on
+   the production `7 x 5` tactical grid.
 6. Manage equipment through the authored three-region Inventory HUD: its
    Innawoods body projection, anatomy/carry slot rails, condition states,
    comparisons, firearm readiness, grounded field notes, and tool-plus-material
@@ -62,18 +62,25 @@ profile.
   loop, persistent wounds, Field Health HUD, entity-collision Event HUD path,
   authored-zone tooling.
 - Official combat runs through `CombatCore/Tactical/TacticalCombatScene.tscn`.
-  Production encounters use a concise `12 x 1` duel topology with the current
-  AP, forecast, health, wound, inventory, and action rules. `6 x 3` and `7 x 5`
-  profiles remain laboratory scaffolding rather than player settings.
+  Production encounters use `squad_7x5`, one directly controlled player, up to
+  five autonomous NPCs, a frozen aware roster, and pairwise relationships.
+  `duel_12x1` and `skirmish_6x3` remain explicit Combat Lab/compatibility
+  resources rather than player settings.
 - **Active world track:** [Hex World Generator V2](READMEs/design/HEX_WORLD_GENERATOR_V2.md).
 - **Campaign framing:** [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
 ### Core Systems
 
-- Combat uses a twelve-slot lane, localized Limb Region damage, and
-  encounter-local Stance. Each turn grants a discrete 12 AP pool and can bank
-  leftover AP for reactions. Occupied cells enforce linear no-passing and
-  adjacent same-squad enemies can enter as a supported 1v2 encounter.
+- Combat uses a `7 x 5` orthogonal grid, localized Limb Region damage, and
+  encounter-local Stance. Each turn grants one discrete 12 AP pool; there is no
+  reserved reaction AP, posture, persistent facing, rear/flank modifier, block,
+  dodge, or opportunity-attack authority.
+- Defense is composed only from wounds, Stance, equipment, geometry cover,
+  weapon range, and observable conditions. `LEAVE BATTLE` becomes legal when no
+  living actor remains hostile to the player even if NPC conflict continues.
+- Weapons derive canonical `strike` or `fire` actions from class and may author
+  catalog-validated specialized action IDs. Reload/ready/cycle remain
+  state-derived maintenance actions; `cycle` is the only jam-clear action.
 - Ballistic hits deal no Stance Damage. A successful shot applies the weapon's
   authored Flesh Damage directly to one Limb Region.
 - Firearms enforce authored range, accuracy, ammunition, magazine or loading
@@ -83,7 +90,7 @@ profile.
 - The static Innawoods inventory set maps into **168** rebalanced Resources with
   authored grade, repair domain, condition participation, grounded field note,
   and differentiated stats. Supported equipped visuals drive layered Humanoid
-  Tokens in the macro world and combat lane.
+  Tokens in the macro world and tactical arena.
 - Runtime items persist condition (`0-12`) and firearm malfunctions. SEARCH,
   CAMP, firearm attempts, melee impacts, armor, and shields resolve wear and
   typed faults through one combat-independent ItemCore contract. Broken gear
@@ -107,8 +114,8 @@ profile.
 - Core biological and system states live in explicit resource classes
   (`BodyState`, `HumanoidState`, `InventoryState`, `EntityRecord`,
   `HexRecord`).
-- `CombatCore/CombatModeComparison.tscn` is the topology lab (`F1` production
-  `12 x 1`, `F2` future `7 x 5`) and never saves laboratory state.
+- `CombatCore/CombatModeComparison.tscn` is the topology lab (`F1` legacy
+  `12 x 1`, `F2` production-shaped `7 x 5`) and never saves laboratory state.
 - Automated smoke scripts cover the vertical slice and focused system contracts.
 
 ### Known Gaps
@@ -116,12 +123,12 @@ profile.
 - Macro **SNIPE** remains unimplemented; service-rifle scope data is metadata
   only.
 - **EXECUTE** is gated off (`CombatRules.EXECUTE_ENABLED = false`).
-- Ballistic defense still requires shield-authored damage-type and Limb Region
-  coverage; ordinary melee guard/parry does not magically stop bullets.
+- Ballistic defense uses equipment-authored damage-type and Limb Region
+  coverage plus geometry cover; no generic guard/parry layer is inferred.
 - Humanoid token art coverage remains incomplete for several rigs, face/eye
   equipment, and unsupported weapons.
-- Production supports 1v1 and 1v2. Larger squads and the `6 x 3` / `7 x 5`
-  topologies are not player-facing.
+- Production supports one player plus up to five autonomous NPCs in the
+  preassembled `7 x 5` encounter. Late entry is not supported.
 - TRADE after Ceasefire is a placeholder pending an economy pass.
 - The authored-zone toolchain is complete, but campaign profiles still need a
   real library of hand-painted presets; unassigned random nodes retain the

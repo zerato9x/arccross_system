@@ -54,41 +54,37 @@ database, stat registry, or rule table.
 
 ### CombatCore
 
-- Owns encounter flow, lanes, two independently balanced combat schedulers, AI,
-  AP, action timing, defense windows, and combat resolution.
-- Validates firearm range and readiness before consuming ammunition, combines
-  actor and weapon accuracy, and resolves successful shots against one Limb
-  Region.
-- Applies ballistic Flesh Damage without Stance Damage. Ordinary Stance
-  pressure floors at `1`; only explicit takedown-capable resolution may Fell.
-- `RealtimeDuelRuntime` accepts neutral `DuelIntent` values and owns the
-  authoritative windup, impact, recovery, AP, combo, aim, guard, and Felled
-  timelines.
-- `RealtimeDamageResolver` applies body, armor, Stance, shield, melee, and
-  firearm results without turn or presentation dependencies.
-- `RealtimeLaneController` commits timed movement, push, and follow operations
-  through `CombatLaneManager` without weakening its no-crossing invariant.
-- `DuelWeaponProfile` resources author fixed costs and timing markers; ItemCore
-  selects them through the neutral `realtime_profile_id` field.
-- `RealtimeDuelHUD` owns the permanent impact-marked intent timeline;
-  `DuelReadabilityEffects` owns short parry, block, feint, trip, and damage
-  popups. Neither resolves defense timing or alters outcomes.
-- The official/default turn-based authority lives under
-  `CombatCore/TurnBased/TurnBasedDuelScene.tscn`, with its own
-  `CombatTurnManager`, `CombatResolutionEngine`, `CombatCommandAdapter`, AI,
-  `TurnBasedCombatBalance`, and `CombatLaneHUD`. Accepted actions hold a
-  transaction barrier through resolution and queued presentation.
-- `RealtimeDuelRuntime` is the optional Settings authority. Production
-  `MainDuelScene` selects one mode and never runs both authorities.
-- Both combat authorities consume the same ItemCore resolver at firearm attempt,
-  melee impact, armor contribution, and shield block. A shared neutral outcome
-  controls wear, typed faults, contribution, breakage, and firearm malfunction;
-  mode-specific cadence, AI weights, action economy, and attack modifiers are
-  applied only in the owning combat layer.
-- Both HUDs host `UI/Inventory/CombatItemCard.tscn` without independently
-  reinterpreting condition, fault chance, ammunition, readiness, or malfunction.
-- `CombatModeComparison.tscn` is a non-persistent laboratory launcher that feeds
-  identical records into either scene for direct comparison.
+- Owns the sole production combat scene,
+  `CombatCore/Tactical/TacticalCombatScene.tscn`: encounter flow, the
+  `squad_7x5` board, turns, AI, one AP pool, catalog actions, quotes, resolution,
+  and presentation sequencing.
+- `GameDirector` forces the production topology. An assembled encounter has one
+  directly controlled player, up to five autonomous NPCs, pairwise relations,
+  a participant cap of six, and no late reinforcement.
+- `CombatActionCatalog` owns action policy. Weapon classes derive canonical
+  `strike` or `fire`; `ItemData.specialized_action_ids` projects additional
+  catalog-validated attacks without controller/HUD ID lists.
+- `CombatActionQuoteService`, `CombatForecastService`, and
+  `CombatResolutionEngine` consume explicit melee/ranged action-family metadata.
+  They validate readiness and range before mutation and resolve hits against one
+  Limb Region.
+- Combat defense uses only wounds, Stance, equipment, geometry cover, range,
+  and observable conditions. Persistent facing, posture, rear/flank arcs,
+  reaction AP, Block, Dodge, and opportunity attacks are not live authority.
+- `TacticalTurnManager` owns the discrete AP transaction. A pending action cost
+  may be held until commit, but there is no spendable AP reservation or reaction
+  window.
+- `TacticalCombatAI` acts only for autonomous actors. A shove out of hostile
+  Engagement can queue one post-presentation AI replan without granting AP,
+  changing turn order, or opening player input.
+- `TacticalPresentationPlayer` and `TacticalArenaView` consume committed
+  sequences. Marker, body-animation, map-weapon-sheet, release-marker, and
+  static-card pulse clocks remain independent.
+- `CombatItemCard` projects weapon state and a fixed pulse; it does not become a
+  source-sheet player or reinterpret condition, ammunition, or readiness.
+- `CombatModeComparison.tscn` is a non-persistent topology Lab. `duel_12x1`,
+  `skirmish_6x3`, and older real-time code remain compatibility/reference paths,
+  never parallel production authorities.
 - Returns only `GameEnums.CombatOutcome` and neutral runtime snapshots across
   the system boundary.
 
@@ -206,29 +202,30 @@ ambush_position: GameEnums.AmbushPosition
 - TALK resolves Threat / Ceasefire (and Ask / Trade placeholder) only after
   owner-side resolution via `MacroEntityCollisionResolver` and related
   resolvers. ROB is not part of the live tree.
-- AMBUSH submits a deployment band. CombatCore chooses actual lane indices.
+- AMBUSH submits encounter/deployment context. CombatCore chooses actual
+  `squad_7x5` deployment sectors.
 - The collider receives opening initiative.
 
 ## Combat Interaction Boundary
 
-- `RealtimeDuelHUD` translates A/D, mouse buttons, Space, and R into
-  `DuelIntent`; it never spends AP or resolves a hit.
-- `RealtimeDuelRuntime` revalidates every intent and emits neutral snapshots
-  plus timeline events. Each event carries the same duration and impact marker
-  consumed by animation, camera, audio, VFX, and damage resolution.
-- `CombatLaneView` remains the twelve-slot and layered-humanoid projection.
-  `RealtimeDuelHUD` supplies cached Paper Dolls and wound layers, complete
-  Blood/AP/Stance rails, current action phases, terrain, aim, combo, follow,
-  ammo, animated weapon cards, and feedback around it.
-- Combat snapshots expose weapon rounds, capacity, effective range, and cycle
-  state; presentation does not infer firearm readiness. Static weapon sprites
-  come from ItemCore item presentation paths, while `Asset/Guns_Animation/`
-  may be resolved through a catalog for short-lived shoot, reload, empty, and
-  cycle effects.
-- Felled recovery starts automatically at `4 AP`, remains interruptible until
-  its timeline completes, and grants a short anti-refell guard on success.
-- Space creates a timed defense event. The impact offset distinguishes parry
-  from block; no reaction popup or Reserved AP pool exists.
+- `TacticalCombatHUD` consumes combat-owned snapshot presenters and emits typed
+  intent through `TacticalCombatInteractionCoordinator`; it never spends AP or
+  resolves a hit.
+- `TacticalArenaView` projects the `squad_7x5` board and layered humanoids. LMB
+  emits inspect intent. RMB emits context intent with a global pointer anchor;
+  the HUD positions and clamps the menu, while pointerless keyboard/synthetic
+  requests fall back to the command dock.
+- Snapshot projection retains exact self/authorized-friendly data and redacts
+  private neutral/hostile vitals, wounds, ammunition, condition, inventory, and
+  AI trace details. Hands/Quick, observable target, and ground item rows use
+  projected icon paths and stable instance IDs.
+- Combat snapshots expose weapon action IDs, rounds, capacity, range, cycle,
+  condition, and readiness; presentation does not infer them. Static sprites
+  come from ItemCore paths, while `Asset/Guns_Animation/` is catalog-resolved
+  only for map shoot/reload/cycle overlays.
+- Presentation action/contact audio carries typed encounter/action/actor/target/
+  item/weapon/result identity. Only `HumanoidBody` wound creation emits
+  `HumanInjured`; presentation never emits a second injury vocal.
 - CombatCore emits outcomes and runtime snapshots. SystemCore applies those
   results to persistent world records.
 - Combat presentation never changes macro tokens, entity life state, AP costs,
@@ -381,9 +378,10 @@ Stable surfaces for content mods (no orchestration code changes required):
   deterministic_key)` returns `EntityRecord`.
 - **`EntityFactory`** — `record_to_humanoid_core(record, parent, unit_name)`,
   `humanoid_core_to_record(core)` for record hydration at domain boundaries.
-- **Combat boundary** — neutral snapshots and `DuelIntent` payloads through
-  `RealtimeDuelRuntime`; outcomes remain `GameEnums.CombatOutcome` plus runtime
-  dicts.
+- **Combat boundary** — neutral encounter records enter `TacticalCombatScene`;
+  combat-owned snapshots leave through presentation, typed action requests
+  return through the coordinator, and terminal outcomes remain
+  `GameEnums.CombatOutcome` plus runtime dicts.
 - **Content assets** — `ItemCore/Items/*.tres`, `ItemCore/LootProfiles/*.tres`,
   `BiologicalCore/*_def.tres`, `ItemCore/Loadouts/*.tres`.
 

@@ -31,7 +31,7 @@ func _verify_arena_intents() -> void:
 	arena.show_snapshot({"width": 1, "height": 1, "sectors": [{"coords": Vector2i.ZERO, "occupant_ids": []}]})
 	var received := {"inspect": 0, "context": 0}
 	arena.inspect_requested.connect(func(_coords: Vector2i, _actor_id: String) -> void: received.inspect += 1)
-	arena.context_requested.connect(func(_coords: Vector2i, _actor_id: String) -> void: received.context += 1)
+	arena.context_requested.connect(func(_coords: Vector2i, _actor_id: String, _anchor: Vector2) -> void: received.context += 1)
 	var left := InputEventMouseButton.new()
 	left.button_index = MOUSE_BUTTON_LEFT
 	left.pressed = true

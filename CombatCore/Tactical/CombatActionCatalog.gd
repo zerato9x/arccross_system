@@ -6,22 +6,7 @@ class_name CombatActionCatalog
 
 var _by_id: Dictionary = {}
 
-const RETIRED_PLAYER_ACTIONS := {
-	"stand": true,
-	"crouch": true,
-	"disengage": true,
-	"aimed_strike": true,
-	"aimed_fire": true,
-	"clear_malfunction": true,
-	"block": true,
-	"dodge": true,
-	"opportunity_strike": true,
-}
-
-
 func is_player_visible(action_id: String) -> bool:
-	if RETIRED_PLAYER_ACTIONS.has(action_id):
-		return false
 	var entry := definition(action_id)
 	return entry != null and entry.visibility_tier != "compatibility"
 
@@ -35,12 +20,7 @@ func player_definitions() -> Array[CombatActionDefinition]:
 
 
 func canonical_definitions() -> Array[CombatActionDefinition]:
-	"""Return authored entries that belong to the unified combat model.
-
-	Compatibility resolvers remain loadable for old replay/save callers, but
-	new HUD, AI, and catalog tooling should consume this projection instead of
-	filtering retired IDs independently.
-	"""
+	"""Return authored entries that belong to the unified combat model."""
 	var result: Array[CombatActionDefinition] = []
 	for entry in all():
 		if entry != null and is_player_visible(entry.action_id):
@@ -50,7 +30,7 @@ func canonical_definitions() -> Array[CombatActionDefinition]:
 
 func is_ai_visible(action_id: String) -> bool:
 	var entry := definition(action_id)
-	return entry != null and entry.visibility_tier != "compatibility" and action_id not in RETIRED_PLAYER_ACTIONS
+	return entry != null and entry.visibility_tier != "compatibility"
 
 
 func definition(action_id: String) -> CombatActionDefinition:
@@ -61,6 +41,43 @@ func definition(action_id: String) -> CombatActionDefinition:
 
 func all() -> Array[CombatActionDefinition]:
 	return definitions.duplicate()
+
+
+func weapon_action_validation_error(weapon: ItemData) -> String:
+	if weapon == null:
+		return "Weapon action projection requires an ItemData weapon."
+	for action_id in weapon.combat_action_ids():
+		var entry := definition(action_id)
+		if entry == null:
+			return "Weapon '%s' (%s) declares unknown combat action '%s'." % [
+				weapon.display_name,
+				weapon.id,
+				action_id,
+			]
+		if not entry.is_weapon_action():
+			return "Weapon '%s' (%s) declares non-weapon combat action '%s'." % [
+				weapon.display_name,
+				weapon.id,
+				action_id,
+			]
+		if weapon.is_melee() != entry.is_melee_weapon_action():
+			return "Weapon '%s' (%s) declares incompatible combat action '%s'." % [
+				weapon.display_name,
+				weapon.id,
+				action_id,
+			]
+	return ""
+
+
+func weapon_action_definitions(weapon: ItemData) -> Array[CombatActionDefinition]:
+	var result: Array[CombatActionDefinition] = []
+	var validation_error := weapon_action_validation_error(weapon)
+	if not validation_error.is_empty():
+		push_error(validation_error)
+		return result
+	for action_id in weapon.combat_action_ids():
+		result.append(definition(action_id))
+	return result
 
 
 func _rebuild_index() -> void:

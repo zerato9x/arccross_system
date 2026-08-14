@@ -58,7 +58,7 @@ func _run() -> void:
 	if not found_engage:
 		return _fail("Catalog-driven provider did not generate Engage for NEED_ENGAGE.")
 	for request in generated.requests:
-		if request.action_id == "clear_malfunction" or request.action_id == "disengage":
+		if request.action_id in ["stand", "crouch", "disengage", "power_strike", "aimed_strike", "aimed_fire", "clear_malfunction", "block", "dodge", "opportunity_strike"]:
 			return _fail("Provider enumerated a retired action.")
 	print("COMBAT_AI_REQUEST_PROVIDER_SMOKE: PASS")
 	quit(0)

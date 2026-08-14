@@ -62,7 +62,8 @@ retired.
 - Keep self/friendly data readable: official frames decorate and clarify, they
   do not replace exact player AP, Blood, Stance, ammo, or limb values.
 - Treat neutral/hostile cards as knowledge projections: qualitative condition,
-  observable wounds, intent, relation, posture, and weapon bands only.
+  observable wounds, intent, relation, and weapon bands only. Posture and
+  persistent facing are not combat state.
 - Use MCP live UI inspection/screenshots to prove runtime node paths and layout
   dimensions after UI changes; headless imports do not prove visual acceptance.
 - Add smoke assertions for each official element actually wired into the

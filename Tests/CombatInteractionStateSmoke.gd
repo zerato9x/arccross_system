@@ -101,8 +101,6 @@ func _snapshot() -> Dictionary:
 			"team_id": "player",
 			"name": "Player",
 			"sector": Vector2i(2, 0),
-			"posture": "standing",
-			"facing": "east",
 			"blood": 12.0,
 			"consciousness": 12.0,
 			"pain": 0.0,
@@ -117,8 +115,6 @@ func _snapshot() -> Dictionary:
 			"team_id": "enemy",
 			"name": "Hostile",
 			"sector": Vector2i(11, 0),
-			"posture": "standing",
-			"facing": "west",
 			"blood": 10.0,
 			"consciousness": 10.0,
 			"pain": 0.0,
@@ -150,9 +146,8 @@ func _snapshot() -> Dictionary:
 		"arena": {
 			"width": 12,
 			"height": 1,
-			"presentation_style": "duel_lane",
+			"presentation_style": "tactical_grid",
 			"sectors": sectors,
-			"facings": {"player": "east", "enemy": "west"},
 			"tactics": {},
 		},
 	}

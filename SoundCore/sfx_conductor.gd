@@ -211,8 +211,8 @@ func _on_scene_audio_requested(scene_id: String, context: Dictionary) -> void:
 				)),
 				str(context.get("weapon_id", ""))
 			)
-		"combat_damage_sfx":
-			_play_combat_injury(context)
+		"combat_impact_sfx":
+			_play_combat_contact(context)
 
 func _on_combat_action(
 	_entity: Node,
@@ -220,7 +220,7 @@ func _on_combat_action(
 	weapon_class: int,
 	weapon_id: String
 ) -> void:
-	if action in ["fire", "aimed_fire"]:
+	if action not in ["reload", "cycle"] and weapon_class >= GameEnums.WeaponClass.PISTOL:
 		match weapon_class:
 			GameEnums.WeaponClass.PISTOL:
 				_play_sound(_gunshot_pool_for_id(weapon_id).pick_random())
@@ -234,7 +234,7 @@ func _on_combat_action(
 		_play_sound(_mapped_pool(SOUNDS_GUN_RELOAD, weapon_id).pick_random(), 0.04, -2.0)
 	elif action == "cycle":
 		_play_sound(_mapped_pool(SOUNDS_GUN_CYCLE, weapon_id).pick_random(), 0.04, -3.0)
-	elif action in ["strike", "power_strike", "aimed_strike", "shove", "block"]:
+	elif weapon_class in [GameEnums.WeaponClass.BLUNT, GameEnums.WeaponClass.BLADE] or action in ["strike", "shove", "incapacitate", "execute"]:
 		_play_sound(SOUNDS_PUNCH.pick_random())
 
 func _gunshot_pool_for_id(weapon_id: String) -> Array:
@@ -254,8 +254,12 @@ func _mapped_pool(mapping: Dictionary, weapon_id: String) -> Array:
 		return mapping[weapon_id]
 	return mapping["default"]
 
-func _on_humanoid_injured(_entity: Node, _trauma: GameEnums.TraumaType) -> void:
-	_play_combat_injury({})
+func _on_humanoid_injured(_entity: Node, _wound_type: int, context: Dictionary) -> void:
+	_play_combat_injury(context)
+
+
+func _play_combat_contact(_context: Dictionary) -> void:
+	_play_sound(SOUNDS_PUNCH.pick_random(), 0.04, -4.0)
 
 func _play_combat_injury(_context: Dictionary) -> void:
 	_play_sound(SOUNDS_INJURED.pick_random())

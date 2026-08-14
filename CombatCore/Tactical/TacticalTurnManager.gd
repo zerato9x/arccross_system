@@ -9,8 +9,6 @@ signal turn_started(active_actor: HumanoidCore)
 signal ap_spent(actor: HumanoidCore, remaining_ap: int)
 signal turn_ended(actor: HumanoidCore)
 signal combat_bleed_tick(actor: HumanoidCore, event: Dictionary)
-signal reaction_window_opened(defender: HumanoidCore, attacker: HumanoidCore, trigger_action, available_reactions: Array)
-signal reaction_resolved(defender: HumanoidCore, chosen_reaction, success: bool)
 signal action_denied(denial: Dictionary)
 signal action_resolution_finished(actor: HumanoidCore)
 
@@ -18,18 +16,11 @@ var combatants: Array[HumanoidCore] = []
 var current_round := 0
 var active_actor_index := 0
 var current_ap_pool := 0
-## Deprecated compatibility projection. AP is never reserved between turns in
-## the unified system; this remains empty so older snapshot consumers do not
-## crash while they migrate.
-var reserved_ap: Dictionary = {}
 var is_halted := true
-var _reaction_pending := false
-var _reaction_defender: HumanoidCore
-var _available_reactions: Array = []
 var _action_resolution_owner: HumanoidCore
 var _action_resolving := false
 var _action_cost_committed := false
-var _action_reserved_ap := 0
+var _pending_action_cost := 0
 var _end_turn_requested := false
 var _initiative_rng := RandomNumberGenerator.new()
 var balance_profile: CombatBalanceProfile
@@ -44,14 +35,13 @@ func initialize(combatant_array: Array[HumanoidCore], initiator: HumanoidCore = 
 	combatants.sort_custom(func(left: HumanoidCore, right: HumanoidCore) -> bool:
 		return float(initiative[left]) > float(initiative[right])
 	)
-	reserved_ap.clear()
 	current_round = 0
 	active_actor_index = 0
 	is_halted = false
 	_action_resolving = false
 	_action_resolution_owner = null
 	_action_cost_committed = false
-	_action_reserved_ap = 0
+	_pending_action_cost = 0
 	_start_round()
 
 
@@ -72,7 +62,6 @@ func remove_combatant(actor: HumanoidCore) -> bool:
 	if index < 0:
 		return false
 	combatants.remove_at(index)
-	reserved_ap.erase(actor)
 	if combatants.is_empty():
 		active_actor_index = 0
 		is_halted = true
@@ -127,7 +116,6 @@ func _start_turn() -> void:
 			scanned += 1
 			continue
 		if actor != null and not actor.is_dead and not actor.is_comatose and actor.current_max_ap > 0:
-			reserved_ap.erase(actor)
 			var bleed := actor.body.process_combat_bleeding_tick()
 			if not bleed.is_empty():
 				combat_bleed_tick.emit(actor, bleed)
@@ -144,8 +132,7 @@ func _start_turn() -> void:
 func pass_turn(actor: HumanoidCore) -> void:
 	if actor == null or actor != get_active_entity() or is_halted:
 		return
-	# End Turn discards every remaining AP. There is no reaction reserve.
-	reserved_ap.erase(actor)
+	# End Turn discards every remaining AP.
 	current_ap_pool = 0
 	if _action_resolving:
 		_end_turn_requested = true
@@ -161,7 +148,7 @@ func begin_action_resolution(actor: HumanoidCore, required_ap: int = 0) -> bool:
 	_action_resolving = true
 	_action_resolution_owner = actor
 	_action_cost_committed = false
-	_action_reserved_ap = required_ap
+	_pending_action_cost = required_ap
 	return true
 
 
@@ -171,7 +158,7 @@ func end_action_resolution(actor: HumanoidCore) -> void:
 	_action_resolving = false
 	_action_resolution_owner = null
 	_action_cost_committed = false
-	_action_reserved_ap = 0
+	_pending_action_cost = 0
 	action_resolution_finished.emit(actor)
 	if _end_turn_requested or current_ap_pool <= 0:
 		_end_turn_requested = false
@@ -183,7 +170,6 @@ func can_commit_action_cost(actor: HumanoidCore, cost: int) -> bool:
 		actor != null
 		and actor == get_active_entity()
 		and not is_halted
-		and not _reaction_pending
 		and cost >= 0
 		and current_ap_pool >= cost
 		and (
@@ -191,14 +177,14 @@ func can_commit_action_cost(actor: HumanoidCore, cost: int) -> bool:
 			or (
 				_action_resolution_owner == actor
 				and not _action_cost_committed
-				and cost <= _action_reserved_ap
+				and cost <= _pending_action_cost
 			)
 		)
 	)
 
 
-func action_reserved_ap() -> int:
-	return _action_reserved_ap
+func pending_action_cost() -> int:
+	return _pending_action_cost
 
 
 func commit_action_cost(actor: HumanoidCore, action_id: String, cost: int) -> bool:
@@ -207,39 +193,11 @@ func commit_action_cost(actor: HumanoidCore, action_id: String, cost: int) -> bo
 		return false
 	current_ap_pool -= cost
 	_action_cost_committed = _action_resolving
-	_action_reserved_ap = 0
+	_pending_action_cost = 0
 	ap_spent.emit(actor, current_ap_pool)
 	if current_ap_pool <= 0:
 		_end_turn_requested = true
 	return true
-
-
-func open_reaction_window(defender: HumanoidCore, attacker: HumanoidCore, trigger_action) -> Array:
-	# Reactions were a second, hidden action economy. Defense is now resolved in
-	# the authoritative attack quote, so an attack never opens another input
-	# window or waits for a reserved AP response.
-	return []
-
-
-func resolve_reaction(defender: HumanoidCore, chosen_reaction) -> bool:
-	return false
-
-
-func decline_reaction(defender: HumanoidCore) -> void:
-	return
-
-
-func try_spend_reserved_ap(actor: HumanoidCore, amount: int) -> bool:
-	return false
-
-
-func reaction_cost(actor: HumanoidCore, _action_id: String) -> int:
-	match actor.kinetic_tier:
-		GameEnums.KineticTier.LABORED:
-			return 3
-		GameEnums.KineticTier.AGONIZING:
-			return 4
-	return 2
 
 
 func _finish_turn() -> void:

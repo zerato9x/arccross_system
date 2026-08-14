@@ -77,6 +77,8 @@ func _verify_size(viewport_size: Vector2i) -> void:
 			pack_item_buttons += 1
 	if pack_item_buttons != 1:
 		_fail("Hands/Quick drawer did not show exactly one accessible item at %s." % viewport_size)
+	elif (hud.items.get_child(0) as Button).icon == null:
+		_fail("Hands/Quick item did not render its projected icon path at %s." % viewport_size)
 	hud._toggle_pack()
 
 	hud.arena_view.inspect_requested.emit(Vector2i(11, 0), "enemy")
@@ -90,7 +92,7 @@ func _verify_size(viewport_size: Vector2i) -> void:
 	if hud.target_items.get_child_count() != 0:
 		_fail("Relationship-neutral entity card exposed carried inventory at %s." % viewport_size)
 
-	hud.arena_view.context_requested.emit(Vector2i(11, 0), "enemy")
+	hud.arena_view.context_requested.emit(Vector2i(11, 0), "enemy", hud.global_position + Vector2(viewport_size) * 0.75)
 	await process_frame
 	var phase_before_refresh: int = hud.interaction.phase
 	var menu_before_refresh: bool = hud.context_menu.visible
@@ -118,6 +120,45 @@ func _verify_size(viewport_size: Vector2i) -> void:
 		await process_frame
 		if hud.arena_view.snapshot.get("width", 0) != topology.x or hud.arena_view.snapshot.get("height", 0) != topology.y:
 			_fail("HUD did not accept topology %s." % topology)
+
+	var corner_positions: Array[Vector2] = []
+	var corners := [Vector2i(0, 0), Vector2i(6, 0), Vector2i(0, 4), Vector2i(6, 4)]
+	var anchors := [
+		hud.global_position + Vector2(1.0, 1.0),
+		hud.global_position + Vector2(viewport_size.x - 1.0, 1.0),
+		hud.global_position + Vector2(1.0, viewport_size.y - 1.0),
+		hud.global_position + Vector2(viewport_size.x - 1.0, viewport_size.y - 1.0),
+	]
+	for index in corners.size():
+		var corner: Vector2i = corners[index]
+		hud.selected_sector = corner
+		hud._context_pointer_anchor = anchors[index]
+		hud.context_menu.visible = true
+		hud._position_context_menu()
+		await process_frame
+		_assert_inside(hud.get_global_rect(), hud.context_menu.get_global_rect(), "context menu at %s" % corner, viewport_size)
+		corner_positions.append(hud.context_menu.global_position)
+	if corner_positions[0].x >= corner_positions[1].x or corner_positions[2].x >= corner_positions[3].x:
+		_fail("Context menu did not remain anchored to left/right edge selections at %s." % viewport_size)
+
+	hud._on_arena_context_requested(Vector2i(3, 2), "")
+	hud.context_menu.visible = true
+	hud._position_context_menu()
+	if hud._context_pointer_anchor != Vector2(-1.0, -1.0):
+		_fail("Pointerless root-menu request did not retain the dock fallback at %s." % viewport_size)
+
+	var icon_descriptor := {
+		"instance_id": "icon_contract",
+		"name": "Field Bandage",
+		"access": "ground",
+		"presentation": {"icon_path": "res://Asset/Innawoods_Asset/Items/Medicines/bandage.png"},
+	}
+	hud._render_target_items([icon_descriptor], "ally")
+	if hud.target_items.get_child_count() != 1 or (hud.target_items.get_child(0) as Button).icon == null:
+		_fail("Observable target item did not render its projected icon path at %s." % viewport_size)
+	hud._render_ground_items([icon_descriptor])
+	if hud.ground_items.get_child_count() != 1 or (hud.ground_items.get_child(0) as Button).icon == null:
+		_fail("Ground item did not render its projected icon path at %s." % viewport_size)
 
 	viewport.queue_free()
 	await process_frame
@@ -171,7 +212,7 @@ func _sample_snapshot(width: int, height: int) -> Dictionary:
 		"condition": 12.0,
 		"quantity": 1,
 		"equipment_slot": GameEnums.EquipmentSlot.NONE,
-		"presentation": {"icon_path": "", "label": "Field Bandage"},
+		"presentation": {"icon_path": "res://Asset/Innawoods_Asset/Items/Medicines/bandage.png", "label": "Field Bandage"},
 	}
 	return {
 		"revision": 1,
@@ -180,7 +221,6 @@ func _sample_snapshot(width: int, height: int) -> Dictionary:
 		"max_ap": 12,
 		"active_actor_id": "player",
 		"initiative_order": ["enemy", "player"],
-		"reserved_ap": {"player": 0},
 		"actors": [
 			{
 				"actor_id": "player",
@@ -188,8 +228,6 @@ func _sample_snapshot(width: int, height: int) -> Dictionary:
 				"team_id": "player",
 				"name": "Player",
 				"sector": Vector2i(mini(2, width - 1), center_y),
-				"posture": "standing",
-				"facing": "east",
 				"blood": 12.0,
 				"pain": 0.0,
 				"shock": 0.0,
@@ -212,8 +250,6 @@ func _sample_snapshot(width: int, height: int) -> Dictionary:
 				"team_id": "enemy",
 				"name": "Scavenger",
 				"sector": Vector2i(width - 1, center_y),
-				"posture": "crouched",
-				"facing": "west",
 				"blood": 10.0,
 				"pain": 2.0,
 				"shock": 1.0,
@@ -235,9 +271,8 @@ func _sample_snapshot(width: int, height: int) -> Dictionary:
 		"arena": {
 			"width": width,
 			"height": height,
-			"presentation_style": "duel_lane" if height == 1 else "tactical_grid",
+			"presentation_style": "tactical_grid",
 			"sectors": sectors,
-			"facings": {"player": "east", "enemy": "west"},
 			"tactics": {},
 			"communication_points": {"current": 4, "initial": 4, "spent": 0},
 			"relationships": {"relation_by_pair": {"enemy|player": CombatRelationshipLedger.Relation.HOSTILE}},

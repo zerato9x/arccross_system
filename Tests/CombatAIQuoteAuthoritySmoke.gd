@@ -68,7 +68,7 @@ func _run() -> void:
 		if live_quote.to_dict().get(key) != pure_quote.to_dict().get(key):
 			return _fail("Live and pure quote differ at %s." % key)
 	var parity_requests: Array[CombatActionRequest] = []
-	for action_id in ["move", "engage", "strike", "aimed_strike", "shove", "fire", "aimed_fire", "reload", "cycle", "end_turn"]:
+	for action_id in ["move", "engage", "strike", "shove", "fire", "reload", "cycle", "end_turn"]:
 		var parity_request := _request(action_id)
 		parity_request.target_actor_id = "bravo"
 		parity_request.target_sector = Vector2i(2, 2)

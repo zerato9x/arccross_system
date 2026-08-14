@@ -215,7 +215,7 @@ enum CombatTactic {
 	MARKSMAN,     ## Scores ranged positions and directional cover.
 	BRUTE,        ## Scores power attacks, shove collisions, and close pressure.
 	OPPORTUNIST,  ## Scores flank arcs, hazards, and wounded targets.
-	DEFENDER      ## Scores cover, bracing, reactions, and safe withdrawal.
+	DEFENDER      ## Scores cover, pressure management, and safe withdrawal.
 }
 
 # ==========================================

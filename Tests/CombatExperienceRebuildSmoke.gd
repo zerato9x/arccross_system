@@ -52,8 +52,6 @@ func _init() -> void:
 	var impact := _cue(shove_sequence, "impact")
 	if impact == null or impact.outcome_tag != "object_collision":
 		failures.append("Shove presentation ignored its committed collision result.")
-	elif not is_zero_approx(impact.hit_stop_seconds) or not is_zero_approx(impact.shake_amplitude):
-		failures.append("Collision presentation reintroduced retired hit-stop or shake.")
 
 	var weapon_catalog: CombatWeaponPresentationCatalog = load(
 		"res://CombatCore/Tactical/default_weapon_presentation_catalog.tres"
@@ -70,7 +68,7 @@ func _init() -> void:
 	var reload_request := CombatActionRequest.new()
 	reload_request.actor_id = "player"
 	reload_request.action_id = "reload"
-	reload_request.metadata = {"weapon_id": "revolver"}
+	reload_request.metadata = {"weapon_id": "revolver", "weapon_class": GameEnums.WeaponClass.PISTOL}
 	var reload_quote := CombatActionQuote.new()
 	reload_quote.origin_sector = Vector2i(2, 0)
 	reload_quote.target_sector = Vector2i(2, 0)
@@ -83,6 +81,8 @@ func _init() -> void:
 	)
 	if reload_sequence.total_duration() < 2.0:
 		failures.append("Committed revolver reload is shorter than its authored animation.")
+	elif not is_equal_approx(reload_sequence.weapon_animation_duration_seconds, revolver.duration_for_action("reload")):
+		failures.append("Weapon source-sheet clock was conflated with marker time.")
 	elif reload_sequence.cues.back().sequence_progress_end < 0.999:
 		failures.append("Weapon sheet progress does not span the complete presentation.")
 
@@ -95,7 +95,13 @@ func _init() -> void:
 		ranged_request.actor_id = "player"
 		ranged_request.target_actor_id = "enemy"
 		ranged_request.action_id = "fire"
-		ranged_request.metadata = {"weapon_id": "service_pistol"}
+		ranged_request.metadata = {
+			"weapon_id": "service_pistol",
+			"weapon_instance_id": "service_pistol_instance",
+			"weapon_class": GameEnums.WeaponClass.PISTOL,
+			"encounter_id": "clock_test",
+			"action_event_id": "clock_test:1:fire",
+		}
 		var ranged_quote := CombatActionQuote.new()
 		ranged_quote.origin_sector = Vector2i(0, 0)
 		ranged_quote.target_sector = Vector2i(5, 0)
@@ -109,20 +115,20 @@ func _init() -> void:
 			ranged_outcome
 		)
 		var ranged_transit := _cue(ranged_sequence, "transit")
-		var ranged_reaction := _cue(ranged_sequence, "reaction")
+		var ranged_response := _cue(ranged_sequence, "response")
 		var ranged_impact := _cue(ranged_sequence, "impact")
 		if ranged_transit == null or ranged_transit.vfx_id != "projectile":
 			failures.append("Ranged transit lost the projectile VFX cue.")
 		if ranged_profile.effect_recipe == null or ranged_profile.effect_recipe.projectile_speed_cells_per_second > 10.0:
 			failures.append("Ranged projectile speed is still tuned for a blink-and-miss-it hit.")
-		if ranged_profile.wind_up_seconds < 0.28 or ranged_profile.reaction_seconds < 0.35:
+		if ranged_profile.wind_up_seconds < 0.28 or ranged_profile.response_seconds < 0.35:
 			failures.append("Ranged actor/target animation windows are still too compressed.")
 		if ranged_sequence.total_duration() < 1.20:
 			failures.append("Ranged presentation remains too short for readable wind-up, flight, and impact.")
 		if ranged_impact == null or ranged_impact.target_animation_id != "TakeDamage":
 			failures.append("Ranged impact does not own the target damage one-shot.")
-		if ranged_reaction == null or ranged_reaction.target_animation_id != "neutral":
-			failures.append("Ranged reaction restarts the target damage one-shot instead of holding it.")
+		if ranged_response == null or ranged_response.target_animation_id != "neutral":
+			failures.append("Ranged response restarts the target damage one-shot instead of holding it.")
 		if ranged_impact == null or ranged_impact.vfx_id != "projectile" or ranged_impact.outcome_tag != "hit":
 			failures.append("Ranged impact cue does not carry the blood-capable hit result.")
 		if ranged_definition.presentation_profile.actor_animation_id != "Attack1":
@@ -131,11 +137,14 @@ func _init() -> void:
 			failures.append("Ranged presentation is missing its timeline identity or release/impact markers.")
 		if ranged_sequence.release_marker_seconds >= ranged_sequence.impact_marker_seconds:
 			failures.append("Fire release occurs after impact in the authored timeline.")
-		if ranged_reaction == null or ranged_reaction.start_time_seconds <= ranged_impact.start_time_seconds:
-			failures.append("Fire target reaction is not scheduled after impact.")
+		if ranged_response == null or ranged_response.start_time_seconds <= ranged_impact.start_time_seconds:
+			failures.append("Fire target response is not scheduled after impact.")
 		for cue in ranged_sequence.cues:
-			if cue.facing != "east":
-				failures.append("Ranged presentation did not derive a stable actor-to-target facing: %s." % cue.facing)
+			if cue.presentation_direction != "east":
+				failures.append("Ranged presentation did not derive a stable visual direction: %s." % cue.presentation_direction)
+				break
+			if cue.encounter_id != "clock_test" or cue.action_event_id != "clock_test:1:fire":
+				failures.append("Presentation cue dropped encounter/action correlation identity.")
 				break
 		var actor_animation_starts := 0
 		var target_animation_starts := 0
@@ -146,11 +155,6 @@ func _init() -> void:
 				target_animation_starts += 1
 		if actor_animation_starts != 1 or target_animation_starts != 1:
 			failures.append("Ranged timeline does not start actor and target one-shots exactly once.")
-		for cue in ranged_sequence.cues:
-			if cue.lunge_pixels > 8.0 or cue.shake_amplitude > 1.5 or cue.camera_impulse_pixels > 1.0:
-				failures.append("Ranged cue escaped deliberate motion caps.")
-			if not is_zero_approx(cue.impact_scale) or not is_zero_approx(cue.impact_rotation_degrees):
-				failures.append("Ranged cue reintroduced squash/stretch or rotation wobble.")
 		if _cue(ranged_sequence, "contact") == null or _cue(ranged_sequence, "contact").sfx_id != "weapon_fire":
 			failures.append("Firearm release cue lost its weapon sound marker.")
 		if ranged_sequence.total_duration_seconds < 1.20:
@@ -158,12 +162,11 @@ func _init() -> void:
 		var marker_ids: Array[String] = []
 		for cue in ranged_sequence.cues:
 			marker_ids.append(cue.marker_id)
-		if marker_ids != ["focus_in", "anticipation", "release_contact", "travel", "impact", "reaction", "recovery", "focus_out"]:
+		if marker_ids != ["focus_in", "anticipation", "release_contact", "travel", "impact", "response", "recovery", "focus_out"]:
 			failures.append("Ranged timeline did not emit the canonical synchronized marker channel.")
 
 	for semantic_pair in [
 		["strike", "Attack2"],
-		["power_strike", "Attack4"],
 		["shove", "Attack3"],
 	]:
 		var semantic_definition := catalog.definition(str(semantic_pair[0]))
@@ -204,7 +207,6 @@ func _init() -> void:
 	var same_sector_melee_quote := CombatActionQuote.new()
 	same_sector_melee_quote.origin_sector = Vector2i(2, 0)
 	same_sector_melee_quote.target_sector = Vector2i(2, 0)
-	same_sector_melee_quote.final_facing = "west"
 	var same_sector_melee_outcome := CombatActionOutcome.new()
 	same_sector_melee_outcome.committed = true
 	var same_sector_melee_sequence := catalog.definition("strike").presentation_profile.build_sequence(
@@ -213,8 +215,8 @@ func _init() -> void:
 		same_sector_melee_outcome
 	)
 	for cue in same_sector_melee_sequence.cues:
-		if cue.facing != "west":
-			failures.append("Same-sector melee did not preserve the authoritative target-facing direction.")
+		if cue.presentation_direction != "east":
+			failures.append("Same-sector melee did not use the stable presentation-only default direction.")
 			break
 
 	var presentation_player := TacticalPresentationPlayer.new()

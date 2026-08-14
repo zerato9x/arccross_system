@@ -9,7 +9,7 @@ extends Node
 ## ---------------------------------------------------------
 
 signal combat_action_executed(entity: Node, action_id: String, weapon_class: GameEnums.WeaponClass, weapon_id: String)
-signal humanoid_injured(entity: Node, wound_type: int)
+signal humanoid_injured(entity: Node, wound_type: int, context: Dictionary)
 signal humanoid_exhausted(entity: Node)
 signal item_used(entity: Node, category: GameEnums.ItemCategory)
 signal humanoid_footstep_taken(entity: Node, background: String)
@@ -29,8 +29,8 @@ func emit_combat_action(
 ) -> void:
 	combat_action_executed.emit(entity, action_id, weapon_class, weapon_id)
 
-func emit_humanoid_injured(entity: Node, wound_type: int) -> void:
-	humanoid_injured.emit(entity, wound_type)
+func emit_humanoid_injured(entity: Node, wound_type: int, context: Dictionary = {}) -> void:
+	humanoid_injured.emit(entity, wound_type, context.duplicate(true))
 
 func emit_humanoid_exhausted(entity: Node) -> void:
 	humanoid_exhausted.emit(entity)

@@ -4,7 +4,7 @@ class_name CombatMovementResolver
 ## Movement math shared by quoting, composite actions, and AP settlement.
 
 func is_movement_action(action_id: String) -> bool:
-	return action_id in ["move", "disengage"]
+	return action_id == "move"
 
 
 func requested_path(request: CombatActionRequest) -> Array[Vector2i]:
@@ -12,13 +12,12 @@ func requested_path(request: CombatActionRequest) -> Array[Vector2i]:
 
 
 func movement_step_base(actor: HumanoidCore, board: CombatBoard) -> int:
-	var posture_cost := 1 if board != null and board.posture(actor) == "crouched" else 0
 	match actor.kinetic_tier:
 		GameEnums.KineticTier.LABORED:
-			return 3 + posture_cost
+			return 3
 		GameEnums.KineticTier.AGONIZING:
-			return 4 + posture_cost
-	return 2 + posture_cost
+			return 4
+	return 2
 
 
 func quote_path_indices(

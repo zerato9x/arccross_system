@@ -14,7 +14,6 @@ class_name CombatActionQuote
 @export var shove_direction: String = ""
 @export var path: Array[Vector2i] = []
 @export var approach_path: Array[Vector2i] = []
-@export var final_facing: String = ""
 @export var ap_cost: int = 0
 @export var movement_cost: int = 0
 @export var movement_ap_cost: int = 0
@@ -23,8 +22,6 @@ class_name CombatActionQuote
 @export var has_line_of_sight: bool = false
 @export var cover_strength: float = 0.0
 @export var range_cells: int = 0
-@export var reaction_threat_ids: Array[String] = []
-@export var ordered_reaction_steps: Array[Dictionary] = []
 @export var predicted_displacement: Array[Dictionary] = []
 @export var collision_preview: Dictionary = {}
 @export var presentation_profile_id: String = ""
@@ -64,7 +61,6 @@ func to_dict() -> Dictionary:
 		"shove_direction": shove_direction,
 		"path": path.duplicate(),
 		"approach_path": approach_path.duplicate(),
-		"final_facing": final_facing,
 		"ap_cost": ap_cost,
 		"movement_cost": movement_cost,
 		"movement_ap_cost": movement_ap_cost,
@@ -73,8 +69,6 @@ func to_dict() -> Dictionary:
 		"has_line_of_sight": has_line_of_sight,
 		"cover_strength": cover_strength,
 		"range_cells": range_cells,
-		"reaction_threat_ids": reaction_threat_ids.duplicate(),
-		"ordered_reaction_steps": ordered_reaction_steps.duplicate(true),
 		"predicted_displacement": predicted_displacement.duplicate(true),
 		"collision_preview": collision_preview.duplicate(true),
 		"presentation_profile_id": presentation_profile_id,
