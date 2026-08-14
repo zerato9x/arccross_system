@@ -28,6 +28,33 @@
   and README contracts and added focused schema, defense, shove, audio, pointer,
   item-icon, timeline, and retirement smoke coverage.
 
+### Combat legality and weapon-presentation remediation
+
+- Restored action-specific legality in the frozen `CombatRulesState` and
+  `CombatActionQuoteService` for cover, escape, terminal, inventory, treatment,
+  interaction, and ground-item actions; the controller mirrors those checks
+  defensively before mutation.
+- Enforced the canonical `weapon_attack` resolver for specialized weapon
+  actions and corrected weapon overlays to use the production humanoid hand
+  anchor, authored per-weapon pivots, one active equipment layer, and an
+  independent normalized presentation clock.
+- Rechecked the current capital-`Tests` suite at
+  `107/107` executable SceneTree smokes passed under Godot
+  `4.7.1.stable.official.a13da4feb`; the two `Control` preview scripts remain
+  visual surfaces rather than self-quitting smoke tests.
+
+### Incapacitated-body handoff correction
+
+- Completed the neutral terminal handoff so `Incapacitate` removes a target from
+  active occupancy without losing its sector, `Strip` and `Execute` can resolve
+  against the projected handoff layer, and `Execute` moves the actor into the
+  persistent body layer for combat-result persistence.
+- Added regression coverage for the production-shaped
+  `Incapacitate -> Strip -> Execute` sequence and off-board handoff legality.
+- The correction is headless-verified. Physical pointer input, subjective
+  weapon-frame feel, subjective audio listening, and a live body-loot visual
+  pass remain separate acceptance claims.
+
 ## August 1, 2026
 
 ### Concise Tactical Duel Lane

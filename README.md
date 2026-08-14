@@ -27,7 +27,7 @@ Status updated on **August 14, 2026**.
 
 ### Playable Today
 
-Launch from `UI/MainMenu.tscn` into a persistent macro run (Godot **4.7**):
+Launch from `UI/MainMenu.tscn` into a persistent macro run (Godot **4.7.1**):
 
 1. Start a new world or continue from one of three save slots.
 2. Explore seeded radius-12 local zones with fog of war, landmark POIs, and
@@ -115,14 +115,14 @@ profile.
   (`BodyState`, `HumanoidState`, `InventoryState`, `EntityRecord`,
   `HexRecord`).
 - `CombatCore/CombatModeComparison.tscn` is the topology lab (`F1` legacy
-  `12 x 1`, `F2` production-shaped `7 x 5`) and never saves laboratory state.
+  `12 x 1`, `F2` `7 x 5`) and never saves laboratory state. The lab exercises
+  the same tactical scene; it does not create a second combat rules engine.
 - Automated smoke scripts cover the vertical slice and focused system contracts.
 
 ### Known Gaps
 
 - Macro **SNIPE** remains unimplemented; service-rifle scope data is metadata
   only.
-- **EXECUTE** is gated off (`CombatRules.EXECUTE_ENABLED = false`).
 - Ballistic defense uses equipment-authored damage-type and Limb Region
   coverage plus geometry cover; no generic guard/parry layer is inferred.
 - Humanoid token art coverage remains incomplete for several rigs, face/eye
@@ -135,7 +135,14 @@ profile.
   seeded procedural fallback.
 - Pocket Map / full pocket-device HUD chrome remains deferred (Phase 2.5).
 
-## Working Agreement (July 29)
+### Combat verification boundary
+
+The combat terminal sequence `Incapacitate -> Strip -> Execute` is implemented
+against the neutral handoff/body layers and is covered by focused terminal and
+legality smokes. Physical pointer input, subjective weapon-frame feel, and
+subjective audio listening remain separate human acceptance checks.
+
+## Working Agreement (Generator V2)
 
 Phase 2 foundations stay live. Generator V2 is the active world-delivery track:
 fixed logistics are authored truth, seeded surroundings provide run variation,
@@ -160,6 +167,11 @@ records authored data but does not rescue a beautifully painted dead end.
 
 - [Documentation index](READMEs/README.md)
 - [Official Turn-Based Combat Overhaul](READMEs/design/TURN_BASED_COMBAT_OVERHAUL.md)
+- [Combat UI Specification](READMEs/design/COMBAT_UI_SPECIFICATION.md)
+- [Combat HUD Asset Map](READMEs/design/COMBAT_HUD_ASSET_MAP.md)
+- [Combat Reconciliation Audit](READMEs/design/COMBAT_RECONCILIATION_AUDIT.md)
+- [Architecture Index](READMEs/ARCHITECTURE_INDEX.md) (generated code/test
+  inventory; structural reference, not a rules authority)
 - [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)
 - [Hex World Asset Overhaul](READMEs/design/HEX_WORLD_ASSET_OVERHAUL.md)
 - [Hex World Generator V2](READMEs/design/HEX_WORLD_GENERATOR_V2.md)

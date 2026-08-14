@@ -12,7 +12,8 @@ retired.
 - Snapshot boundary: `CombatCore/Tactical/TacticalCombatSnapshotPresenter.gd`
 - Actor privacy projection: `CombatCore/Tactical/CombatActorPresentationProjection.gd`
 - Body presentation: `CombatCore/Tactical/CombatBodyTargetView.gd`
-- Optional HUD owner: `CombatCore/Realtime/RealtimeDuelHUD.gd`
+- Lab/reference entry point: `CombatCore/CombatModeComparison.tscn`, which loads
+  the same tactical scene with explicit topology fixtures.
 - Action/camera authority: `CombatActionController`, `TacticalArenaView`, and
   authored presentation timeline events
 - Reusable asset facade: `PresentationCore/HUDAssetLibrary.gd`
@@ -67,5 +68,6 @@ retired.
 - Use MCP live UI inspection/screenshots to prove runtime node paths and layout
   dimensions after UI changes; headless imports do not prove visual acceptance.
 - Add smoke assertions for each official element actually wired into the
-  turn-based HUD; keep separate optional realtime coverage.
+  production tactical HUD; keep Lab/topology coverage separate from production
+  acceptance.
 - Main-menu parallax packs live under `Asset/UI/Event_bg/` via `MenuParallaxCatalog`; they are menu-only, not event/collision art.

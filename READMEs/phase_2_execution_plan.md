@@ -9,6 +9,14 @@ Phase 1 remains closed in
 [phase_1_execution_plan.md](phase_1_execution_plan.md). Presentation emits
 intent; domain cores validate and mutate authoritative state.
 
+This file deliberately preserves dated implementation detail. Several names
+below are retired (`CombatLaneHUD`, `CombatCommandAdapter`, `GunAnimationCatalog`,
+`RealtimeDuelHUD`, `CombatInterfaceSmoke`, `WeaponDataSmoke`, and
+`ShieldBlockSmoke`) and no longer identify current runtime owners or tests. Do
+not use those historical sections as an implementation checklist. Use the
+current combat, UI, architecture, glossary, and asset documents linked above
+and below instead.
+
 ## Status
 
 Historical status captured on **July 23, 2026**. The production combat entries
@@ -34,11 +42,13 @@ implementation history:
 - Macro exploration window, trap-to-combat loop, and entity-collision Event HUD
   path (Threat / Ceasefire / Ask / Trade placeholder) are live; do not revive
   `MacroInteractionPanel`. Finished Macro HUD remake/repair plans were deleted.
-- **Current replacement:** production combat uses the orthogonal `squad_7x5`
+- **Current replacement:** the August 14 reconciliation made production combat
+  the orthogonal `squad_7x5`
   topology with an assembled roster of up to six actors. The `12 x 1` duel and
   `6 x 3` skirmish remain Combat Lab resources only. Current implementation and
-  acceptance live in `design/TURN_BASED_COMBAT_OVERHAUL.md` and
-  `design/COMBAT_UI_SPECIFICATION.md`. Central Core campaign
+  acceptance live in `design/TURN_BASED_COMBAT_OVERHAUL.md`,
+  `design/COMBAT_UI_SPECIFICATION.md`, and the dated
+  `design/COMBAT_RECONCILIATION_AUDIT.md`. Central Core campaign
   implementation is paused until the complete categorized asset folder is
   available.
 
@@ -126,11 +136,15 @@ profiles, not competing rules engines.
 ## Deferred / Residual (not active)
 
 Token coverage (former P2-05), presentation chrome polish (former P2-07),
-authored preset library fill, TRADE economy, SNIPE, EXECUTE, and Pocket Map
+authored preset library fill, TRADE economy, Macro SNIPE, and Pocket Map
 remain Known Gaps. Central Core implementation is asset-blocked; see
 [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
-### P2-06: Shield-Specific BLOCK Rules — Verified July 13, 2026
+### P2-06: Shield-Specific BLOCK Rules — Historical record, retired player action
+
+The item coverage and protection data remain part of the current ItemCore
+contract. The player-facing BLOCK/Dodge reaction surface described below is
+historical and is not production combat authority.
 
 Goal: make ballistic shields mechanically distinct from generic BLOCK.
 
@@ -197,6 +211,11 @@ a competing Phase 2 track):
   coverage.
 
 ## Implementation Record: Combat HUD (Completed)
+
+The following subsection is historical provenance. Its old class and test names
+are intentionally retained for the June 29 record; current equivalents are the
+production tactical HUD, `CombatWeaponPresentationCatalog`, and the focused
+smokes under `Tests/`.
 
 The following plan shipped on **June 29, 2026**:
 

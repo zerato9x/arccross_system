@@ -1,17 +1,16 @@
 # Arccross HUD Core Asset Pack
 
-This folder contains the first authored HUD asset pass for exploration, combat,
-medical monitor, menus, and settings surfaces.
+This folder contains the first authored HUD asset pass for exploration, tactical
+combat, Field Health, menus, and settings surfaces.
 
 The pack is intentionally small, flat, and replaceable. It is meant to unblock
 real UI assembly before final art direction, not to become sacred techno-noise
 with no owner.
 
-Phase 2 combat HUD work shipped June 29, 2026. Ranged weapons use ItemCore
-presentation sprites for static weapon cards and `GunAnimationCatalog` for
-short-lived shoot, reload, empty, and cycle effects. This pack supplies frames,
-bars, tabs, and generic command icons; weapon-specific art comes from ItemCore
-and `Asset/Guns_Animation/`.
+The current tactical HUD uses ItemCore presentation sprites for static weapon
+cards and `CombatWeaponPresentationCatalog` for short-lived map shoot, reload,
+and cycle cues. This pack supplies frames, bars, tabs, and generic action icons;
+weapon-specific art comes from ItemCore and `Asset/Guns_Animation/`.
 
 ## Folders
 
@@ -21,7 +20,7 @@ and `Asset/Guns_Animation/`.
 - `icons/status/` - vitals and systemic condition icons.
 - `icons/actions/` - exploration, inventory, menu, save/load, and interaction
   icons.
-- `icons/combat/` - combat command and reaction icons.
+- `icons/combat/` - combat command and action icons; no reaction-panel authority.
 - `medical/` - limb readout plates plus trauma/state badges.
 - `menus/` - toggles, checkboxes, slider pieces, tabs, and dropdown arrow.
 - `overlays/` - scanline tile and warning/critical/anomaly vignette overlays.

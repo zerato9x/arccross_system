@@ -91,7 +91,8 @@ columns above.
 - Treating Central as free midgame home after eviction
 - Treating temporary locked E/S/W deep routes as long-term canon
 - Rewriting Node Web radius, Meta persistence, or domain ownership
-- TRADE economy, SNIPE, EXECUTE, Pocket Map, squad combat (Known Gaps only)
+- TRADE economy, Macro SNIPE, Pocket Map, and future combat-content expansion
+  (Known Gaps only)
 
 ---
 
@@ -403,7 +404,7 @@ Agent-checkable bullets (extends [Hex Dressing Templates](HEX_DRESSING_TEMPLATES
 ## Related deferred gaps (not this queue)
 
 - TRADE economy after Ceasefire
-- Macro SNIPE / EXECUTE unlock
+- Macro SNIPE remains unimplemented; service-rifle scope data is metadata only.
 - Humanoid token coverage gaps
 - Pocket Map / pocket-device chrome (Phase 2.5)
 - Authored preset library across all campaign nodes

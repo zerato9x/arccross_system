@@ -71,6 +71,10 @@ opens no player prompt.
   type and covered body region.
 - Wounds, blood, ammunition, item condition, inventory, and entity life state
   cross the combat boundary through neutral runtime records.
+- `Incapacitate` removes a broken target from active occupancy while retaining a
+  neutral handoff sector. `Strip` and `Execute` are allowed to resolve against
+  that handoff projection; an executed actor moves into the sector body layer
+  and its location persists through the combat result.
 - Combat snapshots use a strict versioned schema. Historical snapshots carrying
   posture, facing, reserved AP, or another schema version are rejected with a
   clear error rather than partially hydrated.

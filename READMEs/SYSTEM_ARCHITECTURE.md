@@ -83,8 +83,12 @@ database, stat registry, or rule table.
 - `CombatItemCard` projects weapon state and a fixed pulse; it does not become a
   source-sheet player or reinterpret condition, ammunition, or readiness.
 - `CombatModeComparison.tscn` is a non-persistent topology Lab. `duel_12x1`,
-  `skirmish_6x3`, and older real-time code remain compatibility/reference paths,
-  never parallel production authorities.
+  and `skirmish_6x3` remain compatibility/reference topology paths. Former
+  real-time and duel-lane surfaces are historical material, never parallel
+  production authorities.
+- Incapacitated actors leave active occupancy but remain addressable through the
+  neutral handoff layer. `Strip` and `Execute` may use that projected sector;
+  `mark_body()` moves an executed actor into the persistent body layer.
 - Returns only `GameEnums.CombatOutcome` and neutral runtime snapshots across
   the system boundary.
 

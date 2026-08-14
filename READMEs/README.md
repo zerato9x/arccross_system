@@ -14,6 +14,8 @@ of restating it.
   player-facing.
 - [System Architecture](SYSTEM_ARCHITECTURE.md): ownership, dependencies,
   records, and presentation boundaries.
+- [Architecture Index](ARCHITECTURE_INDEX.md): generated code/resource/test
+  inventory for orientation; it is not a behavioral authority.
 - [Humanoid Token Pipeline](HUMANOID_TOKEN_PIPELINE.md): layered sprite
   contract, current visual coverage, and runtime asset preparation.
 - [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md):
@@ -28,6 +30,14 @@ of restating it.
 - [Official Turn-Based Combat Overhaul](design/TURN_BASED_COMBAT_OVERHAUL.md):
   **active combat contract** — official default, transaction lifecycle, AI,
   impact cues, firearm-card playback, and independent mode balance.
+- [Combat UI Specification](design/COMBAT_UI_SPECIFICATION.md): active tactical
+  HUD composition, inspection, context-menu, item-projection, timeline, and
+  audio-presentation contract.
+- [Combat HUD Asset Map](design/COMBAT_HUD_ASSET_MAP.md): current HUD asset
+  ownership and semantic asset roles.
+- [Combat Reconciliation Audit](design/COMBAT_RECONCILIATION_AUDIT.md): dated
+  migration evidence, compatibility disposition, and the latest completion
+  records. Its pre-implementation sections are historical, not live guidance.
 - [Macro World Overhaul](design/MACRO_WORLD_OVERHAUL.md): supporting Node Web
   lore alignment, Core simulation layers, and alpha/canon boundary.
 - [Phase 1 Execution Plan](phase_1_execution_plan.md): closed vertical-slice
@@ -38,12 +48,12 @@ of restating it.
 
 ## Current Implementation
 
-Status updated on **July 29, 2026**:
+Status updated on **August 14, 2026**:
 
 ### Playable Loop
 
 - Entry scene: `UI/MainMenu.tscn` → `SystemCore/game_director.tscn` →
-  `WorldCore/main_world.tscn` (Godot **4.7**).
+  `WorldCore/main_world.tscn` (Godot **4.7.1**).
 - New Game seeds `DEMO_WASTELAND_01` and restores the player from persistent
   records. Continue loads one of three JSON save slots with day and timestamp
   metadata.
@@ -66,19 +76,29 @@ Status updated on **July 29, 2026**:
 ### Phase Status
 
 - **Phase 1** remains closed and verified.
-- **Phase 2 systems foundations are closed/shipped:** realtime duel (P2-09),
-  inventory/condition (P2-11), Node Web, exploration/collision HUD (P2-10),
-  Field Health, authored-zone tooling (P2-08), shields (P2-06). Historical
-  detail lives in [phase_2_execution_plan.md](phase_2_execution_plan.md).
-  The turn command deck is the official combat UI; realtime and duel-lane
-  surfaces remain Combat Lab/reference material only.
+- **Phase 2 systems foundations are closed/shipped:** inventory/condition
+  (P2-11), Node Web, exploration/collision HUD (P2-10), Field Health,
+  authored-zone tooling (P2-08), and the earlier shield/item work (P2-06).
+  Historical detail lives in [phase_2_execution_plan.md](phase_2_execution_plan.md).
+- **August 14 combat reconciliation is implemented:** production combat is the
+  `squad_7x5` tactical scene with a frozen six-actor cap, one direct player,
+  pairwise relationships, geometry-only cover, catalog-owned weapon actions,
+  independent presentation clocks, and the corrected incapacitated-body
+  handoff. The `duel_12x1` and `skirmish_6x3` resources remain Lab/compatibility
+  fixtures only; former real-time/duel-lane material is historical reference.
 - **Active world track:** [Hex World Generator V2](design/HEX_WORLD_GENERATOR_V2.md).
 - **Campaign framing:** [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
 ### Systems Snapshot
 
 - Layered Humanoid Tokens mirror supported equipped Innawoods visuals in the
-  macro world, combat lane, and inventory Paper Doll.
+  macro world, tactical arena, and inventory Paper Doll.
+- `GameDirector` assembles the production combat handoff; `CombatActionCatalog`
+  owns action policy, while `ItemData.specialized_action_ids` supplies
+  catalog-validated weapon extensions. Unknown weapon action IDs are rejected.
+- `Incapacitate` moves an actor into the neutral handoff layer; `Strip` and
+  `Execute` resolve against that projected sector, and executed bodies persist
+  through the combat result. This is distinct from active occupancy.
 - Persistent Wound records own hemorrhage and treatment; Stance stays
   combat-local. Macro health presentation is `FieldHealthHUD` +
   `HealthHUDProfile`.
@@ -106,14 +126,25 @@ Status updated on **July 29, 2026**:
 ### Known Gaps
 
 - Service-rifle scope data is present, but macro **SNIPE** remains unimplemented.
-- **EXECUTE** is disabled pending a trait-unlock system.
 - Token art coverage remains incomplete for rigs, face and eye equipment, several
   armor regions, and unsupported weapons.
 - TRADE after Ceasefire is a placeholder pending economy work.
-- Squad combat and deep narrative dialogue remain out of current scope.
-- Turn-based archetype simulations and mode-local balance tuning remain active.
+- Larger or dynamically reinforced encounters remain out of current scope;
+  production squad assembly is already shipped with a six-actor cap and no late
+  entry.
+- Combat balance tuning and deeper AI/content expansion remain active in Lab and
+  authoring work; they do not define an alternative production mode.
 - Hand-painted preset coverage across all campaign nodes is still incomplete.
 - Pocket Map / full pocket-device chrome is deferred (Phase 2.5).
+
+### Verification boundary
+
+The latest recorded reconciliation sweep passed `107/107` executable capital-
+`Tests` SceneTree scripts with `FAILED=0` under Godot
+`4.7.1.stable.official.a13da4feb`; the two `Control` preview scripts were not
+invoked as self-quitting smokes. The remediation record separately documents
+live editor/screenshot evidence. Physical Windows pointer input and subjective
+weapon/audio acceptance remain distinct claims.
 
 ## Remaining Work
 

@@ -289,6 +289,12 @@ describes a tool; Damage Type describes a hit.
 - **Shove Replan:** Exactly one AI-only plan refresh queued after presentation
   when shove moves an autonomous actor out of hostile Engagement. It grants no
   AP or turn and opens no player prompt.
+- **Handoff Layer:** The neutral tactical projection for an actor removed from
+  active occupancy but still addressable at its original sector, currently used
+  for incapacitated bodies and the `Strip` / `Execute` legality path.
+- **Body Layer:** Persistent tactical sector membership for an executed or
+  otherwise dead actor. Body projection does not make the actor an active combat
+  participant or create ground loot by itself.
 - **LEAVE BATTLE:** Neutral terminal action legal when no living actor remains
   hostile to the player. NPC-versus-NPC hostility may continue.
 - **Response Marker:** Target presentation timing after impact. It is not a

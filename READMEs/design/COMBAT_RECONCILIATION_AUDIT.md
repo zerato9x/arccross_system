@@ -1,14 +1,37 @@
 # Combat Reconciliation Audit
 
 Audit date: 2026-08-14
-Repository: alpha-release-baseline at fdde567b
+Repository: alpha-release-baseline at 4d4835d0
 Scope: repository-wide combat reconnaissance against the locked combat brief supplied with this task.
 
-Sections 1 through 18 preserve the pre-implementation audit and locked work order. Implementation was subsequently authorized and completed on 2026-08-14; Section 19 is the authoritative completion record. Historical findings remain intact so the migration can be reviewed without pretending the repository was always this tidy.
+Sections 1 through 18 preserve the pre-implementation audit and locked work order. Implementation was subsequently authorized and completed on 2026-08-14; Sections 19 through 21 record the implementation, remediation, and terminal handoff correction. Historical findings remain intact so the migration can be reviewed without pretending the repository was always this tidy.
 
-## 1. Executive Summary
+## Current status (2026-08-14)
 
-The current production handoff is already pointed at the canonical tactical scene and already forces the canonical squad_7x5 topology. The main problem is not that the repository has one mysterious “Codex combat mode” hiding in a closet. It has several generations of combat contracts cohabiting the same codebase:
+The current production contract is implemented and is owned by
+[TURN_BASED_COMBAT_OVERHAUL.md](TURN_BASED_COMBAT_OVERHAUL.md),
+[COMBAT_UI_SPECIFICATION.md](COMBAT_UI_SPECIFICATION.md),
+[SYSTEM_ARCHITECTURE.md](../SYSTEM_ARCHITECTURE.md), and
+[GLOSSARY.md](../GLOSSARY.md). Production enters `squad_7x5`; `duel_12x1` and
+`skirmish_6x3` are Lab/compatibility fixtures only. The historical findings in
+Sections 1 through 18 are not remaining defects.
+
+The latest correction preserves incapacitated actors in a neutral handoff layer
+after active occupancy removal. `Strip` and `Execute` may use that projected
+sector, and `Execute` transfers the actor into the persistent body layer. The
+recorded verification is `107/107` executable capital-`Tests` SceneTree smokes
+passed with `FAILED=0` under Godot `4.7.1.stable.official.a13da4feb`; the two
+`Control` preview scripts were excluded as non-self-quitting visual surfaces.
+The remediation pass rechecked live editor/screenshot behavior but did not
+re-run physical pointer input or subjective weapon/audio acceptance.
+
+## 1. Historical Executive Summary (pre-implementation)
+
+At the pre-implementation audit point, the production handoff was already
+pointed at the canonical tactical scene and already forced the canonical
+`squad_7x5` topology. The main problem was not that the repository had one
+mysterious “Codex combat mode” hiding in a closet. It had several generations
+of combat contracts cohabiting the same codebase:
 
 1. The live production path is the six-actor, orthogonal squad_7x5 arena with pairwise relationships, per-actor AP, autonomous NPC turns, and LEAVE BATTLE terminal logic.
 2. duel_12x1, skirmish_6x3, and CombatModeComparison are legitimate lab/debug material, but duel-era labels and tests still call the 12x1 lane “production.”
@@ -16,7 +39,11 @@ The current production handoff is already pointed at the canonical tactical scen
 
 The highest-risk findings are:
 
-- TURN_BASED_COMBAT_OVERHAUL.md, the root README.md, COMBAT_UI_SPECIFICATION.md, SYSTEM_ARCHITECTURE.md, GLOSSARY.md, and the top of CHANGELOG.md still contain duel-lane, reaction, AP-reserve, posture, guard/block/parry, and/or realtime assumptions that do not describe the locked baseline.
+- At that audit point, TURN_BASED_COMBAT_OVERHAUL.md, the root README.md,
+  COMBAT_UI_SPECIFICATION.md, SYSTEM_ARCHITECTURE.md, GLOSSARY.md, and the top
+  of CHANGELOG.md still contained duel-lane, reaction, AP-reserve, posture,
+  guard/block/parry, and/or realtime assumptions that did not describe the
+  locked baseline.
 - Reserved reaction AP, reaction prompts, opportunity strikes, Block/Dodge, and brace are mostly compatibility/dead paths. TacticalTurnManager._action_reserved_ap is different: it is a transient transaction reservation used to protect one action commit and must not be deleted as if it were the retired between-turn AP reserve.
 - Posture and facing are not merely dead compatibility vocabulary. CombatActionController, CombatActionQuoteService, CombatBoard, movement cost, snapshots, HUD labels, and tests still treat them as state. CombatBoard.attack_arc_from() also still returns rear/side accuracy and reaction modifiers, although no caller was found and CombatResolutionEngine explicitly forecasts a direct arc. Cover currently calls set_facing(), so removing facing without first replacing cover-edge selection is unsafe.
 - The RMB path discards the original pointer position in TacticalArenaView._gui_input(). TacticalCombatHUD._position_context_menu() therefore anchors above CommandDock and clamps there. This is deterministic but not pointer-relative.
@@ -24,7 +51,11 @@ The highest-risk findings are:
 - The weapon card duration is currently CombatPresentationSequence.total_duration() because TacticalCombatHUD.show_presentation_action() calls CombatItemCard.play_turn_action(sequence.action_id, sequence.total_duration()). The card only pulses its image; it does not traverse firearm frames. Firearm sheet frames are drawn by CombatTokenOverlay over normalized sequence progress. Weapon-sheet duration, body-animation duration, cue duration, sequence duration, and gameplay resolution duration are not currently separate contracts.
 - Successful combat damage can produce two HumanInjured sounds: HumanoidBody.apply_targeted_hit() emits GameEventBus.humanoid_injured, and TacticalPresentationPlayer._play_audio_cue() emits combat_damage_sfx at impact. Both reach SfxConductor._play_combat_injury(). The presentation SFX payload also drops actor and victim identity even though combat resolution events preserve both IDs.
 
-Recommended next phase: first reconcile the topology/docs/test vocabulary, then remove retired rule authority as one coordinated migration, then fix item/context presentation, then separate timeline clocks, then collapse combat SFX to one authoritative injury route. Do not delete the compatibility layer piecemeal before persisted/replay/test consumers are migrated.
+The recommended implementation sequence was to reconcile the
+topology/docs/test vocabulary, remove retired rule authority as one coordinated
+migration, fix item/context presentation, separate timeline clocks, and collapse
+combat SFX to one authoritative injury route. The completion records below are
+the outcome of that sequence.
 
 ## 2. Current Production Combat Path
 
@@ -790,3 +821,17 @@ actions authored to operate on it were unreachable.
 The correction is headless-verified at the quote, resolver, board-handoff, and
 combat-result boundaries. It does not claim that a physical pointer or live
 visual body-loot surface was re-tested in this narrow legality correction.
+
+## 22. Documentation reconciliation record
+
+Status: **updated on 2026-08-14** after commit `4d4835d0`.
+
+- Current README/index, combat, architecture, glossary, visual, project-pack,
+  phase-pointer, token, and asset documentation now points at the production
+  `squad_7x5` contract and the corrected terminal handoff.
+- Historical Phase 1/Phase 2 workstreams and changelog entries remain as dated
+  provenance, but obsolete class names, test names, and retired combat rules are
+  explicitly marked as historical rather than current implementation guidance.
+- No gameplay code, test, asset, or resource was changed by this documentation
+  reconciliation pass. The generated architecture index is refreshed from the
+  current code tree separately.

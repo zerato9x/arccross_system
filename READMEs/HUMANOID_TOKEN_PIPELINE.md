@@ -1,7 +1,7 @@
 # Humanoid Token Pipeline
 
 This document owns the runtime asset contract for humanoid Entity Projections.
-Macro-world tokens, combat-lane tokens, and the Innawoods Paper Doll derive
+Macro-world tokens, tactical-arena tokens, and the Innawoods Paper Doll derive
 their appearance from authoritative equipped items instead of owning gameplay
 state.
 
@@ -51,7 +51,8 @@ Animation semantics:
 - `Attack1`: firearm shot.
 - `Attack2`: Grapple, Break Stance, and other forceful special actions.
 - `Attack3` and `Attack4`: alternating right and left melee swings.
-- `StrafeLeft` and `StrafeRight`: Take Cover and Dodge presentation.
+- `StrafeLeft` and `StrafeRight`: optional authored lateral presentation
+  tracks. They are not a combat Dodge action or gameplay rule.
 - `Taunt`: contextual interaction, firearm readying, reloading, cycling, and
   other miscellaneous actions.
 - `Die` is terminal and freezes on its final frame.
@@ -70,9 +71,10 @@ equipment does not recreate the same resources. The token renderer uses nearest
 filtering and synchronizes one frame index across all active layers.
 
 `Asset/Guns_Animation/` is not part of the humanoid token layer contract.
-Combat HUD weapon feedback resolves those textures through
-`CombatCore/DuelUI/GunAnimationCatalog.gd`, separate from token animation and
-ItemCore inventory sprites.
+Tactical map weapon feedback resolves those textures through
+`CombatCore/Tactical/CombatWeaponPresentationCatalog.gd` and
+`CombatCore/Tactical/default_weapon_presentation_catalog.tres`, separate from
+token animation and ItemCore inventory sprites.
 
 ## Current Coverage
 
@@ -161,5 +163,7 @@ visual substitute.
    `UI/Humanoid/HumanoidVisualCatalog.gd`.
 3. Map every item sharing that Innawoods appearance to the same directory.
 4. Run the headless editor import.
-5. Run `PersistentPlayerSmoke.gd`, `MacroInteractionSmoke.gd`, and
-   `RealtimeDuelSmoke.gd` and a live `RealtimeDuelHUD` projection probe.
+5. Run `PersistentPlayerSmoke.gd`, `MacroInteractionSmoke.gd`,
+   `CombatExperienceRebuildSmoke.gd`, `CombatWeaponOverlayGeometrySmoke.gd`,
+   and `TacticalHUDLayoutSmoke.gd`. Use live inspection of the tactical scene
+   for final weapon-overlay and token-placement acceptance.

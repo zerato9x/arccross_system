@@ -35,7 +35,7 @@ Deleted unused shotgun RELOAD_SHELL_01 duplicate
 | HexTiles/_BIOMES | Game hex packs (no cross-biome byte clones) |
 | Innawoods_Asset | Item/equip icons (heavily referenced) |
 | humanoid_spritesheets/{Humanoid,items,weapons} | Combat sprites |
-| Guns_Animation | Duel gun FX (keep rifle_sniper — has unique SCOPE sheets) |
+| Guns_Animation | Tactical map weapon presentation sheets (keep rifle_sniper — has unique SCOPE sheets) |
 | UI/{HUD,Event_bg} | HUD + menu parallax |
 | VFX/BLOOD VFX | Combat blood (trimmed pad frames) |
 | _shelf | Unused but preserved |
@@ -43,5 +43,6 @@ Deleted unused shotgun RELOAD_SHELL_01 duplicate
 ## Follow-up completed
 
 - Rebuilt MacroTileSet → **420** tiles (0 duplicate paths, 0 missing).
-- Set `BLOOD_FRAME_COUNT := 29` in `CombatLaneHUD.gd`.
+- Blood VFX ownership is now `CombatCore/Tactical/TacticalArenaView.gd`, which
+  resolves each blood variant's available frame count dynamically.
 - Added `Asset/_shelf/.gdignore` so shelved art is not imported.

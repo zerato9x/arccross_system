@@ -6,6 +6,12 @@ historical vertical-slice acceptance record, because deleting old proof and then
 arguing with ourselves later would be a very traditional but very stupid
 software ritual.
 
+Historical test names and action vocabulary in this record are preserved as
+provenance, not as current ownership. Present validation uses the executable
+smokes in `Tests/`, especially `ItemCatalogSmoke`,
+`CombatWeaponActionContractSmoke`, `CombatReconciliationContractSmoke`, and the
+current tactical rules/HUD suites.
+
 Phase 1 is one playable, persistent vertical slice. A feature is complete only
 when its acceptance criteria pass from the configured main scene against clean
 local user data. Standalone helpers and completion percentages are not proof.
@@ -153,7 +159,7 @@ Automated coverage includes:
 Incremental verification recorded on **June 12, 2026**:
 
 - The regression set now contains twelve smoke scripts.
-- `WeaponDataSmoke.gd` covers authored firearm data, exact ammunition feeds,
+- The historical `WeaponDataSmoke.gd` covers authored firearm data, exact ammunition feeds,
   zero-Stance ballistic Limb Region damage, manual loading, shotgun falloff,
   scope metadata, and firearm runtime serialization.
 - The new weapon test and the affected Base-12, runtime-state, save/load,
@@ -168,8 +174,9 @@ Incremental architecture verification recorded on **June 19, 2026**:
 ## Phase 1 Closure
 
 No known Phase 1 acceptance item remains open. Future work should preserve the
-full regression set, including the weapon-data checks, and treat any new
-gameplay feature as a separate phase rather than silently expanding this slice.
+full regression set, including the current item/weapon contract checks, and
+treat any new gameplay feature as a separate phase rather than silently
+expanding this slice.
 
 Subsequent phases added features that were originally out of scope here — such
 as the three-slot `SaveLoadMenu`, main-menu parallax, and the Phase 2 combat
