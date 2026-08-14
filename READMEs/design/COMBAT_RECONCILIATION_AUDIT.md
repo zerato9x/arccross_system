@@ -670,9 +670,71 @@ Status: **implemented and verified on 2026-08-14**.
 
 ### 19.3 Release state
 
+This subsection records the original reconciliation checkpoint. The post-verdict
+remediation below supersedes its release state for the current branch.
+
 There are no unresolved implementation blockers. Headless, live framebuffer,
 physical-pointer, event/audio-route, and warning-free runtime checks are
 recorded separately. Subjective human listening and feel remain normal release
 acceptance, not an unimplemented code path. No files were staged, committed, or
 pushed; the worktree contains the intentional reconciliation changes and the
 originally untracked audit document only.
+
+## 20. Post-verdict remediation record
+
+Status: **remediated and verified on 2026-08-14**.
+
+The verdict against the reconciliation checkpoint identified two release
+blockers: the controller-to-quote migration had dropped action-specific legality,
+and weapon presentation still mixed parentless geometry, duplicate equipment
+layers, authored pivots, and incompatible timing clocks. This follow-up restores
+the missing authority and adds regression coverage without changing the locked
+combat topology or resurrecting retired mechanics.
+
+### 20.1 Remediation scope
+
+- `CombatRulesState` now projects ground items, item consumable facts, wounds,
+  combat side/team identity, direct-player identity, escape edges, and sector
+  ground-item membership into the frozen quote input.
+- `CombatActionQuoteService` now owns the missing legality for Take Cover,
+  Escape, Leave Battle, Incapacitate, Execute, Ready, Use, Treat, Pick Up,
+  Drop, Rummage, Strip, and Interact. Ground pickup validates existence,
+  sector membership, and adjacency before the controller mutates inventory.
+- `CombatActionController` mirrors those checks defensively, including null-safe
+  treatment, terminal-action, escape, strip, interaction, and ground-item
+  resolution. Specialized weapon actions are catalog-rejected unless they use
+  the canonical `weapon_attack` resolver.
+- Weapon overlays are exercised under the production `HumanoidTokenView` hand
+  anchor, explicit per-weapon shoot/reload/cycle pivots replace zero defaults,
+  the physical equipment layer is suppressed while an animated weapon cue is
+  active, and weapon playback uses its own normalized duration rather than
+  warping against the action-sequence clock.
+- The Shove copy now states the hostile co-occupancy rule. New regression smokes
+  cover the restored legality matrix, canonical specialized-action resolver,
+  production overlay parent/geometry, per-weapon pivots, normalized release
+  progress, and single weapon-layer authority.
+
+### 20.2 Verification evidence
+
+- Exact runtime: Godot `4.7.1.stable.official.a13da4feb`.
+- Focused legality, AI quote/planner, action-catalog, weapon-contract,
+  overlay-geometry, projectile-authority, experience/timeline, audio-identity,
+  interaction, terminal, and encounter smokes passed with process exit `0`.
+- Full capital-`Tests` sweep: `107/107` executable `SceneTree` scripts passed,
+  `FAILED=0`, exit `0`, using isolated `APPDATA` and `LOCALAPPDATA`. The two
+  `Control` preview scripts in `Tests/` were not invoked as main scripts because
+  they are visual preview surfaces, not self-quitting smoke tests.
+- The connected Godot editor launched the current tactical scene through MCP;
+  the game helper became live, a hostile token was inspected, and a right-click
+  context surface rendered beside the pointer. The live run produced no game
+  warnings or errors; the screenshot check showed no obvious duplicate weapon
+  layer or gross HUD/layout failure.
+
+### 20.3 Remaining acceptance boundary
+
+The implementation and automated release checks are complete. Physical Windows
+pointer input, subjective weapon-frame feel, and subjective audio listening were
+not re-run in this remediation pass; the existing live evidence and
+`CombatAudioIdentitySmoke` remain separate acceptance claims, not substitutes
+for those human checks. The generated local Godot smoke save/log artifacts are
+not source and are excluded from the remediation commit.

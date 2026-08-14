@@ -50,6 +50,13 @@ func _run() -> void:
 	if Array(rifle.combat_action_ids()) != ["fire", "specialized_fire"]:
 		_fail("The canonical ranged default was not ordered before its specialized action.")
 		return
+	var canonical_resolver := specialized_fire.resolver_id
+	specialized_fire.resolver_id = "legacy_weapon_resolver"
+	if catalog.weapon_action_validation_error(rifle).is_empty():
+		_fail("A specialized action with a non-canonical weapon resolver passed validation.")
+		specialized_fire.resolver_id = canonical_resolver
+		return
+	specialized_fire.resolver_id = canonical_resolver
 	if not _specialized_quote_contract(specialized_fire):
 		return
 

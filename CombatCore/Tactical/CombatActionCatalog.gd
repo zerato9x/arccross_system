@@ -66,6 +66,12 @@ func weapon_action_validation_error(weapon: ItemData) -> String:
 				weapon.id,
 				action_id,
 			]
+		if entry.resolver_id != "weapon_attack":
+			return "Weapon '%s' (%s) declares action '%s' without the canonical weapon_attack resolver." % [
+				weapon.display_name,
+				weapon.id,
+				action_id,
+			]
 	return ""
 
 

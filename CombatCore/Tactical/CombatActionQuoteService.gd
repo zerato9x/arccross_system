@@ -51,7 +51,7 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 
 	var target: Dictionary = rules_state.actor(request.target_actor_id)
 	if definition.target_mode == CombatActionDefinition.TARGET_ACTOR:
-		if target.is_empty() or request.target_actor_id == request.actor_id:
+		if target.is_empty() or request.target_actor_id == request.actor_id or rules_state.index_for(target.get("sector", Vector2i(-1, -1))) < 0:
 			return result.deny("invalid_target_actor", "Select another actor.")
 		result.target_sector = target.get("sector", Vector2i(-1, -1))
 	if definition.target_mode == CombatActionDefinition.TARGET_SECTOR and rules_state.index_for(request.target_sector) < 0:
@@ -85,7 +85,7 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 	if definition.minimum_range_cells > 0 and result.range_cells < definition.minimum_range_cells and not allows_shared_sector_melee:
 		return result.deny("target_too_close", "The target is inside the action's minimum range.")
 	var maximum_range := _maximum_range(definition, actor)
-	if request.action_id != "shove" and result.range_cells > maximum_range:
+	if request.action_id != "shove" and result.range_cells > maximum_range and (definition.is_melee_weapon_action() or maximum_range > 0):
 		if definition.is_melee_weapon_action() and maximum_range <= 0:
 			return result.deny("same_sector_melee_required", "Ordinary melee requires hostile co-occupancy; use an authored reach weapon for adjacency.")
 		return result.deny("target_out_of_range", "The target is outside the action's range.")
@@ -125,6 +125,22 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 		result.set_meta("visibility_penalty", float(rules_state.sector(target_index).get("visibility_penalty", 0.0)))
 
 	match request.action_id:
+		"take_cover":
+			if target.is_empty() or bool(target.get("dead", false)) or bool(target.get("comatose", false)):
+				return result.deny("invalid_target_actor", "Take Cover requires an active threat actor.")
+			result.cover_strength = _cover_strength(rules_state, evaluation_origin, target_index)
+			if result.cover_strength <= 0.0:
+				return result.deny("cover_edge_missing", "No cover edge protects against that actor.")
+		"escape":
+			var escape_sector: Dictionary = rules_state.sector(evaluation_origin)
+			var actor_side := str(actor.get("combat_side", actor.get("team_id", "")))
+			if actor_side.is_empty() and bool(actor.get("direct_player", false)):
+				actor_side = "player"
+			if actor_side.is_empty() or str(escape_sector.get("escape_side", "")) != actor_side:
+				return result.deny("escape_edge_required", "Reach an eligible escape sector first.")
+		"leave_battle":
+			if _has_active_player_hostile(rules_state):
+				return result.deny("player_hostile_active", "You cannot leave while an active actor remains hostile to you.")
 		"engage":
 			if target.is_empty() or bool(target.get("dead", false)) or bool(target.get("comatose", false)):
 				return result.deny("invalid_target_actor", "Engage requires an active target actor.")
@@ -143,6 +159,19 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 				return result.deny("hostile_target_required", "Shove is only available against a hostile co-occupant.")
 			if request.shove_direction.to_lower() not in CARDINAL_EDGES:
 				return result.deny("cardinal_direction_required", "Choose north, east, south, or west for the shove.")
+		"incapacitate", "execute":
+			if target.is_empty() or relation != _RelationshipLedger.Relation.HOSTILE:
+				return result.deny("hostile_target_required", "That terminal action requires a hostile target.")
+			if bool(target.get("dead", false)) or bool(target.get("comatose", false)):
+				return result.deny("invalid_target_actor", "That target is no longer an active combat actor.")
+			var target_broken := bool(target.get("broken", false))
+			var target_incapacitated := bool(target.get("incapacitated", false))
+			if not target_broken and not target_incapacitated:
+				return result.deny("target_not_broken", "The target must be Broken or incapacitated first.")
+			if request.action_id == "incapacitate" and target_incapacitated:
+				return result.deny("already_incapacitated", "The target is already incapacitated.")
+			if request.action_id == "execute" and bool(target.get("dead", false)):
+				return result.deny("target_already_dead", "The target is already dead.")
 		"cycle":
 			var cycle_weapon: Dictionary = actor.get("ranged_weapon", actor.get("weapon", {}))
 			if cycle_weapon.is_empty():
@@ -180,6 +209,65 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 			)
 			if request.action_id == "ceasefire":
 				result.relation_consequence = {"on_accept": "friendly", "target_id": request.target_actor_id}
+		"ready":
+			var ready_item := _item_for_actor(actor, request.target_item_instance_id)
+			if ready_item.is_empty():
+				return result.deny("item_not_owned", "Select an owned item instance.")
+			if bool(ready_item.get("ranged", false)) and bool(ready_item.get("requires_ready_action", false)) and bool(ready_item.get("is_readied", false)):
+				return result.deny("weapon_already_ready", "The weapon is already ready.")
+		"use":
+			var usable_item := _item_for_actor(actor, request.target_item_instance_id)
+			if usable_item.is_empty():
+				return result.deny("item_not_owned", "Select an owned item instance.")
+			if not _is_consumable(usable_item):
+				return result.deny("consumable_required", "Use requires a consumable item.")
+			if not _is_combat_accessible(usable_item):
+				return result.deny("item_not_accessible", "Rummage or ready the item first.")
+			if int(usable_item.get("consumable_effect", -1)) == int(GameEnums.ConsumableEffect.STOP_BLEEDING) and not _has_active_bleeding(actor):
+				return result.deny("treatment_not_needed", "No active bleeding can be stabilized.")
+		"treat":
+			var treatment_item := _item_for_actor(actor, request.target_item_instance_id)
+			var wound := _wound_for_actor(actor, request.target_wound_id)
+			if treatment_item.is_empty() or wound.is_empty():
+				return result.deny("treatment_target_invalid", "Select a compatible item and a specific wound.")
+			if not _is_consumable(treatment_item) or not _is_combat_accessible(treatment_item):
+				return result.deny("item_not_accessible", "The treatment item is not accessible.")
+			if int(treatment_item.get("consumable_effect", -1)) != int(GameEnums.ConsumableEffect.STOP_BLEEDING) or float(wound.get("bleeding_rate", 0.0)) <= 0.0:
+				return result.deny("treatment_incompatible", "That item cannot stabilize the selected wound.")
+		"pick_up":
+			var ground_id := request.target_item_instance_id
+			var ground_sector_index: int = rules_state.index_for(request.target_sector)
+			if not rules_state.ground_items.has(ground_id):
+				return result.deny("ground_item_missing", "The selected ground item is no longer present.")
+			if ground_sector_index < 0 or ground_id not in rules_state.sector(ground_sector_index).get("ground_item_instance_ids", []):
+				return result.deny("ground_item_sector", "The item is not in the selected sector.")
+			if _distance(rules_state, evaluation_origin, ground_sector_index) > 1:
+				return result.deny("adjacency_required", "Ground items require path-valid adjacency.")
+		"drop":
+			if _item_for_actor(actor, request.target_item_instance_id).is_empty():
+				return result.deny("item_not_owned", "Select an owned item instance.")
+		"rummage":
+			if _item_for_actor(actor, request.target_item_instance_id).is_empty():
+				return result.deny("item_not_owned", "Select an owned item instance.")
+		"strip":
+			if target.is_empty() or (not bool(target.get("dead", false)) and not bool(target.get("comatose", false)) and not bool(target.get("incapacitated", false))):
+				return result.deny("body_not_incapacitated", "Only dead or incapacitated actors can be stripped.")
+			if _distance(rules_state, evaluation_origin, target_index) > 1:
+				return result.deny("adjacency_required", "Stripping a body requires adjacency.")
+			if _item_for_actor(target, request.target_item_instance_id).is_empty():
+				return result.deny("target_item_missing", "Select an item carried by the target.")
+		"interact":
+			var object_index: int = rules_state.index_for(request.target_sector)
+			if object_index < 0:
+				return result.deny("invalid_target_sector", "Select a sector inside the arena.")
+			var object_sector: Dictionary = rules_state.sector(object_index)
+			if object_sector.get("object", {}).is_empty():
+				return result.deny("object_missing", "No usable object is present in that sector.")
+			result.target_sector = request.target_sector
+			target_index = object_index
+			result.range_cells = _distance(rules_state, evaluation_origin, target_index)
+			if definition.maximum_range_cells > 0 and result.range_cells > definition.maximum_range_cells:
+				return result.deny("target_out_of_range", "The selected object is too far away.")
 
 	result.action_ap_cost = _action_ap_cost(definition, actor, rules_state)
 	result.ap_cost = result.movement_ap_cost + result.action_ap_cost
@@ -367,6 +455,68 @@ static func _validate_weapon_action(actor: Dictionary, definition: CombatActionD
 			"message": "The equipped weapon does not author action '%s'." % definition.action_id,
 		}
 	return {}
+
+
+static func _item_for_actor(actor: Dictionary, instance_id: String) -> Dictionary:
+	if instance_id.is_empty():
+		return {}
+	var items: Array = actor.get("items", [])
+	if items.is_empty():
+		var private_projection: Dictionary = actor.get("private", {})
+		items = private_projection.get("items", [])
+	for raw_item in items:
+		if raw_item is Dictionary and str(raw_item.get("instance_id", "")) == instance_id:
+			return raw_item.duplicate(true)
+	return {}
+
+
+static func _is_combat_accessible(item: Dictionary) -> bool:
+	var access := str(item.get("access", item.get("access_tier", "")))
+	return access in ["hands", "quick"]
+
+
+static func _is_consumable(item: Dictionary) -> bool:
+	return (
+		int(item.get("item_type", -1)) == int(GameEnums.ItemType.CONSUMABLE)
+		and int(item.get("quantity", item.get("stack_count", 0))) > 0
+	)
+
+
+static func _wound_for_actor(actor: Dictionary, wound_id: String) -> Dictionary:
+	if wound_id.is_empty():
+		return {}
+	for raw_wound in actor.get("wounds", []):
+		if raw_wound is Dictionary and str(raw_wound.get("wound_id", "")) == wound_id:
+			return raw_wound.duplicate(true)
+	return {}
+
+
+static func _has_active_bleeding(actor: Dictionary) -> bool:
+	for raw_wound in actor.get("wounds", []):
+		if raw_wound is Dictionary and float(raw_wound.get("bleeding_rate", 0.0)) > 0.0:
+			return true
+	return false
+
+
+static func _has_active_player_hostile(rules_state) -> bool:
+	var player_id := ""
+	for raw_id in rules_state.actor_facts.keys():
+		var candidate: Dictionary = rules_state.actor(str(raw_id))
+		if str(raw_id) == "player" or bool(candidate.get("direct_player", false)):
+			player_id = str(raw_id)
+			break
+	if player_id.is_empty():
+		return false
+	for raw_id in rules_state.actor_facts.keys():
+		var candidate_id := str(raw_id)
+		if candidate_id == player_id:
+			continue
+		var candidate: Dictionary = rules_state.actor(candidate_id)
+		if bool(candidate.get("dead", false)) or bool(candidate.get("comatose", false)) or bool(candidate.get("incapacitated", false)) or bool(candidate.get("surrendered", false)):
+			continue
+		if rules_state.relation_between(player_id, candidate_id) == _RelationshipLedger.Relation.HOSTILE:
+			return true
+	return false
 
 
 static func _action_ap_cost(definition: CombatActionDefinition, actor: Dictionary, rules_state) -> int:

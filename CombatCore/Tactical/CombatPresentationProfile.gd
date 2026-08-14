@@ -63,6 +63,12 @@ func build_sequence(
 		str(request.metadata.get("weapon_id", "")),
 		request.action_id
 	)
+	var weapon_definition := WEAPON_PRESENTATION_CATALOG.definition_for(str(request.metadata.get("weapon_id", "")))
+	var weapon_release_progress := (
+		weapon_definition.release_progress_for_action(request.action_id)
+		if weapon_definition != null
+		else -1.0
+	)
 	sequence.weapon_animation_duration_seconds = weapon_duration
 	var outcome_tag := _outcome_tag(outcome)
 	var target_end_sector := _target_end_sector(outcome, presentation_target)
@@ -131,6 +137,7 @@ func build_sequence(
 		cue.encounter_id = str(request.metadata.get("encounter_id", ""))
 		cue.action_event_id = str(request.metadata.get("action_event_id", ""))
 		cue.source_item_instance_id = str(request.metadata.get("weapon_instance_id", ""))
+		cue.weapon_release_progress = weapon_release_progress
 		cue.weapon_release_sequence_progress = _release_progress(durations, total_duration)
 		cue.start_time_seconds = elapsed
 		cue.sequence_progress_start = elapsed / maxf(0.001, total_duration)

@@ -346,7 +346,7 @@ func refresh_snapshot() -> void:
 
 
 func rules_state_snapshot():
-	return _CombatRulesState.from_board(board, turn_manager, catalog, actors, combat_revision)
+	return _CombatRulesState.from_board(board, turn_manager, catalog, actors, combat_revision, ground_items)
 
 
 func projected_quote(request: CombatActionRequest, rules_state = null) -> CombatActionQuote:
@@ -496,14 +496,31 @@ func _resolve_take_cover(request: CombatActionRequest, _quote: CombatActionQuote
 	var outcome := _outcome(request)
 	var actor := actor_by_id(request.actor_id)
 	var target := actor_by_id(request.target_actor_id)
+	if actor == null or target == null or target.is_dead or target.is_comatose:
+		outcome.message = "Take Cover requires an active threat actor."
+		return outcome
+	var actor_index := board.position_of(actor)
+	var target_index := board.position_of(target)
+	if actor_index < 0 or target_index < 0 or board.cover_against(actor_index, target_index) <= 0.0:
+		outcome.message = "No cover edge protects against that actor."
+		return outcome
 	outcome.committed = board.take_cover(actor, board.position_of(target))
-	outcome.actor_changes.append({"actor_id": request.actor_id, "cover_edge": board.actor_cover_edges.get(request.actor_id, "")})
+	if outcome.committed:
+		outcome.actor_changes.append({"actor_id": request.actor_id, "cover_edge": board.actor_cover_edges.get(request.actor_id, "")})
 	return outcome
 
 
 func _resolve_escape(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
 	var outcome := _outcome(request)
 	var actor := actor_by_id(request.actor_id)
+	if actor == null:
+		outcome.message = "The actor cannot escape without a tactical sector."
+		return outcome
+	var actor_index := board.position_of(actor)
+	var side := str(actor.get_meta("combat_side", actor.get_meta("combat_team_id", "")))
+	if actor_index < 0 or actor_index >= board.sectors.size() or side.is_empty() or board.sectors[actor_index].record.escape_side != side:
+		outcome.message = "Reach an eligible escape sector first."
+		return outcome
 	actor.is_escaping = true
 	outcome.actor_changes.append({"actor_id": request.actor_id, "escaping": true})
 	outcome.committed = true
@@ -628,7 +645,10 @@ func _projected_occupancy_for_shove(preview: Dictionary, target: HumanoidCore) -
 
 func _resolve_incapacitate(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
 	var outcome := _outcome(request)
+	var actor := actor_by_id(request.actor_id)
 	var target := actor_by_id(request.target_actor_id)
+	if actor == null or target == null or target.is_dead or target.is_comatose or not board.is_hostile(actor, target):
+		return outcome
 	var state := board.combat_state(target)
 	if target == null or state == null or not state.broken:
 		return outcome
@@ -646,7 +666,10 @@ func _resolve_incapacitate(request: CombatActionRequest, _quote: CombatActionQuo
 
 func _resolve_execute(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
 	var outcome := _outcome(request)
+	var actor := actor_by_id(request.actor_id)
 	var target := actor_by_id(request.target_actor_id)
+	if actor == null or target == null or target.is_dead or target.is_comatose or not board.is_hostile(actor, target):
+		return outcome
 	var state := board.combat_state(target)
 	if target == null or state == null or (not state.broken and not state.incapacitated) or target.is_dead:
 		return outcome
@@ -796,7 +819,11 @@ func _resolve_cycle(request: CombatActionRequest, _quote: CombatActionQuote) -> 
 func _resolve_use(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
 	var outcome := _outcome(request)
 	var actor := actor_by_id(request.actor_id)
+	if actor == null or actor.inventory == null:
+		return outcome
 	var item := actor.inventory.find_item_by_instance_id(request.target_item_instance_id)
+	if item == null or item.item_type != GameEnums.ItemType.CONSUMABLE or item.stack_count <= 0 or not actor.inventory.is_combat_accessible(item):
+		return outcome
 	outcome.committed = actor.use_consumable_item(item, true)
 	if outcome.committed:
 		outcome.item_receipts.append({"type": "use", "instance_id": request.target_item_instance_id})
@@ -806,7 +833,20 @@ func _resolve_use(request: CombatActionRequest, _quote: CombatActionQuote) -> Co
 func _resolve_treat(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
 	var outcome := _outcome(request)
 	var actor := actor_by_id(request.actor_id)
+	if actor == null or actor.inventory == null or actor.body == null:
+		return outcome
 	var item := actor.inventory.find_item_by_instance_id(request.target_item_instance_id)
+	var wound := _wound_by_id(actor, request.target_wound_id)
+	if (
+		item == null
+		or wound == null
+		or item.item_type != GameEnums.ItemType.CONSUMABLE
+		or item.stack_count <= 0
+		or not actor.inventory.is_combat_accessible(item)
+		or item.consumable_effect != GameEnums.ConsumableEffect.STOP_BLEEDING
+		or wound.active_bleeding_rate() <= 0.0
+	):
+		return outcome
 	if actor.body.treat_wound(request.target_wound_id, "bandage", item.consumable_potency):
 		outcome.committed = actor.inventory.consume_item_units(item)
 	if outcome.committed:
@@ -817,6 +857,11 @@ func _resolve_treat(request: CombatActionRequest, _quote: CombatActionQuote) -> 
 func _resolve_drop(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
 	var outcome := _outcome(request)
 	var actor := actor_by_id(request.actor_id)
+	if actor == null or actor.inventory == null:
+		return outcome
+	var actor_index := board.position_of(actor)
+	if actor_index < 0 or actor_index >= board.sectors.size():
+		return outcome
 	var item := actor.inventory.remove_item_by_instance_id(request.target_item_instance_id)
 	if item == null:
 		return outcome
@@ -831,12 +876,25 @@ func _resolve_drop(request: CombatActionRequest, _quote: CombatActionQuote) -> C
 func _resolve_pick_up(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
 	var outcome := _outcome(request)
 	var actor := actor_by_id(request.actor_id)
-	var item := ground_items.get(request.target_item_instance_id) as ItemData
-	if item == null or not actor.inventory.add_to_backpack(item):
+	if actor == null or actor.inventory == null:
 		return outcome
-	ground_items.erase(item.instance_id)
+	var item := ground_items.get(request.target_item_instance_id) as ItemData
+	var target_index := board.arena_state.index_for(request.target_sector)
+	var actor_index := board.position_of(actor)
 	var sector := board.arena_state.sector_at(request.target_sector)
-	sector.ground_item_instance_ids.erase(item.instance_id)
+	if (
+		item == null
+		or sector == null
+		or actor_index < 0
+		or target_index < 0
+		or request.target_item_instance_id not in sector.ground_item_instance_ids
+		or board.grid_distance(actor_index, target_index) > 1
+	):
+		return outcome
+	if not actor.inventory.add_to_backpack(item):
+		return outcome
+	ground_items.erase(request.target_item_instance_id)
+	sector.ground_item_instance_ids.erase(request.target_item_instance_id)
 	outcome.item_receipts.append({"type": "pick_up", "instance_id": item.instance_id, "sector": request.target_sector})
 	outcome.committed = true
 	return outcome
@@ -846,6 +904,15 @@ func _resolve_strip(request: CombatActionRequest, _quote: CombatActionQuote) -> 
 	var outcome := _outcome(request)
 	var actor := actor_by_id(request.actor_id)
 	var target := actor_by_id(request.target_actor_id)
+	if actor == null or target == null or actor.inventory == null or target.inventory == null:
+		return outcome
+	var target_state := board.combat_state(target)
+	if not target.is_dead and not target.is_comatose and (target_state == null or not target_state.incapacitated):
+		return outcome
+	var actor_index := board.position_of(actor)
+	var target_index := board.position_of(target)
+	if actor_index < 0 or target_index < 0 or board.grid_distance(actor_index, target_index) > 1:
+		return outcome
 	var item := target.inventory.remove_item_by_instance_id(request.target_item_instance_id)
 	if item == null:
 		return outcome
@@ -866,7 +933,11 @@ func _resolve_strip(request: CombatActionRequest, _quote: CombatActionQuote) -> 
 func _resolve_ready(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
 	var outcome := _outcome(request)
 	var actor := actor_by_id(request.actor_id)
+	if actor == null or actor.inventory == null:
+		return outcome
 	var item := actor.inventory.find_item_by_instance_id(request.target_item_instance_id)
+	if item == null:
+		return outcome
 	if item != null and item.is_ranged() and item.requires_ready_action and not item.is_readied:
 		item.is_readied = true
 		outcome.item_receipts.append({"type": "ready", "instance_id": item.instance_id, "weapon_ready": true})
@@ -882,7 +953,11 @@ func _resolve_ready(request: CombatActionRequest, _quote: CombatActionQuote) -> 
 func _resolve_rummage(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
 	var outcome := _outcome(request)
 	var actor := actor_by_id(request.actor_id)
+	if actor == null or actor.inventory == null:
+		return outcome
 	var item := actor.inventory.find_item_by_instance_id(request.target_item_instance_id)
+	if item == null:
+		return outcome
 	var quick_slot := GameEnums.EquipmentSlot.BELT
 	outcome.committed = actor.inventory.move_to_container(item, quick_slot)
 	if outcome.committed:
@@ -892,8 +967,20 @@ func _resolve_rummage(request: CombatActionRequest, _quote: CombatActionQuote) -
 
 func _resolve_interact(request: CombatActionRequest, _quote: CombatActionQuote) -> CombatActionOutcome:
 	var outcome := _outcome(request)
+	var actor := actor_by_id(request.actor_id)
+	var target_index := board.arena_state.index_for(request.target_sector)
+	var actor_index := board.position_of(actor) if actor != null else -1
+	var definition := catalog.definition(request.action_id)
 	var sector := board.arena_state.sector_at(request.target_sector)
-	if sector == null or sector.object_state.is_empty():
+	if (
+		actor == null
+		or target_index < 0
+		or actor_index < 0
+		or definition == null
+		or sector == null
+		or sector.object_state.is_empty()
+		or (definition.maximum_range_cells > 0 and board.grid_distance(actor_index, target_index) > definition.maximum_range_cells)
+	):
 		return outcome
 	outcome.sector_changes.append({"sector": request.target_sector, "interaction": str(request.metadata.get("interaction_id", "inspect")), "object_id": str(sector.object_state.get("id", ""))})
 	outcome.committed = true
@@ -932,6 +1019,16 @@ func _control_score(actor: HumanoidCore) -> float:
 
 func _functional_arm_count(actor: HumanoidCore) -> int:
 	return _action_legality.functional_arm_count(actor)
+
+
+func _wound_by_id(actor: HumanoidCore, wound_id: String) -> Wound:
+	if actor == null or actor.body == null or wound_id.is_empty():
+		return null
+	for wounds in actor.body.wounds_by_limb.values():
+		for wound in wounds:
+			if wound is Wound and wound.wound_id == wound_id:
+				return wound
+	return null
 
 
 func _actor_snapshot(actor: HumanoidCore) -> Dictionary:
@@ -1051,6 +1148,8 @@ func _item_snapshot(item: ItemData, access: String) -> Dictionary:
 		"equipment_slot": item.equipped_slot,
 		"item_type": item.item_type,
 		"catalog_category": item.catalog_category,
+		"consumable_effect": item.consumable_effect,
+		"consumable_potency": item.consumable_potency,
 		"condition": item.current_condition,
 		"current_condition": item.current_condition,
 		"quantity": item.stack_count,

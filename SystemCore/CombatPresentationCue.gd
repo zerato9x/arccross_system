@@ -44,6 +44,9 @@ const MARKERS := [
 @export var encounter_id: String = ""
 @export var action_event_id: String = ""
 @export var source_item_instance_id: String = ""
+## Weapon-sheet progress is normalized to the weapon track's own duration. It
+## must not be compared with the action sequence's normalized progress.
+@export var weapon_release_progress: float = -1.0
 @export var weapon_release_sequence_progress: float = -1.0
 @export var sequence_progress_start: float = 0.0
 @export var sequence_progress_end: float = 1.0
@@ -94,6 +97,7 @@ func to_dict() -> Dictionary:
 		"encounter_id": encounter_id,
 		"action_event_id": action_event_id,
 		"source_item_instance_id": source_item_instance_id,
+		"weapon_release_progress": weapon_release_progress,
 		"weapon_release_sequence_progress": weapon_release_sequence_progress,
 		"sequence_progress_start": sequence_progress_start,
 		"sequence_progress_end": sequence_progress_end,

@@ -199,12 +199,15 @@ func begin_sequence(sequence: CombatPresentationSequence) -> void:
 	var token := _actor_tokens.get(_sequence_weapon_cue.actor_id) as HumanoidTokenView
 	if token == null:
 		return
-	# The composited token weapon is the physical firearm. The overhead sheet is
-	# an illustrative readout and must never replace the gun that fires the shot.
-	token.set_action_equipment_suppressed(false)
 	var top_overlay := token.get_meta("combat_top_overlay", null) as CombatTokenOverlay
 	if top_overlay != null:
+		# The weapon sheet is the committed action's one visible weapon. Suppress
+		# the composited equipment layer for the duration so a second gun cannot
+		# render at the same hand pivot.
+		token.set_action_equipment_suppressed(true)
 		top_overlay.set_weapon_cue(_sequence_weapon_cue, 0.0)
+	else:
+		token.set_action_equipment_suppressed(false)
 
 
 func end_sequence(_sequence_value: CombatPresentationSequence) -> void:

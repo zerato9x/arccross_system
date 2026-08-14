@@ -63,8 +63,8 @@ func _run() -> void:
 	var sequence := CombatPresentationSequence.new()
 	sequence.cues.append(cue)
 	arena.begin_sequence(sequence)
-	if shooter._suppress_equipment_layers:
-		_failures.append("Firearm presentation suppressed the physical token weapon layer.")
+	if not shooter._suppress_equipment_layers:
+		_failures.append("Firearm presentation left the physical token weapon layer visible beside the animated overlay.")
 	if overlay.has_method("weapon_muzzle_local_position"):
 		_failures.append("Decorative overhead sheet still exposes a muzzle contract.")
 

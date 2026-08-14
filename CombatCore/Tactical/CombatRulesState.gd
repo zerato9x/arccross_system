@@ -15,6 +15,7 @@ var communication_points: int = 0
 var action_definitions: Dictionary = {}
 var actor_facts: Dictionary = {}
 var sector_facts: Dictionary = {}
+var ground_items: Dictionary = {}
 var occupancy: Dictionary = {}
 var relationships: Dictionary = {}
 var balance_facts: Dictionary = {}
@@ -30,7 +31,8 @@ static func from_board(
 	turns: TacticalTurnManager = null,
 	action_catalog: CombatActionCatalog = null,
 	combatants: Array[HumanoidCore] = [],
-	gameplay_revision: int = 0
+	gameplay_revision: int = 0,
+	ground_item_instances: Dictionary = {}
 ):
 	var state = (load("res://CombatCore/Tactical/CombatRulesState.gd") as Script).new()
 	state.revision = gameplay_revision
@@ -65,6 +67,12 @@ static func from_board(
 		for definition in action_catalog.all():
 			if definition != null:
 				state.action_definitions[definition.action_id] = definition
+	for instance_id in ground_item_instances.keys():
+		var ground_item: Variant = ground_item_instances.get(instance_id)
+		if ground_item is ItemData:
+			state.ground_items[str(instance_id)] = _item_projection(ground_item, "ground")
+		elif ground_item is Dictionary:
+			state.ground_items[str(instance_id)] = ground_item.duplicate(true)
 
 	var actors: Array[HumanoidCore] = []
 	for candidate in combatants:
@@ -97,6 +105,9 @@ static func from_board(
 			"sector_index": index,
 			"sector": tactical_board.arena_state.coords_for(index) if index >= 0 else Vector2i(-1, -1),
 			"faction": int(candidate.definition.faction) if candidate.definition != null else -1,
+			"combat_side": str(candidate.get_meta("combat_side", candidate.get_meta("combat_team_id", ""))),
+			"team_id": str(candidate.get_meta("combat_team_id", candidate.get_meta("combat_side", ""))),
+			"direct_player": bool(candidate.get_meta("direct_player", id == "player")),
 			"kinetic_tier": int(candidate.kinetic_tier),
 			"dead": candidate.is_dead,
 			"comatose": candidate.is_comatose,
@@ -148,6 +159,8 @@ static func from_board(
 			"movement_cost": runtime.movement_cost(2),
 			"movement_modifier": runtime.movement_modifier,
 			"cover_edges": runtime.cover_edges.duplicate(true),
+			"escape_side": runtime.record.escape_side,
+			"ground_item_instance_ids": runtime.record.ground_item_instance_ids.duplicate(),
 			"hazard": runtime.hazard_state.duplicate(true),
 			"trap": runtime.trap_state.duplicate(true),
 			"object": runtime.record.object_state.duplicate(true),
@@ -184,6 +197,7 @@ func duplicate_state():
 	copy.action_definitions = action_definitions.duplicate(true)
 	copy.actor_facts = actor_facts.duplicate(true)
 	copy.sector_facts = sector_facts.duplicate(true)
+	copy.ground_items = ground_items.duplicate(true)
 	copy.occupancy = occupancy.duplicate(true)
 	copy.relationships = relationships.duplicate(true)
 	copy.balance_facts = balance_facts.duplicate(true)
@@ -248,6 +262,7 @@ func progress_fingerprint() -> String:
 		"active_actor_id": active_actor_id,
 		"actors": actor_facts,
 		"sectors": sector_facts,
+		"ground_items": ground_items,
 		"occupancy": occupancy,
 		"relationships": relationships,
 	}))
@@ -284,6 +299,32 @@ static func _weapon_projection(weapon: ItemData) -> Dictionary:
 		"weapon_type": int(weapon.weapon_type),
 		"combat_action_ids": Array(weapon.combat_action_ids()),
 		"reload_available": true,
+	}
+
+
+static func _item_projection(item: ItemData, access: String) -> Dictionary:
+	if item == null:
+		return {}
+	return {
+		"instance_id": item.instance_id,
+		"definition_id": item.id,
+		"id": item.id,
+		"item_type": int(item.item_type),
+		"weapon_type": int(item.weapon_type),
+		"ranged": item.is_ranged(),
+		"melee": item.is_melee(),
+		"access": access,
+		"access_tier": access,
+		"physical_location": item.physical_location,
+		"equipped_slot": item.equipped_slot,
+		"quantity": item.stack_count,
+		"stack_count": item.stack_count,
+		"condition": item.current_condition,
+		"requires_ready_action": item.requires_ready_action,
+		"is_readied": item.is_readied,
+		"consumable_effect": int(item.consumable_effect),
+		"consumable_potency": item.consumable_potency,
+		"combat_action_ids": Array(item.combat_action_ids()),
 	}
 
 
@@ -324,13 +365,7 @@ static func _private_actor_projection(actor: HumanoidCore, tactical_board: Comba
 		for item in actor.inventory.get_all_items():
 			if item == null:
 				continue
-			items.append({
-				"instance_id": item.instance_id,
-				"definition_id": item.id,
-				"access": actor.inventory.get_access_tier(item),
-				"quantity": item.stack_count,
-				"equipped_slot": item.equipped_slot,
-			})
+			items.append(_item_projection(item, actor.inventory.get_access_tier(item)))
 	var behavior_payload: Dictionary = actor.get_meta("npc_behavior_state", {})
 	var survival_pressure := float(actor.get_meta("survival_pressure", behavior_payload.get("survival_pressure", 0.0)))
 	return {

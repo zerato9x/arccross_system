@@ -16,6 +16,8 @@ class_name CombatWeaponPresentationDefinition
 @export var cycle_fps: float = 14.0
 @export var shoot_display_scale: float = 1.0
 @export var shoot_hand_anchor := Vector2(0.16, -0.10)
+@export var reload_hand_anchor := Vector2(0.16, -0.10)
+@export var cycle_hand_anchor := Vector2(0.16, -0.10)
 @export var shoot_release_frame: int = 0
 @export var handling_event_frames: Array[int] = []
 @export_range(0.0, 64.0, 1.0) var overhead_gap_pixels: float = 8.0
@@ -74,4 +76,8 @@ func display_scale_for_action(action_id: String) -> float:
 
 
 func hand_anchor_for_action(action_id: String) -> Vector2:
-	return shoot_hand_anchor if action_id not in ["reload", "cycle"] else Vector2.ZERO
+	if action_id == "reload":
+		return reload_hand_anchor
+	if action_id == "cycle":
+		return cycle_hand_anchor
+	return shoot_hand_anchor

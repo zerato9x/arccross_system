@@ -57,10 +57,23 @@ func _init() -> void:
 		"res://CombatCore/Tactical/default_weapon_presentation_catalog.tres"
 	)
 	var revolver := weapon_catalog.definition_for("revolver")
+	var authored_pivots: Array[Vector2] = []
 	for weapon_id in ["service_pistol", "carbon_pistol", "revolver", "carbon_rifle", "ak47", "service_rifle", "shotgun"]:
 		var weapon_definition := weapon_catalog.definition_for(weapon_id)
 		if weapon_definition == null or weapon_definition.sheet_for_action("fire") == null or weapon_definition.sheet_for_action("reload") == null:
 			failures.append("Missing recovered presentation sheets for %s." % weapon_id)
+		elif weapon_definition.hand_anchor_for_action("reload") == Vector2.ZERO or weapon_definition.hand_anchor_for_action("cycle") == Vector2.ZERO:
+			failures.append("Weapon %s still uses a zero reload/cycle hand pivot." % weapon_id)
+		else:
+			authored_pivots.append(weapon_definition.hand_anchor_for_action("fire"))
+	if authored_pivots.size() > 1:
+		var all_pivots_match := true
+		for pivot in authored_pivots.slice(1):
+			if pivot != authored_pivots[0]:
+				all_pivots_match = false
+				break
+		if all_pivots_match:
+			failures.append("Every firearm still shares one default hand pivot.")
 	if revolver == null or revolver.sheet_for_action("reload") == null:
 		failures.append("Revolver presentation did not preserve the authored reload sheet.")
 	elif revolver.duration_for_action("reload") < 2.0:
@@ -139,7 +152,11 @@ func _init() -> void:
 			failures.append("Fire release occurs after impact in the authored timeline.")
 		if ranged_response == null or ranged_response.start_time_seconds <= ranged_impact.start_time_seconds:
 			failures.append("Fire target response is not scheduled after impact.")
+		var service_pistol_release_progress := weapon_catalog.definition_for("service_pistol").release_progress_for_action("fire")
 		for cue in ranged_sequence.cues:
+			if not is_equal_approx(cue.weapon_release_progress, service_pistol_release_progress):
+				failures.append("Weapon release progress was serialized in the action-sequence clock instead of the weapon clock.")
+				break
 			if cue.presentation_direction != "east":
 				failures.append("Ranged presentation did not derive a stable visual direction: %s." % cue.presentation_direction)
 				break

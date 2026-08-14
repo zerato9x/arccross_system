@@ -133,15 +133,11 @@ func _draw_weapon() -> void:
 	var columns := maxi(1, floori(float(sheet.get_width()) / float(frame_size.x)))
 	var rows := maxi(1, floori(float(sheet.get_height()) / float(frame_size.y)))
 	var frame_count := maxi(1, columns * rows)
-	var sequence_progress := clampf(cue_progress, 0.0, 1.0)
-	var authored_release := definition.release_progress_for_action(cue.action_id)
-	var sequence_release := cue.weapon_release_sequence_progress
-	if sequence_release > 0.0 and sequence_release < 1.0 and authored_release > 0.0 and authored_release < 1.0:
-		if sequence_progress <= sequence_release:
-			sequence_progress = (sequence_progress / sequence_release) * authored_release
-		else:
-			sequence_progress = authored_release + ((sequence_progress - sequence_release) / (1.0 - sequence_release)) * (1.0 - authored_release)
-	var frame_index := clampi(floori(sequence_progress * float(frame_count)), 0, frame_count - 1)
+	# `cue_progress` is already normalized to the weapon sheet's authored FPS
+	# duration by TacticalArenaView. The action sequence has a different clock;
+	# warping between the two moves the release frame when their durations differ.
+	var weapon_progress := clampf(cue_progress, 0.0, 1.0)
+	var frame_index := clampi(floori(weapon_progress * float(frame_count)), 0, frame_count - 1)
 	var source := Rect2(Vector2((frame_index % columns) * frame_size.x, floori(float(frame_index) / float(columns)) * frame_size.y), Vector2(frame_size))
 	var weapon_rect: Rect2 = geometry.rect
 	var flip_x := -1.0 if presentation_direction == "west" else 1.0
