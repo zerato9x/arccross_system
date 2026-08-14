@@ -50,10 +50,20 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 		return result.deny(str(weapon_action_denial.code), str(weapon_action_denial.message))
 
 	var target: Dictionary = rules_state.actor(request.target_actor_id)
+	var target_sector_index := -1
+	var target_uses_handoff_sector := false
 	if definition.target_mode == CombatActionDefinition.TARGET_ACTOR:
-		if target.is_empty() or request.target_actor_id == request.actor_id or rules_state.index_for(target.get("sector", Vector2i(-1, -1))) < 0:
+		if not target.is_empty():
+			target_sector_index = rules_state.index_for(target.get("sector", Vector2i(-1, -1)))
+			if target_sector_index < 0 and request.action_id in ["execute", "strip"]:
+				target_sector_index = int(target.get("handoff_sector_index", -1))
+				if target_sector_index >= 0:
+					target_uses_handoff_sector = true
+					result.target_sector = target.get("handoff_sector", Vector2i(-1, -1))
+		if target.is_empty() or request.target_actor_id == request.actor_id or target_sector_index < 0:
 			return result.deny("invalid_target_actor", "Select another actor.")
-		result.target_sector = target.get("sector", Vector2i(-1, -1))
+		if not target_uses_handoff_sector:
+			result.target_sector = target.get("sector", Vector2i(-1, -1))
 	if definition.target_mode == CombatActionDefinition.TARGET_SECTOR and rules_state.index_for(request.target_sector) < 0:
 		return result.deny("invalid_target_sector", "Select a sector inside the arena.")
 
@@ -76,7 +86,7 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 		for index in indices.slice(1):
 			result.movement_step_costs.append(_movement_step_cost(rules_state, int(index), actor))
 
-	var target_index: int = rules_state.index_for(result.target_sector) if not target.is_empty() or definition.target_mode == CombatActionDefinition.TARGET_SECTOR else evaluation_origin
+	var target_index: int = target_sector_index if not target.is_empty() else (rules_state.index_for(result.target_sector) if definition.target_mode == CombatActionDefinition.TARGET_SECTOR else evaluation_origin)
 	if target_index < 0:
 		target_index = evaluation_origin
 	result.range_cells = _distance(rules_state, evaluation_origin, target_index)
@@ -159,7 +169,7 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 				return result.deny("hostile_target_required", "Shove is only available against a hostile co-occupant.")
 			if request.shove_direction.to_lower() not in CARDINAL_EDGES:
 				return result.deny("cardinal_direction_required", "Choose north, east, south, or west for the shove.")
-		"incapacitate", "execute":
+		"incapacitate":
 			if target.is_empty() or relation != _RelationshipLedger.Relation.HOSTILE:
 				return result.deny("hostile_target_required", "That terminal action requires a hostile target.")
 			if bool(target.get("dead", false)) or bool(target.get("comatose", false)):
@@ -168,10 +178,22 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 			var target_incapacitated := bool(target.get("incapacitated", false))
 			if not target_broken and not target_incapacitated:
 				return result.deny("target_not_broken", "The target must be Broken or incapacitated first.")
-			if request.action_id == "incapacitate" and target_incapacitated:
+			if target_incapacitated:
 				return result.deny("already_incapacitated", "The target is already incapacitated.")
-			if request.action_id == "execute" and bool(target.get("dead", false)):
+		"execute":
+			if target.is_empty() or relation != _RelationshipLedger.Relation.HOSTILE:
+				return result.deny("hostile_target_required", "That terminal action requires a hostile target.")
+			if bool(target.get("dead", false)):
 				return result.deny("target_already_dead", "The target is already dead.")
+			var target_broken := bool(target.get("broken", false))
+			var target_incapacitated := bool(target.get("incapacitated", false))
+			var target_handoff_index := int(target.get("handoff_sector_index", -1))
+			if target_incapacitated and target_handoff_index < 0:
+				return result.deny("invalid_target_actor", "The incapacitated body has no handoff sector.")
+			if bool(target.get("comatose", false)) and not target_incapacitated:
+				return result.deny("invalid_target_actor", "That target is no longer an active combat actor.")
+			if not target_broken and not target_incapacitated:
+				return result.deny("target_not_broken", "The target must be Broken or incapacitated first.")
 		"cycle":
 			var cycle_weapon: Dictionary = actor.get("ranged_weapon", actor.get("weapon", {}))
 			if cycle_weapon.is_empty():

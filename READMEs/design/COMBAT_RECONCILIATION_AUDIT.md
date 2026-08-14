@@ -738,3 +738,55 @@ not re-run in this remediation pass; the existing live evidence and
 `CombatAudioIdentitySmoke` remain separate acceptance claims, not substitutes
 for those human checks. The generated local Godot smoke save/log artifacts are
 not source and are excluded from the remediation commit.
+
+## 21. Terminal handoff-layer correction
+
+Status: **remediated on 2026-08-14**.
+
+The post-remediation review found one remaining high-severity contradiction:
+Incapacitate correctly removed the target from active occupancy and preserved
+its location in `incapacitated_entity_ids`, but the frozen actor projection and
+the Execute/Strip paths still required `position_of(actor)` to be valid. The
+result was that a body could be present in the handoff layer while both of the
+actions authored to operate on it were unreachable.
+
+### 21.1 Authority correction
+
+- `CombatBoard` now exposes neutral handoff position/layer lookups independent
+  of active occupancy. `mark_body()` also moves an executed incapacitated actor
+  from `incapacitated_entity_ids` into `body_entity_ids` without losing the
+  original sector.
+- `CombatRulesState.from_board()` preserves both active-layer facts and the
+  handoff projection (`handoff_sector_index`, `handoff_sector`, and
+  `handoff_layer`). Sector facts also retain the three explicit handoff ID
+  lists.
+- `CombatActionQuoteService` keeps ordinary actor-target validation active, but
+  permits only Execute and Strip to resolve an off-board actor through its
+  valid handoff sector. Execute accepts a comatose target only when its
+  incapacitated handoff fact is present; Strip uses the same projected sector
+  for adjacency and item legality.
+- `CombatActionController` mirrors the handoff checks defensively. Execute no
+  longer rejects the `is_comatose` state created by Incapacitate, and Strip no
+  longer queries active-board position for a removed body. The tactical scene
+  records the resulting body location for combat-result persistence.
+
+### 21.2 Verification evidence
+
+- `CombatLegalityRegressionSmoke` passes with an off-board incapacitated actor
+  projected at `(-1, -1)` and a valid handoff sector; Execute and Strip both
+  reach their action-specific legality.
+- `CombatTerminalHandoffSmoke` passes the production-shaped sequence
+  Incapacitate -> Strip -> Execute, including item transfer and the transition
+  from `incapacitated_entity_ids` to `body_entity_ids`.
+- `TacticalCombatDeathLifecycleSmoke` and the focused AI, catalog, weapon,
+  interaction, and runtime-handoff smokes pass under Godot
+  `4.7.1.stable.official.a13da4feb`.
+- The full capital-`Tests` sweep passes `107/107` executable `SceneTree`
+  scripts with `FAILED=0`; the two `Control` preview scripts remain excluded
+  as non-self-quitting visual surfaces.
+
+### 21.3 Acceptance boundary
+
+The correction is headless-verified at the quote, resolver, board-handoff, and
+combat-result boundaries. It does not claim that a physical pointer or live
+visual body-loot surface was re-tested in this narrow legality correction.

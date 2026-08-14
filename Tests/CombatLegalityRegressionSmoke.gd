@@ -72,12 +72,20 @@ func _run() -> void:
 	_rules.actor_facts["enemy"]["incapacitated"] = true
 	if not _denied(terminal_request, "already_incapacitated"):
 		return
+	_rules.actor_facts["enemy"]["broken"] = false
+	_rules.actor_facts["enemy"]["comatose"] = true
+	_rules.actor_facts["enemy"]["sector_index"] = -1
+	_rules.actor_facts["enemy"]["sector"] = Vector2i(-1, -1)
+	_rules.actor_facts["enemy"]["active_on_board"] = false
+	_rules.actor_facts["enemy"]["handoff_sector_index"] = 1
+	_rules.actor_facts["enemy"]["handoff_sector"] = Vector2i(1, 0)
+	_rules.actor_facts["enemy"]["handoff_layer"] = "incapacitated"
 	var execute_request := _request("execute")
 	execute_request.target_actor_id = "enemy"
 	if not _allowed(execute_request):
 		return
 	_rules.actor_facts["enemy"]["dead"] = true
-	if not _denied(execute_request, "invalid_target_actor"):
+	if not _denied(execute_request, "target_already_dead"):
 		return
 	_rules.actor_facts["enemy"]["dead"] = false
 	rules_reset_terminal_state()
@@ -147,9 +155,16 @@ func _run() -> void:
 	if not _denied(strip_request, "body_not_incapacitated"):
 		return
 	_rules.actor_facts["enemy"]["incapacitated"] = true
+	_rules.actor_facts["enemy"]["comatose"] = true
+	_rules.actor_facts["enemy"]["sector_index"] = -1
+	_rules.actor_facts["enemy"]["sector"] = Vector2i(-1, -1)
+	_rules.actor_facts["enemy"]["active_on_board"] = false
+	_rules.actor_facts["enemy"]["handoff_sector_index"] = 1
+	_rules.actor_facts["enemy"]["handoff_sector"] = Vector2i(1, 0)
+	_rules.actor_facts["enemy"]["handoff_layer"] = "incapacitated"
 	if not _allowed(strip_request):
 		return
-	_rules.actor_facts["enemy"]["incapacitated"] = false
+	rules_reset_terminal_state()
 
 	var interact_request := _request("interact")
 	interact_request.target_sector = Vector2i(1, 0)
@@ -166,6 +181,13 @@ func _run() -> void:
 func rules_reset_terminal_state() -> void:
 	_rules.actor_facts["enemy"]["broken"] = false
 	_rules.actor_facts["enemy"]["incapacitated"] = false
+	_rules.actor_facts["enemy"]["comatose"] = false
+	_rules.actor_facts["enemy"]["sector_index"] = 1
+	_rules.actor_facts["enemy"]["sector"] = Vector2i(1, 0)
+	_rules.actor_facts["enemy"]["active_on_board"] = true
+	_rules.actor_facts["enemy"]["handoff_sector_index"] = -1
+	_rules.actor_facts["enemy"]["handoff_sector"] = Vector2i(-1, -1)
+	_rules.actor_facts["enemy"]["handoff_layer"] = ""
 
 
 func _sector(coords: Vector2i, escape_side: String, ground_ids: Array, cover_edges: Dictionary) -> Dictionary:
@@ -190,6 +212,10 @@ func _actor(actor_id: String, index: int, side: String, surrendered: bool) -> Di
 		"actor_id": actor_id,
 		"sector_index": index,
 		"sector": _rules.coordinates_by_index[index],
+		"active_on_board": true,
+		"handoff_sector_index": -1,
+		"handoff_sector": Vector2i(-1, -1),
+		"handoff_layer": "",
 		"combat_side": side,
 		"team_id": side,
 		"direct_player": actor_id == "player",

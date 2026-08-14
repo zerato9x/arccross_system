@@ -412,10 +412,17 @@ func _on_action_committed(outcome: CombatActionOutcome) -> void:
 	# relying on the player HUD callback (which AI never uses).
 	if outcome == null:
 		return
+	var terminal_recheck := false
 	for event in outcome.result_events:
-		if event is Dictionary and str(event.get("type", "")) in ["incapacitated", "surrendered", "leave_battle"]:
-			call_deferred("_reevaluate_terminal_state")
-			return
+		if not event is Dictionary:
+			continue
+		var event_type := str(event.get("type", ""))
+		if event_type == "executed":
+			_record_handoff_body(event)
+		if event_type in ["incapacitated", "surrendered", "leave_battle"]:
+			terminal_recheck = true
+	if terminal_recheck:
+		call_deferred("_reevaluate_terminal_state")
 
 
 func _on_actor_died(cause: String, actor: HumanoidCore) -> void:
@@ -624,6 +631,18 @@ func _record_body(actor: HumanoidCore) -> void:
 	var actor_id := _actor_id(actor)
 	if actor_id not in board.sectors[index].record.body_entity_ids:
 		board.sectors[index].record.body_entity_ids.append(actor_id)
+	_body_locations.append({"actor_id": actor_id, "sector_index": index})
+
+
+func _record_handoff_body(event: Dictionary) -> void:
+	var actor_id := str(event.get("actor_id", ""))
+	var handoff: Dictionary = event.get("handoff", {})
+	var index := int(handoff.get("sector_index", -1))
+	if actor_id.is_empty() or index < 0:
+		return
+	for existing in _body_locations:
+		if str(existing.get("actor_id", "")) == actor_id:
+			return
 	_body_locations.append({"actor_id": actor_id, "sector_index": index})
 
 

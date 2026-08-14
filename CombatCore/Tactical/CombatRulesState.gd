@@ -86,6 +86,8 @@ static func from_board(
 		if id.is_empty():
 			continue
 		var index := tactical_board.position_of(candidate)
+		var handoff_index := tactical_board.handoff_position_of_id(id)
+		var handoff_layer := tactical_board.handoff_layer_of_id(id)
 		var tactical_state := tactical_board.combat_state(candidate)
 		var ranged_weapon := candidate.inventory.get_active_weapon(false) if candidate.inventory != null else null
 		var melee_weapon := candidate.inventory.get_active_weapon(true) if candidate.inventory != null else null
@@ -104,6 +106,10 @@ static func from_board(
 			"actor_id": id,
 			"sector_index": index,
 			"sector": tactical_board.arena_state.coords_for(index) if index >= 0 else Vector2i(-1, -1),
+			"active_on_board": index >= 0,
+			"handoff_sector_index": handoff_index,
+			"handoff_sector": tactical_board.arena_state.coords_for(handoff_index) if handoff_index >= 0 else Vector2i(-1, -1),
+			"handoff_layer": handoff_layer,
 			"faction": int(candidate.definition.faction) if candidate.definition != null else -1,
 			"combat_side": str(candidate.get_meta("combat_side", candidate.get_meta("combat_team_id", ""))),
 			"team_id": str(candidate.get_meta("combat_team_id", candidate.get_meta("combat_side", ""))),
@@ -161,6 +167,9 @@ static func from_board(
 			"cover_edges": runtime.cover_edges.duplicate(true),
 			"escape_side": runtime.record.escape_side,
 			"ground_item_instance_ids": runtime.record.ground_item_instance_ids.duplicate(),
+			"body_entity_ids": runtime.record.body_entity_ids.duplicate(),
+			"incapacitated_entity_ids": runtime.record.incapacitated_entity_ids.duplicate(),
+			"surrendered_entity_ids": runtime.record.surrendered_entity_ids.duplicate(),
 			"hazard": runtime.hazard_state.duplicate(true),
 			"trap": runtime.trap_state.duplicate(true),
 			"object": runtime.record.object_state.duplicate(true),

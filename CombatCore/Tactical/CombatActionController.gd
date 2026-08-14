@@ -668,20 +668,24 @@ func _resolve_execute(request: CombatActionRequest, _quote: CombatActionQuote) -
 	var outcome := _outcome(request)
 	var actor := actor_by_id(request.actor_id)
 	var target := actor_by_id(request.target_actor_id)
-	if actor == null or target == null or target.is_dead or target.is_comatose or not board.is_hostile(actor, target):
+	if actor == null or target == null or target.is_dead or not board.is_hostile(actor, target):
 		return outcome
 	var state := board.combat_state(target)
-	if target == null or state == null or (not state.broken and not state.incapacitated) or target.is_dead:
+	var target_handoff_index := board.handoff_position_of(target)
+	var incapacitated_handoff := state != null and state.incapacitated and target_handoff_index >= 0
+	if state == null or (not state.broken and not incapacitated_handoff) or target.is_dead:
 		return outcome
 	var died := target.apply_combat_lethal_wound("Execution")
 	state.broken = false
 	state.incapacitated = false
 	state.surrendered = false
 	target.set_meta("combat_actor_state", state)
+	var body_handoff := board.mark_body(target, "execution") if died else {}
 	outcome.result_events.append({
 		"type": "executed",
 		"actor_id": request.target_actor_id,
 		"lethal": died,
+		"handoff": body_handoff,
 	})
 	outcome.committed = died
 	if not died:
@@ -911,6 +915,8 @@ func _resolve_strip(request: CombatActionRequest, _quote: CombatActionQuote) -> 
 		return outcome
 	var actor_index := board.position_of(actor)
 	var target_index := board.position_of(target)
+	if target_index < 0:
+		target_index = board.handoff_position_of(target)
 	if actor_index < 0 or target_index < 0 or board.grid_distance(actor_index, target_index) > 1:
 		return outcome
 	var item := target.inventory.remove_item_by_instance_id(request.target_item_instance_id)
@@ -925,6 +931,7 @@ func _resolve_strip(request: CombatActionRequest, _quote: CombatActionQuote) -> 
 		"instance_id": item.instance_id,
 		"from_actor_id": request.target_actor_id,
 		"to_actor_id": request.actor_id,
+		"sector": board.arena_state.coords_for(target_index),
 	})
 	outcome.committed = true
 	return outcome

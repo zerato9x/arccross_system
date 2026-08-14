@@ -286,6 +286,74 @@ func position_of(actor: HumanoidCore) -> int:
 	return -1
 
 
+func handoff_position_of(actor: HumanoidCore) -> int:
+	return handoff_position_of_id(_actor_id(actor))
+
+
+func handoff_position_of_id(actor_id: String) -> int:
+	if actor_id.is_empty():
+		return -1
+	for sector in sectors:
+		if sector == null or sector.record == null:
+			continue
+		if (
+			actor_id in sector.record.incapacitated_entity_ids
+			or actor_id in sector.record.body_entity_ids
+			or actor_id in sector.record.surrendered_entity_ids
+		):
+			return sector.index
+	return -1
+
+
+func handoff_layer_of_id(actor_id: String) -> String:
+	if actor_id.is_empty():
+		return ""
+	for sector in sectors:
+		if sector == null or sector.record == null:
+			continue
+		if actor_id in sector.record.incapacitated_entity_ids:
+			return "incapacitated"
+		if actor_id in sector.record.body_entity_ids:
+			return "body"
+		if actor_id in sector.record.surrendered_entity_ids:
+			return "surrendered"
+	return ""
+
+
+func mark_body(actor: HumanoidCore, reason: String = "death") -> Dictionary:
+	"""Move a dead actor into the persistent body handoff layer.
+
+	Death can arrive after an actor has already left active occupancy (for
+	example, an execution against an incapacitated body), so position_of() is
+	not sufficient to recover the body location.
+	"""
+	if actor == null:
+		return {}
+	var actor_id := _actor_id(actor)
+	var index := handoff_position_of_id(actor_id)
+	if index < 0:
+		index = position_of(actor)
+	if not _valid_index(index):
+		return {}
+	for sector in sectors:
+		if sector == null or sector.record == null:
+			continue
+		sector.record.incapacitated_entity_ids.erase(actor_id)
+		sector.record.surrendered_entity_ids.erase(actor_id)
+		sector.record.body_entity_ids.erase(actor_id)
+	sectors[index].record.body_entity_ids.append(actor_id)
+	remove_actor(actor)
+	var receipt := {
+		"actor_id": actor_id,
+		"sector_index": index,
+		"sector": arena_state.coords_for(index),
+		"reason": reason,
+		"layer": "body",
+	}
+	board_changed.emit()
+	return receipt
+
+
 func actor_at(index: int) -> HumanoidCore:
 	return sectors[index].occupant if _valid_index(index) else null
 
