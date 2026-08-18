@@ -46,8 +46,12 @@ func to_dict() -> Dictionary:
 
 
 static func from_runtime(payload: Dictionary) -> CombatActorState:
+	var error := compatibility_error(payload)
+	if not error.is_empty():
+		push_error("[COMBAT SCHEMA] " + error)
+		return null
 	var state := CombatActorState.new()
-	state.schema_version = maxi(1, int(payload.get("schema_version", SCHEMA_VERSION)))
+	state.schema_version = SCHEMA_VERSION
 	state.stance = float(payload.get("stance", 12.0))
 	state.max_stance = float(payload.get("max_stance", 12.0))
 	state.broken = bool(payload.get("broken", false))
@@ -61,3 +65,33 @@ static func from_runtime(payload: Dictionary) -> CombatActorState:
 	state.intent_revision = int(payload.get("intent_revision", 0))
 	state.reconcile()
 	return state
+
+
+static func compatibility_error(payload: Dictionary) -> String:
+	# An empty payload is the runtime representation of a newly created actor.
+	# Any populated snapshot must identify the exact tactical schema it uses;
+	# silently normalising old state is how retired combat authority sneaks back.
+	if payload.is_empty():
+		return ""
+	if not payload.has("schema_version"):
+		return "Combat actor snapshot has no schema_version; start a new combat encounter."
+	var found_version := int(payload.get("schema_version", -1))
+	if found_version != SCHEMA_VERSION:
+		return "Combat actor snapshot schema %d is incompatible with current schema %d; start a new combat encounter." % [
+			found_version,
+			SCHEMA_VERSION,
+		]
+	for retired_field in [
+		"actor_facing",
+		"facing",
+		"final_facing",
+		"posture",
+		"postures",
+		"reserved_ap",
+		"reaction_ap",
+		"reaction_threat_ids",
+		"ordered_reaction_steps",
+	]:
+		if payload.has(retired_field):
+			return "Combat actor snapshot contains retired field '%s'; start a new combat encounter." % retired_field
+	return ""

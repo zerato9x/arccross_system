@@ -122,10 +122,11 @@ func initialize_loaded_world(callbacks: Dictionary) -> Dictionary:
 		_invoke(callbacks, "player_definition")
 	])
 
-	if not world_state.campaign_graph.is_empty():
-		var loaded_coords: Vector2i = world_state.player_coords
+	var campaign_graph := world_state.get_campaign_graph_snapshot()
+	if not campaign_graph.is_empty():
+		var loaded_coords: Vector2i = world_state.player_record.coords
 		_invoke(callbacks, "load_campaign", [
-			world_state.campaign_graph,
+			campaign_graph,
 			world_state.active_node_id,
 		])
 		_invoke(callbacks, "apply_active_zone")

@@ -3,7 +3,7 @@ class_name CombatMapComposition
 
 @export var schema_version: int = 2
 @export var variant_id: String = ""
-@export var seed: int = 0
+@export var map_seed: int = 0
 @export var base_ground_path: String = ""
 @export var base_ground_modulation: Color = Color.WHITE
 @export var palette: Dictionary = {}
@@ -23,7 +23,7 @@ func to_dict() -> Dictionary:
 	return {
 		"schema_version": schema_version,
 		"variant_id": variant_id,
-		"seed": seed,
+		"seed": map_seed,
 		"base_ground_path": base_ground_path,
 		"base_ground_modulation": base_ground_modulation,
 		"palette": palette.duplicate(true),
@@ -44,7 +44,7 @@ static func from_dict(data: Dictionary):
 	var result = (load("res://CombatCore/Tactical/CombatMapComposition.gd") as Script).new()
 	result.schema_version = int(data.get("schema_version", 1))
 	result.variant_id = str(data.get("variant_id", ""))
-	result.seed = int(data.get("seed", 0))
+	result.map_seed = int(data.get("seed", 0))
 	result.base_ground_path = str(data.get("base_ground_path", ""))
 	result.base_ground_modulation = data.get("base_ground_modulation", Color.WHITE)
 	result.palette = data.get("palette", {}).duplicate(true)

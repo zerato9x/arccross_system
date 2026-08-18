@@ -345,7 +345,7 @@ func _build_intent(perception_snapshot, selected_motive, problem, selected_plan,
 	intent.decision_seed = "%s|%s|%d|%d" % [
 		str(rules_state.encounter_seed),
 		intent.actor_id,
-		int(rules_state.round),
+		int(rules_state.round_index),
 		intent.snapshot_revision,
 	]
 	if selected_motive != null:

@@ -48,7 +48,7 @@ func resolve(
 		var once_key := str(entry.get("once_key", ""))
 		if (
 			once_key.is_empty()
-			or not bool(world_state.run_flags.get("loot_once:" + once_key, false))
+			or not bool(world_state.get_run_flags_snapshot().get("loot_once:" + once_key, false))
 		):
 			available_guaranteed.append(entry)
 	loot_profile["guaranteed_entries"] = available_guaranteed
@@ -148,6 +148,8 @@ func resolve(
 	var result: Dictionary = outcome.get("search_result", {})
 	var search_label := str(outcome.get("search_label", "Search"))
 	var found_names: Array[String] = []
+	var run_flag_patch: Dictionary = {}
+	var ground_item_states: Array = []
 	for entry_value in available_guaranteed:
 		var entry: Dictionary = entry_value
 		var once_key := str(entry.get("once_key", ""))
@@ -155,7 +157,7 @@ func resolve(
 			not once_key.is_empty()
 			and outcome.get("loot_ids", []).has(str(entry.get("item_id", "")))
 		):
-			world_state.run_flags["loot_once:" + once_key] = true
+			run_flag_patch["loot_once:" + once_key] = true
 	for loot_id_value in outcome.get("loot_ids", []):
 		var loot_id := str(loot_id_value)
 		var item_state := _create_runtime_item_state(loot_id)
@@ -164,30 +166,39 @@ func resolve(
 		found_names.append(
 			str(item_state.get("definition", {}).get("display_name", loot_id))
 		)
-		world_state.add_ground_items(coords, [item_state])
+		ground_item_states.append(item_state)
 
-	if bool(outcome.get("injured", false)):
-		var body := _player_body()
-		if body != null:
-			body.apply_targeted_hit(
-				outcome.get("injury_limb", GameEnums.LimbRegion.LEFT_ARM),
-				outcome.get("injury_damage", 0.0),
-				0.0
-			)
-
-	if shared_receipt == null:
-		var hex_state: Variant = outcome.get("hex_state", {})
-		if hex_state is Dictionary:
-			world_state.set_hex_record(coords, hex_state)
+	var depletion: Dictionary = {}
 	if shared_receipt != null and not preferred_target_id.is_empty():
-		_deplete_resource(coords, preferred_target_id, "player")
-	if shared_receipt == null:
-		_advance_survival_time(_search_minutes(), 1.0, coords)
+		depletion = _build_depletion(coords, preferred_target_id, "player")
+	var hex_state_value: Variant = outcome.get("hex_state", {})
+	var hex_state: Dictionary = (
+		hex_state_value.to_dict()
+		if hex_state_value is HexRecord
+		else hex_state_value.duplicate(true) if hex_state_value is Dictionary else {}
+	)
+	if hex_state.is_empty():
+		hex_state = hex_data.to_state().to_dict()
+	if not _commit_search_transaction({
+		"coords": coords,
+		"hex_state": hex_state,
+		"target_state": depletion.get("target_state", {}),
+		"trace": depletion.get("trace", {}),
+		"ground_items": ground_item_states,
+		"run_flags": run_flag_patch,
+		"injury_limb": outcome.get("injury_limb", GameEnums.LimbRegion.LEFT_ARM),
+		"injury_damage": float(outcome.get("injury_damage", 0.0)) if bool(outcome.get("injured", false)) else 0.0,
+		"elapsed_minutes": 0 if shared_receipt != null else _search_minutes(),
+		"exertion": 1.0,
+		"noise_intensity": 0.75,
+		"attempt_index": int(hex_state.get("search_count", hex_data.search_count)),
+	}):
+		_show_result("SEARCH REJECTED", "The search transaction was rejected without partial state.")
+		return
 	if not selected_search_option_id.is_empty():
 		_apply_campaign_trigger("poi_resolved:%s" % selected_search_option_id)
 	if not hex_data.poi_id.is_empty():
 		_apply_campaign_trigger("poi_resolved:%s" % hex_data.poi_id)
-	_persist_player(coords)
 	_refresh()
 
 	var message := "Target: %s\n" % search_label
@@ -208,8 +219,6 @@ func resolve(
 		_spawn_intruder(coords)
 		return
 	_set_event("Searched %s at HEX %d,%d." % [search_label, coords.x, coords.y])
-	if shared_receipt == null:
-		_notify_noise(coords, "search_noise")
 	_advance_world(1, true)
 	if _has_pending_collision():
 		return
@@ -316,6 +325,15 @@ func _persist_player(coords: Vector2i) -> void:
 
 func _deplete_resource(coords: Vector2i, target_id: String, actor_id: String) -> void:
 	_call("deplete_resource", [coords, target_id, actor_id])
+
+
+func _build_depletion(coords: Vector2i, target_id: String, actor_id: String) -> Dictionary:
+	var value: Variant = _call("build_depletion", [coords, target_id, actor_id])
+	return value if value is Dictionary else {}
+
+
+func _commit_search_transaction(payload: Dictionary) -> bool:
+	return bool(_call("commit_search_transaction", [payload]))
 
 
 func _apply_campaign_trigger(trigger_id: String) -> void:

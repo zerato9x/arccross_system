@@ -436,7 +436,10 @@ static func projection_score(record: EntityRecord, center_coords: Vector2i) -> f
 	var score := 100.0 - (distance * 12.0)
 	if record.world_status == GameEnums.EntityWorldStatus.HOSTILE:
 		score += 20.0
-	var purpose := ensure_npc_purpose(record)
+	# Proximity ordering is a read-only projection. Purpose normalization writes
+	# the supplied record, so isolate it from RuntimeStateStore-owned state.
+	var projection_record := EntityRecord.from_dict(record.to_dict())
+	var purpose := ensure_npc_purpose(projection_record)
 	match purpose:
 		GameEnums.NPC_PURPOSE_HUNT:
 			score += 12.0

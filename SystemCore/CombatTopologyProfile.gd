@@ -31,4 +31,4 @@ func index_for(coords: Vector2i) -> int:
 
 
 func coords_for(index: int) -> Vector2i:
-	return Vector2i(index % columns, index / columns)
+	return Vector2i(index % columns, floori(float(index) / float(columns)))

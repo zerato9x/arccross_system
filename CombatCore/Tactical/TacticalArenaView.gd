@@ -361,11 +361,9 @@ func update_cue(progress: float, cue: CombatPresentationCue) -> void:
 				top_overlay.set_cue_progress(elapsed_seconds / maxf(0.001, weapon_duration))
 	var token := _actor_tokens.get(cue.actor_id) as HumanoidTokenView
 	var target_token := _actor_tokens.get(cue.target_actor_id) as HumanoidTokenView
-	var start := _actor_position(cue.actor_id, cue.start_sector)
 	var finish := _actor_position(cue.actor_id, cue.end_sector)
 	if cue.is_travel_marker() and cue.vfx_id == "projectile":
 		_update_projectile(progress)
-	var direction := start.direction_to(finish)
 	if token != null:
 		if cue.is_travel_marker() and cue.moves_actor:
 			token.position = _path_position(cue.path, progress, cue.start_sector, cue.end_sector, cue.actor_id)
@@ -509,8 +507,8 @@ func _draw_composition_landmarks(composition: Dictionary) -> void:
 		var center := sector_center(coords) + Vector2(landmark.get("offset", Vector2.ZERO))
 		var texture := _texture(str(landmark.get("asset_path", "")))
 		if texture != null:
-			var scale := float(landmark.get("scale", 0.72))
-			var extent := Vector2(_cell_size(_grid_rect()).y, _cell_size(_grid_rect()).y) * scale
+			var landmark_scale := float(landmark.get("scale", 0.72))
+			var extent := Vector2(_cell_size(_grid_rect()).y, _cell_size(_grid_rect()).y) * landmark_scale
 			draw_texture_rect(texture, Rect2(center - extent * 0.5, extent), false, Color(1.0, 1.0, 1.0, 0.92))
 		else:
 			draw_circle(center, 22.0, Color(0.68, 0.54, 0.32, 0.88))
@@ -528,8 +526,8 @@ func _draw_composition_props(composition: Dictionary) -> void:
 		var center := sector_center(coords) + Vector2(prop.get("offset", Vector2.ZERO))
 		var texture := _texture(str(prop.get("asset_path", prop.get("sprite_path", ""))))
 		if texture != null:
-			var scale := float(prop.get("scale", 0.36))
-			var extent := Vector2(_cell_size(_grid_rect()).y, _cell_size(_grid_rect()).y) * scale
+			var prop_scale := float(prop.get("scale", 0.36))
+			var extent := Vector2(_cell_size(_grid_rect()).y, _cell_size(_grid_rect()).y) * prop_scale
 			draw_texture_rect(texture, Rect2(center - extent * 0.5, extent), false, Color(1.0, 1.0, 1.0, 0.82))
 		else:
 			draw_circle(center, 8.0, Color(0.56, 0.48, 0.34, 0.78))
@@ -616,8 +614,6 @@ func _draw_actors() -> void:
 func _draw_presentation() -> void:
 	if _cue == null:
 		return
-	var start := sector_center(_cue.start_sector)
-	var finish := sector_center(_cue.end_sector)
 	var marker := _cue.marker_id if not _cue.marker_id.is_empty() else _cue.phase_id
 	if marker == "release_contact" and _is_firearm_cue(_cue):
 		var muzzle := _projectile_start_for(_cue)

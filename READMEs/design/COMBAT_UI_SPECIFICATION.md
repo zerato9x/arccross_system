@@ -1,6 +1,6 @@
 # ARCCROSS Combat UI Specification
 
-Status updated on **August 14, 2026**.
+Status updated on **August 17, 2026**.
 
 The production interface is
 `CombatCore/Tactical/TacticalCombatHUD.tscn` inside

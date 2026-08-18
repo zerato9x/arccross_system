@@ -236,6 +236,8 @@ func _combat_state(actor: HumanoidCore) -> CombatActorState:
 		return existing as _CombatActorState
 	if existing is Dictionary:
 		var hydrated := _CombatActorState.from_runtime(existing)
+		if hydrated == null:
+			return null
 		actor.set_meta("combat_actor_state", hydrated)
 		return hydrated
 	return null

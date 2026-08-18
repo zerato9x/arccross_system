@@ -62,7 +62,7 @@ func apply_repair(
 		target.last_simulated_minute = world_state.world_time_minutes
 		target.revision += 1
 		hex.world_objects[index] = target.to_dict()
-		world_state.set_hex_record(coords, hex.to_state())
+		world_generator.commit_hex_projection(coords, hex)
 		_persist_transition(campaign, next_state, service_stage)
 		return
 
@@ -89,7 +89,7 @@ func preserve_after_player_defeat(campaign: MacroProgressController) -> void:
 		target.revision += 1
 		var service_stage := int(transition.get("service_stage", 0))
 		hex.world_objects[index] = target.to_dict()
-		world_state.set_hex_record(Vector2i.ZERO, hex.to_state())
+		world_generator.commit_hex_projection(Vector2i.ZERO, hex)
 		_persist_transition(campaign, state, service_stage)
 		return
 
@@ -115,7 +115,7 @@ func reconcile_after_hostile_change(campaign: MacroProgressController) -> void:
 		target.last_simulated_minute = world_state.world_time_minutes
 		target.revision += 1
 		hex.world_objects[index] = target.to_dict()
-		world_state.set_hex_record(Vector2i.ZERO, hex.to_state())
+		world_generator.commit_hex_projection(Vector2i.ZERO, hex)
 		_persist_transition(
 			campaign,
 			str(transition.get("state", profile.secured_state)),
@@ -165,5 +165,5 @@ func _persist_transition(
 		meta_progress.capture_node_mutations(
 			profile.profile_id,
 			campaign.zone_generator.permanent_baseline_records,
-			world_state.hex_records
+			world_state.get_hex_records_snapshot()
 		)

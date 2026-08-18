@@ -61,10 +61,13 @@ func _run() -> void:
 	receipt.method_id = "multitool"
 	receipt.tool_wear = 0.25
 	world_state.register_entity(record)
-	service.apply_tool_wear(record, receipt)
-	var tool: Dictionary = record.runtime["inventory_items"][0]
+	var working_record := EntityRecord.from_dict(
+		world_state.get_entity_snapshot(record.entity_id)
+	)
+	service.apply_tool_wear(working_record, receipt)
+	var tool: Dictionary = world_state.get_entity(record.entity_id).runtime["inventory_items"][0]
 	if float(tool.get("current_condition", 0.0)) != 9.75:
-		_fail("NPC tool wear did not apply to the neutral carried state.")
+		_fail("NPC tool wear did not commit through the neutral carried state.")
 		return
 	print("[MACRO_NPC_WORK] PASS")
 	quit(0)

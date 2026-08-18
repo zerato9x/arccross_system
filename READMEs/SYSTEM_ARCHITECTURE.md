@@ -29,12 +29,15 @@ database, stat registry, or rule table.
 
 - Owns orchestration, factories, and authoritative runtime records.
 - `RuntimeStateStore` owns player, entity, hex, world-time, and ground-item
-  records plus their versioned disk representation, decoupled into explicit resource objects (`EntityRecord`, `HexRecord`, etc.).
+  records, pairwise relationships, node snapshots, combat handoffs, applied
+  encounter history, and their versioned disk representation. `player_record.coords`
+  is canonical; `player_coords` is a compatibility accessor only.
 - `GameTimeRules` owns shared action durations and clock conversion.
 - `LootCatalog` translates ItemCore resources into neutral descriptors and
   runtime item records.
 - `GameDirector` coordinates WorldCore and CombatCore through signals and
-  records.
+  records. It validates and forwards the roster assembled by WorldCore; it does
+  not rediscover participants or apply combat-domain results itself.
 
 ### WorldCore
 
@@ -51,6 +54,15 @@ database, stat registry, or rule table.
 - Creates encounter records deterministically from world seed and coordinates.
 - Treats tokens as projections; loading or unloading never changes entity life
   state.
+- `MacroZoneGenerator` produces deterministic detached `HexRecord` baselines;
+  generation cannot write run state. `HexWorldGenerator` is the live projection
+  and legacy authored-map facade, never a second directional-node authority.
+- `MacroGameManager` owns input, presentation, and orchestration. Movement,
+  visibility, SEARCH, CAMP, inventory ground transfers, NPC work, signals, and
+  elapsed survival time commit through revision-validated store transactions.
+- `WorldMutationStore` is restricted to the legacy non-directional authored-map
+  bridge. Directional nodes accept permanent structural patches only from
+  `MetaProgressionStore`.
 
 ### CombatCore
 
@@ -58,7 +70,7 @@ database, stat registry, or rule table.
   `CombatCore/Tactical/TacticalCombatScene.tscn`: encounter flow, the
   `squad_7x5` board, turns, AI, one AP pool, catalog actions, quotes, resolution,
   and presentation sequencing.
-- `GameDirector` forces the production topology. An assembled encounter has one
+- `RuntimeStateStore` rejects any non-production topology at handoff. An assembled encounter has one
   directly controlled player, up to five autonomous NPCs, pairwise relations,
   a participant cap of six, and no late reinforcement.
 - `CombatActionCatalog` owns action policy. Weapon classes derive canonical
@@ -154,6 +166,7 @@ definition: Dictionary
 ### Hex Record
 
 ```text
+revision: int
 biome: GameEnums.GridBiome
 terrain_tile: GameEnums.MacroTerrainTile
 flora_layer: GameEnums.MacroFloraLayer
@@ -197,6 +210,13 @@ ambush_position: GameEnums.AmbushPosition
   coordinate, inventory, hex, and encounter state.
 - `RuntimeStateStore` performs atomic record changes. BiologicalCore and
   ItemCore apply their own effects and restrictions.
+- `WorldActionReservationRecord` owns a node-scoped work session. Each attempt
+  has a unique `receipt_id`; `WorldActionApplicationService` validates actor,
+  target, object, Hex, node, and reservation revisions before committing or
+  restoring the complete pre-action snapshot.
+- Biological and inventory presentation capture is owned by
+  `BiologicalSnapshotService` and `InventorySnapshotService`. WorldCore composes
+  their neutral dictionaries and never loads wound-treatment resources.
 - Movement, SEARCH, CAMP, and completed combat advance one authoritative clock;
   BiologicalCore processes the same elapsed duration.
 - SEARCH selects a Loot Profile and places generated Runtime Item Instances in
@@ -231,7 +251,9 @@ ambush_position: GameEnums.AmbushPosition
   item/weapon/result identity. Only `HumanoidBody` wound creation emits
   `HumanInjured`; presentation never emits a second injury vocal.
 - CombatCore emits outcomes and runtime snapshots. SystemCore applies those
-  results to persistent world records.
+  results exactly once through `CombatResultApplicationService`, validating the
+  active encounter, exact actor IDs, participant revisions, location records,
+  relationships, and item ownership before committing.
 - Combat presentation never changes macro tokens, entity life state, AP costs,
   or action legality directly.
 
@@ -239,7 +261,12 @@ ambush_position: GameEnums.AmbushPosition
 
 - `RuntimeStateStore` writes the disposable run save: world seed, time, player,
   graph discovery/traversal, node-keyed runtime snapshots, entities, Hexes, fog,
-  and ground items. Character death/new-run creation discards this state.
+  ground items, pairwise relationships, and a bounded applied-encounter history.
+  Save format 14 migrates formats 12 and 13, initializes Hex revisions and typed
+  active actions, and persists a bounded 256-entry applied-world-receipt
+  history. Reconstructed candidates are integrity-validated before load. Saves
+  use a temporary file plus replace operation; invalid state is rejected before
+  the last valid save can be overwritten.
 - `MetaProgressionStore` writes a separate cross-run profile containing only
   permanent-node structural patches, completed Meta Events, gateway state,
   node-profile mutations, and arm-core reconstruction.
@@ -269,6 +296,10 @@ ambush_position: GameEnums.AmbushPosition
   outward rim step and only for eligible adjacent directional edges.
 - `RuntimeStateStore` snapshots visited nodes within one run so backtracking
   cannot reset enemies, loot, fog, or quest objects.
+- Directional travel is one store transaction: capture the source, build the
+  destination from its saved snapshot or detached baseline plus permanent
+  patches, validate indexes and ownership, then swap node, graph, player, Hex,
+  action, and signal state. A failed candidate leaves the source untouched.
 - Generator V2 starter zones separate fixed logistics from seeded environment.
   `StarterZonePlanner` rotates one canonical Central-facing-to-outward arterial
   for each arm; neither world seed nor player arrival may reroute it.

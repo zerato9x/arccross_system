@@ -15,6 +15,12 @@ static func record_to_humanoid_core(
 ) -> HumanoidCore:
 	var definition_state: Dictionary = record.get("definition", {})
 	var runtime_state: Dictionary = record.get("runtime", {})
+	var combat_state_payload: Variant = runtime_state.get("combat_actor_state", {})
+	if combat_state_payload is Dictionary:
+		var combat_schema_error := _CombatActorState.compatibility_error(combat_state_payload)
+		if not combat_schema_error.is_empty():
+			push_error("[COMBAT SCHEMA] " + combat_schema_error)
+			return null
 	var definition := EntityDefinition.from_state(definition_state)
 
 	var core := HumanoidCore.new()
@@ -34,6 +40,7 @@ static func record_to_humanoid_core(
 	inv.name = "InventorySystem"
 	core.add_child(inv)
 	core.inventory = inv
+	inv.ensure_runtime_initialized()
 
 	if items_spilled_callback.is_valid():
 		inv.items_spilled.connect(items_spilled_callback)
@@ -80,13 +87,21 @@ static func record_to_humanoid_core(
 static func humanoid_core_to_record(
 	core: HumanoidCore,
 	entity_id: String = "player",
-	coords: Vector2i = Vector2i.ZERO
+	coords: Vector2i = Vector2i.ZERO,
+	record_kind: int = -1
 ) -> Dictionary:
 	if core == null:
 		return {}
+	var resolved_kind := (
+		GameEnums.RuntimeEntityKind.PLAYER
+		if entity_id == "player"
+		else GameEnums.RuntimeEntityKind.NPC
+	)
+	if record_kind >= 0:
+		resolved_kind = record_kind as GameEnums.RuntimeEntityKind
 	return {
 		"entity_id": entity_id,
-		"kind": GameEnums.RuntimeEntityKind.PLAYER,
+		"kind": resolved_kind,
 		"life_state": (
 			GameEnums.EntityLifeState.DEAD
 			if core.is_dead

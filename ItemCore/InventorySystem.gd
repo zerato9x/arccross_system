@@ -55,8 +55,15 @@ var runtime_codec := _RuntimeCodec.new()
 var firearm_service := _FirearmService.new()
 
 func _ready() -> void:
+	ensure_runtime_initialized()
+
+
+func ensure_runtime_initialized() -> void:
+	## EntityFactory may fabricate a parentless neutral projection for validation
+	## or result application. Such nodes do not receive _ready(), so equipment
+	## slots and firearm callbacks must be initialized explicitly and idempotently.
 	for slot in GameEnums.EquipmentSlot.values():
-		if slot != GameEnums.EquipmentSlot.NONE:
+		if slot != GameEnums.EquipmentSlot.NONE and not paper_doll.has(slot):
 			paper_doll[slot] = null
 	base_max_capacity = 0
 	_recalculate_bounds()
@@ -91,6 +98,37 @@ func _emit_inventory_error(message: String) -> void:
 
 func _emit_transfer_receipt(receipt: Dictionary) -> void:
 	transfer_committed.emit(receipt)
+
+
+func can_add_to_backpack(
+	item: ItemData,
+	preferred_container: GameEnums.EquipmentSlot = GameEnums.EquipmentSlot.NONE
+) -> bool:
+	"""Return whether add_to_backpack can accept the item without mutating state.
+
+	This is intentionally a pure capacity/compatibility preflight. Callers that
+	need to move an item between inventories must use it before removing the
+	item from its source, because removal can have equipment-container side
+	effects such as content redistribution and spills.
+	"""
+	if item == null:
+		return false
+	var runtime_item := _ensure_runtime_item(item)
+	if runtime_item.get_effective_item_size() == GameEnums.ItemSize.BIG:
+		return false
+	if runtime_item.stack_count > runtime_item.get_stack_limit():
+		return false
+
+	var stack_target := _find_stack_target(runtime_item, preferred_container)
+	if (
+		stack_target != null
+		and stack_target.stack_count + runtime_item.stack_count
+		<= stack_target.get_stack_limit()
+	):
+		return backpack_array.find(stack_target) >= 0
+
+	return _find_container_for_item(runtime_item, preferred_container) != GameEnums.EquipmentSlot.NONE
+
 
 func add_to_backpack(
 	item: ItemData,

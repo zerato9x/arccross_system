@@ -239,7 +239,7 @@ func _is_combat_accessible(item: ItemData) -> bool:
 func _container_slot(item: ItemData) -> GameEnums.EquipmentSlot:
 	if not container_slot_callback.is_valid():
 		return GameEnums.EquipmentSlot.NONE
-	return int(container_slot_callback.call(item))
+	return int(container_slot_callback.call(item)) as GameEnums.EquipmentSlot
 
 
 func _add_to_backpack(

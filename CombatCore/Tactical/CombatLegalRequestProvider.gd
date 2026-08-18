@@ -174,8 +174,8 @@ static func _matches_problem(definition: CombatActionDefinition, problem_id: Str
 static func _expand_definition(
 	definition: CombatActionDefinition,
 	snapshot,
-	motive_candidate,
-	problem,
+	_motive_candidate,
+	_problem,
 	rules_state,
 	target_id: String,
 	plan_metadata: Dictionary

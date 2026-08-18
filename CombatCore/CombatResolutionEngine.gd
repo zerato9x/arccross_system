@@ -86,7 +86,7 @@ func _draw_int(min_value: int, max_value: int, purpose: String) -> int:
 
 
 func build_forecast(
-	request: CombatActionRequest,
+	_request: CombatActionRequest,
 	definition: CombatActionDefinition,
 	attacker: HumanoidCore,
 	defender: HumanoidCore,
@@ -142,7 +142,7 @@ func execute_ranged_strike(
 	target_actor: HumanoidCore = null,
 	action_id: String = "fire"
 ) -> bool:
-	return await _execute_shot(attacker, target_index, effect_profile, targeting_profile, target_actor, action_id)
+	return _execute_shot(attacker, target_index, effect_profile, targeting_profile, target_actor, action_id)
 
 
 func _execute_shot(
@@ -317,7 +317,7 @@ func execute_cycle(actor: HumanoidCore) -> bool:
 
 func _ranged_hit_chance(
 	attacker: HumanoidCore,
-	defender: HumanoidCore,
+	_defender: HumanoidCore,
 	weapon: ItemData,
 	origin_index: int,
 	target_index: int,
@@ -349,9 +349,9 @@ func _ranged_hit_chance(
 
 func _melee_hit_chance(
 	attacker: HumanoidCore,
-	defender: HumanoidCore,
+	_defender: HumanoidCore,
 	accuracy_modifier: float,
-	origin_index: int = -1
+	_origin_index: int = -1
 ) -> float:
 	var injury := 1.0 - clampf(attacker.body.get_limb_function(GameEnums.LimbRegion.RIGHT_ARM) / GameEnums.SCALE_MAX, 0.0, 1.0)
 	var balance_modifier := -0.12 if board.has_condition(attacker, "off_balance") else 0.0

@@ -45,20 +45,32 @@ func configure(
 func build_inventory_snapshot() -> Dictionary:
 	if player_token == null or world_state == null:
 		return {}
-	return _SnapshotBuilder.build_inventory_snapshot(
-		player_token.get_humanoid_core(),
+	var core := player_token.get_humanoid_core()
+	return _SnapshotBuilder.build_inventory_snapshot_from_neutral(
+		BiologicalSnapshotService.capture(core),
+		InventorySnapshotService.capture(
+			core,
+			world_state.get_ground_items(player_token.current_hex_coords),
+			callbacks.get("can_offer_equip", Callable()),
+			callbacks.get("allowed_equipment_slots", Callable())
+		),
 		player_token.current_hex_coords,
-		world_state,
-		callbacks.get("can_offer_equip", Callable()),
-		callbacks.get("allowed_equipment_slots", Callable())
+		world_state.get_world_time_snapshot()
 	)
 
 
 func build_world_hud_snapshot() -> Dictionary:
 	if player_token == null or world_state == null or world_generator == null:
 		return {}
-	var snapshot := _SnapshotBuilder.build_world_hud_snapshot(
-		player_token.get_humanoid_core(),
+	var core := player_token.get_humanoid_core()
+	var snapshot := _SnapshotBuilder.build_world_hud_snapshot_from_neutral(
+		BiologicalSnapshotService.capture(core),
+		InventorySnapshotService.capture(
+			core,
+			world_state.get_ground_items(player_token.current_hex_coords),
+			callbacks.get("can_offer_equip", Callable()),
+			callbacks.get("allowed_equipment_slots", Callable())
+		),
 		player_token.current_hex_coords,
 		selected_hex_coords,
 		world_state.get_world_time_snapshot(),

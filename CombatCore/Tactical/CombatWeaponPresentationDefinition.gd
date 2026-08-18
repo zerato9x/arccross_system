@@ -53,8 +53,8 @@ func duration_for_action(action_id: String) -> float:
 	var fps := fps_for_action(action_id)
 	if sheet == null or frame_size.x <= 0 or frame_size.y <= 0 or fps <= 0.0:
 		return 0.0
-	var columns := maxi(1, sheet.get_width() / frame_size.x)
-	var rows := maxi(1, sheet.get_height() / frame_size.y)
+	var columns := maxi(1, floori(float(sheet.get_width()) / float(frame_size.x)))
+	var rows := maxi(1, floori(float(sheet.get_height()) / float(frame_size.y)))
 	return float(columns * rows) / fps
 
 
@@ -65,8 +65,8 @@ func release_progress_for_action(action_id: String) -> float:
 	var frame_size := frame_size_for_action(action_id)
 	if sheet == null or frame_size.x <= 0 or frame_size.y <= 0:
 		return 0.0
-	var columns := maxi(1, sheet.get_width() / frame_size.x)
-	var rows := maxi(1, sheet.get_height() / frame_size.y)
+	var columns := maxi(1, floori(float(sheet.get_width()) / float(frame_size.x)))
+	var rows := maxi(1, floori(float(sheet.get_height()) / float(frame_size.y)))
 	var frame_count := maxi(1, columns * rows)
 	return clampf(float(shoot_release_frame) / float(maxi(1, frame_count - 1)), 0.0, 1.0)
 

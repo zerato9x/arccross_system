@@ -260,6 +260,8 @@ func _configure_extracted_world_services() -> void:
 				"_capture_player_runtime_for_survival"
 			),
 			"deplete_resource": Callable(self, "_deplete_rubble_after_search"),
+			"build_depletion": Callable(_search_resource_service, "build_depletion"),
+			"commit_search_transaction": Callable(self, "_commit_search_transaction"),
 			"apply_campaign_trigger": Callable(
 				self,
 				"apply_campaign_discovery_trigger"
@@ -293,6 +295,7 @@ func _configure_extracted_world_services() -> void:
 			),
 			"player_body": Callable(self, "_player_body_for_survival"),
 			"advance_survival_time": Callable(self, "_advance_survival_time"),
+			"commit_camp_cycle": Callable(self, "_commit_camp_cycle"),
 			"camp_minutes": Callable(_time_rules_service, "camp_minutes"),
 			"advance_world": Callable(self, "advance_macro_world"),
 			"has_pending_collision": Callable(self, "_has_pending_entity_collision"),
@@ -1249,11 +1252,6 @@ func _bootstrap_restore_loaded_player_position(coords: Vector2i) -> void:
 	if player_token == null or _world_state == null or map_visualizer == null:
 		return
 	player_token.snap_to_hex(coords, map_visualizer.map_to_local(coords))
-	_world_state.update_player_runtime(
-		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
-		coords
-	)
-	_mark_hex_explored(coords)
 	_select_hex_for_hud(coords)
 	_refresh_map_visuals(coords, true)
 	refresh_proximity(coords)
@@ -1496,12 +1494,51 @@ func _on_player_movement_arrived(
 
 
 func _commit_player_retreat(target_coords: Vector2i) -> void:
-	var retreat_hex := world_generator.get_hex_at(target_coords)
-	_world_state.update_player_runtime(
-		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
-		target_coords
+	var origin_coords := (
+		_world_state.player_record.coords
+		if _world_state.player_record != null
+		else target_coords
 	)
-	_mark_hex_explored(target_coords, retreat_hex)
+	var retreat_hex := world_generator.get_hex_at(target_coords)
+	var request := WorldActionRequest.new()
+	request.actor_id = "player"
+	request.target_id = "retreat:%s" % str(target_coords)
+	request.target_coords = target_coords
+	request.verb_id = "retreat"
+	request.payload["action_id"] = "retreat:%s:%s:%d" % [
+		str(origin_coords),
+		str(target_coords),
+		_world_state.player_revision,
+	]
+	var receipt := _world_action_coordinator.resolve_direct_action(
+		request, 0, 0.0, 0.0, "Retreat relocation committed."
+	)
+	receipt.actor_state = player_token.get_humanoid_core().capture_runtime_state().to_dict()
+	receipt.mutations.append({
+		"type": "move_actor",
+		"from": origin_coords,
+		"to": target_coords,
+	})
+	receipt.mutations.append({"type": "set_hex_explored"})
+	_movement_service.append_trace_to_receipt(
+		receipt,
+		"player",
+		origin_coords,
+		target_coords,
+		str(campaign.active_node_id) if campaign != null else "",
+		_world_state.world_time_minutes,
+		retreat_hex
+	)
+	var application := _commit_world_action_receipt(receipt, target_coords)
+	if application == null or not application.applied:
+		_macro_log(
+			"Movement transaction rejected: %s"
+			% (application.error if application != null else "no application receipt")
+		)
+		player_token.snap_to_hex(origin_coords, map_visualizer.map_to_local(origin_coords))
+		_last_macro_event = "Retreat relocation was rejected."
+		_refresh_world_hud()
+		return
 	_refresh_map_visuals(target_coords, false)
 	refresh_proximity(target_coords)
 	_last_macro_event = "Escaped combat; fell back to HEX %d,%d." % [
@@ -1512,22 +1549,18 @@ func _commit_player_retreat(target_coords: Vector2i) -> void:
 
 
 func _commit_player_step(origin_coords: Vector2i, target_coords: Vector2i) -> void:
-	_world_state.update_player_runtime(
-		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
-		target_coords
-	)
-	_macro_log("Player stepped to %s." % str(target_coords))
-	var newly_explored := _refresh_map_visuals(target_coords, false)
-	refresh_proximity(target_coords)
-
 	var hex_data := world_generator.get_hex_at(target_coords)
-	_mark_hex_explored(target_coords, hex_data)
 	var move_request := WorldActionRequest.new()
 	move_request.actor_id = "player"
 	move_request.target_id = "hex:%s" % str(target_coords)
 	move_request.target_coords = target_coords
 	move_request.verb_id = "travel"
 	move_request.payload["world_time_minutes"] = _world_state.world_time_minutes
+	move_request.payload["action_id"] = "travel:player:%s:%s:%d" % [
+		str(origin_coords),
+		str(target_coords),
+		_world_state.player_revision,
+	]
 	var move_receipt := _world_action_coordinator.resolve_direct_action(
 		move_request,
 		_time_rules_service.move_minutes_for_hex(hex_data),
@@ -1535,8 +1568,39 @@ func _commit_player_step(origin_coords: Vector2i, target_coords: Vector2i) -> vo
 		0.0,
 		"Arrived at HEX %d,%d." % [target_coords.x, target_coords.y]
 	)
-	_commit_world_action_receipt(move_receipt, target_coords)
-	_emit_movement_trace("player", origin_coords, target_coords)
+	move_receipt.actor_state = player_token.get_humanoid_core().capture_runtime_state().to_dict()
+	move_receipt.mutations.append({
+		"type": "move_actor",
+		"from": origin_coords,
+		"to": target_coords,
+	})
+	move_receipt.mutations.append({"type": "set_hex_explored"})
+	_movement_service.append_trace_to_receipt(
+		move_receipt,
+		"player",
+		origin_coords,
+		target_coords,
+		str(campaign.active_node_id) if campaign != null else "",
+		_world_state.world_time_minutes,
+		hex_data
+	)
+	var application := _commit_world_action_receipt(move_receipt, target_coords)
+	if application == null or not application.applied:
+		_macro_log(
+			"Movement transaction rejected: %s"
+			% (application.error if application != null else "no application receipt")
+		)
+		player_token.snap_to_hex(origin_coords, map_visualizer.map_to_local(origin_coords))
+		_last_macro_event = (
+			application.error
+			if application != null and not application.error.is_empty()
+			else "Movement transaction was rejected."
+		)
+		_refresh_world_hud()
+		return
+	_macro_log("Player stepped to %s." % str(target_coords))
+	var newly_explored := _refresh_map_visuals(target_coords, false)
+	refresh_proximity(target_coords)
 	
 	var target_snapshot := _world_state.get_entity_snapshot_at(target_coords)
 	if not target_snapshot.is_empty():
@@ -1773,7 +1837,7 @@ func _mark_hex_explored(
 	if target_hex.is_explored:
 		return
 	target_hex.is_explored = true
-	_world_state.set_hex_record(coords, target_hex.to_state())
+	world_generator.commit_hex_projection(coords, target_hex)
 
 # ---------------------------------------------------------
 # FOG OF WAR
@@ -1877,6 +1941,11 @@ func _advance_survival_time(
 	request.target_coords = target_coords
 	request.verb_id = verb_id
 	request.method_id = "survival"
+	request.payload["action_id"] = "%s:%s:%d" % [
+		verb_id,
+		str(target_coords),
+		_world_state.player_revision,
+	]
 	var receipt := _world_action_coordinator.resolve_direct_action(
 		request,
 		elapsed_minutes,
@@ -1886,6 +1955,48 @@ func _advance_survival_time(
 	)
 	receipt.presentation["insulation_bonus"] = insulation_bonus
 	_commit_world_action_receipt(receipt, target_coords)
+
+
+func _commit_camp_cycle(
+	coords: Vector2i,
+	hex_data: MacroHexData,
+	elapsed_minutes: int,
+	exertion: float,
+	insulation_bonus: float
+) -> bool:
+	var request := WorldActionRequest.new()
+	request.actor_id = "player"
+	request.target_id = "camp:%s" % str(coords)
+	request.target_coords = coords
+	request.verb_id = WorldActionResolver.VERB_SLEEP
+	request.method_id = "camp"
+	request.payload["world_time_minutes"] = _world_state.world_time_minutes
+	request.payload["action_id"] = "camp:%s:%d:%d" % [
+		str(coords),
+		hex_data.camp_rest_count,
+		_world_state.player_revision,
+	]
+	var receipt := _world_action_coordinator.resolve_direct_action(
+		request,
+		elapsed_minutes,
+		exertion,
+		0.0,
+		"Camp cycle committed."
+	)
+	receipt.actor_state = player_token.get_humanoid_core().capture_runtime_state().to_dict()
+	receipt.presentation["insulation_bonus"] = insulation_bonus
+	receipt.mutations.append({"type": "replace_actor_runtime"})
+	receipt.mutations.append({
+		"type": "replace_hex_state",
+		"hex_state": hex_data.to_state(),
+	})
+	var application := _commit_world_action_receipt(receipt, coords)
+	if application == null or not application.applied:
+		if _world_state.player_record != null:
+			player_token.restore_runtime_record(_world_state.player_record)
+		return false
+	hex_data.apply_state(_world_state.get_hex_record(coords))
+	return true
 
 
 func _player_body_for_survival() -> HumanoidBody:
@@ -1901,8 +2012,16 @@ func _capture_player_runtime_for_survival() -> Dictionary:
 
 
 func _persist_campaign_hex(coords: Vector2i, state: Variant) -> void:
-	if _world_state != null:
-		_world_state.set_hex_record(coords, state)
+	if _world_state == null:
+		return
+	if state is MacroHexData:
+		world_generator.commit_hex_projection(coords, state)
+	elif state is HexRecord:
+		_world_state.replace_hex_record(coords, state, state.revision)
+	elif state is Dictionary:
+		_world_state.replace_hex_record(
+			coords, state, int(state.get("revision", -1))
+		)
 
 
 func _emit_core_activated() -> void:
@@ -1966,8 +2085,8 @@ func _commit_world_action_receipt(
 	coords: Vector2i,
 	target: WorldObjectRecord = null,
 	actor_id: String = "player"
-) -> void:
-	_receipt_application_service.commit(receipt, coords, target, actor_id)
+) -> WorldActionApplicationReceipt:
+	return _receipt_application_service.commit(receipt, coords, target, actor_id)
 
 
 func _emit_world_action_presentation(presentation_receipt: Dictionary) -> void:
@@ -2033,11 +2152,12 @@ func _consume_player_repair_material() -> Dictionary:
 		):
 			continue
 		var state := item.to_runtime_state()
-		if inventory.consume_item_units(item):
-			return {
-				"instance_id": state.get("instance_id", ""),
-				"item_id": item.id,
-			}
+		# Selection is side-effect free. WorldActionApplicationService consumes the
+		# exact instance in the detached runtime transaction.
+		return {
+			"instance_id": state.get("instance_id", ""),
+			"item_id": item.id,
+		}
 	return {}
 
 
@@ -2385,7 +2505,7 @@ func resolve_poi_action(
 		)
 	elif action == GameEnums.PoiAction.STOP_REST:
 		hex_data.rest_in_progress = false
-		_world_state.set_hex_record(coords, hex_data.to_state())
+		world_generator.commit_hex_projection(coords, hex_data)
 		_present_poi_session(coords, hex_data)
 	elif action == GameEnums.PoiAction.REST or action == GameEnums.PoiAction.CAMP:
 		var camp_access := _get_camp_access(coords, hex_data)
@@ -2402,11 +2522,11 @@ func resolve_poi_action(
 			action == GameEnums.PoiAction.CAMP
 		)
 		hex_data.rest_in_progress = true
-		_world_state.set_hex_record(coords, hex_data.to_state())
+		world_generator.commit_hex_projection(coords, hex_data)
 		_resolve_camp(coords, hex_data, profile["camp"], selected_item_ids)
 		hex_data = world_generator.get_hex_at(coords)
 		hex_data.rest_in_progress = false
-		_world_state.set_hex_record(coords, hex_data.to_state())
+		world_generator.commit_hex_projection(coords, hex_data)
 
 
 func resolve_location_action(command: Dictionary) -> void:
@@ -2852,7 +2972,7 @@ func _debug_open_landmark_here(coords: Vector2i) -> void:
 	hex.poi_name = "Debug Homestead"
 	hex.sleep_anchor = "ground"
 	world_generator.world_hex_cache[coords] = hex
-	_world_state.set_hex_record(coords, hex.to_state())
+	world_generator.commit_hex_projection(coords, hex)
 	begin_poi_interaction(coords, hex)
 
 
@@ -2965,7 +3085,7 @@ func _complete_macro_event_source() -> void:
 	var hex_data := world_generator.get_hex_at(coords)
 	if not hex_data.searched_targets.has(search_option_id):
 		hex_data.searched_targets.append(search_option_id)
-		_world_state.set_hex_record(coords, hex_data.to_state())
+		world_generator.commit_hex_projection(coords, hex_data)
 
 func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 	if (
@@ -3034,6 +3154,9 @@ func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 			enemy_id,
 			GameEnums.EntityWorldStatus.WITHDRAWN
 		)
+		_world_state.set_relationship(
+			"player", enemy_id, CombatRelationshipLedger.Relation.NEUTRAL
+		)
 		var threat_result: Dictionary = (
 			MacroInteractionResolver.resolve_threat_surrender(
 				_world_state.world_seed,
@@ -3073,6 +3196,9 @@ func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 	_world_state.set_entity_world_status(
 		enemy_id,
 		GameEnums.EntityWorldStatus.CEASEFIRE
+	)
+	_world_state.set_relationship(
+		"player", enemy_id, CombatRelationshipLedger.Relation.NEUTRAL
 	)
 	var updated_snapshot := _world_state.get_entity_snapshot(enemy_id)
 	if not updated_snapshot.is_empty() and active_enemies.has(interaction_coords):
@@ -3324,14 +3450,18 @@ func resolve_inventory_action(
 	_last_inventory_error = ""
 	var player_core := player_token.get_humanoid_core()
 	var coords := player_token.current_hex_coords
+	var prior_player_runtime := (
+		_world_state.player_record.runtime.duplicate(true)
+		if _world_state.player_record != null
+		else {}
+	)
 	var result := MacroInventoryResolver.resolve_action(
 		action_id,
 		instance_id,
 		equipment_slot,
 		player_core,
 		coords,
-		_world_state.take_ground_item,
-		_world_state.add_ground_items,
+		_world_state.get_ground_items,
 		_can_offer_equip,
 		_inventory_error_or,
 		action_payload
@@ -3339,13 +3469,7 @@ func resolve_inventory_action(
 	if action_id == GameEnums.MACRO_INV_INSPECT:
 		_apply_knowledge_inspection(result)
 
-	for item_state in result.get("ground_restore", []):
-		_world_state.add_ground_items(coords, [item_state])
-	if not result.get("ground_mutations", []).is_empty():
-		_world_state.add_ground_items(
-			coords,
-			result.get("ground_mutations", [])
-		)
+	var transfer_instance_id := str(result.get("ground_transfer_instance_id", ""))
 	var elapsed_minutes := int(result.get("elapsed_minutes", 0))
 	var committed_inventory_action := bool(result.get("committed", false))
 	if committed_inventory_action and elapsed_minutes <= 0 and action_id in [
@@ -3369,6 +3493,11 @@ func resolve_inventory_action(
 			else action_id
 		)
 		request.payload["world_time_minutes"] = _world_state.world_time_minutes
+		request.payload["action_id"] = "inventory:%s:%s:%d" % [
+			action_id,
+			instance_id,
+			_world_state.player_revision,
+		]
 		var receipt := _world_action_coordinator.resolve_direct_action(
 			request,
 			elapsed_minutes,
@@ -3376,14 +3505,35 @@ func resolve_inventory_action(
 			0.0,
 			"Inventory action committed."
 		)
-		_commit_world_action_receipt(receipt, coords)
+		receipt.actor_state = result.get("player_runtime", {}).duplicate(true)
+		receipt.mutations.append({"type": "replace_actor_runtime"})
+		if not transfer_instance_id.is_empty():
+			receipt.mutations.append({
+				"type": "transfer_ground_item",
+				"instance_id": transfer_instance_id,
+			})
+		for dropped_state in result.get("ground_mutations", []):
+			if dropped_state is Dictionary:
+				receipt.mutations.append({
+					"type": "drop_ground_item",
+					"instance_id": str(dropped_state.get("instance_id", "")),
+					"item_state": dropped_state.duplicate(true),
+				})
+		var application := _commit_world_action_receipt(receipt, coords)
+		if application == null or not application.applied:
+			if player_core != null and not prior_player_runtime.is_empty():
+				player_core.restore_runtime_state(prior_player_runtime)
+			result["committed"] = false
+			result["message"] = (
+				application.error
+				if application != null and not application.error.is_empty()
+				else "The inventory transaction was rejected without changing world state."
+			)
+			result["player_runtime"] = prior_player_runtime.duplicate(true)
 		result["action_receipt"] = receipt.to_dict()
-		result["player_runtime"] = player_core.capture_runtime_state().to_dict()
+		if bool(result.get("committed", false)) and _world_state.player_record != null:
+			result["player_runtime"] = _world_state.player_record.runtime.duplicate(true)
 
-	_world_state.update_player_runtime(
-		result.get("player_runtime", {}),
-		coords
-	)
 	_emit_inventory_item_used(result)
 	var snapshot := _build_inventory_snapshot()
 	if inventory_panel and inventory_panel.is_open():
@@ -3429,7 +3579,7 @@ func _apply_knowledge_inspection(result: Dictionary) -> void:
 	var entry: Dictionary = decode.get("entry", {})
 	if _meta_progress != null and _meta_progress.has_method("record_codex_entry"):
 		_meta_progress.record_codex_entry(entry_id)
-	var applied: Dictionary = _world_state.run_flags.get(
+	var applied: Dictionary = _world_state.get_run_flags_snapshot().get(
 		"applied_knowledge_ids", {}
 	).duplicate(true)
 	var changed_nodes := PackedStringArray()
@@ -3439,7 +3589,7 @@ func _apply_knowledge_inspection(result: Dictionary) -> void:
 				if not changed_nodes.has(str(node_id)):
 					changed_nodes.append(str(node_id))
 		applied[entry_id] = true
-		_world_state.run_flags["applied_knowledge_ids"] = applied
+		_world_state.patch_run_flags({"applied_knowledge_ids": applied})
 	var title := str(entry.get("title", entry_id))
 	var body := str(entry.get("body", entry.get("summary", "")))
 	if not changed_nodes.is_empty():
@@ -3465,7 +3615,7 @@ func _deploy_eligible_plot_actor() -> String:
 	var deployment: Variant = director.eligible_deployment(
 		known_ids,
 		campaign.active_node_id,
-		_world_state.run_flags
+		_world_state.get_run_flags_snapshot()
 	)
 	if deployment == null:
 		return ""
@@ -3512,10 +3662,12 @@ func _deploy_eligible_plot_actor() -> String:
 	var spawn_hex := world_generator.get_hex_at(spawn_coords)
 	spawn_hex.encounter_entity_id = entity_id
 	spawn_hex.encounter_evaluated = true
-	_world_state.set_hex_record(spawn_coords, spawn_hex.to_state())
+	world_generator.commit_hex_projection(spawn_coords, spawn_hex)
 	_spawn_enemy_token_from_record(record)
 	if not deployment.run_once_key.is_empty():
-		_world_state.run_flags[deployment.run_once_key] = true
+		var deployment_flag_patch: Dictionary = {}
+		deployment_flag_patch[deployment.run_once_key] = true
+		_world_state.patch_run_flags(deployment_flag_patch)
 	return deployment.actor_name
 
 func _refresh_exploration_ground() -> void:
@@ -3650,6 +3802,59 @@ func _deplete_rubble_after_search(
 ) -> void:
 	_search_resource_service.deplete(coords, target_id, actor_id)
 
+
+func _commit_search_transaction(payload: Dictionary) -> bool:
+	var coords: Vector2i = payload.get("coords", player_token.current_hex_coords)
+	var target_state: Dictionary = payload.get("target_state", {})
+	var request := WorldActionRequest.new()
+	request.actor_id = "player"
+	request.target_id = str(target_state.get("object_id", "search:%s" % str(coords)))
+	request.target_coords = coords
+	request.verb_id = WorldActionResolver.VERB_SEARCH
+	request.expected_actor_revision = _world_state.player_revision
+	request.expected_target_revision = int(target_state.get("revision", -1))
+	request.payload["action_id"] = "search:%s:%d" % [
+		str(coords),
+		int(payload.get("attempt_index", 0)),
+	]
+	request.payload["world_time_minutes"] = _world_state.world_time_minutes
+	var receipt := _world_action_coordinator.resolve_direct_action(
+		request,
+		int(payload.get("elapsed_minutes", 0)),
+		float(payload.get("exertion", 1.0)),
+		float(payload.get("noise_intensity", 0.75)),
+		"Search outcome committed."
+	)
+	receipt.mutations.append({
+		"type": "replace_hex_state",
+		"hex_state": payload.get("hex_state", {}).duplicate(true),
+	})
+	for item_state in payload.get("ground_items", []):
+		if item_state is Dictionary:
+			receipt.mutations.append({
+				"type": "add_ground_item",
+				"item_state": item_state.duplicate(true),
+			})
+	for key in payload.get("run_flags", {}).keys():
+		receipt.mutations.append({
+			"type": "set_run_flag",
+			"key": str(key),
+			"value": payload["run_flags"][key],
+		})
+	if float(payload.get("injury_damage", 0.0)) > 0.0:
+		receipt.mutations.append({
+			"type": "biological_hit",
+			"limb_region": int(payload.get("injury_limb", GameEnums.LimbRegion.LEFT_ARM)),
+			"damage": float(payload.get("injury_damage", 0.0)),
+			"armor": 0.0,
+		})
+	var trace: Dictionary = payload.get("trace", {})
+	if not trace.is_empty():
+		receipt.mutations.append({"type": "append_trace", "trace": trace})
+	var target := WorldObjectRecord.from_dict(target_state) if not target_state.is_empty() else null
+	var application := _commit_world_action_receipt(receipt, coords, target)
+	return application != null and application.applied
+
 func _resolve_camp(
 	coords: Vector2i,
 	hex_data: MacroHexData,
@@ -3713,10 +3918,21 @@ func _request_pending_combat(
 		"initiator_id": initiator_id,
 		"ambush_position": ambush_position,
 	}
+	# Freeze the player's current live projection before WorldCore assembles the
+	# immutable encounter snapshot.
+	if not _world_state.set_player_record(
+		player_token.capture_runtime_record(),
+		player_token.current_hex_coords
+	):
+		push_error("Combat request rejected: player runtime could not be committed.")
+		return
 	var combat_coords: Vector2i = request.get("coords", Vector2i.ZERO)
 	var encounter := _build_combat_encounter_record(request)
 	if encounter == null:
 		push_error("Combat request rejected: source hex could not be resolved.")
+		return
+	if _world_state.begin_combat_handoff(encounter) == null:
+		push_error("Combat request rejected: authoritative handoff could not be registered.")
 		return
 	request["encounter"] = encounter.to_dict()
 	_pending_interaction.clear()
@@ -3857,7 +4073,7 @@ func _apply_poi_session_selections(
 		_world_state.add_ground_items(coords, [item_state])
 	for item_state in trap_outcome.get("ground_restore", []):
 		_world_state.add_ground_items(coords, [item_state])
-	_world_state.set_hex_record(coords, hex_data.to_state())
+	world_generator.commit_hex_projection(coords, hex_data)
 	_world_state.update_player_runtime(
 		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
 		coords
@@ -3922,6 +4138,20 @@ func _on_enemy_entity_unhovered(_entity_id: String) -> void:
 
 func add_ground_item_states(coords: Vector2i, item_states: Array) -> void:
 	_world_state.add_ground_items(coords, item_states)
+
+
+func refresh_hex_runtime_projection(coords: Vector2i) -> void:
+	## RuntimeStateStore is authoritative after cross-scene application. Refresh
+	## the live MacroHexData projection so a later save synchronization cannot
+	## overwrite combat-site mutations with a stale scene copy.
+	if _world_state == null or world_generator == null:
+		return
+	var record := _world_state.get_hex_record(coords)
+	var projection := world_generator.get_hex_at(coords)
+	if record == null or projection == null:
+		return
+	projection.apply_state(record)
+	_refresh_exploration_ground()
 
 func retreat_player_from_combat(
 	collision_coords: Vector2i,
@@ -4075,7 +4305,13 @@ func _evaluate_npc_step(
 
 
 func _ensure_npc_purpose(record: EntityRecord) -> String:
-	return _NpcSimulator.ensure_npc_purpose(record)
+	if record == null:
+		return ""
+	# This callback is consumed by HUD/snapshot builders. The simulator helper
+	# normalizes missing fields by writing the supplied record, so keep even
+	# direct callers from turning presentation into an authority mutation.
+	var projection_record := EntityRecord.from_dict(record.to_dict())
+	return _NpcSimulator.ensure_npc_purpose(projection_record)
 
 
 func _notify_npcs_of_noise(coords: Vector2i, event_id: String) -> void:
@@ -4143,8 +4379,6 @@ func _move_npc_record(
 	target_coords: Vector2i
 ) -> bool:
 	var old_coords := record.coords
-	if not _world_state.move_entity(record.entity_id, target_coords):
-		return false
 	# NPC travel is the same committed action as player travel. The token can
 	# animate after this point, but the actor's location and elapsed time have a
 	# single authoritative receipt boundary.
@@ -4155,6 +4389,12 @@ func _move_npc_record(
 	move_request.target_coords = target_coords
 	move_request.verb_id = "travel"
 	move_request.payload["world_time_minutes"] = _world_state.world_time_minutes
+	move_request.payload["action_id"] = "travel:%s:%s:%s:%d" % [
+		record.entity_id,
+		str(old_coords),
+		str(target_coords),
+		record.revision,
+	]
 	var move_receipt := _world_action_coordinator.resolve_direct_action(
 		move_request,
 		_time_rules_service.move_minutes_for_hex(target_hex),
@@ -4162,13 +4402,29 @@ func _move_npc_record(
 		0.0,
 		"NPC arrived at HEX %d,%d." % [target_coords.x, target_coords.y]
 	)
-	_commit_world_action_receipt(
+	move_receipt.actor_state = record.runtime.duplicate(true)
+	move_receipt.mutations.append({
+		"type": "move_actor",
+		"from": old_coords,
+		"to": target_coords,
+	})
+	_movement_service.append_trace_to_receipt(
+		move_receipt,
+		record.entity_id,
+		old_coords,
+		target_coords,
+		str(campaign.active_node_id) if campaign != null else "",
+		_world_state.world_time_minutes,
+		target_hex
+	)
+	var application := _commit_world_action_receipt(
 		move_receipt,
 		target_coords,
 		null,
 		record.entity_id
 	)
-	_emit_movement_trace(record.entity_id, old_coords, target_coords)
+	if application == null or not application.applied:
+		return false
 	var token: MacroEnemy = active_enemies.get(old_coords, null)
 	if token != null:
 		active_enemies.erase(old_coords)

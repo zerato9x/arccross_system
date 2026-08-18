@@ -14,6 +14,12 @@ of restating it.
   player-facing.
 - [System Architecture](SYSTEM_ARCHITECTURE.md): ownership, dependencies,
   records, and presentation boundaries.
+- [System / Integration Reconciliation Audit](design/SYSTEM_INTEGRATION_RECONCILIATION_AUDIT.md):
+  authority winners, rejected conflicts, migration bridges, deferred work, and
+  verification evidence for the v13 runtime-state boundary.
+- [World State / Simulation Reconciliation Audit](design/WORLD_STATE_RECONCILIATION_AUDIT.md):
+  disposable-world authority, atomic action/node contracts, save-v14 migration,
+  rejected conflicts, compatibility paths, and verification evidence.
 - [Architecture Index](ARCHITECTURE_INDEX.md): generated code/resource/test
   inventory for orientation; it is not a behavioral authority.
 - [Humanoid Token Pipeline](HUMANOID_TOKEN_PIPELINE.md): layered sprite
@@ -48,7 +54,7 @@ of restating it.
 
 ## Current Implementation
 
-Status updated on **August 14, 2026**:
+Status updated on **August 17, 2026**:
 
 ### Playable Loop
 
@@ -80,7 +86,7 @@ Status updated on **August 14, 2026**:
   (P2-11), Node Web, exploration/collision HUD (P2-10), Field Health,
   authored-zone tooling (P2-08), and the earlier shield/item work (P2-06).
   Historical detail lives in [phase_2_execution_plan.md](phase_2_execution_plan.md).
-- **August 14 combat reconciliation is implemented:** production combat is the
+- **August 17 combat reconciliation closeout:** production combat is the
   `squad_7x5` tactical scene with a frozen six-actor cap, one direct player,
   pairwise relationships, geometry-only cover, catalog-owned weapon actions,
   independent presentation clocks, and the corrected incapacitated-body
@@ -139,11 +145,13 @@ Status updated on **August 14, 2026**:
 
 ### Verification boundary
 
-The latest recorded reconciliation sweep passed `107/107` executable capital-
+The latest recorded reconciliation sweep passed `109/109` executable capital-
 `Tests` SceneTree scripts with `FAILED=0` under Godot
 `4.7.1.stable.official.a13da4feb`; the two `Control` preview scripts were not
-invoked as self-quitting smokes. The remediation record separately documents
-live editor/screenshot evidence. Physical Windows pointer input and subjective
+invoked as self-quitting smokes. The sweep prepares the ignored workspace-local
+`.godot/test-appdata`, `.godot/test-localappdata`, and `.godot/test-logs`
+directories before execution. The remediation record separately documents live
+editor/screenshot evidence. Physical Windows pointer input and subjective
 weapon/audio acceptance remain distinct claims.
 
 ## Remaining Work

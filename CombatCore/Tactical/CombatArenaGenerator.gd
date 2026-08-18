@@ -63,10 +63,10 @@ func generate(encounter: CombatEncounterRecord) -> CombatArenaState:
 
 func _compose_map(arena: CombatArenaState, encounter: CombatEncounterRecord):
 	var result = _MapComposition.new()
-	result.seed = arena.baseline_seed
+	result.map_seed = arena.baseline_seed
 	var hex := encounter.center_hex
 	var family := str(hex.terrain_tile if hex != null else 0)
-	var variant := variant_catalog.choose(family, result.seed)
+	var variant := variant_catalog.choose(family, result.map_seed)
 	result.variant_id = str(variant.get("id", "%s_00" % family))
 	var source_ground := _source_ground_path(hex, encounter.presentation)
 	var overrides: Dictionary = variant.get("overrides", {})
@@ -132,7 +132,7 @@ func _compose_map(arena: CombatArenaState, encounter: CombatEncounterRecord):
 			result.dominant_landmark = {
 				"id": landmark_id,
 				"label": hex.poi_name if hex.is_poi and not hex.poi_name.is_empty() else landmark_id,
-				"coords": Vector2i(arena.width / 2, arena.height / 2),
+				"coords": Vector2i(floori(float(arena.width) / 2.0), floori(float(arena.height) / 2.0)),
 				"asset_path": landmark_asset,
 				"layer": int(variant.get("landmark_layer", 55)),
 				"scale": float(variant.get("landmark_scale", 0.72)),
@@ -338,9 +338,9 @@ func _apply_presentation_props(
 func _apply_traps(arena: CombatArenaState, traps: Array[Dictionary]) -> void:
 	for trap_index in range(traps.size()):
 		var trap := traps[trap_index]
-		var coords: Vector2i = trap.get("sector", Vector2i(1, arena.height / 2))
+		var coords: Vector2i = trap.get("sector", Vector2i(1, floori(float(arena.height) / 2.0)))
 		if not arena.contains(coords):
-			coords = Vector2i(mini(1, arena.width - 1), arena.height / 2)
+			coords = Vector2i(mini(1, arena.width - 1), floori(float(arena.height) / 2.0))
 		var sector := arena.sector_at(coords)
 		sector.trap_state = trap.duplicate(true)
 		sector.trap_state["armed"] = bool(trap.get("armed", true))
@@ -516,8 +516,8 @@ func _orientation_step(delta: Vector2i) -> int:
 func _edge_port_for_direction(arena: CombatArenaState, direction_index: int) -> Vector2i:
 	var incoming_direction := (arena.orientation_step + 3) % 6
 	var relative := (direction_index - incoming_direction + 6) % 6
-	var center_x := arena.width / 2
-	var center_y := arena.height / 2
+	var center_x := floori(float(arena.width) / 2.0)
+	var center_y := floori(float(arena.height) / 2.0)
 	match relative:
 		0:
 			return Vector2i(0, center_y)
@@ -534,7 +534,7 @@ func _edge_port_for_direction(arena: CombatArenaState, direction_index: int) -> 
 
 
 func _connected_paths(arena: CombatArenaState, ports: Array[Vector2i]) -> Array[Vector2i]:
-	var center := Vector2i(arena.width / 2, arena.height / 2)
+	var center := Vector2i(floori(float(arena.width) / 2.0), floori(float(arena.height) / 2.0))
 	var cells: Array[Vector2i] = [center]
 	for port in ports:
 		var cursor := port

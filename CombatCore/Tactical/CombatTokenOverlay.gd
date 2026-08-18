@@ -92,12 +92,12 @@ func _draw_top() -> void:
 	var intent_label := str(intent.get("readable_label", intent.get("label", "HOLDING"))).to_upper()
 	var icon_id := str(intent.get("icon_id", intent.get("icon", "hold"))).to_lower()
 	var icon := _intent_icon(icon_id, intent_label)
-	var name := str(actor_snapshot.get("name", actor_snapshot.get("actor_id", "ACTOR"))).to_upper()
+	var actor_name := str(actor_snapshot.get("name", actor_snapshot.get("actor_id", "ACTOR"))).to_upper()
 	var plate := Rect2(-width * 0.5, top_y - 14.0, width, 30.0)
 	draw_rect(plate, Color(0.025, 0.035, 0.036, 0.92), true)
 	draw_rect(plate, relationship_color, false, 1.5)
 	draw_circle(Vector2(plate.position.x + 10.0, plate.position.y + 10.0), 5.0, relationship_color)
-	draw_string(ThemeDB.fallback_font, Vector2(plate.position.x + 19.0, plate.position.y + 12.0), name, HORIZONTAL_ALIGNMENT_LEFT, width - 24.0, 9, Color("e1e4de"))
+	draw_string(ThemeDB.fallback_font, Vector2(plate.position.x + 19.0, plate.position.y + 12.0), actor_name, HORIZONTAL_ALIGNMENT_LEFT, width - 24.0, 9, Color("e1e4de"))
 	draw_string(ThemeDB.fallback_font, Vector2(plate.position.x + 8.0, plate.position.y + 25.0), "%s  %s" % [icon, intent_label], HORIZONTAL_ALIGNMENT_LEFT, width - 16.0, 9, relationship_color)
 
 

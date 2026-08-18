@@ -6,7 +6,7 @@ class_name CombatPerceptionSnapshot
 
 var revision: int = 0
 var encounter_seed: String = ""
-var round: int = 0
+var round_index: int = 0
 var _actor: Dictionary = {}
 var _hard_facts: Dictionary = {}
 var _known_actors: Dictionary = {}
@@ -71,7 +71,7 @@ func duplicate_snapshot():
 	var copy = (load("res://CombatCore/Tactical/CombatPerceptionSnapshot.gd") as Script).new()
 	copy.revision = revision
 	copy.encounter_seed = encounter_seed
-	copy.round = round
+	copy.round_index = round_index
 	copy.actor = actor.duplicate(true)
 	copy.hard_facts = hard_facts.duplicate(true)
 	copy.known_actors = {}
@@ -111,7 +111,7 @@ func to_dict() -> Dictionary:
 	return {
 		"revision": revision,
 		"encounter_seed": encounter_seed,
-		"round": round,
+		"round": round_index,
 		"actor": actor.duplicate(true),
 		"hard_facts": hard_facts.duplicate(true),
 		"known_actors": observed,

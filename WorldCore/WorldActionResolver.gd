@@ -259,10 +259,19 @@ static func resolve_work_attempt(
 ) -> WorldActionReceipt:
 	var receipt := WorldActionReceipt.new()
 	receipt.action_id = str(work_state.get("action_id", ""))
+	receipt.receipt_id = str(work_state.get(
+		"receipt_id",
+		"%s:attempt:%d" % [receipt.action_id, int(work_state.get("attempt_index", 0))]
+	))
+	receipt.node_id = str(request.payload.get("node_id", ""))
 	receipt.actor_id = request.actor_id
 	receipt.target_id = request.target_id
+	receipt.target_coords = request.target_coords
 	receipt.verb_id = request.verb_id
 	receipt.method_id = request.method_id
+	receipt.expected_actor_revision = request.expected_actor_revision
+	receipt.expected_target_revision = request.expected_target_revision
+	receipt.expected_hex_revision = int(request.payload.get("expected_hex_revision", -1))
 	receipt.committed = true
 	receipt.elapsed_minutes = maxi(1, int(work_state.get("elapsed_minutes", 15)))
 	receipt.exertion = maxf(0.1, float(profile.normalized_units()) * 0.45)
@@ -364,11 +373,26 @@ static func resolve_direct_action(
 	## movement, pickup, inspection, eating, drinking, talking, and rest can
 	## therefore share the same clock, signal, and presentation boundary.
 	var receipt := WorldActionReceipt.new()
-	receipt.action_id = "%s:%s:%s" % [request.actor_id, request.verb_id, request.target_id]
+	receipt.action_id = str(request.payload.get(
+		"action_id",
+		"%s:%s:%s" % [request.actor_id, request.verb_id, request.target_id]
+	))
+	receipt.receipt_id = str(request.payload.get(
+		"receipt_id",
+		"%s:attempt:%d" % [
+			receipt.action_id,
+			int(request.payload.get("attempt_index", 0)),
+		]
+	))
+	receipt.node_id = str(request.payload.get("node_id", ""))
 	receipt.actor_id = request.actor_id
 	receipt.target_id = request.target_id
+	receipt.target_coords = request.target_coords
 	receipt.verb_id = request.verb_id
 	receipt.method_id = request.method_id
+	receipt.expected_actor_revision = request.expected_actor_revision
+	receipt.expected_target_revision = request.expected_target_revision
+	receipt.expected_hex_revision = int(request.payload.get("expected_hex_revision", -1))
 	receipt.committed = true
 	receipt.elapsed_minutes = maxi(0, elapsed_minutes)
 	receipt.exertion = maxf(0.0, exertion)

@@ -391,7 +391,7 @@ func _apply_corner_states() -> void:
 	_layout_corner_panels()
 
 
-func _set_corner_preview(panel_id: String, title: String, summary: String) -> void:
+func _set_corner_preview(_panel_id: String, _title: String, _summary: String) -> void:
 	# Persistent surfaces are now rendered directly; retain this helper for old
 	# serialized HUD callers without reintroducing preview-card hierarchy.
 	return
@@ -454,12 +454,12 @@ func _layout_corner_panel(
 	var expanded := panel_id in _expanded_corner_ids
 	var width := expanded_width if expanded else preview_width
 	var height := expanded_height if expanded else preview_height
-	var position := preview_position
+	var panel_position := preview_position
 	if panel_id in ["site", "hostile"]:
-		position.x = size.x - 12.0 - width
+		panel_position.x = size.x - 12.0 - width
 	if expanded and not is_top:
-		position.y = size.y - 12.0 - height
-	panel.position = position
+		panel_position.y = size.y - 12.0 - height
+	panel.position = panel_position
 	panel.size = Vector2(width, height)
 
 
@@ -775,12 +775,12 @@ func _cancel_complete_chain() -> void:
 	selection_cancelled.emit()
 
 
-func configure_action_catalog(catalog: CombatActionCatalog) -> void:
-	self.catalog = catalog
+func configure_action_catalog(action_catalog: CombatActionCatalog) -> void:
+	self.catalog = action_catalog
 	_definitions.clear()
-	if catalog == null:
+	if action_catalog == null:
 		return
-	for definition in catalog.all():
+	for definition in action_catalog.all():
 		_definitions[definition.action_id] = definition
 
 
@@ -1774,8 +1774,8 @@ func _render_weapon_actions() -> void:
 		_add_weapon_action("ready", true)
 
 
-func _add_weapon_action(action_id: String, visible: bool) -> void:
-	if not visible:
+func _add_weapon_action(action_id: String, _visible: bool) -> void:
+	if not _visible:
 		return
 	var action_quote := _quote(action_id)
 	var definition := _definition(action_id)
@@ -1796,7 +1796,7 @@ func _add_weapon_action(action_id: String, visible: bool) -> void:
 	_weapon_action_buttons[action_id] = button
 
 
-func _weapon_denial_text(action_id: String, action_quote: CombatActionQuote) -> String:
+func _weapon_denial_text(_action_id: String, action_quote: CombatActionQuote) -> String:
 	if action_quote == null:
 		return "UNAVAILABLE"
 	match action_quote.denial_code:

@@ -1,5 +1,7 @@
 extends SceneTree
 
+const _NpcSimulator := preload("res://WorldCore/MacroNpcSimulator.gd")
+
 
 func _init() -> void:
 	var store := RuntimeStateStore.new()
@@ -30,6 +32,21 @@ func _init() -> void:
 	if updated == null or float(updated.runtime["biology"]["hunger"]) >= 12.0:
 		_fail("NPC runtime service did not apply a snapshot-derived patch.")
 		return
+	var manager := MacroGameManager.new()
+	var purpose_record := EntityRecord.new()
+	purpose_record.entity_id = "projection-npc"
+	purpose_record.definition = {"faction": GameEnums.Faction.SCAVENGER_CELL}
+	purpose_record.runtime = {}
+	var purpose_before := purpose_record.to_dict()
+	manager._ensure_npc_purpose(purpose_record)
+	if purpose_record.to_dict() != purpose_before:
+		_fail("HUD purpose projection mutated an authoritative record.")
+		return
+	_NpcSimulator.projection_score(purpose_record, Vector2i.ZERO)
+	if purpose_record.to_dict() != purpose_before:
+		_fail("NPC proximity scoring mutated an authoritative record.")
+		return
+	manager.free()
 	print("[RUNTIME_SNAPSHOT_BOUNDARY] PASS")
 	quit(0)
 

@@ -3,11 +3,8 @@ class_name MacroActiveZoneService
 
 ## Applies the generated campaign zone to the run-scoped world projection.
 ##
-## This service owns the stateful part of a node swap: replacing the legacy
-## world-generator cache, copying the generated hex records into the runtime
-## store, and preserving the player's live runtime while moving the token to
-## the authored arrival rim. Presentation refreshes remain with the manager so
-## existing HUD ordering and compatibility signals stay unchanged.
+## RuntimeStateStore has already completed the node transaction. This service
+## rebuilds scene projections and places the live token from canonical records.
 
 var _world_state: RuntimeStateStore
 var _world_generator: HexWorldGenerator
@@ -40,25 +37,13 @@ func apply(campaign: MacroProgressController) -> Dictionary:
 	var zone := campaign.zone_generator
 	_world_generator.enable_zone_bounds(GameEnums.MACRO_ZONE_RADIUS)
 	_world_generator.configure_seed(_world_state.world_seed + ":node:" + zone.node_id)
-	_world_generator.inject_zone_hexes(zone.world_hex_cache)
+	_world_generator.rebuild_projection_from_store()
 	_world_generator.inject_zone_decorations(zone.zone_decorations)
-	for coords in zone.world_hex_cache.keys():
-		var hex: MacroHexData = zone.world_hex_cache[coords]
-		_world_state.set_hex_record(coords, hex.to_state())
 
-	var start_coords := zone.start_coords
-	# Preserve player runtime (inventory) across node swaps.
-	var player_core := _player_token.get_humanoid_core()
-	if player_core != null and _world_state.player_record != null:
-		_world_state.update_player_runtime(
-			player_core.capture_runtime_state().to_dict(),
-			start_coords
-		)
-	else:
-		_world_state.set_player_record(
-			_player_token.capture_runtime_record(),
-			start_coords
-		)
+	if _world_state.player_record == null:
+		return {"applied": false, "start_coords": Vector2i.ZERO}
+	_player_token.restore_runtime_record(_world_state.player_record)
+	var start_coords := _world_state.player_record.coords
 
 	var start_pixel := Vector2.ZERO
 	if _map_visualizer != null:

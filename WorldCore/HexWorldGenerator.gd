@@ -95,7 +95,39 @@ func inject_zone_hexes(hexes: Dictionary) -> void:
 	zone_decorations.clear()
 	for coords in hexes.keys():
 		if coords is Vector2i:
-			world_hex_cache[coords] = hexes[coords]
+			var value: Variant = hexes[coords]
+			if value is MacroHexData:
+				world_hex_cache[coords] = MacroHexData.from_state(value.to_state())
+			elif value is HexRecord:
+				world_hex_cache[coords] = MacroHexData.from_state(value)
+
+
+func refresh_hex_projection(coords: Vector2i) -> void:
+	if _world_state == null:
+		return
+	var snapshot := _world_state.get_hex_snapshot(coords)
+	if snapshot.is_empty():
+		world_hex_cache.erase(coords)
+		return
+	world_hex_cache[coords] = MacroHexData.from_state(HexRecord.from_dict(snapshot))
+
+
+func rebuild_projection_from_store() -> void:
+	world_hex_cache.clear()
+	if _world_state == null:
+		return
+	for coords in _world_state.get_hex_coordinates():
+		refresh_hex_projection(coords)
+
+
+func commit_hex_projection(coords: Vector2i, hex: MacroHexData) -> bool:
+	if _world_state == null or hex == null:
+		return false
+	if not _world_state.replace_hex_record(coords, hex.to_state(), hex.revision):
+		return false
+	refresh_hex_projection(coords)
+	hex.apply_state(_world_state.get_hex_record(coords))
+	return true
 
 
 func inject_zone_decorations(decorations: Dictionary) -> void:
@@ -144,16 +176,21 @@ func get_hex_at(coords: Vector2i) -> MacroHexData:
 			)
 		# Persisted records are authoritative. Reapplying regional defaults here
 		# changes injected campaign-zone values after a cache clear/save reload.
-		_world_state.set_hex_record(coords, persistent_hex.to_state())
 		world_hex_cache[coords] = persistent_hex
 		return persistent_hex
+	if _world_state != null and not _world_state.active_node_id.is_empty():
+		# Directional node baselines are materialized atomically by the store.
+		# A projection lookup must not invent a missing canonical cell.
+		return build_void_hex(coords)
 
 	var new_hex := _build_fresh_hex(coords)
 	_apply_region_hazard(coords, new_hex)
 	if new_hex.visual_variant_hash == 0:
 		new_hex.visual_variant_hash = compute_visual_variant_hash(coords, master_seed)
 	world_hex_cache[coords] = new_hex
-	_world_state.set_hex_record(coords, new_hex.to_state())
+	if _world_state != null:
+		# Explicit legacy authored-map/bootstrap compatibility only.
+		_world_state.replace_hex_record(coords, new_hex.to_state(), -1, false)
 	return new_hex
 
 func _build_fresh_hex(coords: Vector2i) -> MacroHexData:

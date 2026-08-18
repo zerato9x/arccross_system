@@ -4,6 +4,8 @@ class_name HexRecord
 ## Typed neutral hex record. SystemCore's persistence representation of a hex.
 ## WorldCore's MacroHexData converts to/from this at the domain boundary.
 
+@export var revision: int = 0
+
 @export var biome: GameEnums.GridBiome = GameEnums.GridBiome.PLAINS
 @export var terrain_tile: GameEnums.MacroTerrainTile = GameEnums.MacroTerrainTile.PLAINS_GRASS
 @export var flora_layer: GameEnums.MacroFloraLayer = GameEnums.MacroFloraLayer.NONE
@@ -58,6 +60,7 @@ var combat_site_state: Dictionary = {}
 
 func to_dict() -> Dictionary:
 	return {
+		"revision": revision,
 		"biome": biome,
 		"terrain_tile": terrain_tile,
 		"flora_layer": flora_layer,
@@ -110,6 +113,7 @@ func to_dict() -> Dictionary:
 
 static func from_dict(data: Dictionary) -> HexRecord:
 	var record := HexRecord.new()
+	record.revision = maxi(0, int(data.get("revision", 0)))
 	record.biome = data.get("biome", GameEnums.GridBiome.PLAINS)
 	record.terrain_tile = data.get(
 		"terrain_tile",

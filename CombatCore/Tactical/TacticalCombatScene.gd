@@ -77,9 +77,8 @@ func setup_encounter(encounter: CombatEncounterRecord) -> void:
 	_participant_contexts.clear()
 	for actor_record in encounter.actors:
 		_participant_contexts[str(actor_record.get("actor_id", ""))] = actor_record.get("participant_context", {}).duplicate(true)
-	presentation_player.configure_dialogue_seed(
-		str(encounter.combat_seed if encounter.combat_seed != 0 else encounter.encounter_id)
-	)
+	var dialogue_seed := str(encounter.combat_seed) if encounter.combat_seed != 0 else encounter.encounter_id
+	presentation_player.configure_dialogue_seed(dialogue_seed)
 	var player_record: Dictionary = _find_direct_player_record(encounter)
 	var autonomous_records := _find_autonomous_actors(encounter.actors, player_record)
 	if player_record.is_empty() or autonomous_records.is_empty():
@@ -351,7 +350,7 @@ func _on_turn_started(actor: HumanoidCore) -> void:
 		_refresh_context_quotes()
 
 
-func _on_combat_bleed_tick(actor: HumanoidCore, event: Dictionary) -> void:
+func _on_combat_bleed_tick(actor: HumanoidCore, _event: Dictionary) -> void:
 	if actor == null:
 		return
 	_resolving = true

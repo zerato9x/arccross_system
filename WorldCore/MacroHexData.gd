@@ -1,6 +1,8 @@
 extends Resource
 class_name MacroHexData
 
+var revision: int = 0
+
 @export var biome: GameEnums.GridBiome = GameEnums.GridBiome.PLAINS
 @export var terrain_tile: GameEnums.MacroTerrainTile = GameEnums.MacroTerrainTile.PLAINS_GRASS
 @export var flora_layer: GameEnums.MacroFloraLayer = GameEnums.MacroFloraLayer.NONE
@@ -61,6 +63,7 @@ var combat_site_state: Dictionary = {}
 
 func to_state() -> HexRecord:
 	var record := HexRecord.new()
+	record.revision = revision
 	record.biome = biome
 	record.terrain_tile = terrain_tile
 	record.flora_layer = flora_layer
@@ -119,6 +122,7 @@ func apply_state(state) -> void:
 		source = HexRecord.from_dict(state)
 	else:
 		return
+	revision = source.revision
 	biome = source.biome
 	terrain_tile = source.terrain_tile
 	flora_layer = source.flora_layer

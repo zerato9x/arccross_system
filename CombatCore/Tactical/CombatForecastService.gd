@@ -70,7 +70,7 @@ static func build(
 	return forecast
 
 
-static func _melee_hit_chance(attacker: Dictionary, weapon: Dictionary, accuracy_modifier: float) -> float:
+static func _melee_hit_chance(attacker: Dictionary, _weapon: Dictionary, accuracy_modifier: float) -> float:
 	var arm_function := clampf(float(attacker.get("right_arm_function", GameEnums.SCALE_MAX)) / GameEnums.SCALE_MAX, 0.0, 1.0)
 	var injury := 1.0 - arm_function
 	var balance_modifier := -0.12 if bool(attacker.get("off_balance", false)) else 0.0
@@ -81,7 +81,7 @@ static func _ranged_hit_chance(
 	attacker: Dictionary,
 	weapon: Dictionary,
 	distance: int,
-	target_sector: Vector2i,
+	_target_sector: Vector2i,
 	accuracy_modifier: float,
 	action_quote: CombatActionQuote
 ) -> float:

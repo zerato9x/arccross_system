@@ -22,7 +22,7 @@ static func build(
 	snapshot.frozen = false
 	snapshot.revision = rules_state.revision
 	snapshot.encounter_seed = rules_state.encounter_seed
-	snapshot.round = rules_state.round
+	snapshot.round_index = rules_state.round_index
 	snapshot.reevaluation_trigger = reevaluation_trigger
 	var self_facts: Dictionary = rules_state.actor(actor_id)
 	var actor_projection: Dictionary = self_facts.get("private", {}).duplicate(true)

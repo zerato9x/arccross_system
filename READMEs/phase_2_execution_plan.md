@@ -83,6 +83,11 @@ profiles, not competing rules engines.
 
 ### P2-09: Real-Time Duel Overhaul — Implemented July 17, 2026
 
+> Historical/reference record only. This real-time duel lane is not current
+> production combat authority. The active contract is turn-based tactical
+> `squad_7x5`; duel/realtime resources remain Lab or compatibility fixtures and
+> must not be used to define the next production reconciliation.
+
 - `RealtimeDuelRuntime` replaces turns with fixed-step AP regeneration and
   owner-validated action timelines.
 - A/D moves through the existing twelve-slot lane; terrain, no-crossing,

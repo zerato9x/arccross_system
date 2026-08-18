@@ -2,9 +2,9 @@
 
 Authoritative implementation contract for generated radius-12 local zones.
 
-**Status:** First starter-ring implementation shipped and verified on July 29,
-2026. Generator V2 uses `world_generation_version = 2`; legacy run saves are
-not compatible with this generation contract.
+**Status:** First starter-ring implementation shipped July 29, 2026; authority
+reconciled August 18, 2026. The output contract remains Generator V2 while run
+state preserves `world_generation_version = 3`.
 
 This document owns local-zone composition, logistics, settlement uniqueness,
 road overlays, seed boundaries, and Generator V2 validation. It defers campaign
@@ -59,6 +59,13 @@ because of player movement or discovery order.
 Local road overlays do not create or reveal Node Web edges. Hidden-node
 topology remains a separate campaign-graph responsibility; when hidden content
 uses seeded placement, it must attach to stable graph and content IDs.
+
+`MacroZoneGenerator` returns detached baseline records and diagnostics. It does
+not materialize, restore, or persist a node. `RuntimeStateStore` owns that
+transition and validates the complete candidate before swapping active state.
+`HexWorldGenerator` is rebuilt from store snapshots after transitions, loads,
+and committed transactions; mutating its cached `MacroHexData` cannot mutate
+the canonical `HexRecord`.
 
 ## Composition order
 

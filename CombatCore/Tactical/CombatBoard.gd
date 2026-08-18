@@ -455,6 +455,8 @@ func combat_state(actor: HumanoidCore) -> CombatActorState:
 		(existing as CombatActorState).reconcile()
 		return existing as CombatActorState
 	var state := _CombatActorState.from_runtime(existing if existing is Dictionary else {})
+	if state == null:
+		return null
 	actor.set_meta("combat_actor_state", state)
 	return state
 

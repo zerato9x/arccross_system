@@ -50,7 +50,7 @@ func index_for(coords: Vector2i) -> int:
 
 
 func coords_for(index: int) -> Vector2i:
-	return Vector2i(index % width, index / width)
+	return Vector2i(index % width, floori(float(index) / float(width)))
 
 
 func configure_topology(profile: CombatTopologyProfile) -> void:

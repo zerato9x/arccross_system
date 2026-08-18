@@ -104,29 +104,29 @@ func resolve(
 			healed_this_turn += to_heal
 		total_healed += healed_this_turn
 
-		_advance_survival_time(
+		hex_data.camp_rest_count += 1
+		if not _commit_camp_cycle(
+			coords,
+			hex_data,
 			_time_callback_minutes(),
 			0.25,
-			coords,
-			float(metrics.get("shelter", 0.0)),
-			"sleep"
-		)
-		hex_data.camp_rest_count += 1
+			float(metrics.get("shelter", 0.0))
+		):
+			_set_event("Camp transaction was rejected without partial state.")
+			_refresh()
+			return
 		turns_rested += 1
 		_advance_world(1, true)
 
 		if bool(result.get("interrupted", false)):
-			_persist(coords, hex_data)
 			_refresh()
 			_spawn_intruder(coords)
 			return
 
 		if _has_pending_collision():
-			_persist(coords, hex_data)
 			_refresh()
 			return
 
-	_persist(coords, hex_data)
 	_refresh()
 	_set_event("Camp rest resolved at HEX %d,%d." % [coords.x, coords.y])
 	_show_result(
@@ -185,6 +185,22 @@ func _advance_survival_time(
 	)
 
 
+func _commit_camp_cycle(
+	coords: Vector2i,
+	hex_data: MacroHexData,
+	elapsed_minutes: int,
+	exertion: float,
+	insulation_bonus: float
+) -> bool:
+	return bool(_call("commit_camp_cycle", [
+		coords,
+		hex_data,
+		elapsed_minutes,
+		exertion,
+		insulation_bonus,
+	]))
+
+
 func _time_callback_minutes() -> int:
 	var value: Variant = _call("camp_minutes")
 	return int(value) if value != null else 30
@@ -199,7 +215,8 @@ func _has_pending_collision() -> bool:
 
 
 func _persist(coords: Vector2i, hex_data: MacroHexData) -> void:
-	world_state.set_hex_record(coords, hex_data.to_state())
+	if world_state.replace_hex_record(coords, hex_data.to_state(), hex_data.revision):
+		hex_data.apply_state(world_state.get_hex_record(coords))
 	var runtime: Variant = _call("capture_player_runtime")
 	if runtime is Dictionary:
 		world_state.update_player_runtime(runtime, coords)

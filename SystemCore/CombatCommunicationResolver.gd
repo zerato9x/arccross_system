@@ -31,7 +31,7 @@ static func evaluate(
 	intent: String,
 	initiator: Dictionary,
 	target: Dictionary,
-	relation: int,
+	_relation: int,
 	context: Dictionary = {},
 	profile: CombatCommunicationProfile = null
 ) -> Dictionary:

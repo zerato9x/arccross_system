@@ -59,7 +59,7 @@ func load_campaign(graph_data: Dictionary, p_active_node_id: String = "") -> voi
 	zone_generator.configure_seed(world_seed)
 	_apply_meta_unlocks()
 	if not active_node_id.is_empty() and graph.has_node(active_node_id):
-		_generate_active_zone(graph.get_node(active_node_id), last_arrival_direction)
+		_restore_generator_projection(active_node_id, last_arrival_direction)
 
 
 func get_available_nodes() -> Array[String]:
@@ -152,8 +152,6 @@ func enter_node(
 			"arrival_direction",
 			HexCoordUtils.opposite_travel_direction(exit_direction)
 		)) as GameEnums.MacroTravelDirection
-		_mark_active_traversed()
-		_capture_active_node_runtime()
 	elif MacroGraphGenerator.allowed_start_node_ids().has(node_id):
 		arrival = MacroGraphGenerator.arrival_direction_for_start(node_id)
 	return _enter_node_unchecked(node, arrival)
@@ -171,18 +169,31 @@ func enter_initial_node(node_id: String, arrival_direction: int) -> bool:
 
 
 func _enter_node_unchecked(node: MacroNodeData, arrival: int) -> bool:
-	_clear_local_zone_runtime()
-
+	var graph_before := graph.to_dict()
+	if not active_node_id.is_empty():
+		_capture_active_permanent_mutations()
+		_mark_active_traversed()
 	node.discovered = true
 	node.details_revealed = true
+	_generate_active_zone(node, arrival)
+	if _world_state == null or not _world_state.transition_active_node(
+		node.id,
+		int(arrival),
+		zone_generator.build_baseline_records(),
+		graph.to_dict(),
+		zone_generator.start_coords
+	):
+		graph = MacroMapGraph.from_dict(graph_before)
+		_world_state.set_campaign_state(
+			graph_before,
+			active_node_id,
+			int(last_arrival_direction)
+		)
+		_restore_generator_projection(active_node_id, last_arrival_direction)
+		return false
 	active_node_id = node.id
 	last_arrival_direction = arrival
-	_generate_active_zone(node, arrival)
-
-	if _world_state != null:
-		_world_state.active_node_id = node.id
-		_world_state.active_arrival_direction = int(arrival)
-		_world_state.campaign_graph = graph.to_dict()
+	_restore_generator_projection(active_node_id, last_arrival_direction)
 	node_entered.emit(node.id)
 	apply_discovery_trigger("node_entered:%s" % node.id)
 	return true
@@ -206,7 +217,9 @@ func apply_discovery_trigger(trigger_id: String) -> PackedStringArray:
 			continue
 		_reveal_rule(rule)
 	if _world_state != null and not _newly_revealed_node_ids.is_empty():
-		_world_state.campaign_graph = graph.to_dict()
+		_world_state.set_campaign_state(
+			graph.to_dict(), active_node_id, int(last_arrival_direction)
+		)
 	return _newly_revealed_node_ids.duplicate()
 
 
@@ -228,7 +241,9 @@ func reveal_nodes(node_ids: PackedStringArray) -> PackedStringArray:
 			):
 				edge["revealed"] = true
 	if _world_state != null and not _newly_revealed_node_ids.is_empty():
-		_world_state.campaign_graph = graph.to_dict()
+		_world_state.set_campaign_state(
+			graph.to_dict(), active_node_id, int(last_arrival_direction)
+		)
 	return _newly_revealed_node_ids.duplicate()
 
 
@@ -313,7 +328,9 @@ func refresh_meta_unlocks() -> Array[String]:
 	if not newly.is_empty():
 		nodes_unlocked.emit(newly)
 	if _world_state != null and graph != null:
-		_world_state.campaign_graph = graph.to_dict()
+		_world_state.set_campaign_state(
+			graph.to_dict(), active_node_id, int(last_arrival_direction)
+		)
 	return newly
 
 
@@ -359,11 +376,29 @@ func _generate_active_zone(node: MacroNodeData, arrival_direction: int) -> void:
 		arrival_direction,
 		_connected_directions(node.id)
 	)
-	if _world_state != null and _world_state.restore_node_runtime(node.id):
-		zone_generator.world_hex_cache.clear()
-		for coords in _world_state.hex_records.keys():
-			var record: HexRecord = _world_state.hex_records[coords]
-			zone_generator.world_hex_cache[coords] = MacroHexData.from_state(record)
+
+
+func _restore_generator_projection(node_id: String, arrival_direction: int) -> void:
+	if graph == null or node_id.is_empty():
+		return
+	var active_node := graph.get_node(node_id)
+	if active_node == null:
+		return
+	zone_generator.configure_seed(world_seed)
+	zone_generator.generate_node_zone(
+		active_node,
+		arrival_direction,
+		_connected_directions(node_id)
+	)
+	if _world_state == null:
+		return
+	zone_generator.world_hex_cache.clear()
+	for coords in _world_state.get_hex_coordinates():
+		var snapshot := _world_state.get_hex_snapshot(coords)
+		if not snapshot.is_empty():
+			zone_generator.world_hex_cache[coords] = MacroHexData.from_state(
+				HexRecord.from_dict(snapshot)
+			)
 
 
 func _connected_directions(node_id: String) -> Array[int]:
@@ -392,10 +427,9 @@ func _mark_active_traversed() -> void:
 	apply_discovery_trigger("node_traversed:%s" % active.id)
 
 
-func _capture_active_node_runtime() -> void:
+func _capture_active_permanent_mutations() -> void:
 	if _world_state == null or active_node_id.is_empty():
 		return
-	_world_state.capture_node_runtime(active_node_id)
 	var node := get_active_node()
 	if (
 		node != null
@@ -406,24 +440,8 @@ func _capture_active_node_runtime() -> void:
 		_meta_progress.capture_node_mutations(
 			node.id,
 			zone_generator.permanent_baseline_records,
-			_world_state.hex_records
+			_world_state.get_hex_records_snapshot()
 		)
-
-
-func _clear_local_zone_runtime() -> void:
-	if _world_state == null:
-		return
-	_world_state.hex_records.clear()
-	_world_state.entity_records.clear()
-	_world_state.entity_ids_by_coords.clear()
-	_world_state.ground_item_records.clear()
-	# Signals and reservations belong to the node snapshot that is being
-	# unloaded. Keeping them live across a node swap lets an old noise event
-	# wake actors in an unrelated zone and leaves stale work reservations behind.
-	_world_state.active_world_actions.clear()
-	_world_state.world_signal_records.clear()
-	if zone_generator != null:
-		zone_generator.world_hex_cache.clear()
 
 
 func _edge_unlocked(edge: Dictionary) -> bool:

@@ -35,6 +35,7 @@ func update_fog(
 	var light_factor := 0.55 if phase == "night" else (0.75 if phase in ["dawn", "dusk"] else 1.0)
 	if actor_context.get("capabilities", []).has("light_source"):
 		light_factor = minf(1.15, light_factor + 0.25)
+	var exploration_changes: Dictionary = {}
 	for coords in _NpcSimulator.coords_in_radius(center_coords, vision_radius):
 		if (
 			world_generator.zone_bounds_enabled
@@ -60,8 +61,18 @@ func update_fog(
 		visible_hexes[coords] = true
 		if not hex_data.is_explored:
 			hex_data.is_explored = true
-			world_state.set_hex_record(coords, hex_data.to_state())
+			exploration_changes[coords] = {
+				"record": hex_data.to_state(),
+				"expected_revision": hex_data.revision,
+			}
 			newly_explored.append(coords)
+	if not exploration_changes.is_empty():
+		if world_state.replace_hex_records_atomic(exploration_changes):
+			for coords in exploration_changes.keys():
+				world_generator.refresh_hex_projection(coords)
+		else:
+			newly_explored.clear()
+			world_generator.rebuild_projection_from_store()
 	if log_callback.is_valid():
 		log_callback.call(
 			"Fog update @%s: %d visible hex(es), %d newly explored."

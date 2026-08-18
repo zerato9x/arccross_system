@@ -1,6 +1,6 @@
 # Official Tactical Combat
 
-Status updated on **August 14, 2026**.
+Status updated on **August 17, 2026**.
 
 ARCCROSS has one production combat authority:
 `CombatCore/Tactical/TacticalCombatScene.tscn`. `GameDirector` always hands it

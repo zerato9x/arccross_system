@@ -214,8 +214,10 @@ Damage Type describes an attack vector. Trauma describes a resulting condition.
   authored damage before any configured falloff.
 - **Firearm Feed:** The exact loose-ammunition ID and optional magazine, clip,
   or speedloader ID accepted by a firearm.
-- **Cycle State:** Runtime firearm state indicating that its action must be
-  cycled before another shot.
+- **Cycle State:** Runtime firearm state indicating that the weapon is jammed
+  and needs the production CYCLE action to clear that jam. Ordinary
+  chamber, bolt, and pump cycling is resolved by Fire or Reload rather than
+  a separate player-visible prerequisite.
 - **Attachment Compatibility:** Authored weapon IDs to which an attachment may
   be fitted. Compatibility metadata does not itself implement the granted
   action.
@@ -282,8 +284,9 @@ describes a tool; Damage Type describes a hit.
   weapons.
 - **Specialized Weapon Action:** An additional deterministic action ID authored
   by a weapon and validated against the combat catalog.
-- **CYCLE:** Cycle a firearm after firing, clear its jam, or hand-load one
-  compatible loose round when that weapon supports manual loading.
+- **CYCLE:** Clear an active firearm jam. Ordinary chamber, bolt, and pump
+  cycling is resolved by Fire or Reload; production CYCLE is not a post-fire
+  or manual-loading action.
 - **RELOAD:** Load a firearm through its exact compatible magazine, clip, or
   speedloader.
 - **Shove Replan:** Exactly one AI-only plan refresh queued after presentation

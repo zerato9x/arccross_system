@@ -97,7 +97,7 @@ func _participant_context(actor_id: String, encounter: CombatEncounterRecord) ->
 
 func _directional_deployment(
 	profile: CombatTopologyProfile,
-	side: String,
+	_side: String,
 	entry_direction: int,
 	base: Array[Vector2i]
 ) -> Array[Vector2i]:
@@ -160,7 +160,7 @@ func _linear_ambush_position(
 			GameEnums.AmbushPosition.CLOSE:
 				result.x = maxi(0, profile.columns - 4)
 			GameEnums.AmbushPosition.STANDARD:
-				result.x = profile.columns / 3
+				result.x = floori(float(profile.columns) / 3.0)
 	elif encounter.context == GameEnums.EncounterContext.ENEMY_AMBUSH and side == "enemy":
 		result.x = mini(profile.columns - 1, 3)
 	return result

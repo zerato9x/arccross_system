@@ -3,98 +3,60 @@ extends RefCounted
 ## Neutral macro presentation snapshots for inventory UI and world HUD.
 ## Domain rules stay in MacroGameManager callbacks passed at build time.
 
-const _WOUND_TREATMENTS: WoundTreatmentProfile = preload(
-	"res://BiologicalCore/default_wound_treatments.tres"
-)
-
-
 static func build_limb_snapshot(body: HumanoidBody) -> Array:
-	var limbs: Array = []
-	if body == null:
-		return limbs
-	for region in [
-		GameEnums.LimbRegion.HEAD,
-		GameEnums.LimbRegion.UPPER_TORSO,
-		GameEnums.LimbRegion.LOWER_TORSO,
-		GameEnums.LimbRegion.LEFT_ARM,
-		GameEnums.LimbRegion.RIGHT_ARM,
-		GameEnums.LimbRegion.LEFT_LEG,
-		GameEnums.LimbRegion.RIGHT_LEG,
-	]:
-		var trauma_index := int(
-			body.limb_trauma.get(region, GameEnums.TraumaType.NONE)
-		)
-		var damage_key := "BLUNT"
-		if body.limb_damage_types.has(region):
-			var damage_index := int(body.limb_damage_types[region])
-			damage_key = GameEnums.DamageType.keys()[damage_index]
-		var wounds: Array = []
-		for wound in body.get_wounds_for_limb(region):
-			if wound is Wound:
-				var treatment := _WOUND_TREATMENTS.descriptor_for(int(wound.wound_type))
-				wounds.append({
-					"id": wound.wound_id,
-					"type": wound.display_name().to_upper(),
-					"severity": wound.severity,
-					"bleeding_rate": wound.active_bleeding_rate(),
-					"pain": wound.pain,
-					"contamination": wound.contamination,
-					"treated": wound.treated,
-					"treatment": treatment,
-				})
-		limbs.append({
-			"region": GameEnums.LimbRegion.keys()[region],
-			"current": float(body.limb_hp.get(region, 0.0)),
-			"maximum": body.get_limb_max(region),
-			"trauma": GameEnums.TraumaType.keys()[trauma_index],
-			"damage_type": damage_key,
-			"bleeding_rate": body.get_limb_bleeding_rate(region),
-			"wounds": wounds,
-		})
-	return limbs
+	return BiologicalSnapshotService.capture_limbs(body)
 
 
 static func build_medical_item_snapshot(inventory: InventorySystem) -> Array:
-	var medical_items: Array = []
-	if inventory == null:
-		return medical_items
-	for item in inventory.get_all_items():
-		if item == null or item.item_type != GameEnums.ItemType.CONSUMABLE:
-			continue
-		medical_items.append({
-			"instance_id": item.instance_id,
-			"item_id": item.id,
-			"name": item.display_name,
-			"sprite_path": item.get_inventory_sprite_path(),
-			"effect": int(item.consumable_effect),
-			"potency": item.consumable_potency,
-			"stack_count": item.stack_count,
-		})
-	return medical_items
+	return InventorySnapshotService.capture_medical_items(inventory)
 
 
 static func build_emergencies(body: HumanoidBody, player_core: HumanoidCore) -> Array:
-	var emergencies: Array = []
-	if body == null:
-		return emergencies
-	if body.blood_level <= 4.0:
-		emergencies.append("LOW_BLOOD")
-	if body.hunger <= 3.0:
-		emergencies.append("STARVING")
-	if body.thirst <= 3.0:
-		emergencies.append("DEHYDRATED")
-	if body.fatigue >= 9.0:
-		emergencies.append("EXHAUSTED")
-	if body.get_total_bleeding_rate() > 0.0:
-		emergencies.append("BLEEDING")
-	if body.get_total_pain() >= 8.0:
-		emergencies.append("SEVERE_PAIN")
-	if body.get_infection_risk() >= 8.0:
-		emergencies.append("INFECTION_RISK")
-	return emergencies
+	return BiologicalSnapshotService.capture_emergencies(body)
 
 
 static func build_inventory_snapshot(
+	player_core: HumanoidCore,
+	player_coords: Vector2i,
+	world_state: RuntimeStateStore,
+	can_offer_equip_callback: Callable,
+	allowed_equipment_slots_callback: Callable
+) -> Dictionary:
+	return build_inventory_snapshot_from_neutral(
+		BiologicalSnapshotService.capture(player_core),
+		InventorySnapshotService.capture(
+			player_core,
+			world_state.get_ground_items(player_coords),
+			can_offer_equip_callback,
+			allowed_equipment_slots_callback
+		),
+		player_coords,
+		world_state.get_world_time_snapshot()
+	)
+
+
+static func build_inventory_snapshot_from_neutral(
+	biological_snapshot: Dictionary,
+	inventory_snapshot: Dictionary,
+	player_coords: Vector2i,
+	world_time: Dictionary
+) -> Dictionary:
+	if biological_snapshot.is_empty() or inventory_snapshot.is_empty():
+		return {}
+	var result := inventory_snapshot.duplicate(true)
+	result["coords"] = player_coords
+	result["world_time"] = world_time.duplicate(true)
+	result["character"] = biological_snapshot.get("character", {}).duplicate(true)
+	result["limbs"] = biological_snapshot.get("limbs", []).duplicate(true)
+	var loadout: Dictionary = result.get("loadout_stats", {}).duplicate(true)
+	loadout["threat"] = float(biological_snapshot.get("threat", 0.0))
+	loadout["burden"] = float(biological_snapshot.get("burden", 0.0))
+	loadout["kinetic_tier"] = str(biological_snapshot.get("kinetic_tier", ""))
+	result["loadout_stats"] = loadout
+	return result
+
+
+static func _legacy_build_inventory_snapshot(
 	player_core: HumanoidCore,
 	player_coords: Vector2i,
 	world_state: RuntimeStateStore,
@@ -203,32 +165,28 @@ static func build_inventory_snapshot(
 
 
 static func build_character_snapshot(player_core: HumanoidCore) -> Dictionary:
-	if player_core == null or player_core.definition == null:
-		return {
-			"archetype_name": "Unknown",
-			"brawn": 6,
-			"finesse": 6,
-			"fortitude": 6,
-			"will": 6,
-			"occupation": {},
-			"traits": [],
-			"flaws": [],
-		}
-	var definition := player_core.definition
-	var occupations := IdentityCatalog.occupation_descriptors(definition.occupation_id)
-	return {
-		"archetype_name": definition.archetype_name,
-		"brawn": definition.brawn,
-		"finesse": definition.finesse,
-		"fortitude": definition.fortitude,
-		"will": definition.will,
-		"occupation": occupations[0] if not occupations.is_empty() else {},
-		"traits": IdentityCatalog.trait_descriptors(definition.trait_ids),
-		"flaws": IdentityCatalog.flaw_descriptors(definition.flaw_ids),
-	}
+	return BiologicalSnapshotService.capture_character(player_core)
 
 
 static func item_inventory_descriptor(
+	item: ItemData,
+	can_offer_equip_callback: Callable,
+	allowed_equipment_slots_callback: Callable,
+	inventory: InventorySystem,
+	equipment_slot: int = GameEnums.EquipmentSlot.NONE,
+	container_slot: int = GameEnums.EquipmentSlot.NONE
+) -> Dictionary:
+	return InventorySnapshotService.descriptor(
+		item,
+		can_offer_equip_callback,
+		allowed_equipment_slots_callback,
+		inventory,
+		equipment_slot,
+		container_slot
+	)
+
+
+static func _legacy_item_inventory_descriptor(
 	item: ItemData,
 	can_offer_equip_callback: Callable,
 	allowed_equipment_slots_callback: Callable,
@@ -319,17 +277,12 @@ static func ground_inventory_descriptor(
 	allowed_equipment_slots_callback: Callable,
 	inventory: InventorySystem
 ) -> Dictionary:
-	var item := ItemData.from_runtime_state(item_state)
-	var descriptor := item_inventory_descriptor(
-		item,
+	return InventorySnapshotService.ground_descriptor(
+		item_state,
 		can_offer_equip_callback,
 		allowed_equipment_slots_callback,
 		inventory
 	)
-	descriptor["can_equip"] = false
-	descriptor["can_consume"] = false
-	descriptor["can_load_magazine"] = false
-	return descriptor
 
 
 static func enum_key(keys: Array, value: int) -> String:
@@ -364,7 +317,10 @@ static func build_hex_descriptor(
 			GameEnums.EntityWorldStatus.keys(),
 			int(entity_record.world_status)
 		)
-		entity_purpose = ensure_npc_purpose_callback.call(entity_record).capitalize()
+		# Purpose resolution is presentation-only here. The simulator helper
+		# normalizes missing purpose fields, so never hand it the live store record.
+		var purpose_record := EntityRecord.from_dict(entity_record.to_dict())
+		entity_purpose = ensure_npc_purpose_callback.call(purpose_record).capitalize()
 		hostile = is_entity_hostile_callback.call(entity_record.entity_id)
 
 	var entity_inspect := {}
@@ -592,7 +548,9 @@ static func build_macro_activity_snapshot(
 			continue
 		if record.world_status == GameEnums.EntityWorldStatus.HOSTILE:
 			hostile_count += 1
-			var purpose: String = ensure_npc_purpose_callback.call(record)
+			# HUD activity must not become an implicit NPC simulation tick.
+			var purpose_record := EntityRecord.from_dict(record.to_dict())
+			var purpose: String = ensure_npc_purpose_callback.call(purpose_record)
 			purpose_counts[purpose] = int(purpose_counts.get(purpose, 0)) + 1
 			var distance: int = hex_distance_callback.call(
 				player_coords,
@@ -619,6 +577,108 @@ static func build_macro_activity_snapshot(
 
 
 static func build_world_hud_snapshot(
+	player_core: HumanoidCore,
+	player_coords: Vector2i,
+	selected_hex_coords: Vector2i,
+	world_time: Dictionary,
+	last_macro_event: String,
+	macro_turn_index: int,
+	active_token_count: int,
+	world_state: RuntimeStateStore,
+	world_generator: HexWorldGenerator,
+	ensure_npc_purpose_callback: Callable,
+	hex_distance_callback: Callable,
+	hex_label_callback: Callable,
+	is_entity_alive_callback: Callable,
+	is_entity_hostile_callback: Callable
+) -> Dictionary:
+	return build_world_hud_snapshot_from_neutral(
+		BiologicalSnapshotService.capture(player_core),
+		InventorySnapshotService.capture(
+			player_core,
+			world_state.get_ground_items(player_coords),
+			Callable(),
+			Callable()
+		),
+		player_coords,
+		selected_hex_coords,
+		world_time,
+		last_macro_event,
+		macro_turn_index,
+		active_token_count,
+		world_state,
+		world_generator,
+		ensure_npc_purpose_callback,
+		hex_distance_callback,
+		hex_label_callback,
+		is_entity_alive_callback,
+		is_entity_hostile_callback
+	)
+
+
+static func build_world_hud_snapshot_from_neutral(
+	biological_snapshot: Dictionary,
+	inventory_snapshot: Dictionary,
+	player_coords: Vector2i,
+	selected_hex_coords: Vector2i,
+	world_time: Dictionary,
+	last_macro_event: String,
+	macro_turn_index: int,
+	active_token_count: int,
+	world_state: RuntimeStateStore,
+	world_generator: HexWorldGenerator,
+	ensure_npc_purpose_callback: Callable,
+	hex_distance_callback: Callable,
+	hex_label_callback: Callable,
+	is_entity_alive_callback: Callable,
+	is_entity_hostile_callback: Callable
+) -> Dictionary:
+	if biological_snapshot.is_empty() or inventory_snapshot.is_empty():
+		return {}
+	var current_hex := world_generator.get_hex_at(player_coords)
+	var selected_hex := world_generator.get_hex_at(selected_hex_coords)
+	var result := {
+		"coords": player_coords,
+		"current_hex": build_hex_descriptor(
+			player_coords, player_coords, current_hex,
+			world_state.get_entity_at(player_coords),
+			world_state.get_ground_items(player_coords),
+			hex_label_callback.call(player_coords, current_hex),
+			is_entity_alive_callback, is_entity_hostile_callback,
+			ensure_npc_purpose_callback, hex_distance_callback
+		),
+		"selected_hex": build_hex_descriptor(
+			selected_hex_coords, player_coords, selected_hex,
+			world_state.get_entity_at(selected_hex_coords),
+			world_state.get_ground_items(selected_hex_coords),
+			hex_label_callback.call(selected_hex_coords, selected_hex),
+			is_entity_alive_callback, is_entity_hostile_callback,
+			ensure_npc_purpose_callback, hex_distance_callback
+		),
+		"macro_activity": build_macro_activity_snapshot(
+			player_coords, macro_turn_index, active_token_count,
+			world_state.get_all_entity_records(),
+			ensure_npc_purpose_callback, hex_distance_callback
+		),
+		"last_macro_event": last_macro_event,
+		"world_time": world_time,
+		"current_capacity": inventory_snapshot.get("current_capacity", 0),
+		"maximum_capacity": inventory_snapshot.get("maximum_capacity", 0),
+		"medical_items": inventory_snapshot.get("medical_items", []).duplicate(true),
+		"limbs": biological_snapshot.get("limbs", []).duplicate(true),
+		"emergencies": biological_snapshot.get("emergencies", []).duplicate(true),
+		"calendar": GameTimeRules.calendar_snapshot(int(world_time.get("total_minutes", 0))),
+	}
+	for key in [
+		"blood", "pain", "shock", "consciousness", "bleeding_rate",
+		"wound_count", "infection_risk", "hunger", "thirst", "fatigue",
+		"core_temperature", "morale", "arc_energy", "red_mist",
+	]:
+		result[key] = biological_snapshot.get(key)
+	return result
+
+
+static func _legacy_build_world_hud_snapshot(
 	player_core: HumanoidCore,
 	player_coords: Vector2i,
 	selected_hex_coords: Vector2i,

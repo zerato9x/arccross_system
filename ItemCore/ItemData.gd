@@ -188,10 +188,10 @@ func combat_action_ids() -> PackedStringArray:
 func is_blocking_shield() -> bool:
 	return not block_damage_types.is_empty() and not block_coverage.is_empty()
 
-func can_block_damage(damage_type: GameEnums.DamageType, limb_region: int = -1) -> bool:
+func can_block_damage(requested_damage_type: GameEnums.DamageType, limb_region: int = -1) -> bool:
 	return (
 		is_blocking_shield()
-		and block_damage_types.has(int(damage_type))
+		and block_damage_types.has(int(requested_damage_type))
 		and (limb_region < 0 or block_coverage.has(limb_region))
 	)
 

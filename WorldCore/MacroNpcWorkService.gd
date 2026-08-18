@@ -197,6 +197,12 @@ func try_work(
 	request.method_id = method_for_record(record)
 	request.expected_actor_revision = record.revision
 	request.expected_target_revision = target.revision
+	request.payload["expected_hex_revision"] = (
+		world_state.get_hex_record(record.coords).revision
+		if world_state.get_hex_record(record.coords) != null
+		else -1
+	)
+	request.payload["node_id"] = world_state.active_node_id
 	var profile := action_coordinator.profile_for_id(affordance.task_profile_id)
 	profile.base_noise = 1.0 if affordance.verb_id == WorldActionResolver.VERB_SEARCH else 1.5
 	action_coordinator.apply_method_profile(profile, request.method_id)
@@ -215,21 +221,17 @@ func try_work(
 	if not preview.allowed:
 		return {}
 	var action_id := str(work_state["action_id"])
-	var reservation := world_state.get_world_action(action_id)
-	var reservation_owned := false
-	if not reservation.is_empty():
-		if str(reservation.get("actor_id", "")) != record.entity_id:
+	request.payload["action_id"] = action_id
+	var reservation := world_state.get_world_action_reservation(action_id)
+	if reservation != null:
+		if reservation.actor_id != record.entity_id:
 			return {}
-		reservation_owned = true
 	else:
-		reservation_owned = world_state.reserve_world_action(action_id, {
-			"actor_id": record.entity_id,
-			"target_id": target.object_id,
-			"verb_id": affordance.verb_id,
-			"started_minute": world_state.world_time_minutes,
-		})
-	if not reservation_owned:
+		reservation = world_state.begin_world_action(request)
+	if reservation == null:
 		return {}
+	work_state["receipt_id"] = reservation.next_receipt_id()
+	work_state["attempt_index"] = reservation.attempt_index
 	var receipt := action_coordinator.resolve_ai_work(
 		request,
 		profile,
@@ -238,9 +240,9 @@ func try_work(
 		(world_state.world_seed + request.target_id + str(macro_turn_index)).hash()
 	)
 	if affordance.verb_id == WorldActionResolver.VERB_REPAIR:
-		var material_item := consume_repair_material(record)
+		var material_item := select_repair_material(record)
 		if material_item.is_empty():
-			world_state.release_world_action(action_id)
+			world_state.cancel_world_action(action_id)
 			return {}
 		receipt.mutations.append({
 			"type": "consume_material",
@@ -255,32 +257,19 @@ func try_work(
 		record.runtime.erase("world_work")
 	else:
 		record.runtime["world_work"] = work_state
+	receipt.actor_state = record.runtime.duplicate(true)
+	action_coordinator.apply_work_consequences(target, affordance.verb_id, receipt)
 	var commit_receipt: Callable = callbacks.get("commit_receipt", Callable())
+	var application: WorldActionApplicationReceipt = null
 	if commit_receipt.is_valid():
-		commit_receipt.call(receipt, record.coords, target, record.entity_id)
-	apply_tool_wear(record, receipt)
-	var latest_snapshot := world_state.get_entity_snapshot(record.entity_id)
-	world_state.patch_entity_record(record.entity_id, {
-		"runtime": record.runtime.duplicate(true),
-		"definition": record.definition.duplicate(true),
-		"revision": maxi(
-			int(latest_snapshot.get("revision", 0)),
-			int(record.revision)
-		),
-	})
-	if receipt.work_completed or receipt.interrupted:
-		world_state.release_world_action(action_id)
-	else:
-		world_state.update_world_action(action_id, {
-			"actor_id": record.entity_id,
-			"target_id": target.object_id,
-			"verb_id": affordance.verb_id,
-			"started_minute": int(
-				reservation.get("started_minute", world_state.world_time_minutes)
-			),
-			"progress": receipt.work_progress,
-			"last_receipt": receipt.to_dict(),
-		})
+		application = commit_receipt.call(
+			receipt, record.coords, target, record.entity_id
+		) as WorldActionApplicationReceipt
+	if application == null or not application.applied:
+		return {}
+	var latest_after_receipt := world_state.get_entity_snapshot(record.entity_id)
+	if not latest_after_receipt.is_empty():
+		record = EntityRecord.from_dict(latest_after_receipt)
 	if receipt.work_completed and affordance.verb_id == WorldActionResolver.VERB_SEARCH:
 		var deplete_after_search: Callable = callbacks.get(
 			"deplete_after_search",
@@ -413,6 +402,23 @@ func consume_repair_material(record: EntityRecord) -> Dictionary:
 			"instance_id": state.get("instance_id", ""),
 			"item_id": definition.get("id", ""),
 		}
+	return {}
+
+
+func select_repair_material(record: EntityRecord) -> Dictionary:
+	if record == null:
+		return {}
+	for item_value in carried_item_states(record):
+		if not item_value is Dictionary:
+			continue
+		var definition: Dictionary = item_value.get("definition", {})
+		var roles: Array = definition.get("functional_roles", [])
+		var tags: Array = definition.get("tags", [])
+		if roles.has("repair_material") or tags.has("materials"):
+			return {
+				"instance_id": item_value.get("instance_id", ""),
+				"item_id": definition.get("id", item_value.get("item_id", "")),
+			}
 	return {}
 
 

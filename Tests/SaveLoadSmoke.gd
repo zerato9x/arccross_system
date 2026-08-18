@@ -71,6 +71,16 @@ func _prepare_and_save(game_director: GameDirector) -> bool:
 	hex_data.search_count = 2
 	hex_data.camp_rest_count = 1
 	hex_data.camp_item_states = [_runtime_item_state("tentkit")]
+	# Detached live nodes are projections. Explicitly cross the store boundary so
+	# this fixture tests persistence rather than relying on the retired save-time
+	# capture of token and generator-cache state.
+	if not world_state.update_player_runtime(
+		player_core.capture_runtime_state().to_dict(),
+		save_coords
+	):
+		return _fail("Could not commit the player fixture to runtime state.")
+	if not macro_map.world_generator.commit_hex_projection(save_coords, hex_data):
+		return _fail("Could not commit the Hex fixture to runtime state.")
 
 	# Save/load verifies entity death persistence, not fog-gated spawn RNG.
 	# Central Core bootstrap often yields zero encounters (fog_gated_spawning,

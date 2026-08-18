@@ -9,16 +9,15 @@ class_name GameDirector
 var _active_arena: Node = null
 var _combat_coords: Vector2i = Vector2i.ZERO
 var _combat_approach_from: Vector2i = Vector2i.ZERO
-var _combat_enemy_id: String = ""
-var _combat_enemy_ids: Array[String] = []
-var _combat_participant_contexts: Dictionary = {}
 var _combat_request: Dictionary = {}
 var _macro_canvas_visibility: Dictionary = {}
 var _world_state: RuntimeStateStore
 var _event_bus: Node
+var _combat_result_application := CombatResultApplicationService.new()
 
 func _ready() -> void:
 	_world_state = get_node("/root/WorldState") as RuntimeStateStore
+	_combat_result_application.configure(_world_state)
 	_event_bus = get_node_or_null("/root/GameEventBus")
 	if macro_map:
 		macro_map.configure_services(
@@ -72,6 +71,10 @@ func _on_combat_requested(request: Dictionary) -> void:
 			"[DIRECTOR] Combat request rejected — enemy missing or not alive: "
 			+ enemy_id
 		)
+		var rejected_encounter: Dictionary = request.get("encounter", {})
+		_world_state.cancel_combat_handoff(
+			str(rejected_encounter.get("encounter_id", ""))
+		)
 		if macro_map:
 			macro_map.show()
 			_set_macro_camera_active(true)
@@ -94,8 +97,6 @@ func _on_combat_requested(request: Dictionary) -> void:
 		"approach_from",
 		macro_map.player_token.current_hex_coords
 	)
-	_combat_enemy_id = enemy_id
-	_combat_enemy_ids.clear()
 	_combat_request = request.duplicate(true)
 	
 	# Production and Combat Lab combat share the authoritative turn-based arena.
@@ -108,167 +109,104 @@ func _on_combat_requested(request: Dictionary) -> void:
 			"[DIRECTOR] Tactical combat scene failed to load: "
 			+ PresentationSceneRegistry.TACTICAL_COMBAT_SCENE
 		)
+	if selected_scene == null:
+		_abort_combat_handoff(
+			"Tactical combat scene is unavailable.",
+			str(request.get("encounter", {}).get("encounter_id", ""))
+		)
+		return
 	_active_arena = selected_scene.instantiate()
+	if _active_arena == null:
+		_abort_combat_handoff(
+			"Tactical combat scene could not be instantiated.",
+			str(request.get("encounter", {}).get("encounter_id", ""))
+		)
+		return
 	add_child(_active_arena)
 	
 	var encounter := CombatEncounterRecord.from_dict(
 		request.get("encounter", {})
 	)
-	# Production always enters the canonical squad arena. Legacy duel fixtures
-	# remain available to isolated Lab tests but never drive runtime handoff.
-	encounter.topology_id = "squad_7x5"
-	# The macro encounter service has already assembled the authoritative roster
-	# and relationship receipt. Preserve it verbatim; this director only
-	# refreshes the player projection and records the participant handoff.
-	var assembled_actors: Array = encounter.actors.duplicate(true)
-	var player_entry: Dictionary = {}
-	var autonomous_entries: Array[Dictionary] = []
-	for raw_actor in assembled_actors:
-		if not raw_actor is Dictionary:
-			continue
-		var actor_id := str(raw_actor.get("actor_id", ""))
-		if actor_id.is_empty():
-			continue
-		if bool(raw_actor.get("direct_player", false)) or actor_id == "player":
-			if player_entry.is_empty():
-				player_entry = (raw_actor as Dictionary).duplicate(true)
-			continue
-		if autonomous_entries.size() < encounter.participant_cap - 1:
-			autonomous_entries.append((raw_actor as Dictionary).duplicate(true))
-	if player_entry.is_empty():
-		player_entry = {
-			"actor_id": "player",
-			"team_id": "player",
-			"direct_player": true,
-			"participant_context": {
-				"origin_coords": macro_map.player_token.current_hex_coords,
-				"macro_origin_coords": macro_map.player_token.current_hex_coords,
-				"return_policy": "origin",
-			},
-		}
-	player_entry["actor_id"] = "player"
-	player_entry["team_id"] = "player"
-	player_entry["direct_player"] = true
-	player_entry["combat_side"] = "player"
-	player_entry["runtime_record"] = macro_map.player_token.capture_runtime_record()
-	encounter.actors.clear()
-	encounter.actors.append(player_entry)
-	_combat_participant_contexts.clear()
-	for autonomous_entry in autonomous_entries:
-		var actor_id := str(autonomous_entry.get("actor_id", ""))
-		if actor_id.is_empty() or actor_id == "player":
-			continue
-		encounter.actors.append(autonomous_entry)
-		_combat_enemy_ids.append(actor_id)
-		_combat_participant_contexts[actor_id] = autonomous_entry.get("participant_context", {}).duplicate(true)
-	_combat_participant_contexts["player"] = player_entry.get("participant_context", {}).duplicate(true)
-	# Compatibility for old handoffs that predate the assembly service: retain
-	# only the requested primary, never rediscover a radius-one reinforcement
-	# roster in the director.
-	if _combat_enemy_ids.is_empty():
-		var fallback_context := {
-			"origin_coords": enemy_record.coords,
-			"macro_origin_coords": enemy_record.coords,
-			"relative_entry_direction": HexCoordUtils.travel_direction_for_coords(enemy_record.coords - coords),
-			"entry_direction": HexCoordUtils.travel_direction_for_coords(enemy_record.coords - coords),
-			"return_policy": "origin",
-			"inclusion_reason": "legacy_primary_contact",
-		}
-		encounter.actors.append({
-			"actor_id": enemy_record.entity_id,
-			"team_id": "enemy",
-			"combat_side": "enemy",
-			"participant_context": fallback_context,
-			"runtime_record": enemy_record.to_dict(),
-		})
-		_combat_enemy_ids.append(enemy_record.entity_id)
-		_combat_participant_contexts[enemy_record.entity_id] = fallback_context
-	encounter.late_reinforcements_enabled = false
+	var handoff := _world_state.get_active_combat_handoff()
+	var handoff_error := _combat_handoff_error(encounter, handoff)
+	if not handoff_error.is_empty():
+		_abort_combat_handoff(handoff_error, encounter.encounter_id)
+		return
+	# WorldCore owns assembly. The director records projection callbacks only;
+	# it does not filter, cap, refresh, or fabricate a fallback roster.
 	_active_arena.combat_finished.connect(_on_combat_finished)
 	_active_arena.setup_encounter(encounter)
 	
 	# Waiting_game → first_strike → War (see AudioConductor COMBAT_SPECIAL)
 	_emit_scene_audio("combat_special")
 
+
+func _combat_handoff_error(
+	encounter: CombatEncounterRecord,
+	handoff: CombatHandoffRecord
+) -> String:
+	if encounter == null or handoff == null:
+		return "Combat encounter or registered handoff is missing."
+	if encounter.encounter_id != handoff.encounter_id:
+		return "Combat encounter identity does not match the registered handoff."
+	if encounter.topology_id != "squad_7x5" or handoff.topology_id != "squad_7x5":
+		return "Production combat handoff selected a non-squad topology."
+	var actor_ids: Array[String] = []
+	for actor in encounter.actors:
+		var actor_id := str(actor.get("actor_id", ""))
+		if actor_id.is_empty() or actor_id in actor_ids:
+			return "Combat encounter contains an empty or duplicate actor identity."
+		actor_ids.append(actor_id)
+	if actor_ids != handoff.actor_ids:
+		return "Combat encounter roster differs from the authoritative handoff."
+	return ""
+
+
+func _abort_combat_handoff(message: String, encounter_id: String) -> void:
+	push_error("[DIRECTOR] Combat handoff rejected: " + message)
+	var active := _world_state.get_active_combat_handoff()
+	_world_state.cancel_combat_handoff(
+		active.encounter_id if active != null else encounter_id
+	)
+	_teardown_arena()
+	macro_map.show()
+	_set_macro_camera_active(true)
+	_restore_macro_canvas_layers()
+	macro_map.set_process_unhandled_input(true)
+	set_process_unhandled_input(true)
+
+
 func _on_combat_finished(result: CombatResultRecord) -> void:
 	if result == null:
-		push_error("Combat finished without a result record.")
+		_abort_combat_handoff("Combat finished without a result record.", "")
 		return
-	var player_runtime := _runtime_from_result(result, "player")
-	_world_state.advance_world_time(result.elapsed_minutes)
-	macro_map.player_token.restore_runtime_record({
-		"entity_id": "player",
-		"coords": macro_map.player_token.current_hex_coords,
-		"definition": macro_map.player_token.capture_runtime_record().get("definition", {}),
-		"runtime": player_runtime,
-	})
-	macro_map.player_token.get_humanoid_core().process_survival_time(
-		result.elapsed_minutes,
-		15.0,
-		1.5
+	var handoff := _world_state.get_active_combat_handoff()
+	var application := _combat_result_application.apply(result, handoff)
+	if not application.applied:
+		_abort_combat_handoff(application.error, result.encounter_id)
+		return
+	if application.idempotent:
+		return
+	macro_map.refresh_hex_runtime_projection(application.source_coords)
+	macro_map.player_token.restore_runtime_record(
+		_world_state.player_record.to_dict()
 	)
-	player_runtime = macro_map.player_token.get_humanoid_core().capture_runtime_state().to_dict()
-	var hostile_roster_changed := false
-	for combat_enemy_id in _combat_enemy_ids:
-		var enemy_record := _world_state.get_entity(combat_enemy_id)
-		var enemy_runtime := _runtime_from_result(result, combat_enemy_id)
-		if enemy_record == null or enemy_runtime.is_empty():
-			continue
-		var context := _participant_context_from_result(result, combat_enemy_id)
-		var old_coords := enemy_record.coords
-		var is_dead := bool(enemy_runtime.get("is_dead", false))
-		var is_escaped := combat_enemy_id in result.escaped_actor_ids
-		var is_withdrawn := (
-			is_escaped
-			or combat_enemy_id in result.withdrawn_actor_ids
-			or combat_enemy_id in result.surrendered_actor_ids
-			or bool(enemy_runtime.get("is_comatose", false))
-		)
-		enemy_runtime.erase("combat_reserved_encounter_id")
-		enemy_runtime.erase("combat_origin_coords")
-		enemy_runtime.erase("combat_entry_direction")
-		enemy_runtime["last_combat_outcome"] = result.outcome
-		enemy_runtime["last_combat_reason"] = result.reason
-		if is_escaped:
-			enemy_runtime["macro_escape_direction"] = int(context.get(
-				"escape_direction",
-				context.get("entry_direction", GameEnums.MacroTravelDirection.NONE)
-			))
-			enemy_runtime["return_policy"] = str(context.get("return_policy", "origin"))
-			var escape_goal := str(context.get("macro_goal", "EXIT"))
-			if escape_goal.is_empty():
-				escape_goal = "EXIT"
-			enemy_runtime["macro_goal"] = escape_goal
-			enemy_runtime["macro_purpose"] = escape_goal
-		_world_state.update_entity_runtime(combat_enemy_id, enemy_runtime)
-		if is_dead:
-			for item_state in _carried_item_states(enemy_runtime):
-				if not _contains_item_instance(result.ground_items, item_state):
-					result.ground_items.append(item_state)
-			_world_state.set_entity_life_state(combat_enemy_id, GameEnums.EntityLifeState.DEAD)
-			hostile_roster_changed = true
-			macro_map.unload_enemy_token(old_coords)
-			continue
-		if is_withdrawn:
-			_world_state.set_entity_world_status(combat_enemy_id, GameEnums.EntityWorldStatus.WITHDRAWN)
-			hostile_roster_changed = true
-		# Tactical coordinates are encounter-local. A surviving or escaping
-		# participant returns to its authored macro origin (or the deterministic
-		# nearest legal cell when the player still occupies that origin).
+	for action in application.participant_actions:
+		var actor_id := str(action.get("actor_id", ""))
+		var old_coords: Vector2i = action.get("old_coords", Vector2i.ZERO)
 		macro_map.unload_enemy_token(old_coords)
-		_restore_participant_to_macro(enemy_record, context)
-	_world_state.update_player_runtime(
-		player_runtime,
-		macro_map.player_token.current_hex_coords
-	)
-	_apply_combat_site_result(result)
-	if not result.ground_items.is_empty():
-		macro_map.add_ground_item_states(_combat_coords, result.ground_items)
+		if str(action.get("status", "active")) == "dead":
+			continue
+		var record := _world_state.get_entity(actor_id)
+		_restore_participant_to_macro(
+			record,
+			action.get("participant_context", {})
+		)
 
-	var should_retreat_player := false
+	var should_retreat_player := application.should_retreat_player
 	match result.outcome:
 		GameEnums.CombatOutcome.PLAYER_VICTORY:
-			if hostile_roster_changed:
+			if application.hostile_roster_changed:
 				macro_map.reconcile_shelter_after_hostile_change()
 		GameEnums.CombatOutcome.PLAYER_DEFEAT:
 			if result.reason == "death":
@@ -279,13 +217,8 @@ func _on_combat_finished(result: CombatResultRecord) -> void:
 				if defeat_panel:
 					defeat_panel.open_panel(_world_state.has_save_file())
 				return
-			should_retreat_player = true
-		GameEnums.CombatOutcome.PLAYER_ESCAPED:
-			should_retreat_player = true
-		GameEnums.CombatOutcome.PLAYER_SURRENDERED:
-			should_retreat_player = true
 		GameEnums.CombatOutcome.ENEMY_SURRENDERED:
-			if hostile_roster_changed:
+			if application.hostile_roster_changed:
 				macro_map.reconcile_shelter_after_hostile_change()
 		_:
 			pass
@@ -305,54 +238,6 @@ func _on_combat_finished(result: CombatResultRecord) -> void:
 	macro_map.set_process_unhandled_input(true)
 	set_process_unhandled_input(true)
 	_start_macro_audio()
-
-
-func _carried_item_states(runtime: Dictionary) -> Array:
-	var result: Array = []
-	var inventory: Dictionary = runtime.get("inventory", {})
-	for item_state in inventory.get("equipment", {}).values():
-		if item_state is Dictionary:
-			result.append(_ground_item_state(item_state))
-	for item_state in inventory.get("backpack", []):
-		if item_state is Dictionary:
-			result.append(_ground_item_state(item_state))
-	for item_state in runtime.get("inventory_items", []):
-		if item_state is Dictionary:
-			result.append(_ground_item_state(item_state))
-	return result
-
-
-func _ground_item_state(item_state: Dictionary) -> Dictionary:
-	var ground := item_state.duplicate(true)
-	ground["owner_id"] = ""
-	ground["physical_location"] = "ground"
-	ground.erase("container_instance_id")
-	ground["equipped_slot"] = GameEnums.EquipmentSlot.NONE
-	return ground
-
-
-func _contains_item_instance(items: Array, candidate: Dictionary) -> bool:
-	var instance_id := str(candidate.get("instance_id", ""))
-	if instance_id.is_empty():
-		return false
-	for existing in items:
-		if existing is Dictionary and str(existing.get("instance_id", "")) == instance_id:
-			return true
-	return false
-
-
-func _runtime_from_result(result: CombatResultRecord, actor_id: String) -> Dictionary:
-	for update in result.actor_runtime_updates:
-		if str(update.get("actor_id", "")) == actor_id:
-			return update.get("runtime", {}).duplicate(true)
-	return {}
-
-
-func _participant_context_from_result(result: CombatResultRecord, actor_id: String) -> Dictionary:
-	var context: Dictionary = result.participant_contexts.get(actor_id, {}).duplicate(true)
-	if context.is_empty():
-		context = _combat_participant_contexts.get(actor_id, {}).duplicate(true)
-	return context
 
 
 func _restore_participant_to_macro(record: EntityRecord, context: Dictionary) -> void:
@@ -396,26 +281,11 @@ func _context_coords(raw: Variant, fallback: Vector2i) -> Vector2i:
 	return fallback
 
 
-func _apply_combat_site_result(result: CombatResultRecord) -> void:
-	var record := _world_state.get_hex_record(result.source_coords)
-	if record == null:
-		return
-	var state := result.environment_patch.duplicate(true)
-	state["bodies"] = result.body_locations.duplicate(true)
-	state["incapacitated"] = result.incapacitated_locations.duplicate(true)
-	state["surrendered_actor_ids"] = result.surrendered_actor_ids.duplicate()
-	state["surrendered"] = result.surrendered_locations.duplicate(true)
-	state["ground_items"] = result.ground_items.duplicate(true)
-	record.combat_site_state = state
-	_world_state.set_hex_record(result.source_coords, record)
-
 func _teardown_arena() -> void:
 	if _active_arena:
 		_active_arena.queue_free()
 		_active_arena = null
 	_combat_request.clear()
-	_combat_enemy_ids.clear()
-	_combat_participant_contexts.clear()
 	_combat_approach_from = Vector2i.ZERO
 
 

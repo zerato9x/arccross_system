@@ -205,7 +205,7 @@ func _sum_durations(durations: Dictionary) -> float:
 	return total
 
 
-func _animation_for_marker(marker: String, actor_animation: String, is_movement: bool) -> String:
+func _animation_for_marker(marker: String, _actor_animation: String, is_movement: bool) -> String:
 	if marker == "travel" and is_movement:
 		return "Walk"
 	return "neutral"

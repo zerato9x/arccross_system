@@ -1,5 +1,49 @@
 # ARCCROSS Changelog
 
+## August 18, 2026
+
+### World state / simulation authority reconciliation
+
+- Made `RuntimeStateStore` the sole disposable-world authority and reduced
+  generated Hexes, projection caches, scene nodes, player/NPC tokens, and HUD
+  data to detached baselines or post-commit projections.
+- Added Hex revisions, typed world-action reservations, unique receipt IDs,
+  atomic application receipts, rollback snapshots, item ownership transfer,
+  neutral survival hydration, and exactly-once applied-receipt history.
+- Made directional node transitions capture/build/validate/swap atomically and
+  made deterministic generation produce zero store writes without changing the
+  radius-12 or Route 1 output.
+- Routed movement/retreat, visibility, SEARCH, CAMP cycles, inventory ground
+  transfers, NPC movement/work, signals, run flags, and elapsed time through
+  revision-validated store transactions; presentation refresh now follows a
+  successful commit.
+- Moved wound-treatment and inventory presentation capture behind
+  BiologicalCore and ItemCore neutral snapshot services.
+- Bumped disposable saves to format 14 with v12/v13 migration, Hex/action
+  normalization, 256-entry receipt history, integrity rejection, and
+  last-valid-file protection.
+- Added focused architecture, generation isolation, node rollback, projection
+  isolation, action/idempotence/item rollback, save migration/protection, and
+  world-state round-trip smokes. Editor import and focused unrestricted runtime
+  execution pass; sandboxed launches may still hit the known native Godot
+  `signal 11` crash.
+
+## August 17, 2026
+
+### Combat reconciliation closeout
+
+- Strictly rejected incompatible, versionless, and retired-field combat actor
+  snapshots instead of silently hydrating historical state.
+- Fixed failed `Strip` rollback corruption, added full-scene result-handoff
+  persistence coverage, and made the persistence smoke create its ignored test
+  directory on demand.
+- Cleaned combat-family Godot 4.7.1 diagnostics without changing tactical
+  authority; the isolated full capital-`Tests` sweep passes `109/109`.
+- Updated the local TileSet build helper and ignored client names to target the
+  approved Godot 4.7.1 client; older 4.6.3 mentions remain historical records.
+- Marked the July real-time/duel plan as historical reference so it cannot
+  masquerade as current production combat guidance.
+
 ## August 14, 2026
 
 ### Tactical Combat Contract Reconciliation

@@ -124,7 +124,7 @@ static func _subjects_for(snapshot, motive: String, self_id: String) -> Array:
 	return subjects
 
 
-static func _is_feasible(snapshot, hard_state, candidate, subject: Dictionary) -> bool:
+static func _is_feasible(_snapshot, hard_state, candidate, subject: Dictionary) -> bool:
 	if hard_state != null and _hard_tags(hard_state).has("INACTIVE"):
 		return false
 	if hard_state != null and _hard_tags(hard_state).has("BROKEN") and candidate.motive not in ["SURVIVE", "EXIT", "COMMUNICATE"]:

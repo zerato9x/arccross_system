@@ -12,6 +12,10 @@ smokes in `Tests/`, especially `ItemCatalogSmoke`,
 `CombatWeaponActionContractSmoke`, `CombatReconciliationContractSmoke`, and the
 current tactical rules/HUD suites.
 
+Historical Godot `4.6.3` references below record the toolchain used at Phase 1
+closure. Current project tooling and validation use the approved Godot `4.7.1`
+client exclusively.
+
 Phase 1 is one playable, persistent vertical slice. A feature is complete only
 when its acceptance criteria pass from the configured main scene against clean
 local user data. Standalone helpers and completion percentages are not proof.

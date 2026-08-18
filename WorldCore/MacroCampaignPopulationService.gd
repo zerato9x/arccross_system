@@ -65,7 +65,7 @@ func ensure_central_rim_guards(
 		var hex_data := world_generator.get_hex_at(coords)
 		hex_data.encounter_entity_id = entity_id
 		hex_data.encounter_evaluated = true
-		world_state.set_hex_record(coords, hex_data.to_state())
+		world_generator.commit_hex_projection(coords, hex_data)
 		if spawn_enemy_token.is_valid():
 			spawn_enemy_token.call(record)
 		if log_message.is_valid():
@@ -127,7 +127,7 @@ func ensure_route_one_population(
 			var hex_data := world_generator.get_hex_at(coords)
 			hex_data.encounter_entity_id = entity_id
 			hex_data.encounter_evaluated = true
-			world_state.set_hex_record(coords, hex_data.to_state())
+			world_generator.commit_hex_projection(coords, hex_data)
 			used_coords[coords] = true
 			if spawn_enemy_token.is_valid():
 				spawn_enemy_token.call(record)
@@ -189,7 +189,7 @@ func ensure_shelter_ecology(
 		var entity_id := world_state.register_entity(record)
 		hex.encounter_entity_id = entity_id
 		hex.encounter_evaluated = true
-		world_state.set_hex_record(coords, hex.to_state())
+		world_generator.commit_hex_projection(coords, hex)
 		if spawn_enemy_token.is_valid():
 			spawn_enemy_token.call(record)
 

@@ -23,7 +23,7 @@ retain meaningful units.
 
 ## Current Prototype
 
-Status updated on **August 14, 2026**.
+Status updated on **August 17, 2026**.
 
 ### Playable Today
 
@@ -66,7 +66,9 @@ profile.
   five autonomous NPCs, a frozen aware roster, and pairwise relationships.
   `duel_12x1` and `skirmish_6x3` remain explicit Combat Lab/compatibility
   resources rather than player settings.
-- **Active world track:** [Hex World Generator V2](READMEs/design/HEX_WORLD_GENERATOR_V2.md).
+- **Active world track:** [Hex World Generator V2](READMEs/design/HEX_WORLD_GENERATOR_V2.md),
+  with disposable-state authority recorded in the
+  [World State Reconciliation Audit](READMEs/design/WORLD_STATE_RECONCILIATION_AUDIT.md).
 - **Campaign framing:** [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
 ### Core Systems
@@ -139,7 +141,8 @@ profile.
 
 The combat terminal sequence `Incapacitate -> Strip -> Execute` is implemented
 against the neutral handoff/body layers and is covered by focused terminal and
-legality smokes. Physical pointer input, subjective weapon-frame feel, and
+legality smokes. The isolated full capital-`Tests` sweep passes `109/109` under
+Godot 4.7.1. Physical pointer input, subjective weapon-frame feel, and
 subjective audio listening remain separate human acceptance checks.
 
 ## Working Agreement (Generator V2)

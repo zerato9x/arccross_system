@@ -67,7 +67,11 @@ func resolve_central_meta_quest(
 	if component == null:
 		campaign.reveal_fetch_branch()
 		if _world_state != null:
-			_world_state.campaign_graph = campaign.graph.to_dict()
+			_world_state.set_campaign_state(
+				campaign.graph.to_dict(),
+				campaign.active_node_id,
+				int(campaign.last_arrival_direction)
+			)
 		return {
 			"status": "revealed",
 			"message": (
@@ -136,14 +140,14 @@ func _run_has_meta_component(player_token: MacroPlayer) -> bool:
 				return true
 	if _world_state == null:
 		return false
-	for ground_stack in _world_state.ground_item_records.values():
+	for ground_stack in _world_state.get_all_ground_item_snapshots().values():
 		for item_state in ground_stack:
 			if (
 				item_state is Dictionary
 				and _runtime_item_state_id(item_state) == MacroGraphGenerator.FETCH_ITEM_ID
 			):
 				return true
-	for snapshot in _world_state.node_runtime_snapshots.values():
+	for snapshot in _world_state.get_all_node_runtime_snapshots().values():
 		if not snapshot is Dictionary:
 			continue
 		for ground_entry in snapshot.get("ground_items", []):

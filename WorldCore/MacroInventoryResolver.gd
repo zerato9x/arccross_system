@@ -12,8 +12,7 @@ static func resolve_action(
 	equipment_slot: int,
 	player_core: HumanoidCore,
 	coords: Vector2i,
-	ground_take_callback: Callable,
-	ground_add_callback: Callable,
+	ground_query_callback: Callable,
 	can_offer_equip_callback: Callable,
 	inventory_error_callback: Callable,
 	action_payload: Dictionary = {}
@@ -24,29 +23,36 @@ static func resolve_action(
 	var ground_restore: Array = []
 	var elapsed_minutes := 0
 	var neutral_action := {}
+	var ground_transfer_instance_id := ""
 	var committed := false
 
 	match action_id:
 		GameEnums.MACRO_INV_TAKE:
-			var item_state: Dictionary = ground_take_callback.call(
-				coords,
-				instance_id
-			)
+			var item_state: Dictionary = {}
+			for value in ground_query_callback.call(coords):
+				if value is Dictionary and str(value.get("instance_id", "")) == instance_id:
+					item_state = (value as Dictionary).duplicate(true)
+					break
 			if item_state.is_empty():
 				message = "That ground item is no longer available."
 			else:
 				var ground_item := ItemData.from_runtime_state(item_state)
-				if inventory.add_to_backpack(
-					ground_item,
-					equipment_slot as GameEnums.EquipmentSlot
-				):
-					message = "Took %s." % ground_item.display_name
-					committed = true
-				else:
-					ground_restore.append(item_state)
+				if ground_item == null or not inventory.can_add_to_backpack(ground_item):
 					message = inventory_error_callback.call(
 						"That item does not fit in the backpack."
 					)
+				else:
+					if inventory.add_to_backpack(
+						ground_item,
+						equipment_slot as GameEnums.EquipmentSlot
+					):
+						message = "Took %s." % ground_item.display_name
+						ground_transfer_instance_id = instance_id
+						committed = true
+					else:
+						message = inventory_error_callback.call(
+							"The preflighted pickup could not be committed."
+						)
 		GameEnums.MACRO_INV_DROP:
 			var dropped := inventory.remove_item_by_instance_id(instance_id)
 			if dropped:
@@ -183,6 +189,7 @@ static func resolve_action(
 		"player_runtime": player_core.capture_runtime_state().to_dict(),
 		"ground_mutations": ground_mutations,
 		"ground_restore": ground_restore,
+		"ground_transfer_instance_id": ground_transfer_instance_id,
 		"elapsed_minutes": elapsed_minutes,
 		"neutral_action": neutral_action,
 		"committed": committed,

@@ -172,7 +172,7 @@ func _assemble_participants(encounter: CombatEncounterRecord, request: Dictionar
 			"included": included,
 			"reason": str(candidate.get("reason", "")) if included else ("cap_exceeded" if bool(candidate.get("eligible", false)) else str(candidate.get("reason", ""))),
 		})
-	var ledger := _RelationshipLedger.from_dict(encounter.relationship_state)
+	var ledger := _RelationshipLedger.from_dict(world_state.get_relationship_state())
 	for candidate in selected:
 		var actor_id := str(candidate.get("entity_id", ""))
 		if actor_id == "player":
@@ -183,7 +183,6 @@ func _assemble_participants(encounter: CombatEncounterRecord, request: Dictionar
 		var context := _participant_context(record, encounter, candidate, primary_id, initiator_id, profile)
 		var entry := _actor_entry(record, context)
 		encounter.actors.append(entry)
-		_reserve_record(record, context, encounter.encounter_id)
 		encounter.actor_starting_sectors[actor_id] = context.get("starting_sector", Vector2i(-1, -1))
 		encounter.relationship_state = ledger.to_dict()
 	# Player is always first in the handoff, using the neutral runtime record
@@ -415,11 +414,3 @@ func _actor_entry(record: EntityRecord, context: Dictionary) -> Dictionary:
 		"return_policy": context.get("return_policy", "origin"),
 	}
 	return actor
-
-
-func _reserve_record(record: EntityRecord, context: Dictionary, encounter_id: String) -> void:
-	var runtime := record.runtime.duplicate(true)
-	runtime["combat_reserved_encounter_id"] = encounter_id
-	runtime["combat_origin_coords"] = context.get("macro_origin_coords", record.coords)
-	runtime["combat_entry_direction"] = context.get("relative_entry_direction", GameEnums.MacroTravelDirection.NONE)
-	world_state.update_entity_runtime(record.entity_id, runtime)

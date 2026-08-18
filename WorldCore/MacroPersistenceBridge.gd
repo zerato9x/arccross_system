@@ -6,23 +6,22 @@ class_name MacroPersistenceBridge
 
 func synchronize(
 	world_state: RuntimeStateStore,
-	player_record: Dictionary,
-	player_coords: Vector2i,
-	world_hex_cache: Dictionary,
+	_player_record: Dictionary,
+	_player_coords: Vector2i,
+	_world_hex_cache: Dictionary,
 	campaign: MacroProgressController,
 	meta_progress: Node
 ) -> void:
 	if world_state == null:
 		return
-	world_state.set_player_record(player_record, player_coords)
-	for coords in world_hex_cache.keys():
-		var hex_data: MacroHexData = world_hex_cache[coords]
-		world_state.set_hex_record(coords, hex_data.to_state())
 	if campaign == null or campaign.graph == null:
 		return
-	world_state.campaign_graph = campaign.graph.to_dict()
-	world_state.active_node_id = campaign.active_node_id
-	world_state.active_arrival_direction = int(campaign.last_arrival_direction)
+	if not world_state.set_campaign_state(
+		campaign.graph.to_dict(),
+		campaign.active_node_id,
+		int(campaign.last_arrival_direction)
+	):
+		return
 	world_state.capture_node_runtime(campaign.active_node_id)
 	var active_node := campaign.get_active_node()
 	if (
@@ -65,7 +64,7 @@ func flush_world_mutations(
 	mutation_store.capture_run_mutations(
 		world_generator.authored_map.map_id,
 		_build_mutation_baseline_records(world_state, world_generator),
-		world_state.hex_records
+		world_state.get_hex_records_snapshot()
 	)
 
 
@@ -74,7 +73,7 @@ func _build_mutation_baseline_records(
 	world_generator: HexWorldGenerator
 ) -> Dictionary:
 	var baseline_records: Dictionary = {}
-	for coords in world_state.hex_records.keys():
+	for coords in world_state.get_hex_coordinates():
 		if not coords is Vector2i:
 			continue
 		var baseline_hex: MacroHexData

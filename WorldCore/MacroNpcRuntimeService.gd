@@ -97,7 +97,7 @@ func refresh_encounters(
 					coords,
 					float(spawn_info.get("spawn_chance", 0.0)),
 				)
-		world_state.set_hex_record(coords, hex_data.to_state())
+		world_generator.commit_hex_projection(coords, hex_data)
 
 
 func collect_ground_items(
@@ -117,11 +117,9 @@ func collect_ground_items(
 		# Ground items are ordinary world resources. Ownership and knowledge
 		# determine who can take them; quest identity is not hard-coded here.
 		var instance_id := str(item_state.get("instance_id", ""))
-		var taken := world_state.take_ground_item(record.coords, instance_id)
-		if taken.is_empty():
-			continue
-		if not world_state.transfer_item_to_entity(record.entity_id, taken):
-			world_state.add_ground_items(record.coords, [taken])
+		if not world_state.transfer_ground_item_to_entity(
+			record.coords, instance_id, record.entity_id
+		):
 			continue
 		var latest_snapshot := world_state.get_entity_snapshot(record.entity_id)
 		if latest_snapshot.is_empty():
@@ -284,4 +282,8 @@ func _decay_hex_evidence(
 		hex_snapshot["trace_records"] = active_traces
 		hex_snapshot["world_signals"] = active_signals
 		hex_snapshot["last_simulated_minute"] = current_minutes
-		world_state.set_hex_record(coords, hex_snapshot)
+		world_state.replace_hex_record(
+			coords,
+			hex_snapshot,
+			int(hex_snapshot.get("revision", -1))
+		)

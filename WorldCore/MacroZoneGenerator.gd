@@ -11,7 +11,6 @@ const _CompositionPlanner := preload("res://WorldCore/GenerationV2/MacroZoneComp
 const _HexMaterializer := preload("res://WorldCore/GenerationV2/MacroHexMaterializer.gd")
 const _DecorationService := preload("res://WorldCore/GenerationV2/MacroZoneDecorationService.gd")
 const _WorldObjectSeeder := preload("res://WorldCore/GenerationV2/MacroWorldObjectSeeder.gd")
-const _ZonePersistence := preload("res://WorldCore/GenerationV2/MacroZonePersistenceAdapter.gd")
 const _ZoneValidator := preload("res://WorldCore/GenerationV2/MacroZoneValidator.gd")
 const _ZoneGenerationProfile := preload("res://WorldCore/GenerationV2/ZoneGenerationProfile.gd")
 const _ShelterProfile: ShelterProgressionProfile = preload(
@@ -90,13 +89,11 @@ var _composition_planner := _CompositionPlanner.new()
 var _hex_materializer := _HexMaterializer.new()
 var _decoration_service := _DecorationService.new()
 var _world_object_seeder := _WorldObjectSeeder.new()
-var _zone_persistence := _ZonePersistence.new()
 var _zone_validator := _ZoneValidator.new()
 
 
 func configure_services(world_state: RuntimeStateStore) -> void:
 	_world_state = world_state
-	_zone_persistence.configure(world_state)
 	_meta_progress = Engine.get_main_loop().root.get_node_or_null("MetaProgression")
 
 
@@ -176,7 +173,6 @@ func generate_zone(
 		)
 		_seed_world_objects()
 		_apply_permanent_profile_patches()
-		_sync_hex_records()
 	else:
 		_apply_trail_network()
 		_place_start_and_objective()
@@ -193,7 +189,6 @@ func generate_zone(
 		)
 		_seed_world_objects()
 		_apply_permanent_profile_patches()
-		_sync_hex_records()
 
 
 func get_decorations_at(coords: Vector2i) -> Array:
@@ -206,18 +201,18 @@ func get_hex_at(coords: Vector2i) -> MacroHexData:
 	if not is_in_bounds(coords):
 		return HexWorldGenerator.build_void_hex(coords)
 
-	if _world_state != null:
-		var persistent: HexRecord = _zone_persistence.record_for(coords)
-		if persistent != null:
-			var restored := MacroHexData.from_state(persistent)
-			world_hex_cache[coords] = restored
-			return restored
-
 	var hex := _build_hex(coords)
 	world_hex_cache[coords] = hex
-	if _world_state != null:
-		_world_state.set_hex_record(coords, hex.to_state())
 	return hex
+
+
+func build_baseline_records() -> Dictionary:
+	var records: Dictionary = {}
+	for coords in world_hex_cache.keys():
+		var hex := world_hex_cache[coords] as MacroHexData
+		if coords is Vector2i and hex != null:
+			records[coords] = HexRecord.from_dict(hex.to_state().to_dict())
+	return records
 
 
 func _initialize_noise() -> void:
@@ -262,10 +257,6 @@ func _apply_permanent_profile_patches() -> void:
 		var patched := HexRecord.from_dict(baseline.to_dict())
 		_meta_progress.apply_patch_to_record(node_id, coords, patched)
 		world_hex_cache[coords] = MacroHexData.from_state(patched)
-
-
-func _sync_hex_records() -> void:
-	_zone_persistence.sync_hexes(world_hex_cache)
 
 
 func _seed_world_objects() -> void:
@@ -590,8 +581,6 @@ func _apply_trail_network() -> void:
 			# Route 1 logistics spines are onboarding space. Hazard level does not
 			# currently drive encounter rolls, so explicitly consume the roll.
 			hex.encounter_evaluated = true
-		if _world_state != null:
-			_world_state.set_hex_record(coords, hex.to_state())
 
 
 func _apply_starter_v2_composition() -> void:
@@ -768,8 +757,6 @@ func _place_guaranteed_landmarks() -> void:
 		var hex: MacroHexData = world_hex_cache[coords]
 		_apply_landmark_to_hex(hex, coords, zone_seed)
 		occupied.append(coords)
-		if _world_state != null:
-			_world_state.set_hex_record(coords, hex.to_state())
 		placed += 1
 
 
@@ -781,8 +768,6 @@ func _place_start_and_objective() -> void:
 	start_hex.terrain_tile = GameEnums.MacroTerrainTile.PLAINS_GRASS
 	start_hex.is_explored = true
 	if _is_starter_route_zone():
-		if _world_state != null:
-			_world_state.set_hex_record(start_coords, start_hex.to_state())
 		return
 
 	var center_hex: MacroHexData = world_hex_cache[Vector2i.ZERO]
@@ -843,11 +828,6 @@ func _place_start_and_objective() -> void:
 		# Ordinary random zones get a central landmark, but travel is performed
 		# through directional rim exits rather than this POI.
 		_apply_landmark_to_hex(center_hex, Vector2i.ZERO, _zone_seed())
-
-	if _world_state != null:
-		_world_state.set_hex_record(start_coords, start_hex.to_state())
-		_world_state.set_hex_record(Vector2i.ZERO, center_hex.to_state())
-
 
 func _is_starter_route_zone() -> bool:
 	return node_arm_tier == 1 and node_arm_direction != GameEnums.MacroArmDirection.NONE

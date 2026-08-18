@@ -33,7 +33,7 @@ func emit_noise(
 	world_state.register_world_signal(signal_record)
 	var signal_hex := world_generator.get_hex_at(coords)
 	signal_hex.world_signals.append(signal_record.to_dict())
-	world_state.set_hex_record(coords, signal_hex.to_state())
+	world_generator.commit_hex_projection(coords, signal_hex)
 	notify_signal(
 		world_state,
 		world_generator,

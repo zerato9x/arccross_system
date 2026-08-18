@@ -28,15 +28,15 @@ static func plan(snapshot, motive_candidate, problem, rules_state, plan_metadata
 			continue
 		var planning = _Projection.from_rules_state(rules_state, request.actor_id)
 		var projected = _Projection.apply_quote(planning, request, quote, rules_state)
-		var plan = _Plan.new()
-		plan.steps.append(request)
-		plan.quotes.append(quote)
-		plan.projected_ap = quote.ap_cost
-		plan.terminal_action = request.action_id
-		plan.projected_state_signature = projected.signature
-		plan.sort_key = "%03d|%s|%s" % [plan.projected_ap, request.action_id, request.target_actor_id]
+		var candidate_plan = _Plan.new()
+		candidate_plan.steps.append(request)
+		candidate_plan.quotes.append(quote)
+		candidate_plan.projected_ap = quote.ap_cost
+		candidate_plan.terminal_action = request.action_id
+		candidate_plan.projected_state_signature = projected.signature
+		candidate_plan.sort_key = "%03d|%s|%s" % [candidate_plan.projected_ap, request.action_id, request.target_actor_id]
 		if _template_allowed([request], plan_metadata):
-			plans.append(plan)
+			plans.append(candidate_plan)
 		if projected.uncertain or quote.planning_uncertain:
 			continue
 		var projected_rules = _Projection.to_rules_state(rules_state, projected)
@@ -60,16 +60,16 @@ static func plan(snapshot, motive_candidate, problem, rules_state, plan_metadata
 			if follow_planning.signature == projected.signature:
 				continue
 			var extended = _Plan.new()
-			for prior_request in plan.steps:
+			for prior_request in candidate_plan.steps:
 				extended.steps.append(prior_request)
-			for prior_quote in plan.quotes:
+			for prior_quote in candidate_plan.quotes:
 				extended.quotes.append(prior_quote)
 			extended.steps.append(follow_request)
 			extended.quotes.append(follow_quote)
-			extended.projected_ap = plan.projected_ap + follow_quote.ap_cost
+			extended.projected_ap = candidate_plan.projected_ap + follow_quote.ap_cost
 			extended.terminal_action = follow_request.action_id
 			extended.projected_state_signature = follow_planning.signature
-			extended.sort_key = "%03d|%s|%s|%s" % [extended.projected_ap, plan.steps[0].action_id, follow_request.action_id, follow_request.target_actor_id]
+			extended.sort_key = "%03d|%s|%s|%s" % [extended.projected_ap, candidate_plan.steps[0].action_id, follow_request.action_id, follow_request.target_actor_id]
 			if _template_allowed(extended.steps, plan_metadata):
 				plans.append(extended)
 	_dedupe_and_sort(plans)
@@ -97,13 +97,13 @@ static func generate(snapshot, motive_candidate, problem, rules_state, plan_meta
 
 static func _dedupe_and_sort(plans: Array) -> void:
 	var unique: Dictionary = {}
-	for plan in plans:
-		var signature: String = plan.sort_key + "|" + plan.projected_state_signature
+	for candidate_plan in plans:
+		var signature: String = candidate_plan.sort_key + "|" + candidate_plan.projected_state_signature
 		if not unique.has(signature):
-			unique[signature] = plan
+			unique[signature] = candidate_plan
 	plans.clear()
-	for plan in unique.values():
-		plans.append(plan)
+	for candidate_plan in unique.values():
+		plans.append(candidate_plan)
 	plans.sort_custom(func(left, right): return left.sort_key < right.sort_key)
 
 

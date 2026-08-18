@@ -20,8 +20,8 @@ func configure(arena_view: TacticalArenaView) -> void:
 	dialogue_director.configure()
 
 
-func configure_dialogue_seed(seed: String) -> void:
-	encounter_seed = seed
+func configure_dialogue_seed(encounter_seed_value: String) -> void:
+	encounter_seed = encounter_seed_value
 
 
 func play(sequence: CombatPresentationSequence) -> void:
@@ -123,13 +123,13 @@ func _try_show_dialogue(cue: CombatPresentationCue) -> void:
 	if view == null or cue == null or cue.dialogue_event.is_empty() or not bool(cue.presentation_flags.get("dialogue_allowed", false)):
 		return
 	var actor := view.actor_snapshot_for_presentation(cue.actor_id)
-	var round := int(view.snapshot.get("round", 0))
+	var round_index := int(view.snapshot.get("round", 0))
 	var payload := dialogue_director.request_bark(
 		actor,
 		cue.dialogue_event,
 		encounter_seed,
 		int(view.snapshot.get("revision", 0)),
-		round,
+		round_index,
 		cue.dialogue_id,
 		cue.dialogue_priority
 	)

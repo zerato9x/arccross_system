@@ -110,4 +110,40 @@ func emit_trace(
 	world_state.register_world_signal(signal_record)
 	hex.world_signals.append(signal_record.to_dict())
 	hex.last_simulated_minute = now
-	world_state.set_hex_record(to_coords, hex.to_state())
+	world_generator.commit_hex_projection(to_coords, hex)
+
+
+func append_trace_to_receipt(
+	receipt: WorldActionReceipt,
+	actor_id: String,
+	from_coords: Vector2i,
+	to_coords: Vector2i,
+	node_id: String,
+	now: int,
+	hex_data: MacroHexData
+) -> void:
+	if receipt == null or hex_data == null or from_coords == to_coords:
+		return
+	var trace := {
+		"kind": "tracks",
+		"source_id": actor_id,
+		"coords": to_coords,
+		"created_minute": now,
+		"expires_minute": now + 180,
+		"age_minutes": 0,
+		"direction": str(to_coords - from_coords),
+		"surface": "road" if hex_data.road_mask != 0 else str(hex_data.terrain_tile),
+	}
+	receipt.mutations.append({"type": "movement_trace", "trace": trace})
+	var signal_record := WorldSignalRecord.new()
+	signal_record.signal_id = "%s:tracks:%d" % [receipt.action_id, now]
+	signal_record.signal_type = "tracks"
+	signal_record.source_id = actor_id
+	signal_record.node_id = node_id
+	signal_record.coords = to_coords
+	signal_record.created_minute = now
+	signal_record.expires_minute = now + 180
+	signal_record.intensity = 0.35 if hex_data.road_mask != 0 else 0.65
+	signal_record.direction = to_coords - from_coords
+	signal_record.payload = {"from": from_coords, "to": to_coords}
+	receipt.add_signal(signal_record)

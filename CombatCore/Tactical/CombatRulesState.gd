@@ -8,7 +8,7 @@ const _RelationshipLedger := preload("res://SystemCore/CombatRelationshipLedger.
 
 var revision: int = 0
 var encounter_seed: String = ""
-var round: int = 0
+var round_index: int = 0
 var current_ap_pool: int = 0
 var active_actor_id: String = ""
 var communication_points: int = 0
@@ -60,7 +60,7 @@ static func from_board(
 		}
 	if turns != null:
 		state.current_ap_pool = turns.current_ap_pool
-		state.round = turns.current_round
+		state.round_index = turns.current_round
 		var active := turns.get_active_entity()
 		state.active_actor_id = _actor_id(active)
 	if action_catalog != null:
@@ -199,7 +199,7 @@ func duplicate_state():
 	var copy = (load("res://CombatCore/Tactical/CombatRulesState.gd") as Script).new()
 	copy.revision = revision
 	copy.encounter_seed = encounter_seed
-	copy.round = round
+	copy.round_index = round_index
 	copy.current_ap_pool = current_ap_pool
 	copy.active_actor_id = active_actor_id
 	copy.communication_points = communication_points
@@ -265,7 +265,7 @@ func progress_fingerprint() -> String:
 	return JSON.stringify(_canonicalize({
 		"revision": revision,
 		"encounter_seed": encounter_seed,
-		"round": round,
+		"round": round_index,
 		"current_ap_pool": current_ap_pool,
 		"communication_points": communication_points,
 		"active_actor_id": active_actor_id,
@@ -337,14 +337,14 @@ static func _item_projection(item: ItemData, access: String) -> Dictionary:
 	}
 
 
-static func _armor_projection(actor: HumanoidCore) -> Dictionary:
+static func _armor_projection(source_actor: HumanoidCore) -> Dictionary:
 	var result: Dictionary = {}
-	if actor == null or actor.inventory == null:
+	if source_actor == null or source_actor.inventory == null:
 		return result
 	for damage_type in [GameEnums.DamageType.BLUNT, GameEnums.DamageType.SHARP, GameEnums.DamageType.BALLISTIC]:
 		for region in range(GameEnums.LimbRegion.keys().size()):
-			result["%d|%d" % [int(damage_type), region]] = actor.inventory.preview_protection(damage_type, region)
-		result[str(int(damage_type))] = actor.inventory.preview_protection(damage_type, GameEnums.LimbRegion.UPPER_TORSO)
+			result["%d|%d" % [int(damage_type), region]] = source_actor.inventory.preview_protection(damage_type, region)
+		result[str(int(damage_type))] = source_actor.inventory.preview_protection(damage_type, GameEnums.LimbRegion.UPPER_TORSO)
 	return result
 
 
@@ -368,45 +368,45 @@ static func _canonicalize(value: Variant) -> Variant:
 	return value
 
 
-static func _private_actor_projection(actor: HumanoidCore, tactical_board: CombatBoard, weapon: ItemData) -> Dictionary:
+static func _private_actor_projection(source_actor: HumanoidCore, tactical_board: CombatBoard, weapon: ItemData) -> Dictionary:
 	var items: Array[Dictionary] = []
-	if actor.inventory != null:
-		for item in actor.inventory.get_all_items():
+	if source_actor.inventory != null:
+		for item in source_actor.inventory.get_all_items():
 			if item == null:
 				continue
-			items.append(_item_projection(item, actor.inventory.get_access_tier(item)))
-	var behavior_payload: Dictionary = actor.get_meta("npc_behavior_state", {})
-	var survival_pressure := float(actor.get_meta("survival_pressure", behavior_payload.get("survival_pressure", 0.0)))
+			items.append(_item_projection(item, source_actor.inventory.get_access_tier(item)))
+	var behavior_payload: Dictionary = source_actor.get_meta("npc_behavior_state", {})
+	var survival_pressure := float(source_actor.get_meta("survival_pressure", behavior_payload.get("survival_pressure", 0.0)))
 	return {
-		"blood": actor.body.blood_level if actor.body != null else 0.0,
-		"pain": actor.body.get_total_pain() if actor.body != null else 0.0,
-		"shock": actor.body.shock if actor.body != null else 0.0,
-		"consciousness": actor.body.consciousness if actor.body != null else 0.0,
-		"morale": actor.current_morale,
+		"blood": source_actor.body.blood_level if source_actor.body != null else 0.0,
+		"pain": source_actor.body.get_total_pain() if source_actor.body != null else 0.0,
+		"shock": source_actor.body.shock if source_actor.body != null else 0.0,
+		"consciousness": source_actor.body.consciousness if source_actor.body != null else 0.0,
+		"morale": source_actor.current_morale,
 		"items": items,
 		"weapon": _weapon_projection(weapon),
 		"survival_pressure": survival_pressure,
-		"communication_order": str(tactical_board.combat_state(actor).communication_order) if tactical_board.combat_state(actor) != null else "",
+		"communication_order": str(tactical_board.combat_state(source_actor).communication_order) if tactical_board.combat_state(source_actor) != null else "",
 	}
 
 
-static func _communication_projection(actor: HumanoidCore, tactical_board: CombatBoard) -> Dictionary:
-	var state := tactical_board.combat_state(actor)
+static func _communication_projection(source_actor: HumanoidCore, tactical_board: CombatBoard) -> Dictionary:
+	var state := tactical_board.combat_state(source_actor)
 	return {
-		"actor_id": _actor_id(actor),
-		"morale": actor.current_morale,
-		"pain": actor.body.get_total_pain() if actor.body != null else 0.0,
-		"shock": actor.body.shock if actor.body != null else 0.0,
+		"actor_id": _actor_id(source_actor),
+		"morale": source_actor.current_morale,
+		"pain": source_actor.body.get_total_pain() if source_actor.body != null else 0.0,
+		"shock": source_actor.body.shock if source_actor.body != null else 0.0,
 		"stance": state.stance if state != null else 0.0,
 		"max_stance": state.max_stance if state != null else 12.0,
-		"survival_pressure": float(actor.get_meta("survival_pressure", 0.0)),
-		"agenda": str(actor.definition.agenda) if actor.definition != null else "",
-		"mindless": actor.is_mindless_hive_thrall,
+		"survival_pressure": float(source_actor.get_meta("survival_pressure", 0.0)),
+		"agenda": str(source_actor.definition.agenda) if source_actor.definition != null else "",
+		"mindless": source_actor.is_mindless_hive_thrall,
 	}
 
 
-static func _actor_id(actor: HumanoidCore) -> String:
-	return "" if actor == null else str(actor.get_meta("actor_id", actor.name))
+static func _actor_id(actor_core: HumanoidCore) -> String:
+	return "" if actor_core == null else str(actor_core.get_meta("actor_id", actor_core.name))
 
 
 static func _coordinate_key(coords: Vector2i) -> String:

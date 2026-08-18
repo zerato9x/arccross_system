@@ -42,9 +42,11 @@ func world_object_record_at(
 	coords: Vector2i,
 	preferred_id: String = ""
 ) -> WorldObjectRecord:
-	if world_generator == null:
+	if world_state == null:
 		return null
-	var hex: MacroHexData = world_generator.get_hex_at(coords)
+	var hex := world_state.get_hex_record(coords)
+	if hex == null:
+		return null
 	for object_value in hex.world_objects:
 		if not object_value is Dictionary:
 			continue
@@ -71,7 +73,9 @@ func resolve_shared_work_action(
 		return null
 	var target: WorldObjectRecord = null
 	var affordance: WorldAffordance = null
-	var hex: MacroHexData = world_generator.get_hex_at(coords)
+	var hex := world_state.get_hex_record(coords)
+	if hex == null:
+		return null
 	for object_value in hex.world_objects:
 		if not object_value is Dictionary:
 			continue
@@ -96,6 +100,7 @@ func resolve_shared_work_action(
 	request.method_id = method_id
 	request.expected_actor_revision = world_state.player_revision
 	request.expected_target_revision = target.revision
+	request.payload["expected_hex_revision"] = hex.revision
 	var profile := action_coordinator.profile_for_id(affordance.task_profile_id)
 	profile.base_noise = noise_intensity
 	action_coordinator.apply_method_profile(profile, method_id)
@@ -103,22 +108,16 @@ func resolve_shared_work_action(
 	var action_id := str(saved_work.get("action_id", ""))
 	if action_id.is_empty():
 		action_id = "%s:%s" % [verb_id, target.object_id]
-	var reservation := world_state.get_world_action(action_id)
-	var reservation_owned := false
-	if not reservation.is_empty():
-		if str(reservation.get("actor_id", "")) != request.actor_id:
+	request.payload["action_id"] = action_id
+	request.payload["node_id"] = world_state.active_node_id
+	var reservation := world_state.get_world_action_reservation(action_id)
+	if reservation != null:
+		if reservation.actor_id != request.actor_id:
 			_set_event("Someone is already working on that object.")
 			return null
-		reservation_owned = true
 	else:
-		reservation_owned = world_state.reserve_world_action(action_id, {
-			"actor_id": request.actor_id,
-			"target_id": request.target_id,
-			"verb_id": request.verb_id,
-			"started_minute": world_state.world_time_minutes,
-			"progress": 0.0,
-		})
-	if not reservation_owned:
+		reservation = world_state.begin_world_action(request)
+	if reservation == null:
 		_set_event("Someone is already working on that object.")
 		return null
 
@@ -130,11 +129,13 @@ func resolve_shared_work_action(
 		profile
 	)
 	if not preview.allowed:
-		world_state.release_world_action(action_id)
+		world_state.cancel_world_action(action_id)
 		_set_event(str(preview.reason))
 		return null
 	var work_state: Dictionary = saved_work.duplicate(true)
 	work_state["action_id"] = action_id
+	work_state["receipt_id"] = reservation.next_receipt_id()
+	work_state["attempt_index"] = reservation.attempt_index
 	work_state["completed_units"] = int(work_state.get("completed_units", 0))
 	work_state["elapsed_minutes"] = elapsed_minutes
 	work_state["world_time_minutes"] = world_state.world_time_minutes
@@ -159,7 +160,7 @@ func resolve_shared_work_action(
 	if verb_id == WorldActionResolver.VERB_REPAIR:
 		var material_item := _consume_repair_material()
 		if material_item.is_empty():
-			world_state.release_world_action(action_id)
+			world_state.cancel_world_action(action_id)
 			_set_event("Repair material was used before the work could commit.")
 			return null
 		receipt.mutations.append({
@@ -177,20 +178,12 @@ func resolve_shared_work_action(
 		work_state["last_receipt"] = receipt.to_dict()
 		target.runtime["world_work"] = work_state
 	action_coordinator.apply_work_consequences(target, verb_id, receipt)
-	_commit_receipt(receipt, coords, target)
-	if receipt.work_completed or receipt.interrupted:
-		world_state.release_world_action(action_id)
-	else:
-		world_state.update_world_action(action_id, {
-			"actor_id": request.actor_id,
-			"target_id": request.target_id,
-			"verb_id": request.verb_id,
-			"started_minute": int(
-				reservation.get("started_minute", world_state.world_time_minutes)
-			),
-			"progress": receipt.work_progress,
-			"last_receipt": receipt.to_dict(),
-		})
+	var application := _commit_receipt(receipt, coords, target)
+	if application == null or not application.applied:
+		_set_event(
+			application.error if application != null else "World action did not commit."
+		)
+		return null
 	return receipt
 
 
@@ -222,6 +215,16 @@ func resolve_direct_action(
 	request.expected_actor_revision = world_state.player_revision
 	request.expected_target_revision = target.revision
 	request.payload["world_time_minutes"] = world_state.world_time_minutes
+	request.payload["action_id"] = "direct:%s:%s:%s:%d:%d" % [
+		request.actor_id,
+		verb_id,
+		target.object_id,
+		world_state.player_revision,
+		target.revision,
+	]
+	var source_hex := world_state.get_hex_record(coords)
+	request.payload["expected_hex_revision"] = source_hex.revision if source_hex != null else -1
+	request.payload["node_id"] = world_state.active_node_id
 	var direct_preview := action_coordinator.build_preview(
 		request,
 		affordance,
@@ -267,7 +270,12 @@ func resolve_direct_action(
 			"owner_id": target.owner_id,
 			"theft": verb_id in [WorldActionResolver.VERB_SEARCH, WorldActionResolver.VERB_PICK_UP],
 		})
-	_commit_receipt(receipt, coords, target)
+	var application := _commit_receipt(receipt, coords, target)
+	if application == null or not application.applied:
+		_set_event(
+			application.error if application != null else "World action did not commit."
+		)
+		return null
 	return receipt
 
 
@@ -289,9 +297,11 @@ func _commit_receipt(
 	receipt: WorldActionReceipt,
 	coords: Vector2i,
 	target: WorldObjectRecord
-) -> void:
+) -> WorldActionApplicationReceipt:
 	if commit_receipt_callback.is_valid():
-		commit_receipt_callback.call(receipt, coords, target)
+		var value: Variant = commit_receipt_callback.call(receipt, coords, target)
+		return value as WorldActionApplicationReceipt
+	return null
 
 
 func _set_event(message: String) -> void:

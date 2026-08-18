@@ -355,19 +355,24 @@ static func resolve_trade(
 	var offer_state := offer.to_runtime_state()
 	offer_state["owner_id"] = enemy_record.entity_id
 	offer_state["physical_location"] = "inventory"
+	var received_source := (
+		"authored_loadout"
+		if int(received_state.get("_fallback_index", -1)) >= 0
+		else "inventory"
+	)
 	var received_for_player := received_state.duplicate(true)
 	received_for_player.erase("_fallback_index")
 	received_for_player["owner_id"] = "player"
 	received_for_player["physical_location"] = "inventory"
-	var had_runtime_inventory: bool = not Array(enemy_record.runtime.get("inventory_items", [])).is_empty()
 	var runtime_inventory: Array = enemy_record.runtime.get("inventory_items", []).duplicate(true)
 	var received_instance := str(received_state.get("instance_id", ""))
 	for index in range(runtime_inventory.size() - 1, -1, -1):
 		if str(runtime_inventory[index].get("instance_id", "")) == received_instance:
 			runtime_inventory.remove_at(index)
 			break
-	if had_runtime_inventory:
-		runtime_inventory.append(offer_state)
+	# Once a trade commits, the offered runtime instance becomes persistent NPC
+	# property even when the NPC previously relied on an authored loadout.
+	runtime_inventory.append(offer_state)
 	var loadout: Dictionary = enemy_record.definition.get("loadout", {}).duplicate(true)
 	var fallback_trade_index := int(received_state.get("_fallback_index", -1))
 	if fallback_trade_index >= 0:
@@ -395,6 +400,7 @@ static func resolve_trade(
 		"resume": MODE_PEACEFUL,
 		"remove_player_instance_id": offer.instance_id,
 		"received_item_state": received_for_player,
+		"received_item_source": received_source,
 		"enemy_received_item_state": offer_state,
 		"enemy_inventory_items": runtime_inventory,
 		"kept_loadout": loadout,

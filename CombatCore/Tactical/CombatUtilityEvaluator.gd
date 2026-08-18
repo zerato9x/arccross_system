@@ -19,7 +19,6 @@ static func evaluate_plan(plan, snapshot, motive_candidate, problem, profile_dat
 		components[component] = 0.0
 	if plan == null:
 		return _weighted_result(components, profile_data)
-	var first_quote: CombatActionQuote = plan.quotes[0] if not plan.quotes.is_empty() else null
 	var last_quote: CombatActionQuote = plan.quotes.back() if not plan.quotes.is_empty() else null
 	var last_request: CombatActionRequest = plan.steps.back() if not plan.steps.is_empty() else null
 	var actor_facts := _snapshot_actor(snapshot)
@@ -90,7 +89,7 @@ static func _target_observation(snapshot, request):
 	return known.get(request.target_actor_id)
 
 
-static func _motive_progress(motive: String, request, problem, target) -> float:
+static func _motive_progress(motive: String, request, _problem, _target) -> float:
 	if request == null:
 		return -1.0
 	if request.action_id == "end_turn":
@@ -116,7 +115,7 @@ static func _survival_safety(actor_facts: Dictionary, quote, snapshot) -> float:
 	return clampf(1.0 - danger + cover * 0.4 - _hazard(snapshot, quote), -1.0, 1.0)
 
 
-static func _expected_effect(quote, request, target) -> float:
+static func _expected_effect(quote, request, _target) -> float:
 	if quote == null:
 		return 0.0
 	var value := 0.0

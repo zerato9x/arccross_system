@@ -17,7 +17,7 @@ func record_for(coords: Vector2i) -> HexRecord:
 
 func write_hex(coords: Vector2i, hex: MacroHexData) -> void:
 	if _world_state != null and hex != null:
-		_world_state.set_hex_record(coords, hex.to_state())
+		_world_state.replace_hex_record(coords, hex.to_state(), hex.revision)
 
 
 func sync_hexes(world_hex_cache: Dictionary) -> void:
@@ -25,4 +25,4 @@ func sync_hexes(world_hex_cache: Dictionary) -> void:
 		return
 	for coords in world_hex_cache.keys():
 		var hex: MacroHexData = world_hex_cache[coords]
-		_world_state.set_hex_record(coords, hex.to_state())
+		_world_state.replace_hex_record(coords, hex.to_state(), hex.revision)

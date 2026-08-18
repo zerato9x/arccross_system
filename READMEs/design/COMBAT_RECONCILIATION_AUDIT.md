@@ -1,12 +1,12 @@
 # Combat Reconciliation Audit
 
-Audit date: 2026-08-14
-Repository: alpha-release-baseline at 4d4835d0
+Audit date: 2026-08-17
+Repository: alpha-release-baseline at 7a9457f8
 Scope: repository-wide combat reconnaissance against the locked combat brief supplied with this task.
 
 Sections 1 through 18 preserve the pre-implementation audit and locked work order. Implementation was subsequently authorized and completed on 2026-08-14; Sections 19 through 21 record the implementation, remediation, and terminal handoff correction. Historical findings remain intact so the migration can be reviewed without pretending the repository was always this tidy.
 
-## Current status (2026-08-14)
+## Current status (2026-08-17)
 
 The current production contract is implemented and is owned by
 [TURN_BASED_COMBAT_OVERHAUL.md](TURN_BASED_COMBAT_OVERHAUL.md),
@@ -19,11 +19,20 @@ Sections 1 through 18 are not remaining defects.
 The latest correction preserves incapacitated actors in a neutral handoff layer
 after active occupancy removal. `Strip` and `Execute` may use that projected
 sector, and `Execute` transfers the actor into the persistent body layer. The
-recorded verification is `107/107` executable capital-`Tests` SceneTree smokes
+current verification is `109/109` executable capital-`Tests` SceneTree smokes
 passed with `FAILED=0` under Godot `4.7.1.stable.official.a13da4feb`; the two
 `Control` preview scripts were excluded as non-self-quitting visual surfaces.
-The remediation pass rechecked live editor/screenshot behavior but did not
-re-run physical pointer input or subjective weapon/audio acceptance.
+The sweep uses the ignored workspace-local `.godot/test-appdata`,
+`.godot/test-localappdata`, and `.godot/test-logs` directories so persistence
+smokes own their setup. Live MCP boot and combat-family diagnostics are clean;
+physical pointer input and subjective weapon/audio acceptance remain separate
+human acceptance claims.
+
+> **Current checkpoint rule:** Sections 1–18, including the documentation drift
+> table, test-gap table, open risks, and work order, are historical pre-gate
+> evidence. They are retained for audit provenance and are not a live defect
+> list. Sections 19–23 and the focused authority documents are the current
+> implementation record.
 
 ## 1. Historical Executive Summary (pre-implementation)
 
@@ -322,6 +331,11 @@ Resolution and CombatPresentationCue retain actor_id and target_id. The scene_au
 Recommended target: keep HumanoidBody as the generic wound authority, but make combat impact audio a typed presentation/contact event rather than a second generic injury event. If a damage sound needs combat context, carry encounter_id, action_id, attacker_id, victim_id, region, source_item_id, damage_type, and outcome_tag in one typed payload. Choose one conductor route for the HumanInjured pool and test that one successful wound produces one injury cue.
 
 ## 10. Documentation Drift
+
+> Historical record only. The document rows and gap descriptions below describe
+> the pre-implementation repository. Do not use them as current authority; the
+> current production contract and remaining acceptance boundary are recorded in
+> Section 23.
 
 The repository contains a historical combat design that still describes duel_12x1 as production, reserved AP reactions, posture controls, and reaction prompts. The supplied reconciliation brief is the newer locked baseline. The conflict must be resolved by updating the focused combat documents, not by silently treating every old paragraph as current.
 
@@ -835,3 +849,49 @@ Status: **updated on 2026-08-14** after commit `4d4835d0`.
 - No gameplay code, test, asset, or resource was changed by this documentation
   reconciliation pass. The generated architecture index is refreshed from the
   current code tree separately.
+
+## 23. Final combat reconciliation checkpoint
+
+Status: **implemented, warning-clean in the combat family, and verified on 2026-08-17**.
+
+### 23.1 Remaining implementation work closed
+
+- `CombatActorState.from_runtime()` now rejects versionless, incompatible, and
+  retired-field snapshots instead of silently upgrading them. Empty payloads
+  remain valid only as fresh actor state. `CombatBoard`, `TacticalTurnManager`,
+  and `EntityFactory` honor the rejection path.
+- Failed `Strip` now preflights the destination inventory before removing the
+  source item. This preserves equipped slots and nested backpack contents when
+  the action is denied, with dedicated regression coverage.
+- The full-scene result handoff now has a focused regression asserting that the
+  executed body retains its original handoff sector in `body_locations`.
+- The persistence smoke creates its ignored test-log directory itself, so a
+  clean checkout no longer fails because the harness assumed a local folder.
+- CombatCore, combat-facing SystemCore, and ItemCore warnings were resolved
+  without changing the tactical authority: explicit integer math, enum casts,
+  non-shadowing names, and unused compatibility parameters are now clean in
+  the live Godot editor diagnostic filter.
+- The local `Tools/Build-HexTileSet.ps1` helper and ignored client names now
+  target the approved Godot 4.7.1 source. Remaining Godot 4.6.3 strings are
+  dated Phase 1/legacy changelog provenance only, not executable tool choices.
+
+### 23.2 Current verification
+
+- Godot source of truth: `C:\Users\zerat\Downloads\Godot_v4.7.1-stable_win64.exe\Godot_v4.7.1-stable_win64_console.exe`.
+- Branch and revision: `alpha-release-baseline` at `7a9457f8` in
+  `C:\Stuffs\arccross_system`.
+- Full capital-`Tests` sweep: `109/109` passed, `FAILED=0`, exit `0`.
+- Focused schema, failed-Strip, persistence, result-handoff, contract, audio,
+  HUD, and runtime-handoff smokes also passed with exit `0`.
+- Connected Godot MCP editor launched the tactical scene under 4.7.1; the
+  helper became live with no game errors, and the editor reported no warnings
+  under the combat-family path filter. Remaining editor warnings are outside
+  this reconciliation slice.
+
+### 23.3 Explicit acceptance boundary
+
+The combat code/test reconciliation is complete. Physical Windows pointer
+input, subjective weapon-frame feel, and subjective audio listening are not
+substituted by headless or MCP evidence and remain release acceptance checks.
+No commit or push was made in this pass; all listed worktree changes are
+intentional and await the normal Git handoff.

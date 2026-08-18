@@ -14,7 +14,6 @@ signal ai_replan_requested(actor_id: String, reason: String)
 const DEFAULT_CATALOG := preload("res://CombatCore/Tactical/default_combat_action_catalog.tres")
 const _ActionLegality := preload("res://CombatCore/Tactical/CombatActionLegality.gd")
 const _MovementResolver := preload("res://CombatCore/Tactical/CombatMovementResolver.gd")
-const _InventoryResolver := preload("res://CombatCore/Tactical/CombatInventoryActionResolver.gd")
 const _CombatActorState := preload("res://SystemCore/CombatActorState.gd")
 const _RelationshipLedger := preload("res://SystemCore/CombatRelationshipLedger.gd")
 const _CommunicationResolver := preload("res://SystemCore/CombatCommunicationResolver.gd")
@@ -37,7 +36,6 @@ var _awaiting_timeline_id := ""
 var _external_presentation_lock := false
 var _action_legality := _ActionLegality.new()
 var _movement_resolver := _MovementResolver.new()
-var _inventory_resolver := _InventoryResolver.new()
 var revision_authority = _CombatRevisionAuthority.new()
 
 var combat_revision: int:
@@ -557,9 +555,9 @@ func _resolve_weapon_attack(request: CombatActionRequest, _quote: CombatActionQu
 	var definition := catalog.definition(request.action_id)
 	var resolved := false
 	if definition.is_melee_weapon_action():
-		resolved = await resolution_engine.execute_melee_strike(actor, target, -1, definition.effect_profile, definition.targeting_profile, request.action_id)
+		resolved = resolution_engine.execute_melee_strike(actor, target, -1, definition.effect_profile, definition.targeting_profile, request.action_id)
 	elif definition.is_ranged_weapon_action():
-		resolved = await resolution_engine.execute_ranged_strike(
+		resolved = resolution_engine.execute_ranged_strike(
 			actor,
 			board.position_of(target),
 			definition.effect_profile,
@@ -624,15 +622,15 @@ func _resolve_shove(request: CombatActionRequest, _quote: CombatActionQuote) -> 
 	return outcome
 
 
-func _projected_occupancy_for_shove(preview: Dictionary, target: HumanoidCore) -> String:
-	var kind := str(preview.get("type", ""))
+func _projected_occupancy_for_shove(shove_preview: Dictionary, target: HumanoidCore) -> String:
+	var kind := str(shove_preview.get("type", ""))
 	if kind in ["boundary", "forced_exit", "object_collision", "full", "invalid"]:
 		return "unchanged"
 	if kind == "actor_collision":
-		var other := board.actor_by_id(str(preview.get("other_actor_id", "")))
+		var other := board.actor_by_id(str(shove_preview.get("other_actor_id", "")))
 		return "engaged" if other != null and board.is_hostile(target, other) else "crowded"
 	if kind == "clear":
-		var destination_coords: Vector2i = preview.get("destination", Vector2i(-1, -1))
+		var destination_coords: Vector2i = shove_preview.get("destination", Vector2i(-1, -1))
 		if not board.arena_state.contains(destination_coords):
 			return "forced_exit"
 		var destination := board.actors_at(board.arena_state.index_for(destination_coords))
@@ -919,12 +917,21 @@ func _resolve_strip(request: CombatActionRequest, _quote: CombatActionQuote) -> 
 		target_index = board.handoff_position_of(target)
 	if actor_index < 0 or target_index < 0 or board.grid_distance(actor_index, target_index) > 1:
 		return outcome
-	var item := target.inventory.remove_item_by_instance_id(request.target_item_instance_id)
+	var item: ItemData = target.inventory.find_item_by_instance_id(request.target_item_instance_id)
+	if item == null:
+		return outcome
+	# Preflight before touching the source inventory. Removing an equipped
+	# storage item can redistribute or spill its contents, so a generic
+	# add-to-backpack rollback is not state-preserving.
+	if not actor.inventory.can_add_to_backpack(item):
+		outcome.message = "No physical storage can accept that item."
+		return outcome
+	item = target.inventory.remove_item_by_instance_id(request.target_item_instance_id)
 	if item == null:
 		return outcome
 	if not actor.inventory.add_to_backpack(item):
-		target.inventory.add_to_backpack(item)
-		outcome.message = "No physical storage can accept that item."
+		push_error("Strip destination rejected an item after capacity preflight.")
+		outcome.message = "The item transfer could not be committed."
 		return outcome
 	outcome.item_receipts.append({
 		"type": "strip",

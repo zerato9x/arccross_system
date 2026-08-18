@@ -11,7 +11,7 @@ func requested_path(request: CombatActionRequest) -> Array[Vector2i]:
 	return request.approach_path if not request.approach_path.is_empty() else request.path
 
 
-func movement_step_base(actor: HumanoidCore, board: CombatBoard) -> int:
+func movement_step_base(actor: HumanoidCore, _board: CombatBoard) -> int:
 	match actor.kinetic_tier:
 		GameEnums.KineticTier.LABORED:
 			return 3
