@@ -373,10 +373,14 @@ static func resolve_direct_action(
 	## movement, pickup, inspection, eating, drinking, talking, and rest can
 	## therefore share the same clock, signal, and presentation boundary.
 	var receipt := WorldActionReceipt.new()
-	receipt.action_id = str(request.payload.get(
-		"action_id",
-		"%s:%s:%s" % [request.actor_id, request.verb_id, request.target_id]
-	))
+	receipt.action_id = str(request.payload.get("action_id", ""))
+	if receipt.action_id.is_empty():
+		receipt.action_id = "world-session:%s:%s:%s:%s" % [
+		request.actor_id,
+		request.verb_id,
+		request.target_id,
+		str(ResourceUID.create_id()),
+	]
 	receipt.receipt_id = str(request.payload.get(
 		"receipt_id",
 		"%s:attempt:%d" % [

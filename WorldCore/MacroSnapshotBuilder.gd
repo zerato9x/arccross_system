@@ -641,7 +641,7 @@ static func build_world_hud_snapshot_from_neutral(
 		"coords": player_coords,
 		"current_hex": build_hex_descriptor(
 			player_coords, player_coords, current_hex,
-			world_state.get_entity_at(player_coords),
+			_entity_record_at(world_state, player_coords),
 			world_state.get_ground_items(player_coords),
 			hex_label_callback.call(player_coords, current_hex),
 			is_entity_alive_callback, is_entity_hostile_callback,
@@ -649,7 +649,7 @@ static func build_world_hud_snapshot_from_neutral(
 		),
 		"selected_hex": build_hex_descriptor(
 			selected_hex_coords, player_coords, selected_hex,
-			world_state.get_entity_at(selected_hex_coords),
+			_entity_record_at(world_state, selected_hex_coords),
 			world_state.get_ground_items(selected_hex_coords),
 			hex_label_callback.call(selected_hex_coords, selected_hex),
 			is_entity_alive_callback, is_entity_hostile_callback,
@@ -657,7 +657,7 @@ static func build_world_hud_snapshot_from_neutral(
 		),
 		"macro_activity": build_macro_activity_snapshot(
 			player_coords, macro_turn_index, active_token_count,
-			world_state.get_all_entity_records(),
+			_detached_entity_records(world_state),
 			ensure_npc_purpose_callback, hex_distance_callback
 		),
 		"last_macro_event": last_macro_event,
@@ -676,6 +676,24 @@ static func build_world_hud_snapshot_from_neutral(
 	]:
 		result[key] = biological_snapshot.get(key)
 	return result
+
+
+static func _entity_record_at(
+	world_state: RuntimeStateStore,
+	coords: Vector2i
+) -> EntityRecord:
+	var snapshot := world_state.get_entity_snapshot_at(coords)
+	return EntityRecord.from_dict(snapshot) if not snapshot.is_empty() else null
+
+
+static func _detached_entity_records(
+	world_state: RuntimeStateStore
+) -> Array[EntityRecord]:
+	var records: Array[EntityRecord] = []
+	for snapshot in world_state.get_all_entity_snapshots():
+		if snapshot is Dictionary:
+			records.append(EntityRecord.from_dict(snapshot))
+	return records
 
 
 static func _legacy_build_world_hud_snapshot(
@@ -706,7 +724,7 @@ static func _legacy_build_world_hud_snapshot(
 			player_coords,
 			player_coords,
 			current_hex,
-			world_state.get_entity_at(player_coords),
+			_entity_record_at(world_state, player_coords),
 			world_state.get_ground_items(player_coords),
 			hex_label_callback.call(player_coords, current_hex),
 			is_entity_alive_callback,
@@ -718,7 +736,7 @@ static func _legacy_build_world_hud_snapshot(
 			selected_hex_coords,
 			player_coords,
 			selected_hex,
-			world_state.get_entity_at(selected_hex_coords),
+			_entity_record_at(world_state, selected_hex_coords),
 			world_state.get_ground_items(selected_hex_coords),
 			hex_label_callback.call(selected_hex_coords, selected_hex),
 			is_entity_alive_callback,
@@ -730,7 +748,7 @@ static func _legacy_build_world_hud_snapshot(
 			player_coords,
 			macro_turn_index,
 			active_token_count,
-			world_state.get_all_entity_records(),
+			_detached_entity_records(world_state),
 			ensure_npc_purpose_callback,
 			hex_distance_callback
 		),

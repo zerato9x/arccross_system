@@ -83,7 +83,12 @@ func _assemble_participants(encounter: CombatEncounterRecord, request: Dictionar
 	var initiator_id := encounter.initiator_id
 	var candidates: Array[Dictionary] = []
 	var receipt_candidates: Array[Dictionary] = []
-	var primary := world_state.get_entity(primary_id)
+	var primary_snapshot := world_state.get_entity_snapshot(primary_id)
+	var primary := (
+		EntityRecord.from_dict(primary_snapshot)
+		if not primary_snapshot.is_empty()
+		else null
+	)
 	var primary_squad := str(primary.runtime.get("squad_id", "")) if primary != null else ""
 	var player_record: EntityRecord = world_state.player_record
 	if player_record != null:
@@ -99,8 +104,10 @@ func _assemble_participants(encounter: CombatEncounterRecord, request: Dictionar
 			"reason": "always_player",
 			"direct": true,
 		})
-	for raw_record in world_state.get_all_entity_records():
-		var record := raw_record as EntityRecord
+	for raw_snapshot in world_state.get_all_entity_snapshots():
+		if not raw_snapshot is Dictionary:
+			continue
+		var record := EntityRecord.from_dict(raw_snapshot)
 		if record == null or record.entity_id == "player" or record.life_state != GameEnums.EntityLifeState.ALIVE:
 			continue
 		var distance := HexCoordUtils.distance(encounter.source_coords, record.coords)

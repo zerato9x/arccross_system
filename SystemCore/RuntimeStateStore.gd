@@ -158,12 +158,10 @@ func begin_world_action(request: WorldActionRequest) -> WorldActionReservationRe
 		return null
 	var action_id := str(request.payload.get("action_id", ""))
 	if action_id.is_empty():
-		action_id = "%s:%s:%s:%s" % [
-			active_node_id,
-			request.actor_id,
-			request.verb_id,
-			request.target_id,
-		]
+		# action_id is the identity namespace for one work session. Do not derive
+		# a new session from actor/verb/target: a later legal session can repeat
+		# that tuple after the first reservation has been completed and released.
+		action_id = _new_world_action_session_id(request)
 	if active_world_actions.has(action_id):
 		return null
 	var reservation := WorldActionReservationRecord.new()
@@ -183,6 +181,19 @@ func begin_world_action(request: WorldActionRequest) -> WorldActionReservationRe
 		return null
 	active_world_actions[action_id] = reservation.to_dict()
 	return reservation
+
+
+func _new_world_action_session_id(request: WorldActionRequest) -> String:
+	var identity_prefix := "world-session:%s:%s:%s:%s" % [
+		active_node_id,
+		request.actor_id,
+		request.verb_id,
+		request.target_id,
+	]
+	var action_id := "%s:%s" % [identity_prefix, str(ResourceUID.create_id())]
+	while active_world_actions.has(action_id):
+		action_id = "%s:%s" % [identity_prefix, str(ResourceUID.create_id())]
+	return action_id
 
 
 func get_world_action_reservation(action_id: String) -> WorldActionReservationRecord:
@@ -401,6 +412,9 @@ func _record_payload_error(record: Dictionary) -> String:
 	return ""
 
 func get_entity(entity_id: String) -> EntityRecord:
+	## Compatibility-only live-resource accessor. Production services and
+	## projections must use get_entity_snapshot() unless they are RuntimeStateStore
+	## internals performing an authoritative commit.
 	if not entity_records.has(entity_id):
 		return null
 	return entity_records[entity_id]
@@ -413,6 +427,8 @@ func get_entity_snapshot(entity_id: String) -> Dictionary:
 	return record.to_dict().duplicate(true) if record != null else {}
 
 func get_entity_at(coords: Vector2i) -> EntityRecord:
+	## Compatibility-only live-resource accessor; use get_entity_snapshot_at() for
+	## production projection and application reads.
 	var entity_id: String = entity_ids_by_coords.get(coords, "")
 	return get_entity(entity_id)
 
@@ -429,6 +445,8 @@ func has_entity_at(coords: Vector2i) -> bool:
 	return entity_ids_by_coords.has(coords)
 
 func get_all_entity_records() -> Array:
+	## Compatibility-only live-resource accessor; use
+	## get_all_entity_snapshots() for production projection and application reads.
 	var records: Array = []
 	for record in entity_records.values():
 		records.append(record)

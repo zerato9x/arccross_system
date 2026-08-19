@@ -92,13 +92,11 @@ func _prepare_receipt(
 		if receipt.expected_target_revision < 0:
 			receipt.expected_target_revision = target.revision
 		receipt.target_state = target.to_dict()
-	if receipt.action_id.is_empty():
-		receipt.action_id = "%s:%s:%s" % [
-			actor_id,
-			receipt.verb_id,
-			receipt.target_id,
-		]
-	var reservation := world_state.get_world_action_reservation(receipt.action_id)
+	# An absent action_id starts a new session. Let RuntimeStateStore assign the
+	# unique namespace; explicit IDs remain the replay/continuation contract.
+	var reservation: WorldActionReservationRecord = null
+	if not receipt.action_id.is_empty():
+		reservation = world_state.get_world_action_reservation(receipt.action_id)
 	if reservation == null:
 		var request := WorldActionRequest.new()
 		request.actor_id = receipt.actor_id
@@ -109,9 +107,11 @@ func _prepare_receipt(
 		request.expected_actor_revision = receipt.expected_actor_revision
 		request.expected_target_revision = receipt.expected_target_revision
 		request.payload = {
-			"action_id": receipt.action_id,
 			"expected_hex_revision": receipt.expected_hex_revision,
 		}
+		if not receipt.action_id.is_empty():
+			request.payload["action_id"] = receipt.action_id
 		reservation = world_state.begin_world_action(request)
 	if reservation != null:
+		receipt.action_id = reservation.action_id
 		receipt.receipt_id = reservation.next_receipt_id()

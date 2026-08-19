@@ -65,7 +65,12 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_combat_requested(request: Dictionary) -> void:
 	var enemy_id: String = request.get("enemy_id", "")
 	var coords: Vector2i = request.get("coords", Vector2i.ZERO)
-	var enemy_record := _world_state.get_entity(enemy_id)
+	var enemy_snapshot := _world_state.get_entity_snapshot(enemy_id)
+	var enemy_record := (
+		EntityRecord.from_dict(enemy_snapshot)
+		if not enemy_snapshot.is_empty()
+		else null
+	)
 	if enemy_record == null or not _world_state.is_entity_alive(enemy_id):
 		push_warning(
 			"[DIRECTOR] Combat request rejected — enemy missing or not alive: "
@@ -197,7 +202,12 @@ func _on_combat_finished(result: CombatResultRecord) -> void:
 		macro_map.unload_enemy_token(old_coords)
 		if str(action.get("status", "active")) == "dead":
 			continue
-		var record := _world_state.get_entity(actor_id)
+		var record_snapshot := _world_state.get_entity_snapshot(actor_id)
+		var record := (
+			EntityRecord.from_dict(record_snapshot)
+			if not record_snapshot.is_empty()
+			else null
+		)
 		_restore_participant_to_macro(
 			record,
 			action.get("participant_context", {})
@@ -264,7 +274,12 @@ func _nearest_restore_coords(actor_id: String, origin: Vector2i) -> Vector2i:
 		var hex := macro_map.world_generator.get_hex_at(coords)
 		if hex == null or not hex.is_passable():
 			continue
-		var occupant := _world_state.get_entity_at(coords)
+		var occupant_snapshot := _world_state.get_entity_snapshot_at(coords)
+		var occupant := (
+			EntityRecord.from_dict(occupant_snapshot)
+			if not occupant_snapshot.is_empty()
+			else null
+		)
 		if occupant != null and occupant.entity_id != actor_id and _world_state.is_entity_alive(occupant.entity_id):
 			continue
 		return coords

@@ -16,7 +16,7 @@ of restating it.
   records, and presentation boundaries.
 - [System / Integration Reconciliation Audit](design/SYSTEM_INTEGRATION_RECONCILIATION_AUDIT.md):
   authority winners, rejected conflicts, migration bridges, deferred work, and
-  verification evidence for the v13 runtime-state boundary.
+  verification evidence for the v14 runtime-state boundary.
 - [World State / Simulation Reconciliation Audit](design/WORLD_STATE_RECONCILIATION_AUDIT.md):
   disposable-world authority, atomic action/node contracts, save-v14 migration,
   rejected conflicts, compatibility paths, and verification evidence.

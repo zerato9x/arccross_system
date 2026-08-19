@@ -220,7 +220,7 @@ retained as an audit trail rather than presented as a current defect list.
 
 - `RuntimeStateStore` now owns the canonical player coordinate, rebuilt occupancy
   index, revisioned lifecycle/runtime mutations, pairwise relationships, active
-  combat handoff, bounded applied-encounter history, and integrity-gated v13 save.
+  combat handoff, bounded applied-encounter history, and integrity-gated v14 save.
 - `RuntimeItemOwnershipLedger` now preflights source/destination ownership and applies
   ground/inventory transfers without remove-first loss. Legacy `inventory_items`
   remains a migration bridge; `ItemData.to_runtime_state()` is the neutral boundary.
@@ -234,9 +234,9 @@ retained as an audit trail rather than presented as a current defect list.
 - Macro hexes and tokens remain projections. After result application the director only
   refreshes projections and handles presentation, restore placement, camera, retreat,
   audio, and defeat flow.
-- Save format 13 migrates v12, rejects older saves, reconstructs and validates a
-  candidate store before activation, and uses temporary-file replacement. An invalid
-  in-memory store cannot overwrite the prior valid file.
+- Save format 14 migrates v12/v13 inputs, rejects older saves, reconstructs and
+  validates a candidate store before activation, and uses temporary-file
+  replacement. An invalid in-memory store cannot overwrite the prior valid file.
 
 ### Rejected conflicts
 

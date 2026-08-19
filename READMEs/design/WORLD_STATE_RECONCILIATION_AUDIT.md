@@ -4,7 +4,7 @@ Status: implemented and focused runtime-verified, 2026-08-18
 Branch: `alpha-release-baseline`
 Scope: WorldCore disposable state, node runtime, world actions, projections, and save boundaries
 
-## Baseline and constraints
+## Historical baseline and constraints
 
 This audit was written before the World State reconciliation. The checkout was
 already intentionally dirty: 68 tracked files were modified and the completed
@@ -20,9 +20,9 @@ The following contracts are fixed:
   no retired posture/reaction mechanics.
 - Generator output, Route 1 layout, world art, BiologicalCore formulas, ItemCore
   gameplay, and UI design are not being redesigned.
-- Save version 13 is the input format for this pass. The reconciled result will
-  write version 14 and migrate version 13 while retaining world-generation
-  version 3.
+- At the start of this audit, save version 13 was the migration input for the
+  reconciliation. The implemented runtime now writes version 14, migrates v12
+  and v13 inputs, and retains world-generation version 3.
 
 ## Current data flow
 
@@ -45,7 +45,7 @@ The comments frequently call the caches projections, but production callers can
 mutate them and then replace canonical records. A mutable dictionary does not
 become a projection because a comment asks nicely.
 
-## Writer inventory
+## Historical writer inventory (pre-reconciliation)
 
 ### Hex and world-object state
 
@@ -88,8 +88,10 @@ migration/bootstrap primitive masquerading as a general mutation API.
   reserve/update/release calls.
 - `WorldActionRequest` carries expected actor and target revisions, but
   `WorldActionReceipt` does not preserve those expectations or node/hex identity.
-- Direct action IDs are derived only from actor, verb, and target. Repeating a
-  legal action can therefore produce the same ID.
+- Before reconciliation, direct action IDs were derived only from actor, verb,
+  and target. The implemented boundary now assigns a unique session namespace
+  when no explicit action ID is supplied, while preserving explicit IDs for
+  replay and continuation.
 - Multi-cycle work reuses one action ID, so idempotence requires a separate
   per-attempt receipt identity.
 - `MacroReceiptApplicationService.commit()` applies signals, hex state, time,
@@ -142,7 +144,7 @@ migration/bootstrap primitive masquerading as a general mutation API.
 | Permanent node mutations | `MetaProgressionStore` | baseline patch input |
 | Legacy authored-map profile | `WorldMutationStore` | explicit non-directional compatibility flow only |
 
-## Required reconciliation
+## Historical reconciliation plan
 
 1. Add hex revisions, typed action reservations, unique receipt IDs, revision
    expectations, atomic application receipts, and bounded applied-receipt

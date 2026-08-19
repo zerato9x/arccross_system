@@ -106,11 +106,14 @@ func resolve_shared_work_action(
 	action_coordinator.apply_method_profile(profile, method_id)
 	var saved_work: Dictionary = target.runtime.get("world_work", {})
 	var action_id := str(saved_work.get("action_id", ""))
-	if action_id.is_empty():
-		action_id = "%s:%s" % [verb_id, target.object_id]
-	request.payload["action_id"] = action_id
+	if not action_id.is_empty():
+		request.payload["action_id"] = action_id
 	request.payload["node_id"] = world_state.active_node_id
-	var reservation := world_state.get_world_action_reservation(action_id)
+	var reservation := (
+		world_state.get_world_action_reservation(action_id)
+		if not action_id.is_empty()
+		else null
+	)
 	if reservation != null:
 		if reservation.actor_id != request.actor_id:
 			_set_event("Someone is already working on that object.")
@@ -120,6 +123,8 @@ func resolve_shared_work_action(
 	if reservation == null:
 		_set_event("Someone is already working on that object.")
 		return null
+	action_id = reservation.action_id
+	request.payload["action_id"] = action_id
 
 	var preview := action_coordinator.build_preview(
 		request,

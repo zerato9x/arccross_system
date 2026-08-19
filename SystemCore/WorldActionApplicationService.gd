@@ -450,8 +450,7 @@ func _apply_neutral_tool_wear(runtime: Dictionary, method_id: String, wear: floa
 func _actor_revision(actor_id: String) -> int:
 	if actor_id == "player":
 		return store.player_record.revision if store.player_record != null else -1
-	var actor := store.get_entity(actor_id)
-	return actor.revision if actor != null else -1
+	return int(store.get_entity_snapshot(actor_id).get("revision", -1))
 
 
 func _world_object(hex: HexRecord, object_id: String) -> WorldObjectRecord:

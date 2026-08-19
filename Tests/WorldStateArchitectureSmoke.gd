@@ -30,6 +30,17 @@ func _init() -> void:
 	for required in ["BiologicalSnapshotService.capture", "InventorySnapshotService.capture"]:
 		if required not in facade_source:
 			failures.append("MacroSnapshotFacade is missing neutral capture: " + required)
+	for path in _production_scripts():
+		if path == "res://SystemCore/RuntimeStateStore.gd":
+			continue
+		var source := FileAccess.get_file_as_string(path)
+		for forbidden in [
+			".get_entity(", ".get_entity_at(", ".get_all_entity_records("
+		]:
+			if forbidden in source:
+				failures.append(
+					path + " depends on a live-resource compatibility accessor: " + forbidden
+				)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error("[WORLD_STATE_ARCHITECTURE] " + failure)
@@ -42,6 +53,20 @@ func _init() -> void:
 func _world_core_scripts() -> Array[String]:
 	var paths: Array[String] = []
 	_collect_world_core_scripts("res://WorldCore", paths)
+	return paths
+
+
+func _production_scripts() -> Array[String]:
+	var paths: Array[String] = []
+	for root in [
+		"res://WorldCore",
+		"res://SystemCore",
+		"res://UI",
+		"res://CombatCore",
+		"res://ItemCore",
+		"res://BiologicalCore",
+	]:
+		_collect_world_core_scripts(root, paths)
 	return paths
 
 

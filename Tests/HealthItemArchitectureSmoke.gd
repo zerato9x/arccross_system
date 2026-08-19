@@ -80,10 +80,24 @@ func _check_health_item_contracts(failures: Array[String]) -> void:
 		'"limbs"',
 		'"loadout_stats"',
 		'"medical_items"',
-		'"treatment"',
 	]:
 		if key not in snapshot_builder:
 			failures.append("Neutral snapshot contract is missing " + key)
+	var biological_snapshot_service := FileAccess.get_file_as_string(
+		"res://BiologicalCore/BiologicalSnapshotService.gd"
+	)
+	if '"treatment"' not in biological_snapshot_service:
+		failures.append(
+			"Biological neutral snapshot contract is missing treatment descriptors."
+		)
+	if "BiologicalSnapshotService.capture" not in snapshot_builder:
+		failures.append(
+			"MacroSnapshotBuilder does not consume the biological neutral boundary."
+		)
+	if "default_wound_treatments.tres" in snapshot_builder:
+		failures.append(
+			"MacroSnapshotBuilder still owns the wound-treatment resource boundary."
+		)
 	var item_data := FileAccess.get_file_as_string("res://ItemCore/ItemData.gd")
 	for field in ["threat", "bulk", "protection_blunt", "protection_sharp", "protection_ballistic"]:
 		if ("var " + field) not in item_data:

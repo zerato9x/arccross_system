@@ -11,6 +11,13 @@ func _init(state: RuntimeStateStore) -> void:
 	store = state
 
 
+func _record_for_entity(entity_id: String) -> EntityRecord:
+	if store == null:
+		return null
+	var snapshot := store.get_entity_snapshot(entity_id)
+	return EntityRecord.from_dict(snapshot) if not snapshot.is_empty() else null
+
+
 func find_item_ownership(instance_id: String) -> Dictionary:
 	var locations := find_all_item_ownership(instance_id)
 	if locations.size() == 1:
@@ -40,13 +47,16 @@ func find_all_item_ownership(instance_id: String) -> Array[Dictionary]:
 			player_location["location"] = "inventory"
 			player_location["owner_id"] = "player"
 			locations.append(player_location)
-	for record_value in store.entity_records.values():
-		var record := record_value as EntityRecord
-		if record == null:
+	for record_value in store.get_all_entity_snapshots():
+		if not record_value is Dictionary:
 			continue
-		for location in _runtime_item_locations(record.runtime, instance_id):
+		var record: Dictionary = record_value
+		for location in _runtime_item_locations(
+			record.get("runtime", {}),
+			instance_id
+		):
 			location["location"] = "inventory"
-			location["owner_id"] = record.entity_id
+			location["owner_id"] = str(record.get("entity_id", ""))
 			locations.append(location)
 	locations.append_array(_world_object_item_locations(instance_id))
 	return locations
@@ -56,7 +66,7 @@ func transfer_item_to_entity(entity_id: String, item_state: Dictionary) -> bool:
 	if store == null or item_state.is_empty():
 		return false
 	var is_player := entity_id == "player"
-	var record := store.get_entity(entity_id) if not is_player else store.player_record
+	var record := _record_for_entity(entity_id) if not is_player else store.player_record
 	if record == null:
 		return false
 	var normalized := item_state.duplicate(true)
@@ -125,7 +135,7 @@ func transfer_ground_item_to_entity_with_runtime(
 	if store == null or instance_id.is_empty() or destination_runtime.is_empty():
 		return false
 	var is_player := entity_id == "player"
-	var record := store.player_record if is_player else store.get_entity(entity_id)
+	var record := store.player_record if is_player else _record_for_entity(entity_id)
 	if record == null:
 		return false
 	var locations := find_all_item_ownership(instance_id)
@@ -162,7 +172,7 @@ func commit_entity_runtime_with_ground_items(
 	if store == null or destination_runtime.is_empty() or ground_items.is_empty():
 		return false
 	var is_player := entity_id == "player"
-	var record := store.player_record if is_player else store.get_entity(entity_id)
+	var record := store.player_record if is_player else _record_for_entity(entity_id)
 	if record == null:
 		return false
 	var incoming_ids: Dictionary = {}

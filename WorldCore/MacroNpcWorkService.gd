@@ -207,7 +207,9 @@ func try_work(
 	profile.base_noise = 1.0 if affordance.verb_id == WorldActionResolver.VERB_SEARCH else 1.5
 	action_coordinator.apply_method_profile(profile, request.method_id)
 	var work_state: Dictionary = record.runtime.get("world_work", {})
-	work_state["action_id"] = "%s:%s" % [record.entity_id, target.object_id]
+	var action_id := str(work_state.get("action_id", ""))
+	if not action_id.is_empty():
+		request.payload["action_id"] = action_id
 	work_state["completed_units"] = int(work_state.get("completed_units", 0))
 	work_state["world_time_minutes"] = world_state.world_time_minutes
 	work_state["emit_success_signal"] = true
@@ -220,9 +222,11 @@ func try_work(
 	)
 	if not preview.allowed:
 		return {}
-	var action_id := str(work_state["action_id"])
-	request.payload["action_id"] = action_id
-	var reservation := world_state.get_world_action_reservation(action_id)
+	var reservation := (
+		world_state.get_world_action_reservation(action_id)
+		if not action_id.is_empty()
+		else null
+	)
 	if reservation != null:
 		if reservation.actor_id != record.entity_id:
 			return {}
@@ -230,6 +234,9 @@ func try_work(
 		reservation = world_state.begin_world_action(request)
 	if reservation == null:
 		return {}
+	action_id = reservation.action_id
+	request.payload["action_id"] = action_id
+	work_state["action_id"] = action_id
 	work_state["receipt_id"] = reservation.next_receipt_id()
 	work_state["attempt_index"] = reservation.attempt_index
 	var receipt := action_coordinator.resolve_ai_work(

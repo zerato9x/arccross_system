@@ -32,7 +32,12 @@ func resolve_choice(choice_id: String) -> void:
 			var ambush_enemy_id: String = str(
 				interaction_state.get_value("enemy_id", "")
 			)
-			var ambush_record := host._world_state.get_entity(ambush_enemy_id)
+			var ambush_snapshot := host._world_state.get_entity_snapshot(ambush_enemy_id)
+			var ambush_record := (
+				EntityRecord.from_dict(ambush_snapshot)
+				if not ambush_snapshot.is_empty()
+				else null
+			)
 			var ambush_opponent := MacroEntityCollisionResolver.build_opponent_summary(
 				ambush_record
 			)
@@ -88,7 +93,12 @@ func resolve_back() -> void:
 
 func resolve_trade() -> void:
 	var enemy_id: String = str(interaction_state.get_value("enemy_id", ""))
-	var enemy_record := host._world_state.get_entity(enemy_id)
+	var enemy_snapshot := host._world_state.get_entity_snapshot(enemy_id)
+	var enemy_record := (
+		EntityRecord.from_dict(enemy_snapshot)
+		if not enemy_snapshot.is_empty()
+		else null
+	)
 	if enemy_record == null:
 		return
 	var opponent := MacroEntityCollisionResolver.build_opponent_summary(
@@ -189,7 +199,12 @@ func resolve_trade() -> void:
 
 func resolve_ask(choice_id: String) -> void:
 	var enemy_id: String = str(interaction_state.get_value("enemy_id", ""))
-	var enemy_record := host._world_state.get_entity(enemy_id)
+	var enemy_snapshot := host._world_state.get_entity_snapshot(enemy_id)
+	var enemy_record := (
+		EntityRecord.from_dict(enemy_snapshot)
+		if not enemy_snapshot.is_empty()
+		else null
+	)
 	if enemy_record == null:
 		return
 	host.player_token.play_interaction()
@@ -222,7 +237,12 @@ func resolve_leave() -> void:
 
 func open_session(mode: String) -> void:
 	var enemy_id: String = str(interaction_state.get_value("enemy_id", ""))
-	var enemy_record := host._world_state.get_entity(enemy_id)
+	var enemy_snapshot := host._world_state.get_entity_snapshot(enemy_id)
+	var enemy_record := (
+		EntityRecord.from_dict(enemy_snapshot)
+		if not enemy_snapshot.is_empty()
+		else null
+	)
 	if enemy_record == null or host.macro_hud == null:
 		host.close_macro_interaction()
 		return

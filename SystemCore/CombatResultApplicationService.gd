@@ -58,7 +58,12 @@ func apply(
 	for actor_id in handoff.actor_ids:
 		if actor_id == "player":
 			continue
-		var record := store.get_entity(actor_id)
+		var record_snapshot := store.get_entity_snapshot(actor_id)
+		var record := (
+			EntityRecord.from_dict(record_snapshot)
+			if not record_snapshot.is_empty()
+			else null
+		)
 		var runtime: Dictionary = runtime_by_actor.get(actor_id, {}).duplicate(true)
 		if record == null or runtime.is_empty():
 			return _rollback(
@@ -184,10 +189,11 @@ func _validation_error(
 		if not runtime_by_actor.has(actor_id):
 			return "Combat result is missing actor runtime: %s" % actor_id
 		var expected_revision := int(handoff.participant_revisions.get(actor_id, -1))
+		var actor_snapshot := store.get_entity_snapshot(actor_id)
 		var current_revision := (
 			store.player_record.revision
 			if actor_id == "player" and store.player_record != null
-			else int(store.get_entity(actor_id).revision) if store.get_entity(actor_id) != null else -1
+			else int(actor_snapshot.get("revision", -1))
 		)
 		if expected_revision < 0 or current_revision != expected_revision:
 			return "Combat participant revision drifted during handoff: %s" % actor_id

@@ -62,7 +62,12 @@ func load_enemy_token(entity_id: String) -> MacroEnemy:
 	sync_host_refs()
 	if world_state == null:
 		return null
-	var record := world_state.get_entity(entity_id)
+	var record_snapshot := world_state.get_entity_snapshot(entity_id)
+	var record := (
+		EntityRecord.from_dict(record_snapshot)
+		if not record_snapshot.is_empty()
+		else null
+	)
 	if (
 		record == null
 		or not world_state.is_entity_alive(entity_id)
@@ -89,7 +94,12 @@ func spawn_procedural_enemy(
 		return
 
 	if world_state.has_entity_at(coords):
-		var existing := world_state.get_entity_at(coords)
+		var existing_snapshot := world_state.get_entity_snapshot_at(coords)
+		var existing := (
+			EntityRecord.from_dict(existing_snapshot)
+			if not existing_snapshot.is_empty()
+			else null
+		)
 		if existing != null and world_state.is_entity_alive(existing.entity_id):
 			spawn_from_record(existing)
 		return
@@ -225,7 +235,7 @@ func spawn_from_record(record: EntityRecord) -> MacroEnemy:
 
 func _projection_candidates(center_coords: Vector2i) -> Array:
 	return _NpcSimulator.projection_candidates(
-		world_state.get_all_entity_records(),
+		_detached_entity_records(),
 		center_coords,
 		host.active_radius,
 		Callable(world_state, "is_entity_alive"),
@@ -239,10 +249,10 @@ func _projection_score(record: EntityRecord, center_coords: Vector2i) -> float:
 func _trim_visible_npc_tokens(center_coords: Vector2i) -> void:
 	var visible_coords := active_enemies.keys()
 	visible_coords.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-		var a_record := world_state.get_entity(
+		var a_record := _detached_entity_record(
 			(active_enemies[a] as MacroEnemy).entity_id
 		)
-		var b_record := world_state.get_entity(
+		var b_record := _detached_entity_record(
 			(active_enemies[b] as MacroEnemy).entity_id
 		)
 		if a_record == null or b_record == null:
@@ -256,6 +266,19 @@ func _trim_visible_npc_tokens(center_coords: Vector2i) -> void:
 	while visible_coords.size() > max_visible:
 		var coords_to_unload: Vector2i = visible_coords.pop_back()
 		unload_enemy_token(coords_to_unload)
+
+
+func _detached_entity_records() -> Array[EntityRecord]:
+	var records: Array[EntityRecord] = []
+	for snapshot in world_state.get_all_entity_snapshots():
+		if snapshot is Dictionary:
+			records.append(EntityRecord.from_dict(snapshot))
+	return records
+
+
+func _detached_entity_record(entity_id: String) -> EntityRecord:
+	var snapshot := world_state.get_entity_snapshot(entity_id)
+	return EntityRecord.from_dict(snapshot) if not snapshot.is_empty() else null
 
 
 func _farthest_visible_token_coords(center_coords: Vector2i) -> Vector2i:
