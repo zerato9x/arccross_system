@@ -36,6 +36,20 @@ func _run() -> void:
 	if not presentation.has("layers") or not presentation.has("scene"):
 		_fail("HERE presentation is missing literal or scene composition data.")
 		return
+	var merged_target_panel := macro_map.macro_hud.get_node_or_null("%MacroHexTargetPanel") as MacroHexTargetPanel
+	if merged_target_panel == null or not merged_target_panel.visible:
+		_fail("Merged HERE/target panel did not render the current location.")
+		return
+	var current_explore_button := merged_target_panel.get("_explore_button") as Button
+	if current_explore_button == null or current_explore_button.disabled:
+		_fail("Current merged panel did not enable Explore Here while idle.")
+		return
+	var composition_root := merged_target_panel.find_child(
+		"BorderlessCompositionRoot", true, false
+	) as Control
+	if composition_root == null or composition_root.custom_minimum_size.y < 120.0:
+		_fail("Merged panel lost the enlarged borderless hex composition.")
+		return
 	for decoration in presentation.get("decorations", []):
 		if decoration is Dictionary:
 			var path := str(decoration.get("path", ""))
@@ -56,6 +70,23 @@ func _run() -> void:
 	if snapshot.get("target_location", {}).get("coords") != target:
 		_fail("Selected destination did not reach the target tooltip contract.")
 		return
+	var target_panel := macro_map.macro_hud.get_node("%MacroHexTargetPanel") as MacroHexTargetPanel
+	var hex_preview_root := macro_map.macro_hud.get_hex_panel().get_node("%PreviewRoot")
+	if target_panel.get_parent() != hex_preview_root:
+		_fail("Target presentation was not merged into the HERE preview surface.")
+		return
+	var remote_explore_button := target_panel.get("_explore_button") as Button
+	if remote_explore_button == null or not remote_explore_button.disabled:
+		_fail("Remote Explore Here was not locked in the merged panel.")
+		return
+	if remote_explore_button.text != "TRAVEL HERE FIRST":
+		_fail("Remote Explore lock reason was not visible in the merged panel.")
+		return
+	if not macro_map.macro_hud.get_hex_panel().get_global_rect().encloses(
+		target_panel.get_global_rect()
+	):
+		_fail("Merged target presentation escaped the HERE preview bounds.")
+		return
 
 	macro_map._expand_hex_at(here)
 	await process_frame
@@ -72,10 +103,21 @@ func _run() -> void:
 	if not Rect2(Vector2.ZERO, Vector2(1280, 720)).encloses(here_rect):
 		_fail("Expanded HERE escaped the supported 1280x720 viewport: %s" % here_rect)
 		return
-	var target_panel := macro_map.macro_hud.get_node("%MacroHexTargetPanel") as Control
 	if target_panel.visible:
 		_fail("Target tooltip remained over the expanded HERE board.")
 		return
+	var board_composition := macro_map.macro_hud.get_hex_panel().get(
+		"_board_composition"
+	) as MacroHexCompositionView
+	if board_composition == null or not is_equal_approx(board_composition.modulate.a, 1.0):
+		_fail("Expanded Explore composition is still being rendered as a transparent overlay.")
+		return
+	var prop_layer := macro_map.macro_hud.get_hex_panel().get("_prop_layer") as Control
+	if prop_layer != null:
+		for prop in prop_layer.get_children():
+			if prop is TextureRect and bool(prop.get_meta("descriptor", {}).get("decorative", false)):
+				_fail("Expanded Explore rendered a decorative prop twice.")
+				return
 	macro_map.macro_hud.get_hex_panel().set_hud_scale(1.25)
 	await process_frame
 	here_rect = macro_map.macro_hud.get_hex_panel().get_global_rect()

@@ -171,7 +171,19 @@ func _run() -> void:
 	if not _denied(interact_request, "object_missing"):
 		return
 	_rules.sector_facts[1]["object"] = {"id": "door-1", "usable": true}
+	if not _denied(interact_request, "target_out_of_range"):
+		return
+	interact_request.target_sector = Vector2i(0, 0)
+	_rules.sector_facts[0]["object"] = {"id": "door-player", "usable": true}
 	if not _allowed(interact_request):
+		return
+
+	_rules.occupancy[1] = []
+	_rules.sector_facts[2]["object"] = {"id": "building-1", "usable": true}
+	var move_request := _request("move")
+	move_request.target_sector = Vector2i(2, 0)
+	move_request.path = [Vector2i(1, 0), Vector2i(2, 0)]
+	if not _allowed(move_request):
 		return
 
 	print("COMBAT_LEGALITY_REGRESSION_SMOKE: PASS")

@@ -15,6 +15,10 @@ func terrain(value: int) -> Dictionary:
 	return _profile(terrain_profiles, value)
 
 
+func ground_asset_path(value: int) -> String:
+	return str(terrain(value).get("ground_asset_path", ""))
+
+
 func flora(value: int) -> Dictionary:
 	return _profile(flora_profiles, value)
 

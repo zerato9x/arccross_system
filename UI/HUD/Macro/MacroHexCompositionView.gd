@@ -4,6 +4,7 @@ class_name MacroHexCompositionView
 ## Lightweight reusable renderer for the literal generated hex composition.
 
 var _descriptor: Dictionary = {}
+var _render_options: Dictionary = {}
 var _layer_root: Control
 var _decor_root: Control
 
@@ -14,17 +15,20 @@ func _ready() -> void:
 	_layer_root = Control.new()
 	_layer_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_layer_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_layer_root.z_index = 0
 	add_child(_layer_root)
 	_decor_root = Control.new()
 	_decor_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_decor_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_decor_root.z_index = 100
 	add_child(_decor_root)
 	resized.connect(_layout_decorations)
 	_render()
 
 
-func show_composition(descriptor: Dictionary) -> void:
+func show_composition(descriptor: Dictionary, render_options: Dictionary = {}) -> void:
 	_descriptor = descriptor.duplicate(true)
+	_render_options = render_options.duplicate(true)
 	if is_node_ready():
 		_render()
 
@@ -39,6 +43,9 @@ func _render() -> void:
 	_clear(_layer_root)
 	_clear(_decor_root)
 	var layers: Array = _descriptor.get("layers", []).duplicate(true)
+	var hidden_kinds: Array = _render_options.get("hide_layer_kinds", [])
+	var hidden_paths: Array = _render_options.get("hide_layer_paths", [])
+	var seen_paths := {}
 	layers.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return int(a.get("z_index", 0)) < int(b.get("z_index", 0))
 	)
@@ -48,6 +55,11 @@ func _render() -> void:
 		var path := str(entry.get("path", ""))
 		if path.is_empty() or not ResourceLoader.exists(path):
 			continue
+		if hidden_kinds.has(str(entry.get("kind", "visual"))) or hidden_paths.has(path):
+			continue
+		if seen_paths.has(path):
+			continue
+		seen_paths[path] = true
 		var layer := TextureRect.new()
 		layer.name = "Layer_%s" % str(entry.get("kind", "visual"))
 		layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -55,15 +67,26 @@ func _render() -> void:
 		layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.z_index = int(entry.get("z_index", 0))
 		layer.texture = load(path) as Texture2D
 		_layer_root.add_child(layer)
 
+	var seen_decorations := {}
 	for entry in _descriptor.get("decorations", []):
 		if not entry is Dictionary:
 			continue
 		var path := str(entry.get("path", ""))
 		if path.is_empty() or not ResourceLoader.exists(path):
 			continue
+		var decoration_key := "%s|%s|%s|%s" % [
+			path,
+			str(entry.get("offset", Vector2.ZERO)),
+			str(entry.get("rotation", 0.0)),
+			str(entry.get("flip_h", false)),
+		]
+		if seen_decorations.has(decoration_key):
+			continue
+		seen_decorations[decoration_key] = true
 		var decor := TextureRect.new()
 		decor.name = "Decor_%s" % str(entry.get("kind", "detail"))
 		decor.texture = load(path) as Texture2D

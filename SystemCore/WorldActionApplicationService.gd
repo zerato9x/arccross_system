@@ -30,14 +30,20 @@ const ALLOWED_MUTATION_TYPES := [
 ]
 
 var store: RuntimeStateStore
+var diagnostic_callback: Callable
 
 
-func configure(state: RuntimeStateStore) -> void:
+func configure(
+	state: RuntimeStateStore,
+	diagnostics: Callable = Callable()
+) -> void:
 	store = state
+	diagnostic_callback = diagnostics
 
 
 func apply(receipt: WorldActionReceipt) -> WorldActionApplicationReceipt:
 	var result := WorldActionApplicationReceipt.new()
+	_debug_mark("application start")
 	if receipt != null:
 		result.receipt_id = receipt.receipt_id
 		result.action_id = receipt.action_id
@@ -56,17 +62,23 @@ func apply(receipt: WorldActionReceipt) -> WorldActionApplicationReceipt:
 	var validation_error := _validation_error(receipt)
 	if not validation_error.is_empty():
 		result.error = validation_error
+		_debug_mark("application rejected during validation")
 		return result
 
 	var transaction := store.capture_reconciliation_snapshot()
+	_debug_mark("transaction snapshot captured")
 	var elapsed := maxi(0, receipt.elapsed_minutes)
 	var previous_world_time := store.world_time_minutes
 	var actor_runtime := _staged_actor_runtime(receipt, elapsed)
 	if actor_runtime.is_empty():
+		_debug_mark("actor runtime staging failed")
 		return _rollback(result, transaction, "Could not stage world-action actor runtime.")
+	_debug_mark("actor runtime staged")
 
 	if not _commit_actor_and_item_runtime(receipt, actor_runtime):
+		_debug_mark("actor and item runtime commit failed")
 		return _rollback(result, transaction, "Could not commit actor/item runtime.")
+	_debug_mark("actor and item runtime committed")
 	if receipt.actor_id == "player":
 		result.player_runtime = actor_runtime.duplicate(true)
 	else:
@@ -85,6 +97,7 @@ func apply(receipt: WorldActionReceipt) -> WorldActionApplicationReceipt:
 		var signal_record := WorldSignalRecord.from_dict(signal_value)
 		store.register_world_signal(signal_record)
 	store.prune_world_signals()
+	_debug_mark("world-time and signals applied")
 
 	var current_hex := store.get_hex_record(receipt.target_coords)
 	var next_hex := HexRecord.from_dict(current_hex.to_dict())
@@ -123,9 +136,13 @@ func apply(receipt: WorldActionReceipt) -> WorldActionApplicationReceipt:
 	if not store.replace_hex_record(
 		receipt.target_coords,
 		next_hex,
-		receipt.expected_hex_revision
+		receipt.expected_hex_revision,
+		true,
+		false
 	):
+		_debug_mark("hex projection commit failed")
 		return _rollback(result, transaction, "World-action hex revision drifted during commit.")
+	_debug_mark("hex projection committed")
 	result.hex_revision = store.get_hex_record(receipt.target_coords).revision
 
 	for mutation in receipt.mutations:
@@ -151,12 +168,25 @@ func apply(receipt: WorldActionReceipt) -> WorldActionApplicationReceipt:
 		store.cancel_world_action(receipt.action_id)
 
 	store.mark_world_receipt_applied(receipt.receipt_id)
-	var integrity_errors := store.validate_integrity()
+	_debug_mark("receipt identity committed")
+	var integrity_errors := store.validate_world_action_integrity(
+		receipt.target_coords,
+		receipt.actor_id,
+		receipt.action_id,
+		_receipt_touches_item_ownership(receipt)
+	)
 	if not integrity_errors.is_empty():
+		_debug_mark("final integrity failed")
 		return _rollback(result, transaction, "; ".join(integrity_errors))
 	result.applied = true
 	store.emit_world_time_commit(previous_world_time, elapsed)
+	_debug_mark("application end")
 	return result
+
+
+func _debug_mark(label: String) -> void:
+	if diagnostic_callback.is_valid():
+		diagnostic_callback.call("receipt // " + label)
 
 
 func _validation_error(receipt: WorldActionReceipt) -> String:
@@ -477,6 +507,22 @@ func _is_incomplete_work_receipt(receipt: WorldActionReceipt) -> bool:
 		return false
 	for mutation in receipt.mutations:
 		if mutation is Dictionary and str(mutation.get("type", "")) == "work_progress":
+			return true
+	return false
+
+
+func _receipt_touches_item_ownership(receipt: WorldActionReceipt) -> bool:
+	if receipt == null:
+		return false
+	for mutation in receipt.mutations:
+		if not mutation is Dictionary:
+			continue
+		if str(mutation.get("type", "")) in [
+			"consume_material",
+			"transfer_ground_item",
+			"drop_ground_item",
+			"add_ground_item",
+		]:
 			return true
 	return false
 

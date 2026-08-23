@@ -31,7 +31,8 @@ func _run() -> void:
 				{"actor_id": "player", "team_id": "player", "name": "Player"},
 				48.0,
 				1.0,
-				Vector2(0.0, -94.0)
+				token.combat_overhead_anchor(),
+				direction
 			)
 			var cue := CombatPresentationCue.new()
 			cue.action_id = action_id
@@ -45,16 +46,10 @@ func _run() -> void:
 			if weapon_rect.size == Vector2.ZERO:
 				_failures.append("No weapon geometry for %s/%s." % [direction, action_id])
 			else:
-				var display_size := Vector2(weapon_definition.frame_size_for_action(action_id)) * clampf(0.72 * weapon_definition.display_scale_for_action(action_id), 0.55, 1.65)
-				var anchor := weapon_definition.hand_anchor_for_action(action_id)
-				var lateral := (anchor.x - 0.5) * display_size.x
-				if direction == "west":
-					lateral = -lateral
-				var expected_center := token.combat_weapon_hand_anchor("revolver") + Vector2(lateral, anchor.y * display_size.y)
-				if weapon_rect.get_center().distance_to(expected_center) > 0.01:
-					_failures.append("Weapon lost the production hand anchor for %s/%s: %s != %s" % [direction, action_id, weapon_rect.get_center(), expected_center])
-			if overlay.has_method("weapon_muzzle_local_position"):
-				_failures.append("Decorative weapon overlay still exposes projectile geometry for %s/%s." % [direction, action_id])
+				var head_top := token.combat_overhead_anchor().y
+				var allowed_bottom := head_top - weapon_definition.overhead_gap_pixels
+				if weapon_rect.end.y > allowed_bottom + 0.01:
+					_failures.append("Weapon is not above the head for %s/%s: bottom=%s head=%s" % [direction, action_id, weapon_rect.end.y, head_top])
 			overlay.queue_free()
 	var melee_overlay := OVERLAY_SCRIPT.new() as CombatTokenOverlay
 	token.add_child(melee_overlay)
@@ -81,6 +76,14 @@ func _run() -> void:
 	melee_overlay.set_weapon_cue(melee_cue, 0.5)
 	if melee_overlay.weapon_local_rect().size == Vector2.ZERO:
 		_failures.append("Melee overlay did not reuse the equipped-item sprite geometry.")
+	var swing_frames := [
+		melee_overlay.melee_swing_frame_for_progress(0.05),
+		melee_overlay.melee_swing_frame_for_progress(0.30),
+		melee_overlay.melee_swing_frame_for_progress(0.55),
+		melee_overlay.melee_swing_frame_for_progress(0.80),
+	]
+	if swing_frames != [0, 1, 2, 3]:
+		_failures.append("Melee swing did not use four deterministic low-frame poses: %s" % swing_frames)
 	melee_overlay.queue_free()
 	token.queue_free()
 	if _failures.is_empty():

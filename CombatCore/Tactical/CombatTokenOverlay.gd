@@ -6,6 +6,10 @@ class_name CombatTokenOverlay
 
 enum Mode { GROUND, TOP }
 
+## Melee uses a deliberately small authored pose count. The equipped sprite is
+## still the source artwork; only the swing pose is stepped for readable impact.
+const MELEE_SWING_FRAME_ANGLES := [-0.62, -0.22, 0.24, 0.62]
+
 var mode: Mode = Mode.GROUND
 var actor_snapshot: Dictionary = {}
 var team_color := Color("67a7c8")
@@ -140,7 +144,8 @@ func _draw_weapon() -> void:
 	var frame_index := clampi(floori(weapon_progress * float(frame_count)), 0, frame_count - 1)
 	var source := Rect2(Vector2((frame_index % columns) * frame_size.x, floori(float(frame_index) / float(columns)) * frame_size.y), Vector2(frame_size))
 	var weapon_rect: Rect2 = geometry.rect
-	var flip_x := -1.0 if presentation_direction == "west" else 1.0
+	var direction_id := cue.presentation_direction if not cue.presentation_direction.is_empty() else presentation_direction
+	var flip_x := -1.0 if direction_id == "west" else 1.0
 	draw_set_transform(weapon_rect.get_center(), 0.0, Vector2(flip_x, 1.0))
 	draw_texture_rect_region(sheet, Rect2(-display_size * 0.5, display_size), source)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -157,15 +162,16 @@ func _draw_melee_weapon() -> void:
 	var hand := token.combat_melee_hand_anchor()
 	var direction := _facing_vector(presentation_direction)
 	var progress := clampf(cue_progress, 0.0, 1.0)
-	var anticipation := sin(progress * PI)
-	var swing := lerpf(-0.42, 0.56, progress)
+	var swing_frame := melee_swing_frame_for_progress(progress)
+	var swing := melee_swing_angle_for_progress(progress)
 	var angle := direction.angle() + swing
 	var frame_rect: Rect2 = geometry.rect
 	# The equipped-item image is authored in the same token-local canvas as the
 	# humanoid layers. Rotate that existing image around the hand pivot instead
 	# of inventing a second melee effect asset.
 	draw_set_transform(hand, angle, Vector2.ONE)
-	draw_texture_rect(texture, Rect2(frame_rect.position - hand, frame_rect.size), false, Color(1.0, 1.0, 1.0, 0.72 + anticipation * 0.28))
+	var alpha := 0.82 + float(swing_frame) * 0.06
+	draw_texture_rect(texture, Rect2(frame_rect.position - hand, frame_rect.size), false, Color(1.0, 1.0, 1.0, alpha))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
@@ -175,13 +181,20 @@ func weapon_local_rect() -> Rect2:
 	return _weapon_geometry().get("rect", Rect2())
 
 
-func _is_melee_cue() -> bool:
+func melee_swing_frame_for_progress(progress: float) -> int:
+	var normalized := clampf(progress, 0.0, 0.999999)
+	return mini(MELEE_SWING_FRAME_ANGLES.size() - 1, floori(normalized * MELEE_SWING_FRAME_ANGLES.size()))
+
+
+func melee_swing_angle_for_progress(progress: float) -> float:
+	return float(MELEE_SWING_FRAME_ANGLES[melee_swing_frame_for_progress(progress)])
+
+
+func _is_melee_cue(weapon_cue: CombatPresentationCue = null) -> bool:
+	var active_cue: CombatPresentationCue = cue if weapon_cue == null else weapon_cue
 	return (
-		cue != null
-		and (
-			cue.action_id in ["strike", "shove", "incapacitate", "execute"]
-			or cue.weapon_class in [GameEnums.WeaponClass.BLUNT, GameEnums.WeaponClass.BLADE]
-		)
+		active_cue != null
+		and active_cue.is_melee_presentation()
 	)
 
 
@@ -207,28 +220,33 @@ func _melee_weapon_geometry() -> Dictionary:
 	}
 
 
-func _weapon_geometry() -> Dictionary:
-	if cue == null or cue.weapon_class < GameEnums.WeaponClass.PISTOL:
+func _weapon_geometry(weapon_cue: CombatPresentationCue = null) -> Dictionary:
+	var active_cue: CombatPresentationCue = cue if weapon_cue == null else weapon_cue
+	if active_cue == null or not active_cue.is_firearm_presentation():
 		return {}
 	var catalog: CombatWeaponPresentationCatalog = preload("res://CombatCore/Tactical/default_weapon_presentation_catalog.tres")
-	var definition := catalog.definition_for(cue.weapon_id)
+	var definition := catalog.definition_for(active_cue.weapon_id)
 	if definition == null:
 		return {}
-	var frame_size := definition.frame_size_for_action(cue.action_id)
+	var frame_size := definition.frame_size_for_action(active_cue.action_id)
 	if frame_size.x <= 0 or frame_size.y <= 0:
 		return {}
-	var display_size := Vector2(frame_size) * clampf(display_scale * 0.72 * definition.display_scale_for_action(cue.action_id), 0.55, 1.65)
-	var token := get_parent() as HumanoidTokenView
-	# In production the parent token supplies the physical hand anchor. The
-	# headless geometry contract has no parent node, so keep its fallback above
-	# the supplied overhead anchor instead of letting a detached weapon cross
-	# the nameplate/body region.
-	var hand := token.combat_weapon_hand_anchor(cue.weapon_id) if token != null else head_top_anchor + Vector2(0.0, -display_size.y * 1.1)
-	var authored_anchor := definition.hand_anchor_for_action(cue.action_id)
+	var display_size := Vector2(frame_size) * clampf(display_scale * 0.72 * definition.display_scale_for_action(active_cue.action_id), 0.55, 1.65)
+	# The animated firearm is an overhead presentation object.  Its authored
+	# hand pivot still controls the frame placement, but the whole sprite is
+	# lifted above the rendered humanoid bounds so it cannot sit beside the body.
+	var overhead_center := head_top_anchor - Vector2(
+		0.0,
+		display_size.y * 0.5 + definition.overhead_gap_pixels * display_scale
+	)
+	var authored_anchor := definition.hand_anchor_for_action(active_cue.action_id)
 	var lateral_offset := (authored_anchor.x - 0.5) * display_size.x
-	if presentation_direction == "west":
+	if active_cue.presentation_direction == "west":
 		lateral_offset = -lateral_offset
-	var center := hand + Vector2(lateral_offset, authored_anchor.y * display_size.y)
+	var forward_offset := Vector2.ZERO
+	if active_cue.presentation_direction in ["east", "west"]:
+		forward_offset.x = display_size.x * 0.28 * (-1.0 if active_cue.presentation_direction == "west" else 1.0)
+	var center := overhead_center + forward_offset + Vector2(lateral_offset, authored_anchor.y * display_size.y)
 	return {
 		"definition": definition,
 		"display_size": display_size,

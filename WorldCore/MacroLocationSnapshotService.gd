@@ -106,19 +106,9 @@ func build_current(inventory_snapshot: Dictionary) -> Dictionary:
 	)
 	if enrich_session.is_valid():
 		enrich_session.call(session, hex_data)
-	var decorations: Array = []
-	if world_generator.has_method("get_decorations_at"):
-		decorations = world_generator.get_decorations_at(coords)
-	var catalog: MacroTileCatalog = (
-		map_visualizer.tile_catalog if map_visualizer != null else null
-	)
-	var presentation := _HexPresentation.build(
-		hex_data,
-		catalog,
-		decorations,
-		world_state.world_seed,
+	var presentation := _build_compact_presentation(
 		coords,
-		hex_descriptor.get("entity_inspect", {}),
+		hex_descriptor,
 		ground_items
 	)
 	presentation["scene"] = _HexPresentation.merge_scene(
@@ -141,23 +131,35 @@ func build_current(inventory_snapshot: Dictionary) -> Dictionary:
 		"presentation": presentation,
 		"session": session,
 		"fixture_count": session.get("site", {}).get("fixtures", []).size(),
-		"can_open": true,
+		"can_open": not _is_movement_active(),
 	}
 
 
 func build_target(snapshot: Dictionary) -> Dictionary:
-	if player_token == null or world_generator == null:
+	if player_token == null or world_state == null or world_generator == null:
 		return {}
 	var target: Dictionary = snapshot.get("selected_hex", {}).duplicate(true)
 	var current_coords := player_token.current_hex_coords
 	var target_coords: Vector2i = target.get("coords", current_coords)
 	if target_coords == current_coords:
 		return {}
+	target["exploration"] = {
+		"available": false,
+		"lock_reason": "Travel here first",
+	}
+	if bool(target.get("explored", false)):
+		target["presentation"] = _build_compact_presentation(
+			target_coords,
+			target,
+		[]
+		)
 	var blocked_reason := ""
 	var route: Array = []
 	if not world_generator.is_in_zone_bounds(target_coords):
 		blocked_reason = "Outside this zone"
-	elif not bool(target.get("explored", false)):
+	elif _is_movement_active():
+		blocked_reason = "Movement in progress"
+	elif not bool(target.get("travel_known", false)):
 		blocked_reason = "That hex is not known well enough to plot a route"
 	elif not bool(target.get("passable", false)):
 		blocked_reason = "Blocked terrain"
@@ -181,6 +183,36 @@ func build_target(snapshot: Dictionary) -> Dictionary:
 	return target
 
 
+func _build_compact_presentation(
+	coords: Vector2i,
+	hex_descriptor: Dictionary,
+	ground_items: Array
+) -> Dictionary:
+	if (
+		world_state == null
+		or world_generator == null
+		or not world_generator.is_in_zone_bounds(coords)
+		or not bool(hex_descriptor.get("explored", false))
+	):
+		return {}
+	var hex_data := world_generator.get_hex_at(coords)
+	var decorations: Array = []
+	if world_generator.has_method("get_decorations_at"):
+		decorations = world_generator.get_decorations_at(coords)
+	var catalog: MacroTileCatalog = (
+		map_visualizer.tile_catalog if map_visualizer != null else null
+	)
+	return _HexPresentation.build(
+		hex_data,
+		catalog,
+		decorations,
+		world_state.world_seed,
+		coords,
+		hex_descriptor.get("entity_inspect", {}),
+		ground_items
+	)
+
+
 func _route_travel_minutes(route: Array) -> int:
 	var minutes := 0
 	for value in route:
@@ -196,3 +228,8 @@ func _hex_label(coords: Vector2i, hex_data: MacroHexData) -> String:
 	if callback.is_valid():
 		return str(callback.call(coords, hex_data))
 	return str(coords)
+
+
+func _is_movement_active() -> bool:
+	var callback: Callable = callbacks.get("is_movement_active", Callable())
+	return bool(callback.call()) if callback.is_valid() else false

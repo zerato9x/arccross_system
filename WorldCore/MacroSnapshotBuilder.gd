@@ -301,13 +301,18 @@ static func build_hex_descriptor(
 	is_entity_alive_callback: Callable,
 	is_entity_hostile_callback: Callable,
 	ensure_npc_purpose_callback: Callable,
-	hex_distance_callback: Callable
+	hex_distance_callback: Callable,
+	movement_active: bool = false,
+	travel_known: bool = false
 ) -> Dictionary:
+	var is_current := coords == player_coords
+	var is_known := hex_data.is_explored or is_current
+	var is_travel_known := is_known or travel_known
 	var entity_name := ""
 	var entity_status := ""
 	var entity_purpose := ""
 	var hostile := false
-	if entity_record != null and is_entity_alive_callback.call(
+	if is_known and entity_record != null and is_entity_alive_callback.call(
 		entity_record.entity_id
 	):
 		entity_name = str(
@@ -324,7 +329,7 @@ static func build_hex_descriptor(
 		hostile = is_entity_hostile_callback.call(entity_record.entity_id)
 
 	var entity_inspect := {}
-	if entity_record != null and not entity_name.is_empty():
+	if is_known and entity_record != null and not entity_name.is_empty():
 		entity_inspect = MacroEntityCollisionResolver.build_opponent_summary(
 			entity_record
 		)
@@ -341,67 +346,199 @@ static func build_hex_descriptor(
 			else {}
 		)
 	var search_requirements: Dictionary = search_site.get("requirements", {})
-	return {
+	var descriptor := {
 		"coords": coords,
-		"label": hex_label,
-		"region": enum_key(GameEnums.MacroRegion.keys(), int(hex_data.region)),
+		"label": hex_label if is_known else "HEX %d,%d // UNKNOWN" % [coords.x, coords.y],
+		"region": (
+			enum_key(GameEnums.MacroRegion.keys(), int(hex_data.region))
+			if is_known else "UNKNOWN"
+		),
 		"arm_direction": enum_key(
 			GameEnums.MacroArmDirection.keys(),
 			int(hex_data.arm_direction)
-		),
+		) if is_known else "UNKNOWN",
 		"terrain": enum_key(
 			GameEnums.MacroTerrainTile.keys(),
 			int(hex_data.terrain_tile)
-		),
+		) if is_known else "UNKNOWN",
 		"flora": enum_key(
 			GameEnums.MacroFloraLayer.keys(),
 			int(hex_data.flora_layer)
+		) if is_known else "UNKNOWN",
+		"rock": (
+			enum_key(GameEnums.MacroRockLayer.keys(), int(hex_data.rock_layer))
+			if is_known else "UNKNOWN"
 		),
-		"rock": enum_key(GameEnums.MacroRockLayer.keys(), int(hex_data.rock_layer)),
 		"water": enum_key(
 			GameEnums.MacroWaterLayer.keys(),
 			int(hex_data.water_layer)
-		),
-		"structure": enum_key(
-			GameEnums.MacroStructureLayer.keys(),
-			int(hex_data.structure_layer)
+		) if is_known else "UNKNOWN",
+		"structure": (
+			enum_key(
+				GameEnums.MacroStructureLayer.keys(),
+				int(hex_data.structure_layer)
+			)
+			if is_known else "UNKNOWN"
 		),
 		"passable": hex_data.is_passable(),
-		"explored": hex_data.is_explored,
-		"hazard": hex_data.hazard_level,
+		"explored": hex_data.is_explored or is_current,
+		"hazard": hex_data.hazard_level if is_known else 0.0,
 		"distance": distance,
 		"travel_minutes": travel_minutes,
 		"travel_km": travel_km,
 		"travel_exertion": hex_data.travel_exertion(),
-		"is_current": coords == player_coords,
+		"is_current": is_current,
+		"travel_known": is_travel_known,
 		"can_travel": (
 			distance > 0
-			and hex_data.is_explored
+			and is_travel_known
 			and hex_data.is_passable()
 		),
-		"can_interact": coords == player_coords,
-		"is_poi": hex_data.is_poi,
-		"poi_name": hex_data.poi_name,
-		"search_count": hex_data.search_count,
-		"search_site_id": hex_data.search_site_id,
-		"search_site_name": str(search_site.get("display_name", "")),
-		"search_site_description": str(search_site.get("description", "")),
-		"search_marker_kind": str(search_site.get("marker_kind", "")),
-		"search_requires_access": not search_requirements.is_empty(),
-		"search_depleted": not search_site.is_empty() and hex_data.search_count > 0,
-		"camp_rest_count": hex_data.camp_rest_count,
-		"ground_item_count": ground_items.size(),
+		"can_interact": is_current,
+		"is_poi": hex_data.is_poi if is_known else false,
+		"poi_name": hex_data.poi_name if is_known else "",
+		"search_count": hex_data.search_count if is_known else 0,
+		"search_site_id": hex_data.search_site_id if is_known else "",
+		"search_site_name": str(search_site.get("display_name", "")) if is_known else "",
+		"search_site_description": str(search_site.get("description", "")) if is_known else "",
+		"search_marker_kind": str(search_site.get("marker_kind", "")) if is_known else "",
+		"search_requires_access": is_known and not search_requirements.is_empty(),
+		"search_depleted": is_known and not search_site.is_empty() and hex_data.search_count > 0,
+		"camp_rest_count": hex_data.camp_rest_count if is_known else 0,
+		"ground_item_count": ground_items.size() if is_known else 0,
 		"entity_name": entity_name,
 		"entity_status": entity_status,
 		"entity_purpose": entity_purpose,
 		"hostile": hostile,
 		"entity_inspect": entity_inspect,
-		"feature_title": feature_title(hex_data),
-		"environment_summary": environment_summary(hex_data),
-		"movement_note": movement_note(hex_data),
-		"visibility": _hex_visibility(hex_data),
-		"cover": _hex_cover(hex_data),
-		"resource_hint": resource_hint(hex_data),
+		"feature_title": feature_title(hex_data) if is_known else "Unknown Hex",
+		"environment_summary": (
+			environment_summary(hex_data)
+			if is_known else "No survey data is available for this hex."
+		),
+		"movement_note": movement_note(hex_data) if is_known else "UNKNOWN // travel here to survey",
+		"visibility": _hex_visibility(hex_data) if is_known else "UNKNOWN",
+		"cover": _hex_cover(hex_data) if is_known else "UNKNOWN",
+		"resource_hint": resource_hint(hex_data) if is_known else "Possible finds: unknown",
+	}
+	descriptor["exploration"] = {
+		"available": is_current and not movement_active,
+		"lock_reason": (
+			"Movement in progress"
+			if is_current and movement_active
+			else ("Travel here first" if not is_current else "")
+		),
+	}
+	descriptor["intel_signals"] = _build_intel_signals(
+		hex_data,
+		search_site,
+		search_requirements,
+		ground_items,
+		is_known,
+		hostile,
+	)
+	return descriptor
+
+
+static func _build_intel_signals(
+	hex_data: MacroHexData,
+	search_site: Dictionary,
+	search_requirements: Dictionary,
+	ground_items: Array,
+	is_known: bool,
+	hostile: bool
+) -> Array:
+	if not is_known:
+		return [
+			_intel_signal("loot", "unknown", "UNKNOWN", "inventory", "muted"),
+			_intel_signal("structure", "unknown", "UNKNOWN", "location", "muted"),
+			_intel_signal("risk", "unknown", "UNKNOWN", "warning", "muted"),
+		]
+
+	var loot_state := "none"
+	var loot_label := "NONE"
+	var loot_role := "muted"
+	var marker_kind := str(search_site.get("marker_kind", "")).to_lower()
+	var loot_profile_id := str(search_site.get("loot_profile_id", "")).to_lower()
+	if not ground_items.is_empty():
+		loot_state = "known"
+		loot_label = "GROUND ITEMS"
+		loot_role = "discovery"
+	elif not search_site.is_empty() and hex_data.search_count > 0:
+		loot_state = "none"
+		loot_label = "NONE"
+	elif not search_site.is_empty() and (
+		marker_kind.contains("locked") or not search_requirements.is_empty()
+	):
+		loot_state = "known"
+		loot_label = "LOCKED SALVAGE"
+		loot_role = "caution"
+	elif not search_site.is_empty() or not hex_data.loot_tier_id.is_empty():
+		loot_state = "known"
+		loot_label = (
+			"SUPPLIES"
+			if marker_kind.contains("supply")
+			or loot_profile_id.contains("supply")
+			or loot_profile_id.contains("food")
+			or loot_profile_id.contains("medical")
+			else "SALVAGE"
+		)
+		loot_role = "discovery"
+
+	var structure_state := "none"
+	var structure_label := "OPEN GROUND"
+	var composition := hex_data.composition_role.to_lower()
+	if composition.contains("camp") or composition.contains("tent"):
+		structure_state = "known"
+		structure_label = "CAMP"
+	elif hex_data.structure_layer == GameEnums.MacroStructureLayer.STRUCTURES or hex_data.is_poi:
+		structure_state = "known"
+		structure_label = "BUILDING"
+	elif hex_data.structure_layer == GameEnums.MacroStructureLayer.REMNANTS or composition.contains("rubble"):
+		structure_state = "known"
+		structure_label = "REMAINS"
+
+	var risk_state := "known"
+	var risk_label := "LOW"
+	var risk_role := "info"
+	if hostile:
+		risk_label = "HOSTILE"
+		risk_role = "critical"
+	else:
+		var risk_score := clampf(hex_data.hazard_level / float(GameEnums.SCALE_MAX), 0.0, 1.0)
+		var modifiers: Dictionary = search_site.get("metric_modifiers", {})
+		if not modifiers.is_empty():
+			risk_score = clampf(
+				risk_score - float(modifiers.get("safety", 0.0)) / float(GameEnums.SCALE_MAX),
+			0.0,
+			1.0
+		)
+		if risk_score >= 0.7:
+			risk_label = "HIGH"
+			risk_role = "critical"
+		elif risk_score >= 0.3:
+			risk_label = "ELEVATED"
+			risk_role = "caution"
+	return [
+		_intel_signal("loot", loot_state, loot_label, "inventory", loot_role),
+		_intel_signal("structure", structure_state, structure_label, "location", "info" if structure_state == "known" else "muted"),
+		_intel_signal("risk", risk_state, risk_label, "warning", risk_role),
+	]
+
+
+static func _intel_signal(
+	kind: String,
+	state: String,
+	label: String,
+	icon_id: String,
+	role: String
+) -> Dictionary:
+	return {
+		"kind": kind,
+		"state": state,
+		"label": label,
+		"icon_id": icon_id,
+		"role": role,
 	}
 
 
@@ -590,7 +727,9 @@ static func build_world_hud_snapshot(
 	hex_distance_callback: Callable,
 	hex_label_callback: Callable,
 	is_entity_alive_callback: Callable,
-	is_entity_hostile_callback: Callable
+	is_entity_hostile_callback: Callable,
+	movement_active: bool = false,
+	travel_known_callback: Callable = Callable()
 ) -> Dictionary:
 	return build_world_hud_snapshot_from_neutral(
 		BiologicalSnapshotService.capture(player_core),
@@ -612,7 +751,9 @@ static func build_world_hud_snapshot(
 		hex_distance_callback,
 		hex_label_callback,
 		is_entity_alive_callback,
-		is_entity_hostile_callback
+		is_entity_hostile_callback,
+		movement_active,
+		travel_known_callback
 	)
 
 
@@ -631,7 +772,9 @@ static func build_world_hud_snapshot_from_neutral(
 	hex_distance_callback: Callable,
 	hex_label_callback: Callable,
 	is_entity_alive_callback: Callable,
-	is_entity_hostile_callback: Callable
+	is_entity_hostile_callback: Callable,
+	movement_active: bool = false,
+	travel_known_callback: Callable = Callable()
 ) -> Dictionary:
 	if biological_snapshot.is_empty() or inventory_snapshot.is_empty():
 		return {}
@@ -645,7 +788,10 @@ static func build_world_hud_snapshot_from_neutral(
 			world_state.get_ground_items(player_coords),
 			hex_label_callback.call(player_coords, current_hex),
 			is_entity_alive_callback, is_entity_hostile_callback,
-			ensure_npc_purpose_callback, hex_distance_callback
+			ensure_npc_purpose_callback, hex_distance_callback,
+			movement_active,
+			travel_known_callback.is_valid()
+			and bool(travel_known_callback.call(player_coords))
 		),
 		"selected_hex": build_hex_descriptor(
 			selected_hex_coords, player_coords, selected_hex,
@@ -653,7 +799,10 @@ static func build_world_hud_snapshot_from_neutral(
 			world_state.get_ground_items(selected_hex_coords),
 			hex_label_callback.call(selected_hex_coords, selected_hex),
 			is_entity_alive_callback, is_entity_hostile_callback,
-			ensure_npc_purpose_callback, hex_distance_callback
+			ensure_npc_purpose_callback, hex_distance_callback,
+			movement_active,
+			travel_known_callback.is_valid()
+			and bool(travel_known_callback.call(selected_hex_coords))
 		),
 		"macro_activity": build_macro_activity_snapshot(
 			player_coords, macro_turn_index, active_token_count,

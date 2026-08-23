@@ -18,6 +18,7 @@ enum LocationState { COMPACT, BROWSING, FIXTURE_SELECTED, CONFIGURING, RESOLVING
 var _location: Dictionary = {}
 var _session: Dictionary = {}
 var _preview_panel: MacroHexPreviewPanel
+var _target_panel: MacroHexTargetPanel
 var _location_state := LocationState.COMPACT
 var _selected_fixture_id := ""
 var _selected_verb := ""
@@ -55,7 +56,7 @@ const _TIMED_VERBS := ["search", "repair", "dismantle", "force"]
 func _ready() -> void:
 	panel_id = "hex"
 	panel_corner = PanelCorner.TOP_RIGHT
-	preview_size = Vector2(460.0, 360.0)
+	preview_size = Vector2(470.0, 410.0)
 	expand_width_ratio = 0.72
 	expand_height_ratio = 0.78
 	expanded_min_size = Vector2(820.0, 620.0)
@@ -77,6 +78,26 @@ func _install_preview_ui() -> void:
 		return
 	_preview_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_preview_panel.expand_requested.connect(expand_requested_hex.emit)
+
+
+func attach_target_panel(target_panel: MacroHexTargetPanel) -> void:
+	## Keep the target inspector in the same physical context surface as HERE.
+	## The shell still owns the node for compatibility, but the hex panel owns
+	## its presentation once the HUD is ready.
+	_target_panel = target_panel
+	if _target_panel == null or _preview_root == null:
+		return
+	if _target_panel.get_parent() != _preview_root:
+		_target_panel.reparent(_preview_root, false)
+	_target_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_target_panel.custom_minimum_size = Vector2.ZERO
+	_target_panel.scale = Vector2.ONE
+	_target_panel.z_index = 3
+	_target_panel.visible = false
+
+
+func has_attached_target_panel() -> bool:
+	return _target_panel != null and is_instance_valid(_target_panel)
 
 
 func _install_expanded_ui() -> void:
@@ -113,17 +134,21 @@ func _install_expanded_ui() -> void:
 	_board_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_board_bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_board_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_board_bg.z_index = 0
 	_board.add_child(_board_bg)
 	_board_composition = MacroHexCompositionView.new()
 	_board_composition.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_board_composition.z_index = 10
 	_board.add_child(_board_composition)
 	_prop_layer = Control.new()
 	_prop_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_prop_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_prop_layer.z_index = 20
 	_board.add_child(_prop_layer)
 	_fixture_layer = Control.new()
 	_fixture_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_fixture_layer.mouse_filter = Control.MOUSE_FILTER_PASS
+	_fixture_layer.z_index = 30
 	_board.add_child(_fixture_layer)
 	_action_flash = ColorRect.new()
 	_action_flash.name = "WorldActionFlash"
@@ -236,6 +261,15 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	_location = snapshot.get("current_location", {}).duplicate(true)
 	_session = _location.get("session", {}).duplicate(true)
 	visible = not _location.is_empty()
+	if _target_panel != null:
+		_target_panel.apply_snapshot(snapshot)
+		var show_target := _target_panel.visible and _state == PanelState.PREVIEW
+		_target_panel.visible = show_target
+		if _preview_panel:
+			# The richer target renderer owns both HERE and remote preview states.
+			# Keep the legacy node mounted for scene/API compatibility, but do not
+			# render a second compact window beside it.
+			_preview_panel.visible = false
 	_render_preview()
 	if is_expanded():
 		_render_expanded()
@@ -300,15 +334,37 @@ func _render_board_scene() -> void:
 		else null
 	)
 	_board_bg.visible = _board_bg.texture != null
-	_board_composition.show_composition(presentation)
-	_board_composition.modulate = Color(1.0, 1.0, 1.0, 0.36 if _board_bg.visible else 1.0)
+	var composition_options := {}
+	if _board_bg.visible:
+		# The location background is already an opaque ground plane. Keeping the
+		# hex terrain plate underneath it creates a visible second hex edge.
+		composition_options["hide_layer_kinds"] = ["terrain"]
+	var scene_prop_paths := {}
+	for entry in scene.get("props", []):
+		if entry is Dictionary:
+			var scene_path := str(entry.get("sprite_path", ""))
+			if not scene_path.is_empty():
+				scene_prop_paths[scene_path] = true
+	composition_options["hide_layer_paths"] = scene_prop_paths.keys()
+	_board_composition.show_composition(presentation, composition_options)
+	# The expanded board is a real inspection surface, not a disabled overlay.
+	# The previous 0.36 alpha made props and roads look transparent.
+	_board_composition.modulate = Color.WHITE
 	_clear(_prop_layer)
+	var seen_prop_paths := {}
 	for entry in scene.get("props", []):
 		if not entry is Dictionary:
+			continue
+		# Generator decorations are already rendered by MacroHexCompositionView.
+		# Drawing them again here caused the exact same sprite to stack twice.
+		if bool(entry.get("decorative", false)):
 			continue
 		var path := str(entry.get("sprite_path", ""))
 		if path.is_empty() or not ResourceLoader.exists(path):
 			continue
+		if seen_prop_paths.has(path):
+			continue
+		seen_prop_paths[path] = true
 		var prop := TextureRect.new()
 		prop.texture = load(path) as Texture2D
 		prop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -316,6 +372,8 @@ func _render_board_scene() -> void:
 		prop.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		prop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		prop.set_meta("descriptor", entry)
+		var prop_anchor: Vector2 = entry.get("anchor", Vector2(0.5, 0.55))
+		prop.z_index = 100 + int(prop_anchor.y * 100.0)
 		_prop_layer.add_child(prop)
 	var entity: Dictionary = presentation.get("entity", {})
 	if not entity.is_empty():
@@ -744,13 +802,22 @@ func restyle_scheme() -> void:
 
 
 func _is_primary_action_click(global_pos: Vector2) -> bool:
+	if _target_panel != null and _target_panel.visible:
+		return true
 	return _preview_panel != null and _preview_panel.get_global_rect().has_point(global_pos)
 
 
 func _on_corner_state_changed(_panel_id: String, state: int) -> void:
 	_location_state = LocationState.COMPACT if state == PanelState.PREVIEW else LocationState.BROWSING
 	if state == PanelState.EXPANDED:
+		if _target_panel:
+			_target_panel.visible = false
 		_render_expanded()
+	elif _target_panel and not _snapshot.is_empty():
+		# The target panel is a child of PreviewRoot, but its own visibility is
+		# also cleared during expansion so compatibility callers see the same
+		# state as the rendered HUD.
+		_target_panel.apply_snapshot(_snapshot)
 
 
 func _sync_fixture_buttons() -> void:

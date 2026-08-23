@@ -15,8 +15,13 @@ static func can_see(
 	if base_radius <= 0:
 		return false
 	var distance := _hex_distance(observer_coords, target_coords)
-	var reach := maxf(1.0, float(base_radius) * clampf(light_factor, 0.25, 1.2))
-	return float(distance) <= reach * clampf(obstruction_factor, 0.25, 1.0)
+	var reach := float(base_radius) * clampf(light_factor, 0.25, 1.2)
+	# A directly adjacent hex is physically observable even when its own
+	# structure/terrain reduces the useful sight distance beyond it. Applying
+	# obstruction after the minimum reach made adjacent rubble/buildings remain
+	# unexplored and therefore impossible to route to.
+	reach = maxf(1.0, reach * clampf(obstruction_factor, 0.25, 1.0))
+	return float(distance) <= reach
 
 
 static func can_hear(

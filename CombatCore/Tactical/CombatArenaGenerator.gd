@@ -68,7 +68,9 @@ func _compose_map(arena: CombatArenaState, encounter: CombatEncounterRecord):
 	var family := str(hex.terrain_tile if hex != null else 0)
 	var variant := variant_catalog.choose(family, result.map_seed)
 	result.variant_id = str(variant.get("id", "%s_00" % family))
+	var presentation_assets := _layer_assets(encounter.presentation)
 	var source_ground := _source_ground_path(hex, encounter.presentation)
+	var catalog_ground := catalog.ground_asset_path(int(hex.terrain_tile)) if hex != null else ""
 	var overrides: Dictionary = variant.get("overrides", {})
 	var override_ground := str(overrides.get("ground_path", variant.get("override_ground_path", "")))
 	var variant_ground := str(variant.get("base_ground_path", ""))
@@ -78,6 +80,9 @@ func _compose_map(arena: CombatArenaState, encounter: CombatEncounterRecord):
 	if not override_ground.is_empty() and ResourceLoader.exists(override_ground):
 		ground_path = override_ground
 		ground_source = "combat_variant_override"
+	elif not catalog_ground.is_empty() and ResourceLoader.exists(catalog_ground):
+		ground_path = catalog_ground
+		ground_source = "combat_terrain_catalog"
 	elif not source_ground.is_empty() and ResourceLoader.exists(source_ground):
 		ground_path = source_ground
 		ground_source = "source_hex"
@@ -91,10 +96,27 @@ func _compose_map(arena: CombatArenaState, encounter: CombatEncounterRecord):
 	result.base_ground_modulation = _color_value(variant.get("palette_modulation", Color.WHITE))
 	result.palette = variant.get("palette", {}).duplicate(true)
 	result.variant_overrides = overrides.duplicate(true)
+	var source_road := str(presentation_assets.get("road", ""))
+	var override_road := str(overrides.get("road_path", variant.get("road_overlay_path", "")))
+	var variant_road := _variant_layer_path(variant, "road")
+	var road_path := ""
+	var road_source := ""
+	if not override_road.is_empty() and ResourceLoader.exists(override_road):
+		road_path = override_road
+		road_source = "combat_variant_override"
+	elif not source_road.is_empty() and ResourceLoader.exists(source_road):
+		road_path = source_road
+		road_source = "source_hex"
+	elif not variant_road.is_empty() and ResourceLoader.exists(variant_road):
+		road_path = variant_road
+		road_source = "combat_variant"
+	result.road_overlay_path = road_path
 	result.source_provenance = {
 		"ground": ground_source,
 		"source_hex": source_ground,
 		"override": override_ground,
+		"road": road_source,
+		"source_road": source_road,
 		"variant_id": result.variant_id,
 		"family": family,
 	}
@@ -155,6 +177,13 @@ static func _source_ground_path(hex: HexRecord, presentation: Dictionary) -> Str
 	return authored
 
 
+static func _variant_layer_path(variant: Dictionary, kind: String) -> String:
+	for layer in variant.get("layers", []):
+		if layer is Dictionary and str(layer.get("kind", "")) == kind:
+			return str(layer.get("path", ""))
+	return ""
+
+
 static func _landmark_asset_path(hex: HexRecord, presentation: Dictionary, variant: Dictionary) -> String:
 	var authored := str(hex.structure_sprite_path if hex != null else "")
 	if not authored.is_empty() and ResourceLoader.exists(authored):
@@ -191,8 +220,8 @@ func _configure_base(
 	sector.visibility_penalty = float(profile.get("visibility_penalty", 0.0))
 	sector.concealment = float(profile.get("concealment", 0.0))
 	sector.opaque = bool(profile.get("opaque", false))
-	sector.blocked = bool(profile.get("blocked", false))
-	sector.spawnable = bool(profile.get("spawnable", not sector.blocked))
+	sector.blocked = bool(profile.get("blocked", false)) or (hex != null and hex.impassable)
+	sector.spawnable = bool(profile.get("spawnable", not sector.blocked)) and not sector.blocked
 	sector.hazard_state = _hazard_fields(profile)
 
 
@@ -215,8 +244,7 @@ func _apply_road(
 		sector.surface_label = "DIRT ROAD" if hex.composition_role == "dirt_service_spur" else "ROAD"
 		sector.overlay_asset_path = str(assets.get("road", ""))
 		sector.movement_modifier = mini(sector.movement_modifier, -1)
-		sector.blocked = false
-		sector.spawnable = true
+		sector.spawnable = not sector.blocked
 		sector.hazard_state["road_mask"] = hex.road_mask
 
 

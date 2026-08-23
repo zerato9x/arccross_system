@@ -70,7 +70,7 @@ func load_enemy_token(entity_id: String) -> MacroEnemy:
 	)
 	if (
 		record == null
-		or not world_state.is_entity_alive(entity_id)
+		or not world_state.is_entity_active(entity_id)
 	):
 		return null
 	return spawn_from_record(record)
@@ -100,7 +100,7 @@ func spawn_procedural_enemy(
 			if not existing_snapshot.is_empty()
 			else null
 		)
-		if existing != null and world_state.is_entity_alive(existing.entity_id):
+		if existing != null and world_state.is_entity_active(existing.entity_id):
 			spawn_from_record(existing)
 		return
 
@@ -136,11 +136,11 @@ func refresh_proximity(center_coords: Vector2i) -> void:
 	for coords in active_enemies.keys().duplicate():
 		var token: MacroEnemy = active_enemies[coords]
 		var distance := _NpcSimulator.hex_distance(center_coords, coords)
-		var alive := world_state.is_entity_alive(token.entity_id)
-		if distance > unload_radius or not alive:
+		var active := world_state.is_entity_active(token.entity_id)
+		if distance > unload_radius or not active:
 			_macro_log(
-				"Unload token %s @%s (dist %d, alive %s)."
-				% [token.entity_id, str(coords), distance, str(alive)]
+				"Unload token %s @%s (dist %d, active %s)."
+				% [token.entity_id, str(coords), distance, str(active)]
 			)
 			unload_enemy_token(coords)
 
@@ -167,7 +167,9 @@ func refresh_proximity(center_coords: Vector2i) -> void:
 
 func force_project_npc_token(record: EntityRecord) -> MacroEnemy:
 	sync_host_refs()
-	if record == null:
+	if record == null or world_state == null:
+		return null
+	if not world_state.is_entity_active(record.entity_id):
 		return null
 	if active_enemies.has(record.coords):
 		return active_enemies[record.coords]
@@ -190,7 +192,7 @@ func spawn_from_record(record: EntityRecord) -> MacroEnemy:
 		return null
 
 	var entity_id: String = record.entity_id
-	if world_state == null or not world_state.is_entity_alive(entity_id):
+	if world_state == null or not world_state.is_entity_active(entity_id):
 		return null
 
 	var coords: Vector2i = record.coords

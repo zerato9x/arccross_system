@@ -10,10 +10,15 @@ const HEX_NEIGHBORS := [
 ]
 
 var world_generator: HexWorldGenerator
+var route_known_callback: Callable = Callable()
 
 
-func configure(generator: HexWorldGenerator) -> void:
+func configure(
+	generator: HexWorldGenerator,
+	known_callback: Callable = Callable()
+) -> void:
 	world_generator = generator
+	route_known_callback = known_callback
 
 
 func build_known_route(
@@ -53,7 +58,15 @@ func _is_known_passable(coords: Vector2i) -> bool:
 	if world_generator == null or not world_generator.is_in_zone_bounds(coords):
 		return false
 	var hex_data := world_generator.get_hex_at(coords)
-	return hex_data != null and hex_data.is_explored and hex_data.is_passable()
+	if hex_data == null or not hex_data.is_passable():
+		return false
+	# Exploration remains the persisted knowledge authority. The visible
+	# fallback closes the projection gap where a hex is on-screen and physically
+	# observable but its exploration write has not reached the route snapshot yet.
+	var known := hex_data.is_explored
+	if not known and route_known_callback.is_valid():
+		known = bool(route_known_callback.call(coords))
+	return known
 
 
 func _reconstruct_route(

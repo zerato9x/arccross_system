@@ -22,6 +22,38 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 
+	hud._on_arena_context_requested(Vector2i(5, 0), "")
+	await process_frame
+	if hud._context_shortcuts.is_empty():
+		_fail("Building context did not expose an action branch.")
+	else:
+		hud._context_shortcuts[0].pressed.emit()
+		await process_frame
+	var move_to_building := _context_button(hud, "move")
+	var interact_from_afar := _context_button(hud, "interact")
+	if move_to_building == null or move_to_building.disabled:
+		_fail("A passable building sector did not expose an enabled Move action.")
+	if interact_from_afar == null or not interact_from_afar.disabled:
+		_fail("Interact was not disabled while the player was away from the building.")
+
+	hud.show_snapshot(_snapshot(Vector2i(5, 0)))
+	hud.show_quotes(_quotes(true))
+	await process_frame
+	hud._on_arena_context_requested(Vector2i(5, 0), "")
+	await process_frame
+	if hud._context_shortcuts.is_empty():
+		_fail("Occupied building context did not expose an action branch.")
+	else:
+		hud._context_shortcuts[0].pressed.emit()
+		await process_frame
+	var interact_on_building := _context_button(hud, "interact")
+	if interact_on_building == null or interact_on_building.disabled:
+		_fail("Interact did not become enabled on the occupied building sector.")
+
+	hud.show_snapshot(_snapshot())
+	hud.show_quotes(_quotes())
+	await process_frame
+
 	hud._on_arena_context_requested(Vector2i(2, 0), "")
 	hud._unhandled_input(_key(KEY_D))
 	hud._unhandled_input(_key(KEY_D))
@@ -94,13 +126,13 @@ func _run() -> void:
 	quit(1)
 
 
-func _snapshot() -> Dictionary:
+func _snapshot(player_sector: Vector2i = Vector2i(2, 0)) -> Dictionary:
 	var actors: Array[Dictionary] = [
 		{
 			"actor_id": "player",
 			"team_id": "player",
 			"name": "Player",
-			"sector": Vector2i(2, 0),
+			"sector": player_sector,
 			"blood": 12.0,
 			"consciousness": 12.0,
 			"pain": 0.0,
@@ -134,8 +166,8 @@ func _snapshot() -> Dictionary:
 			"movement_modifier": 0,
 			"cover_edges": {},
 			"hazards": {},
-			"object": {},
-			"occupant_id": "player" if x == 2 else ("enemy" if x == 11 else ""),
+			"object": {"id": "building-1", "label": "BUILDING", "usable": true} if x == 5 else {},
+			"occupant_id": "player" if x == player_sector.x else ("enemy" if x == 11 else ""),
 		})
 	return {
 		"round": 1,
@@ -153,18 +185,29 @@ func _snapshot() -> Dictionary:
 	}
 
 
-func _quotes() -> Array[CombatActionQuote]:
+func _quotes(interact_legal: bool = false) -> Array[CombatActionQuote]:
 	var result: Array[CombatActionQuote] = []
 	var catalog: CombatActionCatalog = load("res://CombatCore/Tactical/default_combat_action_catalog.tres")
 	for definition in catalog.all():
 		var quote := CombatActionQuote.new()
 		quote.action_id = definition.action_id
 		quote.actor_id = "player"
-		quote.target_sector = Vector2i(11, 0)
-		quote.legal = true
+		quote.target_sector = Vector2i(5, 0) if definition.action_id == "interact" else Vector2i(11, 0)
+		quote.legal = interact_legal if definition.action_id == "interact" else true
+		if definition.action_id == "interact" and not interact_legal:
+			quote.denial_code = "target_out_of_range"
+			quote.denial_message = "Stand on the selected sector to interact."
 		quote.ap_cost = definition.base_ap_cost(GameEnums.KineticTier.FLUID, 12)
 		result.append(quote)
 	return result
+
+
+func _context_button(hud: TacticalCombatHUD, action_id: String) -> Button:
+	for child in hud.context_actions.get_children():
+		var button := child as Button
+		if button != null and str(button.get_meta("action_id", "")) == action_id:
+			return button
+	return null
 
 
 func _key(keycode: Key) -> InputEventKey:

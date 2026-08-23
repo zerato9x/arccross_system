@@ -154,7 +154,7 @@ func clear_presentation() -> void:
 		if token == null:
 			continue
 		token.set_action_equipment_suppressed(false)
-		var top := token.get_meta("combat_top_overlay", null) as CombatTokenOverlay
+		var top := _top_overlay_for(token)
 		if top != null:
 			top.set_weapon_cue(null)
 	_cue = null
@@ -188,6 +188,18 @@ func begin_sequence(sequence: CombatPresentationSequence) -> void:
 	if _camera_director != null:
 		_camera_director.begin_sequence(sequence)
 	_sequence_weapon_cue = null
+	# A new sequence is a hard presentation boundary. Clear any prior weapon
+	# overlay before inspecting the new cues so a movement/end-turn sequence
+	# cannot inherit a firearm track when the previous sequence was interrupted.
+	for actor_id in _actor_tokens:
+		var actor_token := _actor_tokens[actor_id] as HumanoidTokenView
+		if actor_token == null:
+			continue
+		_ensure_token_overlays(actor_token)
+		actor_token.set_action_equipment_suppressed(false)
+		var actor_overlay := _top_overlay_for(actor_token)
+		if actor_overlay != null:
+			actor_overlay.set_weapon_cue(null)
 	if sequence == null:
 		return
 	for candidate in sequence.cues:
@@ -199,12 +211,12 @@ func begin_sequence(sequence: CombatPresentationSequence) -> void:
 	var token := _actor_tokens.get(_sequence_weapon_cue.actor_id) as HumanoidTokenView
 	if token == null:
 		return
-	var top_overlay := token.get_meta("combat_top_overlay", null) as CombatTokenOverlay
+	_ensure_token_overlays(token)
+	var top_overlay := _top_overlay_for(token)
 	if top_overlay != null:
-		# The weapon sheet is the committed action's one visible weapon. Suppress
-		# the composited equipment layer for the duration so a second gun cannot
-		# render at the same hand pivot.
-		token.set_action_equipment_suppressed(true)
+		# Firearm sheets are an overhead visual cue only. The humanoid's equipped
+		# category gun remains visible because it owns the projectile muzzle.
+		token.set_action_equipment_suppressed(_sequence_weapon_cue.is_melee_presentation())
 		top_overlay.set_weapon_cue(_sequence_weapon_cue, 0.0)
 	else:
 		token.set_action_equipment_suppressed(false)
@@ -354,7 +366,7 @@ func update_cue(progress: float, cue: CombatPresentationCue) -> void:
 	if _sequence_weapon_cue != null:
 		var cue_token := _actor_tokens.get(_sequence_weapon_cue.actor_id) as HumanoidTokenView
 		if cue_token != null:
-			var top_overlay := cue_token.get_meta("combat_top_overlay", null) as CombatTokenOverlay
+			var top_overlay := _top_overlay_for(cue_token)
 			if top_overlay != null:
 				var elapsed_seconds := cue.start_time_seconds + cue.duration_seconds * progress
 				var weapon_duration := _sequence_weapon_cue.weapon_animation_duration_seconds
@@ -413,13 +425,11 @@ func end_cue(cue: CombatPresentationCue) -> void:
 
 
 func _is_firearm_cue(cue: CombatPresentationCue) -> bool:
-	return cue != null and cue.weapon_class >= GameEnums.WeaponClass.PISTOL
+	return cue != null and cue.is_firearm_presentation()
 
 
 func _is_weapon_cue(cue: CombatPresentationCue) -> bool:
-	if cue == null:
-		return false
-	return _is_firearm_cue(cue) or cue.action_id in ["strike", "shove", "incapacitate", "execute"] or cue.weapon_class in [GameEnums.WeaponClass.BLUNT, GameEnums.WeaponClass.BLADE]
+	return cue != null and cue.has_weapon_presentation()
 
 
 func _path_position(path: Array[Vector2i], progress: float, start: Vector2i, finish: Vector2i, actor_id: String = "") -> Vector2:
@@ -476,7 +486,15 @@ func _draw_composition() -> void:
 		return
 	_draw_composition_layers(composition)
 	_draw_continuous_band(composition.get("water_cells", []), Color(0.10, 0.30, 0.42, 0.72), 0.88)
-	_draw_continuous_band(composition.get("road_cells", []), Color(0.32, 0.28, 0.21, 0.82), 0.62)
+	var road_overlay_path := str(composition.get("road_overlay_path", ""))
+	var road_texture := _texture(road_overlay_path)
+	if road_texture != null:
+		# The macro road mask is already the authored full-rectangle composition.
+		# Stretching it over the same rectangle as the plains ground preserves the
+		# official edge geometry and keeps road cells authoritative for rules.
+		draw_texture_rect(road_texture, Rect2(Vector2.ZERO, size), false, Color.WHITE)
+	else:
+		_draw_continuous_band(composition.get("road_cells", []), Color(0.32, 0.28, 0.21, 0.82), 0.62)
 	_draw_composition_landmarks(composition)
 	_draw_composition_props(composition)
 
@@ -676,6 +694,9 @@ func _projectile_start_for(cue: CombatPresentationCue) -> Vector2:
 	var shooter := _actor_tokens.get(cue.actor_id) as HumanoidTokenView
 	if shooter != null:
 		if _is_firearm_cue(cue):
+			# The overhead firearm animation is presentation-only. Projectile origin
+			# belongs to the rendered humanoid equipment layer and its category muzzle
+			# profile, so moving the overlay can never move the projectile.
 			return shooter.position + shooter.combat_weapon_muzzle_anchor(cue.weapon_id)
 		return shooter.position + shooter.combat_melee_hand_anchor()
 	var direction := _facing_vector(cue.presentation_direction)
@@ -852,7 +873,7 @@ func _sync_actor_tokens() -> void:
 				token.z_index = 10
 				_world_layer.add_child(token)
 				_actor_tokens[actor_id] = token
-				_ensure_token_overlays(token)
+			_ensure_token_overlays(token)
 			var slot_items: Dictionary = {}
 			for item in _actor_snapshot(actor_id).get("items", []):
 				if str(item.get("location", "")) == "equipped":
@@ -869,7 +890,10 @@ func _sync_actor_tokens() -> void:
 			token.set_display_scale(display_scale)
 			token.face_direction(_facing_vector(_default_presentation_direction(actor_id)))
 			_configure_token_overlays(token, actor_id, sector.coords, display_scale, cell.x * 0.80)
-			if _cue == null or _cue.actor_id != actor_id:
+			# Snapshot reconciliation can occur while a one-shot is running. Do not
+			# replace a target's TakeDamage (or an attacker's body track) with Idle
+			# merely because the other actor caused the refresh.
+			if _cue == null and not token.is_playing_one_shot():
 				token.play_animation("Idle", false)
 	for actor_id in _actor_tokens:
 		var token := _actor_tokens[actor_id] as HumanoidTokenView
@@ -878,7 +902,9 @@ func _sync_actor_tokens() -> void:
 
 
 func _ensure_token_overlays(token: HumanoidTokenView) -> void:
-	if token.get_meta("combat_overlays_ready", false):
+	if token == null:
+		return
+	if token.has_meta("combat_overlays_ready") and bool(token.get_meta("combat_overlays_ready")):
 		return
 	var ground := TOKEN_OVERLAY_SCRIPT.new() as CombatTokenOverlay
 	ground.name = "GroundFootprint"
@@ -895,6 +921,18 @@ func _ensure_token_overlays(token: HumanoidTokenView) -> void:
 	token.set_meta("combat_overlays_ready", true)
 
 
+func _top_overlay_for(token: HumanoidTokenView) -> CombatTokenOverlay:
+	if token == null or not token.has_meta("combat_top_overlay"):
+		return null
+	return token.get_meta("combat_top_overlay") as CombatTokenOverlay
+
+
+func _ground_overlay_for(token: HumanoidTokenView) -> CombatTokenOverlay:
+	if token == null or not token.has_meta("combat_ground_overlay"):
+		return null
+	return token.get_meta("combat_ground_overlay") as CombatTokenOverlay
+
+
 func _configure_token_overlays(
 	token: HumanoidTokenView,
 	actor_id: String,
@@ -906,7 +944,8 @@ func _configure_token_overlays(
 	var side := _actor_side(actor_id)
 	var color := Color("67a7c8") if side == "player" else Color("c76c5b")
 	var direction_id := _default_presentation_direction(actor_id)
-	var ground := token.get_meta("combat_ground_overlay", null) as CombatTokenOverlay
+	_ensure_token_overlays(token)
+	var ground := _ground_overlay_for(token)
 	if ground != null:
 		ground.configure_ground(
 			actor,
@@ -917,7 +956,7 @@ func _configure_token_overlays(
 			maxf(34.0, footprint_width),
 			display_scale
 		)
-	var top := token.get_meta("combat_top_overlay", null) as CombatTokenOverlay
+	var top := _top_overlay_for(token)
 	if top != null:
 		var relation := _actor_relationship(actor_id)
 		top.configure_top(

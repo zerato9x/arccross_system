@@ -288,11 +288,27 @@ func _apply_authoritative_weapon_metadata(request: CombatActionRequest, actor: H
 	if request == null or actor == null or actor.inventory == null:
 		return
 	var definition := catalog.definition(request.action_id) if catalog != null else null
+	var carries_weapon_presentation := (
+		definition != null
+		and definition.is_weapon_action()
+	) or request.action_id in ["reload", "cycle"]
+	if not carries_weapon_presentation:
+		# An equipped weapon is persistent actor state, not metadata for every
+		# committed action.  Keeping it off movement/end-turn cues prevents the
+		# presentation layer from treating maintenance-free actions as weapon
+		# animations.
+		request.metadata.erase("weapon_id")
+		request.metadata.erase("weapon_instance_id")
+		request.metadata.erase("weapon_class")
+		request.metadata.erase("weapon_action_id")
+		return
 	var is_melee := definition != null and definition.is_melee_weapon_action()
 	var weapon := actor.inventory.get_active_weapon(is_melee)
 	if weapon == null:
 		request.metadata.erase("weapon_id")
+		request.metadata.erase("weapon_instance_id")
 		request.metadata["weapon_class"] = GameEnums.WeaponClass.NONE
+		request.metadata.erase("weapon_action_id")
 		return
 	request.metadata["weapon_id"] = weapon.id
 	request.metadata["weapon_instance_id"] = weapon.instance_id
@@ -993,6 +1009,7 @@ func _resolve_interact(request: CombatActionRequest, _quote: CombatActionQuote) 
 		or definition == null
 		or sector == null
 		or sector.object_state.is_empty()
+		or (definition.requires_same_sector and board.grid_distance(actor_index, target_index) != 0)
 		or (definition.maximum_range_cells > 0 and board.grid_distance(actor_index, target_index) > definition.maximum_range_cells)
 	):
 		return outcome

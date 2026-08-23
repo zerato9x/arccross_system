@@ -1531,7 +1531,8 @@ func _render_context_actions() -> void:
 	else:
 		context_title.text = "MOVE HERE"
 	var communication_branch: bool = interaction.phase == INTERACTION_STATE_SCRIPT.Phase.COMMUNICATION_MENU
-	if not communication_branch and context == CombatActionDefinition.CONTEXT_SECTOR:
+	var has_object: bool = not selected_sector_data.get("object", {}).is_empty()
+	if not communication_branch and context in [CombatActionDefinition.CONTEXT_SECTOR, CombatActionDefinition.CONTEXT_OBJECT]:
 		var move_quote := _quote("move")
 		if move_quote != null:
 			var move_definition := _definition("move")
@@ -1563,7 +1564,7 @@ func _render_context_actions() -> void:
 		var definition := _definition(action_quote.action_id)
 		if definition == null or definition.action_id == "move" or not _is_player_visible(definition.action_id):
 			continue
-		if not communication_branch and context == CombatActionDefinition.CONTEXT_OBJECT and definition.action_id == "interact":
+		if not communication_branch and has_object and context in [CombatActionDefinition.CONTEXT_OBJECT, CombatActionDefinition.CONTEXT_SELF] and definition.action_id == "interact":
 			_add_context_action(definition, action_quote, _availability(definition, action_quote, context))
 			continue
 		if _is_communication_action(definition.action_id) != communication_branch:

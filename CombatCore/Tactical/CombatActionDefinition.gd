@@ -54,6 +54,9 @@ const WEAPON_FAMILY_RANGED := "ranged"
 @export_enum("self", "actor", "sector", "path", "object", "item", "wound") var target_mode: String = TARGET_SELF
 @export var minimum_range_cells: int = 0
 @export var maximum_range_cells: int = 0
+## Some object actions are valid only while the actor occupies the target
+## sector. This is distinct from a normal maximum range.
+@export var requires_same_sector: bool = false
 @export var reach_cells: int = 0
 @export var requires_line_of_sight: bool = false
 @export var required_limb_tags: Array[String] = []

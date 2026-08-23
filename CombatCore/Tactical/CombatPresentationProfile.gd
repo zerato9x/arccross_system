@@ -59,11 +59,14 @@ func build_sequence(
 	)
 	var action_origin := quote.projected_origin if has_composite_movement else quote.origin_sector
 	var travel_duration := _travel_duration(request, quote, pacing_scale)
+	var weapon_presentation_enabled := _weapon_presentation_enabled(request.action_id)
+	var weapon_id := str(request.metadata.get("weapon_id", "")) if weapon_presentation_enabled else ""
+	var weapon_class := int(request.metadata.get("weapon_class", GameEnums.WeaponClass.NONE)) if weapon_presentation_enabled else GameEnums.WeaponClass.NONE
 	var weapon_duration := WEAPON_PRESENTATION_CATALOG.duration_for(
-		str(request.metadata.get("weapon_id", "")),
+		weapon_id,
 		request.action_id
 	)
-	var weapon_definition := WEAPON_PRESENTATION_CATALOG.definition_for(str(request.metadata.get("weapon_id", "")))
+	var weapon_definition := WEAPON_PRESENTATION_CATALOG.definition_for(weapon_id)
 	var weapon_release_progress := (
 		weapon_definition.release_progress_for_action(request.action_id)
 		if weapon_definition != null
@@ -123,7 +126,7 @@ func build_sequence(
 		cue.weapon_animation_duration_seconds = weapon_duration
 		cue.animation_id = actor_animation if marker == "focus_in" else _animation_for_marker(marker, actor_animation, is_movement)
 		cue.actor_animation_id = actor_animation if marker == "focus_in" else "neutral"
-		cue.target_animation_id = target_animation_id if marker == "impact" else "neutral"
+		cue.target_animation_id = target_animation_id if marker == "impact" and _target_animation_allowed(outcome_tag) else "neutral"
 		cue.sfx_id = sfx_id if marker == "release_contact" else ""
 		cue.vfx_id = _vfx_for_marker(marker)
 		cue.camera_cue_id = camera_cue_id if marker in ["focus_in", "release_contact", "impact", "focus_out"] else ""
@@ -131,8 +134,8 @@ func build_sequence(
 		cue.outcome_tag = outcome_tag
 		cue.moves_actor = is_movement and marker == "travel"
 		cue.target_end_sector = target_end_sector
-		cue.weapon_class = int(request.metadata.get("weapon_class", GameEnums.WeaponClass.NONE))
-		cue.weapon_id = str(request.metadata.get("weapon_id", ""))
+		cue.weapon_class = weapon_class
+		cue.weapon_id = weapon_id
 		cue.weapon_action_id = request.action_id
 		cue.encounter_id = str(request.metadata.get("encounter_id", ""))
 		cue.action_event_id = str(request.metadata.get("action_event_id", ""))
@@ -196,6 +199,14 @@ func _marker_durations(travel_duration: float, pacing_scale: float, is_movement:
 		"recovery": recovery * pacing_scale,
 		"focus_out": focus_out * pacing_scale,
 	}
+
+
+func _weapon_presentation_enabled(action_id: String) -> bool:
+	return action_id in ["fire", "reload", "cycle", "strike"] or action_id.ends_with("_fire")
+
+
+func _target_animation_allowed(outcome_tag: String) -> bool:
+	return outcome_tag in ["hit", "wound", "damage", "collateral_hit", "object_collision", "actor_collision"]
 
 
 func _sum_durations(durations: Dictionary) -> float:

@@ -288,6 +288,8 @@ static func quote(request: CombatActionRequest, rules_state) -> CombatActionQuot
 			result.target_sector = request.target_sector
 			target_index = object_index
 			result.range_cells = _distance(rules_state, evaluation_origin, target_index)
+			if definition.requires_same_sector and result.range_cells != 0:
+				return result.deny("target_out_of_range", "Stand on the selected sector to interact.")
 			if definition.maximum_range_cells > 0 and result.range_cells > definition.maximum_range_cells:
 				return result.deny("target_out_of_range", "The selected object is too far away.")
 

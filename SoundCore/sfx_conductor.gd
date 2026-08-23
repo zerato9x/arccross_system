@@ -277,6 +277,9 @@ func _on_item_used(_entity: Node, category: GameEnums.ItemCategory) -> void:
 
 func _on_world_action_presentation(receipt: Dictionary) -> void:
 	var presentation: Dictionary = receipt.get("presentation", {})
+	var actor_id := str(receipt.get("actor_id", ""))
+	if actor_id != "player" and str(presentation.get("audio_policy", "")) != "player":
+		return
 	var cue := str(presentation.get("sfx", ""))
 	if cue in ["work_contact", "repair", "search", "force", "door_open", "item_transfer", "conversation"]:
 		_play_sound(SOUNDS_WORLD_CONTACT.pick_random(), 0.08, -4.0)

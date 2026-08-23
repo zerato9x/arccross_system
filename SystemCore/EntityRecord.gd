@@ -54,7 +54,6 @@ static func from_dict(data: Dictionary) -> EntityRecord:
 	var record := EntityRecord.new()
 	record.entity_id = data.get("entity_id", "")
 	record.kind = data.get("kind", GameEnums.RuntimeEntityKind.NPC)
-	record.life_state = data.get("life_state", GameEnums.EntityLifeState.ALIVE)
 	record.world_status = data.get("world_status", GameEnums.EntityWorldStatus.HOSTILE)
 	record.coords = data.get("coords", Vector2i.ZERO)
 	record.owner_id = str(data.get("owner_id", ""))
@@ -64,6 +63,11 @@ static func from_dict(data: Dictionary) -> EntityRecord:
 	record.runtime = data.get("runtime", {}).duplicate(true)
 	if record.kind == GameEnums.RuntimeEntityKind.NPC:
 		record.runtime = _NpcBehaviorState.ensure_runtime(record.runtime, record.definition)
+	record.life_state = data.get("life_state", GameEnums.EntityLifeState.ALIVE)
+	# Older or hand-authored snapshots may only carry the runtime death flag.
+	# Normalize it before the record can enter the alive-coordinate index.
+	if bool(record.runtime.get("is_dead", false)):
+		record.life_state = GameEnums.EntityLifeState.DEAD
 	record.knowledge = data.get("knowledge", {}).duplicate(true)
 	record.negotiation_attempts = int(data.get("negotiation_attempts", 0))
 	return record

@@ -57,6 +57,27 @@ const MARKERS := [
 @export var dialogue_priority: int = 0
 @export var presentation_flags: Dictionary = {}
 
+
+func is_firearm_presentation() -> bool:
+	## An equipped firearm is not an action cue.  Only actions with an authored
+	## firearm track may render the pixel weapon or emit a projectile.
+	return (
+		weapon_class >= GameEnums.WeaponClass.PISTOL
+		and not weapon_id.is_empty()
+		and (action_id in ["fire", "reload", "cycle"] or action_id.ends_with("_fire"))
+	)
+
+
+func is_melee_presentation() -> bool:
+	return (
+		weapon_class in [GameEnums.WeaponClass.BLUNT, GameEnums.WeaponClass.BLADE]
+		and action_id in ["strike", "shove", "incapacitate", "execute"]
+	)
+
+
+func has_weapon_presentation() -> bool:
+	return is_firearm_presentation() or is_melee_presentation()
+
 func is_marker(value: String) -> bool:
 	return marker_id == value or phase_id == value
 

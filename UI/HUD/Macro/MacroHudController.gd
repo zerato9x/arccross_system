@@ -6,6 +6,7 @@ signal save_requested
 signal load_requested
 signal hex_preview_expand_requested(coords: Vector2i)
 signal hex_preview_travel_requested(coords: Vector2i)
+signal hex_preview_cancel_requested
 signal medical_action_requested(instance_id: String, limb_region: int)
 signal viewport_insets_changed(insets: Rect2i)
 signal event_choice_submitted(choice_id: String)
@@ -84,6 +85,7 @@ func _ready() -> void:
 	_hex_world_map.closed.connect(_on_hex_world_map_closed)
 	_hex_world_map.hex_selected.connect(hex_map_hex_selected.emit)
 	_hex_world_map.travel_requested.connect(hex_map_travel_requested.emit)
+	_hex_panel.attach_target_panel(_target_panel)
 	_settings_panel.visible = false
 	_configure_scanline_overlay()
 	_restyle_settings_chrome()
@@ -108,6 +110,8 @@ func _ready() -> void:
 	)
 	_hex_panel.collapse_requested.connect(exploration_interaction_closed.emit)
 	_target_panel.travel_requested.connect(hex_preview_travel_requested.emit)
+	_target_panel.expand_requested.connect(hex_preview_expand_requested.emit)
+	_target_panel.cancel_requested.connect(hex_preview_cancel_requested.emit)
 	_world_status.settings_requested.connect(_open_settings)
 	_world_status.node_map_requested.connect(node_map_requested.emit)
 	_world_status.hex_map_requested.connect(_on_hex_map_requested)
@@ -177,9 +181,10 @@ func refresh(snapshot: Dictionary) -> void:
 	_health_panel.apply_snapshot(snapshot)
 	_inventory_panel.apply_snapshot(snapshot)
 	_hex_panel.apply_snapshot(snapshot)
-	_target_panel.apply_snapshot(snapshot)
-	if _hex_panel.is_expanded():
-		_target_panel.visible = false
+	if not _hex_panel.has_attached_target_panel():
+		_target_panel.apply_snapshot(snapshot)
+		if _hex_panel.is_expanded():
+			_target_panel.visible = false
 	_world_status.apply_snapshot(snapshot)
 	if _hex_world_map != null and _hex_world_map.is_open():
 		_hex_world_map.refresh_map(snapshot.get("minimap", {}))
@@ -252,6 +257,10 @@ func get_exploration_stage() -> MacroExplorationStage:
 
 
 func _on_world_action_presentation(receipt: Dictionary) -> void:
+	var presentation: Dictionary = receipt.get("presentation", {})
+	var actor_id := str(receipt.get("actor_id", ""))
+	if actor_id != "player" and not bool(presentation.get("player_visible", false)):
+		return
 	if _hex_panel != null:
 		_hex_panel.present_action_receipt(receipt)
 
@@ -431,13 +440,14 @@ func _set_hud_scale(value: float) -> void:
 	_health_panel.set_hud_scale(value)
 	_inventory_panel.set_hud_scale(value)
 	_hex_panel.set_hud_scale(value)
-	_target_panel.pivot_offset = Vector2(_target_panel.size.x, 0.0)
-	_target_panel.scale = Vector2.ONE * value
-	var target_right := -(
-		MacroCornerPanel.PREVIEW_MARGIN * 2.0 + _hex_panel.preview_size.x * value
-	)
-	_target_panel.offset_right = target_right
-	_target_panel.offset_left = target_right - _target_panel.size.x
+	if not _hex_panel.has_attached_target_panel():
+		_target_panel.pivot_offset = Vector2(_target_panel.size.x, 0.0)
+		_target_panel.scale = Vector2.ONE * value
+		var target_right := -(
+			MacroCornerPanel.PREVIEW_MARGIN * 2.0 + _hex_panel.preview_size.x * value
+		)
+		_target_panel.offset_right = target_right
+		_target_panel.offset_left = target_right - _target_panel.size.x
 	_world_status.set_hud_scale(value)
 	_settings_panel.pivot_offset = _settings_panel.size * 0.5
 	_settings_panel.scale = Vector2.ONE * value
@@ -450,9 +460,8 @@ func _set_hud_scale(value: float) -> void:
 func _on_here_panel_state_changed(_panel_id: String, state: int) -> void:
 	if state == MacroCornerPanel.PanelState.EXPANDED:
 		close_primary_surfaces(&"here")
-		_target_panel.visible = false
 	else:
-		_target_panel.apply_snapshot(_snapshot)
+		_hex_panel.apply_snapshot(_snapshot)
 	_sync_primary_surface_state()
 
 

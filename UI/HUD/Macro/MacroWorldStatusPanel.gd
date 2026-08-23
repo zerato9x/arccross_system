@@ -30,6 +30,8 @@ var _work_surface_active := false
 var _layout_tween: Tween
 var _digit_clock: DigitClock
 var _signal_widget: SignalStrengthWidget
+var _movement_elapsed := 0.0
+var _movement_copy := ""
 
 @onready var _frame: PanelContainer = %Frame
 @onready var _eyebrow_label: Label = %WorldLogEyebrow
@@ -49,6 +51,7 @@ var _signal_widget: SignalStrengthWidget
 @onready var _button_row: HBoxContainer = %ButtonRow
 @onready var _clock_stack: VBoxContainer = %ClockStack
 @onready var _signal_row: HBoxContainer = %SignalRow
+@onready var _movement_state_label: Label = %MovementStateLabel
 
 
 func _ready() -> void:
@@ -85,6 +88,8 @@ func _apply_base_styles() -> void:
 	HUDAssetLibrary.apply_label(_calendar_label, "muted")
 	HUDAssetLibrary.apply_label(_signal_label, "info")
 	HUDAssetLibrary.apply_label(_latest_event_ticker, "muted")
+	HUDAssetLibrary.apply_label(_movement_state_label, "travel")
+	_movement_state_label.add_theme_font_size_override("font_size", 10)
 	_latest_event_ticker.add_theme_font_size_override("font_size", 10)
 	_time_label.add_theme_font_size_override("font_size", 24)
 	HUDAssetLibrary.apply_soft_edge(_frame, 0.20)
@@ -195,6 +200,45 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 			int(calendar.get("year", 1)),
 		]
 	_apply_frame_severity(signal_kind)
+	_render_movement_state(snapshot.get("movement", {}))
+	var movement_active := bool(snapshot.get("movement", {}).get("active", false))
+	_settings_button.disabled = movement_active
+	_node_map_button.disabled = movement_active
+	_hex_map_button.disabled = movement_active
+
+
+func _process(delta: float) -> void:
+	if _movement_state_label == null or not _movement_state_label.visible:
+		return
+	_movement_elapsed += delta
+	var dot_count := 1 + int(floor(fmod(_movement_elapsed, 1.8) / 0.6))
+	_movement_state_label.text = _movement_copy + ".".repeat(dot_count)
+
+
+func _render_movement_state(movement: Dictionary) -> void:
+	if _movement_state_label == null:
+		return
+	if not bool(movement.get("active", false)):
+		_movement_state_label.visible = false
+		_movement_copy = ""
+		return
+	var phase := str(movement.get("phase", "walking")).to_upper()
+	var total := int(movement.get("total_steps", 0))
+	var completed := int(movement.get("completed_steps", 0))
+	var remaining := int(movement.get("remaining_steps", 0))
+	var progress := "STEP %d / %d // %d REMAINING" % [
+		min(completed + 1, max(total, 1)),
+		total,
+		remaining,
+	]
+	var message := str(movement.get("message", "")).strip_edges()
+	if message.is_empty():
+		_movement_copy = "%s // %s" % [phase, progress]
+	else:
+		_movement_copy = "%s // %s" % [message.trim_suffix("."), progress]
+	_movement_state_label.visible = true
+	_movement_elapsed = 0.0
+	_movement_state_label.text = _movement_copy + "."
 
 
 func append_log(message: String, kind: String = "") -> void:

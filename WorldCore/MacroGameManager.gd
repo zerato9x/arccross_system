@@ -99,6 +99,7 @@ var _world_bootstrap_service := _BootstrapService.new()
 var _active_zone_service := _ActiveZoneService.new()
 var _world_bootstrapped := false
 var _movement_service := MacroMovementService.new()
+var _turn_resolution := _TurnResolutionState.new()
 var _visibility_service := MacroVisibilityService.new()
 var _time_rules_service := MacroTimeRulesService.new()
 var _snapshot_facade := MacroSnapshotFacade.new()
@@ -136,12 +137,27 @@ var _pending_exit_direction: GameEnums.MacroTravelDirection = GameEnums.MacroTra
 var _debug_console: MacroDebugConsole
 var _pending_player_step: Dictionary = {}
 var _travel_route: Array[Vector2i] = []
+## Compatibility alias for callers that still read the movement projection.
+## The lifecycle now belongs to the explicit turn-resolution state object.
+var _movement_state: Dictionary:
+	get:
+		return _turn_resolution.data
+	set(value):
+		_turn_resolution.replace_state(value)
+var _travel_route_total_steps := 0
+var _travel_completed_steps := 0
+var _route_cancel_requested := false
+var _movement_debug_request_usec := 0
+var _resolving_player_world_turn := false
 
 const HEX_NEIGHBORS = [
 	Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1), 
 	Vector2i(-1, 0), Vector2i(-1, 1), Vector2i(0, 1)
 ]
 const _SnapshotBuilder := preload("res://WorldCore/MacroSnapshotBuilder.gd")
+const _TurnResolutionState := preload(
+	"res://WorldCore/MacroTurnResolutionState.gd"
+)
 const _PoiController := preload("res://WorldCore/MacroPoiController.gd")
 const _HexPresentation := preload("res://PresentationCore/HexPresentationDescriptor.gd")
 const _NpcSimulator := preload("res://WorldCore/MacroNpcSimulator.gd")
@@ -212,7 +228,10 @@ func configure_services(
 
 
 func _configure_extracted_world_services() -> void:
-	_movement_service.configure(world_generator)
+	_movement_service.configure(
+		world_generator,
+		Callable(self, "_is_hex_travel_known")
+	)
 	_shelter_runtime_service.configure(
 		_world_state,
 		world_generator,
@@ -347,6 +366,8 @@ func _configure_extracted_world_services() -> void:
 			"inventory_has_tag": Callable(self, "_inventory_has_any_tag"),
 			"inventory_has_role": Callable(self, "_inventory_has_any_role"),
 			"enrich_session": Callable(self, "_enrich_location_session"),
+			"is_movement_active": Callable(self, "_is_player_movement_active"),
+			"is_hex_travel_known": Callable(self, "_is_hex_travel_known"),
 		}
 	)
 	_receipt_application_service.configure(
@@ -356,7 +377,8 @@ func _configure_extracted_world_services() -> void:
 		Callable(self, "_notify_npcs_of_signal"),
 		Callable(self, "_apply_player_tool_wear"),
 		Callable(self, "_emit_world_action_presentation"),
-		Callable(self, "_refresh_world_hud")
+		Callable(self, "_refresh_world_hud_after_receipt"),
+		Callable(self, "_movement_debug_mark")
 	)
 	_visible_hexes = _visibility_service.visible_hexes
 	_configure_snapshot_facade()
@@ -381,6 +403,9 @@ func _configure_snapshot_facade() -> void:
 			"hex_label": Callable(self, "_hex_label"),
 			"next_incomplete_nodes": Callable(self, "_next_incomplete_available_nodes"),
 			"pending_exit_direction": int(_pending_exit_direction),
+			"movement_snapshot": Callable(self, "_movement_snapshot"),
+			"is_movement_active": Callable(self, "_is_player_movement_active"),
+			"is_hex_travel_known": Callable(self, "_is_hex_travel_known"),
 		}
 	)
 
@@ -532,12 +557,16 @@ func _ensure_node_map_system() -> void:
 
 
 func open_node_map() -> void:
+	if _is_player_movement_active():
+		return
 	_close_ordinary_work_surfaces(WorkSurface.NODE_MAP)
 	_pending_exit_direction = GameEnums.MacroTravelDirection.NONE
 	_open_node_map_with_context()
 
 
 func _open_node_map_with_context() -> void:
+	if _is_player_movement_active():
+		return
 	_close_ordinary_work_surfaces(WorkSurface.NODE_MAP)
 	_ensure_campaign()
 	_ensure_node_map_system()
@@ -599,8 +628,25 @@ func blocks_world_commands() -> bool:
 	return (
 		get_active_work_surface() != WorkSurface.NONE
 		or not _pending_interaction.is_empty()
+		or _turn_resolution.is_active()
 		or not _pending_player_step.is_empty()
 	)
+
+
+func _is_player_movement_active() -> bool:
+	return _turn_resolution.is_active() or not _pending_player_step.is_empty()
+
+
+func _movement_snapshot() -> Dictionary:
+	var snapshot := _turn_resolution.snapshot()
+	if not bool(snapshot.get("active", false)) and player_token != null:
+		snapshot["from_coords"] = player_token.current_hex_coords
+		snapshot["current_coords"] = player_token.current_hex_coords
+	return snapshot
+
+
+func turn_resolution_snapshot() -> Dictionary:
+	return _movement_snapshot()
 
 
 func close_active_work_surface() -> bool:
@@ -630,7 +676,7 @@ func close_active_work_surface() -> bool:
 
 
 func open_hex_world_map() -> void:
-	if macro_hud == null or macro_hud.is_event_open():
+	if _is_player_movement_active() or macro_hud == null or macro_hud.is_event_open():
 		return
 	_close_ordinary_work_surfaces(WorkSurface.HEX_MAP)
 	macro_hud.open_hex_world_map()
@@ -642,6 +688,8 @@ func _on_hex_world_map_selected(coords: Vector2i) -> void:
 
 
 func _on_hex_world_map_travel_requested(coords: Vector2i) -> void:
+	if _is_player_movement_active():
+		return
 	_selected_hex_coords = coords
 	if macro_hud != null:
 		macro_hud.close_hex_world_map()
@@ -1077,6 +1125,8 @@ func _ready() -> void:
 		return
 	if not player_token.movement_arrived.is_connected(_on_player_movement_arrived):
 		player_token.movement_arrived.connect(_on_player_movement_arrived)
+	if not player_token.movement_started.is_connected(_on_player_movement_started):
+		player_token.movement_started.connect(_on_player_movement_started)
 
 	if exploration_window_scene:
 		exploration_window = (
@@ -1098,6 +1148,7 @@ func _ready() -> void:
 		macro_hud.inventory_requested.connect(_toggle_fullscreen_inventory)
 		macro_hud.hex_preview_expand_requested.connect(_expand_hex_at)
 		macro_hud.hex_preview_travel_requested.connect(_on_hex_preview_travel)
+		macro_hud.hex_preview_cancel_requested.connect(cancel_player_route)
 		macro_hud.location_action_requested.connect(resolve_location_action)
 		macro_hud.viewport_insets_changed.connect(_on_hud_viewport_insets_changed)
 		macro_hud.medical_action_requested.connect(_on_medical_action_requested)
@@ -1329,6 +1380,25 @@ func spawn_procedural_enemy(coords: Vector2i, faction: GameEnums.Faction, diffic
 # ---------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _is_player_movement_active():
+		if (
+			event is InputEventKey
+			and event.pressed
+			and not event.echo
+			and event.is_action_pressed("macro_cancel")
+		):
+			if str(_movement_state.get("kind", "travel")) == "travel":
+				cancel_player_route()
+		elif (
+			event is InputEventMouseButton
+			and event.pressed
+			and event.button_index == MOUSE_BUTTON_RIGHT
+		):
+			if str(_movement_state.get("kind", "travel")) == "travel":
+				cancel_player_route()
+		if event is InputEventKey or event is InputEventMouseButton:
+			get_viewport().set_input_as_handled()
+		return
 	if is_node_map_open():
 		if (
 			event is InputEventKey
@@ -1429,7 +1499,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				return
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_RIGHT:
-			_travel_route.clear()
+			_reset_route_bookkeeping()
 			if not close_active_work_surface():
 				_selected_hex_coords = player_token.current_hex_coords
 				_refresh_world_hud()
@@ -1441,39 +1511,105 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 
 func _attempt_move_to_mouse() -> bool:
-	if blocks_world_commands():
+	if _is_player_movement_active() or blocks_world_commands():
 		return false
 	_select_hex_at_mouse()
 	return true
 
-func _execute_player_step(target_coords: Vector2i, animate: bool = true) -> void:
-	if blocks_world_commands() and (animate or not _pending_player_step.is_empty()):
+func _execute_player_step(
+	target_coords: Vector2i,
+	animate: bool = true,
+	continuation: bool = false
+) -> void:
+	if not continuation and blocks_world_commands() and (
+		animate or not _pending_player_step.is_empty()
+	):
+		return
+	if continuation and not _turn_resolution.is_active():
 		return
 	if not world_generator.is_in_zone_bounds(target_coords):
+		if _is_player_movement_active():
+			_finish_player_movement("MOVEMENT FAILED // OUTSIDE THIS ZONE", "failed")
+			return
 		_try_begin_directional_exit(player_token.current_hex_coords, target_coords)
 		return
 	var origin_coords := player_token.current_hex_coords
 	var target_hex := world_generator.get_hex_at(target_coords)
 	if not target_hex.is_passable():
-		_last_macro_event = "That hex is not passable."
-		_refresh_world_hud()
+		_finish_player_movement("MOVEMENT FAILED // HEX IS NOT PASSABLE", "failed")
 		return
-	_select_hex_for_hud(target_coords)
 	if not animate:
+		if _is_player_movement_active():
+			return
+		_select_hex_for_hud(target_coords)
 		player_token.snap_to_hex(target_coords, map_visualizer.map_to_local(target_coords))
 		_commit_player_step(origin_coords, target_coords)
 		return
+	if not bool(_movement_state.get("active", false)):
+		_begin_player_route([target_coords], "travel", true)
+	_movement_state["phase"] = "walking"
+	_movement_state["current_coords"] = origin_coords
+	_movement_state["step_target_coords"] = target_coords
+	_movement_state["message"] = "TURN RESOLVE // WALKING TO HEX %d,%d..." % [
+		target_coords.x,
+		target_coords.y,
+	]
+	_movement_debug_mark("next route step start")
 	var pixel_pos = map_visualizer.map_to_local(target_coords)
 	var movement_id := player_token.walk_to_hex(target_coords, pixel_pos)
 	_pending_player_step = {
 		"kind": "travel",
+		"resolution_id": int(_movement_state.get("resolution_id", 0)),
 		"movement_id": movement_id,
 		"from": origin_coords,
 		"to": target_coords,
 		"started_minute": _world_state.world_time_minutes,
 	}
-	_last_macro_event = "Travelling to HEX %d,%d..." % [target_coords.x, target_coords.y]
+	_movement_state["can_cancel"] = true
+	_last_macro_event = _movement_state["message"]
 	_refresh_world_hud()
+
+
+func _begin_player_route(
+	route: Array[Vector2i],
+	kind: String = "travel",
+	can_cancel: bool = true
+) -> void:
+	if route.is_empty() or player_token == null:
+		return
+	_travel_route = route.duplicate()
+	_travel_route_total_steps = _travel_route.size()
+	_travel_completed_steps = 0
+	_route_cancel_requested = false
+	var origin_coords := player_token.current_hex_coords
+	var destination_coords: Vector2i = _travel_route[_travel_route.size() - 1]
+	var resolution_id := _turn_resolution.begin(
+		kind,
+		origin_coords,
+		destination_coords,
+		_travel_route_total_steps,
+		can_cancel
+	)
+	if resolution_id == 0:
+		_reset_route_bookkeeping()
+		return
+	_movement_state["step_target_coords"] = _travel_route[0]
+	_movement_state["message"] = (
+		"TURN RESOLVE // WALKING // ROUTE %d STEP(S)"
+		% _travel_route_total_steps
+	)
+	_movement_debug_mark("movement request accepted")
+	_refresh_world_hud()
+
+
+func _on_player_movement_started(
+	from_coords: Vector2i,
+	target_coords: Vector2i,
+	_movement_id: int
+) -> void:
+	_movement_debug_mark(
+		"tween started %s -> %s" % [str(from_coords), str(target_coords)]
+	)
 
 
 func _on_player_movement_arrived(
@@ -1485,12 +1621,120 @@ func _on_player_movement_arrived(
 		return
 	if int(_pending_player_step.get("movement_id", -1)) != movement_id:
 		return
+	var resolution_id := int(_pending_player_step.get("resolution_id", 0))
+	if resolution_id != int(_movement_state.get("resolution_id", 0)):
+		return
+	_movement_debug_mark(
+		"arrival signal %s -> %s" % [str(from_coords), str(target_coords)]
+	)
+	_turn_resolution.set_phase(
+		"resolving",
+		"TURN RESOLVE // ARRIVAL COMMIT AT HEX %d,%d..." % [
+			target_coords.x,
+			target_coords.y,
+		]
+	)
+	_movement_state["current_coords"] = target_coords
+	_movement_state["step_target_coords"] = target_coords
+	_refresh_world_hud()
+	# Keep the pending step alive for the transaction boundary. Deferring one
+	# frame makes RESOLVING observable and prevents post-arrival projection work
+	# from hiding the end of the authored walk.
+	call_deferred(
+		"_resolve_arrived_player_step",
+		movement_id,
+		from_coords,
+		target_coords,
+		resolution_id
+	)
+
+
+func _resolve_arrived_player_step(
+	movement_id: int,
+	from_coords: Vector2i,
+	target_coords: Vector2i,
+	resolution_id: int
+) -> void:
+	if _pending_player_step.is_empty():
+		return
+	if int(_pending_player_step.get("movement_id", -1)) != movement_id:
+		return
+	if int(_movement_state.get("resolution_id", 0)) != resolution_id:
+		return
 	var movement_kind := str(_pending_player_step.get("kind", "travel"))
-	_pending_player_step.clear()
 	if movement_kind == "retreat":
 		_commit_player_retreat(target_coords)
 		return
 	_commit_player_step(from_coords, target_coords)
+
+
+func _reset_route_bookkeeping() -> void:
+	_travel_route.clear()
+	_travel_route_total_steps = 0
+	_travel_completed_steps = 0
+	_route_cancel_requested = false
+
+
+func _finish_player_movement(message: String, phase: String = "failed") -> void:
+	if not _is_player_movement_active():
+		_last_macro_event = message
+		_refresh_world_hud()
+		return
+	_pending_player_step.clear()
+	_reset_route_bookkeeping()
+	var current_coords := player_token.current_hex_coords
+	_turn_resolution.finish(message, phase)
+	_movement_state["current_coords"] = current_coords
+	_movement_state["step_target_coords"] = current_coords
+	_last_macro_event = message
+	_refresh_world_hud()
+
+
+func _finish_player_movement_success(message: String) -> void:
+	_pending_player_step.clear()
+	_reset_route_bookkeeping()
+	var current_coords := player_token.current_hex_coords
+	_turn_resolution.finish(message, "idle")
+	_movement_state["current_coords"] = current_coords
+	_movement_state["step_target_coords"] = current_coords
+	_last_macro_event = message
+
+
+func cancel_player_route() -> bool:
+	if not bool(_movement_state.get("active", false)):
+		return false
+	if str(_movement_state.get("kind", "travel")) != "travel":
+		return false
+	if str(_movement_state.get("phase", "idle")) not in ["walking", "resolving"]:
+		return false
+	if not bool(_movement_state.get("can_cancel", false)):
+		return false
+	_route_cancel_requested = true
+	_travel_route.clear()
+	_movement_state["can_cancel"] = false
+	_movement_state["remaining_steps"] = 1
+	_movement_state["message"] = "CANCELLING // FINISHING CURRENT STEP..."
+	_last_macro_event = _movement_state["message"]
+	_refresh_world_hud()
+	return true
+
+
+func _movement_step_committed(target_coords: Vector2i) -> void:
+	_travel_completed_steps += 1
+	_turn_resolution.mark_step_committed(
+		target_coords,
+		_travel_route_total_steps
+	)
+
+
+func _movement_debug_mark(label: String) -> void:
+	if not OS.is_debug_build() or not debug_macro_logging:
+		return
+	var now := Time.get_ticks_usec()
+	if label == "movement request accepted":
+		_movement_debug_request_usec = now
+	var elapsed := now - _movement_debug_request_usec if _movement_debug_request_usec > 0 else 0
+	print("[MacroTiming] %s // +%.1f ms" % [label, float(elapsed) / 1000.0])
 
 
 func _commit_player_retreat(target_coords: Vector2i) -> void:
@@ -1529,22 +1773,27 @@ func _commit_player_retreat(target_coords: Vector2i) -> void:
 		_world_state.world_time_minutes,
 		retreat_hex
 	)
+	_movement_debug_mark("receipt application start")
 	var application := _commit_world_action_receipt(receipt, target_coords)
+	_movement_debug_mark("receipt application end")
 	if application == null or not application.applied:
 		_macro_log(
 			"Movement transaction rejected: %s"
 			% (application.error if application != null else "no application receipt")
 		)
 		player_token.snap_to_hex(origin_coords, map_visualizer.map_to_local(origin_coords))
-		_last_macro_event = "Retreat relocation was rejected."
+		_finish_player_movement("RETREAT FAILED // RELOCATION REJECTED", "failed")
 		_refresh_world_hud()
 		return
+	_pending_player_step.clear()
+	_movement_step_committed(target_coords)
 	_refresh_map_visuals(target_coords, false)
 	refresh_proximity(target_coords)
 	_last_macro_event = "Escaped combat; fell back to HEX %d,%d." % [
 		target_coords.x,
 		target_coords.y,
 	]
+	_finish_player_movement_success(_last_macro_event)
 	_refresh_world_hud()
 
 
@@ -1584,7 +1833,9 @@ func _commit_player_step(origin_coords: Vector2i, target_coords: Vector2i) -> vo
 		_world_state.world_time_minutes,
 		hex_data
 	)
+	_movement_debug_mark("receipt application start")
 	var application := _commit_world_action_receipt(move_receipt, target_coords)
+	_movement_debug_mark("receipt application end")
 	if application == null or not application.applied:
 		_macro_log(
 			"Movement transaction rejected: %s"
@@ -1596,22 +1847,64 @@ func _commit_player_step(origin_coords: Vector2i, target_coords: Vector2i) -> vo
 			if application != null and not application.error.is_empty()
 			else "Movement transaction was rejected."
 		)
-		_refresh_world_hud()
+		if bool(_movement_state.get("active", false)):
+			_finish_player_movement(
+				"MOVEMENT FAILED // %s" % _last_macro_event,
+				"failed"
+			)
+		else:
+			_refresh_world_hud()
 		return
+	_pending_player_step.clear()
+	_movement_step_committed(target_coords)
 	_macro_log("Player stepped to %s." % str(target_coords))
 	var newly_explored := _refresh_map_visuals(target_coords, false)
 	refresh_proximity(target_coords)
-	
+	_turn_resolution.set_phase(
+		"world_turn",
+		"TURN RESOLVE // NPC WORLD TURN..."
+	)
+	_movement_state["current_coords"] = target_coords
+	_last_macro_event = "Resolving the world turn at HEX %d,%d..." % [
+		target_coords.x,
+		target_coords.y,
+	]
+	_refresh_world_hud()
+	call_deferred(
+		"_resolve_committed_player_step",
+		origin_coords,
+		target_coords,
+		hex_data,
+		newly_explored,
+		int(_movement_state.get("resolution_id", 0))
+	)
+
+
+func _resolve_committed_player_step(
+	origin_coords: Vector2i,
+	target_coords: Vector2i,
+	hex_data: MacroHexData,
+	newly_explored: Array,
+	resolution_id: int
+) -> void:
+	if not _turn_resolution.is_active():
+		return
+	if int(_movement_state.get("resolution_id", 0)) != resolution_id:
+		return
 	var target_snapshot := _world_state.get_entity_snapshot_at(target_coords)
 	if not target_snapshot.is_empty():
 		var target_entity := EntityRecord.from_dict(target_snapshot)
-		if not _world_state.is_entity_alive(target_entity.entity_id):
+		if not _world_state.is_entity_active(target_entity.entity_id):
 			unload_enemy_token(target_coords)
 		else:
 			_force_project_npc_token(target_entity)
 			if _world_state.is_entity_hostile(target_entity.entity_id):
-				advance_macro_world(1)
-			_travel_route.clear()
+				_advance_player_world_turn()
+			_finish_player_movement(
+				"MOVEMENT INTERRUPTED // HOSTILE CONTACT AT HEX %d,%d"
+				% [target_coords.x, target_coords.y],
+				"interrupted"
+			)
 			begin_entity_collision(
 				target_entity.entity_id,
 				target_coords,
@@ -1621,11 +1914,25 @@ func _commit_player_step(origin_coords: Vector2i, target_coords: Vector2i) -> vo
 
 	var has_ground_loot := _world_state.has_ground_items(target_coords)
 	if has_ground_loot:
-		_travel_route.clear()
-		_last_macro_event = "Ground items detected at HEX %d,%d." % [
-			target_coords.x,
-			target_coords.y,
-		]
+		_finish_player_movement(
+			"MOVEMENT INTERRUPTED // GROUND ITEMS AT HEX %d,%d"
+			% [target_coords.x, target_coords.y],
+			"interrupted"
+		)
+		return
+
+	_advance_player_world_turn()
+	if not _pending_interaction.is_empty():
+		_finish_player_movement(
+			"MOVEMENT INTERRUPTED // CONTACT REQUIRES ATTENTION",
+			"interrupted"
+		)
+		return
+
+	_turn_resolution.set_phase(
+		"presentation",
+		"TURN RESOLVE // PRESENTATION..."
+	)
 	_present_travel_beat(
 		origin_coords,
 		target_coords,
@@ -1633,15 +1940,49 @@ func _commit_player_step(origin_coords: Vector2i, target_coords: Vector2i) -> vo
 		newly_explored,
 		has_ground_loot
 	)
+	_refresh_world_hud()
+	call_deferred(
+		"_finish_player_step_presentation",
+		target_coords,
+		resolution_id
+	)
 
-	advance_macro_world(1)
+
+func _finish_player_step_presentation(
+	target_coords: Vector2i,
+	resolution_id: int
+) -> void:
+	if not _turn_resolution.is_active():
+		return
+	if int(_movement_state.get("resolution_id", 0)) != resolution_id:
+		return
+	if not _pending_interaction.is_empty():
+		_finish_player_movement(
+			"MOVEMENT INTERRUPTED // CONTACT REQUIRES ATTENTION",
+			"interrupted"
+		)
+		return
 	# Campaign progress resolves via directional rim departure / node map — not
 	# a hard-coded objective hex on ordinary steps.
-	_refresh_world_hud()
-
-	if not _travel_route.is_empty() and _pending_interaction.is_empty():
-		_execute_player_step(_travel_route.pop_front())
+	if _route_cancel_requested:
+		_finish_player_movement(
+			"ROUTE CANCELLED AT HEX %d,%d" % [target_coords.x, target_coords.y],
+			"interrupted"
+		)
+		_refresh_world_hud()
 		return
+
+	if not _travel_route.is_empty():
+		_turn_resolution.set_phase(
+			"walking",
+			"TURN RESOLVE // NEXT STEP..."
+		)
+		_execute_player_step(_travel_route.pop_front(), true, true)
+		return
+	_finish_player_movement_success(
+		"ARRIVED AT HEX %d,%d." % [target_coords.x, target_coords.y]
+	)
+	_refresh_world_hud()
 
 
 func _present_travel_beat(
@@ -1744,6 +2085,10 @@ func _next_incomplete_available_nodes() -> Array[String]:
 
 
 func advance_macro_world(turns: int = 1, bypass_interaction_check: bool = false) -> void:
+	if _is_player_movement_active() and not _resolving_player_world_turn:
+		return
+	if _is_player_movement_active():
+		_movement_debug_mark("world-time advance")
 	for i in range(turns):
 		if not bypass_interaction_check and not _pending_interaction.is_empty():
 			break
@@ -1751,13 +2096,23 @@ func advance_macro_world(turns: int = 1, bypass_interaction_check: bool = false)
 		if collision:
 			break
 
+
+func _advance_player_world_turn() -> void:
+	if not _turn_resolution.is_active():
+		return
+	_resolving_player_world_turn = true
+	advance_macro_world(1)
+	_resolving_player_world_turn = false
+
 func _select_hex_at_mouse() -> void:
-	if blocks_world_commands():
+	if _is_player_movement_active() or blocks_world_commands():
 		return
 	var mouse_pos = map_visualizer.get_local_mouse_position()
 	_select_hex_for_hud(map_visualizer.local_to_map(mouse_pos))
 
 func _select_hex_for_hud(coords: Vector2i, allow_while_blocked: bool = false) -> void:
+	if _is_player_movement_active():
+		return
 	if blocks_world_commands() and not allow_while_blocked:
 		return
 	_selected_hex_coords = coords
@@ -1766,7 +2121,7 @@ func _select_hex_for_hud(coords: Vector2i, allow_while_blocked: bool = false) ->
 	_refresh_world_hud()
 
 func _resolve_hex_hud_action(action: String) -> void:
-	if not _pending_interaction.is_empty():
+	if _is_player_movement_active() or not _pending_interaction.is_empty():
 		return
 	match action:
 		GameEnums.MACRO_HEX_SCAN:
@@ -1777,7 +2132,7 @@ func _resolve_hex_hud_action(action: String) -> void:
 			_resolve_current_hex_action()
 
 func _try_travel_to_selected_hex() -> void:
-	if blocks_world_commands():
+	if _is_player_movement_active() or blocks_world_commands():
 		return
 	if _selected_hex_coords == player_token.current_hex_coords:
 		_resolve_current_hex_action()
@@ -1787,7 +2142,7 @@ func _try_travel_to_selected_hex() -> void:
 		_refresh_world_hud()
 		return
 	var selected_hex := world_generator.get_hex_at(_selected_hex_coords)
-	if not selected_hex.is_explored:
+	if selected_hex == null or not _is_hex_travel_known(_selected_hex_coords):
 		_last_macro_event = "That hex is not known well enough to plot a route."
 		_refresh_world_hud()
 		return
@@ -1799,34 +2154,41 @@ func _try_travel_to_selected_hex() -> void:
 		_last_macro_event = "No passable route is known to the selected hex."
 		_refresh_world_hud()
 		return
-	_execute_player_step(_travel_route.pop_front())
+	_begin_player_route(_travel_route, "travel", true)
+	_execute_player_step(_travel_route.pop_front(), true, true)
 
 
 func _build_travel_route(from_coords: Vector2i, to_coords: Vector2i) -> Array[Vector2i]:
 	return _movement_service.build_known_route(from_coords, to_coords)
 
 func _resolve_current_hex_action() -> void:
-	if blocks_world_commands():
+	if _is_player_movement_active() or blocks_world_commands():
 		return
 	_expand_hex_at(player_token.current_hex_coords)
 
 func _on_hex_preview_travel(coords: Vector2i) -> void:
-	if blocks_world_commands():
+	if _is_player_movement_active() or blocks_world_commands():
 		return
 	_selected_hex_coords = coords
 	_try_travel_to_selected_hex()
 
 func _expand_hex_at(coords: Vector2i) -> void:
+	if _is_player_movement_active():
+		return
 	if blocks_world_commands() and get_active_work_surface() != WorkSurface.HERE:
 		return
 	if coords != player_token.current_hex_coords:
-		_on_hex_preview_travel(coords)
+		_select_hex_for_hud(coords)
+		_last_macro_event = "TRAVEL HERE FIRST // HEX %d,%d" % [coords.x, coords.y]
+		_refresh_world_hud()
 		return
 	var hex_data := world_generator.get_hex_at(coords)
 	if active_enemies.has(coords):
 		var enemy: MacroEnemy = active_enemies[coords]
-		begin_entity_collision(enemy.entity_id, coords)
-		return
+		if _world_state.is_entity_active(enemy.entity_id):
+			begin_entity_collision(enemy.entity_id, coords)
+			return
+		unload_enemy_token(coords)
 	begin_poi_interaction(coords, hex_data)
 
 func _mark_hex_explored(
@@ -1869,6 +2231,8 @@ func _update_fog_of_war(center_coords: Vector2i) -> Array[Vector2i]:
 func _refresh_map_visuals(center_coords: Vector2i, repaint_zone: bool = false) -> Array[Vector2i]:
 	if map_visualizer == null:
 		return []
+	if _is_player_movement_active():
+		_movement_debug_mark("map/fog refresh start")
 	var newly_explored := _update_fog_of_war(center_coords)
 	var animate_fog := true
 	if world_generator != null and world_generator.zone_bounds_enabled:
@@ -1881,6 +2245,8 @@ func _refresh_map_visuals(center_coords: Vector2i, repaint_zone: bool = false) -
 		map_visualizer.apply_fog(_visible_hexes, animate_fog)
 	_refresh_enemy_visibility()
 	_update_vision_soft_focus()
+	if _is_player_movement_active():
+		_movement_debug_mark("map/fog refresh end")
 	return newly_explored
 
 
@@ -1927,6 +2293,14 @@ func _is_hex_visible(coords: Vector2i) -> bool:
 
 func _is_hex_explored(coords: Vector2i) -> bool:
 	return _visibility_service.is_explored(coords)
+
+func _is_hex_travel_known(coords: Vector2i) -> bool:
+	if world_generator == null or not world_generator.is_in_zone_bounds(coords):
+		return false
+	var hex_data := world_generator.get_hex_at(coords)
+	if hex_data == null:
+		return false
+	return hex_data.is_explored or _is_hex_visible(coords)
 
 func _advance_survival_time(
 	elapsed_minutes: int,
@@ -2089,6 +2463,16 @@ func _commit_world_action_receipt(
 	return _receipt_application_service.commit(receipt, coords, target, actor_id)
 
 
+func _refresh_world_hud_after_receipt() -> void:
+	# Movement owns the visible resolving -> projection -> arrival refresh. A
+	# receipt-level refresh here would build the full HUD snapshot before fog,
+	# proximity, and world-time work, then build it again at the terminal path.
+	if _is_player_movement_active():
+		_movement_debug_mark("receipt HUD refresh skipped during movement")
+		return
+	_refresh_world_hud()
+
+
 func _emit_world_action_presentation(presentation_receipt: Dictionary) -> void:
 	var event_bus := get_node_or_null("/root/GameEventBus")
 	if event_bus != null and event_bus.has_method("emit_world_action_presentation"):
@@ -2222,6 +2606,8 @@ func begin_poi_interaction(
 	coords: Vector2i,
 	hex_data: MacroHexData
 ) -> void:
+	if _is_player_movement_active():
+		return
 	# Campaign objective / unique-event sites intercept the normal POI flow.
 	if _try_handle_campaign_site(coords, hex_data):
 		return
@@ -2426,6 +2812,8 @@ func preview_poi_action(
 	selected_item_ids: Array,
 	selected_search_option_id: String = ""
 ) -> void:
+	if _is_player_movement_active():
+		return
 	if (
 		_pending_interaction.get("type")
 		!= GameEnums.MacroInteractionType.POI
@@ -2468,6 +2856,8 @@ func resolve_poi_action(
 	selected_target_id: String = "",
 	work_hit_success_window: bool = true
 ) -> void:
+	if _is_player_movement_active():
+		return
 	if _pending_interaction.get("type") != GameEnums.MacroInteractionType.POI:
 		return
 	player_token.play_interaction()
@@ -2530,6 +2920,8 @@ func resolve_poi_action(
 
 
 func resolve_location_action(command: Dictionary) -> void:
+	if _is_player_movement_active():
+		return
 	if _pending_interaction.get("type") != GameEnums.MacroInteractionType.POI:
 		return
 	var coords: Vector2i = command.get("coords", Vector2i.ZERO)
@@ -3252,8 +3644,7 @@ func queue_entity_collision(
 	if (
 		enemy_record == null
 		or enemy_record.kind != GameEnums.RuntimeEntityKind.NPC
-		or not _world_state.is_entity_alive(enemy_id)
-		or enemy_record.world_status == GameEnums.EntityWorldStatus.WITHDRAWN
+		or not _world_state.is_entity_active(enemy_id)
 	):
 		return false
 	var resolved_approach := (
@@ -3274,7 +3665,7 @@ func open_inventory() -> void:
 
 
 func _toggle_fullscreen_inventory() -> void:
-	if inventory_panel == null:
+	if _is_player_movement_active() or inventory_panel == null:
 		return
 	if inventory_panel.is_open():
 		inventory_panel.close_panel()
@@ -3447,6 +3838,8 @@ func resolve_inventory_action(
 	equipment_slot: int,
 	action_payload: Dictionary = {}
 ) -> Dictionary:
+	if _is_player_movement_active():
+		return {"committed": false, "message": "Movement is still resolving."}
 	_last_inventory_error = ""
 	var player_core := player_token.get_humanoid_core()
 	var coords := player_token.current_hex_coords
@@ -4192,7 +4585,7 @@ func retreat_player_from_combat(
 		]
 		_refresh_world_hud()
 		return false
-	if not _pending_player_step.is_empty():
+	if _is_player_movement_active():
 		_last_macro_event = "Cannot retreat while another movement is still resolving."
 		_refresh_world_hud()
 		return false
@@ -4207,25 +4600,31 @@ func retreat_player_from_combat(
 		return false
 
 	_select_hex_for_hud(retreat_coords)
+	_begin_player_route([retreat_coords], "retreat", false)
+	_movement_state["phase"] = "walking"
+	_movement_state["can_cancel"] = false
+	_movement_state["message"] = "TURN RESOLVE // RETREAT TO HEX %d,%d..." % [
+		retreat_coords.x,
+		retreat_coords.y,
+	]
 	var movement_id := player_token.walk_to_hex(
 		retreat_coords,
 		map_visualizer.map_to_local(retreat_coords)
 	)
 	_pending_player_step = {
 		"kind": "retreat",
+		"resolution_id": int(_movement_state.get("resolution_id", 0)),
 		"movement_id": movement_id,
 		"from": current_coords,
 		"to": retreat_coords,
 		"started_minute": _world_state.world_time_minutes,
 	}
-	_last_macro_event = "Escaped combat; fell back to HEX %d,%d." % [
-		retreat_coords.x,
-		retreat_coords.y,
-	]
+	_last_macro_event = _movement_state["message"]
 	_refresh_world_hud()
 	return true
-
 func refresh_proximity(center_coords: Vector2i) -> void:
+	if _is_player_movement_active():
+		_movement_debug_mark("proximity/NPC update")
 	_get_proximity_director().refresh_proximity(center_coords)
 
 func _force_project_npc_token(record: EntityRecord) -> MacroEnemy:

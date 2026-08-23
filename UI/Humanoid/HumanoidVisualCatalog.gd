@@ -105,6 +105,11 @@ const ITEM_VISUAL_DIRECTORIES := {
 	"carbon_pistol": "weapons/guns/pistol",
 	"service_pistol": "weapons/guns/pistol",
 	"unique_theoperator": "weapons/guns/pistol",
+	# Unique firearms use the authored category token art when no bespoke
+	# humanoid layer exists. Their item artwork remains unique elsewhere.
+	"unique_railgun": "weapons/guns/servicerilfe",
+	"unique_modifiedrifle": "weapons/guns/servicerilfe",
+	"unique_arcbornblaster": "weapons/guns/servicerilfe",
 	"revolver": "weapons/guns/revolver",
 	"axe": "weapons/melee/axe",
 	"axe_arctic": "weapons/melee/axe",
@@ -304,13 +309,30 @@ static func weapon_muzzle_anchor_for_item(item_id: String, direction_row: int) -
 		_equipment_visual_catalog = load(EQUIPMENT_VISUAL_CATALOG_PATH) as HumanoidEquipmentVisualCatalog
 	if _equipment_visual_catalog == null:
 		return Vector2(-1.0, -1.0)
-	return _equipment_visual_catalog.muzzle_anchor_for(item_id, direction_row)
+	var authored := _equipment_visual_catalog.muzzle_anchor_for(item_id, direction_row)
+	if authored.x >= 0.0 and authored.y >= 0.0:
+		return authored
+	var category_directory := str(ITEM_VISUAL_DIRECTORIES.get(item_id, ""))
+	return _muzzle_anchor_for_directory(category_directory, direction_row)
 
 
 static func has_weapon_muzzle_profile(item_id: String) -> bool:
 	if _equipment_visual_catalog == null and ResourceLoader.exists(EQUIPMENT_VISUAL_CATALOG_PATH):
 		_equipment_visual_catalog = load(EQUIPMENT_VISUAL_CATALOG_PATH) as HumanoidEquipmentVisualCatalog
-	return _equipment_visual_catalog != null and _equipment_visual_catalog.has_muzzle_profile(item_id)
+	if _equipment_visual_catalog == null:
+		return false
+	if _equipment_visual_catalog.has_muzzle_profile(item_id):
+		return true
+	return not _muzzle_anchor_for_directory(str(ITEM_VISUAL_DIRECTORIES.get(item_id, "")), 0).is_equal_approx(Vector2(-1.0, -1.0))
+
+
+static func _muzzle_anchor_for_directory(directory: String, direction_row: int) -> Vector2:
+	if _equipment_visual_catalog == null or directory.is_empty():
+		return Vector2(-1.0, -1.0)
+	var anchors: Variant = _equipment_visual_catalog.weapon_muzzle_anchors.get(directory, [])
+	if anchors is Array and not anchors.is_empty():
+		return anchors[posmod(direction_row, anchors.size())]
+	return Vector2(-1.0, -1.0)
 
 static func _animation_texture_fallbacks(animation: String) -> Array[String]:
 	match animation:

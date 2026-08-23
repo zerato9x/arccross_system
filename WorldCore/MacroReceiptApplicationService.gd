@@ -11,6 +11,7 @@ var player_token: MacroPlayer
 var notify_signal: Callable
 var emit_presentation: Callable
 var refresh_hud: Callable
+var diagnostic_callback: Callable
 var _application_service := WorldActionApplicationService.new()
 
 
@@ -21,7 +22,8 @@ func configure(
 	signal_notifier: Callable = Callable(),
 	_tool_wear_applier: Callable = Callable(),
 	presentation_emitter: Callable = Callable(),
-	hud_refresher: Callable = Callable()
+	hud_refresher: Callable = Callable(),
+	diagnostics: Callable = Callable()
 ) -> void:
 	world_state = state
 	world_generator = generator
@@ -29,7 +31,8 @@ func configure(
 	notify_signal = signal_notifier
 	emit_presentation = presentation_emitter
 	refresh_hud = hud_refresher
-	_application_service.configure(state)
+	diagnostic_callback = diagnostics
+	_application_service.configure(state, diagnostics)
 
 
 func commit(
@@ -47,6 +50,7 @@ func commit(
 	if not application.applied:
 		return application
 
+	_debug_mark("receipt projection start")
 	if world_generator != null:
 		world_generator.refresh_hex_projection(coords)
 		for signal_value in receipt.signals:
@@ -54,20 +58,45 @@ func commit(
 				world_generator.refresh_hex_projection(
 					signal_value.get("coords", coords)
 				)
-	if player_token != null and world_state.player_record != null:
+	_debug_mark("receipt projection end")
+	if actor_id == "player" and player_token != null and world_state.player_record != null:
+		_debug_mark("receipt player projection start")
 		player_token.restore_runtime_record(world_state.player_record)
-		player_token.play_action_cue(receipt.verb_id)
+		# Travel already owns its authored walk animation. Replacing it with a
+		# generic action cue at the receipt boundary is the classic "arrived but
+		# frozen" presentation race.
+		if receipt.verb_id != "travel":
+			player_token.play_action_cue(receipt.verb_id)
+		_debug_mark("receipt player projection end")
+	_debug_mark("receipt signal fanout start")
 	for signal_value in receipt.signals:
 		if notify_signal.is_valid() and signal_value is Dictionary:
 			notify_signal.call(WorldSignalRecord.from_dict(signal_value))
+	_debug_mark("receipt signal fanout end")
+	_debug_mark("receipt presentation start")
 	if emit_presentation.is_valid():
 		var presentation_receipt := receipt.to_dict()
 		presentation_receipt["coords"] = coords
 		presentation_receipt["application"] = application.to_dict()
+		var presentation: Dictionary = presentation_receipt.get(
+			"presentation",
+			{}
+		).duplicate(true)
+		presentation["player_visible"] = actor_id == "player"
+		presentation["audio_policy"] = "player" if actor_id == "player" else "silent"
+		presentation_receipt["presentation"] = presentation
 		emit_presentation.call(presentation_receipt)
+	_debug_mark("receipt presentation end")
+	_debug_mark("receipt HUD refresh start")
 	if refresh_hud.is_valid():
 		refresh_hud.call()
+	_debug_mark("receipt HUD refresh end")
 	return application
+
+
+func _debug_mark(label: String) -> void:
+	if diagnostic_callback.is_valid():
+		diagnostic_callback.call(label)
 
 
 func _prepare_receipt(

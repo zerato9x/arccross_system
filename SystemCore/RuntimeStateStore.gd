@@ -87,6 +87,37 @@ func _ensure_item_ownership_ledger() -> RuntimeItemOwnershipLedger:
 		_item_ownership_ledger = RuntimeItemOwnershipLedger.new(self)
 	return _item_ownership_ledger
 
+
+func _is_indexed_entity(record: EntityRecord) -> bool:
+	return (
+		record != null
+		and record.life_state == GameEnums.EntityLifeState.ALIVE
+		and record.world_status != GameEnums.EntityWorldStatus.WITHDRAWN
+	)
+
+
+func _indexed_entity_id_at(coords: Vector2i) -> String:
+	var entity_id := str(entity_ids_by_coords.get(coords, ""))
+	if entity_id.is_empty():
+		return ""
+	var record := entity_records.get(entity_id) as EntityRecord
+	if not _is_indexed_entity(record) or record.coords != coords:
+		return ""
+	return entity_id
+
+
+func _normalize_entity_coordinate_index(record: EntityRecord) -> void:
+	if record == null:
+		return
+	var indexed_id := str(entity_ids_by_coords.get(record.coords, ""))
+	if not _is_indexed_entity(record):
+		if indexed_id == record.entity_id:
+			entity_ids_by_coords.erase(record.coords)
+		return
+	var occupying_id := _indexed_entity_id_at(record.coords)
+	if occupying_id.is_empty() or occupying_id == record.entity_id:
+		entity_ids_by_coords[record.coords] = record.entity_id
+
 func begin_new_world(seed_value: String, setup_state: Dictionary = {}) -> void:
 	world_seed = seed_value
 	world_time_minutes = GameTimeRules.STARTING_WORLD_MINUTES
@@ -381,8 +412,8 @@ func register_entity(record) -> String:
 			% entity.entity_id
 		)
 		return ""
-	if entity.life_state == GameEnums.EntityLifeState.ALIVE:
-		var occupying_id := str(entity_ids_by_coords.get(entity.coords, ""))
+	if _is_indexed_entity(entity):
+		var occupying_id := _indexed_entity_id_at(entity.coords)
 		if not occupying_id.is_empty() and occupying_id != entity.entity_id:
 			push_error(
 				"[STATE STORE] Refusing entity coordinate collision at %s: %s and %s."
@@ -390,7 +421,7 @@ func register_entity(record) -> String:
 			)
 			return ""
 	entity_records[entity.entity_id] = entity
-	if entity.life_state == GameEnums.EntityLifeState.ALIVE:
+	if _is_indexed_entity(entity):
 		entity_ids_by_coords[entity.coords] = entity.entity_id
 	var integrity_errors := validate_integrity()
 	if not integrity_errors.is_empty():
@@ -429,20 +460,20 @@ func get_entity_snapshot(entity_id: String) -> Dictionary:
 func get_entity_at(coords: Vector2i) -> EntityRecord:
 	## Compatibility-only live-resource accessor; use get_entity_snapshot_at() for
 	## production projection and application reads.
-	var entity_id: String = entity_ids_by_coords.get(coords, "")
+	var entity_id := _indexed_entity_id_at(coords)
 	return get_entity(entity_id)
 
 
 func get_entity_snapshot_at(coords: Vector2i) -> Dictionary:
-	var entity_id: String = entity_ids_by_coords.get(coords, "")
+	var entity_id := _indexed_entity_id_at(coords)
 	return get_entity_snapshot(entity_id)
 
 
 func get_entity_id_at(coords: Vector2i) -> String:
-	return str(entity_ids_by_coords.get(coords, ""))
+	return _indexed_entity_id_at(coords)
 
 func has_entity_at(coords: Vector2i) -> bool:
-	return entity_ids_by_coords.has(coords)
+	return not _indexed_entity_id_at(coords).is_empty()
 
 func get_all_entity_records() -> Array:
 	## Compatibility-only live-resource accessor; use
@@ -498,14 +529,13 @@ func update_entity_runtime_at_coords(
 	var entity := entity_records[entity_id] as EntityRecord
 	if entity == null or entity.life_state != GameEnums.EntityLifeState.ALIVE:
 		return false
-	var occupying_id := str(entity_ids_by_coords.get(target_coords, ""))
+	var occupying_id := _indexed_entity_id_at(target_coords)
 	if not occupying_id.is_empty() and occupying_id != entity_id:
 		return false
 	var transaction := capture_reconciliation_snapshot() if validate_after_commit else {}
 	if str(entity_ids_by_coords.get(entity.coords, "")) == entity_id:
 		entity_ids_by_coords.erase(entity.coords)
 	entity.coords = target_coords
-	entity_ids_by_coords[target_coords] = entity_id
 	var preserved_runtime := _preserved_runtime_keys(entity.runtime)
 	entity.runtime = runtime_state.duplicate(true)
 	for key in preserved_runtime.keys():
@@ -513,6 +543,7 @@ func update_entity_runtime_at_coords(
 			entity.runtime[key] = preserved_runtime[key]
 	entity.revision += 1
 	entity.last_simulated_minute = world_time_minutes
+	_normalize_entity_coordinate_index(entity)
 	if not validate_after_commit:
 		return true
 	var integrity_errors := validate_integrity()
@@ -528,20 +559,15 @@ func move_entity(entity_id: String, target_coords: Vector2i) -> bool:
 	if entity.life_state != GameEnums.EntityLifeState.ALIVE:
 		return false
 
-	var occupying_id: String = entity_ids_by_coords.get(target_coords, "")
+	var occupying_id := _indexed_entity_id_at(target_coords)
 	if not occupying_id.is_empty() and occupying_id != entity_id:
-		var occupying_record := get_entity(occupying_id)
-		if (
-			occupying_record != null
-			and occupying_record.life_state == GameEnums.EntityLifeState.ALIVE
-		):
-			return false
+		return false
 
 	var old_coords := entity.coords
 	if entity_ids_by_coords.get(old_coords, "") == entity_id:
 		entity_ids_by_coords.erase(old_coords)
 	entity.coords = target_coords
-	entity_ids_by_coords[target_coords] = entity_id
+	_normalize_entity_coordinate_index(entity)
 	entity.revision += 1
 	entity.last_simulated_minute = world_time_minutes
 	return true
@@ -550,20 +576,21 @@ func set_entity_life_state(entity_id: String, life_state: GameEnums.EntityLifeSt
 	if not entity_records.has(entity_id):
 		return false
 	var record: EntityRecord = entity_records[entity_id]
-	if life_state == GameEnums.EntityLifeState.ALIVE:
-		var occupying_id := str(entity_ids_by_coords.get(record.coords, ""))
+	var should_index := (
+		life_state == GameEnums.EntityLifeState.ALIVE
+		and record.world_status != GameEnums.EntityWorldStatus.WITHDRAWN
+	)
+	if should_index:
+		var occupying_id := _indexed_entity_id_at(record.coords)
 		if not occupying_id.is_empty() and occupying_id != entity_id:
 			return false
-	if record.life_state == life_state:
-		return true
-	record.life_state = life_state
-	record.revision += 1
-	record.last_simulated_minute = world_time_minutes
-	if life_state == GameEnums.EntityLifeState.DEAD:
-		if entity_ids_by_coords.get(record.coords, "") == entity_id:
-			entity_ids_by_coords.erase(record.coords)
-	else:
-		entity_ids_by_coords[record.coords] = entity_id
+	if record.life_state != life_state:
+		record.life_state = life_state
+		record.revision += 1
+		record.last_simulated_minute = world_time_minutes
+	# Normalize even when the lifecycle value is unchanged. This repairs a
+	# stale corpse/withdrawn mapping without manufacturing a revision bump.
+	_normalize_entity_coordinate_index(record)
 	return true
 
 func set_entity_world_status(
@@ -573,11 +600,19 @@ func set_entity_world_status(
 	if not entity_records.has(entity_id):
 		return false
 	var record: EntityRecord = entity_records[entity_id]
-	if record.world_status == status:
-		return true
-	record.world_status = status
-	record.revision += 1
-	record.last_simulated_minute = world_time_minutes
+	var should_index := (
+		record.life_state == GameEnums.EntityLifeState.ALIVE
+		and status != GameEnums.EntityWorldStatus.WITHDRAWN
+	)
+	if should_index:
+		var occupying_id := _indexed_entity_id_at(record.coords)
+		if not occupying_id.is_empty() and occupying_id != entity_id:
+			return false
+	if record.world_status != status:
+		record.world_status = status
+		record.revision += 1
+		record.last_simulated_minute = world_time_minutes
+	_normalize_entity_coordinate_index(record)
 	return true
 
 func is_entity_hostile(entity_id: String) -> bool:
@@ -640,6 +675,10 @@ func is_entity_alive(entity_id: String) -> bool:
 		return false
 	return entity_records[entity_id].life_state == GameEnums.EntityLifeState.ALIVE
 
+
+func is_entity_active(entity_id: String) -> bool:
+	return _is_indexed_entity(entity_records.get(entity_id) as EntityRecord)
+
 func set_hex_record(coords: Vector2i, record) -> void:
 	## Compatibility import path for migrations and fixtures. Production WorldCore
 	## mutations must use replace_hex_record() with an expected revision.
@@ -653,7 +692,8 @@ func replace_hex_record(
 	coords: Vector2i,
 	record: Variant,
 	expected_revision: int = -1,
-	increment_revision: bool = true
+	increment_revision: bool = true,
+	validate_after_commit: bool = true
 ) -> bool:
 	var current := get_hex_record(coords)
 	if expected_revision >= 0:
@@ -671,13 +711,18 @@ func replace_hex_record(
 		candidate.revision = base_revision + 1
 	elif candidate.revision < 0:
 		return false
-	var transaction := capture_reconciliation_snapshot()
+	var transaction := capture_reconciliation_snapshot() if validate_after_commit else {}
 	hex_records[coords] = candidate
 	var errors := _hex_record_integrity_errors(coords, candidate)
 	errors.append_array(_ensure_item_ownership_ledger().validate_integrity())
 	if not errors.is_empty():
-		restore_reconciliation_snapshot(transaction)
+		if validate_after_commit:
+			restore_reconciliation_snapshot(transaction)
+		else:
+			hex_records[coords] = current
 		return false
+	if not validate_after_commit:
+		return true
 	return true
 
 
@@ -1469,7 +1514,7 @@ func rebuild_entity_index() -> Array[String]:
 		if record.entity_id != entity_id:
 			errors.append("Entity key/id mismatch: %s != %s" % [entity_id, record.entity_id])
 			continue
-		if record.life_state != GameEnums.EntityLifeState.ALIVE:
+		if not _is_indexed_entity(record):
 			continue
 		var occupying_id := str(rebuilt.get(record.coords, ""))
 		if not occupying_id.is_empty():
@@ -1528,7 +1573,7 @@ func validate_integrity() -> Array[String]:
 			continue
 		if record.entity_id != entity_id or entity_id.is_empty():
 			errors.append("Entity identity/key mismatch: %s" % entity_id)
-		if record.life_state == GameEnums.EntityLifeState.ALIVE:
+		if _is_indexed_entity(record):
 			if seen_coords.has(record.coords):
 				errors.append("Duplicate alive coordinate: %s" % str(record.coords))
 			else:
@@ -1536,11 +1581,11 @@ func validate_integrity() -> Array[String]:
 			if str(entity_ids_by_coords.get(record.coords, "")) != entity_id:
 				errors.append("Entity coordinate index mismatch: %s" % entity_id)
 		elif str(entity_ids_by_coords.get(record.coords, "")) == entity_id:
-			errors.append("Dead entity remains in the alive coordinate index: %s" % entity_id)
+			errors.append("Inactive entity remains in the active coordinate index: %s" % entity_id)
 	for coords in entity_ids_by_coords.keys():
 		var indexed_id := str(entity_ids_by_coords.get(coords, ""))
 		var indexed := entity_records.get(indexed_id) as EntityRecord
-		if indexed == null or indexed.life_state != GameEnums.EntityLifeState.ALIVE or indexed.coords != coords:
+		if not _is_indexed_entity(indexed) or indexed.coords != coords:
 			errors.append("Stale entity coordinate index at %s" % str(coords))
 	for coords in hex_records.keys():
 		if not coords is Vector2i:
@@ -1581,6 +1626,50 @@ func validate_integrity() -> Array[String]:
 		if str(receipt_id).is_empty() or int(applied_world_receipts[receipt_id]) < 0:
 			errors.append("Applied world receipt history contains an invalid entry.")
 	errors.append_array(_ensure_item_ownership_ledger().validate_integrity())
+	return errors
+
+
+func validate_world_action_integrity(
+	target_coords: Vector2i,
+	actor_id: String,
+	action_id: String = "",
+	validate_item_ownership: bool = false
+) -> Array[String]:
+	## World-action receipts already validate their reservation, actor revision,
+	## target revision, and mutation payload before they reach this point. Keep
+	## the post-commit guard focused on the records that this atomic operation
+	## can touch; a full-world audit here made every walking step rescan the
+	## entire generated zone.
+	var errors: Array[String] = []
+	if player_record != null:
+		if player_record.entity_id != "player":
+			errors.append("Player record identity is not 'player'.")
+		if player_record.kind != GameEnums.RuntimeEntityKind.PLAYER:
+			errors.append("Player record kind is not PLAYER.")
+		if player_record.coords != _legacy_player_coords:
+			errors.append("Player coordinate compatibility projection drifted.")
+	if actor_id == "player":
+		if player_record == null:
+			errors.append("Player record is missing after world-action commit.")
+	else:
+		var actor := entity_records.get(actor_id) as EntityRecord
+		if actor == null:
+			errors.append("World-action actor is missing after commit: %s" % actor_id)
+		elif _is_indexed_entity(actor):
+			if _indexed_entity_id_at(actor.coords) != actor_id:
+				errors.append("World-action actor coordinate index drifted: %s" % actor_id)
+		elif str(entity_ids_by_coords.get(actor.coords, "")) == actor_id:
+			errors.append("World-action actor has an inactive coordinate index: %s" % actor_id)
+	var target_hex := get_hex_record(target_coords)
+	errors.append_array(_hex_record_integrity_errors(target_coords, target_hex))
+	if not action_id.is_empty():
+		var reservation := get_world_action_reservation(action_id)
+		if reservation != null:
+			var reservation_error := reservation.validation_error()
+			if not reservation_error.is_empty():
+				errors.append(reservation_error)
+	if validate_item_ownership:
+		errors.append_array(_ensure_item_ownership_ledger().validate_integrity())
 	return errors
 
 

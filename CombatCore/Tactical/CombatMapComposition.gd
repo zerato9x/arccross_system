@@ -10,6 +10,7 @@ class_name CombatMapComposition
 @export var source_provenance: Dictionary = {}
 @export var layer_metadata: Array = []
 @export var variant_overrides: Dictionary = {}
+@export var road_overlay_path: String = ""
 @export var road_cells: Array[Vector2i] = []
 @export var water_cells: Array[Vector2i] = []
 @export var dominant_landmark: Dictionary = {}
@@ -30,6 +31,7 @@ func to_dict() -> Dictionary:
 		"source_provenance": source_provenance.duplicate(true),
 		"layer_metadata": layer_metadata.duplicate(true),
 		"variant_overrides": variant_overrides.duplicate(true),
+		"road_overlay_path": road_overlay_path,
 		"road_cells": road_cells.duplicate(),
 		"water_cells": water_cells.duplicate(),
 		"dominant_landmark": dominant_landmark.duplicate(true),
@@ -51,6 +53,7 @@ static func from_dict(data: Dictionary):
 	result.source_provenance = data.get("source_provenance", {}).duplicate(true)
 	result.layer_metadata.assign(data.get("layer_metadata", []))
 	result.variant_overrides = data.get("variant_overrides", {}).duplicate(true)
+	result.road_overlay_path = str(data.get("road_overlay_path", ""))
 	result.road_cells.assign(data.get("road_cells", []))
 	result.water_cells.assign(data.get("water_cells", []))
 	result.dominant_landmark = data.get("dominant_landmark", {}).duplicate(true)

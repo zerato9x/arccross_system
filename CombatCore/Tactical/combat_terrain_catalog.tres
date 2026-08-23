@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_catalog")
 terrain_profiles = {
-0: {"id": "plains", "label": "PLAINS", "movement_modifier": 0},
+0: {"id": "plains", "label": "PLAINS", "movement_modifier": 0, "ground_asset_path": "res://Asset/HexTiles/_BIOMES/biome_plains/bg_plains.png"},
 1: {"id": "forest_floor", "label": "FOREST", "movement_modifier": 0, "visibility_penalty": 0.08},
 2: {"id": "mud", "label": "MUD", "movement_modifier": 1, "contaminates_wounds": true, "trip_risk": 0.15},
 3: {"id": "snow", "label": "SNOW", "movement_modifier": 1, "cold_exposure": 1.0, "leaves_tracks": true},
@@ -28,6 +28,6 @@ water_profiles = {
 }
 structure_profiles = {
 0: {},
-1: {"id": "structure", "label": "STRUCTURE", "density": 0.20, "object_type": "hard_cover", "durability": 12.0, "blocked_fraction": 0.40},
-2: {"id": "remnants", "label": "REMNANTS", "density": 0.26, "movement_modifier": 1, "object_type": "unstable_cover", "durability": 6.0, "blocked_fraction": 0.15}
+1: {"id": "structure", "label": "STRUCTURE", "density": 0.20, "object_type": "hard_cover", "durability": 12.0},
+2: {"id": "remnants", "label": "REMNANTS", "density": 0.26, "movement_modifier": 1, "object_type": "unstable_cover", "durability": 6.0}
 }

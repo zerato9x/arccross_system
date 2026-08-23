@@ -260,6 +260,8 @@ func _decay_hex_evidence(
 		var hex_snapshot := world_state.get_hex_snapshot(coords)
 		if hex_snapshot.is_empty():
 			continue
+		var previous_signals: Array = hex_snapshot.get("world_signals", [])
+		var previous_traces: Array = hex_snapshot.get("trace_records", [])
 		var active_signals: Array[Dictionary] = []
 		for signal_value in hex_snapshot.get("world_signals", []):
 			if not signal_value is Dictionary:
@@ -279,6 +281,11 @@ func _decay_hex_evidence(
 					current_minutes - int(trace.get("created_minute", current_minutes))
 				)
 				active_traces.append(trace)
+		# Empty/evidence-free hexes have no time-dependent projection to update.
+		# The old path rewrote every generated hex on every world-time commit,
+		# paying the full transactional cost for hundreds of no-op records.
+		if active_signals == previous_signals and active_traces == previous_traces:
+			continue
 		hex_snapshot["trace_records"] = active_traces
 		hex_snapshot["world_signals"] = active_signals
 		hex_snapshot["last_simulated_minute"] = current_minutes

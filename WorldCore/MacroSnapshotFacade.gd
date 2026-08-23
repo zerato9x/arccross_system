@@ -83,7 +83,9 @@ func build_world_hud_snapshot() -> Dictionary:
 		callbacks.get("hex_distance", Callable()),
 		callbacks.get("hex_label", Callable()),
 		Callable(world_state, "is_entity_alive"),
-		Callable(world_state, "is_entity_hostile")
+		Callable(world_state, "is_entity_hostile"),
+		_is_movement_active(),
+		callbacks.get("is_hex_travel_known", Callable())
 	)
 	if campaign != null:
 		var active := campaign.get_active_node()
@@ -105,6 +107,15 @@ func build_world_hud_snapshot() -> Dictionary:
 			),
 		}
 	snapshot["minimap"] = build_minimap_snapshot()
+	var movement_callback: Callable = callbacks.get("movement_snapshot", Callable())
+	snapshot["movement"] = (
+		movement_callback.call().duplicate(true)
+		if movement_callback.is_valid()
+		else _default_movement_snapshot()
+	)
+	# Keep the explicit transaction name available to presentation consumers;
+	# `movement` remains as the compatibility field used by existing panels.
+	snapshot["turn_resolution"] = snapshot["movement"].duplicate(true)
 	return snapshot
 
 
@@ -196,8 +207,35 @@ func build_hex_descriptor(coords: Vector2i) -> Dictionary:
 		Callable(world_state, "is_entity_alive"),
 		Callable(world_state, "is_entity_hostile"),
 		callbacks.get("ensure_npc_purpose", Callable()),
-		callbacks.get("hex_distance", Callable())
+		callbacks.get("hex_distance", Callable()),
+		_is_movement_active(),
+		bool(
+			callbacks.get("is_hex_travel_known", Callable()).call(coords)
+		) if callbacks.get("is_hex_travel_known", Callable()).is_valid() else false
 	)
+
+
+func _is_movement_active() -> bool:
+	var callback: Callable = callbacks.get("is_movement_active", Callable())
+	return bool(callback.call()) if callback.is_valid() else false
+
+
+func _default_movement_snapshot() -> Dictionary:
+	return {
+		"active": false,
+		"resolution_id": 0,
+		"kind": "travel",
+		"phase": "idle",
+		"from_coords": player_token.current_hex_coords if player_token else Vector2i.ZERO,
+		"current_coords": player_token.current_hex_coords if player_token else Vector2i.ZERO,
+		"step_target_coords": Vector2i.ZERO,
+		"destination_coords": Vector2i.ZERO,
+		"total_steps": 0,
+		"completed_steps": 0,
+		"remaining_steps": 0,
+		"can_cancel": false,
+		"message": "",
+	}
 
 
 func build_macro_activity_snapshot() -> Dictionary:

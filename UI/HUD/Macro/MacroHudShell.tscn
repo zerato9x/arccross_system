@@ -159,10 +159,10 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -376.0
+offset_left = -484.0
 offset_top = 14.0
 offset_right = -14.0
-offset_bottom = 374.0
+offset_bottom = 424.0
 grow_horizontal = 0
 use_authored_preview_rect = true
 
@@ -172,10 +172,10 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -660.0
+offset_left = -704.0
 offset_top = 14.0
 offset_right = -390.0
-offset_bottom = 140.0
+offset_bottom = 424.0
 grow_horizontal = 0
 
 [node name="MacroWorldStatusPanel" parent="Root" unique_id=1070849637 instance=ExtResource("6_mf032")]

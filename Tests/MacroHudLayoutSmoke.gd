@@ -173,6 +173,10 @@ func _run() -> void:
 	if hex.get_node("%PreviewRoot").get_node_or_null("MacroHexPreviewPanel") == null:
 		_fail("Hex corner is not using MacroHexPreviewPanel as preview.")
 		return
+	var target_panel := hud.get_node_or_null("%MacroHexTargetPanel") as Control
+	if target_panel == null or target_panel.get_parent() != hex.get_node("%PreviewRoot"):
+		_fail("HERE and target hex presentations did not merge into one preview surface.")
+		return
 	var insets := hud.get_layout_manager().compute_viewport_insets()
 	if insets != Rect2i():
 		_fail("Fullscreen inventory should not leave stale corner-panel insets.")

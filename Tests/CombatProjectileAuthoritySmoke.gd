@@ -2,7 +2,6 @@ extends SceneTree
 
 const ARENA_SCRIPT := preload("res://CombatCore/Tactical/TacticalArenaView.gd")
 const TOKEN_SCENE := preload("res://UI/Humanoid/HumanoidToken.tscn")
-const OVERLAY_SCRIPT := preload("res://CombatCore/Tactical/CombatTokenOverlay.gd")
 
 var _failures: Array[String] = []
 
@@ -12,10 +11,24 @@ func _init() -> void:
 
 
 func _run() -> void:
-	var firearm_ids := ["ak47", "carbon_rifle", "service_rifle", "shotgun", "carbon_pistol", "service_pistol", "unique_theoperator", "revolver"]
+	var firearm_ids := [
+		"ak47", "carbon_rifle", "service_rifle", "shotgun",
+		"carbon_pistol", "service_pistol", "unique_theoperator", "revolver",
+		"unique_railgun", "unique_modifiedrifle", "unique_arcbornblaster",
+	]
 	for weapon_id in firearm_ids:
 		if not HumanoidVisualCatalog.has_weapon_muzzle_profile(weapon_id):
 			_failures.append("Missing token muzzle profile for %s." % weapon_id)
+		var appearance := HumanoidVisualCatalog.appearance_from_slot_item_ids({
+			GameEnums.EquipmentSlot.HAND: weapon_id,
+		})
+		var has_category_gun_layer := false
+		for directory in HumanoidVisualCatalog.layer_directories(appearance):
+			if "/weapons/guns/" in directory:
+				has_category_gun_layer = true
+				break
+		if not has_category_gun_layer:
+			_failures.append("Missing category gun layer for %s." % weapon_id)
 
 	var arena := ARENA_SCRIPT.new() as TacticalArenaView
 	arena.size = Vector2(960.0, 540.0)
@@ -25,16 +38,22 @@ func _run() -> void:
 	shooter.set_display_scale(1.0)
 	shooter.set_direction_row(HumanoidVisualCatalog.DIRECTION_RIGHT)
 	arena.add_child(shooter)
+	shooter.set_slot_item_ids({GameEnums.EquipmentSlot.HAND: "revolver"})
 	var target := TOKEN_SCENE.instantiate() as HumanoidTokenView
 	target.position = Vector2(720.0, 280.0)
 	target.set_display_scale(1.0)
 	arena.add_child(target)
 	arena._actor_tokens = {"shooter": shooter, "target": target}
 
-	var overlay := OVERLAY_SCRIPT.new() as CombatTokenOverlay
-	overlay.position = Vector2(400.0, -300.0)
-	shooter.add_child(overlay)
-	shooter.set_meta("combat_top_overlay", overlay)
+	arena._ensure_token_overlays(shooter)
+	var overlay := shooter.get_meta("combat_top_overlay") as CombatTokenOverlay
+	overlay.configure_top(
+		{"actor_id": "shooter", "team_id": "player", "name": "Shooter"},
+		48.0,
+		1.0,
+		shooter.combat_overhead_anchor(),
+		"east"
+	)
 
 	var cue := CombatPresentationCue.new()
 	cue.action_id = "fire"
@@ -45,13 +64,15 @@ func _run() -> void:
 	cue.target_body_region = GameEnums.LimbRegion.HEAD
 	cue.start_sector = Vector2i.ZERO
 	cue.end_sector = Vector2i(1, 0)
-	var expected_start := shooter.position + shooter.combat_weapon_muzzle_anchor("revolver")
+	cue.presentation_direction = "east"
+	overlay.set_weapon_cue(cue, 0.5)
+	var expected_start := shooter.position + shooter.combat_weapon_muzzle_anchor(cue.weapon_id)
 	var actual_start: Vector2 = arena._projectile_start_for(cue)
 	if not actual_start.is_equal_approx(expected_start):
-		_failures.append("Projectile start did not come from the humanoid token firearm.")
-	overlay.position += Vector2(900.0, -500.0)
+		_failures.append("Projectile start did not come from the humanoid token weapon layer.")
+	overlay.position += Vector2(12.0, -7.0)
 	if not arena._projectile_start_for(cue).is_equal_approx(expected_start):
-		_failures.append("Moving the decorative overhead sheet changed projectile geometry.")
+		_failures.append("Moving the visual-only firearm overlay changed projectile origin.")
 	var head_end: Vector2 = arena._projectile_end_for(cue)
 	cue.target_body_region = GameEnums.LimbRegion.LEFT_LEG
 	var leg_end: Vector2 = arena._projectile_end_for(cue)
@@ -63,10 +84,8 @@ func _run() -> void:
 	var sequence := CombatPresentationSequence.new()
 	sequence.cues.append(cue)
 	arena.begin_sequence(sequence)
-	if not shooter._suppress_equipment_layers:
-		_failures.append("Firearm presentation left the physical token weapon layer visible beside the animated overlay.")
-	if overlay.has_method("weapon_muzzle_local_position"):
-		_failures.append("Decorative overhead sheet still exposes a muzzle contract.")
+	if shooter._suppress_equipment_layers:
+		_failures.append("Firearm presentation hid the physical token weapon layer.")
 
 	if _failures.is_empty():
 		print("COMBAT_PROJECTILE_AUTHORITY_SMOKE: PASS")

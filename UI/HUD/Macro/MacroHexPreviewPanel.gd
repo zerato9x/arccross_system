@@ -132,9 +132,15 @@ func _render() -> void:
 
 	if _composition_view:
 		_composition_view.show_composition(_location.get("presentation", {}))
-	_hint_label.text = "Open the location board"
-	_expand_button.text = "Explore Here [E]"
-	_expand_button.disabled = not bool(_location.get("can_open", true))
+	var can_open := bool(_location.get("can_open", true))
+	var exploration: Dictionary = hex.get("exploration", {})
+	_hint_label.text = (
+		"Open the location board"
+		if can_open
+		else str(exploration.get("lock_reason", "Movement in progress"))
+	)
+	_expand_button.text = "Explore Here [E]" if can_open else "Explore locked"
+	_expand_button.disabled = not can_open
 
 
 func _on_expand_pressed() -> void:
