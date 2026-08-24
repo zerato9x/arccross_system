@@ -14,6 +14,7 @@ var _macro_canvas_visibility: Dictionary = {}
 var _world_state: RuntimeStateStore
 var _event_bus: Node
 var _combat_result_application := CombatResultApplicationService.new()
+var _macro_defeat_presented := false
 
 func _ready() -> void:
 	_world_state = get_node("/root/WorldState") as RuntimeStateStore
@@ -43,11 +44,10 @@ func _ready() -> void:
 	if defeat_panel:
 		defeat_panel.restart_requested.connect(restart_new_run)
 		defeat_panel.load_requested.connect(load_saved_run)
+	if not player_core.died.is_connected(_on_macro_player_died):
+		player_core.died.connect(_on_macro_player_died)
 	if player_core.is_dead:
-		macro_map.hide()
-		macro_map.set_process_unhandled_input(false)
-		if defeat_panel:
-			defeat_panel.open_panel(_world_state.has_save_file())
+		_present_macro_player_defeat(false)
 	
 	_world_state.world_time_advanced.connect(_on_world_time_advanced)
 	_start_macro_audio()
@@ -407,6 +407,26 @@ func _on_world_time_advanced(_previous: int, current: int, _elapsed: int) -> voi
 		"world_time_changed",
 		{"hour": snapshot.get("hour", 8)}
 	)
+
+
+func _on_macro_player_died(_cause: String) -> void:
+	if _active_arena != null:
+		# Tactical combat owns its result handoff and defeat presentation.
+		return
+	_present_macro_player_defeat(true)
+
+
+func _present_macro_player_defeat(preserve_committed_state: bool) -> void:
+	if _macro_defeat_presented or macro_map == null:
+		return
+	_macro_defeat_presented = true
+	if preserve_committed_state:
+		_on_player_defeat_preserve_mutations()
+	macro_map.hide()
+	macro_map.set_process_unhandled_input(false)
+	_emit_scene_audio("game_over")
+	if defeat_panel:
+		defeat_panel.open_panel(_world_state.has_save_file())
 
 func _emit_scene_audio(scene_id: String, context: Dictionary = {}) -> void:
 	if _event_bus and _event_bus.has_method("emit_scene_audio"):

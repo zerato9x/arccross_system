@@ -21,7 +21,11 @@ const ALLOWED_MUTATION_TYPES := [
 	"set_hex_explored",
 	"trap_armed",
 	"medical_application",
-	"replace_hex_state",
+	"inventory_action",
+	"poi_selection_application",
+	"camp_cycle_application",
+	"search_application",
+	"npc_work_application",
 	"add_ground_item",
 	"biological_hit",
 	"append_trace",
@@ -31,6 +35,12 @@ const ALLOWED_MUTATION_TYPES := [
 
 var store: RuntimeStateStore
 var diagnostic_callback: Callable
+var _inventory_transaction := WorldActionInventoryTransactionService.new()
+var _poi_selection_transaction := WorldActionPoiSelectionTransactionService.new()
+var _camp_transaction := WorldActionCampTransactionService.new()
+var _movement_transaction := WorldActionMovementTransactionService.new()
+var _search_transaction := WorldActionSearchTransactionService.new()
+var _npc_work_transaction := WorldActionNpcWorkTransactionService.new()
 
 
 func configure(
@@ -39,6 +49,11 @@ func configure(
 ) -> void:
 	store = state
 	diagnostic_callback = diagnostics
+	_inventory_transaction.configure(state)
+	_poi_selection_transaction.configure(state)
+	_camp_transaction.configure(state)
+	_movement_transaction.configure(state)
+	_search_transaction.configure(state)
 
 
 func apply(receipt: WorldActionReceipt) -> WorldActionApplicationReceipt:
@@ -69,13 +84,21 @@ func apply(receipt: WorldActionReceipt) -> WorldActionApplicationReceipt:
 	_debug_mark("transaction snapshot captured")
 	var elapsed := maxi(0, receipt.elapsed_minutes)
 	var previous_world_time := store.world_time_minutes
-	var actor_runtime := _staged_actor_runtime(receipt, elapsed)
+	var actor_staging := _stage_actor_runtime(receipt, elapsed)
+	var actor_runtime: Dictionary = actor_staging.get("runtime", {})
 	if actor_runtime.is_empty():
 		_debug_mark("actor runtime staging failed")
-		return _rollback(result, transaction, "Could not stage world-action actor runtime.")
+		return _rollback(
+			result,
+			transaction,
+			str(actor_staging.get(
+				"error",
+				"Could not stage world-action actor runtime."
+			))
+		)
 	_debug_mark("actor runtime staged")
 
-	if not _commit_actor_and_item_runtime(receipt, actor_runtime):
+	if not _commit_actor_and_item_runtime(receipt, actor_runtime, actor_staging):
 		_debug_mark("actor and item runtime commit failed")
 		return _rollback(result, transaction, "Could not commit actor/item runtime.")
 	_debug_mark("actor and item runtime committed")
@@ -101,13 +124,13 @@ func apply(receipt: WorldActionReceipt) -> WorldActionApplicationReceipt:
 
 	var current_hex := store.get_hex_record(receipt.target_coords)
 	var next_hex := HexRecord.from_dict(current_hex.to_dict())
+	var staged_hex_state: Dictionary = actor_staging.get("hex_state", {})
+	if not staged_hex_state.is_empty():
+		next_hex = HexRecord.from_dict(staged_hex_state)
+		if next_hex.revision != receipt.expected_hex_revision:
+			return _rollback(result, transaction, "Staged POI hex has a stale revision.")
 	for mutation in receipt.mutations:
 		match str(mutation.get("type", "")):
-			"replace_hex_state":
-				var hex_state: Dictionary = mutation.get("hex_state", {})
-				next_hex = HexRecord.from_dict(hex_state)
-				if next_hex.revision != receipt.expected_hex_revision:
-					return _rollback(result, transaction, "Replacement hex has a stale revision.")
 			"movement_trace":
 				var trace: Dictionary = mutation.get("trace", {}).duplicate(true)
 				if trace.is_empty():
@@ -144,6 +167,16 @@ func apply(receipt: WorldActionReceipt) -> WorldActionApplicationReceipt:
 		return _rollback(result, transaction, "World-action hex revision drifted during commit.")
 	_debug_mark("hex projection committed")
 	result.hex_revision = store.get_hex_record(receipt.target_coords).revision
+	for item_state in actor_staging.get("ground_additions", []):
+		if not store.add_ground_items(
+			receipt.target_coords,
+			[item_state.duplicate(true)]
+		):
+			return _rollback(
+				result,
+				transaction,
+				"Could not return displaced POI gear to the ground."
+			)
 
 	for mutation in receipt.mutations:
 		if str(mutation.get("type", "")) == "set_run_flag":
@@ -239,6 +272,8 @@ func _payload_integrity_error(receipt: WorldActionReceipt) -> String:
 		return "World-action receipt contains no expected hex revision."
 	var consumed_ids: Dictionary = {}
 	var transferred_ids: Dictionary = {}
+	var medical_application_count := 0
+	var has_replace_actor_runtime := false
 	for mutation_value in receipt.mutations:
 		if not mutation_value is Dictionary:
 			return "World-action receipt contains a malformed mutation."
@@ -251,6 +286,18 @@ func _payload_integrity_error(receipt: WorldActionReceipt) -> String:
 			if instance_id.is_empty() or consumed_ids.has(instance_id):
 				return "World-action receipt contains a duplicate or empty consumed item."
 			consumed_ids[instance_id] = true
+		elif mutation_type == "replace_actor_runtime":
+			has_replace_actor_runtime = true
+		elif mutation_type == "medical_application":
+			medical_application_count += 1
+			var instance_id := str(mutation.get("instance_id", ""))
+			var limb_region := int(mutation.get("limb_region", -1))
+			if (
+				instance_id.is_empty()
+				or receipt.target_id != instance_id
+				or limb_region not in GameEnums.LimbRegion.values()
+			):
+				return "World-action medical mutation is malformed."
 		elif mutation_type in ["transfer_ground_item", "drop_ground_item"]:
 			var instance_id := str(mutation.get("instance_id", ""))
 			if instance_id.is_empty() or transferred_ids.has(instance_id):
@@ -271,10 +318,6 @@ func _payload_integrity_error(receipt: WorldActionReceipt) -> String:
 			var trace: Variant = mutation.get("trace", {})
 			if not trace is Dictionary or trace.is_empty():
 				return "World-action trace is malformed."
-		elif mutation_type == "replace_hex_state":
-			var hex_state: Variant = mutation.get("hex_state", {})
-			if not hex_state is Dictionary or int(hex_state.get("revision", -1)) != receipt.expected_hex_revision:
-				return "World-action replacement hex is malformed or stale."
 		elif mutation_type == "add_ground_item":
 			var item_state: Variant = mutation.get("item_state", {})
 			var instance_id := str(item_state.get("instance_id", "")) if item_state is Dictionary else ""
@@ -284,6 +327,37 @@ func _payload_integrity_error(receipt: WorldActionReceipt) -> String:
 		elif mutation_type == "biological_hit":
 			if float(mutation.get("damage", 0.0)) < 0.0:
 				return "World-action biological hit has invalid damage."
+	if medical_application_count > 0:
+		if medical_application_count != 1:
+			return "World-action receipt contains duplicate medical applications."
+		if receipt.actor_id != "player":
+			return "World-action medical treatment only supports the player actor."
+		if receipt.verb_id != "treat" or receipt.method_id != "medical_item":
+			return "World-action medical treatment has the wrong verb or method."
+		if (
+			not receipt.actor_state.is_empty()
+			or has_replace_actor_runtime
+			or not consumed_ids.is_empty()
+		):
+			return "World-action medical treatment contains conflicting actor mutations."
+	var inventory_error := _inventory_transaction.validation_error(receipt)
+	if not inventory_error.is_empty():
+		return inventory_error
+	var poi_selection_error := _poi_selection_transaction.validation_error(receipt)
+	if not poi_selection_error.is_empty():
+		return poi_selection_error
+	var camp_error := _camp_transaction.validation_error(receipt)
+	if not camp_error.is_empty():
+		return camp_error
+	var movement_error := _movement_transaction.validation_error(receipt)
+	if not movement_error.is_empty():
+		return movement_error
+	var search_error := _search_transaction.validation_error(receipt)
+	if not search_error.is_empty():
+		return search_error
+	var npc_work_error := _npc_work_transaction.validation_error(receipt)
+	if not npc_work_error.is_empty():
+		return npc_work_error
 	var signal_ids: Dictionary = {}
 	for signal_value in receipt.signals:
 		if not signal_value is Dictionary:
@@ -300,7 +374,7 @@ func _payload_integrity_error(receipt: WorldActionReceipt) -> String:
 	return ""
 
 
-func _staged_actor_runtime(
+func _stage_actor_runtime(
 	receipt: WorldActionReceipt,
 	elapsed_minutes: int
 ) -> Dictionary:
@@ -310,7 +384,10 @@ func _staged_actor_runtime(
 		else store.get_entity_snapshot(receipt.actor_id)
 	)
 	if actor_data.is_empty():
-		return {}
+		return {"runtime": {}, "error": "World-action actor is unavailable."}
+	var movement_error := _movement_transaction.staging_error(receipt)
+	if not movement_error.is_empty():
+		return {"runtime": {}, "error": movement_error}
 	if not receipt.actor_state.is_empty():
 		actor_data["runtime"] = receipt.actor_state.duplicate(true)
 	if receipt.actor_id == "player":
@@ -318,7 +395,7 @@ func _staged_actor_runtime(
 			actor_data, null, "WorldActionApplicationActor"
 		)
 		if core == null:
-			return {}
+			return {"runtime": {}, "error": "Could not construct the world-action actor."}
 		for mutation in receipt.mutations:
 			if str(mutation.get("type", "")) == "biological_hit":
 				core.body.apply_targeted_hit(
@@ -326,12 +403,91 @@ func _staged_actor_runtime(
 					float(mutation.get("damage", 0.0)),
 					float(mutation.get("armor", 0.0))
 				)
+		for mutation in receipt.mutations:
+			if str(mutation.get("type", "")) != "medical_application":
+				continue
+			var item := core.inventory.find_item_by_instance_id(
+				str(mutation.get("instance_id", ""))
+			)
+			if (
+				item == null
+				or not core.apply_consumable_to_limb(
+					item,
+					int(mutation.get("limb_region", -1))
+				)
+			):
+				core.free()
+				return {
+					"runtime": {},
+					"error": "Medical treatment is no longer valid.",
+				}
+		var inventory_result := _inventory_transaction.stage(core, receipt)
+		if not bool(inventory_result.get("success", false)):
+			core.free()
+			return {
+				"runtime": {},
+				"error": str(inventory_result.get(
+					"error",
+					"Inventory action is no longer valid."
+				)),
+			}
+		var poi_selection_result := _poi_selection_transaction.stage(core, receipt)
+		if not bool(poi_selection_result.get("success", false)):
+			core.free()
+			return {
+				"runtime": {},
+				"error": str(poi_selection_result.get(
+					"error",
+					"POI gear selection is no longer valid."
+				)),
+			}
+		var camp_result := _camp_transaction.stage(core, receipt)
+		if not bool(camp_result.get("success", false)):
+			core.free()
+			return {
+				"runtime": {},
+				"error": str(camp_result.get(
+					"error",
+					"Camp recovery is no longer valid."
+				)),
+			}
+		var search_result := _search_transaction.stage(receipt)
+		if not bool(search_result.get("success", false)):
+			core.free()
+			return {
+				"runtime": {},
+				"error": str(search_result.get(
+					"error",
+					"Search outcome is no longer valid."
+				)),
+			}
+		var staged_hex_state: Dictionary = {}
+		for semantic_result in [
+			poi_selection_result,
+			camp_result,
+			search_result,
+		]:
+			var candidate: Dictionary = semantic_result.get(
+				"hex_state", {}
+			).duplicate(true)
+			if candidate.is_empty():
+				continue
+			if not staged_hex_state.is_empty():
+				core.free()
+				return {
+					"runtime": {},
+					"error": "World action staged conflicting semantic hex mutations.",
+				}
+			staged_hex_state = candidate
 		core.process_survival_time(
 			elapsed_minutes,
 			15.0,
 			maxf(0.1, receipt.exertion),
 			float(receipt.presentation.get("insulation_bonus", 0.0))
 		)
+		# Detached staging has no scene-tree signal wiring. Reconcile terminal
+		# biology explicitly before capturing the canonical runtime.
+		core.reconcile_terminal_state()
 		for mutation in receipt.mutations:
 			if str(mutation.get("type", "")) != "consume_material":
 				continue
@@ -340,7 +496,10 @@ func _staged_actor_runtime(
 			)
 			if item == null or not core.inventory.consume_item_units(item):
 				core.free()
-				return {}
+				return {
+					"runtime": {},
+					"error": "World-action material is no longer available.",
+				}
 		if receipt.tool_wear > 0.0 and not receipt.method_id.is_empty():
 			core.inventory.condition_service.apply_tool_wear(
 				core.inventory,
@@ -349,24 +508,54 @@ func _staged_actor_runtime(
 			)
 		var runtime := core.capture_runtime_state().to_dict()
 		core.free()
-		return runtime
+		return {
+			"runtime": runtime,
+			"error": "",
+			"ground_remove_ids": inventory_result.get(
+				"ground_remove_ids", []
+			).duplicate(true),
+			"ground_additions": inventory_result.get(
+				"ground_additions", []
+			).duplicate(true) + poi_selection_result.get(
+				"ground_additions", []
+			).duplicate(true),
+			"hex_state": staged_hex_state,
+		}
 	var runtime: Dictionary = (
 		receipt.actor_state.duplicate(true)
 		if not receipt.actor_state.is_empty()
 		else actor_data.get("runtime", {}).duplicate(true)
 	)
+	var npc_work_result := _npc_work_transaction.stage(runtime, receipt)
+	if not bool(npc_work_result.get("success", false)):
+		return {
+			"runtime": {},
+			"error": str(npc_work_result.get(
+				"error",
+				"NPC work progress is no longer valid."
+			)),
+		}
+	runtime = npc_work_result.get("runtime", {}).duplicate(true)
 	for mutation in receipt.mutations:
 		if str(mutation.get("type", "")) == "consume_material":
 			if not _consume_neutral_item(runtime, str(mutation.get("instance_id", ""))):
-				return {}
+				return {
+					"runtime": {},
+					"error": "World-action material is no longer available.",
+				}
 	_apply_neutral_tool_wear(runtime, receipt.method_id, receipt.tool_wear)
-	return runtime
+	return {"runtime": runtime, "error": ""}
 
 
 func _commit_actor_and_item_runtime(
 	receipt: WorldActionReceipt,
-	actor_runtime: Dictionary
+	actor_runtime: Dictionary,
+	actor_staging: Dictionary
 ) -> bool:
+	if _inventory_transaction.has_action(receipt):
+		return _inventory_transaction.commit(receipt, actor_runtime, actor_staging)
+	if _movement_transaction.has_action(receipt):
+		return _movement_transaction.commit(receipt, actor_runtime)
 	var ground_transfer_id := ""
 	var ground_drops: Array = []
 	for mutation in receipt.mutations:
@@ -391,28 +580,13 @@ func _commit_actor_and_item_runtime(
 			receipt.target_coords,
 			ground_drops
 		)
-	var moves_actor := _has_mutation(receipt, "move_actor")
 	if receipt.actor_id == "player":
 		return store.update_player_runtime(
 			actor_runtime,
-			receipt.target_coords if moves_actor else store.player_record.coords,
-			false
-		)
-	if moves_actor:
-		return store.update_entity_runtime_at_coords(
-			receipt.actor_id,
-			actor_runtime,
-			receipt.target_coords,
+			store.player_record.coords,
 			false
 		)
 	return store.update_entity_runtime(receipt.actor_id, actor_runtime, false)
-
-
-func _has_mutation(receipt: WorldActionReceipt, mutation_type: String) -> bool:
-	for mutation in receipt.mutations:
-		if str(mutation.get("type", "")) == mutation_type:
-			return true
-	return false
 
 
 func _consume_neutral_item(runtime: Dictionary, instance_id: String) -> bool:
@@ -519,9 +693,13 @@ func _receipt_touches_item_ownership(receipt: WorldActionReceipt) -> bool:
 			continue
 		if str(mutation.get("type", "")) in [
 			"consume_material",
+			"medical_application",
+			"inventory_action",
+			"poi_selection_application",
 			"transfer_ground_item",
 			"drop_ground_item",
 			"add_ground_item",
+			"npc_work_application",
 		]:
 			return true
 	return false

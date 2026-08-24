@@ -902,6 +902,22 @@ func commit_entity_runtime_with_ground_items(
 	)
 
 
+func commit_entity_runtime_with_ground_delta(
+	entity_id: String,
+	destination_runtime: Dictionary,
+	coords: Vector2i,
+	ground_remove_ids: Array,
+	ground_additions: Array
+) -> bool:
+	return _ensure_item_ownership_ledger().commit_entity_runtime_with_ground_delta(
+		entity_id,
+		destination_runtime,
+		coords,
+		ground_remove_ids,
+		ground_additions
+	)
+
+
 func remove_ground_item(coords: Vector2i, instance_id: String) -> Dictionary:
 	return _ensure_item_ownership_ledger().remove_ground_item(coords, instance_id)
 

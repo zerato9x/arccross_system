@@ -130,11 +130,20 @@ func reset_combat_transients() -> void:
 
 func reconcile_terminal_state() -> void:
 	# Older runtime records could persist zero blood without the corresponding
-	# terminal flag. Combat must never resurrect that actor as a living target.
+	# terminal flag. Destroyed vital anatomy follows the same rule: hydration and
+	# detached world transactions must never resurrect that actor as living.
 	if is_dead:
 		current_max_ap = 0
 		return
-	if body != null and body.blood_level <= 0.0:
+	var destroyed_vital_reason := (
+		body.get_destroyed_vital_reason()
+		if body != null
+		else ""
+	)
+	if body != null and (
+		body.blood_level <= 0.0
+		or not destroyed_vital_reason.is_empty()
+	):
 		is_dead = true
 		current_max_ap = 0
 	elif body != null and body.consciousness <= 0.0:
@@ -526,7 +535,11 @@ func capture_runtime_state() -> HumanoidState:
 	state.is_comatose = is_comatose
 	return state
 
-func restore_runtime_state(state) -> void:
+func restore_runtime_state(
+	state,
+	emit_terminal_transition: bool = false
+) -> void:
+	var was_dead := is_dead
 	var humanoid_state: HumanoidState
 	if state is HumanoidState:
 		humanoid_state = state
@@ -559,4 +572,14 @@ func restore_runtime_state(state) -> void:
 	)
 	is_mindless_hive_thrall = humanoid_state.is_mindless_hive_thrall
 	is_comatose = humanoid_state.is_comatose
+	reconcile_terminal_state()
 	_calculate_kinetic_burden()
+	if emit_terminal_transition and not was_dead and is_dead:
+		var failure_reason := body.get_destroyed_vital_reason() if body != null else ""
+		if failure_reason.is_empty():
+			failure_reason = (
+				"Exsanguination"
+				if body != null and body.blood_level <= 0.0
+				else "Terminal biological failure"
+			)
+		died.emit(failure_reason)

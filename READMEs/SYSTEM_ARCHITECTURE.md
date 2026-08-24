@@ -33,6 +33,11 @@ database, stat registry, or rule table.
   encounter history, and their versioned disk representation. `player_record.coords`
   is canonical; `player_coords` is a compatibility accessor only.
 - `GameTimeRules` owns shared action durations and clock conversion.
+- `WorldActionApplicationService` owns the single world-action reconciliation
+  snapshot, revision/idempotence gate, commit ordering, and rollback. Small
+  transaction services stage inventory, POI-selection, CAMP, movement, SEARCH,
+  and NPC-work semantics from canonical records; they do not commit competing
+  partial worlds.
 - `LootCatalog` translates ItemCore resources into neutral descriptors and
   runtime item records.
 - `GameDirector` coordinates WorldCore and CombatCore through signals and
@@ -57,9 +62,11 @@ database, stat registry, or rule table.
 - `MacroZoneGenerator` produces deterministic detached `HexRecord` baselines;
   generation cannot write run state. `HexWorldGenerator` is the live projection
   and legacy authored-map facade, never a second directional-node authority.
-- `MacroGameManager` owns input, presentation, and orchestration. Movement,
-  visibility, SEARCH, CAMP, inventory ground transfers, NPC work, signals, and
-  elapsed survival time commit through revision-validated store transactions.
+- `MacroGameManager` owns input, presentation, and orchestration. Medical
+  treatment, inventory, POI gear/traps, movement, visibility, SEARCH, CAMP, NPC
+  work, signals, and elapsed survival time commit through revision-validated
+  store transactions. It may build intent and reproject committed state; it may
+  not submit a live actor/Hex snapshot as new authority.
 - `WorldMutationStore` is restricted to the legacy non-directional authored-map
   bridge. Directional nodes accept permanent structural patches only from
   `MetaProgressionStore`.
@@ -115,6 +122,9 @@ database, stat registry, or rule table.
   compatibility summary for older consumers.
 - Composes ItemCore through `InventorySystem`.
 - Supplies biological equipment restrictions to ItemCore through callbacks.
+- Persists destroyed-limb identity in `BodyState`; detached reconstruction must
+  preserve destroyed anatomy and reconcile destroyed vital regions to terminal
+  actor state before canonical capture.
 
 ### ItemCore
 

@@ -1,5 +1,30 @@
 # ARCCROSS Changelog
 
+## August 25, 2026
+
+### Atomic world-action checkpoint
+
+- Replaced live-first medical treatment with one canonical receipt transaction;
+  treatment, item consumption, survival time, revisions, rollback, replay, HUD
+  projection, and save/load now share the same commit boundary.
+- Persisted destroyed-limb identity and reconciled destroyed vital anatomy to
+  terminal actor state during detached reconstruction and runtime capture.
+- Routed inventory, POI camp gear/traps, CAMP recovery, player/NPC movement,
+  player SEARCH, and NPC work progress through semantic action mutations staged
+  from canonical records.
+- Added atomic actor/ground item-delta support to the ownership ledger, removed
+  the live `MacroInventoryResolver` and POI mutators, and reduced direct mutation
+  and forwarding responsibilities in `MacroGameManager`.
+- Added focused transaction smokes for medical, inventory, POI selection, CAMP,
+  movement, SEARCH, NPC work, and vital-limb death; expanded shipping-adjacent,
+  architecture, integrity, save/load, and integration coverage. The checkpoint
+  gate passed `21/21` focused scripts plus headless editor import under Godot
+  4.7.1.
+- Recorded the remaining completed-NPC-SEARCH post-commit depletion/salvage gap,
+  legacy actor-snapshot compatibility, god-object concentration, and live
+  player-facing QA as explicit follow-up work. The prior `109/109` full sweep is
+  historical; the current tree has 139 executable SceneTree smokes.
+
 ## August 18, 2026
 
 ### World state / simulation authority reconciliation

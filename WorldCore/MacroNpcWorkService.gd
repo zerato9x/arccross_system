@@ -260,11 +260,11 @@ func try_work(
 	work_state["misses"] = int(work_state.get("misses", 0)) + (
 		0 if receipt.work_completed else 1
 	)
-	if receipt.work_completed:
-		record.runtime.erase("world_work")
-	else:
-		record.runtime["world_work"] = work_state
-	receipt.actor_state = record.runtime.duplicate(true)
+	receipt.mutations.append({
+		"type": WorldActionNpcWorkTransactionService.MUTATION_TYPE,
+		"clear_world_work": receipt.work_completed,
+		"world_work_state": {} if receipt.work_completed else work_state.duplicate(true),
+	})
 	action_coordinator.apply_work_consequences(target, affordance.verb_id, receipt)
 	var commit_receipt: Callable = callbacks.get("commit_receipt", Callable())
 	var application: WorldActionApplicationReceipt = null
@@ -273,6 +273,7 @@ func try_work(
 			receipt, record.coords, target, record.entity_id
 		) as WorldActionApplicationReceipt
 	if application == null or not application.applied:
+		world_state.cancel_world_action(action_id)
 		return {}
 	var latest_after_receipt := world_state.get_entity_snapshot(record.entity_id)
 	if not latest_after_receipt.is_empty():

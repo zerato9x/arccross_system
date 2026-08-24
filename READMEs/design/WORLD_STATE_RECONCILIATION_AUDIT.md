@@ -1,6 +1,6 @@
 # ARCCROSS World State / Simulation Reconciliation Audit
 
-Status: implemented and focused runtime-verified, 2026-08-18
+Status: implemented; transaction hardening checkpoint updated 2026-08-25
 Branch: `alpha-release-baseline`
 Scope: WorldCore disposable state, node runtime, world actions, projections, and save boundaries
 
@@ -202,10 +202,10 @@ migration/bootstrap primitive masquerading as a general mutation API.
   retained for migration fixtures; legacy authored-map persistence remains
   explicitly isolated.
 - Movement, fog exploration batches, SEARCH outcomes, CAMP cycles, inventory
-  ground transfers, and NPC movement/work now enter revision-validated store
-  transactions. Debug commands and domain-owned medical/camp-gear compatibility
-  adapters remain explicit neutral-boundary callers rather than world-state
-  authorities.
+  ground transfers, medical treatment, POI gear/traps, and NPC movement/work now
+  enter revision-validated store transactions. Action-specific services replay
+  semantic intent against detached canonical records rather than promoting live
+  player/Hex snapshots to authority.
 - Biological and inventory snapshot capture moved to domain-owned services;
   WorldCore composes neutral dictionaries and no longer loads treatment data.
 - WorldCore run-flag reads use detached store snapshots, and combat-site result
@@ -219,3 +219,16 @@ migration/bootstrap primitive masquerading as a general mutation API.
   migration/protection, and save/load restoration. Sandboxed standalone launches
   can still terminate in the pre-existing native `signal 11`, confirming that
   crash is environment-specific rather than a failed world-state transaction.
+
+## August 25 transaction-hardening checkpoint
+
+The medical, terminal-biology, inventory, POI-selection, CAMP, movement, player
+SEARCH, and NPC-work follow-up is recorded in the
+[World Action Transaction Checkpoint Audit](WORLD_ACTION_TRANSACTION_CHECKPOINT_AUDIT.md).
+That audit supersedes this document's earlier compatibility-adapter description
+for those actions. It does not supersede the v14 authority decisions above.
+
+The remaining P0 gap is completed NPC SEARCH: rubble depletion and salvage are
+still separate post-receipt mutations. The historical `109/109` sweep also
+predates this checkpoint; the current 139-script tree requires a new full sweep
+before publication or release claims.

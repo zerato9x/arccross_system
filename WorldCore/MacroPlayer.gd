@@ -94,7 +94,7 @@ func restore_runtime_record(record) -> void:
 		humanoid_core.inventory.base_max_capacity = 0
 		humanoid_core.inventory._recalculate_bounds()
 
-	humanoid_core.restore_runtime_state(runtime_state)
+	humanoid_core.restore_runtime_state(runtime_state, true)
 	current_hex_coords = coords_state
 	if humanoid_token:
 		humanoid_token.refresh_from_record(capture_runtime_record())

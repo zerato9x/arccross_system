@@ -74,9 +74,20 @@ func _run() -> void:
 	if water == null:
 		_fail("Taking an item did not add it to the backpack.")
 		return
+	if not _projection_matches_store(player_core, world_state):
+		_fail("Take left the live Pack projection different from canonical state.")
+		return
 
 	var water_stack_before := water.stack_count
 	player_core.body.thirst = 2.0
+	if not world_state.update_player_runtime(
+		player_core.capture_runtime_state().to_dict(),
+		coords
+	):
+		_fail("Could not seed canonical thirst for the consumable transaction.")
+		return
+	macro_map.player_token.restore_runtime_record(world_state.player_record)
+	water = player_core.inventory.find_item_by_instance_id(water.instance_id)
 	macro_map.resolve_inventory_action(
 		InventoryPanel.ACTION_CONSUME,
 		water.instance_id,
@@ -93,6 +104,9 @@ func _run() -> void:
 		return
 	if player_core.body.thirst <= 2.0:
 		_fail("Using clean water did not route its biological effect.")
+		return
+	if not _projection_matches_store(player_core, world_state):
+		_fail("Consume left live biology or inventory different from canonical state.")
 		return
 
 	macro_map.resolve_inventory_action(
@@ -120,6 +134,9 @@ func _run() -> void:
 	if equipped == null or equipped.instance_id != shirt.instance_id:
 		_fail("The authoritative inventory did not equip the requested item.")
 		return
+	if not _projection_matches_store(player_core, world_state):
+		_fail("Equip left the live Pack projection different from canonical state.")
+		return
 
 	macro_map.resolve_inventory_action(
 		InventoryPanel.ACTION_UNEQUIP,
@@ -137,6 +154,9 @@ func _run() -> void:
 	if player_core.inventory.find_item_by_instance_id(shirt.instance_id) == null:
 		_fail("Unequipping did not return the item to the backpack.")
 		return
+	if not _projection_matches_store(player_core, world_state):
+		_fail("Unequip left the live Pack projection different from canonical state.")
+		return
 
 	macro_map.resolve_inventory_action(
 		InventoryPanel.ACTION_DROP,
@@ -149,6 +169,25 @@ func _run() -> void:
 		return
 	if not _ground_has(world_state, coords, shirt.instance_id):
 		_fail("Dropping did not create a persistent ground record.")
+		return
+	if not _projection_matches_store(player_core, world_state):
+		_fail("Drop left the live Pack projection different from canonical state.")
+		return
+	var before_invalid_drop := world_state.capture_reconciliation_snapshot()
+	var invalid_drop := macro_map.resolve_inventory_action(
+		InventoryPanel.ACTION_DROP,
+		shirt.instance_id,
+		GameEnums.EquipmentSlot.NONE
+	)
+	await process_frame
+	if bool(invalid_drop.get("committed", false)):
+		_fail("Dropping the already-dropped item was incorrectly accepted.")
+		return
+	if world_state.capture_reconciliation_snapshot() != before_invalid_drop:
+		_fail("Rejected Pack action changed time, revisions, ground, or inventory.")
+		return
+	if not _projection_matches_store(player_core, world_state):
+		_fail("HUD refresh after rejection desynchronized the Pack projection.")
 		return
 
 	var coat: ItemData = player_core.inventory.paper_doll.get(
@@ -165,6 +204,14 @@ func _run() -> void:
 	):
 		if not player_core.inventory.add_to_backpack(filler):
 			break
+	if not world_state.update_player_runtime(
+		player_core.capture_runtime_state().to_dict(),
+		coords
+	):
+		_fail("Could not seed the canonical capacity-spill fixture.")
+		return
+	macro_map.player_token.restore_runtime_record(world_state.player_record)
+	coat = player_core.inventory.paper_doll.get(GameEnums.EquipmentSlot.OUTER_TORSO)
 	var ground_count_before_spill := world_state.get_ground_items(coords).size()
 	macro_map.resolve_inventory_action(
 		InventoryPanel.ACTION_UNEQUIP,
@@ -180,6 +227,9 @@ func _run() -> void:
 		return
 	if world_state.get_ground_items(coords).size() <= ground_count_before_spill:
 		_fail("Capacity overflow did not create persistent ground remnants.")
+		return
+	if not _projection_matches_store(player_core, world_state):
+		_fail("Capacity spill left the Pack projection different from canonical state.")
 		return
 
 	var camp_hex := macro_map.world_generator.get_hex_at(coords)
@@ -224,6 +274,18 @@ func _ground_has(
 		if item_state.get("instance_id", "") == instance_id:
 			return true
 	return false
+
+
+func _projection_matches_store(
+	player_core: HumanoidCore,
+	world_state: RuntimeStateStore
+) -> bool:
+	return (
+		player_core != null
+		and world_state.player_record != null
+		and player_core.capture_runtime_state().to_dict()
+			== world_state.player_record.runtime
+	)
 
 func _fail(message: String) -> void:
 	push_error("[TEST FAIL] " + message)

@@ -31,8 +31,9 @@ var mutations: Array[Dictionary] = []
 var signals: Array[Dictionary] = []
 var events: Array[Dictionary] = []
 var presentation: Dictionary = {}
-## Optional detached post-resolution actor runtime (used by NPC work). Item and
-## survival effects are still applied by the application service.
+## Legacy detached post-resolution actor runtime. New production actions stage
+## semantic mutations against canonical state; this field remains serialized
+## only so older receipts and compatibility fixtures can still be read.
 var actor_state: Dictionary = {}
 ## Detached post-resolution object state. The application boundary validates
 ## its identity and revision before replacing the object in the canonical hex.

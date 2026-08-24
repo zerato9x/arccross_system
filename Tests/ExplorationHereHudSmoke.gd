@@ -147,6 +147,12 @@ func _run() -> void:
 	if search_fixture.is_empty():
 		_fail("Quiet HERE has no searchable fixture.")
 		return
+	var search_actor_revision := macro_map._world_state.player_record.revision
+	var search_hex_before := macro_map._world_state.get_hex_record(here)
+	var search_hex_revision := search_hex_before.revision
+	var search_count_before := search_hex_before.search_count
+	var search_time_before := macro_map._world_state.world_time_minutes
+	var search_camp_items_before := search_hex_before.camp_item_states.duplicate(true)
 	macro_map.resolve_location_action({
 		"coords": here,
 		"location_revision": int(location.get("revision", 0)),
@@ -157,8 +163,31 @@ func _run() -> void:
 	})
 	await process_frame
 	var searched_id := str(search_fixture.get("search_option_id", ""))
-	if not macro_map.world_generator.get_hex_at(here).searched_targets.has(searched_id):
-		_fail("Valid fixture search did not mutate its authoritative hex record.")
+	var canonical_search_hex := macro_map._world_state.get_hex_record(here)
+	if not canonical_search_hex.searched_targets.has(searched_id):
+		_fail("Valid fixture search did not mutate canonical search state.")
+		return
+	if canonical_search_hex.search_count != search_count_before + 1:
+		_fail("Shipping search did not increment canonical search count exactly once.")
+		return
+	if canonical_search_hex.revision != search_hex_revision + 1:
+		_fail("Shipping search did not advance the hex revision exactly once.")
+		return
+	if macro_map._world_state.player_record.revision != search_actor_revision + 1:
+		_fail("Shipping search did not advance the actor revision exactly once.")
+		return
+	if macro_map._world_state.world_time_minutes != search_time_before + macro_map._time_rules_service.search_minutes():
+		_fail("Shipping search did not advance canonical time exactly once.")
+		return
+	if canonical_search_hex.camp_item_states != search_camp_items_before:
+		_fail("Shipping search overwrote unrelated canonical camp gear.")
+		return
+	var live_search_hex := macro_map.world_generator.get_hex_at(here)
+	if (
+		live_search_hex.search_count != canonical_search_hex.search_count
+		or live_search_hex.searched_targets != canonical_search_hex.searched_targets
+	):
+		_fail("Shipping search did not reproject canonical search state.")
 		return
 	if not (panel.get("_confirm_button") as Button).disabled:
 		_fail("Resolved search remained repeatable without selecting a new action.")
@@ -168,16 +197,99 @@ func _run() -> void:
 	var trap_fixture := _fixture_with_verb(location, SiteCatalog.VERB_TRAP)
 	var trap_item := _item_with_role(location, GameEnums.InteractionItemRole.TRAP_GEAR)
 	if not trap_fixture.is_empty() and not trap_item.is_empty():
+		var trap_instance_id := str(trap_item.get("instance_id", ""))
+		var actor_revision_before := macro_map._world_state.player_record.revision
+		var hex_revision_before := macro_map._world_state.get_hex_record(here).revision
+		var world_time_before := macro_map._world_state.world_time_minutes
+		var camp_items_before := macro_map._world_state.get_hex_record(
+			here
+		).camp_item_states.duplicate(true)
 		macro_map.resolve_location_action({
 			"coords": here,
 			"location_revision": int(location.get("revision", 0)),
 			"fixture_id": str(trap_fixture.get("id", "")),
 			"verb": SiteCatalog.VERB_TRAP,
-			"selected_item_ids": [str(trap_item.get("instance_id", ""))],
+			"selected_item_ids": [trap_instance_id],
 		})
 		await process_frame
 		if macro_map.world_generator.get_hex_at(here).camp_traps.is_empty():
 			_fail("Trap action did not persist the selected device on HERE.")
+			return
+		if macro_map.player_token.get_humanoid_core().inventory.find_item_by_instance_id(
+			trap_instance_id
+		) != null:
+			_fail("Trap action left the installed device in the live inventory.")
+			return
+		var stored_core := EntityFactory.record_to_humanoid_core(
+			macro_map._world_state.player_record.to_dict(),
+			null,
+			"HereTrapCanonicalProbe"
+		)
+		if stored_core.inventory.find_item_by_instance_id(trap_instance_id) != null:
+			stored_core.free()
+			_fail("Trap action left the installed device in canonical inventory.")
+			return
+		var live_runtime := macro_map.player_token.get_humanoid_core().capture_runtime_state().to_dict()
+		var stored_runtime := stored_core.capture_runtime_state().to_dict()
+		stored_core.free()
+		if live_runtime != stored_runtime:
+			_fail("Trap receipt did not reproject canonical inventory to the live player.")
+			return
+		if macro_map._world_state.player_record.revision != actor_revision_before + 1:
+			_fail("Trap action advanced actor revision more than once.")
+			return
+		if macro_map._world_state.get_hex_record(here).revision != hex_revision_before + 1:
+			_fail("Trap action advanced hex revision more than once.")
+			return
+		if macro_map._world_state.world_time_minutes != world_time_before + macro_map._time_rules_service.action_minutes("action"):
+			_fail("Trap action did not advance canonical world time exactly once.")
+			return
+		if macro_map._world_state.get_hex_record(here).camp_item_states != camp_items_before:
+			_fail("Installing a fixture trap dismantled unrelated camp gear.")
+			return
+
+		var unchanged := macro_map._world_state.capture_reconciliation_snapshot()
+		location = macro_map.macro_hud.get("_snapshot").get("current_location", {})
+		macro_map.resolve_location_action({
+			"coords": here,
+			"location_revision": int(location.get("revision", 0)),
+			"fixture_id": str(trap_fixture.get("id", "")),
+			"verb": SiteCatalog.VERB_TRAP,
+			"selected_item_ids": [trap_instance_id],
+		})
+		await process_frame
+		if macro_map._world_state.capture_reconciliation_snapshot() != unchanged:
+			_fail("Invalid repeated trap selection changed canonical state.")
+			return
+
+	location = macro_map.macro_hud.get("_snapshot").get("current_location", {})
+	if bool(location.get("session", {}).get("camp_allowed", false)):
+		var camp_actor_revision := macro_map._world_state.player_record.revision
+		var camp_time_before := macro_map._world_state.world_time_minutes
+		var camp_count_before := macro_map._world_state.get_hex_record(
+			here
+		).camp_rest_count
+		macro_map.resolve_poi_action(GameEnums.PoiAction.REST, [])
+		await process_frame
+		if macro_map._world_state.player_record.revision != camp_actor_revision + 1:
+			_fail("Shipping camp cycle advanced actor revision more than once.")
+			return
+		if macro_map._world_state.world_time_minutes != camp_time_before + macro_map._time_rules_service.camp_minutes():
+			_fail("Shipping camp cycle did not advance canonical time exactly once.")
+			return
+		if macro_map._world_state.get_hex_record(here).camp_rest_count != camp_count_before + 2:
+			_fail("Shipping camp cycle did not commit its canonical rest count.")
+			return
+		var camp_store_probe := EntityFactory.record_to_humanoid_core(
+			macro_map._world_state.player_record.to_dict(),
+			null,
+			"HereCampCanonicalProbe"
+		)
+		var camp_live_runtime := macro_map.player_token.get_humanoid_core().capture_runtime_state().to_dict()
+		var camp_store_runtime := camp_store_probe.capture_runtime_state().to_dict()
+		camp_store_probe.free()
+		if camp_live_runtime != camp_store_runtime:
+			_fail("Camp receipt did not reproject canonical biology to the live player.")
 			return
 
 	macro_map._debug_drop_sample_loot(here)

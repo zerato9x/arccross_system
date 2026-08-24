@@ -61,14 +61,15 @@ func _run() -> bool:
 	if not moved.applied or store.player_record.coords != Vector2i(1, 0):
 		return _fail("Move transaction did not commit canonical position.")
 
-	var searched_hex := store.get_hex_record(Vector2i(1, 0))
-	searched_hex.search_count = 1
-	searched_hex.searched_targets = ["integration-shelter"]
 	var loot := _item("integration-search-loot")
 	var searched := _apply(
-		store, application, "search-a", "player", "search:1,0", Vector2i(1, 0),
+		store, application, "search-a", "player", "search:" + str(Vector2i(1, 0)), Vector2i(1, 0),
 		WorldActionResolver.VERB_SEARCH, 15, [
-			{"type": "replace_hex_state", "hex_state": searched_hex.to_dict()},
+			{
+				"type": WorldActionSearchTransactionService.MUTATION_TYPE,
+				"expected_search_count": 0,
+				"searched_target_id": "integration-shelter",
+			},
 			{"type": "add_ground_item", "item_state": loot},
 			{"type": "set_run_flag", "key": "integration_search_complete", "value": true},
 		]
@@ -78,12 +79,15 @@ func _run() -> bool:
 	if store.get_ground_items(Vector2i(1, 0)).size() != 1:
 		return _fail("Search transaction did not commit ground loot once.")
 
-	var camp_hex := store.get_hex_record(Vector2i(1, 0))
-	camp_hex.camp_rest_count = 1
 	var camped := _apply(
-		store, application, "camp-a", "player", "camp:1,0", Vector2i(1, 0),
+		store, application, "camp-a", "player", "camp:" + str(Vector2i(1, 0)), Vector2i(1, 0),
 		WorldActionResolver.VERB_SLEEP, 30,
-		[{"type": "replace_hex_state", "hex_state": camp_hex.to_dict()}]
+		[{
+			"type": WorldActionCampTransactionService.MUTATION_TYPE,
+			"fatigue_recovery": 0.0,
+			"healing_amount": 0.0,
+			"camp_rest_count_delta": 1,
+		}]
 	)
 	if not camped.applied or store.get_hex_record(Vector2i(1, 0)).camp_rest_count != 1:
 		return _fail("Camp transaction did not commit camp state.")
@@ -169,6 +173,8 @@ func _apply(
 	request.target_id = target_id
 	request.target_coords = coords
 	request.verb_id = verb_id
+	if verb_id == WorldActionResolver.VERB_SLEEP:
+		request.method_id = WorldActionCampTransactionService.METHOD_ID
 	request.expected_actor_revision = (
 		store.player_record.revision
 		if actor_id == "player"

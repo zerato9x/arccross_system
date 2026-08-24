@@ -22,6 +22,21 @@ func _run() -> void:
 	if state == null:
 		_fail("Runtime state store is missing.")
 		return
+	var canonical_core := EntityFactory.record_to_humanoid_core(
+		state.player_record.to_dict(), null, "MacroMovementCanonicalFixture"
+	)
+	if canonical_core == null:
+		_fail("Could not reconstruct the canonical movement fixture.")
+		return
+	canonical_core.body.fatigue = 7.25
+	var canonical_runtime := canonical_core.capture_runtime_state().to_dict()
+	canonical_core.free()
+	if not state.update_player_runtime(
+		canonical_runtime,
+		state.player_record.coords
+	):
+		_fail("Could not seed canonical-only movement biology.")
+		return
 
 	var origin: Vector2i = macro.player_token.current_hex_coords
 	var far_target := _find_far_known_target(macro, origin)
@@ -57,6 +72,15 @@ func _run() -> void:
 		return
 	if state.player_record.coords != target:
 		_fail("Authoritative player position did not commit on arrival.")
+		return
+	if float(state.player_record.runtime.get("body", {}).get("fatigue", 0.0)) < 7.25:
+		_fail("Travel overwrote canonical biology with the stale live projection.")
+		return
+	if (
+		macro.player_token.get_humanoid_core().capture_runtime_state().to_dict()
+		!= state.player_record.runtime
+	):
+		_fail("Travel did not reproject committed canonical runtime to the player.")
 		return
 
 	macro.call("_select_hex_for_hud", origin)

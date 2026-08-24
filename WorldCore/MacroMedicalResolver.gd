@@ -1,14 +1,17 @@
 extends RefCounted
 class_name MacroMedicalResolver
 
-static func resolve_apply_to_limb(
+static func validate_apply_to_limb(
 	player_core: HumanoidCore,
 	instance_id: String,
 	limb_region: int
 ) -> Dictionary:
-	var result := {"success": false, "attempted": false, "message": ""}
+	var result := {"valid": false, "message": ""}
 	if player_core == null:
 		result["message"] = "No patient signal."
+		return result
+	if player_core.body == null or player_core.inventory == null:
+		result["message"] = "Patient medical state is unavailable."
 		return result
 	var item := player_core.inventory.find_item_by_instance_id(instance_id)
 	if item == null:
@@ -17,16 +20,25 @@ static func resolve_apply_to_limb(
 	if item.item_type != GameEnums.ItemType.CONSUMABLE:
 		result["message"] = "Item is not consumable."
 		return result
+	if not _is_supported_medical_effect(item.consumable_effect):
+		result["message"] = "Item has no supported medical effect."
+		return result
 	if not _can_apply_to_limb(item, player_core.body, limb_region):
 		result["message"] = "Cannot apply item to that limb."
 		return result
-	result["attempted"] = true
-	result["success"] = player_core.apply_consumable_to_limb(item, limb_region)
-	if not result["success"]:
-		result["message"] = "Treatment failed."
-	else:
-		result["message"] = "Treatment applied."
+	result["valid"] = true
+	result["message"] = "Treatment ready."
 	return result
+
+
+static func _is_supported_medical_effect(effect: int) -> bool:
+	return effect in [
+		GameEnums.ConsumableEffect.STOP_BLEEDING,
+		GameEnums.ConsumableEffect.RESTORE_BLOOD,
+		GameEnums.ConsumableEffect.RESTORE_HUNGER,
+		GameEnums.ConsumableEffect.RESTORE_THIRST,
+		GameEnums.ConsumableEffect.RESTORE_FATIGUE,
+	]
 
 
 static func _can_apply_to_limb(

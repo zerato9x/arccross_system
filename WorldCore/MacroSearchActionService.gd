@@ -39,6 +39,12 @@ func resolve(
 ) -> void:
 	if world_state == null or world_generator == null or hex_data == null:
 		return
+	hex_data = _canonical_hex(coords)
+	if hex_data == null:
+		_show_result("SEARCH REJECTED", "The canonical search location is unavailable.")
+		return
+	var expected_search_count := hex_data.search_count
+	var searched_target_id := selected_search_option_id
 	var loot_profile: Dictionary = _get_loot_profile(hex_data)
 	var available_guaranteed: Array = []
 	for entry_value in loot_profile.get("guaranteed_entries", []):
@@ -79,7 +85,11 @@ func resolve(
 				% int(round(shared_receipt.work_progress * 100.0))
 			)
 			return
-		hex_data = world_generator.get_hex_at(coords)
+		hex_data = _canonical_hex(coords)
+		if hex_data == null:
+			_show_result("SEARCH REJECTED", "The canonical search location is unavailable.")
+			return
+		expected_search_count = hex_data.search_count
 
 	var outcome: Dictionary = _PoiController.resolve_search_outcome(
 		world_state.world_seed,
@@ -120,13 +130,10 @@ func resolve(
 				loot_profile,
 				preferred_target_id
 			)
-			hex_data.search_count += 1
-			if not hex_data.searched_targets.has(preferred_target_id):
-				hex_data.searched_targets.append(preferred_target_id)
+			searched_target_id = preferred_target_id
 			outcome = {
 				"blocked": false,
 				"coords": coords,
-				"hex_state": hex_data.to_state(),
 				"search_result": physical_result,
 				"loot_ids": physical_result.get("loot_ids", []),
 				"search_label": physical_target.definition_id.replace("_", " ").capitalize(),
@@ -171,17 +178,10 @@ func resolve(
 	var depletion: Dictionary = {}
 	if shared_receipt != null and not preferred_target_id.is_empty():
 		depletion = _build_depletion(coords, preferred_target_id, "player")
-	var hex_state_value: Variant = outcome.get("hex_state", {})
-	var hex_state: Dictionary = (
-		hex_state_value.to_dict()
-		if hex_state_value is HexRecord
-		else hex_state_value.duplicate(true) if hex_state_value is Dictionary else {}
-	)
-	if hex_state.is_empty():
-		hex_state = hex_data.to_state().to_dict()
 	if not _commit_search_transaction({
 		"coords": coords,
-		"hex_state": hex_state,
+		"expected_search_count": expected_search_count,
+		"searched_target_id": searched_target_id,
 		"target_state": depletion.get("target_state", {}),
 		"trace": depletion.get("trace", {}),
 		"ground_items": ground_item_states,
@@ -191,7 +191,7 @@ func resolve(
 		"elapsed_minutes": 0 if shared_receipt != null else _search_minutes(),
 		"exertion": 1.0,
 		"noise_intensity": 0.75,
-		"attempt_index": int(hex_state.get("search_count", hex_data.search_count)),
+		"attempt_index": expected_search_count + 1,
 	}):
 		_show_result("SEARCH REJECTED", "The search transaction was rejected without partial state.")
 		return
@@ -304,27 +304,11 @@ func _create_runtime_item_state(item_id: String) -> Dictionary:
 	return value if value is Dictionary else {}
 
 
-func _player_body() -> HumanoidBody:
-	var value: Variant = _call("player_body")
-	return value if value is HumanoidBody else null
-
-
-func _advance_survival_time(
-	elapsed_minutes: int,
-	exertion: float,
-	coords: Vector2i
-) -> void:
-	_call("advance_survival_time", [elapsed_minutes, exertion, coords])
-
-
-func _persist_player(coords: Vector2i) -> void:
-	var value: Variant = _call("capture_player_runtime")
-	if value is Dictionary:
-		world_state.update_player_runtime(value, coords)
-
-
-func _deplete_resource(coords: Vector2i, target_id: String, actor_id: String) -> void:
-	_call("deplete_resource", [coords, target_id, actor_id])
+func _canonical_hex(coords: Vector2i) -> MacroHexData:
+	if world_state == null:
+		return null
+	var record := world_state.get_hex_record(coords)
+	return MacroHexData.from_state(record) if record != null else null
 
 
 func _build_depletion(coords: Vector2i, target_id: String, actor_id: String) -> Dictionary:

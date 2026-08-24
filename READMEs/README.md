@@ -20,6 +20,9 @@ of restating it.
 - [World State / Simulation Reconciliation Audit](design/WORLD_STATE_RECONCILIATION_AUDIT.md):
   disposable-world authority, atomic action/node contracts, save-v14 migration,
   rejected conflicts, compatibility paths, and verification evidence.
+- [World Action Transaction Checkpoint Audit](design/WORLD_ACTION_TRANSACTION_CHECKPOINT_AUDIT.md):
+  August 25 medical, inventory, POI, CAMP, movement, SEARCH, NPC-work, terminal
+  biology, verification, residual-risk, and next-step record.
 - [Architecture Index](ARCHITECTURE_INDEX.md): generated code/resource/test
   inventory for orientation; it is not a behavioral authority.
 - [Humanoid Token Pipeline](HUMANOID_TOKEN_PIPELINE.md): layered sprite
@@ -54,7 +57,7 @@ of restating it.
 
 ## Current Implementation
 
-Status updated on **August 17, 2026**:
+Status updated on **August 25, 2026**:
 
 ### Playable Loop
 
@@ -92,6 +95,12 @@ Status updated on **August 17, 2026**:
   independent presentation clocks, and the corrected incapacitated-body
   handoff. The `duel_12x1` and `skirmish_6x3` resources remain Lab/compatibility
   fixtures only; former real-time/duel-lane material is historical reference.
+- **August 25 world-action checkpoint:** medical treatment, inventory, POI gear,
+  CAMP, movement, player SEARCH, and NPC work now stage semantic mutations from
+  canonical records inside the atomic receipt boundary. Destroyed vital limbs
+  persist and reconcile terminal death. See the
+  [checkpoint audit](design/WORLD_ACTION_TRANSACTION_CHECKPOINT_AUDIT.md) for
+  verified scope and the remaining NPC SEARCH atomicity gap.
 - **Active world track:** [Hex World Generator V2](design/HEX_WORLD_GENERATOR_V2.md).
 - **Campaign framing:** [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
@@ -131,6 +140,13 @@ Status updated on **August 17, 2026**:
 
 ### Known Gaps
 
+- Completed NPC SEARCH still applies rubble depletion and salvage after its
+  work receipt; that post-commit pair is the next P0 transaction correction.
+- `MacroGameManager` and `WorldActionApplicationService` remain concentration
+  points. Further extraction must preserve one rollback/commit authority rather
+  than breeding smaller god objects with matching hats.
+- Health/inventory presentation and physical input friction have not yet had a
+  dedicated live player-facing acceptance pass after the authority changes.
 - Service-rifle scope data is present, but macro **SNIPE** remains unimplemented.
 - Token art coverage remains incomplete for rigs, face and eye equipment, several
   armor regions, and unsupported weapons.
@@ -145,10 +161,15 @@ Status updated on **August 17, 2026**:
 
 ### Verification boundary
 
-The latest recorded reconciliation sweep passed `109/109` executable capital-
-`Tests` SceneTree scripts with `FAILED=0` under Godot
-`4.7.1.stable.official.a13da4feb`; the two `Control` preview scripts were not
-invoked as self-quitting smokes. The sweep prepares the ignored workspace-local
+The latest completed full reconciliation sweep passed `109/109` executable
+capital-`Tests` SceneTree scripts with `FAILED=0` under Godot
+`4.7.1.stable.official.a13da4feb`; that result predates the August 25 transaction
+checkpoint. The current tree contains 139 executable SceneTree scripts and two
+`Control` previews, so a new full-sweep claim requires running all 139. The
+focused checkpoint suite is recorded in the
+[transaction audit](design/WORLD_ACTION_TRANSACTION_CHECKPOINT_AUDIT.md) and
+passed `21/21` with editor import exit `0`. Full
+sweeps prepare the ignored workspace-local
 `.godot/test-appdata`, `.godot/test-localappdata`, and `.godot/test-logs`
 directories before execution. The remediation record separately documents live
 editor/screenshot evidence. Physical Windows pointer input and subjective

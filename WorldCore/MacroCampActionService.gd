@@ -46,11 +46,12 @@ func resolve(
 		GameEnums.MacroRegion.HUB_BORDER,
 	]:
 		result["interrupted"] = false
-	hex_data.camp_rest_count += 1
-
-	var body := _player_body()
-	if body == null:
+	var planning_core := _canonical_player_core("CampPlanningActor")
+	if planning_core == null or planning_core.body == null:
+		if planning_core != null:
+			planning_core.free()
 		return
+	var body := planning_core.body
 	var missing_fatigue: float = body.fatigue
 	var fatigue_recovery := float(result.get("fatigue_recovery", 0.0))
 	var fatigue_turns: float = ceil(
@@ -59,6 +60,8 @@ func resolve(
 
 	var total_missing_limb: float = 0.0
 	for limb in body.limb_hp.keys():
+		if body.limb_hp[limb] <= 0.0:
+			continue
 		total_missing_limb += maxf(
 			0.0,
 			body.get_limb_max(limb) - body.limb_hp[limb]
@@ -73,6 +76,7 @@ func resolve(
 		1,
 		mini(8, int(maxf(fatigue_turns, healing_turns)))
 	)
+	planning_core.free()
 
 	var turns_rested := 0
 	var total_healed := 0.0
@@ -86,35 +90,39 @@ func resolve(
 			]:
 				result["interrupted"] = false
 
+		var recovery := float(result.get("fatigue_recovery", 0.0))
+		var cycle_core := _canonical_player_core("CampCyclePreviewActor")
+		if cycle_core == null or cycle_core.body == null:
+			if cycle_core != null:
+				cycle_core.free()
+			_set_event("Camp transaction could not reconstruct canonical biology.")
+			_refresh()
+			return
+		var actual_fatigue := minf(cycle_core.body.fatigue, recovery)
 		var healed_this_turn := 0.0
-		body.fatigue = maxf(
-			0.0,
-			body.fatigue - float(result.get("fatigue_recovery", 0.0))
-		)
-		total_fatigue += float(result.get("fatigue_recovery", 0.0))
-
-		for limb in body.limb_hp.keys():
-			if body.limb_hp[limb] <= 0.0:
+		for limb in cycle_core.body.limb_hp.keys():
+			if cycle_core.body.limb_hp[limb] <= 0.0:
 				continue
-			var to_heal := minf(
-				body.get_limb_max(limb) - body.limb_hp[limb],
+			healed_this_turn += minf(
+				cycle_core.body.get_limb_max(limb) - cycle_core.body.limb_hp[limb],
 				healing_amount
 			)
-			body.limb_hp[limb] += to_heal
-			healed_this_turn += to_heal
-		total_healed += healed_this_turn
-
-		hex_data.camp_rest_count += 1
+		cycle_core.free()
 		if not _commit_camp_cycle(
 			coords,
 			hex_data,
 			_time_callback_minutes(),
 			0.25,
-			float(metrics.get("shelter", 0.0))
+			float(metrics.get("shelter", 0.0)),
+			recovery,
+			healing_amount,
+			2 if i == 0 else 1
 		):
 			_set_event("Camp transaction was rejected without partial state.")
 			_refresh()
 			return
+		total_fatigue += actual_fatigue
+		total_healed += healed_this_turn
 		turns_rested += 1
 		_advance_world(1, true)
 
@@ -161,27 +169,11 @@ func _find_inventory_item(instance_id: String) -> ItemData:
 	return value if value is ItemData else null
 
 
-func _player_body() -> HumanoidBody:
-	var value: Variant = _call("player_body")
-	return value if value is HumanoidBody else null
-
-
-func _advance_survival_time(
-	elapsed_minutes: int,
-	exertion: float,
-	coords: Vector2i,
-	insulation_bonus: float,
-	verb_id: String
-) -> void:
-	_call(
-		"advance_survival_time",
-		[
-			elapsed_minutes,
-			exertion,
-			coords,
-			insulation_bonus,
-			verb_id,
-		]
+func _canonical_player_core(actor_name: String) -> HumanoidCore:
+	if world_state == null or world_state.player_record == null:
+		return null
+	return EntityFactory.record_to_humanoid_core(
+		world_state.player_record.to_dict(), null, actor_name
 	)
 
 
@@ -190,7 +182,10 @@ func _commit_camp_cycle(
 	hex_data: MacroHexData,
 	elapsed_minutes: int,
 	exertion: float,
-	insulation_bonus: float
+	insulation_bonus: float,
+	fatigue_recovery: float,
+	healing_amount: float,
+	camp_rest_count_delta: int
 ) -> bool:
 	return bool(_call("commit_camp_cycle", [
 		coords,
@@ -198,6 +193,9 @@ func _commit_camp_cycle(
 		elapsed_minutes,
 		exertion,
 		insulation_bonus,
+		fatigue_recovery,
+		healing_amount,
+		camp_rest_count_delta,
 	]))
 
 
@@ -212,14 +210,6 @@ func _advance_world(turns: int, bypass_interaction_check: bool) -> void:
 
 func _has_pending_collision() -> bool:
 	return bool(_call("has_pending_collision"))
-
-
-func _persist(coords: Vector2i, hex_data: MacroHexData) -> void:
-	if world_state.replace_hex_record(coords, hex_data.to_state(), hex_data.revision):
-		hex_data.apply_state(world_state.get_hex_record(coords))
-	var runtime: Variant = _call("capture_player_runtime")
-	if runtime is Dictionary:
-		world_state.update_player_runtime(runtime, coords)
 
 
 func _refresh() -> void:

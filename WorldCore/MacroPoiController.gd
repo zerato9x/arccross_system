@@ -175,17 +175,9 @@ static func resolve_search_outcome(
 	]:
 		result["injured"] = false
 		result["attracted_enemy"] = false
-	hex_data.search_count += 1
-	if (
-		not selected_search_option_id.is_empty()
-		and not hex_data.searched_targets.has(selected_search_option_id)
-	):
-		hex_data.searched_targets.append(selected_search_option_id)
-
 	return {
 		"blocked": false,
 		"coords": coords,
-		"hex_state": hex_data.to_state(),
 		"search_result": result,
 		"loot_ids": result.get("loot_ids", []),
 		"search_label": str(search_option.get("label", "Search")),
@@ -193,62 +185,6 @@ static func resolve_search_outcome(
 		"injury_limb": result.get("injury_limb", GameEnums.LimbRegion.LEFT_ARM),
 		"injury_damage": float(result.get("injury_damage", 0.0)),
 		"attracted_enemy": bool(result.get("attracted_enemy", false)),
-	}
-
-
-static func apply_camp_gear_selection(
-	hex_data: MacroHexData,
-	coords: Vector2i,
-	selected_item_ids: Array,
-	find_item_callback: Callable,
-	remove_item_callback: Callable,
-	add_to_backpack_callback: Callable
-) -> Dictionary:
-	var selected: Array[String] = []
-	for instance_id in selected_item_ids:
-		if not selected.has(instance_id) and selected.size() < 3:
-			selected.append(instance_id)
-
-	var existing_states: Dictionary = {}
-	for item_state in hex_data.camp_item_states:
-		existing_states[item_state.get("instance_id", "")] = item_state
-
-	var new_states: Array = []
-	for instance_id in selected:
-		if existing_states.has(instance_id):
-			new_states.append(existing_states[instance_id])
-			continue
-		var item: ItemData = find_item_callback.call(instance_id)
-		if (
-			item == null
-			or not item.has_interaction_role(
-				GameEnums.InteractionItemRole.CAMP_GEAR
-			)
-			or item.has_interaction_role(
-				GameEnums.InteractionItemRole.TRAP_GEAR
-			)
-		):
-			continue
-		var removed: ItemData = remove_item_callback.call(instance_id)
-		if removed:
-			new_states.append(removed.to_runtime_state())
-
-	var ground_restore: Array = []
-	for instance_id in existing_states.keys():
-		if selected.has(instance_id):
-			continue
-		var returned_item := ItemData.from_runtime_state(
-			existing_states[instance_id]
-		)
-		if not add_to_backpack_callback.call(returned_item):
-			ground_restore.append(returned_item.to_runtime_state())
-
-	hex_data.camp_item_states = new_states
-	return {
-		"hex_state": hex_data.to_state(),
-		"camp_item_states": new_states,
-		"ground_restore": ground_restore,
-		"camp_descriptors": camp_item_descriptors(new_states),
 	}
 
 
@@ -730,64 +666,6 @@ static func _default_fixture_id(site: Dictionary) -> String:
 		if fixture is Dictionary and not str(fixture.get("id", "")).is_empty():
 			return str(fixture.get("id", ""))
 	return ""
-
-
-static func apply_sleep_gear_selection(
-	hex_data: MacroHexData,
-	selected_item_ids: Array,
-	find_item_callback: Callable
-) -> void:
-	for instance_id in selected_item_ids:
-		var item: ItemData = find_item_callback.call(instance_id)
-		if (
-			item != null
-			and item.has_interaction_role(GameEnums.InteractionItemRole.CAMP_GEAR)
-			and item.camp_sleep_bonus > 0.0
-		):
-			hex_data.sleep_gear_instance_id = instance_id
-			return
-
-
-static func apply_trap_install(
-	hex_data: MacroHexData,
-	selected_item_ids: Array,
-	find_item_callback: Callable,
-	remove_item_callback: Callable
-) -> Dictionary:
-	var existing_by_id: Dictionary = {}
-	for trap_state in hex_data.camp_traps:
-		if trap_state is Dictionary:
-			existing_by_id[str(trap_state.get("instance_id", ""))] = trap_state
-
-	var new_traps: Array = []
-	for instance_id in selected_item_ids:
-		if new_traps.size() >= 2:
-			break
-		var item: ItemData = find_item_callback.call(instance_id)
-		if item == null or not item.has_interaction_role(
-			GameEnums.InteractionItemRole.TRAP_GEAR
-		):
-			continue
-		if existing_by_id.has(instance_id):
-			new_traps.append(existing_by_id[instance_id])
-			continue
-		var removed: ItemData = remove_item_callback.call(instance_id)
-		if removed == null:
-			continue
-		new_traps.append({
-			"instance_id": instance_id,
-			"item_id": removed.id,
-			"anchor_id": "door_frame" if new_traps.is_empty() else "brush_line",
-			"sector_x": 1,
-			"sector_y": 2 if new_traps.is_empty() else 3,
-			"trap_damage": maxf(removed.flesh_damage, 2.5),
-		})
-
-	hex_data.camp_traps = new_traps
-	return {
-		"hex_state": hex_data.to_state(),
-		"camp_traps": new_traps,
-	}
 
 
 static func camp_states_for_session_preview(

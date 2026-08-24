@@ -117,6 +117,8 @@ var _search_action_service := _SearchActionService.new()
 var _camp_action_service := _CampActionService.new()
 var _campaign_content_service := _CampaignContentService.new()
 var _population_service := _PopulationService.new()
+var _inventory_action_service := MacroInventoryActionService.new()
+var _poi_selection_action_service := _PoiSelectionActionService.new()
 var _interaction_state := MacroInteractionState.new()
 var _collision_coordinator: MacroCollisionCoordinator
 var _proximity_director: MacroProximityDirector
@@ -195,6 +197,9 @@ const _SearchActionService := preload(
 const _CampActionService := preload(
 	"res://WorldCore/MacroCampActionService.gd"
 )
+const _PoiSelectionActionService := preload(
+	"res://WorldCore/MacroPoiSelectionActionService.gd"
+)
 const _CampaignContentService := preload(
 	"res://WorldCore/MacroCampaignContentService.gd"
 )
@@ -252,6 +257,17 @@ func _configure_extracted_world_services() -> void:
 	_search_resource_service.configure(_world_state, world_generator)
 	_visibility_service.configure(_world_state, world_generator, vision_radius)
 	_time_rules_service.configure()
+	_inventory_action_service.configure(
+		_world_state,
+		_world_action_coordinator,
+		_time_rules_service,
+		Callable(self, "_commit_world_action_receipt")
+	)
+	_poi_selection_action_service.configure(
+		_world_state,
+		_world_action_coordinator,
+		Callable(self, "_commit_world_action_receipt")
+	)
 	_search_action_service.configure(
 		_world_state,
 		world_generator,
@@ -272,13 +288,6 @@ func _configure_extracted_world_services() -> void:
 			),
 			"inventory_has_any_tag": Callable(self, "_inventory_has_any_tag"),
 			"inventory_has_any_role": Callable(self, "_inventory_has_any_role"),
-			"player_body": Callable(self, "_player_body_for_survival"),
-			"advance_survival_time": Callable(self, "_advance_survival_time"),
-			"capture_player_runtime": Callable(
-				self,
-				"_capture_player_runtime_for_survival"
-			),
-			"deplete_resource": Callable(self, "_deplete_rubble_after_search"),
 			"build_depletion": Callable(_search_resource_service, "build_depletion"),
 			"commit_search_transaction": Callable(self, "_commit_search_transaction"),
 			"apply_campaign_trigger": Callable(
@@ -312,16 +321,10 @@ func _configure_extracted_world_services() -> void:
 				self,
 				"_find_inventory_item_by_instance_id"
 			),
-			"player_body": Callable(self, "_player_body_for_survival"),
-			"advance_survival_time": Callable(self, "_advance_survival_time"),
 			"commit_camp_cycle": Callable(self, "_commit_camp_cycle"),
 			"camp_minutes": Callable(_time_rules_service, "camp_minutes"),
 			"advance_world": Callable(self, "advance_macro_world"),
 			"has_pending_collision": Callable(self, "_has_pending_entity_collision"),
-			"capture_player_runtime": Callable(
-				self,
-				"_capture_player_runtime_for_survival"
-			),
 			"refresh_hud": Callable(self, "_refresh_world_hud"),
 			"spawn_intruder": Callable(self, "_spawn_search_intruder"),
 			"set_event": Callable(self, "_set_macro_event"),
@@ -1757,7 +1760,6 @@ func _commit_player_retreat(target_coords: Vector2i) -> void:
 	var receipt := _world_action_coordinator.resolve_direct_action(
 		request, 0, 0.0, 0.0, "Retreat relocation committed."
 	)
-	receipt.actor_state = player_token.get_humanoid_core().capture_runtime_state().to_dict()
 	receipt.mutations.append({
 		"type": "move_actor",
 		"from": origin_coords,
@@ -1817,7 +1819,6 @@ func _commit_player_step(origin_coords: Vector2i, target_coords: Vector2i) -> vo
 		0.0,
 		"Arrived at HEX %d,%d." % [target_coords.x, target_coords.y]
 	)
-	move_receipt.actor_state = player_token.get_humanoid_core().capture_runtime_state().to_dict()
 	move_receipt.mutations.append({
 		"type": "move_actor",
 		"from": origin_coords,
@@ -2336,7 +2337,10 @@ func _commit_camp_cycle(
 	hex_data: MacroHexData,
 	elapsed_minutes: int,
 	exertion: float,
-	insulation_bonus: float
+	insulation_bonus: float,
+	fatigue_recovery: float,
+	healing_amount: float,
+	camp_rest_count_delta: int
 ) -> bool:
 	var request := WorldActionRequest.new()
 	request.actor_id = "player"
@@ -2357,17 +2361,15 @@ func _commit_camp_cycle(
 		0.0,
 		"Camp cycle committed."
 	)
-	receipt.actor_state = player_token.get_humanoid_core().capture_runtime_state().to_dict()
 	receipt.presentation["insulation_bonus"] = insulation_bonus
-	receipt.mutations.append({"type": "replace_actor_runtime"})
 	receipt.mutations.append({
-		"type": "replace_hex_state",
-		"hex_state": hex_data.to_state(),
+		"type": WorldActionCampTransactionService.MUTATION_TYPE,
+		"fatigue_recovery": fatigue_recovery,
+		"healing_amount": healing_amount,
+		"camp_rest_count_delta": camp_rest_count_delta,
 	})
 	var application := _commit_world_action_receipt(receipt, coords)
 	if application == null or not application.applied:
-		if _world_state.player_record != null:
-			player_token.restore_runtime_record(_world_state.player_record)
 		return false
 	hex_data.apply_state(_world_state.get_hex_record(coords))
 	return true
@@ -2586,21 +2588,6 @@ func _npc_try_work(record: EntityRecord) -> void:
 		"deplete_after_search": Callable(self, "_deplete_rubble_after_search"),
 	})
 
-
-func _apply_npc_tool_wear(record: EntityRecord, receipt: WorldActionReceipt) -> void:
-	_npc_work_service.apply_tool_wear(record, receipt)
-
-
-func _consume_npc_repair_material(record: EntityRecord) -> Dictionary:
-	return _npc_work_service.consume_repair_material(record)
-
-
-func _remove_npc_loadout_template(record: EntityRecord, template_path: String) -> void:
-	_npc_work_service.remove_loadout_template(record, template_path)
-
-
-func _npc_generate_salvage(record: EntityRecord, target: WorldObjectRecord) -> void:
-	_npc_work_service.generate_salvage(record, target, _macro_turn_index)
 
 func begin_poi_interaction(
 	coords: Vector2i,
@@ -2905,12 +2892,25 @@ func resolve_poi_action(
 				camp_access.get("reason", "This location is unsafe.")
 			)
 			return
-		_apply_poi_session_selections(
+		var selection_result := _apply_poi_session_selections(
 			coords,
-			hex_data,
 			selected_item_ids,
-			action == GameEnums.PoiAction.CAMP
+			(
+				_PoiSelectionActionService.MODE_CAMP_SETUP
+				if action == GameEnums.PoiAction.CAMP
+				else _PoiSelectionActionService.MODE_SLEEP_SETUP
+			)
 		)
+		if not bool(selection_result.get("committed", false)):
+			_show_interaction_result(
+				"CAMP GEAR CHANGED",
+				str(selection_result.get(
+					"message",
+					"The selected camp gear is no longer available."
+				))
+			)
+			return
+		hex_data = world_generator.get_hex_at(coords)
 		hex_data.rest_in_progress = true
 		world_generator.commit_hex_projection(coords, hex_data)
 		_resolve_camp(coords, hex_data, profile["camp"], selected_item_ids)
@@ -3059,36 +3059,23 @@ func resolve_location_action(command: Dictionary) -> void:
 
 
 func _resolve_location_trap(coords: Vector2i, selected_item_ids: Array) -> void:
-	var hex_data := world_generator.get_hex_at(coords)
-	var trap_count_before := hex_data.camp_traps.size()
-	_apply_poi_session_selections(coords, hex_data, selected_item_ids)
-	hex_data = world_generator.get_hex_at(coords)
-	if hex_data.camp_traps.size() <= trap_count_before:
-		_show_interaction_result(
-			"TRAP NOT SET",
-			"Choose an eligible trap from the gear tray."
-		)
-		return
-	var request := WorldActionRequest.new()
-	request.actor_id = "player"
-	request.target_id = "trap:%s" % str(coords)
-	request.target_coords = coords
-	request.verb_id = WorldActionResolver.VERB_TRAP
-	request.method_id = "trap_gear"
-	request.payload["world_time_minutes"] = _world_state.world_time_minutes
-	var receipt := _world_action_coordinator.resolve_direct_action(
-		request,
+	var result := _poi_selection_action_service.resolve(
+		coords,
+		selected_item_ids,
+		_PoiSelectionActionService.MODE_TRAP_INSTALL,
 		_time_rules_service.action_minutes("action"),
 		0.25,
-		0.55,
-		"Trap armed at the selected approach."
+		0.55
 	)
-	receipt.mutations.append({
-		"type": "trap_armed",
-		"coords": coords,
-		"gear_instance_ids": selected_item_ids.duplicate(),
-	})
-	_commit_world_action_receipt(receipt, coords)
+	if not bool(result.get("committed", false)):
+		_show_interaction_result(
+			"TRAP NOT SET",
+			str(result.get(
+				"message",
+				"Choose an eligible trap from the gear tray."
+			))
+		)
+		return
 	_last_macro_event = "Trap armed at HEX %d,%d." % [coords.x, coords.y]
 	_refresh_world_hud()
 	_show_interaction_result(
@@ -3690,39 +3677,50 @@ func _on_hud_viewport_insets_changed(insets: Rect2i) -> void:
 
 func _on_medical_action_requested(instance_id: String, limb_region: int) -> void:
 	var player_core := player_token.get_humanoid_core()
-	var result := MacroMedicalResolver.resolve_apply_to_limb(
+	var validation := MacroMedicalResolver.validate_apply_to_limb(
 		player_core,
 		instance_id,
 		limb_region
 	)
-	if bool(result.get("attempted", false)):
-		var treatment_request := WorldActionRequest.new()
-		treatment_request.actor_id = "player"
-		treatment_request.target_id = instance_id
-		treatment_request.target_coords = player_token.current_hex_coords
-		treatment_request.verb_id = "treat"
-		treatment_request.method_id = "medical_item"
-		treatment_request.payload["world_time_minutes"] = _world_state.world_time_minutes
-		var treatment_receipt := _world_action_coordinator.resolve_direct_action(
-			treatment_request,
-			_time_rules_service.action_minutes("action"),
-			0.35,
-			0.15,
-			str(result.get("message", "Treatment attempted."))
-		)
-		treatment_receipt.mutations.append({
-			"type": "medical_application",
-			"instance_id": instance_id,
-			"limb_region": limb_region,
-			"success": bool(result.get("success", false)),
-		})
-		_commit_world_action_receipt(treatment_receipt, player_token.current_hex_coords)
-	if not bool(result.get("success", false)):
-		_last_inventory_error = str(result.get("message", "Treatment failed."))
-	_world_state.update_player_runtime(
-		player_core.capture_runtime_state().to_dict(),
+	if not bool(validation.get("valid", false)):
+		_last_inventory_error = str(validation.get("message", "Treatment failed."))
+		_refresh_world_hud()
+		return
+
+	var treatment_request := WorldActionRequest.new()
+	treatment_request.actor_id = "player"
+	treatment_request.target_id = instance_id
+	treatment_request.target_coords = player_token.current_hex_coords
+	treatment_request.verb_id = "treat"
+	treatment_request.method_id = "medical_item"
+	treatment_request.expected_actor_revision = _world_state.player_revision
+	treatment_request.payload["world_time_minutes"] = _world_state.world_time_minutes
+	var treatment_receipt := _world_action_coordinator.resolve_direct_action(
+		treatment_request,
+		_time_rules_service.action_minutes("action"),
+		0.35,
+		0.15,
+		"Treatment applied."
+	)
+	treatment_receipt.mutations.append({
+		"type": "medical_application",
+		"instance_id": instance_id,
+		"limb_region": limb_region,
+	})
+	var application := _commit_world_action_receipt(
+		treatment_receipt,
 		player_token.current_hex_coords
 	)
+	if application != null and application.applied:
+		_last_inventory_error = ""
+		return
+	_last_inventory_error = (
+		application.error
+		if application != null and not application.error.is_empty()
+		else "Treatment failed to commit."
+	)
+	if not treatment_receipt.action_id.is_empty():
+		_world_state.cancel_world_action(treatment_receipt.action_id)
 	_refresh_world_hud()
 
 func _on_inventory_closed() -> void:
@@ -3841,92 +3839,20 @@ func resolve_inventory_action(
 	if _is_player_movement_active():
 		return {"committed": false, "message": "Movement is still resolving."}
 	_last_inventory_error = ""
-	var player_core := player_token.get_humanoid_core()
 	var coords := player_token.current_hex_coords
-	var prior_player_runtime := (
-		_world_state.player_record.runtime.duplicate(true)
-		if _world_state.player_record != null
-		else {}
-	)
-	var result := MacroInventoryResolver.resolve_action(
+	var result := _inventory_action_service.resolve(
 		action_id,
 		instance_id,
 		equipment_slot,
-		player_core,
 		coords,
-		_world_state.get_ground_items,
-		_can_offer_equip,
-		_inventory_error_or,
 		action_payload
 	)
-	if action_id == GameEnums.MACRO_INV_INSPECT:
+	if action_id == GameEnums.MACRO_INV_INSPECT and bool(
+		result.get("committed", false)
+	):
 		_apply_knowledge_inspection(result)
-
-	var transfer_instance_id := str(result.get("ground_transfer_instance_id", ""))
-	var elapsed_minutes := int(result.get("elapsed_minutes", 0))
-	var committed_inventory_action := bool(result.get("committed", false))
-	if committed_inventory_action and elapsed_minutes <= 0 and action_id in [
-		GameEnums.MACRO_INV_TAKE,
-		GameEnums.MACRO_INV_DROP,
-		GameEnums.MACRO_INV_EQUIP,
-		GameEnums.MACRO_INV_UNEQUIP,
-		GameEnums.MACRO_INV_CONSUME,
-		GameEnums.MACRO_INV_MOVE,
-		GameEnums.MACRO_INV_LOAD_MAGAZINE,
-	]:
-		elapsed_minutes = _time_rules_service.action_minutes("action")
-	if committed_inventory_action:
-		var request := WorldActionRequest.new()
-		request.actor_id = "player"
-		request.target_id = instance_id
-		request.target_coords = coords
-		request.verb_id = (
-			WorldActionResolver.VERB_PICK_UP
-			if action_id == GameEnums.MACRO_INV_TAKE
-			else action_id
-		)
-		request.payload["world_time_minutes"] = _world_state.world_time_minutes
-		request.payload["action_id"] = "inventory:%s:%s:%d" % [
-			action_id,
-			instance_id,
-			_world_state.player_revision,
-		]
-		var receipt := _world_action_coordinator.resolve_direct_action(
-			request,
-			elapsed_minutes,
-			0.0,
-			0.0,
-			"Inventory action committed."
-		)
-		receipt.actor_state = result.get("player_runtime", {}).duplicate(true)
-		receipt.mutations.append({"type": "replace_actor_runtime"})
-		if not transfer_instance_id.is_empty():
-			receipt.mutations.append({
-				"type": "transfer_ground_item",
-				"instance_id": transfer_instance_id,
-			})
-		for dropped_state in result.get("ground_mutations", []):
-			if dropped_state is Dictionary:
-				receipt.mutations.append({
-					"type": "drop_ground_item",
-					"instance_id": str(dropped_state.get("instance_id", "")),
-					"item_state": dropped_state.duplicate(true),
-				})
-		var application := _commit_world_action_receipt(receipt, coords)
-		if application == null or not application.applied:
-			if player_core != null and not prior_player_runtime.is_empty():
-				player_core.restore_runtime_state(prior_player_runtime)
-			result["committed"] = false
-			result["message"] = (
-				application.error
-				if application != null and not application.error.is_empty()
-				else "The inventory transaction was rejected without changing world state."
-			)
-			result["player_runtime"] = prior_player_runtime.duplicate(true)
-		result["action_receipt"] = receipt.to_dict()
-		if bool(result.get("committed", false)) and _world_state.player_record != null:
-			result["player_runtime"] = _world_state.player_record.runtime.duplicate(true)
-
+	if not bool(result.get("committed", false)):
+		_last_inventory_error = str(result.get("message", "Inventory action rejected."))
 	_emit_inventory_item_used(result)
 	var snapshot := _build_inventory_snapshot()
 	if inventory_panel and inventory_panel.is_open():
@@ -4142,9 +4068,6 @@ func _allowed_equipment_slots(item: ItemData) -> Array[int]:
 func _on_player_inventory_error(message: String) -> void:
 	_last_inventory_error = message
 
-func _inventory_error_or(fallback: String) -> String:
-	return _last_inventory_error if not _last_inventory_error.is_empty() else fallback
-
 func _on_player_items_spilled(spilled_items: Array[ItemData]) -> void:
 	if not is_visible_in_tree():
 		return
@@ -4219,8 +4142,9 @@ func _commit_search_transaction(payload: Dictionary) -> bool:
 		"Search outcome committed."
 	)
 	receipt.mutations.append({
-		"type": "replace_hex_state",
-		"hex_state": payload.get("hex_state", {}).duplicate(true),
+		"type": WorldActionSearchTransactionService.MUTATION_TYPE,
+		"expected_search_count": int(payload.get("expected_search_count", -1)),
+		"searched_target_id": str(payload.get("searched_target_id", "")),
 	})
 	for item_state in payload.get("ground_items", []):
 		if item_state is Dictionary:
@@ -4246,7 +4170,10 @@ func _commit_search_transaction(payload: Dictionary) -> bool:
 		receipt.mutations.append({"type": "append_trace", "trace": trace})
 	var target := WorldObjectRecord.from_dict(target_state) if not target_state.is_empty() else null
 	var application := _commit_world_action_receipt(receipt, coords, target)
-	return application != null and application.applied
+	if application == null or not application.applied:
+		_world_state.cancel_world_action(receipt.action_id)
+		return false
+	return true
 
 func _resolve_camp(
 	coords: Vector2i,
@@ -4436,40 +4363,13 @@ func _show_collision_result(
 
 func _apply_poi_session_selections(
 	coords: Vector2i,
-	hex_data: MacroHexData,
 	selected_item_ids: Array,
-	apply_traps: bool = true
-) -> void:
-	var inventory := player_token.get_humanoid_core().inventory
-	_PoiController.apply_sleep_gear_selection(
-		hex_data,
-		selected_item_ids,
-		Callable(self, "_find_inventory_item_by_instance_id")
-	)
-	var trap_outcome := {"hex_state": hex_data.to_state()}
-	if apply_traps:
-		trap_outcome = _PoiController.apply_trap_install(
-			hex_data,
-			selected_item_ids,
-			Callable(self, "_find_inventory_item_by_instance_id"),
-			Callable(inventory, "remove_item_by_instance_id")
-		)
-	var gear_outcome := _PoiController.apply_camp_gear_selection(
-		hex_data,
+	mode: String
+) -> Dictionary:
+	return _poi_selection_action_service.resolve(
 		coords,
 		selected_item_ids,
-		Callable(self, "_find_inventory_item_by_instance_id"),
-		Callable(inventory, "remove_item_by_instance_id"),
-		Callable(inventory, "add_to_backpack")
-	)
-	for item_state in gear_outcome.get("ground_restore", []):
-		_world_state.add_ground_items(coords, [item_state])
-	for item_state in trap_outcome.get("ground_restore", []):
-		_world_state.add_ground_items(coords, [item_state])
-	world_generator.commit_hex_projection(coords, hex_data)
-	_world_state.update_player_runtime(
-		player_token.get_humanoid_core().capture_runtime_state().to_dict(),
-		coords
+		mode
 	)
 
 func _format_world_time() -> String:
@@ -4801,7 +4701,6 @@ func _move_npc_record(
 		0.0,
 		"NPC arrived at HEX %d,%d." % [target_coords.x, target_coords.y]
 	)
-	move_receipt.actor_state = record.runtime.duplicate(true)
 	move_receipt.mutations.append({
 		"type": "move_actor",
 		"from": old_coords,

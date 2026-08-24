@@ -10,6 +10,10 @@ var limb_damage_types: Dictionary = {}
 ## Serialized Wound dictionaries keyed by GameEnums.LimbRegion (as int).
 var wounds_by_limb: Dictionary = {}
 
+## Limb regions that reached zero structural function. Wounds can recover, but
+## ordinary recovery cannot remove this terminal local state.
+var destroyed_limbs: Array[int] = []
+
 var core_temperature: float = 37.0
 var blood_level: float = GameEnums.SCALE_MAX
 var shock: float = 0.0
@@ -35,6 +39,7 @@ func to_dict() -> Dictionary:
 	return {
 		"limb_damage_types": damage_type_state,
 		"wounds_by_limb": wound_state,
+		"destroyed_limbs": destroyed_limbs.duplicate(),
 		"core_temperature": core_temperature,
 		"blood_level": blood_level,
 		"shock": shock,
@@ -61,6 +66,10 @@ static func from_dict(data: Dictionary) -> BodyState:
 			if raw_wound is Dictionary:
 				restored_wounds.append(Wound.from_dict(raw_wound))
 		state.wounds_by_limb[int(limb_key)] = restored_wounds
+	for limb_value in data.get("destroyed_limbs", []):
+		var limb := int(limb_value)
+		if limb in GameEnums.LimbRegion.values() and not state.destroyed_limbs.has(limb):
+			state.destroyed_limbs.append(limb)
 
 	state.core_temperature = data.get("core_temperature", 37.0)
 	state.blood_level = clampf(

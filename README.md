@@ -23,7 +23,7 @@ retain meaningful units.
 
 ## Current Prototype
 
-Status updated on **August 17, 2026**.
+Status updated on **August 25, 2026**.
 
 ### Playable Today
 
@@ -69,6 +69,9 @@ profile.
 - **Active world track:** [Hex World Generator V2](READMEs/design/HEX_WORLD_GENERATOR_V2.md),
   with disposable-state authority recorded in the
   [World State Reconciliation Audit](READMEs/design/WORLD_STATE_RECONCILIATION_AUDIT.md).
+- **World-action checkpoint:** medical, inventory, POI gear, CAMP, movement,
+  SEARCH, NPC work, and destroyed-vital persistence are recorded in the
+  [World Action Transaction Checkpoint Audit](READMEs/design/WORLD_ACTION_TRANSACTION_CHECKPOINT_AUDIT.md).
 - **Campaign framing:** [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
 ### Core Systems
@@ -123,6 +126,10 @@ profile.
 
 ### Known Gaps
 
+- Completed NPC SEARCH still performs rubble depletion and salvage after its
+  work receipt; it is the next atomic transaction correction.
+- Health/inventory presentation and physical-input friction need a dedicated
+  live acceptance pass after the authority work.
 - Macro **SNIPE** remains unimplemented; service-rifle scope data is metadata
   only.
 - Ballistic defense uses equipment-authored damage-type and Limb Region
@@ -141,9 +148,12 @@ profile.
 
 The combat terminal sequence `Incapacitate -> Strip -> Execute` is implemented
 against the neutral handoff/body layers and is covered by focused terminal and
-legality smokes. The isolated full capital-`Tests` sweep passes `109/109` under
-Godot 4.7.1. Physical pointer input, subjective weapon-frame feel, and
-subjective audio listening remain separate human acceptance checks.
+legality smokes. The last completed full capital-`Tests` sweep passed `109/109`
+under Godot 4.7.1, but it predates this checkpoint. The current tree contains
+139 executable SceneTree smokes; the checkpoint audit distinguishes its focused
+validation from a future full-sweep claim. Physical pointer input, subjective
+weapon-frame feel, and subjective audio listening remain separate human
+acceptance checks.
 
 ## Working Agreement (Generator V2)
 
@@ -173,6 +183,7 @@ records authored data but does not rescue a beautifully painted dead end.
 - [Combat UI Specification](READMEs/design/COMBAT_UI_SPECIFICATION.md)
 - [Combat HUD Asset Map](READMEs/design/COMBAT_HUD_ASSET_MAP.md)
 - [Combat Reconciliation Audit](READMEs/design/COMBAT_RECONCILIATION_AUDIT.md)
+- [World Action Transaction Checkpoint Audit](READMEs/design/WORLD_ACTION_TRANSACTION_CHECKPOINT_AUDIT.md)
 - [Architecture Index](READMEs/ARCHITECTURE_INDEX.md) (generated code/test
   inventory; structural reference, not a rules authority)
 - [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md)

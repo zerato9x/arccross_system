@@ -78,6 +78,7 @@ func _extraction_contract_violations() -> Array[String]:
 		"MacroSearchResourceService.gd",
 		"MacroSearchActionService.gd",
 		"MacroCampActionService.gd",
+		"MacroPoiSelectionActionService.gd",
 		"MacroWorldActionExecutionService.gd",
 		"MacroShelterRuntimeService.gd",
 		"MacroMovementService",
@@ -155,6 +156,122 @@ func _extraction_contract_violations() -> Array[String]:
 				"%s still owns camp resolution policy %s"
 				% [manager_path, legacy_camp_policy]
 			)
+	var poi_controller_path := "res://WorldCore/MacroPoiController.gd"
+	var poi_controller_source := FileAccess.get_file_as_string(poi_controller_path)
+	for legacy_poi_mutator in [
+		"apply_camp_gear_selection",
+		"apply_sleep_gear_selection",
+		"apply_trap_install",
+	]:
+		if poi_controller_source.find(legacy_poi_mutator) != -1:
+			violations.append(
+				"%s still owns live POI mutation policy %s"
+				% [poi_controller_path, legacy_poi_mutator]
+			)
+	var application_path := "res://SystemCore/WorldActionApplicationService.gd"
+	if FileAccess.get_file_as_string(application_path).find(
+		"WorldActionPoiSelectionTransactionService"
+	) == -1:
+		violations.append(
+			"%s does not delegate POI selection staging" % application_path
+		)
+	if FileAccess.get_file_as_string(application_path).find(
+		"WorldActionCampTransactionService"
+	) == -1:
+		violations.append(
+			"%s does not delegate camp-cycle staging" % application_path
+		)
+	if FileAccess.get_file_as_string(application_path).find(
+		"WorldActionMovementTransactionService"
+	) == -1:
+		violations.append(
+			"%s does not delegate canonical movement" % application_path
+		)
+	if FileAccess.get_file_as_string(application_path).find(
+		"WorldActionSearchTransactionService"
+	) == -1:
+		violations.append(
+			"%s does not delegate canonical search staging" % application_path
+		)
+	if FileAccess.get_file_as_string(application_path).find(
+		"WorldActionNpcWorkTransactionService"
+	) == -1:
+		violations.append(
+			"%s does not delegate canonical NPC work staging" % application_path
+		)
+	var npc_work_path := "res://WorldCore/MacroNpcWorkService.gd"
+	var npc_work_source := FileAccess.get_file_as_string(npc_work_path)
+	if npc_work_source.find("receipt.actor_state") != -1:
+		violations.append(
+			"%s still submits full NPC runtime snapshots" % npc_work_path
+		)
+	if npc_work_source.find("WorldActionNpcWorkTransactionService.MUTATION_TYPE") == -1:
+		violations.append(
+			"%s does not submit semantic NPC work progress" % npc_work_path
+		)
+	var search_commit_start := manager_source.find("func _commit_search_transaction")
+	if search_commit_start >= 0:
+		var next_function := manager_source.find("\nfunc ", search_commit_start + 1)
+		var search_commit_body := manager_source.substr(
+			search_commit_start,
+			manager_source.length() - search_commit_start
+			if next_function < 0
+			else next_function - search_commit_start
+		)
+		for forbidden_search_replacement in ["replace_hex_state", "hex_state"]:
+			if search_commit_body.find(forbidden_search_replacement) != -1:
+				violations.append(
+					"%s still performs live-first search replacement %s"
+					% [manager_path, forbidden_search_replacement]
+				)
+	var search_service_path := "res://WorldCore/MacroSearchActionService.gd"
+	var search_service_source := FileAccess.get_file_as_string(search_service_path)
+	for forbidden_search_callback in [
+		"player_body",
+		"advance_survival_time",
+		"capture_player_runtime",
+		"deplete_resource",
+	]:
+		if search_service_source.find(forbidden_search_callback) != -1:
+			violations.append(
+				"%s still depends on live-first callback %s"
+				% [search_service_path, forbidden_search_callback]
+			)
+	for movement_commit_name in ["_commit_player_retreat", "_commit_player_step", "_move_npc_record"]:
+		var movement_commit_start := manager_source.find("func " + movement_commit_name)
+		if movement_commit_start < 0:
+			continue
+		var next_function := manager_source.find("\nfunc ", movement_commit_start + 1)
+		var movement_commit_body := manager_source.substr(
+			movement_commit_start,
+			manager_source.length() - movement_commit_start
+			if next_function < 0
+			else next_function - movement_commit_start
+		)
+		if movement_commit_body.find("actor_state") != -1:
+			violations.append(
+				"%s still submits live actor state during %s"
+				% [manager_path, movement_commit_name]
+			)
+	var camp_commit_start := manager_source.find("func _commit_camp_cycle")
+	if camp_commit_start >= 0:
+		var next_function := manager_source.find("\nfunc ", camp_commit_start + 1)
+		var camp_commit_body := manager_source.substr(
+			camp_commit_start,
+			manager_source.length() - camp_commit_start
+			if next_function < 0
+			else next_function - camp_commit_start
+		)
+		for forbidden_camp_replacement in [
+			"actor_state",
+			"replace_actor_runtime",
+			"replace_hex_state",
+		]:
+			if camp_commit_body.find(forbidden_camp_replacement) != -1:
+				violations.append(
+					"%s still performs live-first camp replacement %s"
+					% [manager_path, forbidden_camp_replacement]
+				)
 	for legacy_search_policy in [
 		"resolve_search_outcome",
 		"MacroInteractionResolver.resolve_search",

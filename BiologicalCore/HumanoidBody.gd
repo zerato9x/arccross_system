@@ -28,6 +28,8 @@ var limb_max: Dictionary = {}
 var limb_trauma: Dictionary = {} # Tracks bleeding rates per limb
 var limb_damage_types: Dictionary = {}
 var wounds_by_limb: Dictionary = {}
+var destroyed_limbs: Dictionary = {}
+var _restoring_runtime_state := false
 
 @export_group("Systemic Vitals")
 var core_temperature: float = 37.0
@@ -55,6 +57,7 @@ func _ready() -> void:
 		limb_trauma[limb] = GameEnums.TraumaType.NONE
 		limb_damage_types.erase(limb)
 		wounds_by_limb[limb] = []
+		destroyed_limbs.erase(limb)
 
 func configure_structure(fortitude: int) -> void:
 	var hp_multiplier := float(fortitude) / GameEnums.SCALE_MIDPOINT
@@ -63,6 +66,7 @@ func configure_structure(fortitude: int) -> void:
 		limb_hp[limb] = limb_max[limb]
 		limb_damage_types.erase(limb)
 		wounds_by_limb[limb] = []
+		destroyed_limbs.erase(limb)
 
 func get_limb_max(limb: GameEnums.LimbRegion) -> float:
 	return float(limb_max.get(limb, BASE_LIMB_MAX.get(limb, 0.0)))
@@ -102,7 +106,11 @@ func apply_targeted_hit(
 	elif consciousness <= 0.0:
 		incapacitated.emit("Loss of consciousness")
 	
-	var bus = get_node_or_null("/root/GameEventBus")
+	var bus = (
+		get_node_or_null("/root/GameEventBus")
+		if is_inside_tree()
+		else null
+	)
 	if bus:
 		var injury_context := latest_wound.damage_source.duplicate(true)
 		injury_context["body_region"] = limb
@@ -169,23 +177,54 @@ func _refresh_legacy_trauma(limb: int) -> void:
 
 
 func _rebuild_limb_projection(limb: int) -> void:
+	var was_destroyed := float(
+		limb_hp.get(limb, get_limb_max(limb))
+	) <= 0.0 or bool(destroyed_limbs.get(limb, false))
+	# Zero health is an irreversible structural state. Wounds may recover, but
+	# ordinary elapsed-time recovery cannot quietly grow a destroyed limb back
+	# because its last wound happened to fall below the cleanup threshold.
+	if was_destroyed:
+		destroyed_limbs[limb] = true
+		limb_hp[limb] = 0.0
+		_refresh_legacy_trauma(limb)
+		return
 	var function := get_limb_function(limb)
 	limb_hp[limb] = get_limb_max(limb) * function / GameEnums.SCALE_MAX
 	_refresh_legacy_trauma(limb)
 	if function <= 0.0:
-		limb_destroyed.emit(limb)
+		destroyed_limbs[limb] = true
+		if not was_destroyed and not _restoring_runtime_state:
+			_handle_destroyed_limb(limb)
 
 func _handle_destroyed_limb(limb: GameEnums.LimbRegion) -> void:
+	destroyed_limbs[limb] = true
 	limb_trauma[limb] = GameEnums.TraumaType.SHATTERED_LIMB
 	limb_destroyed.emit(limb)
-	
-	# The lethal checks
-	if limb == GameEnums.LimbRegion.HEAD:
-		vital_failure.emit("Cranial destruction")
-	elif limb == GameEnums.LimbRegion.UPPER_TORSO:
-		vital_failure.emit("Circulatory collapse")
-	elif limb == GameEnums.LimbRegion.LOWER_TORSO:
-		vital_failure.emit("Organ failure")
+	var failure_reason := _vital_failure_reason_for_limb(limb)
+	if not failure_reason.is_empty():
+		vital_failure.emit(failure_reason)
+
+
+func get_destroyed_vital_reason() -> String:
+	for limb in [
+		GameEnums.LimbRegion.HEAD,
+		GameEnums.LimbRegion.UPPER_TORSO,
+		GameEnums.LimbRegion.LOWER_TORSO,
+	]:
+		if get_limb_function(limb) <= 0.0:
+			return _vital_failure_reason_for_limb(limb)
+	return ""
+
+
+func _vital_failure_reason_for_limb(limb: int) -> String:
+	match limb:
+		GameEnums.LimbRegion.HEAD:
+			return "Cranial destruction"
+		GameEnums.LimbRegion.UPPER_TORSO:
+			return "Circulatory collapse"
+		GameEnums.LimbRegion.LOWER_TORSO:
+			return "Organ failure"
+	return ""
 
 # ---------------------------------------------------------
 # BIOLOGICAL TICK (Called on the Macro Hex-Map Loop)
@@ -402,6 +441,8 @@ func get_motor_efficiency() -> float:
 
 
 func get_limb_function(limb: int) -> float:
+	if bool(destroyed_limbs.get(limb, false)):
+		return 0.0
 	var impairment := 0.0
 	for wound in get_wounds_for_limb(limb):
 		if not wound is Wound:
@@ -546,6 +587,12 @@ func capture_runtime_state() -> BodyState:
 	var state := BodyState.new()
 	state.limb_damage_types = limb_damage_types.duplicate()
 	state.wounds_by_limb = wounds_by_limb.duplicate(true)
+	for limb in BASE_LIMB_MAX.keys():
+		if (
+			bool(destroyed_limbs.get(limb, false))
+			or float(limb_hp.get(limb, get_limb_max(limb))) <= 0.0
+		):
+			state.destroyed_limbs.append(int(limb))
 	state.core_temperature = core_temperature
 	state.blood_level = blood_level
 	state.shock = shock
@@ -567,6 +614,10 @@ func restore_runtime_state(state) -> void:
 	else:
 		return
 
+	_restoring_runtime_state = true
+	destroyed_limbs.clear()
+	for limb in body_state.destroyed_limbs:
+		destroyed_limbs[int(limb)] = true
 	limb_damage_types.clear()
 	for limb in body_state.limb_damage_types.keys():
 		limb_damage_types[limb] = body_state.limb_damage_types[limb]
@@ -585,3 +636,4 @@ func restore_runtime_state(state) -> void:
 	fatigue = clampf(body_state.fatigue, 0.0, GameEnums.SCALE_MAX)
 	zero_hunger_minutes = maxi(0, body_state.zero_hunger_minutes)
 	zero_thirst_minutes = maxi(0, body_state.zero_thirst_minutes)
+	_restoring_runtime_state = false

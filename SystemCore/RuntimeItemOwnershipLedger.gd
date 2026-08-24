@@ -59,6 +59,7 @@ func find_all_item_ownership(instance_id: String) -> Array[Dictionary]:
 			location["owner_id"] = str(record.get("entity_id", ""))
 			locations.append(location)
 	locations.append_array(_world_object_item_locations(instance_id))
+	locations.append_array(_deployed_hex_item_locations(instance_id))
 	return locations
 
 
@@ -200,6 +201,76 @@ func commit_entity_runtime_with_ground_items(
 	else:
 		store.entity_records[entity_id] = record
 	if not store.add_ground_items(coords, ground_items):
+		store.restore_reconciliation_snapshot(transaction)
+		return false
+	var integrity_errors := store.validate_integrity()
+	if not integrity_errors.is_empty():
+		store.restore_reconciliation_snapshot(transaction)
+		return false
+	return true
+
+
+func commit_entity_runtime_with_ground_delta(
+	entity_id: String,
+	destination_runtime: Dictionary,
+	coords: Vector2i,
+	ground_remove_ids: Array,
+	ground_additions: Array
+) -> bool:
+	if store == null or destination_runtime.is_empty():
+		return false
+	var is_player := entity_id == "player"
+	var record := store.player_record if is_player else _record_for_entity(entity_id)
+	if record == null:
+		return false
+	var removed_ids: Dictionary = {}
+	for instance_value in ground_remove_ids:
+		var instance_id := str(instance_value)
+		if instance_id.is_empty() or removed_ids.has(instance_id):
+			return false
+		var locations := find_all_item_ownership(instance_id)
+		if locations.size() != 1:
+			return false
+		var source: Dictionary = locations[0]
+		if source.get("location", "") != "ground" or source.get("coords") != coords:
+			return false
+		removed_ids[instance_id] = true
+	var addition_ids: Dictionary = {}
+	for item_value in ground_additions:
+		if not item_value is Dictionary:
+			return false
+		var instance_id := str(item_value.get("instance_id", ""))
+		if (
+			instance_id.is_empty()
+			or addition_ids.has(instance_id)
+			or removed_ids.has(instance_id)
+			or runtime_item_count(destination_runtime, instance_id) != 0
+		):
+			return false
+		var locations := find_all_item_ownership(instance_id)
+		if locations.size() != 1:
+			return false
+		var source: Dictionary = locations[0]
+		if source.get("location", "") != "inventory" or source.get("owner_id", "") != entity_id:
+			return false
+		addition_ids[instance_id] = true
+
+	var transaction := store.capture_reconciliation_snapshot()
+	record.runtime = destination_runtime.duplicate(true)
+	record.revision += 1
+	record.last_simulated_minute = store.world_time_minutes
+	if is_player:
+		store.player_revision = maxi(store.player_revision, record.revision)
+	else:
+		store.entity_records[entity_id] = record
+	for instance_id in removed_ids:
+		if not _remove_ground_instance(coords, str(instance_id)):
+			store.restore_reconciliation_snapshot(transaction)
+			return false
+	if not ground_additions.is_empty() and not store.add_ground_items(
+		coords,
+		ground_additions
+	):
 		store.restore_reconciliation_snapshot(transaction)
 		return false
 	var integrity_errors := store.validate_integrity()
@@ -358,6 +429,71 @@ func _world_object_item_locations(instance_id: String) -> Array[Dictionary]:
 	return locations
 
 
+func _deployed_hex_item_locations(instance_id: String) -> Array[Dictionary]:
+	var locations: Array[Dictionary] = []
+	for coords in store.hex_records.keys():
+		var hex := store.hex_records[coords] as HexRecord
+		if hex == null:
+			continue
+		for index in range(hex.camp_item_states.size()):
+			_collect_deployed_item_locations(
+				hex.camp_item_states[index],
+				instance_id,
+				"deployed_camp",
+				coords,
+				"camp_item_states[%d]" % index,
+				locations
+			)
+		for index in range(hex.camp_traps.size()):
+			_collect_deployed_item_locations(
+				hex.camp_traps[index],
+				instance_id,
+				"deployed_trap",
+				coords,
+				"camp_traps[%d]" % index,
+				locations
+			)
+	return locations
+
+
+func _collect_deployed_item_locations(
+	value: Variant,
+	instance_id: String,
+	location: String,
+	coords: Vector2i,
+	container: String,
+	locations: Array[Dictionary]
+) -> void:
+	if value is Dictionary:
+		var dictionary: Dictionary = value
+		if str(dictionary.get("instance_id", "")) == instance_id:
+			locations.append({
+				"location": location,
+				"coords": coords,
+				"owner_id": "",
+				"container": container,
+			})
+		for key in dictionary.keys():
+			_collect_deployed_item_locations(
+				dictionary[key],
+				instance_id,
+				location,
+				coords,
+				"%s.%s" % [container, str(key)],
+				locations
+			)
+	elif value is Array:
+		for index in range(value.size()):
+			_collect_deployed_item_locations(
+				value[index],
+				instance_id,
+				location,
+				coords,
+				"%s[%d]" % [container, index],
+				locations
+			)
+
+
 func _collect_world_object_locations(
 	value: Variant,
 	instance_id: String,
@@ -405,6 +541,36 @@ func _remove_item_from_world_objects(instance_id: String) -> int:
 			var object_copy: Dictionary = object_value.duplicate(true)
 			if _strip_item_instances(object_copy, instance_id):
 				hex.world_objects[index] = object_copy
+				changed = true
+				removed += 1
+		for index in range(hex.camp_item_states.size() - 1, -1, -1):
+			var camp_value: Variant = hex.camp_item_states[index]
+			if not camp_value is Dictionary:
+				continue
+			if str(camp_value.get("instance_id", "")) == instance_id:
+				hex.camp_item_states.remove_at(index)
+				if hex.sleep_gear_instance_id == instance_id:
+					hex.sleep_gear_instance_id = ""
+				changed = true
+				removed += 1
+				continue
+			var camp_copy: Dictionary = camp_value.duplicate(true)
+			if _strip_item_instances(camp_copy, instance_id):
+				hex.camp_item_states[index] = camp_copy
+				changed = true
+				removed += 1
+		for index in range(hex.camp_traps.size() - 1, -1, -1):
+			var trap_value: Variant = hex.camp_traps[index]
+			if not trap_value is Dictionary:
+				continue
+			if str(trap_value.get("instance_id", "")) == instance_id:
+				hex.camp_traps.remove_at(index)
+				changed = true
+				removed += 1
+				continue
+			var trap_copy: Dictionary = trap_value.duplicate(true)
+			if _strip_item_instances(trap_copy, instance_id):
+				hex.camp_traps[index] = trap_copy
 				changed = true
 				removed += 1
 		if changed:
