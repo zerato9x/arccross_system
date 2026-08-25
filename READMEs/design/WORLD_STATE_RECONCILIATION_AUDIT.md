@@ -21,8 +21,9 @@ The following contracts are fixed:
 - Generator output, Route 1 layout, world art, BiologicalCore formulas, ItemCore
   gameplay, and UI design are not being redesigned.
 - At the start of this audit, save version 13 was the migration input for the
-  reconciliation. The implemented runtime now writes version 14, migrates v12
-  and v13 inputs, and retains world-generation version 3.
+  reconciliation. The implemented runtime now writes version 15, migrates
+  v12-v14 inputs, retires legacy actor snapshots embedded in saved receipts,
+  and retains world-generation version 3.
 
 ## Current data flow
 
@@ -226,9 +227,11 @@ The medical, terminal-biology, inventory, POI-selection, CAMP, movement, player
 SEARCH, and NPC-work follow-up is recorded in the
 [World Action Transaction Checkpoint Audit](WORLD_ACTION_TRANSACTION_CHECKPOINT_AUDIT.md).
 That audit supersedes this document's earlier compatibility-adapter description
-for those actions. It does not supersede the v14 authority decisions above.
+for those actions and extends the save boundary to version 15 without changing
+the underlying world-authority decisions.
 
-The remaining P0 gap is completed NPC SEARCH: rubble depletion and salvage are
-still separate post-receipt mutations. The historical `109/109` sweep also
-predates this checkpoint; the current 139-script tree requires a new full sweep
-before publication or release claims.
+The completed-NPC-SEARCH P0 is closed: depletion, trace, deterministic salvage,
+ownership, NPC runtime/knowledge, revisions, time, and reservation release now
+share one receipt transaction. The current Godot 4.7.1 SceneTree gate is
+`141/141`: 140 passed in the complete sweep and the sole stale recovery fixture
+passed immediately after its test-only terrain-catalog injection was corrected.

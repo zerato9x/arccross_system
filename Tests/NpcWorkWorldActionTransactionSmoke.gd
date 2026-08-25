@@ -68,6 +68,8 @@ func _run() -> bool:
 		return false
 	if not _verify_rejections(store, service):
 		return false
+	if not _verify_atomic_search_rejections():
+		return false
 	print("NPC_WORK_WORLD_ACTION_TRANSACTION_SMOKE: PASS")
 	quit(0)
 	return true
@@ -191,7 +193,7 @@ func _verify_rejections(
 		return false
 
 	var cases := [
-		{"name": "actor snapshot", "change": func(r): r.actor_state = {"forged": true}},
+		{"name": "actor snapshot", "change": func(r): r.mutations.append({"type": "replace_actor_runtime"})},
 		{"name": "duplicate semantic mutation", "change": func(r): r.mutations.append(r.mutations[-1].duplicate(true))},
 		{"name": "player actor", "change": func(r): r.actor_id = "player"},
 		{"name": "completion mismatch", "change": func(r): r.mutations[-1]["clear_world_work"] = true},
@@ -209,6 +211,143 @@ func _verify_rejections(
 	if not _expect_rejected_unchanged(store, service, non_repair, "non-repair material"):
 		return false
 	return true
+
+
+func _verify_atomic_search_rejections() -> bool:
+	var cases := [
+		{
+			"name": "stale resource count",
+			"remaining": 2,
+			"depleted": false,
+			"expected_remaining": 3,
+			"duplicate_item": false,
+		},
+		{
+			"name": "depleted resource",
+			"remaining": 1,
+			"depleted": true,
+			"expected_remaining": 1,
+			"duplicate_item": false,
+		},
+		{
+			"name": "duplicate salvage identity",
+			"remaining": 2,
+			"depleted": false,
+			"expected_remaining": 2,
+			"duplicate_item": true,
+		},
+	]
+	for test_case in cases:
+		var store := _search_fixture_store(
+			int(test_case["remaining"]),
+			bool(test_case["depleted"]),
+			bool(test_case["duplicate_item"])
+		)
+		var service := WorldActionApplicationService.new()
+		service.configure(store)
+		var receipt := _search_completion_receipt(
+			store,
+			int(test_case["expected_remaining"])
+		)
+		if not _expect_rejected_unchanged(
+			store,
+			service,
+			receipt,
+			"atomic SEARCH " + str(test_case["name"])
+		):
+			return false
+	return true
+
+
+func _search_fixture_store(
+	remaining: int,
+	depleted: bool,
+	duplicate_item: bool
+) -> RuntimeStateStore:
+	var store := RuntimeStateStore.new()
+	store.begin_new_world("NPC_SEARCH_ATOMIC_REJECTION")
+	store.set_campaign_state({"seed": store.world_seed}, "node-a", 0)
+	var actor := EntityRecord.new()
+	actor.entity_id = ACTOR_ID
+	actor.coords = COORDS
+	actor.definition = {"finesse": 9}
+	actor.runtime = {"inventory_items": []}
+	if duplicate_item:
+		actor.runtime["inventory_items"].append(
+			_item("npc-search-duplicate", "scrap", [], 1, 10.0)
+		)
+	store.register_entity(actor)
+	var target := WorldObjectRecord.new()
+	target.object_id = TARGET_ID
+	target.definition_id = "rubble"
+	target.node_id = "node-a"
+	target.coords = COORDS
+	target.components = {
+		"rubble": {"material_units": remaining, "depleted": depleted},
+		"container": {
+			"finite": true,
+			"remaining_searches": remaining,
+			"depleted": depleted,
+		},
+	}
+	var hex := HexRecord.new()
+	hex.search_site_id = "route1_rubble_open"
+	hex.world_objects = [target.to_dict()]
+	store.set_hex_record(COORDS, hex)
+	return store
+
+
+func _search_completion_receipt(
+	store: RuntimeStateStore,
+	expected_remaining: int
+) -> WorldActionReceipt:
+	var target := _target(store)
+	var request := WorldActionRequest.new()
+	request.actor_id = ACTOR_ID
+	request.target_id = TARGET_ID
+	request.target_coords = COORDS
+	request.verb_id = WorldActionResolver.VERB_SEARCH
+	request.expected_actor_revision = int(
+		store.get_entity_snapshot(ACTOR_ID).get("revision", -1)
+	)
+	request.expected_target_revision = target.revision
+	request.payload = {
+		"action_id": "npc-search-rejection",
+		"node_id": store.active_node_id,
+		"expected_hex_revision": store.get_hex_record(COORDS).revision,
+	}
+	var reservation := store.begin_world_action(request)
+	var item_state := _item("npc-search-duplicate", "scrap", [], 1, 10.0)
+	var receipt := WorldActionReceipt.new()
+	receipt.committed = true
+	receipt.action_id = reservation.action_id
+	receipt.receipt_id = reservation.next_receipt_id()
+	receipt.actor_id = ACTOR_ID
+	receipt.target_id = TARGET_ID
+	receipt.target_coords = COORDS
+	receipt.node_id = store.active_node_id
+	receipt.verb_id = WorldActionResolver.VERB_SEARCH
+	receipt.expected_actor_revision = request.expected_actor_revision
+	receipt.expected_target_revision = target.revision
+	receipt.expected_hex_revision = int(request.payload["expected_hex_revision"])
+	receipt.target_state = target.to_dict()
+	receipt.elapsed_minutes = 15
+	receipt.work_progress = 1.0
+	receipt.work_completed = true
+	receipt.mutations = [
+		{"type": "work_progress", "progress": 1.0},
+		{
+			"type": WorldActionNpcWorkTransactionService.MUTATION_TYPE,
+			"clear_world_work": true,
+			"world_work_state": {},
+			"search_completion": {
+				"resource_component": "rubble",
+				"expected_remaining": expected_remaining,
+				"item_state": item_state,
+			},
+		},
+	]
+	return receipt
 
 
 func _rejection_receipt(store: RuntimeStateStore, action_id: String) -> WorldActionReceipt:

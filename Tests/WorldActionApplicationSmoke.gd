@@ -94,6 +94,7 @@ func _run() -> bool:
 	transfer_request.target_id = "transaction-ground-item"
 	transfer_request.target_coords = Vector2i.ZERO
 	transfer_request.verb_id = WorldActionResolver.VERB_PICK_UP
+	transfer_request.method_id = "inventory"
 	transfer_request.expected_actor_revision = store.player_record.revision
 	transfer_request.payload = {
 		"action_id": "take-transaction-ground-item",
@@ -103,18 +104,12 @@ func _run() -> bool:
 	var transfer_reservation := store.begin_world_action(transfer_request)
 	transfer_request.payload["receipt_id"] = transfer_reservation.next_receipt_id()
 	var transfer_receipt := WorldActionResolver.resolve_direct_action(transfer_request, 1)
-	var transfer_core := EntityFactory.record_to_humanoid_core(
-		store.player_record.to_dict(), null, "WorldActionTransferFixture"
-	)
-	if not transfer_core.inventory.add_to_backpack(ItemData.from_runtime_state(ground_item)):
-		transfer_core.free()
-		return _fail("Could not stage the destination inventory runtime.")
-	transfer_receipt.actor_state = transfer_core.capture_runtime_state().to_dict()
-	transfer_core.free()
-	transfer_receipt.mutations.append({"type": "replace_actor_runtime"})
 	transfer_receipt.mutations.append({
-		"type": "transfer_ground_item",
+		"type": WorldActionInventoryTransactionService.MUTATION_TYPE,
+		"action_id": GameEnums.MACRO_INV_TAKE,
 		"instance_id": "transaction-ground-item",
+		"equipment_slot": GameEnums.EquipmentSlot.NONE,
+		"action_payload": {},
 	})
 	var transfer_applied := service.apply(transfer_receipt)
 	if not transfer_applied.applied:

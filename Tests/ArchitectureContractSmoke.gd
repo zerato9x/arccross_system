@@ -169,46 +169,128 @@ func _extraction_contract_violations() -> Array[String]:
 				% [poi_controller_path, legacy_poi_mutator]
 			)
 	var application_path := "res://SystemCore/WorldActionApplicationService.gd"
-	if FileAccess.get_file_as_string(application_path).find(
+	var application_source := FileAccess.get_file_as_string(application_path)
+	if application_source.find(
 		"WorldActionPoiSelectionTransactionService"
 	) == -1:
 		violations.append(
 			"%s does not delegate POI selection staging" % application_path
 		)
-	if FileAccess.get_file_as_string(application_path).find(
+	if application_source.find(
 		"WorldActionCampTransactionService"
 	) == -1:
 		violations.append(
 			"%s does not delegate camp-cycle staging" % application_path
 		)
-	if FileAccess.get_file_as_string(application_path).find(
+	if application_source.find(
 		"WorldActionMovementTransactionService"
 	) == -1:
 		violations.append(
 			"%s does not delegate canonical movement" % application_path
 		)
-	if FileAccess.get_file_as_string(application_path).find(
+	if application_source.find(
 		"WorldActionSearchTransactionService"
 	) == -1:
 		violations.append(
 			"%s does not delegate canonical search staging" % application_path
 		)
-	if FileAccess.get_file_as_string(application_path).find(
+	if application_source.find(
 		"WorldActionNpcWorkTransactionService"
 	) == -1:
 		violations.append(
 			"%s does not delegate canonical NPC work staging" % application_path
 		)
+	if application_source.find(
+		"WorldActionNegotiationTransactionService"
+	) == -1:
+		violations.append(
+			"%s does not delegate canonical negotiation staging" % application_path
+		)
+	for extracted_service in [
+		"WorldActionReceiptValidationService",
+		"WorldActionActorStagingService",
+	]:
+		if application_source.find(extracted_service) == -1:
+			violations.append(
+				"%s does not delegate to %s" % [application_path, extracted_service]
+			)
+	for atomic_owner_call in [
+		"capture_reconciliation_snapshot",
+		"restore_reconciliation_snapshot",
+		"advance_world_time",
+		"mark_world_receipt_applied",
+	]:
+		if application_source.find(atomic_owner_call) == -1:
+			violations.append(
+				"%s no longer owns atomic operation %s"
+				% [application_path, atomic_owner_call]
+			)
+	var validation_path := "res://SystemCore/WorldActionReceiptValidationService.gd"
+	var validation_source := FileAccess.get_file_as_string(validation_path)
+	if validation_source.find("ALLOWED_MUTATION_TYPES") == -1:
+		violations.append("%s does not own receipt mutation validation" % validation_path)
+	var staging_path := "res://SystemCore/WorldActionActorStagingService.gd"
+	var staging_source := FileAccess.get_file_as_string(staging_path)
+	for forbidden_staging_commit in [
+		"capture_reconciliation_snapshot",
+		"restore_reconciliation_snapshot",
+		"advance_world_time",
+		"mark_world_receipt_applied",
+		"replace_hex_record",
+	]:
+		if staging_source.find(forbidden_staging_commit) != -1:
+			violations.append(
+				"%s illegally owns canonical commit operation %s"
+				% [staging_path, forbidden_staging_commit]
+			)
+	var receipt_path := "res://SystemCore/WorldActionReceipt.gd"
+	var receipt_source := FileAccess.get_file_as_string(receipt_path)
+	if receipt_source.find("var actor_state") != -1:
+		violations.append("%s still exposes caller-owned actor snapshots" % receipt_path)
 	var npc_work_path := "res://WorldCore/MacroNpcWorkService.gd"
 	var npc_work_source := FileAccess.get_file_as_string(npc_work_path)
-	if npc_work_source.find("receipt.actor_state") != -1:
-		violations.append(
-			"%s still submits full NPC runtime snapshots" % npc_work_path
-		)
+	for forbidden_npc_mutator in [
+		"receipt.actor_state",
+		"generate_salvage",
+		"deplete_after_search",
+		"patch_entity_record",
+	]:
+		if npc_work_source.find(forbidden_npc_mutator) != -1:
+			violations.append(
+				"%s still owns post-commit NPC mutation %s"
+				% [npc_work_path, forbidden_npc_mutator]
+			)
 	if npc_work_source.find("WorldActionNpcWorkTransactionService.MUTATION_TYPE") == -1:
 		violations.append(
 			"%s does not submit semantic NPC work progress" % npc_work_path
 		)
+	var talk_start := manager_source.find("func resolve_talk_action")
+	if talk_start >= 0:
+		var next_talk_function := manager_source.find("\nfunc ", talk_start + 1)
+		var talk_body := manager_source.substr(
+			talk_start,
+			manager_source.length() - talk_start
+			if next_talk_function < 0
+			else next_talk_function - talk_start
+		)
+		if talk_body.find(
+			"WorldActionNegotiationTransactionService.MUTATION_TYPE"
+		) == -1:
+			violations.append(
+				"%s does not submit semantic negotiation state" % manager_path
+			)
+		for forbidden_negotiation_mutator in [
+			"_apply_macro_event_effects",
+			"patch_entity_record",
+			"set_entity_world_status",
+			"set_relationship",
+			"add_ground_items",
+		]:
+			if talk_body.find(forbidden_negotiation_mutator) != -1:
+				violations.append(
+					"%s still owns post-commit negotiation mutation %s"
+					% [manager_path, forbidden_negotiation_mutator]
+				)
 	var search_commit_start := manager_source.find("func _commit_search_transaction")
 	if search_commit_start >= 0:
 		var next_function := manager_source.find("\nfunc ", search_commit_start + 1)

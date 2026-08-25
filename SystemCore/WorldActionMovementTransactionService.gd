@@ -52,8 +52,6 @@ func validation_error(receipt: WorldActionReceipt) -> String:
 		return "World-action movement contains duplicate explored-hex mutations."
 	if receipt.actor_id != "player" and explored_count > 0:
 		return "NPC movement cannot reveal player exploration state."
-	if not receipt.actor_state.is_empty():
-		return "World-action movement contains a replacement actor runtime."
 	if not receipt.target_state.is_empty():
 		return "World-action movement contains unrelated target state."
 	if receipt.verb_id not in [VERB_TRAVEL, VERB_RETREAT]:

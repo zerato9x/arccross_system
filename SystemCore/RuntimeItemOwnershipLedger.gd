@@ -280,6 +280,64 @@ func commit_entity_runtime_with_ground_delta(
 	return true
 
 
+func commit_entity_runtime_with_created_items(
+	entity_id: String,
+	destination_runtime: Dictionary,
+	destination_knowledge: Dictionary,
+	created_items: Array
+) -> bool:
+	if (
+		store == null
+		or entity_id.is_empty()
+		or destination_runtime.is_empty()
+		or created_items.is_empty()
+	):
+		return false
+	var is_player := entity_id == "player"
+	var record := store.player_record if is_player else _record_for_entity(entity_id)
+	if record == null:
+		return false
+	var created_ids: Dictionary = {}
+	for item_value in created_items:
+		if not item_value is Dictionary:
+			return false
+		var item_state: Dictionary = item_value
+		var instance_id := str(item_state.get("instance_id", ""))
+		if (
+			instance_id.is_empty()
+			or created_ids.has(instance_id)
+			or not find_all_item_ownership(instance_id).is_empty()
+			or runtime_item_count(destination_runtime, instance_id) != 1
+			or str(item_state.get("owner_id", "")) != entity_id
+			or str(item_state.get("physical_location", "")) != "inventory"
+		):
+			return false
+		var runtime_state := _find_nested_item_state(
+			destination_runtime, instance_id
+		)
+		if (
+			runtime_state.is_empty()
+			or str(runtime_state.get("owner_id", "")) != entity_id
+			or str(runtime_state.get("physical_location", "")) != "inventory"
+		):
+			return false
+		created_ids[instance_id] = true
+	var transaction := store.capture_reconciliation_snapshot()
+	record.runtime = destination_runtime.duplicate(true)
+	record.knowledge = destination_knowledge.duplicate(true)
+	record.revision += 1
+	record.last_simulated_minute = store.world_time_minutes
+	if is_player:
+		store.player_revision = maxi(store.player_revision, record.revision)
+	else:
+		store.entity_records[entity_id] = record
+	var integrity_errors := store.validate_integrity()
+	if not integrity_errors.is_empty():
+		store.restore_reconciliation_snapshot(transaction)
+		return false
+	return true
+
+
 func remove_ground_item(coords: Vector2i, instance_id: String) -> Dictionary:
 	if store == null or instance_id.is_empty():
 		return {}

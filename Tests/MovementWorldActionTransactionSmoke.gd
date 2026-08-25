@@ -107,7 +107,7 @@ func _test_stale_and_malformed_rollback() -> bool:
 		)
 		match kind:
 			"actor_state":
-				receipt.actor_state = store.player_record.runtime.duplicate(true)
+				receipt.mutations.append({"type": "replace_actor_runtime"})
 			"duplicate":
 				receipt.mutations.append(receipt.mutations[1].duplicate(true))
 			"wrong_origin":

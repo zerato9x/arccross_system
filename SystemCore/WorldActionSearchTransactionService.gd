@@ -55,8 +55,6 @@ func validation_error(receipt: WorldActionReceipt) -> String:
 		return "World-action search only supports the player actor."
 	if receipt.verb_id != VERB_ID:
 		return "World-action search has the wrong verb."
-	if not receipt.actor_state.is_empty():
-		return "World-action search contains a replacement actor runtime."
 	if trace_count > 1 or injury_count > 1:
 		return "World-action search contains duplicate trace or injury effects."
 	if not receipt.target_state.is_empty():

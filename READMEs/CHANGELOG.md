@@ -2,6 +2,42 @@
 
 ## August 25, 2026
 
+### Negotiation authority continuation
+
+- Replaced live-first TALK resolution with one semantic
+  `negotiation_application`: player biology/time, target attempt and memory,
+  status, relationship, surrendered loadout, created ground gear, revisions,
+  reservation, and replay identity now commit or roll back together.
+- Made threat-surrender item identities deterministic per world seed, enemy,
+  attempt, and loadout slot so re-resolution after rejection cannot manufacture
+  a new identity for the same outcome.
+- Added `NegotiationWorldActionTransactionSmoke` covering all three outcomes,
+  withdrawal occupancy, ownership, replay, save/load, stale/malformed rejection,
+  and surrender determinism; focused architecture, macro-interaction, and generic
+  world-action regression smokes pass under Godot 4.7.1.
+
+### World-action stabilization closure
+
+- Made completed NPC SEARCH atomic: canonical resource depletion, target/Hex
+  revisions, disturbance trace, deterministic salvage creation and ownership,
+  NPC runtime/knowledge, elapsed time, reservation release, and receipt identity
+  now commit or roll back together.
+- Fixed applied-receipt replay at the WorldCore adapter so it reaches the atomic
+  application boundary unchanged instead of rewriting revisions and creating a
+  fresh reservation.
+- Retired caller-owned `WorldActionReceipt.actor_state` and
+  `replace_actor_runtime`; save version 15 migrates v12-v14 receipts by stripping
+  those legacy payloads while preserving world progress.
+- Extracted `WorldActionReceiptValidationService` and
+  `WorldActionActorStagingService`; `WorldActionApplicationService` retains sole
+  snapshot, commit ordering, time, signal, reservation, idempotence, integrity,
+  and rollback ownership.
+- Added real `MacroNpcWorkService.try_work()` SEARCH shipping coverage plus
+  stale/depleted/duplicate-salvage rollback cases and v14 migration coverage.
+- Passed the current Godot 4.7.1 SceneTree gate `141/141` (140 in the complete
+  sweep plus the corrected isolated fallback-recovery fixture); headless editor
+  import and focused transaction/save/architecture smokes also pass.
+
 ### Atomic world-action checkpoint
 
 - Replaced live-first medical treatment with one canonical receipt transaction;

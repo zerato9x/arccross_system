@@ -34,10 +34,13 @@ database, stat registry, or rule table.
   is canonical; `player_coords` is a compatibility accessor only.
 - `GameTimeRules` owns shared action durations and clock conversion.
 - `WorldActionApplicationService` owns the single world-action reconciliation
-  snapshot, revision/idempotence gate, commit ordering, and rollback. Small
-  transaction services stage inventory, POI-selection, CAMP, movement, SEARCH,
-  and NPC-work semantics from canonical records; they do not commit competing
-  partial worlds.
+  snapshot, commit ordering, world-time/signal fanout, reservation/receipt
+  identity, integrity gate, and rollback. `WorldActionReceiptValidationService`
+  owns generic and semantic receipt validation;
+  `WorldActionActorStagingService` dispatches detached actor/Hex proposals.
+  Small transaction services stage inventory, POI-selection, CAMP, movement,
+  SEARCH, NPC-work, and negotiation semantics from canonical records; none commits a
+  competing partial world.
 - `LootCatalog` translates ItemCore resources into neutral descriptors and
   runtime item records.
 - `GameDirector` coordinates WorldCore and CombatCore through signals and
@@ -230,7 +233,10 @@ ambush_position: GameEnums.AmbushPosition
 - Movement, SEARCH, CAMP, and completed combat advance one authoritative clock;
   BiologicalCore processes the same elapsed duration.
 - SEARCH selects a Loot Profile and places generated Runtime Item Instances in
-  persistent ground inventory.
+  persistent ground inventory. Completed NPC SEARCH instead creates one
+  receipt-deterministic salvage instance in the NPC inventory while resource
+  depletion, trace, knowledge, ownership, revisions, time, and reservation
+  release share the same atomic commit.
 - CAMP moves installed gear from player inventory to the Hex Record; it never
   duplicates items. Camp traps persist on the Hex and can feed combat setup.
 - TALK resolves Threat / Ceasefire (and Ask / Trade placeholder) only after

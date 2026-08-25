@@ -44,8 +44,6 @@ func validation_error(receipt: WorldActionReceipt) -> String:
 		return "World-action camp cycle has the wrong verb or method."
 	if receipt.target_id != "camp:" + str(receipt.target_coords):
 		return "World-action camp cycle targets the wrong location identity."
-	if not receipt.actor_state.is_empty():
-		return "World-action camp cycle contains a replacement actor runtime."
 	var mutation := actions[0]
 	var fatigue_recovery := float(mutation.get("fatigue_recovery", -1.0))
 	var healing_amount := float(mutation.get("healing_amount", -1.0))

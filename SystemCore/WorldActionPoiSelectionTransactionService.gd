@@ -43,8 +43,6 @@ func validation_error(receipt: WorldActionReceipt) -> String:
 		return "World-action receipt contains duplicate POI selections."
 	if receipt.actor_id != "player":
 		return "World-action POI selection only supports the player actor."
-	if not receipt.actor_state.is_empty():
-		return "World-action POI selection contains a replacement actor runtime."
 	var mutation := actions[0]
 	var mode := str(mutation.get("mode", ""))
 	var selected_value: Variant = mutation.get("selected_instance_ids", [])

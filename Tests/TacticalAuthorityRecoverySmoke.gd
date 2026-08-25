@@ -66,7 +66,10 @@ func _verify_interaction_state() -> void:
 
 
 func _verify_map_composition() -> void:
-	var generator := CombatArenaGenerator.new()
+	# This smoke exercises fallback/source recovery, so isolate that policy from
+	# the production default terrain catalog. Catalog precedence is covered by
+	# CombatArenaOverhaulSmoke.
+	var generator := CombatArenaGenerator.new(TacticalTerrainCatalog.new())
 	var encounter := CombatEncounterRecord.new()
 	encounter.topology_id = "squad_7x5"
 	encounter.world_seed = "AUTHORITY_RECOVERY_A"

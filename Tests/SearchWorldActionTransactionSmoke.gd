@@ -226,7 +226,7 @@ func _test_stale_and_malformed_rollback() -> bool:
 			"wrong_verb":
 				receipt.verb_id = "inspect"
 			"actor_state":
-				receipt.actor_state = store.player_record.runtime.duplicate(true)
+				receipt.mutations.append({"type": "replace_actor_runtime"})
 			"replace_hex":
 				receipt.mutations.append({
 					"type": "replace_hex_state",

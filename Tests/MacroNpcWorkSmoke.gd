@@ -49,25 +49,9 @@ func _run() -> void:
 	if service.method_for_record(record) != "multitool":
 		_fail("NPC work method did not select the usable multitool.")
 		return
-	var consumed := service.consume_repair_material(record)
-	if str(consumed.get("instance_id", "")) != "npc-material":
-		_fail("NPC work did not consume the neutral repair material instance.")
-		return
-	var remaining: Dictionary = record.runtime["inventory_items"][1]
-	if int(remaining.get("stack_count", 0)) != 1:
-		_fail("NPC repair material consumption did not preserve the remaining stack.")
-		return
-	var receipt := WorldActionReceipt.new()
-	receipt.method_id = "multitool"
-	receipt.tool_wear = 0.25
-	world_state.register_entity(record)
-	var working_record := EntityRecord.from_dict(
-		world_state.get_entity_snapshot(record.entity_id)
-	)
-	service.apply_tool_wear(working_record, receipt)
-	var tool: Dictionary = world_state.get_entity(record.entity_id).runtime["inventory_items"][0]
-	if float(tool.get("current_condition", 0.0)) != 9.75:
-		_fail("NPC tool wear did not commit through the neutral carried state.")
+	var selected_material := service.select_repair_material(record)
+	if str(selected_material.get("instance_id", "")) != "npc-material":
+		_fail("NPC work did not select the neutral repair material instance.")
 		return
 	print("[MACRO_NPC_WORK] PASS")
 	quit(0)

@@ -31,10 +31,6 @@ var mutations: Array[Dictionary] = []
 var signals: Array[Dictionary] = []
 var events: Array[Dictionary] = []
 var presentation: Dictionary = {}
-## Legacy detached post-resolution actor runtime. New production actions stage
-## semantic mutations against canonical state; this field remains serialized
-## only so older receipts and compatibility fixtures can still be read.
-var actor_state: Dictionary = {}
 ## Detached post-resolution object state. The application boundary validates
 ## its identity and revision before replacing the object in the canonical hex.
 var target_state: Dictionary = {}
@@ -68,7 +64,6 @@ func to_dict() -> Dictionary:
 		"signals": signals.duplicate(true),
 		"events": events.duplicate(true),
 		"presentation": presentation.duplicate(true),
-		"actor_state": actor_state.duplicate(true),
 		"target_state": target_state.duplicate(true),
 		"message": message,
 	}
@@ -99,7 +94,6 @@ static func from_dict(data: Dictionary) -> WorldActionReceipt:
 	receipt.signals = data.get("signals", []).duplicate(true)
 	receipt.events = data.get("events", []).duplicate(true)
 	receipt.presentation = data.get("presentation", {}).duplicate(true)
-	receipt.actor_state = data.get("actor_state", {}).duplicate(true)
 	receipt.target_state = data.get("target_state", {}).duplicate(true)
 	receipt.message = str(data.get("message", ""))
 	return receipt

@@ -254,7 +254,7 @@ func _configure_extracted_world_services() -> void:
 		world_generator,
 		map_visualizer
 	)
-	_search_resource_service.configure(_world_state, world_generator)
+	_search_resource_service.configure(_world_state)
 	_visibility_service.configure(_world_state, world_generator, vision_radius)
 	_time_rules_service.configure()
 	_inventory_action_service.configure(
@@ -2585,7 +2585,6 @@ func _apply_work_method_profile(profile: WorldWorkTaskProfile, method_id: String
 func _npc_try_work(record: EntityRecord) -> void:
 	_npc_work_service.try_work(record, _macro_turn_index, {
 		"commit_receipt": Callable(self, "_commit_world_action_receipt"),
-		"deplete_after_search": Callable(self, "_deplete_rubble_after_search"),
 	})
 
 
@@ -3472,16 +3471,10 @@ func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 		!= GameEnums.MacroInteractionType.ENTITY_COLLISION
 	):
 		return
-	player_token.play_interaction()
 	var interaction_coords: Vector2i = _pending_interaction.get(
 		"coords",
 		Vector2i.ZERO
 	)
-	if active_enemies.has(interaction_coords):
-		var interaction_enemy: MacroEnemy = active_enemies[
-			interaction_coords
-		]
-		interaction_enemy.play_interaction()
 	var enemy_id: String = _pending_interaction.get("enemy_id", "")
 	var enemy_snapshot := _world_state.get_entity_snapshot(enemy_id)
 	if enemy_snapshot.is_empty():
@@ -3502,83 +3495,89 @@ func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 		},
 			enemy_record.definition
 	)
-	# Conversation is a real action atom even when the answer is hostile. The
-	# same receipt boundary advances biology, signal reactions, and presentation
-	# timing as every other macro interaction.
-	_apply_macro_event_effects({
-		"elapsed_minutes": _time_rules_service.action_minutes("action"),
-		"exertion": 0.1,
-	})
-	_world_state.patch_entity_record(
-		enemy_id,
-		{"negotiation_attempts": attempt + 1}
-	)
-
+	var event_id := "ceasefire_reached"
+	var trust_delta := 3.0
+	var threat_delta := 0.0
+	var next_status := GameEnums.EntityWorldStatus.CEASEFIRE
+	var next_relationship := CombatRelationshipLedger.Relation.NEUTRAL
+	var threat_result: Dictionary = {}
 	if outcome == GameEnums.NegotiationOutcome.COMBAT:
-		_NpcSimulator.remember_player_event(
-			enemy_record, "talk_broke_down", _macro_turn_index,
-			player_token.current_hex_coords, -2.0, 5.0
+		event_id = "talk_broke_down"
+		trust_delta = -2.0
+		threat_delta = 5.0
+		next_status = WorldActionNegotiationTransactionService.NO_CHANGE
+		next_relationship = WorldActionNegotiationTransactionService.NO_CHANGE
+	elif outcome == GameEnums.NegotiationOutcome.INTIMIDATED:
+		event_id = "player_intimidated"
+		trust_delta = -3.0
+		threat_delta = 8.0
+		next_status = GameEnums.EntityWorldStatus.WITHDRAWN
+		threat_result = MacroInteractionResolver.resolve_threat_surrender(
+			_world_state.world_seed,
+			enemy_id,
+			attempt,
+			enemy_record.definition,
+			_loot_catalog
 		)
-		_world_state.patch_entity_record(enemy_id, {"runtime": enemy_record.runtime})
+	# Resolve the role against a detached record. The receipt carries only this
+	# semantic default and one memory event, never the caller-owned runtime.
+	var ai: Dictionary = _NpcSimulator.ensure_npc_memory(enemy_record)
+	var request := WorldActionRequest.new()
+	request.actor_id = "player"
+	request.target_id = enemy_id
+	request.target_coords = interaction_coords
+	request.verb_id = WorldActionNegotiationTransactionService.VERB_ID
+	request.expected_actor_revision = _world_state.player_revision
+	request.payload["world_time_minutes"] = _world_state.world_time_minutes
+	var receipt := _world_action_coordinator.resolve_direct_action(
+		request,
+		_time_rules_service.action_minutes("action"),
+		0.1,
+		0.0,
+		"Negotiation outcome committed."
+	)
+	receipt.mutations.append({
+		"type": WorldActionNegotiationTransactionService.MUTATION_TYPE,
+		"expected_enemy_revision": enemy_record.revision,
+		"expected_negotiation_attempt": attempt,
+		"next_negotiation_attempt": attempt + 1,
+		"outcome": outcome,
+		"npc_role_id": str(ai.get("role_id", "salvager")),
+		"memory_event": {
+			"id": event_id,
+			"turn": _macro_turn_index,
+			"coords": player_token.current_hex_coords,
+			"trust_delta": trust_delta,
+			"threat_delta": threat_delta,
+		},
+		"next_world_status": next_status,
+		"next_relationship": next_relationship,
+		"ground_coords": player_token.current_hex_coords,
+		"kept_loadout": threat_result.get("kept_loadout", {}),
+		"created_ground_items": threat_result.get("ground_items", []),
+	})
+	var application := _commit_world_action_receipt(receipt, interaction_coords)
+	if application == null or not application.applied:
+		_world_state.cancel_world_action(receipt.action_id)
+		_show_collision_result(
+			"NEGOTIATION INTERRUPTED",
+			application.error if application != null else "Negotiation was rejected.",
+			""
+		)
+		return
+	if active_enemies.has(interaction_coords):
+		active_enemies[interaction_coords].play_interaction()
+	if outcome == GameEnums.NegotiationOutcome.COMBAT:
 		_request_pending_combat(GameEnums.EncounterContext.DIALOGUE_BREAKDOWN)
 		return
-
 	if outcome == GameEnums.NegotiationOutcome.INTIMIDATED:
-		_NpcSimulator.remember_player_event(
-			enemy_record, "player_intimidated", _macro_turn_index,
-			player_token.current_hex_coords, -3.0, 8.0
-		)
-		_world_state.patch_entity_record(enemy_id, {"runtime": enemy_record.runtime})
-		_world_state.set_entity_world_status(
-			enemy_id,
-			GameEnums.EntityWorldStatus.WITHDRAWN
-		)
-		_world_state.set_relationship(
-			"player", enemy_id, CombatRelationshipLedger.Relation.NEUTRAL
-		)
-		var threat_result: Dictionary = (
-			MacroInteractionResolver.resolve_threat_surrender(
-				_world_state.world_seed,
-				enemy_id,
-				attempt,
-				enemy_record.definition,
-				_loot_catalog
-			)
-		)
-		var definition: Dictionary = enemy_record.definition.duplicate(true)
-		definition["loadout"] = threat_result.get(
-			"kept_loadout",
-			definition.get("loadout", {})
-		)
-		_world_state.patch_entity_record(
-			enemy_id,
-			{"definition": definition}
-		)
-		if not threat_result.get("ground_items", []).is_empty():
-			_world_state.add_ground_items(
-				player_token.current_hex_coords,
-				threat_result.get("ground_items", [])
-			)
-		unload_enemy_token(_pending_interaction.get("coords", Vector2i.ZERO))
+		unload_enemy_token(interaction_coords)
 		_show_collision_result(
 			"THREAT SUCCESS",
 			str(threat_result.get("message", "")),
 			""
 		)
 		return
-
-	_NpcSimulator.remember_player_event(
-		enemy_record, "ceasefire_reached", _macro_turn_index,
-		player_token.current_hex_coords, 3.0, 0.0
-	)
-	_world_state.patch_entity_record(enemy_id, {"runtime": enemy_record.runtime})
-	_world_state.set_entity_world_status(
-		enemy_id,
-		GameEnums.EntityWorldStatus.CEASEFIRE
-	)
-	_world_state.set_relationship(
-		"player", enemy_id, CombatRelationshipLedger.Relation.NEUTRAL
-	)
 	var updated_snapshot := _world_state.get_entity_snapshot(enemy_id)
 	if not updated_snapshot.is_empty() and active_enemies.has(interaction_coords):
 		var updated_record := EntityRecord.from_dict(updated_snapshot)
@@ -4109,14 +4108,6 @@ func _resolve_search(
 		preferred_target_id,
 		work_hit_success_window
 	)
-
-
-func _deplete_rubble_after_search(
-	coords: Vector2i,
-	target_id: String,
-	actor_id: String
-) -> void:
-	_search_resource_service.deplete(coords, target_id, actor_id)
 
 
 func _commit_search_transaction(payload: Dictionary) -> bool:

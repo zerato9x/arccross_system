@@ -96,11 +96,13 @@ Status updated on **August 25, 2026**:
   handoff. The `duel_12x1` and `skirmish_6x3` resources remain Lab/compatibility
   fixtures only; former real-time/duel-lane material is historical reference.
 - **August 25 world-action checkpoint:** medical treatment, inventory, POI gear,
-  CAMP, movement, player SEARCH, and NPC work now stage semantic mutations from
-  canonical records inside the atomic receipt boundary. Destroyed vital limbs
-  persist and reconcile terminal death. See the
+  CAMP, movement, player SEARCH, NPC work, and negotiation now stage semantic mutations from
+  canonical records inside the atomic receipt boundary. Completed NPC SEARCH
+  now commits depletion, disturbance trace, deterministic salvage ownership,
+  knowledge, revisions, time, and reservation release as one receipt. Destroyed
+  vital limbs persist and reconcile terminal death. See the
   [checkpoint audit](design/WORLD_ACTION_TRANSACTION_CHECKPOINT_AUDIT.md) for
-  verified scope and the remaining NPC SEARCH atomicity gap.
+  verified scope and remaining live-acceptance boundary.
 - **Active world track:** [Hex World Generator V2](design/HEX_WORLD_GENERATOR_V2.md).
 - **Campaign framing:** [Central Core Campaign Overhaul](design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
@@ -137,14 +139,13 @@ Status updated on **August 25, 2026**:
 - Core state is decoupled into `BodyState`, `HumanoidState`, `InventoryState`,
   `EntityRecord`, and `HexRecord`.
 - Automated smoke scripts cover the vertical slice and focused system contracts.
+  The current Godot 4.7.1 SceneTree gate passes `141/141`.
 
 ### Known Gaps
 
-- Completed NPC SEARCH still applies rubble depletion and salvage after its
-  work receipt; that post-commit pair is the next P0 transaction correction.
-- `MacroGameManager` and `WorldActionApplicationService` remain concentration
-  points. Further extraction must preserve one rollback/commit authority rather
-  than breeding smaller god objects with matching hats.
+- `MacroGameManager` remains a concentration point. Further extraction must
+  preserve explicit authority boundaries instead of breeding smaller god
+  objects with matching hats.
 - Health/inventory presentation and physical input friction have not yet had a
   dedicated live player-facing acceptance pass after the authority changes.
 - Service-rifle scope data is present, but macro **SNIPE** remains unimplemented.

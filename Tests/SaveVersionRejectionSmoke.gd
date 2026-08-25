@@ -12,7 +12,7 @@ func _run() -> void:
 	if fixture == null:
 		_fail("Could not create the obsolete-save fixture.")
 		return
-	fixture.store_string(JSON.stringify({"version": RuntimeStateStore.SAVE_VERSION - 2}))
+	fixture.store_string(JSON.stringify({"version": 11}))
 	fixture.close()
 	var world_state := root.get_node("WorldState") as RuntimeStateStore
 	var accepted := world_state.load_from_disk(FIXTURE_PATH)

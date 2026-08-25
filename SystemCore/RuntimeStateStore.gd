@@ -14,11 +14,12 @@ signal save_completed(path: String)
 signal load_completed(path: String)
 signal persistence_failed(operation: String, message: String)
 
-const SAVE_VERSION: int = 14
-const MIGRATABLE_SAVE_VERSIONS: Array[int] = [12, 13]
+const SAVE_VERSION: int = 15
+const MIGRATABLE_SAVE_VERSIONS: Array[int] = [12, 13, 14]
 const WORLD_GENERATION_VERSION: int = 3
 const DEFAULT_SAVE_PATH: String = "user://arccross_run.json"
 const VARIANT_TYPE_KEY: String = "__arccross_type"
+const _NO_STATE_CHANGE := -1
 const ENTITY_PATCH_KEYS := [
 	"owner_id",
 	"revision",
@@ -663,6 +664,95 @@ func patch_entity_record(entity_id: String, patch: Dictionary) -> bool:
 		return false
 	return true
 
+
+func commit_negotiation_outcome(proposal: Dictionary) -> bool:
+	## Applies the target actor, relationship, and newly-created surrender gear
+	## as one canonical transaction. The outer receipt boundary can still roll
+	## this back together with player biology, time, signals, and reservations.
+	var entity_id := str(proposal.get("enemy_id", ""))
+	if entity_id.is_empty() or not entity_records.has(entity_id):
+		return false
+	var record := entity_records[entity_id] as EntityRecord
+	if (
+		record == null
+		or record.life_state != GameEnums.EntityLifeState.ALIVE
+		or record.world_status != GameEnums.EntityWorldStatus.HOSTILE
+	):
+		return false
+	var expected_revision := int(proposal.get("expected_enemy_revision", -1))
+	var expected_attempt := int(proposal.get("expected_negotiation_attempt", -1))
+	var next_attempt := int(proposal.get("next_negotiation_attempt", -1))
+	var next_status := int(proposal.get(
+		"next_world_status", _NO_STATE_CHANGE
+	))
+	var next_relationship := int(proposal.get(
+		"next_relationship", _NO_STATE_CHANGE
+	))
+	var next_runtime_value: Variant = proposal.get("next_runtime", {})
+	var next_definition_value: Variant = proposal.get("next_definition", {})
+	var created_items_value: Variant = proposal.get("created_ground_items", [])
+	if (
+		record.revision != expected_revision
+		or record.negotiation_attempts != expected_attempt
+		or next_attempt != expected_attempt + 1
+		or not next_runtime_value is Dictionary
+		or not next_definition_value is Dictionary
+		or not created_items_value is Array
+	):
+		return false
+	if (
+		next_status != _NO_STATE_CHANGE
+		and next_status not in GameEnums.EntityWorldStatus.values()
+	):
+		return false
+	if (
+		next_relationship != _NO_STATE_CHANGE
+		and next_relationship not in CombatRelationshipLedger.Relation.values()
+	):
+		return false
+	var created_items: Array = created_items_value
+	var created_ids: Dictionary = {}
+	for item_value in created_items:
+		if not item_value is Dictionary:
+			return false
+		var state_ids := runtime_item_ids({"inventory_items": [item_value]})
+		if state_ids.is_empty():
+			return false
+		for instance_id in state_ids:
+			if (
+				instance_id.is_empty()
+				or created_ids.has(instance_id)
+				or not find_item_ownership(instance_id).is_empty()
+			):
+				return false
+			created_ids[instance_id] = true
+	var transaction := capture_reconciliation_snapshot()
+	record.runtime = (next_runtime_value as Dictionary).duplicate(true)
+	record.definition = (next_definition_value as Dictionary).duplicate(true)
+	record.negotiation_attempts = next_attempt
+	var ground_coords: Variant = proposal.get("coords", record.coords)
+	if not ground_coords is Vector2i:
+		return false
+	if next_status != _NO_STATE_CHANGE:
+		record.world_status = next_status
+	record.revision = expected_revision + 1
+	record.last_simulated_minute = world_time_minutes
+	_normalize_entity_coordinate_index(record)
+	if next_relationship != _NO_STATE_CHANGE:
+		var ledger := CombatRelationshipLedger.from_dict(relationship_state)
+		ledger.set_relation("player", entity_id, next_relationship)
+		relationship_state = ledger.to_dict()
+	if not created_items.is_empty() and not add_ground_items(
+		ground_coords, created_items
+	):
+		restore_reconciliation_snapshot(transaction)
+		return false
+	var integrity_errors := validate_integrity()
+	if not integrity_errors.is_empty():
+		restore_reconciliation_snapshot(transaction)
+		return false
+	return true
+
 func _preserved_runtime_keys(runtime_state: Dictionary) -> Dictionary:
 	var preserved: Dictionary = {}
 	for key in runtime_state.keys():
@@ -915,6 +1005,20 @@ func commit_entity_runtime_with_ground_delta(
 		coords,
 		ground_remove_ids,
 		ground_additions
+	)
+
+
+func commit_entity_runtime_with_created_items(
+	entity_id: String,
+	destination_runtime: Dictionary,
+	destination_knowledge: Dictionary,
+	created_items: Array
+) -> bool:
+	return _ensure_item_ownership_ledger().commit_entity_runtime_with_created_items(
+		entity_id,
+		destination_runtime,
+		destination_knowledge,
+		created_items
 	)
 
 
@@ -1943,7 +2047,38 @@ func _migrate_save_snapshot(snapshot: Dictionary, from_version: int) -> Dictiona
 				node_snapshot.get("active_world_actions", {}), str(node_id)
 			)
 			migrated["node_runtime_snapshots"][node_id] = node_snapshot
+	if from_version in [12, 13, 14]:
+		migrated = _retire_legacy_world_receipts(migrated)
 		migrated["version"] = SAVE_VERSION
+	return migrated
+
+
+func _retire_legacy_world_receipts(value: Variant) -> Variant:
+	if value is Array:
+		var migrated_array: Array = []
+		for entry in value:
+			migrated_array.append(_retire_legacy_world_receipts(entry))
+		return migrated_array
+	if not value is Dictionary:
+		return value
+	var migrated: Dictionary = {}
+	for key in value.keys():
+		migrated[key] = _retire_legacy_world_receipts(value[key])
+	if (
+		migrated.has("receipt_id")
+		and migrated.has("action_id")
+		and migrated.get("mutations", []) is Array
+	):
+		migrated.erase("actor_state")
+		var mutations: Array = []
+		for mutation_value in migrated.get("mutations", []):
+			if (
+				mutation_value is Dictionary
+				and str(mutation_value.get("type", "")) == "replace_actor_runtime"
+			):
+				continue
+			mutations.append(mutation_value)
+		migrated["mutations"] = mutations
 	return migrated
 
 

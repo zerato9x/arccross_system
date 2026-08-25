@@ -148,7 +148,6 @@ func _test_malformed_receipts() -> bool:
 			"duplicate":
 				receipt.mutations.append(receipt.mutations[1].duplicate(true))
 			"replacement":
-				receipt.actor_state = store.player_record.runtime.duplicate(true)
 				receipt.mutations.append({"type": "replace_actor_runtime"})
 			"wrong_method":
 				receipt.method_id = "live-first-nonsense"

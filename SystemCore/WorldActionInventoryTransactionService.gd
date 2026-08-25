@@ -51,8 +51,6 @@ func validation_error(receipt: WorldActionReceipt) -> String:
 		return "World-action inventory actions only support the player actor."
 	if receipt.method_id != METHOD_ID:
 		return "World-action inventory action has the wrong method."
-	if not receipt.actor_state.is_empty():
-		return "World-action inventory action contains a replacement actor runtime."
 	var mutation := inventory_mutations[0]
 	var instance_id := str(mutation.get("instance_id", ""))
 	var action_id := str(mutation.get("action_id", ""))

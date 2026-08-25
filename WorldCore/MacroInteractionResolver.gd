@@ -565,6 +565,9 @@ static func resolve_threat_surrender(
 		)
 		if item_state.is_empty():
 			continue
+		item_state["instance_id"] = _threat_drop_instance_id(
+			world_seed, enemy_id, attempt, "loadout:%s:%s" % [key, path]
+		)
 		ground_items.append(item_state)
 		var item := ItemData.from_runtime_state(item_state)
 		dropped_names.append(item.display_name)
@@ -572,7 +575,8 @@ static func resolve_threat_surrender(
 
 	var starting_items: Array = loadout.get("starting_items", []).duplicate()
 	var kept_starting: Array = []
-	for path_value in starting_items:
+	for starting_index in range(starting_items.size()):
+		var path_value: Variant = starting_items[starting_index]
 		var path := str(path_value)
 		if path.is_empty():
 			continue
@@ -586,6 +590,12 @@ static func resolve_threat_surrender(
 		if item_state.is_empty():
 			kept_starting.append(path)
 			continue
+		item_state["instance_id"] = _threat_drop_instance_id(
+			world_seed,
+			enemy_id,
+			attempt,
+			"starting:%d:%s" % [starting_index, path]
+		)
 		ground_items.append(item_state)
 		var item := ItemData.from_runtime_state(item_state)
 		dropped_names.append(item.display_name)
@@ -610,3 +620,15 @@ static func resolve_threat_surrender(
 		"ground_items": ground_items,
 		"kept_loadout": kept_loadout,
 	}
+
+
+static func _threat_drop_instance_id(
+	world_seed: String,
+	enemy_id: String,
+	attempt: int,
+	slot_identity: String
+) -> String:
+	var identity := "%s|%s|%d|%s" % [
+		world_seed, enemy_id, attempt, slot_identity
+	]
+	return "item_negotiation_" + identity.sha256_text().substr(0, 24)

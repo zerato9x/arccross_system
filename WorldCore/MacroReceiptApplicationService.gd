@@ -45,6 +45,14 @@ func commit(
 	if receipt == null or not receipt.committed or world_state == null:
 		rejected.error = "World-action receipt is unavailable."
 		return rejected
+	# Replays must reach the atomic boundary unchanged. Re-preparing an already
+	# applied receipt would rewrite its revisions and create a fresh reservation,
+	# turning idempotence into a surprisingly elaborate duplication machine.
+	if (
+		not receipt.receipt_id.is_empty()
+		and world_state.has_applied_world_receipt(receipt.receipt_id)
+	):
+		return _application_service.apply(receipt)
 	_prepare_receipt(receipt, coords, target, actor_id)
 	var application := _application_service.apply(receipt)
 	if not application.applied:

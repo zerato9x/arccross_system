@@ -70,7 +70,9 @@ profile.
   with disposable-state authority recorded in the
   [World State Reconciliation Audit](READMEs/design/WORLD_STATE_RECONCILIATION_AUDIT.md).
 - **World-action checkpoint:** medical, inventory, POI gear, CAMP, movement,
-  SEARCH, NPC work, and destroyed-vital persistence are recorded in the
+  player/NPC SEARCH, NPC work, atomic negotiation, deterministic salvage and
+  surrender ownership, save-v15
+  migration, and destroyed-vital persistence are recorded in the
   [World Action Transaction Checkpoint Audit](READMEs/design/WORLD_ACTION_TRANSACTION_CHECKPOINT_AUDIT.md).
 - **Campaign framing:** [Central Core Campaign Overhaul](READMEs/design/CENTRAL_CORE_CAMPAIGN_OVERHAUL.md).
 
@@ -122,12 +124,11 @@ profile.
 - `CombatCore/CombatModeComparison.tscn` is the topology lab (`F1` legacy
   `12 x 1`, `F2` `7 x 5`) and never saves laboratory state. The lab exercises
   the same tactical scene; it does not create a second combat rules engine.
-- Automated smoke scripts cover the vertical slice and focused system contracts.
+- Automated smoke scripts cover the vertical slice and focused system contracts;
+  the current Godot 4.7.1 SceneTree gate passes `141/141`.
 
 ### Known Gaps
 
-- Completed NPC SEARCH still performs rubble depletion and salvage after its
-  work receipt; it is the next atomic transaction correction.
 - Health/inventory presentation and physical-input friction need a dedicated
   live acceptance pass after the authority work.
 - Macro **SNIPE** remains unimplemented; service-rifle scope data is metadata
