@@ -38,13 +38,11 @@ enum WorkSurface {
 
 var exploration_window: MacroExplorationWindow
 ## Fullscreen Node Map System (independent of MacroHudShell).
-var node_map_system: CanvasLayer
+var node_map_system: CanvasLayer:
+	get:
+		return _work_surface_coordinator.node_map_system
 ## Directional campaign-web progression and local-zone ownership.
 var campaign: MacroProgressController
-var _node_map_inventory_layer_restore := 1
-var _inventory_home_layer: CanvasLayer
-var _node_map_overlay_layer: CanvasLayer
-var _node_map_medical: Control
 var _movement_trail: MacroMovementTrail
 
 @export_group("Proximity Loading")
@@ -97,8 +95,10 @@ var _world_action_execution_service := _WorldActionExecutionService.new()
 var _receipt_application_service := _ReceiptApplicationService.new()
 var _world_bootstrap_service := _BootstrapService.new()
 var _active_zone_service := _ActiveZoneService.new()
+var _work_surface_coordinator := _WorkSurfaceCoordinator.new()
 var _world_bootstrapped := false
 var _movement_service := MacroMovementService.new()
+var _player_movement := _PlayerMovementCoordinator.new(self)
 var _turn_resolution := _TurnResolutionState.new()
 var _visibility_service := MacroVisibilityService.new()
 var _time_rules_service := MacroTimeRulesService.new()
@@ -160,6 +160,9 @@ const _SnapshotBuilder := preload("res://WorldCore/MacroSnapshotBuilder.gd")
 const _TurnResolutionState := preload(
 	"res://WorldCore/MacroTurnResolutionState.gd"
 )
+const _PlayerMovementCoordinator := preload(
+	"res://WorldCore/MacroPlayerMovementCoordinator.gd"
+)
 const _PoiController := preload("res://WorldCore/MacroPoiController.gd")
 const _HexPresentation := preload("res://PresentationCore/HexPresentationDescriptor.gd")
 const _NpcSimulator := preload("res://WorldCore/MacroNpcSimulator.gd")
@@ -172,6 +175,9 @@ const _ReceiptApplicationService := preload(
 )
 const _BootstrapService := preload("res://WorldCore/MacroWorldBootstrapService.gd")
 const _ActiveZoneService := preload("res://WorldCore/MacroActiveZoneService.gd")
+const _WorkSurfaceCoordinator := preload(
+	"res://WorldCore/MacroWorkSurfaceCoordinator.gd"
+)
 const _NpcRuntimeService := preload("res://WorldCore/MacroNpcRuntimeService.gd")
 const _NpcTurnService := preload("res://WorldCore/MacroNpcTurnService.gd")
 const _NpcPerceptionService := preload(
@@ -213,9 +219,6 @@ const _ShelterProfile: ShelterProgressionProfile = preload(
 	"res://WorldCore/default_shelter_progression_profile.tres"
 )
 const _PlotDirector := preload("res://WorldCore/NpcPlotDirector.gd")
-const _NODE_MAP_INVENTORY_LAYER := 36
-const _NODE_MAP_OVERLAY_LAYER := 36
-
 func configure_services(
 	world_state: RuntimeStateStore,
 	loot_catalog: Node
@@ -543,26 +546,12 @@ func debug_print_campaign_map() -> String:
 
 
 func _ensure_node_map_system() -> void:
-	if node_map_system != null:
-		return
-	var packed := node_map_system_scene
-	if packed == null:
-		push_error("MacroGameManager requires an authored node_map_system_scene.")
-		return
-	node_map_system = packed.instantiate() as CanvasLayer
-	node_map_system.name = "NodeMapSystem"
-	add_child(node_map_system)
-	node_map_system.connect("closed", _on_node_map_closed)
-	node_map_system.connect("enter_node_requested", _on_node_map_enter_requested)
-	node_map_system.connect("advance_requested", _on_node_map_advance_requested)
-	node_map_system.connect("inventory_requested", _on_node_map_inventory_requested)
-	node_map_system.connect("medical_requested", _on_node_map_medical_requested)
+	_work_surface_coordinator.ensure_node_map_system()
 
 
 func open_node_map() -> void:
 	if _is_player_movement_active():
 		return
-	_close_ordinary_work_surfaces(WorkSurface.NODE_MAP)
 	_pending_exit_direction = GameEnums.MacroTravelDirection.NONE
 	_open_node_map_with_context()
 
@@ -570,18 +559,12 @@ func open_node_map() -> void:
 func _open_node_map_with_context() -> void:
 	if _is_player_movement_active():
 		return
-	_close_ordinary_work_surfaces(WorkSurface.NODE_MAP)
 	_ensure_campaign()
-	_ensure_node_map_system()
-	if node_map_system == null:
-		return
-	node_map_system.call("open", build_node_map_ui_snapshot())
-	_emit_work_surface_changed()
+	_work_surface_coordinator.open_node_map(build_node_map_ui_snapshot())
 
 
 func close_node_map() -> void:
-	if node_map_system != null and bool(node_map_system.call("is_open")):
-		node_map_system.call("close")
+	_work_surface_coordinator.close_node_map()
 
 
 func toggle_node_map() -> void:
@@ -592,39 +575,18 @@ func toggle_node_map() -> void:
 
 
 func is_node_map_open() -> bool:
-	return node_map_system != null and bool(node_map_system.call("is_open"))
+	return _work_surface_coordinator.is_node_map_open()
 
 
 func get_active_work_surface() -> int:
-	if is_node_map_open():
-		return WorkSurface.NODE_MAP
-	if (
-		macro_hud != null
-		and macro_hud.is_event_open()
-	) or (
-		_pending_interaction.get("type", GameEnums.MacroInteractionType.NONE)
-		in [
-			GameEnums.MacroInteractionType.MACRO_EVENT,
-			GameEnums.MacroInteractionType.ENTITY_COLLISION,
-		]
-	):
-		return WorkSurface.EVENT
-	if inventory_panel != null and inventory_panel.is_open():
-		return WorkSurface.INVENTORY
-	if macro_hud == null:
-		return WorkSurface.NONE
-	match macro_hud.get_active_primary_surface():
-		&"health":
-			return WorkSurface.HEALTH
-		&"here":
-			return WorkSurface.HERE
-		&"hex_map":
-			return WorkSurface.HEX_MAP
-		&"settings":
-			return WorkSurface.SETTINGS
-		&"save_load":
-			return WorkSurface.SAVE_LOAD
-	return WorkSurface.NONE
+	var interaction_type := int(_pending_interaction.get(
+		"type", GameEnums.MacroInteractionType.NONE
+	))
+	var event_pending := interaction_type in [
+		GameEnums.MacroInteractionType.MACRO_EVENT,
+		GameEnums.MacroInteractionType.ENTITY_COLLISION,
+	]
+	return _work_surface_coordinator.active_surface(event_pending)
 
 
 func blocks_world_commands() -> bool:
@@ -653,37 +615,13 @@ func turn_resolution_snapshot() -> Dictionary:
 
 
 func close_active_work_surface() -> bool:
-	if is_node_map_open():
-		if _node_map_medical != null and _node_map_medical.visible:
-			_close_node_map_medical()
-			return true
-		if (
-			inventory_panel != null
-			and inventory_panel.is_open()
-			and _inventory_home_layer != null
-			and _inventory_home_layer.layer == _NODE_MAP_INVENTORY_LAYER
-		):
-			inventory_panel.close_top_surface()
-			return true
-		close_node_map()
-		return true
-	if macro_hud != null and macro_hud.is_event_open():
-		close_macro_interaction()
-		return true
-	if inventory_panel != null and inventory_panel.is_open():
-		inventory_panel.close_top_surface()
-		return true
-	if macro_hud != null and macro_hud.close_active_primary_surface():
-		return true
-	return false
+	return _work_surface_coordinator.close_active_surface()
 
 
 func open_hex_world_map() -> void:
 	if _is_player_movement_active() or macro_hud == null or macro_hud.is_event_open():
 		return
-	_close_ordinary_work_surfaces(WorkSurface.HEX_MAP)
-	macro_hud.open_hex_world_map()
-	_emit_work_surface_changed()
+	_work_surface_coordinator.open_hex_world_map()
 
 
 func _on_hex_world_map_selected(coords: Vector2i) -> void:
@@ -708,29 +646,7 @@ func _emit_work_surface_changed() -> void:
 
 
 func _close_ordinary_work_surfaces(except: int = WorkSurface.NONE) -> void:
-	if except != WorkSurface.NODE_MAP and is_node_map_open():
-		close_node_map()
-	if (
-		except != WorkSurface.INVENTORY
-		and inventory_panel != null
-		and inventory_panel.is_open()
-	):
-		inventory_panel.close_panel(false)
-	if macro_hud != null:
-		var hud_except := &""
-		match except:
-			WorkSurface.HEALTH:
-				hud_except = &"health"
-			WorkSurface.HERE:
-				hud_except = &"here"
-			WorkSurface.HEX_MAP:
-				hud_except = &"hex_map"
-			WorkSurface.SETTINGS:
-				hud_except = &"settings"
-			WorkSurface.SAVE_LOAD:
-				hud_except = &"save_load"
-		macro_hud.close_primary_surfaces(hud_except)
-	_emit_work_surface_changed()
+	_work_surface_coordinator.close_ordinary_surfaces(except)
 
 
 ## Full graph + player presentation for the fullscreen Node Map System window.
@@ -758,7 +674,7 @@ func build_node_map_ui_snapshot() -> Dictionary:
 
 
 func _on_node_map_closed() -> void:
-	_close_node_map_overlays()
+	_work_surface_coordinator.close_node_map_overlays()
 	_pending_exit_direction = GameEnums.MacroTravelDirection.NONE
 	_emit_work_surface_changed()
 
@@ -769,137 +685,42 @@ func _on_node_map_enter_requested(node_id: String) -> void:
 		_refresh_world_hud()
 		close_node_map()
 	elif is_node_map_open():
-		node_map_system.call("refresh", build_node_map_ui_snapshot())
+		_work_surface_coordinator.refresh_node_map(build_node_map_ui_snapshot())
 
 
 func _on_node_map_advance_requested() -> void:
 	# The legacy global "advance" button cannot bypass directional travel.
 	_last_macro_event = "Choose an eligible adjacent node from the directional web."
 	if is_node_map_open():
-		node_map_system.call("refresh", build_node_map_ui_snapshot())
+		_work_surface_coordinator.refresh_node_map(build_node_map_ui_snapshot())
 
 
 func _on_node_map_inventory_requested() -> void:
-	if inventory_panel == null:
-		return
-	_close_node_map_medical(false)
-	if macro_hud:
-		var corner := macro_hud.get_inventory_corner_panel()
-		if corner != null and corner.is_expanded():
-			corner.collapse()
-	if _inventory_home_layer == null:
-		_inventory_home_layer = inventory_panel.get_parent() as CanvasLayer
-	if (
-		_inventory_home_layer != null
-		and inventory_panel.get_parent() != _inventory_home_layer
-	):
-		inventory_panel.reparent(_inventory_home_layer)
-	var snapshot := _build_inventory_snapshot()
-	if _inventory_home_layer:
-		_node_map_inventory_layer_restore = _inventory_home_layer.layer
-	inventory_panel.open_inventory(snapshot)
-	if _inventory_home_layer:
-		_inventory_home_layer.layer = _NODE_MAP_INVENTORY_LAYER
+	_work_surface_coordinator.open_node_map_inventory()
 
 
 func _on_node_map_medical_requested() -> void:
-	if inventory_panel != null and inventory_panel.is_open():
-		inventory_panel.close_panel(false)
-		_restore_node_map_inventory_layer()
-	_ensure_node_map_overlay_layer()
-	if _node_map_medical == null:
-		if node_map_medical_scene == null:
-			push_error("MacroGameManager requires an authored node_map_medical_scene.")
-			return
-		var host := Control.new()
-		host.name = "NodeMapMedicalHost"
-		host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		host.mouse_filter = Control.MOUSE_FILTER_STOP
-		_node_map_overlay_layer.add_child(host)
-
-		var dim := ColorRect.new()
-		dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		dim.color = Color(0, 0, 0, 0.55)
-		dim.mouse_filter = Control.MOUSE_FILTER_STOP
-		host.add_child(dim)
-
-		_node_map_medical = node_map_medical_scene.instantiate() as Control
-		_node_map_medical.set("display_mode", 1)
-		host.add_child(_node_map_medical)
-		_node_map_medical.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		_node_map_medical.offset_left = 48.0
-		_node_map_medical.offset_top = 48.0
-		_node_map_medical.offset_right = -48.0
-		_node_map_medical.offset_bottom = -72.0
-		_node_map_medical.connect("limb_treatment_requested", _on_medical_action_requested)
-
-		var close_button := Button.new()
-		close_button.name = "CloseMedicalButton"
-		close_button.text = "Close Medical"
-		close_button.custom_minimum_size = HUDAssetLibrary.macro_button_minimum_size(140.0)
-		HUDAssetLibrary.apply_button(close_button, "pass")
-		close_button.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-		close_button.offset_left = -180.0
-		close_button.offset_top = -52.0
-		close_button.offset_right = -48.0
-		close_button.offset_bottom = -20.0
-		close_button.pressed.connect(_close_node_map_medical)
-		host.add_child(close_button)
-	var snapshot := _build_world_hud_snapshot()
-	var inventory_snapshot := _build_inventory_snapshot()
-	snapshot["equipment"] = inventory_snapshot.get("equipment", [])
-	snapshot["containers"] = inventory_snapshot.get("containers", [])
-	snapshot["backpack"] = inventory_snapshot.get("backpack", [])
-	snapshot["current_capacity"] = inventory_snapshot.get("current_capacity", 0)
-	snapshot["maximum_capacity"] = inventory_snapshot.get("maximum_capacity", 0)
-	snapshot["loadout_stats"] = inventory_snapshot.get("loadout_stats", {})
-	_node_map_medical.call("apply_snapshot", snapshot)
-	_node_map_medical.visible = true
-	_node_map_overlay_layer.visible = true
+	_work_surface_coordinator.open_node_map_medical()
 
 
 func _on_node_map_medical_closed() -> void:
-	if _node_map_overlay_layer:
-		_node_map_overlay_layer.visible = (
-			_node_map_medical != null and _node_map_medical.visible
-		)
+	return
 
 
 func _ensure_node_map_overlay_layer() -> void:
-	if _node_map_overlay_layer != null:
-		return
-	_node_map_overlay_layer = CanvasLayer.new()
-	_node_map_overlay_layer.name = "NodeMapOverlayLayer"
-	_node_map_overlay_layer.layer = _NODE_MAP_OVERLAY_LAYER
-	_node_map_overlay_layer.process_mode = Node.PROCESS_MODE_ALWAYS
-	add_child(_node_map_overlay_layer)
+	_work_surface_coordinator.ensure_node_map_overlay_layer()
 
 
 func _close_node_map_medical(_emit_closed: bool = true) -> void:
-	if _node_map_medical == null or not _node_map_medical.visible:
-		return
-	_node_map_medical.visible = false
-	if _node_map_overlay_layer:
-		_node_map_overlay_layer.visible = false
+	_work_surface_coordinator.close_node_map_medical(_emit_closed)
 
 
 func _close_node_map_overlays() -> void:
-	if inventory_panel != null and inventory_panel.is_open():
-		# Only auto-close inventory if it was raised for the node map.
-		if (
-			_inventory_home_layer != null
-			and _inventory_home_layer.layer == _NODE_MAP_INVENTORY_LAYER
-		):
-			inventory_panel.close_panel(false)
-	_restore_node_map_inventory_layer()
-	_close_node_map_medical(false)
+	_work_surface_coordinator.close_node_map_overlays()
 
 
 func _restore_node_map_inventory_layer() -> void:
-	if _inventory_home_layer == null:
-		return
-	if _inventory_home_layer.layer == _NODE_MAP_INVENTORY_LAYER:
-		_inventory_home_layer.layer = _node_map_inventory_layer_restore
+	_work_surface_coordinator.restore_node_map_inventory_layer()
 
 
 func _on_campaign_node_entered(node_id: String) -> void:
@@ -1140,12 +961,12 @@ func _ready() -> void:
 	else:
 		push_error("[MacroGameManager] Missing exploration_window_scene.")
 
+	_configure_work_surface_coordinator()
 	_ensure_node_map_system()
 
 	if inventory_panel:
 		inventory_panel.inventory_action_requested.connect(resolve_inventory_action)
 		inventory_panel.inventory_closed.connect(_on_inventory_closed)
-		_inventory_home_layer = inventory_panel.get_parent() as CanvasLayer
 
 	if macro_hud:
 		macro_hud.inventory_requested.connect(_toggle_fullscreen_inventory)
@@ -1179,6 +1000,36 @@ func _ready() -> void:
 	if not _world_bootstrapped:
 		_bootstrap_world()
 	_connect_world_time_lighting()
+
+
+func _configure_work_surface_coordinator() -> void:
+	_work_surface_coordinator.configure(
+		self,
+		inventory_panel,
+		macro_hud,
+		node_map_system_scene,
+		node_map_medical_scene,
+		{
+			"node_map_closed": Callable(self, "_on_node_map_closed"),
+			"node_map_enter_requested": Callable(
+				self, "_on_node_map_enter_requested"
+			),
+			"node_map_advance_requested": Callable(
+				self, "_on_node_map_advance_requested"
+			),
+			"build_inventory_snapshot": Callable(
+				self, "_build_inventory_snapshot"
+			),
+			"build_world_hud_snapshot": Callable(
+				self, "_build_world_hud_snapshot"
+			),
+			"medical_action_requested": Callable(
+				self, "_on_medical_action_requested"
+			),
+			"close_interaction": Callable(self, "close_macro_interaction"),
+			"surface_changed": Callable(self, "_emit_work_surface_changed"),
+		}
+	)
 
 
 func _ensure_macro_input_actions() -> void:
@@ -1409,16 +1260,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			and not event.echo
 			and event.is_action_pressed("macro_cancel")
 		):
-			if _node_map_medical != null and _node_map_medical.visible:
+			if _work_surface_coordinator.is_node_map_medical_open():
 				_close_node_map_medical()
 				get_viewport().set_input_as_handled()
 				return
-			if (
-				inventory_panel != null
-				and inventory_panel.is_open()
-				and _inventory_home_layer != null
-				and _inventory_home_layer.layer == _NODE_MAP_INVENTORY_LAYER
-			):
+			if _work_surface_coordinator.is_node_map_inventory_open():
 				inventory_panel.close_top_surface()
 				get_viewport().set_input_as_handled()
 				return
@@ -1524,53 +1370,7 @@ func _execute_player_step(
 	animate: bool = true,
 	continuation: bool = false
 ) -> void:
-	if not continuation and blocks_world_commands() and (
-		animate or not _pending_player_step.is_empty()
-	):
-		return
-	if continuation and not _turn_resolution.is_active():
-		return
-	if not world_generator.is_in_zone_bounds(target_coords):
-		if _is_player_movement_active():
-			_finish_player_movement("MOVEMENT FAILED // OUTSIDE THIS ZONE", "failed")
-			return
-		_try_begin_directional_exit(player_token.current_hex_coords, target_coords)
-		return
-	var origin_coords := player_token.current_hex_coords
-	var target_hex := world_generator.get_hex_at(target_coords)
-	if not target_hex.is_passable():
-		_finish_player_movement("MOVEMENT FAILED // HEX IS NOT PASSABLE", "failed")
-		return
-	if not animate:
-		if _is_player_movement_active():
-			return
-		_select_hex_for_hud(target_coords)
-		player_token.snap_to_hex(target_coords, map_visualizer.map_to_local(target_coords))
-		_commit_player_step(origin_coords, target_coords)
-		return
-	if not bool(_movement_state.get("active", false)):
-		_begin_player_route([target_coords], "travel", true)
-	_movement_state["phase"] = "walking"
-	_movement_state["current_coords"] = origin_coords
-	_movement_state["step_target_coords"] = target_coords
-	_movement_state["message"] = "TURN RESOLVE // WALKING TO HEX %d,%d..." % [
-		target_coords.x,
-		target_coords.y,
-	]
-	_movement_debug_mark("next route step start")
-	var pixel_pos = map_visualizer.map_to_local(target_coords)
-	var movement_id := player_token.walk_to_hex(target_coords, pixel_pos)
-	_pending_player_step = {
-		"kind": "travel",
-		"resolution_id": int(_movement_state.get("resolution_id", 0)),
-		"movement_id": movement_id,
-		"from": origin_coords,
-		"to": target_coords,
-		"started_minute": _world_state.world_time_minutes,
-	}
-	_movement_state["can_cancel"] = true
-	_last_macro_event = _movement_state["message"]
-	_refresh_world_hud()
+	_player_movement.execute_step(target_coords, animate, continuation)
 
 
 func _begin_player_route(
@@ -1578,31 +1378,7 @@ func _begin_player_route(
 	kind: String = "travel",
 	can_cancel: bool = true
 ) -> void:
-	if route.is_empty() or player_token == null:
-		return
-	_travel_route = route.duplicate()
-	_travel_route_total_steps = _travel_route.size()
-	_travel_completed_steps = 0
-	_route_cancel_requested = false
-	var origin_coords := player_token.current_hex_coords
-	var destination_coords: Vector2i = _travel_route[_travel_route.size() - 1]
-	var resolution_id := _turn_resolution.begin(
-		kind,
-		origin_coords,
-		destination_coords,
-		_travel_route_total_steps,
-		can_cancel
-	)
-	if resolution_id == 0:
-		_reset_route_bookkeeping()
-		return
-	_movement_state["step_target_coords"] = _travel_route[0]
-	_movement_state["message"] = (
-		"TURN RESOLVE // WALKING // ROUTE %d STEP(S)"
-		% _travel_route_total_steps
-	)
-	_movement_debug_mark("movement request accepted")
-	_refresh_world_hud()
+	_player_movement.begin_route(route, kind, can_cancel)
 
 
 func _on_player_movement_started(
@@ -1610,9 +1386,7 @@ func _on_player_movement_started(
 	target_coords: Vector2i,
 	_movement_id: int
 ) -> void:
-	_movement_debug_mark(
-		"tween started %s -> %s" % [str(from_coords), str(target_coords)]
-	)
+	_player_movement.movement_started(from_coords, target_coords, _movement_id)
 
 
 func _on_player_movement_arrived(
@@ -1620,36 +1394,7 @@ func _on_player_movement_arrived(
 	target_coords: Vector2i,
 	movement_id: int
 ) -> void:
-	if _pending_player_step.is_empty():
-		return
-	if int(_pending_player_step.get("movement_id", -1)) != movement_id:
-		return
-	var resolution_id := int(_pending_player_step.get("resolution_id", 0))
-	if resolution_id != int(_movement_state.get("resolution_id", 0)):
-		return
-	_movement_debug_mark(
-		"arrival signal %s -> %s" % [str(from_coords), str(target_coords)]
-	)
-	_turn_resolution.set_phase(
-		"resolving",
-		"TURN RESOLVE // ARRIVAL COMMIT AT HEX %d,%d..." % [
-			target_coords.x,
-			target_coords.y,
-		]
-	)
-	_movement_state["current_coords"] = target_coords
-	_movement_state["step_target_coords"] = target_coords
-	_refresh_world_hud()
-	# Keep the pending step alive for the transaction boundary. Deferring one
-	# frame makes RESOLVING observable and prevents post-arrival projection work
-	# from hiding the end of the authored walk.
-	call_deferred(
-		"_resolve_arrived_player_step",
-		movement_id,
-		from_coords,
-		target_coords,
-		resolution_id
-	)
+	_player_movement.movement_arrived(from_coords, target_coords, movement_id)
 
 
 func _resolve_arrived_player_step(
@@ -1658,227 +1403,45 @@ func _resolve_arrived_player_step(
 	target_coords: Vector2i,
 	resolution_id: int
 ) -> void:
-	if _pending_player_step.is_empty():
-		return
-	if int(_pending_player_step.get("movement_id", -1)) != movement_id:
-		return
-	if int(_movement_state.get("resolution_id", 0)) != resolution_id:
-		return
-	var movement_kind := str(_pending_player_step.get("kind", "travel"))
-	if movement_kind == "retreat":
-		_commit_player_retreat(target_coords)
-		return
-	_commit_player_step(from_coords, target_coords)
+	_player_movement.call_deferred(
+		"_resolve_arrived_step",
+		movement_id,
+		from_coords,
+		target_coords,
+		resolution_id
+	)
 
 
 func _reset_route_bookkeeping() -> void:
-	_travel_route.clear()
-	_travel_route_total_steps = 0
-	_travel_completed_steps = 0
-	_route_cancel_requested = false
+	_player_movement.reset_route_bookkeeping()
 
 
 func _finish_player_movement(message: String, phase: String = "failed") -> void:
-	if not _is_player_movement_active():
-		_last_macro_event = message
-		_refresh_world_hud()
-		return
-	_pending_player_step.clear()
-	_reset_route_bookkeeping()
-	var current_coords := player_token.current_hex_coords
-	_turn_resolution.finish(message, phase)
-	_movement_state["current_coords"] = current_coords
-	_movement_state["step_target_coords"] = current_coords
-	_last_macro_event = message
-	_refresh_world_hud()
+	_player_movement.finish(message, phase)
 
 
 func _finish_player_movement_success(message: String) -> void:
-	_pending_player_step.clear()
-	_reset_route_bookkeeping()
-	var current_coords := player_token.current_hex_coords
-	_turn_resolution.finish(message, "idle")
-	_movement_state["current_coords"] = current_coords
-	_movement_state["step_target_coords"] = current_coords
-	_last_macro_event = message
+	_player_movement.finish_success(message)
 
 
 func cancel_player_route() -> bool:
-	if not bool(_movement_state.get("active", false)):
-		return false
-	if str(_movement_state.get("kind", "travel")) != "travel":
-		return false
-	if str(_movement_state.get("phase", "idle")) not in ["walking", "resolving"]:
-		return false
-	if not bool(_movement_state.get("can_cancel", false)):
-		return false
-	_route_cancel_requested = true
-	_travel_route.clear()
-	_movement_state["can_cancel"] = false
-	_movement_state["remaining_steps"] = 1
-	_movement_state["message"] = "CANCELLING // FINISHING CURRENT STEP..."
-	_last_macro_event = _movement_state["message"]
-	_refresh_world_hud()
-	return true
+	return _player_movement.cancel_route()
 
 
 func _movement_step_committed(target_coords: Vector2i) -> void:
-	_travel_completed_steps += 1
-	_turn_resolution.mark_step_committed(
-		target_coords,
-		_travel_route_total_steps
-	)
+	_player_movement.mark_step_committed(target_coords)
 
 
 func _movement_debug_mark(label: String) -> void:
-	if not OS.is_debug_build() or not debug_macro_logging:
-		return
-	var now := Time.get_ticks_usec()
-	if label == "movement request accepted":
-		_movement_debug_request_usec = now
-	var elapsed := now - _movement_debug_request_usec if _movement_debug_request_usec > 0 else 0
-	print("[MacroTiming] %s // +%.1f ms" % [label, float(elapsed) / 1000.0])
+	_player_movement.debug_mark(label)
 
 
 func _commit_player_retreat(target_coords: Vector2i) -> void:
-	var origin_coords := (
-		_world_state.player_record.coords
-		if _world_state.player_record != null
-		else target_coords
-	)
-	var retreat_hex := world_generator.get_hex_at(target_coords)
-	var request := WorldActionRequest.new()
-	request.actor_id = "player"
-	request.target_id = "retreat:%s" % str(target_coords)
-	request.target_coords = target_coords
-	request.verb_id = "retreat"
-	request.payload["action_id"] = "retreat:%s:%s:%d" % [
-		str(origin_coords),
-		str(target_coords),
-		_world_state.player_revision,
-	]
-	var receipt := _world_action_coordinator.resolve_direct_action(
-		request, 0, 0.0, 0.0, "Retreat relocation committed."
-	)
-	receipt.mutations.append({
-		"type": "move_actor",
-		"from": origin_coords,
-		"to": target_coords,
-	})
-	receipt.mutations.append({"type": "set_hex_explored"})
-	_movement_service.append_trace_to_receipt(
-		receipt,
-		"player",
-		origin_coords,
-		target_coords,
-		str(campaign.active_node_id) if campaign != null else "",
-		_world_state.world_time_minutes,
-		retreat_hex
-	)
-	_movement_debug_mark("receipt application start")
-	var application := _commit_world_action_receipt(receipt, target_coords)
-	_movement_debug_mark("receipt application end")
-	if application == null or not application.applied:
-		_macro_log(
-			"Movement transaction rejected: %s"
-			% (application.error if application != null else "no application receipt")
-		)
-		player_token.snap_to_hex(origin_coords, map_visualizer.map_to_local(origin_coords))
-		_finish_player_movement("RETREAT FAILED // RELOCATION REJECTED", "failed")
-		_refresh_world_hud()
-		return
-	_pending_player_step.clear()
-	_movement_step_committed(target_coords)
-	_refresh_map_visuals(target_coords, false)
-	refresh_proximity(target_coords)
-	_last_macro_event = "Escaped combat; fell back to HEX %d,%d." % [
-		target_coords.x,
-		target_coords.y,
-	]
-	_finish_player_movement_success(_last_macro_event)
-	_refresh_world_hud()
+	_player_movement.commit_retreat(target_coords)
 
 
 func _commit_player_step(origin_coords: Vector2i, target_coords: Vector2i) -> void:
-	var hex_data := world_generator.get_hex_at(target_coords)
-	var move_request := WorldActionRequest.new()
-	move_request.actor_id = "player"
-	move_request.target_id = "hex:%s" % str(target_coords)
-	move_request.target_coords = target_coords
-	move_request.verb_id = "travel"
-	move_request.payload["world_time_minutes"] = _world_state.world_time_minutes
-	move_request.payload["action_id"] = "travel:player:%s:%s:%d" % [
-		str(origin_coords),
-		str(target_coords),
-		_world_state.player_revision,
-	]
-	var move_receipt := _world_action_coordinator.resolve_direct_action(
-		move_request,
-		_time_rules_service.move_minutes_for_hex(hex_data),
-		_time_rules_service.exertion_for_hex(hex_data),
-		0.0,
-		"Arrived at HEX %d,%d." % [target_coords.x, target_coords.y]
-	)
-	move_receipt.mutations.append({
-		"type": "move_actor",
-		"from": origin_coords,
-		"to": target_coords,
-	})
-	move_receipt.mutations.append({"type": "set_hex_explored"})
-	_movement_service.append_trace_to_receipt(
-		move_receipt,
-		"player",
-		origin_coords,
-		target_coords,
-		str(campaign.active_node_id) if campaign != null else "",
-		_world_state.world_time_minutes,
-		hex_data
-	)
-	_movement_debug_mark("receipt application start")
-	var application := _commit_world_action_receipt(move_receipt, target_coords)
-	_movement_debug_mark("receipt application end")
-	if application == null or not application.applied:
-		_macro_log(
-			"Movement transaction rejected: %s"
-			% (application.error if application != null else "no application receipt")
-		)
-		player_token.snap_to_hex(origin_coords, map_visualizer.map_to_local(origin_coords))
-		_last_macro_event = (
-			application.error
-			if application != null and not application.error.is_empty()
-			else "Movement transaction was rejected."
-		)
-		if bool(_movement_state.get("active", false)):
-			_finish_player_movement(
-				"MOVEMENT FAILED // %s" % _last_macro_event,
-				"failed"
-			)
-		else:
-			_refresh_world_hud()
-		return
-	_pending_player_step.clear()
-	_movement_step_committed(target_coords)
-	_macro_log("Player stepped to %s." % str(target_coords))
-	var newly_explored := _refresh_map_visuals(target_coords, false)
-	refresh_proximity(target_coords)
-	_turn_resolution.set_phase(
-		"world_turn",
-		"TURN RESOLVE // NPC WORLD TURN..."
-	)
-	_movement_state["current_coords"] = target_coords
-	_last_macro_event = "Resolving the world turn at HEX %d,%d..." % [
-		target_coords.x,
-		target_coords.y,
-	]
-	_refresh_world_hud()
-	call_deferred(
-		"_resolve_committed_player_step",
-		origin_coords,
-		target_coords,
-		hex_data,
-		newly_explored,
-		int(_movement_state.get("resolution_id", 0))
-	)
+	_player_movement.commit_step(origin_coords, target_coords)
 
 
 func _resolve_committed_player_step(
@@ -1888,63 +1451,12 @@ func _resolve_committed_player_step(
 	newly_explored: Array,
 	resolution_id: int
 ) -> void:
-	if not _turn_resolution.is_active():
-		return
-	if int(_movement_state.get("resolution_id", 0)) != resolution_id:
-		return
-	var target_snapshot := _world_state.get_entity_snapshot_at(target_coords)
-	if not target_snapshot.is_empty():
-		var target_entity := EntityRecord.from_dict(target_snapshot)
-		if not _world_state.is_entity_active(target_entity.entity_id):
-			unload_enemy_token(target_coords)
-		else:
-			_force_project_npc_token(target_entity)
-			if _world_state.is_entity_hostile(target_entity.entity_id):
-				_advance_player_world_turn()
-			_finish_player_movement(
-				"MOVEMENT INTERRUPTED // HOSTILE CONTACT AT HEX %d,%d"
-				% [target_coords.x, target_coords.y],
-				"interrupted"
-			)
-			begin_entity_collision(
-				target_entity.entity_id,
-				target_coords,
-				origin_coords
-			)
-			return
-
-	var has_ground_loot := _world_state.has_ground_items(target_coords)
-	if has_ground_loot:
-		_finish_player_movement(
-			"MOVEMENT INTERRUPTED // GROUND ITEMS AT HEX %d,%d"
-			% [target_coords.x, target_coords.y],
-			"interrupted"
-		)
-		return
-
-	_advance_player_world_turn()
-	if not _pending_interaction.is_empty():
-		_finish_player_movement(
-			"MOVEMENT INTERRUPTED // CONTACT REQUIRES ATTENTION",
-			"interrupted"
-		)
-		return
-
-	_turn_resolution.set_phase(
-		"presentation",
-		"TURN RESOLVE // PRESENTATION..."
-	)
-	_present_travel_beat(
+	_player_movement.call_deferred(
+		"_resolve_committed_step",
 		origin_coords,
 		target_coords,
 		hex_data,
 		newly_explored,
-		has_ground_loot
-	)
-	_refresh_world_hud()
-	call_deferred(
-		"_finish_player_step_presentation",
-		target_coords,
 		resolution_id
 	)
 
@@ -1953,37 +1465,9 @@ func _finish_player_step_presentation(
 	target_coords: Vector2i,
 	resolution_id: int
 ) -> void:
-	if not _turn_resolution.is_active():
-		return
-	if int(_movement_state.get("resolution_id", 0)) != resolution_id:
-		return
-	if not _pending_interaction.is_empty():
-		_finish_player_movement(
-			"MOVEMENT INTERRUPTED // CONTACT REQUIRES ATTENTION",
-			"interrupted"
-		)
-		return
-	# Campaign progress resolves via directional rim departure / node map — not
-	# a hard-coded objective hex on ordinary steps.
-	if _route_cancel_requested:
-		_finish_player_movement(
-			"ROUTE CANCELLED AT HEX %d,%d" % [target_coords.x, target_coords.y],
-			"interrupted"
-		)
-		_refresh_world_hud()
-		return
-
-	if not _travel_route.is_empty():
-		_turn_resolution.set_phase(
-			"walking",
-			"TURN RESOLVE // NEXT STEP..."
-		)
-		_execute_player_step(_travel_route.pop_front(), true, true)
-		return
-	_finish_player_movement_success(
-		"ARRIVED AT HEX %d,%d." % [target_coords.x, target_coords.y]
+	_player_movement.call_deferred(
+		"_finish_step_presentation", target_coords, resolution_id
 	)
-	_refresh_world_hud()
 
 
 func _present_travel_beat(
@@ -1993,55 +1477,17 @@ func _present_travel_beat(
 	newly_explored: Array,
 	has_ground_loot: bool
 ) -> void:
-	var beat: Dictionary = MacroTravelBeatResolver.build_step_beat(
-		origin_coords,
-		target_coords,
-		hex_data,
-		newly_explored,
-		has_ground_loot
+	_player_movement.present_travel_beat(
+		origin_coords, target_coords, hex_data, newly_explored, has_ground_loot
 	)
-	if beat.is_empty():
-		return
-	var title := str(beat.get("title", "EXPLORING"))
-	var body := str(beat.get("body", ""))
-	var first_line := body.split("\n")[0].strip_edges() if not body.is_empty() else ""
-	_last_macro_event = (
-		"%s — %s" % [title, first_line] if not first_line.is_empty() else title
-	)
-	if macro_hud:
-		macro_hud.present_travel_beat(beat)
-	_guide_camera_for_travel(origin_coords, target_coords)
-	_leave_movement_trail(origin_coords, target_coords)
 
 
 func _guide_camera_for_travel(origin_coords: Vector2i, target_coords: Vector2i) -> void:
-	## Soft look-ahead toward the destination — never zoom/vignette pulse.
-	var camera := get_node_or_null("Camera2D") as MacroCamera
-	if camera == null or map_visualizer == null:
-		return
-	var from_pos: Vector2 = map_visualizer.map_to_local(origin_coords)
-	var to_pos: Vector2 = map_visualizer.map_to_local(target_coords)
-	camera.begin_travel_look_ahead(from_pos, to_pos)
-	get_tree().create_timer(MacroPlayer.WALK_DURATION_SECONDS).timeout.connect(
-		func() -> void:
-			if is_instance_valid(camera):
-				camera.end_travel_look_ahead()
-	)
+	_player_movement.guide_camera(origin_coords, target_coords)
 
 
 func _leave_movement_trail(origin_coords: Vector2i, target_coords: Vector2i) -> void:
-	if map_visualizer == null:
-		return
-	if _movement_trail == null:
-		_movement_trail = MacroMovementTrail.new()
-		_movement_trail.name = "MacroMovementTrail"
-		_movement_trail.z_index = -1
-		add_child(_movement_trail)
-	var from_pos: Vector2 = map_visualizer.map_to_local(origin_coords)
-	var to_pos: Vector2 = map_visualizer.map_to_local(target_coords)
-	var facing := to_pos - from_pos
-	_movement_trail.add_step(from_pos.lerp(to_pos, 0.35), facing)
-	_movement_trail.add_step(from_pos.lerp(to_pos, 0.7), facing)
+	_player_movement.leave_trail(origin_coords, target_coords)
 
 func _try_begin_directional_exit(
 	origin_coords: Vector2i,
@@ -3175,190 +2621,19 @@ func _on_macro_hud_choice_submitted(choice_id: String) -> void:
 
 
 func _begin_central_core_debug_hub(coords: Vector2i) -> void:
-	if not _pending_interaction.is_empty():
-		return
-	_pending_interaction = {
-		"type": GameEnums.MacroInteractionType.MACRO_EVENT,
-		"coords": coords,
-		"event_id": "debug_central_hub",
-	}
-	player_token.play_interaction()
-	set_process_unhandled_input(false)
-	if macro_hud == null:
-		close_macro_interaction()
-		return
-	macro_hud.open_event({
-		"id": "debug_central_hub",
-		"mode": "event",
-		"title": "CENTRAL CORE — DEBUG HUB",
-		"body": (
-			"Campaign control node. Use the live meta path, or fire isolated "
-			+ "probes for exploration, events, collisions, and loot."
-		),
-		"tags": ["CENTRAL", "DEBUG"],
-		"can_close": true,
-		"fx": {"kind": "landmark", "intensity": 0.35},
-		"choices": [
-			{
-				"id": "meta_quest",
-				"label": "Continue Meta Quest",
-				"kind": "talk",
-				"enabled": true,
-				"stakes": ["LIVE"],
-				"reason": "Runs the North Core Regulator fetch / install flow.",
-			},
-			{
-				"id": "dbg_event",
-				"label": "DEBUG: Open Treatment Room Event",
-				"kind": "observe",
-				"enabled": true,
-				"stakes": ["EVENT"],
-				"reason": "Opens the authored locked_treatment_room macro event.",
-			},
-			{
-				"id": "dbg_hostile",
-				"label": "DEBUG: Spawn Hostile Collision",
-				"kind": "ambush",
-				"enabled": true,
-				"stakes": ["COMBAT"],
-				"reason": "Spawns a scavenger on this hex and opens Talk/Ambush.",
-			},
-			{
-				"id": "dbg_loot",
-				"label": "DEBUG: Drop Ground Loot",
-				"kind": "item",
-				"enabled": true,
-				"stakes": ["LOOT"],
-				"reason": "Drops sample items on this hex for ground pickup tests.",
-			},
-			{
-				"id": "dbg_poi",
-				"label": "DEBUG: Open Landmark Explore",
-				"kind": "observe",
-				"enabled": true,
-				"stakes": ["POI"],
-				"reason": "Injects a homestead landmark here and opens Search/Camp.",
-			},
-			{
-				"id": "dbg_travel",
-				"label": "DEBUG: Sample Travel Feedback",
-				"kind": "pass",
-				"enabled": true,
-				"stakes": ["TRAVEL"],
-				"reason": "Writes a travel log line, leaves a trail, and soft look-ahead.",
-			},
-			{
-				"id": "leave",
-				"label": "Leave",
-				"kind": "pass",
-				"enabled": true,
-				"stakes": [],
-				"reason": "Close the hub.",
-			},
-		],
-	})
+	_get_debug_console().open_central_hub(coords)
 
 
 func _resolve_central_core_debug_choice(choice_id: String) -> void:
-	var coords: Vector2i = _pending_interaction.get(
-		"coords",
-		player_token.current_hex_coords
-	)
-	match choice_id:
-		"meta_quest":
-			close_macro_interaction()
-			_handle_central_meta_quest()
-		"dbg_event":
-			close_macro_interaction()
-			begin_macro_event(MacroEventResolver.EVENT_LOCKED_TREATMENT_ROOM, coords)
-		"dbg_hostile":
-			close_macro_interaction()
-			var spawned := debug_spawn_enemy_near_player(
-				GameEnums.Faction.SCAVENGER_CELL,
-				0
-			)
-			if not spawned:
-				_last_macro_event = "DEBUG: Hostile spawn failed (no free adjacent hex)."
-				_refresh_world_hud()
-				return
-			var enemy_id := ""
-			for delta in HEX_NEIGHBORS:
-				var probe: Vector2i = coords + delta
-				var record_snapshot := _world_state.get_entity_snapshot_at(probe)
-				if (
-					not record_snapshot.is_empty()
-					and _world_state.is_entity_hostile(str(record_snapshot.get("entity_id", "")))
-				):
-					enemy_id = str(record_snapshot.get("entity_id", ""))
-					_world_state.move_entity(enemy_id, coords)
-					break
-			if enemy_id.is_empty():
-				_last_macro_event = "DEBUG: Hostile spawned but collision handoff failed."
-				_refresh_world_hud()
-				return
-			begin_entity_collision(enemy_id, coords)
-		"dbg_loot":
-			close_macro_interaction()
-			_debug_drop_sample_loot(coords)
-		"dbg_poi":
-			close_macro_interaction()
-			_debug_open_landmark_here(coords)
-		"dbg_travel":
-			close_macro_interaction()
-			var hex_data := world_generator.get_hex_at(coords)
-			_present_travel_beat(
-				coords,
-				coords + Vector2i(1, 0),
-				hex_data,
-				[coords],
-				false
-			)
-			_refresh_world_hud()
-		"leave", _:
-			close_macro_interaction()
+	_get_debug_console().resolve_central_hub_choice(choice_id)
 
 
 func _debug_drop_sample_loot(coords: Vector2i) -> void:
-	if _loot_catalog == null:
-		_last_macro_event = "DEBUG: Loot catalog unavailable."
-		_refresh_world_hud()
-		return
-	var drops: Array = []
-	for item_id in ["water_bottle", "crackers", "bandage", "matches", "bottle"]:
-		if not _loot_catalog.has_item(item_id):
-			continue
-		var state: Dictionary = _loot_catalog.create_runtime_item_state(item_id)
-		if not state.is_empty():
-			drops.append(state)
-		if drops.size() >= 3:
-			break
-	if drops.is_empty():
-		_last_macro_event = "DEBUG: No sample loot definitions found."
-	else:
-		_world_state.add_ground_items(coords, drops)
-		_last_macro_event = "DEBUG: Dropped %d ground item(s) at HEX %d,%d." % [
-			drops.size(),
-			coords.x,
-			coords.y,
-		]
-	if macro_hud:
-		macro_hud.append_exploration_log(_last_macro_event)
-	_refresh_world_hud()
+	_get_debug_console().drop_sample_loot(coords)
 
 
 func _debug_open_landmark_here(coords: Vector2i) -> void:
-	var hex := world_generator.get_hex_at(coords)
-	hex.rock_layer = GameEnums.MacroRockLayer.NONE
-	hex.water_layer = GameEnums.MacroWaterLayer.NONE
-	hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
-	hex.is_poi = true
-	hex.landmark_id = "homestead_b"
-	hex.poi_id = "plains_homestead"
-	hex.poi_name = "Debug Homestead"
-	hex.sleep_anchor = "ground"
-	world_generator.world_hex_cache[coords] = hex
-	world_generator.commit_hex_projection(coords, hex)
-	begin_poi_interaction(coords, hex)
+	_get_debug_console().open_landmark_here(coords)
 
 
 func _on_macro_hud_event_closed() -> void:
@@ -3660,19 +2935,7 @@ func open_inventory() -> void:
 func _toggle_fullscreen_inventory() -> void:
 	if _is_player_movement_active() or inventory_panel == null:
 		return
-	if inventory_panel.is_open():
-		inventory_panel.close_panel()
-		return
-	if macro_hud != null and macro_hud.is_event_open():
-		return
-	_close_ordinary_work_surfaces(WorkSurface.INVENTORY)
-	if (
-		_inventory_home_layer != null
-		and inventory_panel.get_parent() != _inventory_home_layer
-	):
-		inventory_panel.reparent(_inventory_home_layer)
-	inventory_panel.open_inventory(_build_inventory_snapshot())
-	_emit_work_surface_changed()
+	_work_surface_coordinator.toggle_inventory(_build_inventory_snapshot())
 
 
 func _on_hud_viewport_insets_changed(insets: Rect2i) -> void:
@@ -3730,8 +2993,7 @@ func _on_medical_action_requested(instance_id: String, limb_region: int) -> void
 	_refresh_world_hud()
 
 func _on_inventory_closed() -> void:
-	_restore_node_map_inventory_layer()
-	_emit_work_surface_changed()
+	_work_surface_coordinator.inventory_closed()
 
 
 func _build_macro_event_context(

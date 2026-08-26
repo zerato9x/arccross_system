@@ -86,9 +86,31 @@ func _extraction_contract_violations() -> Array[String]:
 		"MacroNpcTurnService.gd",
 		"MacroNpcWorkService.gd",
 		"MacroReceiptApplicationService.gd",
+		"MacroWorkSurfaceCoordinator.gd",
+		"MacroPlayerMovementCoordinator.gd",
 	]:
 		if manager_source.find(required_service) == -1:
 			violations.append("%s is missing the %s application seam" % [manager_path, required_service])
+	for forbidden_surface_detail in [
+		"node_map_system_scene.instantiate",
+		"node_map_medical_scene.instantiate",
+		"CanvasLayer.new()",
+	]:
+		if manager_source.find(forbidden_surface_detail) != -1:
+			violations.append(
+				"%s still owns work-surface construction %s"
+				% [manager_path, forbidden_surface_detail]
+			)
+	if manager_source.find("DEBUG: Drop Ground Loot") != -1:
+		violations.append(
+			"%s still owns debug-hub content instead of MacroDebugConsole"
+			% manager_path
+		)
+	if manager_source.find("Movement transaction rejected:") != -1:
+		violations.append(
+			"%s still owns player movement transaction lifecycle"
+			% manager_path
+		)
 	for legacy_content_function in [
 		"func _run_has_meta_component",
 		"func _runtime_item_state_id",
@@ -128,8 +150,27 @@ func _extraction_contract_violations() -> Array[String]:
 		if trace_body.find("_world_state.register_world_signal") != -1:
 			violations.append("%s still owns movement-trace signal persistence" % manager_path)
 	var state_store_path := "res://SystemCore/RuntimeStateStore.gd"
-	if FileAccess.get_file_as_string(state_store_path).find("NodeRuntimeSnapshotRepository.gd") == -1:
+	var state_store_source := FileAccess.get_file_as_string(state_store_path)
+	if state_store_source.find("NodeRuntimeSnapshotRepository.gd") == -1:
 		violations.append("%s does not delegate node snapshots to their repository" % state_store_path)
+	for persistence_service in [
+		"RuntimeSaveFileRepository.gd",
+		"RuntimeSaveMigrationService.gd",
+	]:
+		if state_store_source.find(persistence_service) == -1:
+			violations.append(
+				"%s does not delegate to %s" % [state_store_path, persistence_service]
+			)
+	for forbidden_persistence_detail in [
+		"FileAccess.open(",
+		"DirAccess.rename_absolute(",
+		"func _migrate_save_snapshot",
+	]:
+		if state_store_source.find(forbidden_persistence_detail) != -1:
+			violations.append(
+				"%s still owns persistence detail %s"
+				% [state_store_path, forbidden_persistence_detail]
+			)
 	var persistence_path := "res://WorldCore/MacroPersistenceBridge.gd"
 	if FileAccess.get_file_as_string(persistence_path).find("func flush_world_mutations") == -1:
 		violations.append("%s does not own run mutation flushing" % persistence_path)

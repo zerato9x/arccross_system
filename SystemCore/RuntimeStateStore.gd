@@ -18,7 +18,6 @@ const SAVE_VERSION: int = 15
 const MIGRATABLE_SAVE_VERSIONS: Array[int] = [12, 13, 14]
 const WORLD_GENERATION_VERSION: int = 3
 const DEFAULT_SAVE_PATH: String = "user://arccross_run.json"
-const VARIANT_TYPE_KEY: String = "__arccross_type"
 const _NO_STATE_CHANGE := -1
 const ENTITY_PATCH_KEYS := [
 	"owner_id",
@@ -29,10 +28,11 @@ const ENTITY_PATCH_KEYS := [
 	"knowledge",
 	"negotiation_attempts",
 ]
-const _PersistenceCodec := preload("res://SystemCore/RuntimePersistenceCodec.gd")
 const _RecordRepository := preload("res://SystemCore/RuntimeRecordRepository.gd")
 const _NodeSnapshots := preload("res://SystemCore/NodeRuntimeSnapshotRepository.gd")
 const _RunSlots := preload("res://SystemCore/RunSlotRepository.gd")
+const _SaveFiles := preload("res://SystemCore/RuntimeSaveFileRepository.gd")
+const _SaveMigration := preload("res://SystemCore/RuntimeSaveMigrationService.gd")
 
 var world_seed: String = ""
 var world_time_minutes: int = GameTimeRules.STARTING_WORLD_MINUTES
@@ -1335,54 +1335,25 @@ func save_to_disk(path: String = DEFAULT_SAVE_PATH) -> bool:
 		return _fail_persistence(
 			"save", "Runtime integrity failed: " + "; ".join(integrity_errors)
 		)
-	var encoded: Variant = _encode_variant(_capture_save_snapshot())
-	var contents := JSON.stringify(encoded, "\t")
-	var temporary_path := path + ".tmp"
-	var file := FileAccess.open(temporary_path, FileAccess.WRITE)
-	if file == null:
-		return _fail_persistence(
-			"save",
-			"Could not open %s for writing. Error %d."
-			% [temporary_path, FileAccess.get_open_error()]
-		)
-	file.store_string(contents)
-	file.close()
-	if not _replace_save_file(temporary_path, path):
-		return _fail_persistence("save", "Could not atomically replace %s." % path)
+	var result := _SaveFiles.write_snapshot(path, _capture_save_snapshot())
+	if not bool(result.get("ok", false)):
+		return _fail_persistence("save", str(result.get("error", "Save failed.")))
 	save_completed.emit(path)
 	return true
 
 func load_from_disk(path: String = DEFAULT_SAVE_PATH) -> bool:
 	_last_persistence_error = ""
-	if not FileAccess.file_exists(path):
-		return _fail_persistence("load", "Save file does not exist: %s" % path)
-
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
+	var read_result := _SaveFiles.read_snapshot(path)
+	if not bool(read_result.get("ok", false)):
 		return _fail_persistence(
-			"load",
-			"Could not open %s for reading. Error %d."
-			% [path, FileAccess.get_open_error()]
+			"load", str(read_result.get("error", "Load failed."))
 		)
-
-	var json := JSON.new()
-	var parse_error := json.parse(file.get_as_text())
-	file.close()
-	if parse_error != OK:
-		return _fail_persistence(
-			"load",
-			"Invalid save JSON at line %d: %s"
-			% [json.get_error_line(), json.get_error_message()]
-		)
-
-	var decoded: Variant = _decode_variant(json.data)
-	if not decoded is Dictionary:
-		return _fail_persistence("load", "Save root is not a Dictionary.")
+	var decoded: Dictionary = read_result.get("snapshot", {})
 	var file_version := int(decoded.get("version", -1))
 	if file_version in MIGRATABLE_SAVE_VERSIONS:
-		decoded = _migrate_save_snapshot(decoded, file_version)
+		decoded = _SaveMigration.migrate(decoded, file_version, SAVE_VERSION)
 	elif file_version != SAVE_VERSION:
-		_backup_incompatible_save(path, file_version)
+		_SaveFiles.backup_incompatible(path, file_version)
 		return _fail_persistence(
 			"load",
 			"This run save uses world-system version %s; version %d is required after the pre-combat-overhaul and hex-world migration. A new run is required; permanent meta progression is preserved."
@@ -1390,7 +1361,7 @@ func load_from_disk(path: String = DEFAULT_SAVE_PATH) -> bool:
 		)
 	var file_generation := int(decoded.get("world_generation_version", -1))
 	if file_generation != WORLD_GENERATION_VERSION:
-		_backup_incompatible_save(path, file_generation)
+		_SaveFiles.backup_incompatible(path, file_generation)
 		return _fail_persistence(
 			"load",
 			"This run was generated with world version %s; version %d is required after the pre-combat-overhaul and hex-world migration. A new run is required; permanent meta progression is preserved."
@@ -1416,19 +1387,13 @@ func load_from_disk(path: String = DEFAULT_SAVE_PATH) -> bool:
 	return true
 
 func has_save_file(path: String = DEFAULT_SAVE_PATH) -> bool:
-	return FileAccess.file_exists(path)
+	return _SaveFiles.exists(path)
 
 func delete_save_file(path: String = DEFAULT_SAVE_PATH) -> bool:
-	if not FileAccess.file_exists(path):
+	var result := _SaveFiles.delete(path)
+	if bool(result.get("ok", false)):
 		return true
-	var absolute_path := ProjectSettings.globalize_path(path)
-	var error := DirAccess.remove_absolute(absolute_path)
-	if error != OK:
-		return _fail_persistence(
-			"delete",
-			"Could not delete %s. Error %d." % [path, error]
-		)
-	return true
+	return _fail_persistence("delete", str(result.get("error", "Delete failed.")))
 
 func consume_pending_loaded_world() -> bool:
 	if not _pending_loaded_world:
@@ -2007,115 +1972,11 @@ func _world_signals_to_dict() -> Array:
 			result.append(signal_record.to_dict())
 	return result
 
-func _encode_variant(value):
-	return _PersistenceCodec.encode_variant(value)
-
-func _decode_variant(value):
-	return _PersistenceCodec.decode_variant(value)
-
 func _fail_persistence(operation: String, message: String) -> bool:
 	_last_persistence_error = message
 	push_error("[PERSISTENCE] " + message)
 	persistence_failed.emit(operation, message)
 	return false
-
-
-func _migrate_save_snapshot(snapshot: Dictionary, from_version: int) -> Dictionary:
-	var migrated := snapshot.duplicate(true)
-	if from_version == 12:
-		migrated["relationship_state"] = migrated.get(
-			"relationship_state", CombatRelationshipLedger.new().to_dict()
-		)
-		migrated["applied_combat_encounters"] = migrated.get(
-			"applied_combat_encounters", {}
-		)
-		var player_data: Dictionary = migrated.get("player_record", {}).duplicate(true)
-		if not player_data.is_empty():
-			player_data["coords"] = player_data.get(
-				"coords", migrated.get("player_coords", Vector2i.ZERO)
-			)
-			migrated["player_record"] = player_data
-		migrated["version"] = 13
-	if from_version in [12, 13]:
-		migrated["applied_world_receipts"] = migrated.get(
-			"applied_world_receipts", {}
-		)
-		var active_node := str(migrated.get("active_node_id", ""))
-		migrated["active_world_actions"] = _migrate_world_action_reservations(
-			migrated.get("active_world_actions", {}), active_node
-		)
-		for hex_entry in migrated.get("hexes", []):
-			if not hex_entry is Dictionary:
-				continue
-			var record_data: Dictionary = hex_entry.get("record", {}).duplicate(true)
-			record_data["revision"] = maxi(0, int(record_data.get("revision", 0)))
-			hex_entry["record"] = record_data
-		for node_id in migrated.get("node_runtime_snapshots", {}).keys():
-			var node_snapshot: Dictionary = migrated["node_runtime_snapshots"][node_id]
-			node_snapshot["active_world_actions"] = _migrate_world_action_reservations(
-				node_snapshot.get("active_world_actions", {}), str(node_id)
-			)
-			migrated["node_runtime_snapshots"][node_id] = node_snapshot
-	if from_version in [12, 13, 14]:
-		migrated = _retire_legacy_world_receipts(migrated)
-		migrated["version"] = SAVE_VERSION
-	return migrated
-
-
-func _retire_legacy_world_receipts(value: Variant) -> Variant:
-	if value is Array:
-		var migrated_array: Array = []
-		for entry in value:
-			migrated_array.append(_retire_legacy_world_receipts(entry))
-		return migrated_array
-	if not value is Dictionary:
-		return value
-	var migrated: Dictionary = {}
-	for key in value.keys():
-		migrated[key] = _retire_legacy_world_receipts(value[key])
-	if (
-		migrated.has("receipt_id")
-		and migrated.has("action_id")
-		and migrated.get("mutations", []) is Array
-	):
-		migrated.erase("actor_state")
-		var mutations: Array = []
-		for mutation_value in migrated.get("mutations", []):
-			if (
-				mutation_value is Dictionary
-				and str(mutation_value.get("type", "")) == "replace_actor_runtime"
-			):
-				continue
-			mutations.append(mutation_value)
-		migrated["mutations"] = mutations
-	return migrated
-
-
-func _migrate_world_action_reservations(
-	value: Variant,
-	node_id: String
-) -> Dictionary:
-	if not value is Dictionary:
-		return {}
-	var migrated: Dictionary = {}
-	for action_id_value in value.keys():
-		var action_id := str(action_id_value)
-		var state: Variant = value[action_id_value]
-		if action_id.is_empty() or not state is Dictionary:
-			continue
-		var reservation := WorldActionReservationRecord.from_dict(state)
-		reservation.action_id = action_id
-		if reservation.node_id.is_empty():
-			reservation.node_id = node_id
-		reservation.actor_id = str(state.get("actor_id", reservation.actor_id))
-		reservation.target_id = str(state.get("target_id", reservation.target_id))
-		reservation.verb_id = str(state.get("verb_id", reservation.verb_id))
-		reservation.started_minute = maxi(0, int(state.get("started_minute", 0)))
-		reservation.progress = clampf(float(state.get("progress", 0.0)), 0.0, 1.0)
-		reservation.state = state.duplicate(true)
-		if reservation.validation_error().is_empty():
-			migrated[action_id] = reservation.to_dict()
-	return migrated
 
 
 func _normalized_applied_encounters(value: Variant) -> Dictionary:
@@ -2171,40 +2032,6 @@ func _normalized_applied_world_receipts(value: Variant) -> Dictionary:
 		normalized[entry["receipt_id"]] = entry["minute"]
 	return normalized
 
-
-func _replace_save_file(temporary_path: String, final_path: String) -> bool:
-	var temporary_absolute := ProjectSettings.globalize_path(temporary_path)
-	var final_absolute := ProjectSettings.globalize_path(final_path)
-	var backup_absolute := final_absolute + ".previous"
-	if FileAccess.file_exists(backup_absolute):
-		DirAccess.remove_absolute(backup_absolute)
-	var had_final := FileAccess.file_exists(final_path)
-	if had_final:
-		if DirAccess.rename_absolute(final_absolute, backup_absolute) != OK:
-			DirAccess.remove_absolute(temporary_absolute)
-			return false
-	if DirAccess.rename_absolute(temporary_absolute, final_absolute) != OK:
-		if had_final and FileAccess.file_exists(backup_absolute):
-			DirAccess.rename_absolute(backup_absolute, final_absolute)
-		return false
-	if FileAccess.file_exists(backup_absolute):
-		DirAccess.remove_absolute(backup_absolute)
-	return true
-
-
-func _backup_incompatible_save(path: String, old_version: int) -> void:
-	## Keep rejected user saves recoverable without polluting project fixtures.
-	if not path.begins_with("user://") or not FileAccess.file_exists(path):
-		return
-	var absolute_path := ProjectSettings.globalize_path(path)
-	var contents := FileAccess.get_file_as_string(path)
-	if contents.is_empty():
-		return
-	var backup_path := "%s.v%s.bak" % [absolute_path, old_version]
-	var backup := FileAccess.open(backup_path, FileAccess.WRITE)
-	if backup != null:
-		backup.store_string(contents)
-		backup.close()
 
 func _create_entity_id() -> String:
 	return "entity_" + str(ResourceUID.create_id())

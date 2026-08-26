@@ -2,6 +2,23 @@
 
 ## August 26, 2026
 
+### God-object decomposition before live QA
+
+- Reduced `MacroGameManager` from 4,848 to 3,600 lines by extracting the
+  complete player movement lifecycle into `MacroPlayerMovementCoordinator`,
+  fullscreen Node Map/inventory/medical arbitration into
+  `MacroWorkSurfaceCoordinator`, and debug-hub construction/actions into
+  `MacroDebugConsole`; the manager retains compatibility facades and orchestration.
+- Reduced `RuntimeStateStore` from 2,210 to 1,818 lines while preserving it as
+  canonical runtime authority. `RuntimeSaveFileRepository` now owns JSON/file
+  mechanics and atomic replacement, while `RuntimeSaveMigrationService` owns
+  detached v12-v14 migration into save format 15.
+- Extended `ArchitectureContractSmoke` so these seams cannot quietly melt back
+  into the two facades. Headless editor import, focused architecture/surface/
+  movement/save gates, and an 11/11 shipping-adjacent regression set pass under
+  Godot 4.7.1, including New Game/PACK, health, world-action round trips,
+  persistence, and combat handoff.
+
 ### Collision transaction continuation
 
 - Routed successful collision trade through one semantic `trade_application`.

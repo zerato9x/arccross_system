@@ -30,8 +30,11 @@ database, stat registry, or rule table.
 - Owns orchestration, factories, and authoritative runtime records.
 - `RuntimeStateStore` owns player, entity, hex, world-time, and ground-item
   records, pairwise relationships, node snapshots, combat handoffs, applied
-  encounter history, and their versioned disk representation. `player_record.coords`
-  is canonical; `player_coords` is a compatibility accessor only.
+  encounter history, and the validated save/load facade. `RuntimeSaveFileRepository`
+  owns JSON/file replacement mechanics and `RuntimeSaveMigrationService` owns
+  detached legacy-payload migration; neither may mutate live runtime authority.
+  `player_record.coords` is canonical; `player_coords` is a compatibility
+  accessor only.
 - `GameTimeRules` owns shared action durations and clock conversion.
 - `WorldActionApplicationService` owns the single world-action reconciliation
   snapshot, commit ordering, world-time/signal fanout, reservation/receipt
@@ -66,11 +69,15 @@ database, stat registry, or rule table.
 - `MacroZoneGenerator` produces deterministic detached `HexRecord` baselines;
   generation cannot write run state. `HexWorldGenerator` is the live projection
   and legacy authored-map facade, never a second directional-node authority.
-- `MacroGameManager` owns input, presentation, and orchestration. Medical
-  treatment, inventory, POI gear/traps, movement, visibility, SEARCH, CAMP, NPC
-  work, signals, and elapsed survival time commit through revision-validated
-  store transactions. It may build intent and reproject committed state; it may
-  not submit a live actor/Hex snapshot as new authority.
+- `MacroGameManager` is the WorldCore facade for input and orchestration.
+  `MacroPlayerMovementCoordinator` owns route/tween/arrival lifecycle and its
+  receipt boundary; `MacroWorkSurfaceCoordinator` owns fullscreen Node Map,
+  inventory, and medical-surface arbitration; `MacroDebugConsole` owns debug
+  hub presentation and actions. Medical treatment, inventory, POI gear/traps,
+  movement, visibility, SEARCH, CAMP, NPC work, signals, and elapsed survival
+  time commit through revision-validated store transactions. The facade and
+  coordinators may build intent and reproject committed state; they may not
+  submit a live actor/Hex snapshot as new authority.
 - `WorldMutationStore` is restricted to the legacy non-directional authored-map
   bridge. Directional nodes accept permanent structural patches only from
   `MetaProgressionStore`.
@@ -276,14 +283,17 @@ ambush_position: GameEnums.AmbushPosition
 
 ## Persistence Boundary
 
-- `RuntimeStateStore` writes the disposable run save: world seed, time, player,
+- `RuntimeStateStore` validates and reconstructs the disposable run save: world seed, time, player,
   graph discovery/traversal, node-keyed runtime snapshots, entities, Hexes, fog,
   ground items, pairwise relationships, and a bounded applied-encounter history.
-  Save format 14 migrates formats 12 and 13, initializes Hex revisions and typed
-  active actions, and persists a bounded 256-entry applied-world-receipt
-  history. Reconstructed candidates are integrity-validated before load. Saves
-  use a temporary file plus replace operation; invalid state is rejected before
-  the last valid save can be overwritten.
+  Save format 15 migrates formats 12 through 14, initializes Hex revisions and
+  typed active actions, strips obsolete caller-owned actor snapshots from world
+  receipts, and persists a bounded 256-entry applied-world-receipt history.
+  `RuntimeSaveMigrationService` transforms detached payloads and
+  `RuntimeSaveFileRepository` performs temporary-file replacement only after
+  the store accepts the candidate. Reconstructed candidates are
+  integrity-validated before load, so invalid state cannot overwrite the last
+  valid save.
 - `MetaProgressionStore` writes a separate cross-run profile containing only
   permanent-node structural patches, completed Meta Events, gateway state,
   node-profile mutations, and arm-core reconstruction.

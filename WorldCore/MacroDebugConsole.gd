@@ -75,3 +75,159 @@ func spawn_enemy_near_player(
 		host._refresh_world_hud()
 		return true
 	return false
+
+
+func open_central_hub(coords: Vector2i) -> void:
+	if not host._pending_interaction.is_empty():
+		return
+	host._pending_interaction = {
+		"type": GameEnums.MacroInteractionType.MACRO_EVENT,
+		"coords": coords,
+		"event_id": "debug_central_hub",
+	}
+	host.player_token.play_interaction()
+	host.set_process_unhandled_input(false)
+	if host.macro_hud == null:
+		host.close_macro_interaction()
+		return
+	host.macro_hud.open_event({
+		"id": "debug_central_hub",
+		"mode": "event",
+		"title": "CENTRAL CORE — DEBUG HUB",
+		"body": (
+			"Campaign control node. Use the live meta path, or fire isolated "
+			+ "probes for exploration, events, collisions, and loot."
+		),
+		"tags": ["CENTRAL", "DEBUG"],
+		"can_close": true,
+		"fx": {"kind": "landmark", "intensity": 0.35},
+		"choices": [
+			_choice("meta_quest", "Continue Meta Quest", "talk", ["LIVE"],
+				"Runs the North Core Regulator fetch / install flow."),
+			_choice("dbg_event", "DEBUG: Open Treatment Room Event", "observe", ["EVENT"],
+				"Opens the authored locked_treatment_room macro event."),
+			_choice("dbg_hostile", "DEBUG: Spawn Hostile Collision", "ambush", ["COMBAT"],
+				"Spawns a scavenger on this hex and opens Talk/Ambush."),
+			_choice("dbg_loot", "DEBUG: Drop Ground Loot", "item", ["LOOT"],
+				"Drops sample items on this hex for ground pickup tests."),
+			_choice("dbg_poi", "DEBUG: Open Landmark Explore", "observe", ["POI"],
+				"Injects a homestead landmark here and opens Search/Camp."),
+			_choice("dbg_travel", "DEBUG: Sample Travel Feedback", "pass", ["TRAVEL"],
+				"Writes a travel log line, leaves a trail, and soft look-ahead."),
+			_choice("leave", "Leave", "pass", [], "Close the hub."),
+		],
+	})
+
+
+func resolve_central_hub_choice(choice_id: String) -> void:
+	var coords: Vector2i = host._pending_interaction.get(
+		"coords", host.player_token.current_hex_coords
+	)
+	match choice_id:
+		"meta_quest":
+			host.close_macro_interaction()
+			host._handle_central_meta_quest()
+		"dbg_event":
+			host.close_macro_interaction()
+			host.begin_macro_event(
+				MacroEventResolver.EVENT_LOCKED_TREATMENT_ROOM, coords
+			)
+		"dbg_hostile":
+			host.close_macro_interaction()
+			if not spawn_enemy_near_player(GameEnums.Faction.SCAVENGER_CELL, 0):
+				_set_event("DEBUG: Hostile spawn failed (no free adjacent hex).")
+				return
+			var enemy_id := ""
+			for delta in MacroGameManager.HEX_NEIGHBORS:
+				var probe: Vector2i = coords + delta
+				var record_snapshot := host._world_state.get_entity_snapshot_at(probe)
+				if (
+					not record_snapshot.is_empty()
+					and host._world_state.is_entity_hostile(
+						str(record_snapshot.get("entity_id", ""))
+					)
+				):
+					enemy_id = str(record_snapshot.get("entity_id", ""))
+					host._world_state.move_entity(enemy_id, coords)
+					break
+			if enemy_id.is_empty():
+				_set_event("DEBUG: Hostile spawned but collision handoff failed.")
+				return
+			host.begin_entity_collision(enemy_id, coords)
+		"dbg_loot":
+			host.close_macro_interaction()
+			drop_sample_loot(coords)
+		"dbg_poi":
+			host.close_macro_interaction()
+			open_landmark_here(coords)
+		"dbg_travel":
+			host.close_macro_interaction()
+			var hex_data := host.world_generator.get_hex_at(coords)
+			host._present_travel_beat(
+				coords, coords + Vector2i(1, 0), hex_data, [coords], false
+			)
+			host._refresh_world_hud()
+		"leave", _:
+			host.close_macro_interaction()
+
+
+func drop_sample_loot(coords: Vector2i) -> void:
+	if host._loot_catalog == null:
+		_set_event("DEBUG: Loot catalog unavailable.")
+		return
+	var drops: Array = []
+	for item_id in ["water_bottle", "crackers", "bandage", "matches", "bottle"]:
+		if not host._loot_catalog.has_item(item_id):
+			continue
+		var state: Dictionary = host._loot_catalog.create_runtime_item_state(item_id)
+		if not state.is_empty():
+			drops.append(state)
+		if drops.size() >= 3:
+			break
+	if drops.is_empty():
+		host._last_macro_event = "DEBUG: No sample loot definitions found."
+	else:
+		host._world_state.add_ground_items(coords, drops)
+		host._last_macro_event = "DEBUG: Dropped %d ground item(s) at HEX %d,%d." % [
+			drops.size(), coords.x, coords.y,
+		]
+	if host.macro_hud != null:
+		host.macro_hud.append_exploration_log(host._last_macro_event)
+	host._refresh_world_hud()
+
+
+func open_landmark_here(coords: Vector2i) -> void:
+	var hex := host.world_generator.get_hex_at(coords)
+	hex.rock_layer = GameEnums.MacroRockLayer.NONE
+	hex.water_layer = GameEnums.MacroWaterLayer.NONE
+	hex.structure_layer = GameEnums.MacroStructureLayer.STRUCTURES
+	hex.is_poi = true
+	hex.landmark_id = "homestead_b"
+	hex.poi_id = "plains_homestead"
+	hex.poi_name = "Debug Homestead"
+	hex.sleep_anchor = "ground"
+	host.world_generator.world_hex_cache[coords] = hex
+	host.world_generator.commit_hex_projection(coords, hex)
+	host.begin_poi_interaction(coords, hex)
+
+
+func _set_event(message: String) -> void:
+	host._last_macro_event = message
+	host._refresh_world_hud()
+
+
+func _choice(
+	id: String,
+	label: String,
+	kind: String,
+	stakes: Array,
+	reason: String
+) -> Dictionary:
+	return {
+		"id": id,
+		"label": label,
+		"kind": kind,
+		"enabled": true,
+		"stakes": stakes,
+		"reason": reason,
+	}
