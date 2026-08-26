@@ -70,7 +70,8 @@ profile.
   with disposable-state authority recorded in the
   [World State Reconciliation Audit](READMEs/design/WORLD_STATE_RECONCILIATION_AUDIT.md).
 - **World-action checkpoint:** medical, inventory, POI gear, CAMP, movement,
-  player/NPC SEARCH, NPC work, atomic negotiation, deterministic salvage and
+  player/NPC SEARCH, NPC work, atomic negotiation, macro events, and collision
+  trade, deterministic salvage and
   surrender ownership, save-v15
   migration, and destroyed-vital persistence are recorded in the
   [World Action Transaction Checkpoint Audit](READMEs/design/WORLD_ACTION_TRANSACTION_CHECKPOINT_AUDIT.md).

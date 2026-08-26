@@ -14,6 +14,10 @@ func _run() -> void:
 	if macro_map == null or macro_map.macro_hud == null:
 		_fail("Macro map or HUD did not initialize.")
 		return
+	var world_state := root.get_node_or_null("/root/WorldState") as RuntimeStateStore
+	if world_state == null or world_state.player_record == null:
+		_fail("Canonical world state did not initialize for the macro event.")
+		return
 
 	var event_coords := _ensure_demo_homestead(macro_map)
 	macro_map.debug_teleport_player(event_coords)
@@ -94,8 +98,21 @@ func _run() -> void:
 	if listen_button == null:
 		_fail("Always-available event choice was missing.")
 		return
+	var starting_time := world_state.world_time_minutes
+	var starting_player_revision := world_state.player_record.revision
 	listen_button.pressed.emit()
 	await process_frame
+	if world_state.world_time_minutes != starting_time + 5:
+		_fail("Macro event choice did not commit elapsed time exactly once.")
+		return
+	if world_state.player_record.revision != starting_player_revision + 1:
+		_fail("Macro event choice did not advance player revision exactly once.")
+		return
+	if not world_state.get_hex_record(event_coords).searched_targets.has(
+		"event_locked_treatment_room"
+	):
+		_fail("Macro event source did not commit with its player action.")
+		return
 
 	var result_box := event_hud.get_node_or_null("%ResultBox") as PanelContainer
 	if result_box == null or not result_box.visible:

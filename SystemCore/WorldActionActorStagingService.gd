@@ -12,6 +12,8 @@ var _camp_transaction: WorldActionCampTransactionService
 var _movement_transaction: WorldActionMovementTransactionService
 var _search_transaction: WorldActionSearchTransactionService
 var _npc_work_transaction: WorldActionNpcWorkTransactionService
+var _macro_event_transaction: WorldActionMacroEventTransactionService
+var _trade_transaction: WorldActionTradeTransactionService
 
 
 func configure(
@@ -21,7 +23,9 @@ func configure(
 	camp_transaction: WorldActionCampTransactionService,
 	movement_transaction: WorldActionMovementTransactionService,
 	search_transaction: WorldActionSearchTransactionService,
-	npc_work_transaction: WorldActionNpcWorkTransactionService
+	npc_work_transaction: WorldActionNpcWorkTransactionService,
+	macro_event_transaction: WorldActionMacroEventTransactionService,
+	trade_transaction: WorldActionTradeTransactionService
 ) -> void:
 	store = state
 	_inventory_transaction = inventory_transaction
@@ -30,6 +34,8 @@ func configure(
 	_movement_transaction = movement_transaction
 	_search_transaction = search_transaction
 	_npc_work_transaction = npc_work_transaction
+	_macro_event_transaction = macro_event_transaction
+	_trade_transaction = trade_transaction
 
 
 func stage(receipt: WorldActionReceipt, elapsed_minutes: int) -> Dictionary:
@@ -96,8 +102,21 @@ func _stage_player(
 	if not bool(search_result.get("success", false)):
 		core.free()
 		return _failure(search_result, "Search outcome is no longer valid.")
+	var macro_event_result := _macro_event_transaction.stage(receipt)
+	if not bool(macro_event_result.get("success", false)):
+		core.free()
+		return _failure(macro_event_result, "Macro-event outcome is no longer valid.")
+	var trade_result := _trade_transaction.stage(core, receipt)
+	if not bool(trade_result.get("success", false)):
+		core.free()
+		return _failure(trade_result, "Trade outcome is no longer valid.")
 	var staged_hex_state: Dictionary = {}
-	for semantic_result in [poi_selection_result, camp_result, search_result]:
+	for semantic_result in [
+		poi_selection_result,
+		camp_result,
+		search_result,
+		macro_event_result,
+	]:
 		var candidate: Dictionary = semantic_result.get("hex_state", {}).duplicate(true)
 		if candidate.is_empty():
 			continue
@@ -144,6 +163,7 @@ func _stage_player(
 		"hex_state": staged_hex_state,
 		"created_items": [],
 		"target_state_handled": false,
+		"trade_staging": trade_result.duplicate(true),
 	}
 
 
@@ -160,6 +180,10 @@ func _stage_neutral_actor(
 	if not bool(npc_work_result.get("success", false)):
 		return _failure(npc_work_result, "NPC work progress is no longer valid.")
 	runtime = npc_work_result.get("runtime", {}).duplicate(true)
+	var pickup_result := _stage_neutral_ground_pickup(actor_data, runtime, receipt)
+	if not bool(pickup_result.get("success", false)):
+		return _failure(pickup_result, "Neutral ground pickup is no longer valid.")
+	runtime = pickup_result.get("runtime", {}).duplicate(true)
 	for mutation in receipt.mutations:
 		if str(mutation.get("type", "")) == "consume_material":
 			if not _consume_neutral_item(runtime, str(mutation.get("instance_id", ""))):
@@ -176,6 +200,54 @@ func _stage_neutral_actor(
 		"target_state_handled": bool(npc_work_result.get("target_state_handled", false)),
 		"error": "",
 	}
+
+
+func _stage_neutral_ground_pickup(
+	actor_data: Dictionary,
+	runtime: Dictionary,
+	receipt: WorldActionReceipt
+) -> Dictionary:
+	var transfer_id := ""
+	for mutation in receipt.mutations:
+		if str(mutation.get("type", "")) == "transfer_ground_item":
+			transfer_id = str(mutation.get("instance_id", ""))
+			break
+	if transfer_id.is_empty():
+		return {"success": true, "runtime": runtime.duplicate(true)}
+	if (
+		store == null
+		or actor_data.get("coords", receipt.target_coords) != receipt.target_coords
+		or int(actor_data.get("life_state", GameEnums.EntityLifeState.ALIVE))
+		!= GameEnums.EntityLifeState.ALIVE
+		or int(actor_data.get("world_status", GameEnums.EntityWorldStatus.HOSTILE))
+		== GameEnums.EntityWorldStatus.WITHDRAWN
+	):
+		return {"success": false, "error": "Neutral pickup actor moved or became inactive."}
+	var ownership := store.find_item_ownership(transfer_id)
+	if (
+		str(ownership.get("location", "")) != "ground"
+		or ownership.get("coords") != receipt.target_coords
+	):
+		return {"success": false, "error": "Neutral pickup item left the receipt location."}
+	var ground_item: Dictionary = {}
+	for item_value in store.get_ground_items(receipt.target_coords):
+		if (
+			item_value is Dictionary
+			and str(item_value.get("instance_id", "")) == transfer_id
+		):
+			ground_item = item_value.duplicate(true)
+			break
+	if ground_item.is_empty() or store.runtime_item_ids(runtime).has(transfer_id):
+		return {"success": false, "error": "Neutral pickup item identity is not unique."}
+	ground_item["owner_id"] = receipt.actor_id
+	ground_item["physical_location"] = "inventory"
+	ground_item["equipped_slot"] = GameEnums.EquipmentSlot.NONE
+	var next_runtime := runtime.duplicate(true)
+	var carried: Array = next_runtime.get("inventory_items", []).duplicate(true)
+	carried.append(ground_item)
+	next_runtime["inventory_items"] = carried
+	next_runtime["macro_purpose_label"] = "Carrying salvage"
+	return {"success": true, "runtime": next_runtime}
 
 
 func _failure(result: Dictionary, fallback: String) -> Dictionary:

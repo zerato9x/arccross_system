@@ -1102,7 +1102,8 @@ func commit_trade(
 	received_instance_id: String,
 	received_source: String,
 	expected_player_revision: int,
-	expected_enemy_revision: int
+	expected_enemy_revision: int,
+	trust_delta: float = 0.0
 ) -> bool:
 	if (
 		player_record == null
@@ -1112,6 +1113,8 @@ func commit_trade(
 		or offered_instance_id.is_empty()
 		or received_instance_id.is_empty()
 		or offered_instance_id == received_instance_id
+		or not is_finite(trust_delta)
+		or absf(trust_delta) > 12.0
 	):
 		return false
 	var enemy := get_entity(enemy_id)
@@ -1157,6 +1160,12 @@ func commit_trade(
 	enemy.definition = enemy_definition.duplicate(true)
 	enemy.revision += 1
 	enemy.last_simulated_minute = world_time_minutes
+	if not is_zero_approx(trust_delta):
+		var relationship_ledger := CombatRelationshipLedger.from_dict(
+			relationship_state
+		)
+		relationship_ledger.adjust_trust("player", enemy_id, trust_delta)
+		relationship_state = relationship_ledger.to_dict()
 	var integrity_errors := validate_integrity()
 	if not integrity_errors.is_empty():
 		restore_reconciliation_snapshot(transaction)

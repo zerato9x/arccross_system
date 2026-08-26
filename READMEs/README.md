@@ -95,8 +95,9 @@ Status updated on **August 25, 2026**:
   independent presentation clocks, and the corrected incapacitated-body
   handoff. The `duel_12x1` and `skirmish_6x3` resources remain Lab/compatibility
   fixtures only; former real-time/duel-lane material is historical reference.
-- **August 25 world-action checkpoint:** medical treatment, inventory, POI gear,
-  CAMP, movement, player SEARCH, NPC work, and negotiation now stage semantic mutations from
+- **August 26 world-action checkpoint:** medical treatment, inventory, POI gear,
+  CAMP, movement, player SEARCH, NPC work, negotiation, macro events, and trade now
+  stage semantic mutations from
   canonical records inside the atomic receipt boundary. Completed NPC SEARCH
   now commits depletion, disturbance trace, deterministic salvage ownership,
   knowledge, revisions, time, and reservation release as one receipt. Destroyed

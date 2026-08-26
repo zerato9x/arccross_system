@@ -185,6 +185,7 @@ func _verify_ceasefire_and_combat_outcomes() -> bool:
 
 
 func _verify_rejections() -> bool:
+	var remote_coords := COORDS + Vector2i(1, 0)
 	var store := _fixture_store()
 	var service := WorldActionApplicationService.new()
 	service.configure(store)
@@ -197,6 +198,34 @@ func _verify_rejections() -> bool:
 	if not store.patch_entity_record(ENEMY_ID, {"knowledge": {"revision_probe": true}}):
 		return _fail("Could not create stale negotiation fixture.")
 	if not _expect_rejected_unchanged(store, service, stale, "stale enemy revision"):
+		return false
+	store = _fixture_store()
+	store.set_hex_record(remote_coords, HexRecord.new())
+	service = WorldActionApplicationService.new()
+	service.configure(store)
+	var remote_target := _receipt(
+		store, "negotiation-remote-target", GameEnums.NegotiationOutcome.CEASEFIRE,
+		GameEnums.EntityWorldStatus.CEASEFIRE,
+		CombatRelationshipLedger.Relation.NEUTRAL,
+		"ceasefire_reached", 3.0, 0.0, {}, [], remote_coords, COORDS
+	)
+	if not _expect_rejected_unchanged(
+		store, service, remote_target, "remote target coordinate"
+	):
+		return false
+	store = _fixture_store()
+	service = WorldActionApplicationService.new()
+	service.configure(store)
+	var forged_player_coords := _receipt(
+		store, "negotiation-forged-player-coords",
+		GameEnums.NegotiationOutcome.CEASEFIRE,
+		GameEnums.EntityWorldStatus.CEASEFIRE,
+		CombatRelationshipLedger.Relation.NEUTRAL,
+		"ceasefire_reached", 3.0, 0.0, {}, [], COORDS, remote_coords
+	)
+	if not _expect_rejected_unchanged(
+		store, service, forged_player_coords, "forged player coordinate"
+	):
 		return false
 	var cases := [
 		{
@@ -320,20 +349,22 @@ func _receipt(
 	trust_delta: float,
 	threat_delta: float,
 	kept_loadout: Dictionary = {},
-	created_items: Array = []
+	created_items: Array = [],
+	target_coords: Vector2i = COORDS,
+	player_memory_coords: Vector2i = COORDS
 ) -> WorldActionReceipt:
 	var enemy := store.get_entity_snapshot(ENEMY_ID)
 	var request := WorldActionRequest.new()
 	request.actor_id = "player"
 	request.target_id = ENEMY_ID
-	request.target_coords = COORDS
+	request.target_coords = target_coords
 	request.verb_id = WorldActionNegotiationTransactionService.VERB_ID
 	request.expected_actor_revision = store.player_record.revision
 	request.payload = {
 		"action_id": action_id,
 		"node_id": store.active_node_id,
 		"world_time_minutes": store.world_time_minutes,
-		"expected_hex_revision": store.get_hex_record(COORDS).revision,
+		"expected_hex_revision": store.get_hex_record(target_coords).revision,
 	}
 	var reservation := store.begin_world_action(request)
 	var receipt := WorldActionResolver.resolve_direct_action(
@@ -342,7 +373,7 @@ func _receipt(
 	receipt.node_id = store.active_node_id
 	receipt.action_id = reservation.action_id
 	receipt.receipt_id = reservation.next_receipt_id()
-	receipt.expected_hex_revision = store.get_hex_record(COORDS).revision
+	receipt.expected_hex_revision = store.get_hex_record(target_coords).revision
 	receipt.mutations.append({
 		"type": WorldActionNegotiationTransactionService.MUTATION_TYPE,
 		"expected_enemy_revision": int(enemy.get("revision", -1)),
@@ -353,13 +384,13 @@ func _receipt(
 		"memory_event": {
 			"id": event_id,
 			"turn": 7,
-			"coords": COORDS,
+			"coords": player_memory_coords,
 			"trust_delta": trust_delta,
 			"threat_delta": threat_delta,
 		},
 		"next_world_status": next_status,
 		"next_relationship": next_relationship,
-		"ground_coords": COORDS,
+		"ground_coords": player_memory_coords,
 		"kept_loadout": kept_loadout.duplicate(true),
 		"created_ground_items": created_items.duplicate(true),
 	})

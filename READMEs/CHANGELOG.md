@@ -1,5 +1,42 @@
 # ARCCROSS Changelog
 
+## August 26, 2026
+
+### Collision transaction continuation
+
+- Routed successful collision trade through one semantic `trade_application`.
+  Player survival and inventory, counterparty inventory and memory, pairwise
+  trust, both revisions, world time, reservation, ownership integrity, and
+  replay identity now commit together or restore the pre-action snapshot.
+- Removed live player inventory edits and the independent post-trade trust/time
+  commits from `MacroCollisionCoordinator`; rejected exchanges no longer leave
+  behind a completed barter with an unpaid survival cost.
+- Made ASK results contingent on an accepted time/biology receipt and removed
+  the redundant pre-commit interaction cue. LEAVE now only closes an already
+  committed peaceful session instead of rewriting ceasefire and relationship
+  state a second time.
+- Added `TradeWorldActionTransactionSmoke` for atomic success, ownership,
+  memory, trust, replay, and stale/duplicate/forged/remote rollback, while
+  preserving the older direct `TradeOwnershipBoundarySmoke` compatibility
+  contract.
+- Replaced NPC salvage pickup's live ground transfer, ignored timing receipt,
+  and post-receipt purpose patch with one neutral `transfer_ground_item`
+  receipt. Ground ownership, NPC runtime/purpose, survival, time, revisions,
+  reservation, and replay now share the application rollback boundary.
+- Added `NpcPickupWorldActionTransactionSmoke` covering the direct transaction,
+  production `MacroNpcRuntimeService.collect_ground_items()` path, injected
+  application rejection, and stale/duplicate/missing/remote rollback.
+- Made Central and Regional Core progression stop when the player
+  survival/time receipt is rejected; meta progression, Hex persistence,
+  campaign triggers, UI closure, and success presentation no longer continue
+  after an uncommitted activation cost.
+- Added `CampaignCoreReceiptGateSmoke` proving rejected Core activation emits
+  only interruption presentation and accepted activation orders its downstream
+  effects after receipt acceptance.
+- Passed the complete current Godot 4.7.1 SceneTree gate `145/145` by process
+  exit code in the bounded six-worker sweep. Headless editor import and focused
+  architecture, Core, macro-event, NPC-pickup, and trade gates also pass.
+
 ## August 25, 2026
 
 ### Negotiation authority continuation
@@ -12,9 +49,16 @@
   attempt, and loadout slot so re-resolution after rejection cannot manufacture
   a new identity for the same outcome.
 - Added `NegotiationWorldActionTransactionSmoke` covering all three outcomes,
-  withdrawal occupancy, ownership, replay, save/load, stale/malformed rejection,
-  and surrender determinism; focused architecture, macro-interaction, and generic
-  world-action regression smokes pass under Godot 4.7.1.
+  withdrawal occupancy, ownership, replay, save/load, stale/malformed/remote
+  rejection, and surrender determinism. The current Godot 4.7.1 SceneTree gate
+  passes `142/142`; the raw runner labeled two expected persistence-rejection
+  logs as failures because they contain the word `failed`, but both explicitly
+  printed PASS and exited `0`.
+- Routed authored macro-event choices through one semantic
+  `macro_event_application`: source completion, player biology/time, Hex and
+  player revisions, reservation, and replay now commit together. Blocked or
+  stale choices no longer fire discovery/objective progress, and the shipping
+  HUD smoke verifies the canonical source and five-minute action atom.
 
 ### World-action stabilization closure
 

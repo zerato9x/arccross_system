@@ -206,6 +206,18 @@ func _extraction_contract_violations() -> Array[String]:
 		violations.append(
 			"%s does not delegate canonical negotiation staging" % application_path
 		)
+	if application_source.find(
+		"WorldActionMacroEventTransactionService"
+	) == -1:
+		violations.append(
+			"%s does not delegate canonical macro-event staging" % application_path
+		)
+	if application_source.find(
+		"WorldActionTradeTransactionService"
+	) == -1:
+		violations.append(
+			"%s does not delegate canonical trade staging" % application_path
+		)
 	for extracted_service in [
 		"WorldActionReceiptValidationService",
 		"WorldActionActorStagingService",
@@ -264,6 +276,45 @@ func _extraction_contract_violations() -> Array[String]:
 		violations.append(
 			"%s does not submit semantic NPC work progress" % npc_work_path
 		)
+	var npc_runtime_path := "res://WorldCore/MacroNpcRuntimeService.gd"
+	var npc_runtime_source := FileAccess.get_file_as_string(npc_runtime_path)
+	var pickup_start := npc_runtime_source.find("func collect_ground_items")
+	if pickup_start >= 0:
+		var next_pickup_function := npc_runtime_source.find("\nfunc ", pickup_start + 1)
+		var pickup_body := npc_runtime_source.substr(
+			pickup_start,
+			npc_runtime_source.length() - pickup_start
+			if next_pickup_function < 0
+			else next_pickup_function - pickup_start
+		)
+		if pickup_body.find("application.applied") == -1:
+			violations.append(
+				"%s NPC pickup does not gate its receipt" % npc_runtime_path
+			)
+		for forbidden_pickup_mutator in [
+			"transfer_ground_item_to_entity",
+			"patch_entity_record",
+		]:
+			if pickup_body.find(forbidden_pickup_mutator) != -1:
+				violations.append(
+					"%s still owns live-first NPC pickup mutation %s"
+					% [npc_runtime_path, forbidden_pickup_mutator]
+				)
+	var pickup_builder_start := manager_source.find("func _build_npc_pickup_receipt")
+	if pickup_builder_start >= 0:
+		var next_builder_function := manager_source.find(
+			"\nfunc ", pickup_builder_start + 1
+		)
+		var pickup_builder_body := manager_source.substr(
+			pickup_builder_start,
+			manager_source.length() - pickup_builder_start
+			if next_builder_function < 0
+			else next_builder_function - pickup_builder_start
+		)
+		if pickup_builder_body.find('"type": "transfer_ground_item"') == -1:
+			violations.append(
+				"%s does not submit semantic NPC ground transfer" % manager_path
+			)
 	var talk_start := manager_source.find("func resolve_talk_action")
 	if talk_start >= 0:
 		var next_talk_function := manager_source.find("\nfunc ", talk_start + 1)
@@ -290,6 +341,142 @@ func _extraction_contract_violations() -> Array[String]:
 				violations.append(
 					"%s still owns post-commit negotiation mutation %s"
 					% [manager_path, forbidden_negotiation_mutator]
+				)
+	var macro_event_start := manager_source.find("func resolve_macro_event_choice")
+	if macro_event_start >= 0:
+		var next_macro_event_function := manager_source.find(
+			"\nfunc ", macro_event_start + 1
+		)
+		var macro_event_body := manager_source.substr(
+			macro_event_start,
+			manager_source.length() - macro_event_start
+			if next_macro_event_function < 0
+			else next_macro_event_function - macro_event_start
+		)
+		for required_macro_event_boundary in [
+			"_commit_macro_event_choice",
+			"application.applied",
+		]:
+			if macro_event_body.find(required_macro_event_boundary) == -1:
+				violations.append(
+					"%s macro-event resolution does not gate %s"
+					% [manager_path, required_macro_event_boundary]
+				)
+		for forbidden_macro_event_mutator in [
+			"_complete_macro_event_source",
+			"_apply_macro_event_effects",
+			"searched_targets.append",
+			"commit_hex_projection",
+		]:
+			if macro_event_body.find(forbidden_macro_event_mutator) != -1:
+				violations.append(
+					"%s still owns pre-commit macro-event mutation %s"
+					% [manager_path, forbidden_macro_event_mutator]
+				)
+	if manager_source.find("func _complete_macro_event_source") != -1:
+		violations.append(
+			"%s retains the live-first macro-event source mutator" % manager_path
+		)
+	var campaign_progression_path := (
+		"res://WorldCore/MacroCampaignProgressionService.gd"
+	)
+	var campaign_progression_source := FileAccess.get_file_as_string(
+		campaign_progression_path
+	)
+	if campaign_progression_source.count("if not _advance_time(") < 2:
+		violations.append(
+			"%s does not gate both Core progression paths on receipt acceptance"
+			% campaign_progression_path
+		)
+	var survival_time_start := manager_source.find("func _advance_survival_time")
+	if survival_time_start >= 0:
+		var next_survival_function := manager_source.find(
+			"\nfunc ", survival_time_start + 1
+		)
+		var survival_time_body := manager_source.substr(
+			survival_time_start,
+			manager_source.length() - survival_time_start
+			if next_survival_function < 0
+			else next_survival_function - survival_time_start
+		)
+		for required_survival_boundary in [
+			"WorldActionApplicationReceipt",
+			"application.applied",
+			"cancel_world_action",
+		]:
+			if survival_time_body.find(required_survival_boundary) == -1:
+				violations.append(
+					"%s survival-time adapter does not gate %s"
+					% [manager_path, required_survival_boundary]
+				)
+	var collision_path := "res://WorldCore/MacroCollisionCoordinator.gd"
+	var collision_source := FileAccess.get_file_as_string(collision_path)
+	var trade_start := collision_source.find("func resolve_trade")
+	if trade_start >= 0:
+		var next_trade_function := collision_source.find("\nfunc ", trade_start + 1)
+		var trade_body := collision_source.substr(
+			trade_start,
+			collision_source.length() - trade_start
+			if next_trade_function < 0
+			else next_trade_function - trade_start
+		)
+		for required_trade_boundary in [
+			"WorldActionTradeTransactionService.MUTATION_TYPE",
+			"application.applied",
+		]:
+			if trade_body.find(required_trade_boundary) == -1:
+				violations.append(
+					"%s trade resolution does not gate %s"
+					% [collision_path, required_trade_boundary]
+				)
+		for forbidden_trade_mutator in [
+			"commit_trade",
+			"adjust_relationship_trust",
+			"_apply_macro_event_effects",
+			"remove_item_by_instance_id",
+			"add_to_backpack",
+			"restore_runtime_state",
+		]:
+			if trade_body.find(forbidden_trade_mutator) != -1:
+				violations.append(
+					"%s still owns pre/post-commit trade mutation %s"
+					% [collision_path, forbidden_trade_mutator]
+				)
+	var ask_start := collision_source.find("func resolve_ask")
+	if ask_start >= 0:
+		var next_ask_function := collision_source.find("\nfunc ", ask_start + 1)
+		var ask_body := collision_source.substr(
+			ask_start,
+			collision_source.length() - ask_start
+			if next_ask_function < 0
+			else next_ask_function - ask_start
+		)
+		if ask_body.find("application.applied") == -1:
+			violations.append(
+				"%s ASK resolution does not gate its receipt" % collision_path
+			)
+		if ask_body.find("play_interaction") != -1:
+			violations.append(
+				"%s ASK resolution still presents before commit" % collision_path
+			)
+	var leave_start := collision_source.find("func resolve_leave")
+	if leave_start >= 0:
+		var next_leave_function := collision_source.find("\nfunc ", leave_start + 1)
+		var leave_body := collision_source.substr(
+			leave_start,
+			collision_source.length() - leave_start
+			if next_leave_function < 0
+			else next_leave_function - leave_start
+		)
+		for forbidden_leave_mutator in [
+			"_world_state",
+			"set_entity_world_status",
+			"set_relationship",
+		]:
+			if leave_body.find(forbidden_leave_mutator) != -1:
+				violations.append(
+					"%s LEAVE still rewrites committed ceasefire state %s"
+					% [collision_path, forbidden_leave_mutator]
 				)
 	var search_commit_start := manager_source.find("func _commit_search_transaction")
 	if search_commit_start >= 0:

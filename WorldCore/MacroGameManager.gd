@@ -2309,13 +2309,15 @@ func _advance_survival_time(
 	target_coords: Vector2i,
 	insulation_bonus: float = 0.0,
 	verb_id: String = "time_advance"
-) -> void:
+) -> WorldActionApplicationReceipt:
 	var request := WorldActionRequest.new()
 	request.actor_id = "player"
 	request.target_id = "hex:%s" % str(target_coords)
 	request.target_coords = target_coords
 	request.verb_id = verb_id
 	request.method_id = "survival"
+	request.expected_actor_revision = _world_state.player_revision
+	request.payload["world_time_minutes"] = _world_state.world_time_minutes
 	request.payload["action_id"] = "%s:%s:%d" % [
 		verb_id,
 		str(target_coords),
@@ -2328,8 +2330,13 @@ func _advance_survival_time(
 		0.0,
 		"Elapsed time committed."
 	)
+	if receipt == null:
+		return null
 	receipt.presentation["insulation_bonus"] = insulation_bonus
-	_commit_world_action_receipt(receipt, target_coords)
+	var application := _commit_world_action_receipt(receipt, target_coords)
+	if application == null or not application.applied:
+		_world_state.cancel_world_action(receipt.action_id)
+	return application
 
 
 func _commit_camp_cycle(
@@ -3390,9 +3397,23 @@ func resolve_macro_event_choice(choice_id: String) -> void:
 		choice_id,
 		context
 	)
-	if result.has("choice_id"):
-		_complete_macro_event_source()
-	_apply_macro_event_effects(result.get("effects", {}))
+	if not result.has("choice_id"):
+		if macro_hud:
+			macro_hud.show_event_result(result)
+		return
+	var application := _commit_macro_event_choice(event_id, result)
+	if application == null or not application.applied:
+		var interrupted := result.duplicate(true)
+		interrupted["title"] = "EVENT INTERRUPTED"
+		interrupted["body"] = (
+			application.error
+			if application != null and not application.error.is_empty()
+			else "The event outcome changed before it could commit."
+		)
+		interrupted["effects"] = {}
+		if macro_hud:
+			macro_hud.show_event_result(interrupted)
+		return
 	apply_campaign_discovery_trigger("event_resolved:%s" % event_id)
 	_last_macro_event = "%s: %s" % [
 		str(_pending_interaction.get("event_id", "Macro event")),
@@ -3450,20 +3471,6 @@ func _begin_macro_event_from_poi(
 		{"source_search_option_id": search_option_id}
 	)
 
-
-func _complete_macro_event_source() -> void:
-	var context: Dictionary = _pending_interaction.get("context", {})
-	var search_option_id := str(context.get("source_search_option_id", ""))
-	if search_option_id.is_empty():
-		return
-	var coords: Vector2i = _pending_interaction.get(
-		"coords",
-		player_token.current_hex_coords
-	)
-	var hex_data := world_generator.get_hex_at(coords)
-	if not hex_data.searched_targets.has(search_option_id):
-		hex_data.searched_targets.append(search_option_id)
-		world_generator.commit_hex_projection(coords, hex_data)
 
 func resolve_talk_action(action: GameEnums.TalkAction) -> void:
 	if (
@@ -3806,9 +3813,11 @@ func _packed_string_values(values: PackedStringArray) -> Array[String]:
 	return result
 
 
-func _apply_macro_event_effects(effects: Dictionary) -> void:
+func _apply_macro_event_effects(
+	effects: Dictionary
+) -> WorldActionApplicationReceipt:
 	if effects.is_empty():
-		return
+		return null
 	var coords: Vector2i = _pending_interaction.get(
 		"coords",
 		player_token.current_hex_coords
@@ -3827,7 +3836,54 @@ func _apply_macro_event_effects(effects: Dictionary) -> void:
 			0.0,
 			"Conversation or event choice committed."
 		)
-		_commit_world_action_receipt(receipt, coords)
+		if receipt == null:
+			return null
+		var application := _commit_world_action_receipt(receipt, coords)
+		if application == null or not application.applied:
+			_world_state.cancel_world_action(receipt.action_id)
+		return application
+	return null
+
+
+func _commit_macro_event_choice(
+	event_id: String,
+	result: Dictionary
+) -> WorldActionApplicationReceipt:
+	var coords: Vector2i = _pending_interaction.get(
+		"coords",
+		player_token.current_hex_coords
+	)
+	var effects_value: Variant = result.get("effects", {})
+	var effects: Dictionary = (
+		effects_value if effects_value is Dictionary else {}
+	)
+	var request := WorldActionRequest.new()
+	request.actor_id = "player"
+	request.target_id = event_id
+	request.target_coords = coords
+	request.verb_id = WorldActionMacroEventTransactionService.VERB_ID
+	request.expected_actor_revision = _world_state.player_revision
+	request.payload["world_time_minutes"] = _world_state.world_time_minutes
+	var receipt := _world_action_coordinator.resolve_direct_action(
+		request,
+		maxi(0, int(effects.get("elapsed_minutes", 0))),
+		maxf(0.0, float(effects.get("exertion", 0.0))),
+		0.0,
+		"Macro-event choice committed."
+	)
+	var context: Dictionary = _pending_interaction.get("context", {})
+	receipt.mutations.append({
+		"type": WorldActionMacroEventTransactionService.MUTATION_TYPE,
+		"event_id": event_id,
+		"choice_id": str(result.get("choice_id", "")),
+		"source_search_option_id": str(context.get(
+			"source_search_option_id", ""
+		)),
+	})
+	var application := _commit_world_action_receipt(receipt, coords)
+	if application == null or not application.applied:
+		_world_state.cancel_world_action(receipt.action_id)
+	return application
 
 func resolve_inventory_action(
 	action_id: String,
@@ -4643,14 +4699,26 @@ func _build_npc_pickup_receipt(
 	pickup_request.target_id = instance_id
 	pickup_request.target_coords = record.coords
 	pickup_request.verb_id = WorldActionResolver.VERB_PICK_UP
+	pickup_request.expected_actor_revision = record.revision
 	pickup_request.payload["world_time_minutes"] = _world_state.world_time_minutes
-	return _world_action_coordinator.resolve_direct_action(
+	pickup_request.payload["action_id"] = "npc-pickup:%s:%s:%d" % [
+		record.entity_id,
+		instance_id,
+		record.revision,
+	]
+	var receipt := _world_action_coordinator.resolve_direct_action(
 		pickup_request,
 		_time_rules_service.action_minutes("action"),
 		0.05,
 		0.0,
 		"%s picked up carried salvage." % record.entity_id
 	)
+	if receipt != null:
+		receipt.mutations.append({
+			"type": "transfer_ground_item",
+			"instance_id": instance_id,
+		})
+	return receipt
 
 
 func _initialize_npc_runtime(record: EntityRecord) -> void:

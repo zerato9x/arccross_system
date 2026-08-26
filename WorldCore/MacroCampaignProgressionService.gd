@@ -68,7 +68,12 @@ func resolve_central_core_activation(
 		)
 		return
 
-	_advance_time(_search_minutes(), 1.5, coords)
+	if not _advance_time(_search_minutes(), 1.5, coords):
+		_show_result(
+			"ACTIVATION INTERRUPTED",
+			"The activation cost changed before it could commit."
+		)
+		return
 	if meta_progress != null:
 		meta_progress.complete_event(
 			"central_core_activated",
@@ -113,7 +118,12 @@ func resolve_regional_core_restoration(
 		_show_result("CORE STABLE", "This regional Core is already restored.")
 		return
 
-	_advance_time(_search_minutes(), 1.5, coords)
+	if not _advance_time(_search_minutes(), 1.5, coords):
+		_show_result(
+			"RESTORATION INTERRUPTED",
+			"The restoration cost changed before it could commit."
+		)
+		return
 	state["restored"] = true
 	if meta_progress != null and meta_progress.has_method("set_core_state"):
 		meta_progress.set_core_state(core_id, state)
@@ -137,8 +147,14 @@ func _search_minutes() -> int:
 	return int(value) if value != null else 15
 
 
-func _advance_time(minutes: int, exertion: float, coords: Vector2i) -> void:
-	_call("advance_time", [minutes, exertion, coords])
+func _advance_time(minutes: int, exertion: float, coords: Vector2i) -> bool:
+	var application_value: Variant = _call(
+		"advance_time", [minutes, exertion, coords]
+	)
+	if not application_value is WorldActionApplicationReceipt:
+		return false
+	var application := application_value as WorldActionApplicationReceipt
+	return application.applied
 
 
 func _persist_hex(coords: Vector2i, state: Variant) -> void:

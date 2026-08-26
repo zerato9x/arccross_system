@@ -26,6 +26,8 @@ const ALLOWED_MUTATION_TYPES := [
 	"search_application",
 	"npc_work_application",
 	"negotiation_application",
+	"macro_event_application",
+	"trade_application",
 	"add_ground_item",
 	"biological_hit",
 	"append_trace",
@@ -41,6 +43,8 @@ var _movement_transaction: WorldActionMovementTransactionService
 var _search_transaction: WorldActionSearchTransactionService
 var _npc_work_transaction: WorldActionNpcWorkTransactionService
 var _negotiation_transaction: WorldActionNegotiationTransactionService
+var _macro_event_transaction: WorldActionMacroEventTransactionService
+var _trade_transaction: WorldActionTradeTransactionService
 
 
 func configure(
@@ -51,7 +55,9 @@ func configure(
 	movement_transaction: WorldActionMovementTransactionService,
 	search_transaction: WorldActionSearchTransactionService,
 	npc_work_transaction: WorldActionNpcWorkTransactionService,
-	negotiation_transaction: WorldActionNegotiationTransactionService
+	negotiation_transaction: WorldActionNegotiationTransactionService,
+	macro_event_transaction: WorldActionMacroEventTransactionService,
+	trade_transaction: WorldActionTradeTransactionService
 ) -> void:
 	store = state
 	_inventory_transaction = inventory_transaction
@@ -61,6 +67,8 @@ func configure(
 	_search_transaction = search_transaction
 	_npc_work_transaction = npc_work_transaction
 	_negotiation_transaction = negotiation_transaction
+	_macro_event_transaction = macro_event_transaction
+	_trade_transaction = trade_transaction
 
 
 func validation_error(receipt: WorldActionReceipt) -> String:
@@ -114,6 +122,8 @@ func payload_integrity_error(receipt: WorldActionReceipt) -> String:
 	var consumed_ids: Dictionary = {}
 	var transferred_ids: Dictionary = {}
 	var medical_application_count := 0
+	var ground_transfer_count := 0
+	var ground_transfer_id := ""
 	for mutation_value in receipt.mutations:
 		if not mutation_value is Dictionary:
 			return "World-action receipt contains a malformed mutation."
@@ -144,6 +154,9 @@ func payload_integrity_error(receipt: WorldActionReceipt) -> String:
 				var item_state: Variant = mutation.get("item_state", {})
 				if not item_state is Dictionary or str(item_state.get("instance_id", "")) != instance_id:
 					return "World-action drop mutation has malformed item state."
+			else:
+				ground_transfer_count += 1
+				ground_transfer_id = instance_id
 			transferred_ids[instance_id] = true
 		elif mutation_type == "move_actor":
 			if mutation.get("to", receipt.target_coords) != receipt.target_coords:
@@ -174,6 +187,29 @@ func payload_integrity_error(receipt: WorldActionReceipt) -> String:
 			return "World-action medical treatment has the wrong verb or method."
 		if not consumed_ids.is_empty():
 			return "World-action medical treatment contains conflicting actor mutations."
+	if ground_transfer_count > 0:
+		if (
+			ground_transfer_count != 1
+			or receipt.actor_id == "player"
+			or receipt.verb_id != "pick_up"
+			or receipt.target_id != ground_transfer_id
+		):
+			return "World-action neutral pickup mutation is malformed."
+		for mutation in receipt.mutations:
+			if str(mutation.get("type", "")) in [
+				"consume_material",
+				"drop_ground_item",
+				"inventory_action",
+				"poi_selection_application",
+				"camp_cycle_application",
+				"search_application",
+				"npc_work_application",
+				"negotiation_application",
+				"macro_event_application",
+				"trade_application",
+				"add_ground_item",
+			]:
+				return "World-action neutral pickup contains a conflicting mutation."
 	for transaction in [
 		_inventory_transaction,
 		_poi_selection_transaction,
@@ -182,6 +218,8 @@ func payload_integrity_error(receipt: WorldActionReceipt) -> String:
 		_search_transaction,
 		_npc_work_transaction,
 		_negotiation_transaction,
+		_macro_event_transaction,
+		_trade_transaction,
 	]:
 		if transaction == null:
 			return "World-action validation transaction is unavailable."

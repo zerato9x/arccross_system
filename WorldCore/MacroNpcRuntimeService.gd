@@ -117,35 +117,22 @@ func collect_ground_items(
 		# Ground items are ordinary world resources. Ownership and knowledge
 		# determine who can take them; quest identity is not hard-coded here.
 		var instance_id := str(item_state.get("instance_id", ""))
-		if not world_state.transfer_ground_item_to_entity(
-			record.coords, instance_id, record.entity_id
-		):
-			continue
-		var latest_snapshot := world_state.get_entity_snapshot(record.entity_id)
-		if latest_snapshot.is_empty():
-			continue
-		record = EntityRecord.from_dict(latest_snapshot)
 		var pickup_receipt: WorldActionReceipt = (
 			build_pickup_receipt.call(record, instance_id)
 			if build_pickup_receipt.is_valid()
 			else null
 		)
-		if commit_receipt.is_valid():
-			commit_receipt.call(
+		if pickup_receipt == null or not commit_receipt.is_valid():
+			continue
+		var application := commit_receipt.call(
 				pickup_receipt,
 				record.coords,
 				null,
 				record.entity_id,
-			)
-		latest_snapshot = world_state.get_entity_snapshot(record.entity_id)
-		if not latest_snapshot.is_empty():
-			record = EntityRecord.from_dict(latest_snapshot)
-		record.runtime["macro_purpose_label"] = "Carrying salvage"
-		world_state.patch_entity_record(record.entity_id, {
-			"runtime": record.runtime,
-			"revision": int(latest_snapshot.get("revision", record.revision)) + 1,
-			"last_simulated_minute": record.last_simulated_minute,
-		})
+			) as WorldActionApplicationReceipt
+		if application == null or not application.applied:
+			world_state.cancel_world_action(pickup_receipt.action_id)
+			continue
 		break
 
 

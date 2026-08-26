@@ -39,7 +39,8 @@ database, stat registry, or rule table.
   owns generic and semantic receipt validation;
   `WorldActionActorStagingService` dispatches detached actor/Hex proposals.
   Small transaction services stage inventory, POI-selection, CAMP, movement,
-  SEARCH, NPC-work, and negotiation semantics from canonical records; none commits a
+  SEARCH, NPC-work, negotiation, macro-event, and trade semantics from canonical
+  records; none commits a
   competing partial world.
 - `LootCatalog` translates ItemCore resources into neutral descriptors and
   runtime item records.

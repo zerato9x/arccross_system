@@ -8,7 +8,6 @@ class_name MacroCollisionCoordinator
 
 var host: MacroGameManager
 var interaction_state: MacroInteractionState
-const _NpcSimulator := preload("res://WorldCore/MacroNpcSimulator.gd")
 
 
 func _init(
@@ -123,71 +122,57 @@ func resolve_trade() -> void:
 		if host.macro_hud:
 			host.macro_hud.show_event_result(result)
 		return
-	var prior_player_runtime := host._world_state.player_record.runtime.duplicate(true)
-	var expected_player_revision := host._world_state.player_record.revision
-	var expected_enemy_revision := enemy_record.revision
-	var removed_offer: ItemData = null
-	if not remove_id.is_empty() and player_core != null:
-		removed_offer = player_core.inventory.remove_item_by_instance_id(remove_id)
-		if removed_offer == null:
-			result["title"] = "TRADE ABORTED"
-			result["body"] = "The offered item changed before the transfer could commit."
-			result.erase("kept_loadout")
-			result.erase("enemy_inventory_items")
-			if host.macro_hud:
-				host.macro_hud.show_event_result(result)
-			return
-	if not received_state.is_empty():
-		var received := ItemData.from_runtime_state(received_state)
-		if player_core == null or received == null:
-			if removed_offer != null:
-				player_core.restore_runtime_state(prior_player_runtime)
-			return
-		if not player_core.inventory.add_to_backpack(received):
-			player_core.restore_runtime_state(prior_player_runtime)
-			result["title"] = "TRADE ABORTED"
-			result["body"] = "You do not have room to receive that item."
-			if host.macro_hud:
-				host.macro_hud.show_event_result(result)
-			return
-	var definition: Dictionary = enemy_record.definition.duplicate(true)
-	definition["loadout"] = result.get("kept_loadout", {})
-	var memory_record := EntityRecord.from_dict(enemy_record.to_dict())
-	_NpcSimulator.remember_player_event(
-		memory_record,
-		"trade_completed",
-		host._macro_turn_index,
-		host.player_token.current_hex_coords,
-		float(result.get("effects", {}).get("trust_delta", 0.0)),
-		0.0
+	var effects_value: Variant = result.get("effects", {})
+	var effects: Dictionary = (
+		effects_value if effects_value is Dictionary else {}
 	)
-	var enemy_runtime: Dictionary = memory_record.runtime.duplicate(true)
-	if result.has("enemy_inventory_items"):
-		enemy_runtime["inventory_items"] = result.get(
-			"enemy_inventory_items", []
-		).duplicate(true)
-	var committed := host._world_state.commit_trade(
-		enemy_id,
-		player_core.capture_runtime_state().to_dict(),
-		enemy_runtime,
-		definition,
-		remove_id,
-		str(received_state.get("instance_id", "")),
-		str(result.get("received_item_source", "inventory")),
-		expected_player_revision,
-		expected_enemy_revision
+	var coords := host.player_token.current_hex_coords
+	var request := WorldActionRequest.new()
+	request.actor_id = "player"
+	request.target_id = enemy_id
+	request.target_coords = coords
+	request.verb_id = WorldActionTradeTransactionService.VERB_ID
+	request.expected_actor_revision = host._world_state.player_revision
+	request.payload["world_time_minutes"] = host._world_state.world_time_minutes
+	var receipt := host._world_action_coordinator.resolve_direct_action(
+		request,
+		int(effects.get("elapsed_minutes", 0)),
+		float(effects.get("exertion", 0.0)),
+		0.0,
+		"Trade committed."
 	)
-	if not committed:
-		player_core.restore_runtime_state(prior_player_runtime)
+	if receipt == null:
 		result["title"] = "TRADE ABORTED"
-		result["body"] = "The item changed before the exchange could commit."
+		result["body"] = "The exchange could not reserve an atomic action."
 		if host.macro_hud:
 			host.macro_hud.show_event_result(result)
 		return
-	var trust_delta := float(result.get("effects", {}).get("trust_delta", 0.0))
-	if not is_zero_approx(trust_delta):
-		host._world_state.adjust_relationship_trust("player", enemy_id, trust_delta)
-	host._apply_macro_event_effects(result.get("effects", {}))
+	receipt.mutations.append({
+		"type": WorldActionTradeTransactionService.MUTATION_TYPE,
+		"expected_enemy_revision": enemy_record.revision,
+		"offered_instance_id": remove_id,
+		"received_item_state": received_state.duplicate(true),
+		"received_source": str(result.get(
+			"received_item_source", "inventory"
+		)),
+		"memory_event": {
+			"turn": host._macro_turn_index,
+			"coords": coords,
+			"trust_delta": float(effects.get("trust_delta", 0.0)),
+		},
+	})
+	var application := host._commit_world_action_receipt(receipt, coords)
+	if application == null or not application.applied:
+		host._world_state.cancel_world_action(receipt.action_id)
+		result["title"] = "TRADE ABORTED"
+		result["body"] = (
+			application.error
+			if application != null and not application.error.is_empty()
+			else "The exchange changed before it could commit."
+		)
+		if host.macro_hud:
+			host.macro_hud.show_event_result(result)
+		return
 	interaction_state.set_value(
 		"resume_after_result",
 		str(result.get("resume", MacroEntityCollisionResolver.MODE_PEACEFUL))
@@ -207,12 +192,26 @@ func resolve_ask(choice_id: String) -> void:
 	)
 	if enemy_record == null:
 		return
-	host.player_token.play_interaction()
 	var result := MacroEntityCollisionResolver.resolve_ask_choice(
 		enemy_record,
 		choice_id
 	)
-	host._apply_macro_event_effects(result.get("effects", {}))
+	var effects_value: Variant = result.get("effects", {})
+	var effects: Dictionary = effects_value if effects_value is Dictionary else {}
+	var application := host._apply_macro_event_effects(effects)
+	if (
+		not effects.is_empty()
+		and (application == null or not application.applied)
+	):
+		result["title"] = "ANSWER INTERRUPTED"
+		result["body"] = (
+			application.error
+			if application != null and not application.error.is_empty()
+			else "The conversation changed before its cost could commit."
+		)
+		if host.macro_hud:
+			host.macro_hud.show_event_result(result)
+		return
 	interaction_state.set_value(
 		"resume_after_result",
 		str(result.get("resume", MacroEntityCollisionResolver.MODE_ASK))
@@ -223,15 +222,9 @@ func resolve_ask(choice_id: String) -> void:
 
 
 func resolve_leave() -> void:
-	var enemy_id: String = str(interaction_state.get_value("enemy_id", ""))
-	if not enemy_id.is_empty():
-		host._world_state.set_entity_world_status(
-			enemy_id,
-			GameEnums.EntityWorldStatus.CEASEFIRE
-		)
-		host._world_state.set_relationship(
-			"player", enemy_id, CombatRelationshipLedger.Relation.NEUTRAL
-		)
+	# LEAVE is only offered by the peaceful session after the ceasefire receipt
+	# has already committed disposition and relationship. Closing presentation
+	# must not manufacture a second canonical state transition.
 	host.close_macro_interaction()
 
 

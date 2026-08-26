@@ -1,12 +1,12 @@
 # ARCCROSS World Action Transaction Checkpoint Audit
 
 Status: stabilization implemented and runtime-verified
-Audit date: 2026-08-25
+Audit date: 2026-08-26
 Branch: `alpha-release-baseline`
-Baseline commit: `96bf593`
+Baseline commit: `9e0903a`
 Scope: medical treatment, terminal biology, inventory, POI gear, CAMP,
-movement, SEARCH, NPC work, negotiation, item ownership, and their world-action
-boundaries
+movement, SEARCH, NPC work, negotiation, macro events, collision trade,
+item ownership, and their world-action boundaries
 
 ## Executive result
 
@@ -55,6 +55,10 @@ The audit used current code and runtime evidence rather than roadmap labels:
 | NPC work progress | `MacroNpcWorkService` built and submitted a replacement actor runtime while material consumption and tool wear were separately rebased | Receipt carries `npc_work_application`; canonical NPC progress, material consumption, tool wear, revisions, time, reservation continuation, and replay are staged together | `NpcWorkWorldActionTransactionSmoke`, `MacroNpcWorkSmoke` |
 | Completed NPC SEARCH | Depletion and salvage occurred as independent post-receipt mutations, allowing partial completion | The completed `npc_work_application` carries canonical resource expectations and deterministic salvage; actor, knowledge, target/Hex, trace, ownership, time, revisions, reservation, and receipt identity commit together | `NpcSearchCompletionShippingSmoke`, adversarial cases in `NpcWorkWorldActionTransactionSmoke` |
 | Negotiation | TALK committed player/time first, then independently patched target attempts, memory, status, relationship, loadout, and dropped gear | Receipt carries one `negotiation_application`; canonical target staging and `RuntimeStateStore.commit_negotiation_outcome()` join player, target, relationship, created ground ownership, time, reservation, and replay under the same reconciliation snapshot | `NegotiationWorldActionTransactionSmoke`, `ArchitectureContractSmoke`, `MacroInteractionSmoke` |
+| Macro events | Event sources were completed before player time/biology application, receipt rejection was ignored, and even blocked choices could continue into campaign triggers | Valid choices carry one `macro_event_application`; canonical source completion is staged with player time and only an accepted receipt may trigger campaign discovery/objective reactions | `MacroEventResolverCheck`, `MacroEventHudSmoke`, `ArchitectureContractSmoke` |
+| Collision trade and social exit | Trade changed live player inventory, then independently committed counterparty inventory, trust, and survival/time; ASK presented ignored receipt failures; LEAVE redundantly rewrote an already-committed ceasefire | One `trade_application` derives both inventory states and NPC memory from canonical records, commits item ownership and trust with both actors, and remains inside the outer receipt/time rollback boundary. ASK gates presentation on receipt acceptance; LEAVE performs no canonical rewrite | `TradeWorldActionTransactionSmoke`, `TradeOwnershipBoundarySmoke`, `ArchitectureContractSmoke` |
+| NPC ground pickup | NPCs transferred ground ownership before constructing a timing-only receipt, ignored application failure, then patched their purpose in a third revision | One neutral `transfer_ground_item` receipt stages the exact canonical ground item and purpose in detached NPC runtime; the ownership ledger publishes runtime plus ground removal inside the application time/revision/reservation/replay rollback boundary | `NpcPickupWorldActionTransactionSmoke`, `ArchitectureContractSmoke` |
+| Core activation receipt gate | Central and Regional Core handlers invoked player survival/time receipts but ignored rejection and continued into meta, Hex, campaign, and presentation effects | The survival-time adapter returns its application receipt, releases failed reservations, and both Core progression paths stop before downstream effects unless that receipt was accepted | `CampaignCoreReceiptGateSmoke`, `ArchitectureContractSmoke` |
 
 ## Cross-cutting changes
 
@@ -63,8 +67,8 @@ The audit used current code and runtime evidence rather than roadmap labels:
 `WorldActionApplicationService` delegates generic/payload validation to
 `WorldActionReceiptValidationService` and detached actor dispatch to
 `WorldActionActorStagingService`. Inventory, POI-selection, CAMP, movement,
-SEARCH, NPC-work, and negotiation transaction services retain their specialized
-semantic rules. The application service retains the single reconciliation snapshot,
+SEARCH, NPC-work, negotiation, macro-event, and trade transaction services retain their
+specialized semantic rules. The application service retains the single reconciliation snapshot,
 commit ordering, receipt identity, world-time commit, signal fanout,
 reservation lifecycle, item-integrity validation, and rollback boundary.
 
@@ -89,6 +93,20 @@ commit. Its item IDs derive from world seed, target, negotiation attempt, and
 loadout position, while the store applies target withdrawal/loadout,
 relationship neutrality, and newly-created ground ownership as one nested
 canonical operation inside the outer world-action rollback boundary.
+
+Collision trade uses the same rule in both directions. The trade service stages
+the player exchange on a detached `HumanoidCore`, derives the counterparty item
+swap and memory from its canonical record, and `RuntimeStateStore.commit_trade()`
+publishes both runtimes plus pairwise trust as one nested ownership transaction.
+The outer receipt then owns survival time, Hex revision, reservation release,
+replay identity, integrity, and rollback.
+
+Neutral NPC pickup now uses the existing ground-transfer commit rather than a
+pre-receipt ledger call. Detached neutral staging copies the exact item at the
+receipt coordinate into `inventory_items`, assigns the NPC owner, and sets the
+salvage purpose label; `transfer_ground_item_to_entity_with_runtime()` removes
+the ground owner and advances the NPC revision only if the complete receipt can
+continue.
 
 ### Biological persistence
 
@@ -148,6 +166,33 @@ time, receipt identity, or Hex commit operations. `MacroGameManager` remains a
 large input/session/presentation orchestrator and is still a future
 maintainability concern, not an unresolved transaction blocker.
 
+### P0 - Collision trade partial commit: closed
+
+The production collision coordinator no longer removes or inserts live player
+items before persistence and no longer applies trust or elapsed survival as
+independent follow-up commits. Stale counterparty revisions, duplicate semantic
+mutations, forged received state or trust, and remote coordinates are rejected
+with an unchanged reconciliation snapshot. ASK now rejects presentation when
+its receipt fails, while LEAVE relies on the ceasefire transaction that made the
+peaceful session reachable instead of attempting a second state repair.
+
+### P0 - NPC ground pickup partial commit: closed
+
+`MacroNpcRuntimeService.collect_ground_items()` no longer mutates ownership
+before its receipt, no longer ignores the application result, and no longer
+patches purpose afterward. The production service explicitly gates acceptance
+and releases rejected reservations. Focused coverage proves success, replay,
+ownership, purpose, world time, stale actor, duplicate transfer, missing ground
+owner, remote coordinate, and an injected shipping-path rejection.
+
+### P0 - Core activation ignored receipt rejection: closed
+
+Central and Regional Core progression now require an accepted player
+survival/time receipt before touching meta core state, Hex completion, unlock
+triggers, interaction state, or success presentation. This closes the concrete
+rejection path; `MetaProgressionStore` remains a separate persistence authority,
+so cross-file crash consistency is not claimed as part of this checkpoint.
+
 ## Confirmed residual risks
 
 ### P2 - Player-facing friction remains unaudited
@@ -155,18 +200,18 @@ maintainability concern, not an unresolved transaction blocker.
 The checkpoint proves state integrity, not that inventory, Field Health, CAMP,
 SEARCH, and targeting feel good. Physical drag/drop, keyboard parity, error copy,
 selection persistence, close/reopen behavior, save/reload visibility, and HUD
-refresh timing still require a live player-facing pass after the remaining P0
-transaction gap is closed.
+refresh timing still require a live player-facing pass now that the concrete P0
+transaction gaps are closed.
 
 ### Full-suite result: closed
 
-The repository previously recorded `109/109` executable SceneTree smokes. The
-current tree contains 141 executable SceneTree scripts plus two Control preview
-scripts. The current Godot 4.7.1 gate is `141/141`: 140 passed in the complete
-bounded six-worker sweep; the sole failure was a stale fallback-recovery fixture
-that had not injected an empty terrain catalog after default catalog precedence
-was introduced. That fixture was corrected and passed in an immediate isolated
-rerun. No production combat policy changed.
+The repository previously recorded `109/109`, then `141/141`, executable
+SceneTree smokes. The current tree contains 145 executable SceneTree scripts
+plus two Control preview scripts. The current Godot 4.7.1 gate is `145/145` by
+process exit code in the complete bounded six-worker sweep at
+`.godot/test-logs/full_sweep_145_20260826_110942`. Expected rejection and
+shutdown diagnostics remain in individual logs, but no test process exited
+nonzero and no assertion or production failure occurred.
 
 ## Verification boundary
 
@@ -183,13 +228,13 @@ Checkpoint gate:
 4. world-action application and runtime-integrity smokes;
 5. save/load and both world/system integration round trips;
 6. architecture contract and `git diff --check`;
-7. full 141-script sweep before publication or closure labeling.
+7. full 145-script sweep before publication or closure labeling.
 
 Result: headless editor import passes with exit `0`; transaction, shipping-path,
-architecture, save-v12/v13/v14 migration, save-version rejection, and semantic
-action smokes pass with exit `0`. The current SceneTree gate is `141/141` under
-Godot 4.7.1 using the full sweep plus the corrected isolated recovery-fixture
-rerun described above. The two authored-map scenes still report their existing
+architecture, save-v12/v13/v14 migration, save-version rejection, negotiation,
+and semantic action smokes pass with exit `0`. The current SceneTree gate is
+`145/145` under Godot 4.7.1 using process exit codes. The two authored-map
+scenes still report their existing
 `MacroTileSet.tres` UID fallback during editor import. Headless runs also retain
 the existing shutdown leak diagnostics described below.
 
@@ -210,6 +255,6 @@ to ignore a non-zero test exit.
 - No treatment potency, survival formula, item balance, or campaign content was
   redesigned.
 - NPC treatment remains outside the medical transaction scope.
-- The full 141-script suite is claimed; a physical player-input pass is not.
+- The full 145-script suite is claimed; a physical player-input pass is not.
 - No remote publication is part of this local checkpoint unless separately
   requested and verified.

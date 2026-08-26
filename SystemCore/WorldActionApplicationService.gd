@@ -14,6 +14,8 @@ var _movement_transaction := WorldActionMovementTransactionService.new()
 var _search_transaction := WorldActionSearchTransactionService.new()
 var _npc_work_transaction := WorldActionNpcWorkTransactionService.new()
 var _negotiation_transaction := WorldActionNegotiationTransactionService.new()
+var _macro_event_transaction := WorldActionMacroEventTransactionService.new()
+var _trade_transaction := WorldActionTradeTransactionService.new()
 var _receipt_validation := WorldActionReceiptValidationService.new()
 var _actor_staging := WorldActionActorStagingService.new()
 
@@ -28,6 +30,8 @@ func configure(state: RuntimeStateStore, diagnostics: Callable = Callable()) -> 
 	_search_transaction.configure(state)
 	_npc_work_transaction.configure(state)
 	_negotiation_transaction.configure(state)
+	_macro_event_transaction.configure(state)
+	_trade_transaction.configure(state)
 	_receipt_validation.configure(
 		state,
 		_inventory_transaction,
@@ -36,7 +40,9 @@ func configure(state: RuntimeStateStore, diagnostics: Callable = Callable()) -> 
 		_movement_transaction,
 		_search_transaction,
 		_npc_work_transaction,
-		_negotiation_transaction
+		_negotiation_transaction,
+		_macro_event_transaction,
+		_trade_transaction
 	)
 	_actor_staging.configure(
 		state,
@@ -45,7 +51,9 @@ func configure(state: RuntimeStateStore, diagnostics: Callable = Callable()) -> 
 		_camp_transaction,
 		_movement_transaction,
 		_search_transaction,
-		_npc_work_transaction
+		_npc_work_transaction,
+		_macro_event_transaction,
+		_trade_transaction
 	)
 
 
@@ -239,6 +247,20 @@ func _commit_actor_and_item_runtime(
 	actor_runtime: Dictionary,
 	actor_staging: Dictionary
 ) -> bool:
+	var trade_staging: Dictionary = actor_staging.get("trade_staging", {})
+	if bool(trade_staging.get("handled", false)):
+		return store.commit_trade(
+			str(trade_staging.get("enemy_id", "")),
+			actor_runtime,
+			trade_staging.get("enemy_runtime", {}),
+			trade_staging.get("enemy_definition", {}),
+			str(trade_staging.get("offered_instance_id", "")),
+			str(trade_staging.get("received_instance_id", "")),
+			str(trade_staging.get("received_source", "")),
+			receipt.expected_actor_revision,
+			int(trade_staging.get("expected_enemy_revision", -1)),
+			float(trade_staging.get("trust_delta", 0.0))
+		)
 	var created_items: Array = actor_staging.get("created_items", [])
 	if not created_items.is_empty():
 		if _inventory_transaction.has_action(receipt) or _movement_transaction.has_action(receipt):
@@ -322,6 +344,7 @@ func _receipt_touches_item_ownership(receipt: WorldActionReceipt) -> bool:
 			"add_ground_item",
 			"npc_work_application",
 			"negotiation_application",
+			"trade_application",
 		]:
 			return true
 	return false
